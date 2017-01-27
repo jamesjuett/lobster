@@ -1,0 +1,201 @@
+{
+  function composeBinaryOp(first, rest, assoc, exprType){
+    assoc = assoc || "left";
+    exprType = exprType || "binaryOp";
+    if(!rest || rest.length === 0){
+      return first;
+    }
+    if (assoc === "left"){
+      var right = rest.pop();
+      return {
+        what: exprType,
+        op: right[0],
+        left: composeBinaryOp(first, rest, assoc, exprType),
+        right: right[1],
+        associativity: assoc
+      }
+    }
+    else{
+      var left = rest.shift();
+      return {
+        what: exprType,
+        op: left[0],
+        left: first,
+        right: composeBinaryOp(left[1], rest, assoc, exprType),
+        associativity: assoc
+      }
+    }
+  }
+}
+
+
+start
+  = AssignmentStatement
+  / Exp
+
+
+AssignmentStatement
+  = i:CallExp _ "=" _ e:Exp {
+    return {
+      what: "indexed_assignment",
+      lhs: i,
+      rhs: e
+    };
+  }
+  / i:Identifier _ "=" _ e:Exp {
+    return {
+      what: "assignment",
+      identifier: i,
+      exp: e
+    };
+  }
+
+// Note: appears to be group by ; first, then by , or space
+MatrixExp
+  = "[" _ head:RowExp tail:(_ ";" _ r:RowExp {return r;})* _ "]" {
+    if (tail.length === 0) { return head;}
+    tail.unshift(head);
+    return {
+      what: "matrix_exp",
+      rows: tail
+    };
+  }
+
+RowExp
+  = head:Exp tail:((_ ","/__) _ i:Exp {return i;})* {
+    if (tail.length === 0) { return head;}
+    tail.unshift(head);
+    return {
+      what: "row_exp",
+      cols: tail
+    };
+  }
+
+Exp
+  = RangeExp
+  / CallExp
+  / PrimaryExp
+
+RangeExp
+  = e1:OrExp _ ":" _ e2:OrExp e3:(_ ":" _ s:OrExp {return s;})? {
+    return {
+      what: "range_exp",
+      start: e1,
+      end: e3 || e2,
+      step: (e3 && e2) || undefined
+    };
+  }
+  / OrExp
+
+OrExp
+  = head:AndExp tail:(_ op:"|" _ e:AndExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "or_exp");
+  }
+
+AndExp
+  = head:EqExp tail:(_ op:"&" _ e:EqExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "and_exp");
+  }
+
+EqExp
+  = head:RelExp tail:(_ op:("=="/"~=") _ e:RelExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "eq_exp");
+  }
+
+RelExp
+  = head:AddExp tail:(_ op:("<="/"<"/">="/">") _ e:AddExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "rel_exp");
+  }
+
+AddExp
+  = head:MultExp tail:(_ op:("+"/"-") _ e:MultExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "add_exp");
+  }
+
+MultExp
+  = head:UnaryExp tail:(_ op:("*" / "/" / "^" / ".*" / "./" / ".^") _ e:UnaryExp {return [op,e];})* {
+    return composeBinaryOp(head, tail, "left", "mult_exp");
+  }
+
+UnaryExp
+  = PostfixExp
+  / op:("+" / "-" / "~") _ sub:PostfixExp {
+    return {
+      what: "unary_exp",
+      sub: sub,
+      op: op
+    };
+  }
+
+PostfixExp
+  = sub:(PrimaryExp / CallExp) _ trans:"'"+ {
+    return {
+      what: "postfix_exp",
+      sub:sub,
+      transposes: trans
+    };
+  }
+  / CallExp
+  / PrimaryExp
+
+CallExp
+  = receiver:Identifier _ "(" _ head:IndexExp tail:(_ "," _ a:IndexExp {return a;})* _ ")" {
+    tail.unshift(head);
+    return {
+      what: "call_exp",
+      receiver: receiver,
+      args: tail
+    };
+  }
+
+PrimaryExp
+  = MatrixExp
+  / "end" { return {what: "end_exp"}; }
+  / Identifier
+  / Number
+  / "(" _ e:Exp _ ")" { return e; }
+
+IndexExp
+  = ":" { return {what: "colon_exp"}; }
+  / Exp
+
+
+// for now only integers pls
+Number
+ = Float
+ / Integer
+
+Float
+ = neg:"-"? digits:[0-9.]+ & {return digits.indexOf(".") == digits.lastIndexOf(".") && digits.indexOf(".") != -1;} {
+   return {
+     what: "float",
+     value: parseFloat((neg ? neg : "") + digits.join(""))
+   }
+ }
+
+Integer "integer"
+  = neg:"-"? digits:[0-9]+ {
+    return {
+      what: "integer",
+      value: parseInt((neg ? neg : "") + digits.join(""), 10)
+    }
+  }
+
+Identifier "identifier"
+  = first:IdentifierFirstChar rest:IdentifierChar*
+    {
+      return {
+        what: "identifier",
+        identifier: first + rest.join("")
+      };
+    }
+
+IdentifierChar = [a-zA-Z0-9_]
+
+IdentifierFirstChar = [a-zA-Z]
+
+_ "whitespace"
+  = [ \t\n\r]*
+
+__ "whitespace"
+  = [ \t\n\r]+

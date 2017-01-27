@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="/matlab.css">
+    <!--<link rel="stylesheet" href="matlab.css">-->
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <script src="/matlab_parser.js"></script>
+    <script src="/matlab_util.js"></script>
+    <script src="/matlab.js"></script>
+    <!--<script src="matlab_parser.js"></script>-->
+    <!--<script src="matlab_util.js"></script>-->
+    <!--<script src="matlab.js"></script>-->
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-xs-4" style="background-color:lavender;">
+            <ul class="list-group matlab-vars" id = "vars" ></ul>
+        </div>
+        <div class="col-xs-8">
+            <!--<h1>MatLabster</h1>-->
+            <!--<p>This is some text.</p>-->
+            <!--<label for="expression_in">Expression:</label>-->
+            <textarea class="form-control matlab-entry" rows="2" id="expression_in"></textarea>
+            <div class="container" id = "visualization">
+
+            </div>
+            <div class="container" id = "ansVisualization">
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+
+<script>
+
+    $(document).ready(function(){
+
+        var queryString = getQueryString();
+
+        if (queryString["size"]){
+            $("body").css("font-size", queryString["size"]+"pt");
+        }
+
+        if (queryString["pre"]){
+            var statements = JSON.parse(queryString["pre"]);
+            for (var i = 0; i < statements.length; ++i){
+                var srcText = MATLAB_PARSER.parse(statements[i]);
+                var cc = CodeConstruct.instance(srcText);
+                cc.evaluate();
+            }
+        }
+
+        var vis = $("#visualization");
+
+        var parseAndEval = function(text) {
+            if (text.length > 0) {
+                var src = MATLAB_PARSER.parse(text);
+                var cc = CodeConstruct.instance(src);
+                var result = cc.evaluate();
+                cc.visualize_html(vis);
+                processAns(result);
+            }
+        };
+
+        if (queryString["exp"]) {
+            var exp = JSON.parse(queryString["exp"]);
+            $("#expression_in").html(exp);
+            parseAndEval(exp);
+        }
+
+
+        var exp_in_timeout;
+
+        $("#expression_in").keypress(function (e) {
+            var code = e.keyCode || e.which;
+            if(code != 13) { //Enter keycode
+                return;
+            }
+
+            e.preventDefault();
+            var delay = 500; // ms
+            clearTimeout(exp_in_timeout);
+            var self = this;
+            exp_in_timeout = setTimeout(function () {
+                var text = $(self).val().trim();
+                var vis = $("#visualization");
+                vis.empty();
+                try{
+                    parseAndEval(text);
+                }
+                catch(err) {
+                    if (err.visualize_html) {
+                        err.visualize_html(vis);
+                    }
+                    else{
+                        vis.html(err.message);
+                    }
+                    processAns(null);
+                }
+            }, delay);
+            return false;
+        });
+    });
+</script>
+
+</html>
+

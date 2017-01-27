@@ -1,0 +1,50 @@
+RewriteEngine On
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^api api.php [QSA,L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^queue-api queue-api.php [QSA,L]
+
+RewriteRule ^queue/?$ queue.html [QSA,L]
+
+RewriteRule ^queue/([0-9A-Za-z-_]+)/?$ /queue.html?course=$1 [L,R=301]
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^code code.php [QSA,L]
+
+RewriteRule ^engr101/?$ matlab.html [QSA,L]
+
+RewriteRule ^matlab/?$ matlab.html [QSA,L]
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^engr101/([0-9A-Za-z-_]+)/?$ $1.html [L]
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^engr101/([0-9A-Za-z-_]+)/([0-9A-Za-z-_]+)/?$ $1-$2.html [L]
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^engr101/([0-9A-Za-z]+)/([0-9A-Za-z]+)/([0-9A-Za-z]+)/?$ $1-$2-$3.html [L]
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^component component.php [QSA,L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^queue-component queue-component.php [QSA,L]
+
+
+RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^log log.php [QSA,L]
+
+#RewriteCond %{REQUEST_URI} !^/cosign/valid [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [QSA,L]
+
+AddType font/woff .woff

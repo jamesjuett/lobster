@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <!--<script src="jquery.tools.1.2.6.min.js"></script>-->
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+
+    <script src="/util.js"></script>
+    <script src="/queue.js"></script>
+
+    <title>OH Queue</title>
+    <meta name="author" content="James Juett" />
+    <meta name="google-signin-client_id" content="355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        #signupMessage{
+            color: red;
+        }
+
+        #signupMessage.ok {
+            color: inherit;
+        }
+
+        .notAdmin .adminOnly {
+            display: none !important;
+        }
+
+    </style>
+</head>
+
+<!--Hi Mom! All operations are validated on the serverside. Don't waste your time. :) -->
+
+<body class="notAdmin">
+<h1 id="ohHeader">Office Hours Queue</h1>
+<form id="signUpForm">
+    <fieldset>
+        <div class="g-signin2" data-onsuccess="onSignIn"></div>
+        <p id="signupMessage">Please sign in with an @umich.edu Google account to use the queue.</p>
+
+        <p>
+            <label>Name</label>
+            <input id = "nameInput" type="text" name="name" required = "required" maxlength="30" />
+        </p>
+        <p>
+            <label>Room (e.g. 1695 BBB)</label>
+            <input id = "roomInput"  type="text" name="room" required = "required" pattern=".{3,}" maxlength="30" />
+        </p>
+        <p>
+            <label>Where you at? (e.g. Computer #36, laptop by door, etc.)</label>
+            <input id = "whereAtInput"  type="text" name="where" required = "required" pattern=".{3,}" maxlength="50" />
+        </p>
+        <p>
+            <label>Description (optional)</label>
+            <input id = "descriptionInput"  type="text" name="room" maxlength="100" />
+        </p>
+        <button id = "signupButton" disabled="true">Sign Up</button>
+    </fieldset>
+</form>
+<!-- Trigger the modal with a button -->
+<button type="button" class="btn btn-info btn-lg adminOnly" data-toggle="modal" data-target="#clearTheQueueDialog">Clear the queue</button>
+
+<!-- Modal -->
+<div id="clearTheQueueDialog" class="modal fade adminOnly" role="dialog">
+    <div class="modal-dialog">
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Clear the queue?</h4>
+            </div>
+            <div class="modal-body">
+                <form role="form">
+                    <div class="form-group">
+                        <label for="clearInput">Enter "clear" to clear ALL requests from the queue.</label>
+                        <input type="text" class="form-control" id="clearInput" placeholder="clear">
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<ul id="list" class="list-group"></ul>
+
+<script>
+    var ID_TOKEN = "";
+    var signupMessage = $("#signupMessage");
+    var signupButton = $("#signupButton");
+    var listElem = $("#list");
+
+    function ajaxSignup() {
+        $.ajax({
+            type: "POST",
+            url: "queue-api/signup",
+            data: {
+                idtoken: ID_TOKEN,
+                name: $("#nameInput").val(),
+                room: $("#roomInput").val(),
+                whereAt: $("#whereAtInput").val(),
+                description: $("#descriptionInput").val(),
+                course: course
+            },
+//            dataType: "json",
+            success: function(data){
+                if (data.success){
+                    ajaxGetList();
+                }
+                else{
+                    alert(data.reason);
+                }
+                console.log("hey it worked");
+            },
+            error: function(data){
+                console.log("failure");
+            }
+        });
+    }
+
+    function ajaxClearQueue(){
+        $.ajax({
+            type: "POST",
+            url: "queue-api/removeAll",
+            data: {
+                idtoken: ID_TOKEN,
+                course: course
+            },
+            success: function(data){
+                ajaxGetList();
+            },
+            error: function(data){
+                console.log("failure");
+            }
+        })
+    }
+
+    function onSignIn(googleUser) {
+        var profile = googleUser.getBasicProfile();
+//        console.log('Name: ' + profile.getName());
+//        console.log('Image URL: ' + profile.getImageUrl());
+//        console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+        var email = profile.getEmail();
+        ID_TOKEN = googleUser.getAuthResponse().id_token;
+
+        if (profile.getEmail().endsWith("@umich.edu")){
+            signupMessage.html("Hi " + email + "! Sign up and we'll be with you as soon as possible.");
+            signupMessage.addClass("ok");
+            signupButton.prop("disabled", false);
+
+        }
+        else{
+            signupMessage.removeClass("ok");
+            signupMessage.html("Hi " + email + "! Please switch to an @umich.edu account to use the queue.");
+            signupButton.prop("disabled", true);
+        }
+
+        ajaxCheckAdmin();
+    }
+
+    var queryString = getQueryString();
+    var course = queryString["course"];
+    if (course){
+        course = queryString["course"];
+        $("#ohHeader").append(": " + queryString["course"]);
+    }
+    else{
+        alert("Please provide a course in the URL. (e.g. ...queue/eecs280")
+    }
+
+
+
+
+    $(document).ready(function() {
+//        $("#signupForm").validator();
+        $("#signupForm").submit(function(e){
+            e.preventDefault();
+            if (ID_TOKEN == ""){
+                alert("You're not signed in.")
+            }
+            else{
+                ajaxSignup();
+            }
+            return false;
+        });
+
+        var clearInput = $("#clearInput");
+        var clearTheQueueDialog = $("#clearTheQueueDialog");
+        clearTheQueueDialog.on('shown.bs.modal', function () {
+            clearInput.focus();
+        });
+        clearTheQueueDialog.on('show.bs.modal', function () {
+            clearInput.val("");
+        });
+        clearInput.on("input", function(e){
+            if ($(this).val() == "clear"){
+                clearTheQueueDialog.modal("hide");
+                ajaxClearQueue();
+            }
+        });
+
+        ajaxGetList();
+        setInterval(ajaxGetList, 30000);
+
+    });
+
+</script>
+</body>
+</html>

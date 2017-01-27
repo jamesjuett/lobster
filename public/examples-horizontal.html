@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="/matlab.css">
+    <link rel="stylesheet" href="/matlab-examples.css">
+    <!--<link rel="stylesheet" href="matlab.css">-->
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <script src="/matlab_parser.js"></script>
+    <script src="/matlab_util.js"></script>
+    <script src="/matlab.js"></script>
+    <!--<script src="matlab_parser.js"></script>-->
+    <!--<script src="matlab_util.js"></script>-->
+    <!--<script src="matlab.js"></script>-->
+
+    <style>
+        .matlab-examples {
+            text-align: center;
+        }
+        
+        .matlab-example-exp {
+            text-align: center;
+            font-size: 20pt;
+            display: inline-block;
+            vertical-align: top;
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+        .matlab-example-exp > * {
+            display: block;
+        }
+
+        .matlab-example-src {
+            margin-bottom: 10px;
+            font-family: monospace;
+            font-size: 1em;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .matlab-example-vis {
+
+        }
+    </style>
+
+</head>
+<body>
+<div class="container-fluid">
+    <div class="matlab-examples">
+
+
+    </div>
+
+</div>
+
+</body>
+
+<script>
+
+    var createExampleHtml = function(src){
+        var elem = $('<div class="matlab-example-exp"><div><textarea class="matlab-example-src"></textarea></div><div class="matlab-example-vis"></div></div>');
+        elem.find(".matlab-example-src").html(src);
+        return elem;
+    };
+
+    $(document).ready(function(){
+
+        var queryString = getQueryString();
+
+        if (queryString["pre"]){
+            var statements = JSON.parse(queryString["pre"]);
+            for (var i = 0; i < statements.length; ++i){
+                var srcText = MATLAB_PARSER.parse(statements[i]);
+                var cc = CodeConstruct.instance(srcText);
+                cc.evaluate();
+            }
+        }
+
+        if (queryString["exps"]){
+            var exps = JSON.parse(queryString["exps"]);
+            for (var i = 0; i < exps.length; ++i){
+                $(".matlab-examples").append(createExampleHtml(exps[i]));
+            }
+        }
+
+        if (queryString["size"]){
+            $(".matlab-example-exp").css("font-size", queryString["size"]+"pt");
+        }
+
+        initializeExamples();
+    });
+</script>
+
+</html>
+

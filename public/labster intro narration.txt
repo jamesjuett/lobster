@@ -1,0 +1,105 @@
+Hello. This video provides a brief introduction
+to the Labster program visualization system.
+
+To get started, select one of the starter files
+from the left hand side of the screen. The
+starter code will load into your editor. If you
+make any changes to the code, saving it will
+create a personal copy in the "My Code" section,
+which you should work with exclusively from now
+on unless you want to completely start over from
+the starter code.
+
+As you work, Labster will periodically autosave
+your code, as well as each time you run your
+program.
+
+You can work on your code in the source code
+tab. Labster supports an extensive subset of
+the C++ language, so you can write and
+visualize pretty much anything. As you work
+Labster will attempt to recompile on the fly
+and let you know about any compilation errors
+or warnings. In some cases, like when a function
+uses recursion, Labster can provide additional
+information based on a semantic analysis of your
+code.
+
+To run your code, click the simulate button
+or switch to the simulation tab. Labster will
+automatically start your program in main, and
+underlines or highlights the part of your code
+that is up next, or just about to be run. To
+move forward one step, you can click the step
+forward button, or use the "s" or "right arrow"
+keys. If you have a mouse, you can also use the
+mousewheel while holding the "ctrl" key to scroll
+forward through your program. You can also try
+it will a trackpad, but it may not work as well
+because trackpad scrolling is inconsistent across
+browsers.
+
+Labster allows you to backward through your
+program as well. To move backward, just
+click the step backward button or use the "left
+arrow" key. To automatically run your code, use
+the "run" or "skip to end" buttons. These both
+start from your current point of execution and
+run all the way to the end of your program, but
+skip to end runs as quickly as possible. To pause
+execution, simply click the "pause" button. To
+start a new run of your program from the beginning,
+click the "restart" button.
+
+Whenever your program calls a function, Labster
+shows a new invocation of the function in the
+code execution area, and a new stack frame is
+added to the memory display left hand side.
+Note that although variables on different stack
+frames may have the same name, they represent
+different objects in memory. When a function
+returns, it disappears and it's stack frame is
+popped off the stack.
+
+In addition to using buttons and the keyboard,
+you can navigate throughout your program just
+by clicking where you want to go in the code.
+
+Beyond the visualization, Labster can also tell
+you a lot about what's going on in your code,
+particularly if something bad happens.
+In this example, we
+advance a pointer one space too far off the end
+of an array. Labster let's us know the computed
+address is invalid by coloring it red, and we
+can see in the memory display that our pointer
+is pointing past the end of the array. When we
+try to dereference and actually use that's
+pointer, Labster steps in and let's us know
+what's up. Ironically,because of the way memory
+was arranged, ournpointer was pointing to
+itself and gets overwritten. However, this value
+was derived from questionable code, and Labster
+understands it's invalid and keeps track of it.
+
+This is really useful for tracking down random
+values that come from, say, uninitialized
+variables. In this example, the variable a is
+not initialized, and the invalidity of values
+computed using a propagates forward.
+
+For one more example, let's look at how Labster
+deals with dynamic memory. When a new object is
+dynamically allocated on the heap, it appears
+in the memory diagram. If we accidentally lose
+all pointers to a chunk of memory, it becomes
+orphaned and inevitably will be leaked, because
+we have no way to deallocate it. Labster highlights
+all leaked memory in red as soon as it is orphaned,
+which is very helpful for determining exactly
+where the problem happens in your code. If some
+other memory error occurs, like a double free,
+Labster lets you know about that too.
+
+That's all for now. Good luck, and happy coding!
+
