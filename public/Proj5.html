@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+
+		<script src="jquery-1.8.3.min.js"></script>
+		<!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+		Remove this if you use the .htaccess -->
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+		<title>Code Visualization</title>
+		<meta name="description" content="" />
+		<meta name="author" content="James" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<!-- Replace favicon.ico & apple-touch-icon.png in the root of your domain and delete these references -->
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="stylesheet" href="main.css">
+
+		<script src = "underscore-min.js"></script>
+		<script src = "util.js"></script>
+		<script src = "entities.js"></script>
+		<script src = "outlet.js"></script>
+
+	</head>
+
+	<body>
+		<div id="variable_area" style = "display: none; position: fixed; left: 0px; top: 0px; bottom: 0px; width: 200px;">
+			<!-- <input type="text" class = "centerAlign" style = "width: 90px" id = "new_variable_input" value="" />
+			<button id = "new_variable_submit" class = "centerAlign">Add Variable</button> -->
+
+			<ul id = "variable_list">
+
+			</ul>
+		</div>
+		<div id="main_area" style = "left: 0px;">
+			<div>
+				<p>Operators: <span id="ops"></span></p>
+				<p>Percent chance of operator: <span id="opProb"></span></p>
+			</div>
+			<div>
+				<!-- <p class="title">
+					C++ Interpreter Test
+				</p> -->
+
+				<textarea id="debug" style="display:none; width: 800px; height: 50px"> </textarea>
+				
+				<textarea style="width: 300px; height: 800px;" id="calcIn"></textarea>
+				<textarea style="width: 300px; height: 800px;" id="calcOut"></textarea>
+				
+			</div>
+
+		</div>
+
+		<script>
+			
+			$(document).ready(function() {
+				
+				var opProb = ValueEntity.instance("0.5");
+				HtmlOutlet.instance($("#opProb"), false, opProb);
+				
+				var gcd = function(a,b){
+					if (b == 0){
+						return a;
+					}
+					else{
+						return gcd(b, a % b);
+					}
+				};
+				
+				var printRational = function(r){
+					if (r.q == 1){
+						return r.p; 
+					}
+					else{
+						return r.p + "/" + r.q;
+					}
+				};
+				
+				var messages = [];
+				var Rational = function(p,q){
+					
+					var signp = (p > 0 ? 1 : p < 0 ? -1 : 0);
+					var signq = (q > 0 ? 1 : q < 0 ? -1 : 0);
+					
+					p = Math.abs(p);
+					q = Math.abs(q);
+					
+					if (signp == 0 && signq == 0){
+						
+					}
+					else if (signp == 0){
+						// messages.push("All numbers equivalent to zero reduce to 0/1.");
+						q = 1; signq = 1;
+					}
+					else{
+						if (signq == -1){
+							if(signp == 1){
+								messages.push("The negative sign was moved to keep q positive.");
+								signp = -1; signq = 1;
+							}
+							else{ //if (signp == -1){
+								messages.push("The negative signs have been canceled out.");
+								signp = 1; signq = 1;
+							}
+						}
+						
+						var g = gcd(p,q);
+						
+						if (g != 1 && q != 0){
+							messages.push("The greatest common factor (" + g +") of p and q was divided out.");
+							p = p / g;
+							q = q / g;
+						}
+						if (q == 1){
+							// messages.push("Whenever p/q is equivalent to an integer, q must be 1.");
+						}
+						
+						// can assume here p != 0
+						if (q == 0 && !(p == 1)){
+							messages.push("If q is 0, p is reduced to -1, 0, or 1 according to the original sign of p.");
+							p = 1;
+						}
+					}
+					
+					
+					return {p : signp*p, q : signq*q};
+				};
+
+				var reqs = {
+					"+": 2,
+					"-": 2,
+					"*": 2,
+					"/": 2,
+					"d": 1,
+					"r": 2,
+					"p": 1,
+					"c": 0,
+					"a": 0,
+					"m": 1,
+					"q": 0
+				};
+				
+				var effects = {
+					"+": function(x){return x-1;},
+					"-": function(x){return x-1;},
+					"*": function(x){return x-1;},
+					"/": function(x){return x-1;},
+					"d": function(x){return x+1;},
+					"r": function(x){return x;},
+					"p": function(x){return x;},
+					"c": function(x){return 0;},
+					"a": function(x){return x;},
+					"m": function(x){return x;},
+					"q": function(x){return x;}
+				};
+
+				var nums = [];
+				for(var i = -10; i < 10; ++i){
+					if (i != 0){
+						nums.push(i);
+					}
+				}
+				// for(var i = 0; i < 20; ++i){
+					// nums.push(0);
+				// }
+				
+				var ops = [];
+				// ops.push("+");
+				// ops.push("-");
+				// ops.push("*");
+				// ops.push("/");
+				// ops.push("d");
+				// ops.push("r");
+				// ops.push("p");
+				// ops.push("c");
+				// ops.push("a");
+				// ops.push("m");
+				// ops.push("q");
+				
+				
+				
+				var generateStart = function(){
+					var start = "";
+					var stackN = 0;
+					
+					for(var i = 0; i < 25; ++i){
+						for (var j = 0; j < 10; ++j){
+							if (Math.random() > parseFloat(opProb.value())){
+								var num = nums.randomElement();
+								stackN += 1;
+								start += num + " ";
+							}
+							else{
+								var op = ops.randomElement();
+								if (stackN >= reqs[op]){
+									stackN = effects[op](stackN);
+									start += op + " ";
+								}
+							}
+						}
+						start += "a c\n";
+						// start += "a\n";
+						stackN = 0;
+					}
+					return start;
+				};
+
+				var computeFunction = function(msg){
+					var cmds = msg.data;
+					try{
+					messages.clear();
+					if (!cmds){
+						return "";
+					}
+					cmds = cmds.match(/\S+/g);
+					
+					if (!cmds){
+						return "";
+					}
+					
+					var stack = [];
+					var msg = "";
+					
+					var warning = false;
+					
+					for(var i = 0; i < cmds.length; ++i){
+						for(var j = 0; j < stack.length; ++j){
+							if (Math.abs(stack[j].p) > 10000 || Math.abs(stack[j].q) > 10000){
+								warning = true;
+							}
+						}
+						var cmd = cmds[i];
+
+
+						var regex = /^-?[0-9]+$/;
+						
+						if (!regex.test(cmd) && stack.length < reqs[cmd]){
+							return "Insufficient operands on stack for operator: " + cmd;
+						}
+						
+						if (regex.test(cmd)){
+							// push number
+							stack.push(Rational(parseInt(cmd), 1));
+						}
+						else if (cmd == "+"){
+							var r1 = stack.pop();
+							var r2 = stack.pop();
+							stack.push(Rational(r1.p*r2.q+r2.p*r1.q, r1.q*r2.q));
+						}
+						else if (cmd == "-"){
+							var r2 = stack.pop();
+							var r1 = stack.pop();
+							stack.push(Rational(r1.p*r2.q-r2.p*r1.q, r1.q*r2.q));
+						}
+						else if (cmd == "*"){
+							var r1 = stack.pop();
+							var r2 = stack.pop();
+							stack.push(Rational(r1.p*r2.p, r1.q*r2.q));
+						}
+						else if (cmd == "/"){
+							var r2 = stack.pop();
+							var r1 = stack.pop();
+							stack.push(Rational(r1.p*r2.q, r1.q*r2.p));
+						}
+						else if (cmd == "d"){
+							var r1 = stack.pop();
+							stack.push(r1);
+							stack.push(Rational(r1.p, r1.q));
+						}
+						else if (cmd == "r"){
+							var r1 = stack.pop();
+							var r2 = stack.pop();
+							stack.push(r1);
+							stack.push(r2);
+						}
+						else if (cmd == "p"){
+							var r1 = stack.pop();
+							stack.push(r1);
+							msg += printRational(r1) + "\n";
+						}
+						else if (cmd == "c"){
+							stack.clear();
+						}
+						else if (cmd == "a"){
+							for (var j = stack.length-1; j >= 0; --j){
+								msg += printRational(stack[j]) + " ";
+							}
+							msg += "\n";
+						}
+						else if (cmd == "m"){
+							var r1 = stack.pop();
+							var count = 0;
+							for (var j = 0; j < stack.length; ++j){
+								if (stack[j].p == r1.p && stack[j].q == r1.q){
+									++count;
+								}
+							}
+							stack.push(Rational(count, 1));
+							
+						}
+						else if (cmd == "q"){
+							break;
+						}
+						else{
+							return "Unrecognized operator: " + cmd;
+						}
+						
+					}
+					if (warning){
+						alert("Warning! Intermediate value with magnitude greater than 10000!");
+					}
+					
+					// alert(messages.join("\n"));
+					return msg;
+					}
+					catch(err){
+						return "Error.";
+					}
+					
+				};
+
+
+				var calcIn = ValueEntity.instance("");
+				var calcInOutlet = ValueOutlet.instance($("#calcIn"), false); calcIn.listenTo(calcInOutlet);
+				var calcOut = ValueOutlet.instance($("#calcOut"), true);
+
+
+
+
+				var opIn = ValueEntity.instance("+ - * / d r p c a m q");
+				var opInOutlet = HtmlOutlet.instance($("#ops"), false);
+				opInOutlet.listenTo(opIn);
+
+				opIn.setValue("+ - * / d r p c a m q");
+				
+				opIn.act = {
+					value:
+					function(msg){
+						alert("hi");
+						var data = msg.data;
+						data = data.match(/\S+/g);
+						ops = data;
+						
+						calcIn.setValue(generateStart());
+					}
+				};
+				
+				opProb.act = { value:
+					function(msg){
+
+						calcIn.setValue(generateStart());
+					}
+				};
+				
+				calcIn.setValue(generateStart());
+				
+				createDefaultOutlets();
+
+			});
+		</script>
+	</body>
+</html>

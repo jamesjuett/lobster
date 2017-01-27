@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <!--<script src="jquery-1.8.3.min.js"></script>-->
+    <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+    Remove this if you use the .htaccess -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+    <title>EECS280 Labster</title>
+    <meta name="description" content="" />
+    <meta name="author" content="James" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Replace favicon.ico & apple-touch-icon.png in the root of your domain and delete these references -->
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="code.css">
+
+    <script src = "diff_match_patch.js"></script>
+    <script src = "underscore-min.js"></script>
+    <script src = "math.min.js"></script>
+    <script src = "util.js"></script>
+    <script src = "entities.js"></script>
+    <script src = "outlet.js"></script>
+    <script src = "mymath.js"></script>
+    <script src = "parsing.js"></script>
+    <script src = "codeDisplay.js"></script>
+    <script src = "internals.js"></script>
+    <script src = "error.js"></script>
+    <script src = "types.js"></script>
+    <script src = "expressions.js"></script>
+    <script src = "declarations.js"></script>
+    <script src = "statements.js"></script>
+    <script src = "control.js"></script>
+    <script src = "Simulation.js"></script>
+    <script src = "CPPOutlets.js"></script>
+
+</head>
+
+<body>
+
+<div id="main_area" style = "left: 0px;">
+    <div style="text-align: center">
+        <h2>EECS 280 Labster</h2>
+    </div>
+    <!--<textarea class="debug log" style="width: 800px; height: 50px"> </textarea>-->
+    <!--<input type="text" class="codeSelect" name ="codeSelect" />-->
+    <table><tr>
+        <td style = "vertical-align: top" ><div style="width: 100px; height: 500px; overflow-x: hidden; overflow-y: auto">
+            <div style="text-align: center">My Code</div>
+
+            <div class = "codeList"></div>
+        </div></td>
+        <td style="vertical-align: top">
+            <!-- <div  class="codeArea" style = "display: block; position: absolute; min-height: 300px; width: 300px;">
+                <div id = "codeAreaShadow" style = "background: none; border: none; display: block; position: relative; margin: 0; padding: 0;"></div>
+            </div> -->
+            <div class="tabs">
+                <span id="sourceTab" class="active">Source Code</span>
+                <span id="simTab">Simulation</span>
+            </div>
+            <div class = "tabPanes" style="position: relative; min-width: 700px; background-color: ghostwhite">
+                <div id="sourcePane" style="display: block; position: relative; width: 100%">
+
+                    <div style = "padding: 2px; background-color: lightgray">
+                        <button class = "runButton" style="display: inline-block">Run</button>
+                        <span class="status"></span>
+                    </div>
+                    <ul class = "problems" style = "width: 400px; max-height: 100px"></ul>
+                    <div class="codeArea boxSizing" style = "position: relative; height: 500px; overflow-y: auto">
+                        <textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>
+                    </div>
+                </div>
+                <div id="simPane" style="display: none; position: relative; width: 100%">
+                <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
+                    <table><tr>
+                        <td style="vertical-align: top">
+                            <div style = "text-align: center">Memory</div>
+                            <div class = "memory readOnly"> </div>
+                        </td>
+                        <td style="vertical-align: top; width: 100%">
+                            <div>
+                                <button class = "stepBackward">Step Backward</button>
+                                <button class = "stepForward">Step Forward</button></div>
+                            <div><div>Console</div><div class="console">Test\ntest</div></div>
+                            <div class = "stackFrames readOnly" style="display: block; max-height: 400px; overflow-y: auto; min-width: 400px; text-wrap: avoid; position: relative; white-space: nowrap;"> </div>
+                        </td>
+                        </tr>
+                    </table>
+
+                    <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
+
+                </div>
+            </div>
+        </td>
+    </tr></table>
+</div>
+
+<script>
+
+    var simulation = Simulation.instance();
+
+    $(document).ready(function() {
+
+        var sourceTab = $("#sourceTab");
+        var simTab = $("#simTab");
+        var sourcePane = $("#sourcePane");
+        var simPane = $("#simPane");
+
+        sourceTab.click(function(){
+            sourceTab.addClass("active");
+            simTab.removeClass("active");
+            sourcePane.css("display", "block");
+            simPane.css("display", "none");
+        });
+
+        simTab.add(".runButton").click(function(){
+            simTab.addClass("active");
+            sourceTab.removeClass("active");
+            simPane.css("display", "block");
+            sourcePane.css("display", "none");
+        });
+
+        var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#main_area"), simulation);
+
+
+        var elem = $(".codeList");
+        var codeList = CodeList.instance(elem);
+
+        simOutlet.listenTo(codeList);
+
+
+
+
+//            var temp = "int fib(int n){\n  if (n <= 2)\n    return 1;\n  else\n    return fib(n-1) + fib(n-2);\n}\n\nint main(){\n  int x = 3;\n  int y = 4;\n  int *ptr = new int;\n  int *ptr2 = &x;\n  int **dPtr = &ptr2;\n  **dPtr = 5;\n  y = x = *ptr;\n\n  x = fib(4);\n}";
+//            // $("#codeArea textarea").val(temp);
+//            simulation.code.setValue(temp);
+
+        createDefaultOutlets();
+    });
+</script>
+</body>
+</html>
