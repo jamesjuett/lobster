@@ -8,8 +8,16 @@
 require_once 'vendor/autoload.php';
 require_once 'auth.php';
 
-require 'Slim/Slim.php';
-\Slim\Slim::registerAutoloader();
+//require 'Slim/Slim.php';
+//\Slim\Slim::registerAutoloader();
+
+$GLOBALS["config"] = parse_ini_file("../php/php.config");
+
+function dbConnect() {
+    $db = new PDO('mysql:host=127.0.0.1;dbname=lobster', $GLOBALS["config"]["db_username"], $GLOBALS["config"]["db_password"]);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    return $db;
+}
 
 $app = new \Slim\Slim(array(
 //    'mode' => 'development'
@@ -36,8 +44,7 @@ $app->post('/api/user/:who/:name', function ($who, $name) use ($app) {
     $idtoken = $app->request->post('idtoken');
     $email = getEmailFromIdToken($idtoken);
     $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = dbConnect();
     if ($who == $theuser || $theuser == 'jjuett@umich.edu'){
     $stmt = $db->prepare('SELECT code FROM user_code WHERE uniqname=:uniqname AND name=:name');
     }
@@ -55,8 +62,7 @@ $app->post('/api/user/:who/:name', function ($who, $name) use ($app) {
 
 $app->post('/api/codeList', function () use ($app) {
 
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = dbConnect();
     $stmt = $db->prepare('SELECT name FROM course_code');
     $stmt->execute();
 
@@ -73,8 +79,8 @@ $app->post('/api/whoami', function () use ($app){
     $idtoken = $app->request->post('idtoken');
     $email = getEmailFromIdToken($idtoken);
     $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    $db = dbConnect();
     $stmt = $db->prepare('SELECT * FROM user_info WHERE uniqname=:uniqname');
     $stmt->bindParam('uniqname', $theuser);
     $stmt->execute();
@@ -100,8 +106,7 @@ $app->post('/api/course/codeList/:course', function () use ($app) {
 
 //    $email = getEmailFromIdToken($app->request->post('idtoken'));
 //    $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = $dbConnect();
     $stmt = $db->prepare('SELECT name FROM course_code WHERE course=:course');
     $stmt->bindParam('course', ':course');
     $stmt->execute();
@@ -114,8 +119,7 @@ $app->post('/api/course/codeList/:course', function () use ($app) {
 $app->post('/api/course/code/:course/:name', function ($course, $name) use ($app) {
 //    $email = getEmailFromIdToken($app->request->post('idtoken'));
 //    $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = dbConnect();
     $stmt = $db->prepare('SELECT code FROM course_code WHERE course=:course AND name=:name');
     $stmt->bindParam('course', $course);
     $stmt->bindParam('name', $name);
@@ -129,8 +133,8 @@ $app->post('/api/me/code/:name', function ($name) use ($app) {
 
     $email = getEmailFromIdToken($app->request->post('idtoken'));
     $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
     $stmt = $db->prepare('SELECT code FROM user_code WHERE uniqname=:uniqname AND name=:name');
     $stmt->bindParam('uniqname', $theuser);
     $stmt->bindParam('name', $name);
@@ -150,8 +154,8 @@ $app->post('/api/me/code/:name', function ($name) use ($app) {
 $app->post('/api/me/codeList', function () use ($app) {
     $email = getEmailFromIdToken($app->request->post('idtoken'));
     $theuser = $email;
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
     $stmt = $db->prepare('SELECT name, isPublic FROM user_code WHERE uniqname=:uniqname');
     $stmt->bindParam('uniqname', $theuser);
     $stmt->execute();
@@ -171,8 +175,8 @@ $app->post('/api/me/save', function () use ($app) {
   if (strpos($name, "_") === 0 && ($theuser == 'jjuett@umich.edu' || $theuser == 'akamil@umich.edu')){
 
   $name = substr($name, 1);  
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+  $db = dbConnect();
   $stmt = $db->prepare('INSERT INTO course_code VALUES ("eecs280f16", :name, :code, 1, NULL) ON DUPLICATE KEY UPDATE name=VALUES(name), code=VALUES(code)');
   $stmt->bindParam('name', $name);
   $stmt->bindParam('code', $code);
@@ -180,8 +184,7 @@ $app->post('/api/me/save', function () use ($app) {
     
   }
   else{
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  $db = dbConnect();
   $stmt = $db->prepare('INSERT INTO user_code (uniqname, name, code) VALUES(:uniqname, :name, :code) ON DUPLICATE KEY UPDATE uniqname=VALUES(uniqname), name=VALUES(name), code=VALUES(code)');
   $stmt->bindParam('name', $name);
   $stmt->bindParam('code', $code);
@@ -204,8 +207,7 @@ $app->post('/api/me/setCodePublic', function () use ($app) {
   $name = $app->request->post('name');
   $isPublic = $app->request->post('isPublic') == 'true';
 
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  $db = $dbConnect();
   $stmt = $db->prepare('UPDATE user_code SET isPublic = :isPublic where uniqname=:uniqname AND name=:name');
   $stmt->bindParam('name', $name);
   $stmt->bindParam('isPublic', $isPublic);
