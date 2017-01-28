@@ -15,4 +15,6 @@ Vagrant.configure("2") do |config|
     echo "CREATE DATABASE lobster" | mysql -uroot -proot
     echo "GRANT ALL ON lobster.* TO 'lobster'@'localhost'" | mysql -uroot -proot
 
+    mysql -uroot -proot lobster < /var/www/lobster_init.sql
+
 end
