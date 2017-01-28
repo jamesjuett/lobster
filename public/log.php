@@ -1,20 +1,40 @@
 <?php
 
-//echo 'api.php';
+require_once 'vendor/autoload.php';
+require_once 'auth.php';
 
-//echo 'Hi there'.$_SERVER['REMOTE_USER'].'.';
+$GLOBALS["config"] = parse_ini_file("../php/php.config");
 
-$theuser = $_SERVER['REMOTE_USER'];
+function dbConnect() {
+    $db = new PDO('mysql:host=127.0.0.1;dbname=lobster', $GLOBALS["config"]["db_username"], $GLOBALS["config"]["db_password"]);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    return $db;
+}
 
-require 'Slim/Slim.php';
-\Slim\Slim::registerAutoloader();
+$app = new \Slim\Slim(array(
+    'mode' => $GLOBALS["server_mode"]
+));
 
-$app = new \Slim\Slim();
+// Only invoked if mode is "production"
+$app->configureMode('production', function () use ($app) {
+    $app->config(array(
+        'log.enable' => true,
+        'debug' => false
+    ));
+});
+
+// Only invoked if mode is "development"
+$app->configureMode('development', function () use ($app) {
+    $app->config(array(
+        'log.enable' => false,
+        'debug' => true
+    ));
+});
 
 $app->get('/log/new', function () use ($app, $theuser) {
 
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
     $stmt = $db->prepare('insert into logs values (NULL, :uniqname, NULL)');
     $stmt->bindParam('uniqname', $theuser);
     $stmt->execute();
@@ -33,8 +53,8 @@ $app->post('/log/update', function () use ($app, $theuser) {
     $actionName = $action['action'];
     $data = json_encode($action['value']);
 
-    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
     $stmt = $db->prepare('insert into logActions values (NULL, :logId, :action, NULL, :data)');
     $stmt->bindParam('logId', $logId);
     $stmt->bindParam('action', $actionName);
@@ -49,8 +69,8 @@ $app->get('/log/get/:logId', function ($logId) use ($app, $theuser) {
   if ($theuser != 'jjuett') { return; }
 
 
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
   $stmt = $db->prepare('select * from logs, logActions where logs.logId = :logId AND logs.logId = logActions.logId');
   $stmt->bindParam('logId', $logId);
   $stmt->execute();
@@ -91,8 +111,8 @@ $app->get('/log/view(/:begin(/:end))', function ($begin=0, $end=2000000000) use 
   // Only James :)
   if ($theuser != 'jjuett') { return; }
 
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
 
   $users = getUsers($db);
 
@@ -128,8 +148,8 @@ $app->get('/log/view/:who', function ($who) use ($app, $theuser) {
   if ($theuser != 'jjuett') { return; }
 
 
-  $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $db = dbConnect();
   $stmt = $db->prepare('select UNIX_TIMESTAMP(logActions.ts) from logs, logActions where logs.uniqname = :who AND logs.logId = logActions.logId ORDER BY logActions.actionId');
   $stmt->bindParam('who', $who);
   $stmt->execute();

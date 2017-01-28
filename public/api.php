@@ -8,9 +8,6 @@
 require_once 'vendor/autoload.php';
 require_once 'auth.php';
 
-//require 'Slim/Slim.php';
-//\Slim\Slim::registerAutoloader();
-
 $GLOBALS["config"] = parse_ini_file("../php/php.config");
 
 function dbConnect() {
@@ -20,24 +17,24 @@ function dbConnect() {
 }
 
 $app = new \Slim\Slim(array(
-//    'mode' => 'development'
+    'mode' => $GLOBALS["server_mode"]
 ));
 
-//// Only invoked if mode is "production"
-//$app->configureMode('production', function () use ($app) {
-//    $app->config(array(
-//        'log.enable' => true,
-//        'debug' => false
-//    ));
-//});
-//
-//// Only invoked if mode is "development"
-//$app->configureMode('development', function () use ($app) {
-//    $app->config(array(
-//        'log.enable' => false,
-//        'debug' => true
-//    ));
-//});
+// Only invoked if mode is "production"
+$app->configureMode('production', function () use ($app) {
+    $app->config(array(
+        'log.enable' => true,
+        'debug' => false
+    ));
+});
+
+// Only invoked if mode is "development"
+$app->configureMode('development', function () use ($app) {
+    $app->config(array(
+        'log.enable' => false,
+        'debug' => true
+    ));
+});
 
 // POST request for user code
 $app->post('/api/user/:who/:name', function ($who, $name) use ($app) {
@@ -228,8 +225,7 @@ $app->post('/api/me/setCodePublic', function () use ($app) {
 //    $actionName = $action['action'];
 //    $data = json_encode($action['value']);
 //
-//    $db = new PDO('mysql:host=127.0.0.1;dbname=labster', 'labster', '***REMOVED***');
-//    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+//    $db = dbConnect();
 //    $stmt = $db->prepare('insert into userActions values (NULL, :uniqname, :action, NULL, :data)');
 //    $stmt->bindParam('uniqname', $theuser);
 //    $stmt->bindParam('action', $actionName);
