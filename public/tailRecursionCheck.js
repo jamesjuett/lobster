@@ -19,7 +19,6 @@ eval(fs.readFileSync("types.js")+"");
 eval(fs.readFileSync("expressions.js")+"");
 eval(fs.readFileSync("declarations.js")+"");
 eval(fs.readFileSync("statements.js")+"");
-eval(fs.readFileSync("control.js")+"");
 eval(fs.readFileSync("Simulation.js")+"");
 eval(fs.readFileSync("parsing.js")+"");
 
