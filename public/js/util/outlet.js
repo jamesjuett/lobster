@@ -496,14 +496,3 @@ UMichEBooks.Outlets.List = WebOutlet.extend({
 
 
 
-
-
-
-// Func.prototype.createOutlet = function(elem){
-	// var jq = elem || $('<span class = "' + this.id() + ' outlet"></span>');
-	// jq.attr("draggable", "true");
-	// jq.attr("ondragstart", "ALL_FUNCS['"+this.id()+"'].dragStart(event);");
-	// jq.addClass("func");
-	// jq.html(this.value());
-	// return jq;
-// };

@@ -48,7 +48,8 @@
     <script src = "/declarations.js"></script>
     <script src = "/statements.js"></script>
     <script src = "/Simulation.js"></script>
-    <script src = "/CPPOutlets.js"></script>
+    <script src = "/simOutlets.js"></script>
+    <script src = "/codeOutlets.js"></script>
     <script src = "/parsing.js"></script>
     <script src = "/parsing2.js"></script>
 
