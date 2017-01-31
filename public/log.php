@@ -12,7 +12,7 @@ function dbConnect() {
 }
 
 $app = new \Slim\Slim(array(
-    'mode' => $GLOBALS["server_mode"]
+    'mode' => $GLOBALS["config"]["server_mode"]
 ));
 
 // Only invoked if mode is "production"
