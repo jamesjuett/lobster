@@ -6,7 +6,7 @@
 
 
 require_once 'vendor/autoload.php';
-require_once 'auth.php';
+require_once '../php/auth.php';
 
 $GLOBALS["config"] = parse_ini_file("../php/php.config");
 
@@ -17,7 +17,7 @@ function dbConnect() {
 }
 
 $app = new \Slim\Slim(array(
-    'mode' => $GLOBALS["server_mode"]
+    'mode' => $GLOBALS["config"]["server_mode"]
 ));
 
 // Only invoked if mode is "production"
