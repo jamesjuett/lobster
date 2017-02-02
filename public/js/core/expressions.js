@@ -2826,7 +2826,7 @@ var FunctionCall = Expression.extend({
         return Expression.compile.apply(this, arguments);
     },
 
-    link : function(){
+    checkLinkingProblems : function(){
         var linkingProblems = SemanticProblems.instance();
         if (!this.func.isLinked()){
             linkingProblems.push(CPPError.link.def_not_found(this, this.func));
