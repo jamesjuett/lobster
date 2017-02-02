@@ -5,32 +5,38 @@
 var UMichEBooks = UMichEBooks || {};
 UMichEBooks.CPP = UMichEBooks.CPP || {};
 
-var Program = UMichEBooks.CPP.Program = Class.extend({
-    _name: "Program",
+var IDLE_MS_BEFORE_COMPILE = 1000;
 
-    init: function( ){
+var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
+    _name: "Simulation",
 
-        // Things that don't change while simulation is running
-        // Only change when recompiled
-        this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.i_topLevelDeclarations = [];
-        this.i_semanticProblems = SemanticProblems.instance();
+    MAX_SPEED: -13445, // lol
 
-        this.i_staticEntities = [];
-        this.i_staticInitializers = [];
-        this.i_main = false;
+    init: function(){
+        this.initParent();
+
+        this.speed = Simulation.MAX_SPEED;
+
 
         this.code = ValueEntity.instance("code", "");
         this.listenTo(this.code);
+
+
+        // These things need be reset when the simulation is reset
+        this.memory = Memory.instance();
+        this._execStack = [];
+        this.console = ValueEntity.instance("console", "");
+        this.pendingNews = [];
+        this.leakCheckIndex = 0;
 
         return this;
     },
 
     hasSemanticErrors : function(){
-        return this.i_semanticProblems.errors.length > 0;
+        return this.semanticProblems.errors.length > 0;
     },
 
-    addStaticEntity : function(obj){
+    addStatic : function(obj){
         this.i_staticEntities.push(obj);
     },
 
@@ -38,19 +44,74 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
         this.i_staticInitializers.push(decl);
     },
 
-    setSourceCode : function(codeStr){
+    codeSet : function(codeStr){
+
+        if(this.codeSetTimeout){
+            clearTimeout(this.codeSetTimeout);
+        }
+        var self = this;
+        this.codeSetTimeout = setTimeout(function(){
+            self.setCodeStr(codeStr);
+        }, IDLE_MS_BEFORE_COMPILE);
+    },
+
+    setCodeStr : function(codeStr){
         codeStr += "\n";
 		try{
-            this.i_sourceCode = codeStr;
+            this.codeStr = codeStr;
             this.clear();
+			this.stepsTaken = 0;
+            this.actions = [];
 
-            codeStr = this.i_filterSource(codeStr);
+            var errMsg = false;
+            if (codeStr.contains("#ifndef")){
+                codeStr = codeStr.replace(/#ifndef.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                errMsg = true;
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            }
+            if (codeStr.contains("#define")){
+                codeStr = codeStr.replace(/#define.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                errMsg = true;
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            }
+            if (codeStr.contains("#endif")){
+                codeStr = codeStr.replace(/#endif.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                errMsg = true;
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            }
+            if (codeStr.contains("#include")){
+                codeStr = codeStr.replace(/#include.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+               // errMsg = true;
+               // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            }
+            if (codeStr.contains("using namespace")){
+                codeStr = codeStr.replace(/using namespace.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+               // errMsg = true;
+               // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
+            }
+            if (codeStr.contains("using std::")){
+                codeStr = codeStr.replace(/using std::.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                errMsg = true;
+                this.send("otherError", "Lobster doesn't support using declarations at the moment.");
+            }
 
-            // Ensure user defined classes are recognized as types.
-            // TODO NEW not sure this is the best place for it, though.
+            //console.log(codeStr);
+
             Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
+            //console.log("before parsing");
 
-            // TODO NEW omg what a hack
             //Use for building parser :p
             //console.log(PEG.buildParser(codeStr,{
             //    cache: true,
@@ -60,20 +121,19 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
             //return;
 
             var parsed = UMichEBooks.cPlusPlusParser.parse(codeStr);
+            //console.log(JSON.stringify(parsed));
 
-            // TODO NEW keep this?
-            // this.send("parsed");
+            if(!errMsg){this.send("parsed");}
 
             this.compile(parsed);
 
-            if (!this.i_main){
+            if (!this.main){
                 this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
             }
             else if (this.hasSemanticErrors()) {
                 this.send("semanticError", this.semanticProblems);
             }
-
-            this.send("compiled");
+            else if (!errMsg){this.send("compiled");}
 
 
 
@@ -90,49 +150,6 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
 			}
 		}
 	},
-
-    i_filterSource : function(codeStr) {
-        if (codeStr.contains("#ifndef")){
-            codeStr = codeStr.replace(/#ifndef.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-        }
-        if (codeStr.contains("#define")){
-            codeStr = codeStr.replace(/#define.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-        }
-        if (codeStr.contains("#endif")){
-            codeStr = codeStr.replace(/#endif.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-        }
-        if (codeStr.contains("#include")){
-            codeStr = codeStr.replace(/#include.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            // TODO NEW why is this commented?
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-        }
-        if (codeStr.contains("using namespace")){
-            codeStr = codeStr.replace(/using namespace.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            // TODO NEW why is this commented?
-            // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
-        }
-        if (codeStr.contains("using std::")){
-            codeStr = codeStr.replace(/using std::.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "Lobster doesn't support using declarations at the moment.");
-        }
-        return codeStr;
-    },
-
 	compile : function(code){
         var self = this;
         //console.log("compiling");
@@ -143,7 +160,7 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
         this.i_staticEntities.clear();
         this.i_staticInitializers.clear();
         this.calls = [];
-		this.i_main = null;
+		this.main = false;
 
         this.send("clearAnnotations");
 
@@ -238,7 +255,7 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
         var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
         emptyList.defaultValue = [];
         this.i_globalScope.addEntity(emptyList);
-        this.addStaticEntity(emptyList);
+        this.addStatic(emptyList);
 
 
         var tree_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [])));
@@ -293,7 +310,7 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
 
         //look for main
         try{
-            this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
+            this.main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
         }
         catch(e){
             if (!isA(e, SemanticExceptions.BadLookup)){
@@ -352,7 +369,7 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
 
         this.currentFunction = null;
         var mainCall = this.mainCall = FunctionCall.instance(null, {mainCall:true});
-        mainCall.compile(this.i_globalScope, this.i_main, []);
+        mainCall.compile(this.i_globalScope, this.main, []);
         this.mainInst = mainCall.createAndPushInstance(this, null);
 		//var mainInst = this.main.decl.createAndPushInstance(this);
 
@@ -866,6 +883,6 @@ var Program = UMichEBooks.CPP.Program = Class.extend({
         //console.log("done!");
     },
     act : {
-        sourceCode : "setSourceCode"
+        sourceCode : "codeSet"
     }
 });

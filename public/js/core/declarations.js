@@ -153,18 +153,16 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
                 }
             }
             else{
-                if (isA(ent, AutoObjectEntity) && !isA(this, MemberDeclaration)) {
+                if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
                     init = DefaultInitializer.instance(initCode, {parent: this});
                     this.semanticProblems.pushAll(init.compile(scope, ent, []));
                 }
             }
             this.initializers.push(init);
+            ent.setInitializer(init);
         }
 
 
-        if(this.storageDuration === "static" && this.initializers.length > 0 && !isA(scope, BlockScope)){
-            scope.sim.addStaticInitializer(this);
-        }
 
         return this.semanticProblems;
     },
@@ -201,10 +199,10 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
             entity = ReferenceEntity.instance(decl);
         }
         else if (this.storageDuration === "static"){
-            entity = StaticObjectEntity.instance(decl);
+            entity = StaticEntity.instance(decl);
         }
         else{
-            entity = AutoObjectEntity.instance(decl);
+            entity = AutoEntity.instance(decl);
         }
 
         var otherEnt = scope.ownEntity(decl.name);
@@ -300,7 +298,7 @@ var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
             this.entity = ReferenceEntity.instance(this);
         }
         else{
-            this.entity = AutoObjectEntity.instance(this);
+            this.entity = AutoEntity.instance(this);
         }
         scope.addEntity(this.entity);
 
@@ -330,7 +328,7 @@ var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
                 this.entity = ReferenceEntity.instance(this);
             }
             else{
-                this.entity = AutoObjectEntity.instance(this);
+                this.entity = AutoEntity.instance(this);
             }
             scope.addEntity(this.entity);
         }
@@ -2097,7 +2095,7 @@ var MemberDeclaration = UMichEBooks.Declarations.Member = Declaration.extend({
             entity = MemberFunctionEntity.instance(decl, this.memberOfClass, this.virtual);
         }
         else if (this.storageDuration === "static"){
-            entity = StaticObjectEntity.instance(decl);
+            entity = StaticEntity.instance(decl);
         }
         else{
             entity = MemberSubobjectEntity.instance(decl, this.memberOfClass);

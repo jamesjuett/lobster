@@ -2524,8 +2524,8 @@ var Dot = Expressions.Dot = Expression.extend({
             return Expression.upNext.apply(this, arguments);
         }
         else{
-            // entity may be MemberSubobjectEntity but should never be an AutoObjectEntity
-            assert(!isA(this.entity, AutoObjectEntity));
+            // entity may be MemberSubobjectEntity but should never be an AutoEntity
+            assert(!isA(this.entity, AutoEntity));
             var operand = inst.childInstances.operand.evalValue;
             inst.memberOf = operand;
             inst.receiver = operand;

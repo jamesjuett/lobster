@@ -762,6 +762,8 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 
 
+var IDLE_MS_BEFORE_COMPILE = 1000;
+
 var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
     _name: "CodeEditor",
     DEFAULT_CONFIG : {
@@ -849,8 +851,15 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
     //},
 
     setSource : function(src){
-        this.send("sourceCode", src);
         this.source = src;
+
+        if(this.codeSetTimeout){
+            clearTimeout(this.codeSetTimeout);
+        }
+        var self = this;
+        this.codeSetTimeout = setTimeout(function(){
+            self.send("sourceCode", src);
+        }, IDLE_MS_BEFORE_COMPILE);
     },
 
     addMark : function(code, cssClass){
@@ -2245,7 +2254,7 @@ UMichEBooks.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
 
     setUpTopLevelDeclarations : function(){
         var self = this;
-        this.sim.topLevelDeclarations.forEach(function(decl){
+        this.sim.i_topLevelDeclarations.forEach(function(decl){
             if (isA(decl, FunctionDefinition)){
                 // Set up DOM element for outlet
                 var elem = $("<div style= 'display: block'></div>");
