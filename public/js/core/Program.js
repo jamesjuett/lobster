@@ -434,7 +434,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
     popUntil : function(inst){
         while(this._execStack.length > 0 && this._execStack.last() !== inst){
             this.pop();
-        };
+        }
     },
 	
 	// REQUIRES: query is either a string indicating a stackType
