@@ -12,10 +12,12 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
     MAX_SPEED: -13445, // lol
 
-    init: function(){
+    init: function(program){
         this.initParent();
 
         this.speed = Simulation.MAX_SPEED;
+
+        this.program = program;
 
         // These things need be reset when the simulation is reset
         this.memory = Memory.instance();
@@ -24,10 +26,17 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         this.i_pendingNews = [];
         this.i_leakCheckIndex = 0;
 
-        return this;
+
+        if (this.program.mainEntity() && !this.program.hasSemanticErrors()){
+            this.start();
+        }
     },
 
     clear : function(){
+    },
+
+    stepsTaken : function() {
+        return this.i_stepsTaken;
     },
 
 	start : function(){
@@ -46,14 +55,20 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
         // TODO NEW move compilation of mainCall to program?
         var mainCall = FunctionCall.instance(null, {isMainCall:true});
-        mainCall.compile(this.i_globalScope, this.program.main(), []);
+        mainCall.compile(this.program.globalScope, this.program.mainEntity(), []);
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
-        for(var i = this.program.i_staticEntities.length - 1; i >= 0; --i){
-            this.memory.allocateStatic(this.program.i_staticEntities[i]);
+        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
+            this.memory.allocateStatic(this.program.staticEntities[i]);
         }
-        for(var i = this.program.i_staticInitializers.length - 1; i >= 0; --i){
-            this.program.i_staticInitializers[i].createAndPushInstance(this, this.i_mainCallInst);
+        var anyStaticInits = false;
+        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
+
+            var init = this.program.staticEntities[i].getInitializer();
+            if(init) {
+                init.createAndPushInstance(this, this.i_mainCallInst);
+                anyStaticInits = true;
+            }
         }
 
         this.i_atEnd = false;
@@ -63,7 +78,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         this.upNext();
 
         // Get through all static initializers and stuff before main
-        if (this.i_staticInitializers.length > 0){
+        if (anyStaticInits){
             this.i_mainCallInst.setPauseWhenUpNext();
             this.i_paused = false;
             while (!this.i_paused){
@@ -200,7 +215,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
                 // Did we pause?
                 if (self.i_paused || (options.pauseIf && options.pauseIf(self))){
-                    self.send("i_paused");
+                    self.send("paused");
                     options.onPause && options.onPause();
                     options.after && options.after();
                     return; // do not renew timeout
@@ -462,8 +477,8 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
     leakCheckObj : function(query) {
         ++this.i_leakCheckIndex;
         var frontier = [];
-        for (var key in this.i_globalScope.entities) {
-            var ent = this.i_globalScope.entities[key];
+        for (var key in this.globalScope.entities) {
+            var ent = this.globalScope.entities[key];
             if (isA(ent, ObjectEntity)){
                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);

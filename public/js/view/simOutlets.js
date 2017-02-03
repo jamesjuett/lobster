@@ -161,15 +161,15 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     DEFAULT_CONFIG : {
         initCode: "int main(){\n  \n}"
     },
-    init: function(element, sim, config) {
+    init: function(element, config) {
         this.config = makeDefaulted(config, Outlets.CPP.SimulationOutlet.DEFAULT_CONFIG);
 
         assert(element instanceof jQuery);
-        assert(sim.isA(Simulation));
 
         this.initParent(element);
 
-        this.sim = sim;
+        this.program = Program.instance();
+        this.sim = Simulation.instance(this.program);
         this.listenTo(this.sim);
 
         if (this.config.log !== false){
@@ -189,7 +189,6 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     initSuboutlets : function(){
         var element = this.element;
-        var sim = this.sim;
         var elem;
 
         var self = this;
@@ -216,9 +215,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             self.saveFunc();
             self.send("userAction", UserActions.Simulate.instance());
             simPane.focus();
-            if (self.sim.main && !self.sim.hasSemanticErrors()){
-                self.sim.start();
-            }
+            self.restart();
         });
 
 
@@ -232,8 +229,9 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 //        this.console = ValueEntity.instance();
 
         if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
-            this.editor = Outlets.CPP.CodeEditor.instance(elem, sim);
+            this.editor = Outlets.CPP.CodeEditor.instance(elem, this.program);
             this.listenTo(this.editor);
+            this.listenTo(this.editor.getProgram());
             this.sim.converse(this.editor);
             // Dismiss any annotation messages
             var self = this;
@@ -253,11 +251,11 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         }
         if ((elem = element.find(".stackFrames")).length !== 0) {
             if (this.useSourceSimulation){
-                this.stackFrames = Outlets.CPP.SourceSimulation.instance(elem, sim, this);
+                this.stackFrames = Outlets.CPP.SourceSimulation.instance(elem, this.sim, this);
                 this.listenTo(this.stackFrames);
             }
             else{
-                this.stackFrames = Outlets.CPP.SimulationStack.instance(elem, sim, this);
+                this.stackFrames = Outlets.CPP.SimulationStack.instance(elem, this.sim, this);
                 this.listenTo(this.stackFrames);
             }
         }
@@ -267,7 +265,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         //    this.listenTo(this.stackFrames2);
         //}
         if ((elem = element.find(".memory")).length !== 0) {
-            this.memory = Outlets.CPP.Memory.instance(elem, sim.memory);
+            this.memory = Outlets.CPP.Memory.instance(elem, this.sim.memory);
         }
         // TODO REMOVE
         // if ((elem = element.find(".codeSelect")).length !== 0) {
@@ -452,7 +450,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     restart : function(){
         this.setEnabledButtons({}, true);
-        this.sim.restart();
+        this.sim.start();
     },
 
     stepForward : function(n){
@@ -774,7 +772,11 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             }
         }
     },
-    init: function(element, config) {
+    init: function(element, program, config) {
+
+        this.i_program = program;
+        this.listenTo(this.i_program);
+
         assert(element instanceof jQuery);
         this.config = makeDefaulted(config, Outlets.CPP.CodeEditor.DEFAULT_CONFIG);
         this.initParent();
@@ -812,9 +814,9 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
         CodeEditor._instances.push(this);
     },
 
-//    userEdit: function(e){
-//        console.log(JSON.stringify(e.data, null, 4));
-//    },
+    getProgram : function() {
+        return this.i_program;
+    },
 
     loadCode : function(program){
         this.programName = program.name;
@@ -853,7 +855,7 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
         }
         var self = this;
         this.codeSetTimeout = setTimeout(function(){
-            self.send("sourceCode", src);
+            self.i_program.setSourceCode(self.source);
         }, IDLE_MS_BEFORE_COMPILE);
     },
 
@@ -924,23 +926,6 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             this.annotations.push(ann);
         },
 
-        removeHighlight : function(msg){
-//            var data = msg.data;
-//
-//			if (this.highlights[data.id]){
-//
-//				if (Outlets.CPP.CPP_ANIMATIONS){
-//					this.highlights[data.id].fadeOut(FADE_DURATION, function(){
-//						$(this).remove();
-//					});
-//				}
-//				else{
-//					this.highlights[data.id].remove();
-//				}
-//				delete this.highlights[data.id];
-//			}
-		},
-
         clearAnnotations : function(){
             for(var i = 0; i < this.annotations.length; ++i){
                 this.annotations[i].onRemove(this);
@@ -951,40 +936,9 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             if (this.problemsElem) {
                 this.problemsElem.empty();
             }
-//            this.highlights = {};
-//
-//			if (Outlets.CPP.CPP_ANIMATIONS){
-//				this.shadow.children("div").fadeOut(FADE_DURATION, function(){
-//					$(this).remove();
-//				});
-//			}
-//			else{
-//				this.shadow.children("div").remove();
-//			}
 		}
-	},
-	
-	createShadow : function(context, code, cssClass, style, zOffset){
-//		var codeStr = context.text.replace(/[^\n]/g, " ");
-//		var highlightedCodeStr = "";
-//		this.highlightZ = this.highlightZ || 1;
-//		zOffset = zOffset || 0;
-//		var zIndexStr = "z-index:"+(zOffset + this.highlightZ++)+";";
-//		var styleStr = "";
-//		if (style){
-//			for(var key in style){
-//				styleStr += key + ": " + style[key] + ";";
-//			}
-//		}
-//		highlightedCodeStr += "<div style=\""+zIndexStr+" display: none; position: absolute; background: none\">" +
-//					 replaceHtmlEntities(codeStr.substring(0, code.start-context.start)) +
-//					 "<span class=\"codeShadow "+cssClass+"\" style = \""+styleStr+"\">" +
-//					 replaceHtmlEntities(codeStr.substring(code.start-context.start, code.end-context.start)) +
-//					 "</span>" +
-//					 replaceHtmlEntities(codeStr.substring(code.end-context.start)) +
-//					 "</div>";
-//		return highlightedCodeStr;
 	}
+
 });
 $(window).on("beforeunload", CodeEditor.onbeforeunload);
 
