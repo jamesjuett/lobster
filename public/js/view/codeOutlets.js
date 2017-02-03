@@ -352,7 +352,7 @@ UMichEBooks.Outlets.CPP.Block = Outlets.CPP.Code.extend({
                         //self.gotoInProgress = true;
                         var temp = me.html();
                         if (me.html() == "&lt;&lt;"){
-                            self.simOutlet.simOutlet.stepBackward(self.simOutlet.sim.stepsTaken - self.inst.childInstances.statements[x].stepsTaken);
+                            self.simOutlet.simOutlet.stepBackward(self.simOutlet.sim.stepsTaken() - self.inst.childInstances.statements[x].stepsTaken);
                             return;
                         }
 
