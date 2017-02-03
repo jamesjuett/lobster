@@ -1622,7 +1622,6 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
             inst.receiver.callEnded();
         }
 
-        sim.currentFunction = null;
         sim.memory.stack.popFrame(inst);
         sim.pop(inst);
     },

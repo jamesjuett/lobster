@@ -17,371 +17,46 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
         this.speed = Simulation.MAX_SPEED;
 
-
-        this.code = ValueEntity.instance("code", "");
-        this.listenTo(this.code);
-
-
         // These things need be reset when the simulation is reset
         this.memory = Memory.instance();
-        this._execStack = [];
         this.console = ValueEntity.instance("console", "");
-        this.pendingNews = [];
-        this.leakCheckIndex = 0;
+        this.i_execStack = [];
+        this.i_pendingNews = [];
+        this.i_leakCheckIndex = 0;
 
         return this;
-    },
-
-    hasSemanticErrors : function(){
-        return this.semanticProblems.errors.length > 0;
-    },
-
-    addStatic : function(obj){
-        this.i_staticEntities.push(obj);
-    },
-
-    addStaticInitializer : function(decl){
-        this.i_staticInitializers.push(decl);
-    },
-
-    codeSet : function(codeStr){
-
-        if(this.codeSetTimeout){
-            clearTimeout(this.codeSetTimeout);
-        }
-        var self = this;
-        this.codeSetTimeout = setTimeout(function(){
-            self.setCodeStr(codeStr);
-        }, IDLE_MS_BEFORE_COMPILE);
-    },
-
-    setCodeStr : function(codeStr){
-        codeStr += "\n";
-		try{
-            this.codeStr = codeStr;
-            this.clear();
-			this.stepsTaken = 0;
-            this.actions = [];
-
-            var errMsg = false;
-            if (codeStr.contains("#ifndef")){
-                codeStr = codeStr.replace(/#ifndef.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-                errMsg = true;
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-            }
-            if (codeStr.contains("#define")){
-                codeStr = codeStr.replace(/#define.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-                errMsg = true;
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-            }
-            if (codeStr.contains("#endif")){
-                codeStr = codeStr.replace(/#endif.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-                errMsg = true;
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-            }
-            if (codeStr.contains("#include")){
-                codeStr = codeStr.replace(/#include.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-               // errMsg = true;
-               // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-            }
-            if (codeStr.contains("using namespace")){
-                codeStr = codeStr.replace(/using namespace.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-               // errMsg = true;
-               // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
-            }
-            if (codeStr.contains("using std::")){
-                codeStr = codeStr.replace(/using std::.*/g, function(match){
-                    return Array(match.length+1).join(" ");
-                });
-                errMsg = true;
-                this.send("otherError", "Lobster doesn't support using declarations at the moment.");
-            }
-
-            //console.log(codeStr);
-
-            Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
-            //console.log("before parsing");
-
-            //Use for building parser :p
-            //console.log(PEG.buildParser(codeStr,{
-            //    cache: true,
-            //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
-            //    output: "source"
-            //}));
-            //return;
-
-            var parsed = UMichEBooks.cPlusPlusParser.parse(codeStr);
-            //console.log(JSON.stringify(parsed));
-
-            if(!errMsg){this.send("parsed");}
-
-            this.compile(parsed);
-
-            if (!this.main){
-                this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
-            }
-            else if (this.hasSemanticErrors()) {
-                this.send("semanticError", this.semanticProblems);
-            }
-            else if (!errMsg){this.send("compiled");}
-
-
-
-		}
-		catch(err){
-			if (err.name == "SyntaxError"){
-                this.send("syntaxError", {line: err.line, column: err.column, message: err.message});
-				this.semanticProblems.clear();
-			}
-			else{
-                this.send("unknownError");
-                console.log(err.stack);
-				throw err;
-			}
-		}
-	},
-	compile : function(code){
-        var self = this;
-        //console.log("compiling");
-		this.sourceCode = code;
-		this.semanticProblems.clear();
-		this.i_topLevelDeclarations.clear();
-		this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.i_staticEntities.clear();
-        this.i_staticInitializers.clear();
-        this.calls = [];
-		this.main = false;
-
-        this.send("clearAnnotations");
-
-        // Just in case, clear run thread
-        this.pause();
-
-        this.coutEntity = StaticEntity.instance({name:"cout", type:Types.OStream.instance()});
-        this.i_globalScope.addEntity(this.coutEntity);
-
-        this.cinEntity = StaticEntity.instance({name:"cin", type:Types.IStream.instance()});
-        this.i_globalScope.addEntity(this.cinEntity);
-
-        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.String.instance()});
-        this.endlEntity.defaultValue = "\\n";
-        this.i_globalScope.addEntity(this.endlEntity);
-
-        for(var i = 0; i < Types.Rank.values.length; ++i){
-            var enumLit = Types.Rank.values[i];
-            var ent = StaticEntity.instance({name:enumLit, type:Types.Rank.instance()});
-            ent.defaultValue = Types.Rank.valueMap[enumLit];
-            this.i_globalScope.addEntity(ent);
-        }
-
-        for(var i = 0; i < Types.Suit.values.length; ++i){
-            var enumLit = Types.Suit.values[i];
-            var ent = StaticEntity.instance({name:enumLit, type:Types.Suit.instance()});
-            ent.defaultValue = Types.Suit.valueMap[enumLit];
-            this.i_globalScope.addEntity(ent);
-        }
-
-        var make_face = FunctionEntity.instance(MagicFunctionDefinition.instance(
-            "make_face",
-            Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance())])
-        ));
-        this.i_globalScope.addEntity(make_face);
-
-        var cassert = FunctionEntity.instance(MagicFunctionDefinition.instance(
-            "assert",
-            Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
-        ));
-        this.i_globalScope.addEntity(cassert);
-
-        var pause = FunctionEntity.instance(MagicFunctionDefinition.instance(
-            "pause",
-            Types.Function.instance(Types.Void.instance(), [])
-        ));
-        this.i_globalScope.addEntity(pause);
-
-
-        var pauseIf = FunctionEntity.instance(MagicFunctionDefinition.instance(
-            "pauseIf",
-            Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
-        ));
-        this.i_globalScope.addEntity(pauseIf);
-
-
-
-
-
-
-        this.i_globalScope.addEntity(FunctionEntity.instance(
-            MagicFunctionDefinition.instance("rand",
-                Types.Function.instance(Types.Int.instance(), []))));
-
-
-
-
-
-
-
-
-        var list_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [])));
-        var list_make = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [Types.Int.instance(), Types.List_t.instance()])));
-        var list_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.List_t.instance()])));
-        var list_first = FunctionEntity.instance(MagicFunctionDefinition.instance("list_first", Types.Function.instance(Types.Int.instance(), [Types.List_t.instance()])));
-        var list_rest = FunctionEntity.instance(MagicFunctionDefinition.instance("list_rest", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        var list_print = FunctionEntity.instance(MagicFunctionDefinition.instance("list_print", Types.Function.instance(Types.Void.instance(), [Types.List_t.instance()])));
-        var list_magic_reverse = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_reverse", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        var list_magic_append = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_append", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance(), Types.List_t.instance()])));
-
-        this.i_globalScope.addEntity(list_make_empty);
-        this.i_globalScope.addEntity(list_make);
-        this.i_globalScope.addEntity(list_isEmpty);
-        this.i_globalScope.addEntity(list_first);
-        this.i_globalScope.addEntity(list_rest);
-        this.i_globalScope.addEntity(list_print);
-        this.i_globalScope.addEntity(list_magic_reverse);
-        this.i_globalScope.addEntity(list_magic_append);
-
-
-
-        var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
-        emptyList.defaultValue = [];
-        this.i_globalScope.addEntity(emptyList);
-        this.addStatic(emptyList);
-
-
-        var tree_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [])));
-        var tree_make = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [Types.Int.instance(), Types.Tree_t.instance(), Types.Tree_t.instance()])));
-        var tree_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.Tree_t.instance()])));
-        var tree_elt = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_elt", Types.Function.instance(Types.Int.instance(), [Types.Tree_t.instance()])));
-        var tree_left = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_left", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        var tree_right = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_right", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        var tree_print = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_print", Types.Function.instance(Types.Void.instance(), [Types.Tree_t.instance()])));
-
-        this.i_globalScope.addEntity(tree_make_empty);
-        this.i_globalScope.addEntity(tree_make);
-        this.i_globalScope.addEntity(tree_isEmpty);
-        this.i_globalScope.addEntity(tree_elt);
-        this.i_globalScope.addEntity(tree_left);
-        this.i_globalScope.addEntity(tree_right);
-        this.i_globalScope.addEntity(tree_print);
-
-
-
-        this.globalFunctionContext = MagicFunctionDefinition.instance("globalFuncContext", Types.Function.instance(Types.Void.instance(), []));
-        for(var i = 0; i < code.length; ++i){
-            var decl = Declarations.create(code[i], {parent: null, func: this.globalFunctionContext});
-            //console.log(decl.name);
-            var declProblems = decl.tryCompileDeclaration(this.i_globalScope);
-            this.i_topLevelDeclarations.push(decl);
-        }
-
-        for(var i = 0; i < this.i_topLevelDeclarations.length; ++i){
-            decl = this.i_topLevelDeclarations[i];
-            decl.tryCompileDefinition(this.i_globalScope);
-        }
-
-        // Linking
-        var linkingProblems = SemanticProblems.instance();
-        this.calls.forEach(function(call){
-            linkingProblems.pushAll(call.link());
-        });
-        this.semanticProblems.pushAll(linkingProblems);
-
-        var annotatedCalls = {};
-        // Tail Recursion Analysis
-        for(var i = 0; i < this.i_topLevelDeclarations.length; ++i){
-            decl = this.i_topLevelDeclarations[i];
-            if (isA(decl, FunctionDefinition)){
-                decl.tailRecursionAnalysis(annotatedCalls);
-            }
-            this.semanticProblems.pushAll(decl.semanticProblems);
-        }
-
-        this.annotate();
-
-        //look for main
-        try{
-            this.main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
-        }
-        catch(e){
-            if (!isA(e, SemanticExceptions.BadLookup)){
-                console.log(e.stack);
-                throw e;
-            }
-        }
-
-	},
-
-    addCall : function(call){
-        this.calls.push(call)
-    },
-
-    annotate : function(){
-        this.send("clearAnnotations");
-
-        for(var i = 0; i < this.semanticProblems.errors.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.errors[i]);
-        }
-        for(var i = 0; i < this.semanticProblems.warnings.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.warnings[i]);
-        }
-
-        for(var i = 0; i < this.semanticProblems.widgets.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.widgets[i]);
-        }
-    },
-
-    restart : function(){
-//        this.clear();
-        this.pause();
-        this.start();
     },
 
     clear : function(){
     },
 
 	start : function(){
-		this.stepsTaken = 0;
+        this.i_paused = true;
+		this.i_stepsTaken = 0;
         this.seedRandom("random seed");
-        this.actions = [];
+
         this.send("cleared");
-        this._execStack.length = 0;
+        this.i_execStack.clear();
         this.console.setValue("");
 
-		this.memory.reset(); //= Memory.instance(this.i_globalScope);
+		this.memory.reset();
 
-        this.pendingNews = [];
-        this.leakCheckIndex = 0;
+        this.i_pendingNews = [];
+        this.i_leakCheckIndex = 0;
 
+        // TODO NEW move compilation of mainCall to program?
+        var mainCall = FunctionCall.instance(null, {isMainCall:true});
+        mainCall.compile(this.i_globalScope, this.program.main(), []);
+        this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
-
-        this.currentFunction = null;
-        var mainCall = this.mainCall = FunctionCall.instance(null, {mainCall:true});
-        mainCall.compile(this.i_globalScope, this.main, []);
-        this.mainInst = mainCall.createAndPushInstance(this, null);
-		//var mainInst = this.main.decl.createAndPushInstance(this);
-
-        for(var i = this.i_staticEntities.length - 1; i >= 0; --i){
-            this.memory.allocateStatic(this.i_staticEntities[i]);
+        for(var i = this.program.i_staticEntities.length - 1; i >= 0; --i){
+            this.memory.allocateStatic(this.program.i_staticEntities[i]);
         }
-        for(var i = this.i_staticInitializers.length - 1; i >= 0; --i){
-            this.i_staticInitializers[i].createAndPushInstance(this, this.mainInst);
+        for(var i = this.program.i_staticInitializers.length - 1; i >= 0; --i){
+            this.program.i_staticInitializers[i].createAndPushInstance(this, this.i_mainCallInst);
         }
 
-		this.started = true;
-        this.atEnd = false;
+        this.i_atEnd = false;
         this.send("started");
 
         // Needed for whatever is first on the execution stack
@@ -389,34 +64,29 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
         // Get through all static initializers and stuff before main
         if (this.i_staticInitializers.length > 0){
-            this.mainInst.setPauseWhenUpNext();
-            this.paused = false;
-            while (!this.paused){
+            this.i_mainCallInst.setPauseWhenUpNext();
+            this.i_paused = false;
+            while (!this.i_paused){
                 this.stepForward();
-                this.stepsTaken = 0; // TODO remove hack. make outlet count user steps
+                this.i_stepsTaken = 0; // TODO remove hack. make outlet count user steps
             }
-            this.paused = false;
+            this.i_paused = false;
         }
 
-        this.stepsTaken = 0; // this is needed here as well since stepForward right below may spawn some instances that capture stepsTaken from simulation
+        this.i_stepsTaken = 0; // this is needed here as well since stepForward right below may spawn some instances that capture stepsTaken from simulation
         this.stepForward(); // To call main
-        this.stepsTaken = 0;
+        this.i_stepsTaken = 0;
 
 	},
 	
 	push : function(codeInstance){
-        // REMOVED: Instances should individually make themselves wait
-        //if(codeInstance.parent){
-        //    codeInstance.parent.wait();
-        //}
-
-		this._execStack.push(codeInstance);
+		this.i_execStack.push(codeInstance);
 		codeInstance.pushed(this);
 		this.send("pushed", codeInstance, this);
 	},
 
     popUntil : function(inst){
-        while(this._execStack.length > 0 && this._execStack.last() !== inst){
+        while(this.i_execStack.length > 0 && this.i_execStack.last() !== inst){
             this.pop();
         }
     },
@@ -427,10 +97,10 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 		if (query){
 			var poppedArr = [];
 			var popped;
-			while (this._execStack.length > 0){
-				popped = this._execStack.pop();
+			while (this.i_execStack.length > 0){
+				popped = this.i_execStack.pop();
 				popped.popped(this);
-                if (isA(popped.model, Statements.Statement)/* && !isA(popped.model, Statements.Return) && !isA(popped.model, Statements.Block) */|| isA(popped.model, FunctionDefinition)){
+                if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
                     this.leakCheck();
                 }
 
@@ -443,9 +113,9 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 			return (returnArray ? poppedArr : popped);
 		}
 		else{
-			var popped = this._execStack.pop();
+			var popped = this.i_execStack.pop();
             popped.popped(this);
-            if (isA(popped.model, Statements.Statement) /*&& !isA(popped.model, Statements.Return) && !isA(popped.model, Statements.Block) */|| isA(popped.model, FunctionDefinition)){
+            if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
                 this.leakCheck();
             }
 			return popped;
@@ -453,15 +123,15 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 	},
 	
 	peek : function(query, returnArray, offset){
-        if (this._execStack.length === 0){
+        if (this.i_execStack.length === 0){
             return null;
         }
 		offset = offset || 0;
 		if (query){
 			var peekedArr = [];
 			var peeked;
-			for (var i = this._execStack.length - 1 - offset; i >= 0; --i){
-				peeked = this._execStack[i];
+			for (var i = this.i_execStack.length - 1 - offset; i >= 0; --i){
+				peeked = this.i_execStack[i];
 				peekedArr.unshift(peeked);
                 if (typeof query === "function"){
                     if (query(peeked)){
@@ -478,42 +148,20 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 			return (returnArray ? peekedArr : peeked);
 		}
 		else{
-			return this._execStack.last();
+			return this.i_execStack.last();
 		}
 	},
 	
 	peeks : function(query, returnArray){
 		var results = [];
 		var offset = 0;
-		while (offset < this._execStack.length){
+		while (offset < this.i_execStack.length){
 			var p = this.peek(query, true, offset);
 			offset += p.length;
 			results.unshift(returnArray ? p : p[0]);
 		}
 		return results;
 	},
-
-    setAnimationsOn : function(animOn){
-        if (animOn){
-            //CPPCodeInstance.silent = false;
-//        this.silent = false;
-            Outlets.CPP.CPP_ANIMATIONS = true;
-            $.fx.off = false;
-            this.alertsOff = false;
-            this.explainOff = false;
-            $("body").removeClass("noTransitions").height(); // .height() is to force reflow
-
-        }
-        else{
-            $("body").addClass("noTransitions").height(); // .height() is to force reflow
-            this.alertsOff = true;
-            this.explainOff = true;
-            $.fx.off = true;
-            Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-//        this.silent = true;
-//            CPPCodeInstance.silent = true;
-        }
-    },
 
     clearRunThread: function(){
         if (this.runThread){
@@ -533,7 +181,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         // Clear old thread
         this.clearRunThread();
 
-        this.paused = false;
+        this.i_paused = false;
 
         var self = this;
         var func = function(){
@@ -543,7 +191,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
             for(var num = 0; self.speed === Simulation.MAX_SPEED || num < self.speed; ++num){
 
                 // Did we finish?
-                if (self.atEnd){
+                if (self.i_atEnd){
                     self.send("finished");
                     options.onFinish && options.onFinish();
                     options.after && options.after();
@@ -551,8 +199,8 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
                 }
 
                 // Did we pause?
-                if (self.paused || (options.pauseIf && options.pauseIf(self))){
-                    self.send("paused");
+                if (self.i_paused || (options.pauseIf && options.pauseIf(self))){
+                    self.send("i_paused");
                     options.onPause && options.onPause();
                     options.after && options.after();
                     return; // do not renew timeout
@@ -599,7 +247,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
     },
 
     stepOut: function(options){
-        var target = this._execStack.last().executionContext();
+        var target = this.i_execStack.last().executionContext();
 
         if (target) {
             this.autoRun(copyMixin(options, {
@@ -617,25 +265,24 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 	stepForward : function(n){
         n = n || 1;
 
-        for(var i = 0; !this.atEnd && i < n; ++i){
+        for(var i = 0; !this.i_atEnd && i < n; ++i){
             this._stepForward();
         }
 
-        this.send("afterFullStep", this._execStack.length > 0 && this._execStack.last());
+        this.send("afterFullStep", this.i_execStack.length > 0 && this.i_execStack.last());
 	},
 
     _stepForward : function(){
-        if(this._execStack.length > 0) {
-            ++this.stepsTaken;
-            this.actions.push("stepForward");
+        if(this.i_execStack.length > 0) {
+            ++this.i_stepsTaken;
         }
 
         // Loop indefinitely until we find something that counts as a "step"
         var keepGoing = true;
         while(keepGoing){
-            if (this._execStack.length > 0){
+            if (this.i_execStack.length > 0){
                 // There are things to do, pop top instance
-                var inst = this._execStack.last();
+                var inst = this.i_execStack.last();
 
                 // Call stepForward on inst, if returns truthy value it means keep going
                 this.send("beforeStepForward", {inst: inst});
@@ -660,25 +307,22 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         n = n || 1;
 		$.fx.off = true;
 		Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-        this.alertsOff = true;
-        this.explainOff = true;
+        this.i_alertsOff = true;
+        this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
         //CPPCodeInstance.silent = true;
-		if (this.stepsTaken > 0){
+		if (this.i_stepsTaken > 0){
 			this.clear();
-			var steps = this.stepsTaken-n;
-            var actions = this.actions;
+			var steps = this.i_stepsTaken-n;
 			this.start();
 			for(var i = 0; i < steps; ++i){
-//                if (actions[i] === "stepForward") {
-                    this.stepForward();
-//                }
+                this.stepForward();
 			}
 		}
         //CPPCodeInstance.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
-        this.alertsOff = false;
-        this.explainOff = false;
+        this.i_alertsOff = false;
+        this.i_explainOff = false;
         Outlets.CPP.CPP_ANIMATIONS = true;
 		$.fx.off = false;
 
@@ -686,16 +330,16 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 	
 	upNext : function(){
         var inst = false;
-		while(this._execStack.length > 0){
-            if (this._execStack.last() === inst){
+		while(this.i_execStack.length > 0){
+            if (this.i_execStack.last() === inst){
                 break;
             }
-            inst = this._execStack.last();
+            inst = this.i_execStack.last();
 //            debug("calling upNext for " + inst.instanceString(), "Simulation");
             this.send("beforeUpNext", {inst: inst});
             var skip = inst.upNext(this);
             //this.explain(inst.explain());
-            //debug(this._execStack.map(function(elem){return elem.model._name + ", " + elem.index;}).join("\n"), "execStack");
+            //debug(this.i_execStack.map(function(elem){return elem.model._name + ", " + elem.index;}).join("\n"), "execStack");
             this.send("afterUpNext", {inst: inst, skip: skip});
 
             if(!skip){
@@ -731,7 +375,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         object.value = 4;
     },
     alert : function(message){
-        if (!this.alertsOff){
+        if (!this.i_alertsOff){
             this.send("alert", message);
         }
     },
@@ -740,7 +384,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
     },
     explain : function(exp){
         //alert(exp.ignore);
-        if (!this.explainOff){
+        if (!this.i_explainOff){
             if (!exp.ignore) {
                 this.send("explain", exp.message);
             }
@@ -750,7 +394,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         this.send("closeMessage");
     },
     pause : function(){
-        this.paused = true;
+        this.i_paused = true;
     },
 
     seedRandom : function(seed){
@@ -759,6 +403,10 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
     nextRandom : function(){
         return Math.random();
+    },
+
+    mainCallInstance : function(){
+        return this.i_mainCallInst;
     },
 
     leakCheckChildren : function(obj){
@@ -812,12 +460,12 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         }
     },
     leakCheckObj : function(query) {
-        ++this.leakCheckIndex;
+        ++this.i_leakCheckIndex;
         var frontier = [];
         for (var key in this.i_globalScope.entities) {
             var ent = this.i_globalScope.entities[key];
             if (isA(ent, ObjectEntity)){
-                ent.leakCheckIndex = this.leakCheckIndex;
+                ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);
             }
         }
@@ -827,23 +475,23 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
             for (var key in frameObjs) {
                 var ent = frameObjs[key];
                 if (isA(ent, ObjectEntity)){
-                    ent.leakCheckIndex = this.leakCheckIndex;
+                    ent.i_leakCheckIndex = this.i_leakCheckIndex;
                     frontier.push(ent);
                 }
             }
         }
 
-        for(var i = 0; i < this.pendingNews.length; ++i){
-            var obj = this.pendingNews[i];
-            obj.leakCheckIndex = this.leakCheckIndex;
+        for(var i = 0; i < this.i_pendingNews.length; ++i){
+            var obj = this.i_pendingNews[i];
+            obj.i_leakCheckIndex = this.i_leakCheckIndex;
             frontier.push(obj);
         }
 
-        for(var i = 0; i < this._execStack.length; ++i){
-            var inst = this._execStack[i];
+        for(var i = 0; i < this.i_execStack.length; ++i){
+            var inst = this.i_execStack[i];
             var obj = inst.evalValue || (inst.func && inst.func.returnValue);
             if (obj && isA(obj, ObjectEntity)){
-                obj.leakCheckIndex = this.leakCheckIndex;
+                obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);
             }
             else if (obj && isA(obj, Value)){
@@ -853,7 +501,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
 
         for (var key in this.memory.temporaryObjects){
             var obj = this.memory.temporaryObjects[key];
-            obj.leakCheckIndex = this.leakCheckIndex;
+            obj.i_leakCheckIndex = this.i_leakCheckIndex;
             frontier.push(obj);
         }
 
@@ -866,11 +514,11 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
             }
 
             // Mark as visited
-            obj.leakCheckIndex = this.leakCheckIndex;
+            obj.i_leakCheckIndex = this.i_leakCheckIndex;
             var children = this.leakCheckChildren(obj);
             for(var i = 0; i < children.length; ++i){
                 var child = children[i];
-                if (child.leakCheckIndex !== this.leakCheckIndex){
+                if (child.i_leakCheckIndex !== this.i_leakCheckIndex){
                     frontier.push(child);
                 }
             }
@@ -878,7 +526,7 @@ var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
         return true;
     },
     atEnded : function(){
-        this.atEnd = true;
+        this.i_atEnd = true;
         this.send("atEnded");
         //console.log("done!");
     },
