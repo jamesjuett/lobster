@@ -13,12 +13,11 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
 
         // Things that don't change while simulation is running
         // Only change when recompiled
-        this.i_globalScope = NamespaceScope.instance("", null, this);
+        this.globalScope = NamespaceScope.instance("", null, this);
         this.i_topLevelDeclarations = [];
         this.semanticProblems = SemanticProblems.instance(); // TODO NEW make this non-public
 
-        this.i_staticEntities = [];
-        this.i_staticInitializers = [];
+        this.staticEntities = [];
         this.i_main = false;
 
         this.code = ValueEntity.instance("code", "");
@@ -32,18 +31,13 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
     },
 
     addStaticEntity : function(obj){
-        this.i_staticEntities.push(obj);
-    },
-
-    addStaticInitializer : function(decl){
-        this.i_staticInitializers.push(decl);
+        this.staticEntities.push(obj);
     },
 
     setSourceCode : function(codeStr){
         codeStr += "\n";
 		try{
             this.i_sourceCode = codeStr;
-            this.clear();
 
             codeStr = this.i_filterSourceCode(codeStr);
 
@@ -139,9 +133,8 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
         //console.log("compiling");
 		this.semanticProblems.clear();
 		this.i_topLevelDeclarations.clear();
-		this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.i_staticEntities.clear();
-        this.i_staticInitializers.clear();
+		this.globalScope = NamespaceScope.instance("", null, this);
+        this.staticEntities.clear();
 		this.i_main = null;
 
 		// List of calls. Currently this is just here so they can be checked later to see if they're all linked.
@@ -158,13 +151,13 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
         for(var i = 0; i < code.length; ++i){
             var decl = Declarations.create(code[i], {parent: null, func: globalFunctionContext});
             //console.log(decl.name);
-            var declProblems = decl.tryCompileDeclaration(this.i_globalScope);
+            var declProblems = decl.tryCompileDeclaration(this.globalScope);
             this.i_topLevelDeclarations.push(decl);
         }
 
         for(var i = 0; i < this.i_topLevelDeclarations.length; ++i){
             decl = this.i_topLevelDeclarations[i];
-            decl.tryCompileDefinition(this.i_globalScope);
+            decl.tryCompileDefinition(this.globalScope);
         }
 
         // Linking
@@ -188,7 +181,7 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
 
         //look for main
         try{
-            this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
+            this.i_main = this.globalScope.requiredLookup("main", {paramTypes: []});
         }
         catch(e){
             if (!isA(e, SemanticExceptions.BadLookup)){
@@ -200,36 +193,36 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
 	},
 
     i_createBuiltInGlobals : function() {
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+        this.globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
+        this.globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
 
         // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
         this.endlEntity = StaticEntity.instance({name:"endl", type:Types.String.instance()});
         this.endlEntity.defaultValue = "\\n";
-        this.i_globalScope.addEntity(this.endlEntity);
+        this.globalScope.addEntity(this.endlEntity);
 
 
         var cassert = FunctionEntity.instance(MagicFunctionDefinition.instance(
             "assert",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
-        this.i_globalScope.addEntity(cassert);
+        this.globalScope.addEntity(cassert);
 
         var pause = FunctionEntity.instance(MagicFunctionDefinition.instance(
             "pause",
             Types.Function.instance(Types.Void.instance(), [])
         ));
-        this.i_globalScope.addEntity(pause);
+        this.globalScope.addEntity(pause);
 
 
         var pauseIf = FunctionEntity.instance(MagicFunctionDefinition.instance(
             "pauseIf",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
-        this.i_globalScope.addEntity(pauseIf);
+        this.globalScope.addEntity(pauseIf);
 
 
-        this.i_globalScope.addEntity(FunctionEntity.instance(
+        this.globalScope.addEntity(FunctionEntity.instance(
             MagicFunctionDefinition.instance("rand",
                 Types.Function.instance(Types.Int.instance(), []))));
 
@@ -238,69 +231,69 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
         // BELOW THIS LINE IS RANDOM 280 STUFF
 
 
-        for(var i = 0; i < Types.Rank.values.length; ++i){
-            var enumLit = Types.Rank.values[i];
-            var ent = StaticEntity.instance({name:enumLit, type:Types.Rank.instance()});
-            ent.defaultValue = Types.Rank.valueMap[enumLit];
-            this.i_globalScope.addEntity(ent);
-        }
-
-        for(var i = 0; i < Types.Suit.values.length; ++i){
-            var enumLit = Types.Suit.values[i];
-            var ent = StaticEntity.instance({name:enumLit, type:Types.Suit.instance()});
-            ent.defaultValue = Types.Suit.valueMap[enumLit];
-            this.i_globalScope.addEntity(ent);
-        }
-
-        var make_face = FunctionEntity.instance(MagicFunctionDefinition.instance(
-            "make_face",
-            Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance())])
-        ));
-        this.i_globalScope.addEntity(make_face);
-
-
-
-        var list_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [])));
-        var list_make = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [Types.Int.instance(), Types.List_t.instance()])));
-        var list_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.List_t.instance()])));
-        var list_first = FunctionEntity.instance(MagicFunctionDefinition.instance("list_first", Types.Function.instance(Types.Int.instance(), [Types.List_t.instance()])));
-        var list_rest = FunctionEntity.instance(MagicFunctionDefinition.instance("list_rest", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        var list_print = FunctionEntity.instance(MagicFunctionDefinition.instance("list_print", Types.Function.instance(Types.Void.instance(), [Types.List_t.instance()])));
-        var list_magic_reverse = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_reverse", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        var list_magic_append = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_append", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance(), Types.List_t.instance()])));
-
-        this.i_globalScope.addEntity(list_make_empty);
-        this.i_globalScope.addEntity(list_make);
-        this.i_globalScope.addEntity(list_isEmpty);
-        this.i_globalScope.addEntity(list_first);
-        this.i_globalScope.addEntity(list_rest);
-        this.i_globalScope.addEntity(list_print);
-        this.i_globalScope.addEntity(list_magic_reverse);
-        this.i_globalScope.addEntity(list_magic_append);
-
-
-
-        var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
-        emptyList.defaultValue = [];
-        this.i_globalScope.addEntity(emptyList);
-        this.addStaticEntity(emptyList);
-
-
-        var tree_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [])));
-        var tree_make = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [Types.Int.instance(), Types.Tree_t.instance(), Types.Tree_t.instance()])));
-        var tree_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.Tree_t.instance()])));
-        var tree_elt = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_elt", Types.Function.instance(Types.Int.instance(), [Types.Tree_t.instance()])));
-        var tree_left = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_left", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        var tree_right = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_right", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        var tree_print = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_print", Types.Function.instance(Types.Void.instance(), [Types.Tree_t.instance()])));
-
-        this.i_globalScope.addEntity(tree_make_empty);
-        this.i_globalScope.addEntity(tree_make);
-        this.i_globalScope.addEntity(tree_isEmpty);
-        this.i_globalScope.addEntity(tree_elt);
-        this.i_globalScope.addEntity(tree_left);
-        this.i_globalScope.addEntity(tree_right);
-        this.i_globalScope.addEntity(tree_print);
+        // for(var i = 0; i < Types.Rank.values.length; ++i){
+        //     var enumLit = Types.Rank.values[i];
+        //     var ent = StaticEntity.instance({name:enumLit, type:Types.Rank.instance()});
+        //     ent.defaultValue = Types.Rank.valueMap[enumLit];
+        //     this.globalScope.addEntity(ent);
+        // }
+        //
+        // for(var i = 0; i < Types.Suit.values.length; ++i){
+        //     var enumLit = Types.Suit.values[i];
+        //     var ent = StaticEntity.instance({name:enumLit, type:Types.Suit.instance()});
+        //     ent.defaultValue = Types.Suit.valueMap[enumLit];
+        //     this.globalScope.addEntity(ent);
+        // }
+        //
+        // var make_face = FunctionEntity.instance(MagicFunctionDefinition.instance(
+        //     "make_face",
+        //     Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance())])
+        // ));
+        // this.globalScope.addEntity(make_face);
+        //
+        //
+        //
+        // var list_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [])));
+        // var list_make = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [Types.Int.instance(), Types.List_t.instance()])));
+        // var list_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.List_t.instance()])));
+        // var list_first = FunctionEntity.instance(MagicFunctionDefinition.instance("list_first", Types.Function.instance(Types.Int.instance(), [Types.List_t.instance()])));
+        // var list_rest = FunctionEntity.instance(MagicFunctionDefinition.instance("list_rest", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
+        // var list_print = FunctionEntity.instance(MagicFunctionDefinition.instance("list_print", Types.Function.instance(Types.Void.instance(), [Types.List_t.instance()])));
+        // var list_magic_reverse = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_reverse", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
+        // var list_magic_append = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_append", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance(), Types.List_t.instance()])));
+        //
+        // this.globalScope.addEntity(list_make_empty);
+        // this.globalScope.addEntity(list_make);
+        // this.globalScope.addEntity(list_isEmpty);
+        // this.globalScope.addEntity(list_first);
+        // this.globalScope.addEntity(list_rest);
+        // this.globalScope.addEntity(list_print);
+        // this.globalScope.addEntity(list_magic_reverse);
+        // this.globalScope.addEntity(list_magic_append);
+        //
+        //
+        //
+        // var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
+        // emptyList.defaultValue = [];
+        // this.globalScope.addEntity(emptyList);
+        // this.addStaticEntity(emptyList);
+        //
+        //
+        // var tree_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [])));
+        // var tree_make = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [Types.Int.instance(), Types.Tree_t.instance(), Types.Tree_t.instance()])));
+        // var tree_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.Tree_t.instance()])));
+        // var tree_elt = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_elt", Types.Function.instance(Types.Int.instance(), [Types.Tree_t.instance()])));
+        // var tree_left = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_left", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
+        // var tree_right = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_right", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
+        // var tree_print = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_print", Types.Function.instance(Types.Void.instance(), [Types.Tree_t.instance()])));
+        //
+        // this.globalScope.addEntity(tree_make_empty);
+        // this.globalScope.addEntity(tree_make);
+        // this.globalScope.addEntity(tree_isEmpty);
+        // this.globalScope.addEntity(tree_elt);
+        // this.globalScope.addEntity(tree_left);
+        // this.globalScope.addEntity(tree_right);
+        // this.globalScope.addEntity(tree_print);
     },
 
     addCall : function(call){
@@ -325,11 +318,7 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
         }
     },
 
-    main : function() {
+    mainEntity : function() {
         return this.i_main;
-    },
-
-    act : {
-        sourceCode : "setSourceCode"
     }
 });

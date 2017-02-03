@@ -455,7 +455,7 @@ var Scope = UMichEBooks.Scope = Class.extend({
     },
     qualifiedLookup : function(names, options){
         assert(Array.isArray(names) && names.length > 0);
-        var scope = this.sim.i_globalScope;
+        var scope = this.sim.globalScope;
         for(var i = 0; scope && i < names.length - 1; ++i){
             scope = scope.children[names[i].identifier];
         }
@@ -641,10 +641,6 @@ var NamespaceScope = Scope.extend({
     },
     addStaticEntity : function(ent) {
         this.sim.addStaticEntity(ent);
-        var init = ent.getInitializer();
-        if(init) {
-            this.sim.addStaticInitializer(init);
-        }
     }
 });
 
