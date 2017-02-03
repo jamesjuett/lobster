@@ -74,7 +74,7 @@ var tailCheck = function(filename){
 
     sim.addListener(actor);
 
-    sim.setCodeStr(sourceCode);
+    sim.setSourceCode(sourceCode);
 
     //var funcsToCheck = [
     //    {name:"sum", paramTypes:[Types.List_t.instance()]},

@@ -63,7 +63,7 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
         //if (!context){
         //    console.log("hi");
         //}
-        assert(context.parent !== undefined || context.mainCall);
+        assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
         this.semanticProblems = SemanticProblems.instance();
         this.sub = {};
@@ -244,7 +244,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
         this.subCalls = Entities.List.instance();
         this.parent = parent;
         this.pushedChildren = [];
-        assert(this.parent || this.model.context.mainCall, "All code instances must have a parent.");
+        assert(this.parent || this.model.context.isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
 
@@ -260,11 +260,11 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 
         }
 
-        if (this.model.context.mainCall){
+        if (this.model.context.isMainCall){
             this.funcContext = this;
         }
 
-        this.stepsTaken = sim.stepsTaken;
+        this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
     send: function(){
@@ -397,14 +397,14 @@ var Scope = UMichEBooks.Scope = Class.extend({
 		return str;
 	},
 	addEntity : function(ent){
-        if (isA(ent, StaticObjectEntity)){
-            this.sim.addStatic(ent);
+        if (isA(ent, StaticEntity)){
+            this.addStaticEntity(ent);
         }
-        else if (isA(ent, AutoObjectEntity)){
-            this.addAutomaticObject(ent);
+        else if (isA(ent, AutoEntity)){
+            this.addAutomaticEntity(ent);
         }
         else if (isA(ent, ReferenceEntity)){
-            this.addReferenceObject(ent);
+            this.addReferenceEntity(ent);
         }
 
         if (isA(ent, FunctionEntity)){
@@ -574,20 +574,26 @@ var Scope = UMichEBooks.Scope = Class.extend({
     //},
     addCall : function(call){
         this.sim.addCall(call);
-    }
+    },
+    addAutomaticEntity : Class._ABSTRACT,
+    addReferenceEntity : Class._ABSTRACT,
+    addStaticEntity : Class._ABSTRACT
 
 
 });
 
 var BlockScope = Scope.extend({
     _name: "BlockScope",
-    addAutomaticObject : function(obj){
+    addAutomaticEntity : function(obj){
         assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
-        this.parent.addAutomaticObject(obj);
+        this.parent.addAutomaticEntity(obj);
     },
-    addReferenceObject : function(obj){
+    addReferenceEntity : function(obj){
         assert(this.parent);
-        this.parent.addReferenceObject(obj);
+        this.parent.addReferenceEntity(obj);
+    },
+    addStaticEntity : function(ent) {
+        this.sim.addStaticEntity(ent);
     }
 
 
@@ -600,11 +606,15 @@ var FunctionBlockScope = BlockScope.extend({
         this.automaticObjects = [];
         this.referenceObjects = [];
     },
-    addAutomaticObject : function(obj){
+    addAutomaticEntity : function(obj){
         this.automaticObjects.push(obj);
     },
-    addReferenceObject : function(obj){
+    addReferenceEntity : function(obj){
         this.referenceObjects.push(obj);
+    },
+    addStaticEntity : function(ent) {
+
+        this.sim.addStaticEntity(ent);
     }
 });
 
@@ -622,6 +632,15 @@ var NamespaceScope = Scope.extend({
         if(child.name){
             this.children[child.name] = child;
         }
+    },
+    addAutomaticEntity : function(obj){
+        assert(false, "Can't add an automatic entity to a namespace scope.");
+    },
+    addReferenceEntity : function(obj){
+        assert(false, "TODO");
+    },
+    addStaticEntity : function(ent) {
+        this.sim.addStaticEntity(ent);
     }
 });
 
@@ -697,6 +716,12 @@ var CPPEntity = CPP.CPPEntity = DataPath.extend({
     isInitialized : function(){
         // default impl, do nothing
         return true;
+    },
+    setInitializer : function (init) {
+        this.i_init = init;
+    },
+    getInitializer : function() {
+        return this.i_init;
     }
 });
 
@@ -1175,8 +1200,8 @@ var ThisObject = CPP.ThisObject = ObjectEntity.extend({
     storage: "automatic"
 });
 
-var StaticObjectEntity = CPP.StaticObjectEntity = CPP.ObjectEntity.extend({
-    _name: "StaticObjectEntity",
+var StaticEntity = CPP.StaticEntity = CPP.ObjectEntity.extend({
+    _name: "StaticEntity",
     storage: "static",
     init: function(decl){
         this.initParent(decl.name, decl.type);
@@ -1213,8 +1238,8 @@ var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
     }
 });
 
-var AutoObjectEntity = CPP.AutoObjectEntity = CPP.CPPEntity.extend({
-    _name: "AutoObjectEntity",
+var AutoEntity = CPP.AutoEntity = CPP.CPPEntity.extend({
+    _name: "AutoEntity",
     storage: "automatic",
     init: function(decl){
         this.initParent(decl.name);
