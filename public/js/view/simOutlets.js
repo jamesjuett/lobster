@@ -603,15 +603,11 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 //        this.silent = false;
             Outlets.CPP.CPP_ANIMATIONS = true;
             $.fx.off = false;
-            this.alertsOff = false;
-            this.explainOff = false;
             $("body").removeClass("noTransitions").height(); // .height() is to force reflow
 
         }
         else{
             $("body").addClass("noTransitions").height(); // .height() is to force reflow
-            this.alertsOff = true;
-            this.explainOff = true;
             $.fx.off = true;
             Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
 //        this.silent = true;
@@ -711,7 +707,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             this.hideAlerts();
         },
         paused : function(msg){
-            //this.paused = true;
+            //this.i_paused = true;
             this.setEnabledButtons({
                 "pause": false
             }, true);
@@ -719,7 +715,6 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             this.runningProgress.css("visibility", "hidden");
         },
         atEnded : function(msg){
-            this.atEnd = true;
             this.setEnabledButtons({
                 restart: true,
                 stepBackward: true
@@ -2071,7 +2066,7 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     },
     pushed: function(codeInst){
         // main has no caller, so we have to handle creating the outlet here
-        if (codeInst.model.context.mainCall) {
+        if (codeInst.model.context.isMainCall) {
             this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
         }
 
@@ -2124,9 +2119,9 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     refresh : function(){
         this.cleared();
         this.mainCall.removeInstance();
-        this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainInst, this);
+        this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainCallInstance(), this);
         this.started();
-        var last = this.sim._execStack.last();
+        var last = this.sim.i_execStack.last();
         if (last) {
             last.send("upNext");
             last.funcContext.send("currentFunction");

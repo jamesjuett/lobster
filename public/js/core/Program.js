@@ -9,6 +9,7 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
     _name: "Program",
 
     init: function( ){
+        this.initParent();
 
         // Things that don't change while simulation is running
         // Only change when recompiled
@@ -322,6 +323,10 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
             // alert(this.semanticProblems.get(i));
             this.send("addAnnotation", this.semanticProblems.widgets[i]);
         }
+    },
+
+    main : function() {
+        return this.i_main;
     },
 
     act : {

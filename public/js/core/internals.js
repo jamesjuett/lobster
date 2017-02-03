@@ -63,7 +63,7 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
         //if (!context){
         //    console.log("hi");
         //}
-        assert(context.parent !== undefined || context.mainCall);
+        assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
         this.semanticProblems = SemanticProblems.instance();
         this.sub = {};
@@ -244,7 +244,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
         this.subCalls = Entities.List.instance();
         this.parent = parent;
         this.pushedChildren = [];
-        assert(this.parent || this.model.context.mainCall, "All code instances must have a parent.");
+        assert(this.parent || this.model.context.isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
 
@@ -260,11 +260,11 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 
         }
 
-        if (this.model.context.mainCall){
+        if (this.model.context.isMainCall){
             this.funcContext = this;
         }
 
-        this.stepsTaken = sim.stepsTaken;
+        this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
     send: function(){

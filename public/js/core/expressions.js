@@ -2766,7 +2766,7 @@ var FunctionCall = Expression.extend({
             scope.addCall(this);
         }
 
-        if (this.func.isMain && !this.context.mainCall){
+        if (this.func.isMain && !this.context.isMainCall){
             this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
 
         }
@@ -2774,7 +2774,7 @@ var FunctionCall = Expression.extend({
         // Is the function statically bound?
         if (this.func.isStaticallyBound()){
             this.staticFunction = this.func;
-            this.isRecursive = !this.context.mainCall && this.staticFunction === this.context.func.entity;
+            this.isRecursive = !this.context.isMainCall && this.staticFunction === this.context.func.entity;
         }
 
         this.type = this.func.type.returnType;
@@ -2817,7 +2817,7 @@ var FunctionCall = Expression.extend({
                 this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
-            if (!this.context.mainCall){
+            if (!this.context.isMainCall){
                 // Register as a function call in our function context
                 this.context.func.calls.push(this);
             }
@@ -3290,7 +3290,7 @@ var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expressi
             var entity = DynamicObjectEntity.instance(heapType, this);
 
             var obj = sim.memory.heap.newObject(entity);
-            sim.pendingNews.push(obj);
+            sim.i_pendingNews.push(obj);
             inst.allocatedObject = obj;
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
             //if (this.initializer){
@@ -3309,7 +3309,7 @@ var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expressi
             else{
                 inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
             }
-            sim.pendingNews.pop();
+            sim.i_pendingNews.pop();
             this.done(sim, inst);
         }
 
