@@ -65,7 +65,7 @@ var TYPE_SPECIFIERS_GROUP_FN = function(elem){
 };
 
 
-var TypeSpecifier = UMichEBooks.TypeSpecifier = CPPCode.extend({
+var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
 //    init : function(code, context){
 //        this.initParent(code, context);
@@ -191,7 +191,7 @@ var TypeSpecifier = UMichEBooks.TypeSpecifier = CPPCode.extend({
 
 
 
-var Types = UMichEBooks.Types = {
+var Types = Lobster.Types = {
     maxSize : 0,
     userTypeNames : {},
     builtInTypes : {},
@@ -305,7 +305,7 @@ var isCvConvertible = function(t1, t2){
     return true;
 };
 
-var Type = UMichEBooks.Types.Type = Class.extend({
+var Type = Lobster.Types.Type = Class.extend({
     _name: "Type",
     size: Class._ABSTRACT,
     isObjectType : true,
@@ -403,7 +403,7 @@ var Type = UMichEBooks.Types.Type = Class.extend({
 });
 
 // REQUIRES: type must be one of "int", "double", "bool", "char"
-UMichEBooks.Types.SimpleType = Type.extend({
+Lobster.Types.SimpleType = Type.extend({
     _name: "SimpleType",
     precedence: 0,
     type: Class._ABSTRACT,
@@ -444,7 +444,7 @@ UMichEBooks.Types.SimpleType = Type.extend({
 });
 
 Types.builtInTypes["unknown"] =
-UMichEBooks.Types.Unknown = Types.SimpleType.extend({
+Lobster.Types.Unknown = Types.SimpleType.extend({
     _name: "UnknownType",
     type: "unknown",
     isObjectType: false,
@@ -456,7 +456,7 @@ UMichEBooks.Types.Unknown = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["void"] =
-UMichEBooks.Types.Void = Types.SimpleType.extend({
+Lobster.Types.Void = Types.SimpleType.extend({
     _name: "Void",
     type: "void",
     isObjectType: false,
@@ -468,7 +468,7 @@ UMichEBooks.Types.Void = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["char"] =
-UMichEBooks.Types.Char = Types.SimpleType.extend({
+Lobster.Types.Char = Types.SimpleType.extend({
     _name: "Char",
     type: "char",
     size: 1,
@@ -487,7 +487,7 @@ UMichEBooks.Types.Char = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["int"] =
-UMichEBooks.Types.Int = Types.SimpleType.extend({
+Lobster.Types.Int = Types.SimpleType.extend({
     _name: "Int",
     type: "int",
     size: 4,
@@ -500,7 +500,7 @@ UMichEBooks.Types.Int = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["float"] =
-    UMichEBooks.Types.Float = Types.SimpleType.extend({
+    Lobster.Types.Float = Types.SimpleType.extend({
     _name: "Float",
     type: "float",
     size: 4,
@@ -517,7 +517,7 @@ Types.builtInTypes["float"] =
 });
 
 Types.builtInTypes["double"] =
-    UMichEBooks.Types.Double = Types.SimpleType.extend({
+    Lobster.Types.Double = Types.SimpleType.extend({
     _name: "Double",
     type: "double",
     size: 8,
@@ -534,7 +534,7 @@ Types.builtInTypes["double"] =
 });
 
 Types.builtInTypes["bool"] =
-    UMichEBooks.Types.Bool = Types.SimpleType.extend({
+    Lobster.Types.Bool = Types.SimpleType.extend({
     _name: "Bool",
     type: "bool",
     size: 1,
@@ -552,7 +552,7 @@ Types.builtInTypes["bool"] =
 });
 
 Types.builtInTypes["string"] =
-    UMichEBooks.Types.String = Types.SimpleType.extend({
+    Lobster.Types.String = Types.SimpleType.extend({
     _name: "String",
     type: "string",
     size: 4,
@@ -572,7 +572,7 @@ Types.builtInTypes["string"] =
     }
 });
 
-UMichEBooks.Types.Enum = Types.SimpleType.extend({
+Lobster.Types.Enum = Types.SimpleType.extend({
     _name: "Enum",
     size: 4,
     isArithmetic: true,
@@ -594,13 +594,13 @@ UMichEBooks.Types.Enum = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["rank"] =
-    UMichEBooks.Types.Rank = Types.Enum.extend({
+    Lobster.Types.Rank = Types.Enum.extend({
     type: "Rank",
     values: ["TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "JACK", "QUEEN", "KING", "ACE"]
 });
 
 Types.builtInTypes["suit"] =
-    UMichEBooks.Types.Suit = Types.Enum.extend({
+    Lobster.Types.Suit = Types.Enum.extend({
     type: "Suit",
     values: ["SPADES", "HEARTS", "CLUBS", "DIAMONDS"]
 });
@@ -609,7 +609,7 @@ Types.builtInTypes["suit"] =
 
 
 Types.builtInTypes["list_t"] =
-    UMichEBooks.Types.List_t = Types.SimpleType.extend({
+    Lobster.Types.List_t = Types.SimpleType.extend({
     _name: "List_t",
     type: "list_t",
     size: 4,
@@ -697,7 +697,7 @@ var breadthFirstTree = function(tree){
 };
 
 Types.builtInTypes["tree_t"] =
-    UMichEBooks.Types.Tree_t = Types.SimpleType.extend({
+    Lobster.Types.Tree_t = Types.SimpleType.extend({
     _name: "Tree_t",
     type: "tree_t",
     size: 4,
@@ -728,7 +728,7 @@ Types.builtInTypes["tree_t"] =
 });
 
 Types.builtInTypes["ostream"] =
-UMichEBooks.Types.OStream = Types.SimpleType.extend({
+Lobster.Types.OStream = Types.SimpleType.extend({
     _name: "OStream",
     type: "ostream",
     size: 4,
@@ -740,7 +740,7 @@ UMichEBooks.Types.OStream = Types.SimpleType.extend({
     }
 });
 
-UMichEBooks.Types.IStream = Types.SimpleType.extend({
+Lobster.Types.IStream = Types.SimpleType.extend({
     _name: "iStream",
     type: "istream",
     size: 4,
@@ -753,7 +753,7 @@ UMichEBooks.Types.IStream = Types.SimpleType.extend({
 });
 
 // REQUIRES: ptrTo must be a type
-UMichEBooks.Types.Pointer = Type.extend({
+Lobster.Types.Pointer = Type.extend({
     _name: "Pointer",
     size: 8,
     precedence: 1,
@@ -798,7 +798,7 @@ UMichEBooks.Types.Pointer = Type.extend({
     }
 });
 
-UMichEBooks.Types.ArrayPointer = Types.Pointer.extend({
+Lobster.Types.ArrayPointer = Types.Pointer.extend({
     _name: "ArrayPointer",
     size: 8,
     precedence: 1,
@@ -832,7 +832,7 @@ UMichEBooks.Types.ArrayPointer = Types.Pointer.extend({
 
 });
 
-UMichEBooks.Types.ObjectPointer = Types.Pointer.extend({
+Lobster.Types.ObjectPointer = Types.Pointer.extend({
     _name: "ObjectPointer",
 
     init: function(obj, isConst, isVolatile){
@@ -858,7 +858,7 @@ UMichEBooks.Types.ObjectPointer = Types.Pointer.extend({
 
 
 // REQUIRES: refTo must be a type
-UMichEBooks.Types.Reference = Type.extend({
+Lobster.Types.Reference = Type.extend({
     _name: "Reference",
     isObjectType: false,
     precedence: 1,
@@ -891,7 +891,7 @@ UMichEBooks.Types.Reference = Type.extend({
 
 
 // REQUIRES: elemType must be a type
-UMichEBooks.Types.Array = Type.extend({
+Lobster.Types.Array = Type.extend({
     _name: "Array",
     precedence: 2,
     _isComplete: true, // Assume complete. If length is unknown, individual Array types set to false
@@ -953,7 +953,7 @@ UMichEBooks.Types.Array = Type.extend({
 
 
 // REQUIRES: elemType must be a type
-UMichEBooks.Types.Class = Type.extend({
+Lobster.Types.Class = Type.extend({
     _name: "Class",
     precedence: 0,
     className: Class._ABSTRACT,
@@ -1139,7 +1139,7 @@ UMichEBooks.Types.Class = Type.extend({
     }
 });
 
-//UMichEBooks.Types.Card = Types.Class.extend({
+//Lobster.Types.Card = Types.Class.extend({
 //    _name: "Card",
 //    className: "Card",
 //    members: [
@@ -1148,7 +1148,7 @@ UMichEBooks.Types.Class = Type.extend({
 //    ]
 //});
 //
-//UMichEBooks.Types.Pack = Types.Class.extend({
+//Lobster.Types.Pack = Types.Class.extend({
 //    _name: "Pack",
 //    className: "Pack",
 //    members: [
@@ -1157,7 +1157,7 @@ UMichEBooks.Types.Class = Type.extend({
 //    ]
 //});
 //
-//UMichEBooks.Types.Player = Types.Class.extend({
+//Lobster.Types.Player = Types.Class.extend({
 //    _name: "Player",
 //    className: "Player",
 //    members: [
@@ -1169,7 +1169,7 @@ UMichEBooks.Types.Class = Type.extend({
 //
 //
 //
-//UMichEBooks.Types.Basket = Types.Class.extend({
+//Lobster.Types.Basket = Types.Class.extend({
 //    _name: "Basket",
 //    className: "Basket",
 //    members: [
@@ -1179,7 +1179,7 @@ UMichEBooks.Types.Class = Type.extend({
 //});
 //
 //
-//UMichEBooks.Types.Quote = Types.Class.extend({
+//Lobster.Types.Quote = Types.Class.extend({
 //    _name: "Quote",
 //    className: "Quote",
 //    members: [
@@ -1187,7 +1187,7 @@ UMichEBooks.Types.Class = Type.extend({
 //        {name: "time", type: Types.Int.instance()}
 //    ]
 //});
-//UMichEBooks.Types.Pricebook = Types.Class.extend({
+//Lobster.Types.Pricebook = Types.Class.extend({
 //    _name: "Pricebook",
 //    className: "Pricebook",
 //    members: [
@@ -1198,7 +1198,7 @@ UMichEBooks.Types.Class = Type.extend({
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-UMichEBooks.Types.Function = Type.extend({
+Lobster.Types.Function = Type.extend({
     _name: "Function",
     isObjectType: false,
     precedence: 2,
@@ -1299,7 +1299,7 @@ UMichEBooks.Types.Function = Type.extend({
 
 
 // kind will be one of either "pointer" ""
-// UMichEBooks.Type = function(kind, sub) {
+// Lobster.Type = function(kind, sub) {
 	// this.kind = kind;
 	// this.sub = sub;
 	// this.typeSpec = typeSpec;
@@ -1309,7 +1309,7 @@ UMichEBooks.Types.Function = Type.extend({
 // 	
 	// this.semanticProblems = [];
 // };
-// var Type = UMichEBooks.Type;
+// var Type = Lobster.Type;
 // Type.prototype = {
 // 	
 	// compile : function(scope){

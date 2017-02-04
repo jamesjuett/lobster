@@ -2,15 +2,15 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.Outlets.CPP = UMichEBooks.Outlets.CPP || {};
+var Lobster = Lobster || {};
+Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
 var FADE_DURATION = 300;
 var SLIDE_DURATION = 400;
 
-UMichEBooks.Outlets.CPP.CPP_ANIMATIONS = true;
+Lobster.Outlets.CPP.CPP_ANIMATIONS = true;
 
-var CodeList = UMichEBooks.Outlets.CPP.CodeList = WebOutlet.extend({
+var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
     _name: "CodeList",
     _instances : [],
     reloadLists : function(){
@@ -156,7 +156,7 @@ var CodeList = UMichEBooks.Outlets.CPP.CodeList = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
+Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     _name: "SimulationOutlet",
     DEFAULT_CONFIG : {
         initCode: "int main(){\n  \n}"
@@ -757,7 +757,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
 
-var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
+var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
     _name: "CodeEditor",
     DEFAULT_CONFIG : {
         initCode: "int main(){\n  \n}"
@@ -945,7 +945,7 @@ $(window).on("beforeunload", CodeEditor.onbeforeunload);
 var SVG_DEFS = {};
 
 
-UMichEBooks.Outlets.CPP.Memory = WebOutlet.extend({
+Lobster.Outlets.CPP.Memory = WebOutlet.extend({
     init: function(element, memory){
         assert(isA(memory, Memory));
 
@@ -1044,7 +1044,7 @@ UMichEBooks.Outlets.CPP.Memory = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.MemoryObject = WebOutlet.extend({
+Lobster.Outlets.CPP.MemoryObject = WebOutlet.extend({
     _name: "MemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1176,7 +1176,7 @@ UMichEBooks.Outlets.CPP.MemoryObject = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "SingleMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1219,7 +1219,7 @@ UMichEBooks.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
+Lobster.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
     _name: "TreeMemoryObject",
 
     init: function(element, object, memoryOutlet){
@@ -1233,7 +1233,7 @@ UMichEBooks.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend
 });
 
 
-UMichEBooks.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
+Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
     _name: "PointerMemoryObject",
     showPtdArray : true,
     pointerMemoryObjects : [],
@@ -1461,7 +1461,7 @@ setInterval(function(){
     Outlets.CPP.CPP_ANIMATIONS = temp;
 }, 20);
 
-UMichEBooks.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ReferenceMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1500,7 +1500,7 @@ UMichEBooks.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend(
     })
 });
 
-UMichEBooks.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ArrayMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1589,7 +1589,7 @@ UMichEBooks.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ArrayElemMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1619,7 +1619,7 @@ UMichEBooks.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend(
     }
 });
 
-UMichEBooks.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ClassMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1710,7 +1710,7 @@ var createMemoryObjectOutlet = function(elem, obj, memoryOutlet){
     }
 };
 
-UMichEBooks.Outlets.CPP.StackFrame = WebOutlet.extend({
+Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
     init: function(element, frame, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1795,7 +1795,7 @@ var OutletCustomizations = {
 };
 
 
-UMichEBooks.Outlets.CPP.StackFrames = WebOutlet.extend({
+Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1876,7 +1876,7 @@ UMichEBooks.Outlets.CPP.StackFrames = WebOutlet.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.Heap = WebOutlet.extend({
+Lobster.Outlets.CPP.Heap = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1930,7 +1930,7 @@ UMichEBooks.Outlets.CPP.Heap = WebOutlet.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
+Lobster.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -2009,7 +2009,7 @@ UMichEBooks.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
+Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
     _name: "WebOutlet",
     init: function(element, sim, simOutlet){
         this.initParent(element, true);
@@ -2089,7 +2089,7 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
+Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     _name: "SimulationStack",
     init: function(element, sim, simOutlet)
     {
@@ -2179,7 +2179,7 @@ UMichEBooks.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
+Lobster.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
     _name: "SourceSimulation",
     init: function(element, sim, simOutlet)
     {

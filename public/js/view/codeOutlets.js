@@ -2,10 +2,10 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.Outlets.CPP = UMichEBooks.Outlets.CPP || {};
+var Lobster = Lobster || {};
+Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
-UMichEBooks.Outlets.CPP.Code = WebOutlet.extend({
+Lobster.Outlets.CPP.Code = WebOutlet.extend({
     _name: "Outlets.CPP.Code",
     init: function (element, code, simOutlet, parent) {
         this.initParent(element);
@@ -186,7 +186,7 @@ UMichEBooks.Outlets.CPP.Code = WebOutlet.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Function = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Function",
 
     init: function(element, codeOrInst, simOutlet, parent){
@@ -307,7 +307,7 @@ UMichEBooks.Outlets.CPP.Function = Outlets.CPP.Code.extend({
 var curlyOpen = "<span class=\"curly open\">{</span>";
 var curlyClose = "<span class=\"curly close\">}</span>";
 
-UMichEBooks.Outlets.CPP.Block = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Block = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Block",
 
 //    init: function(element, code, simOutlet){
@@ -406,7 +406,7 @@ UMichEBooks.Outlets.CPP.Block = Outlets.CPP.Code.extend({
     }, true)
 });
 
-UMichEBooks.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Statement",
 
     init: function(element, code, simOutlet){
@@ -422,7 +422,7 @@ UMichEBooks.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.DeclarationStatement = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.DeclarationStatement = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.DeclarationStatement",
 
     createElement: function(){
@@ -434,7 +434,7 @@ UMichEBooks.Outlets.CPP.DeclarationStatement = Outlets.CPP.Statement.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.ExpressionStatement = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.ExpressionStatement = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.ExpressionStatement",
 
     createElement: function(){
@@ -445,7 +445,7 @@ UMichEBooks.Outlets.CPP.ExpressionStatement = Outlets.CPP.Statement.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Selection = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.Selection = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.Selection",
 
     init: function(element, code, simOutlet){
@@ -478,7 +478,7 @@ UMichEBooks.Outlets.CPP.Selection = Outlets.CPP.Statement.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.While = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.While",
 
     init: function(element, code, simOutlet){
@@ -510,7 +510,7 @@ UMichEBooks.Outlets.CPP.While = Outlets.CPP.Statement.extend({
     })
 });
 
-UMichEBooks.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.DoWhile",
 
     init: function(element, code, simOutlet){
@@ -546,7 +546,7 @@ UMichEBooks.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
 
 
 
-UMichEBooks.Outlets.CPP.For = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.For",
 
     init: function(element, code, simOutlet){
@@ -591,7 +591,7 @@ UMichEBooks.Outlets.CPP.For = Outlets.CPP.Statement.extend({
     })
 });
 
-UMichEBooks.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.Return",
 
     init: function(element, code, simOutlet){
@@ -629,7 +629,7 @@ UMichEBooks.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
     createElement: function(){}
 });
 
-UMichEBooks.Outlets.CPP.Break = Outlets.CPP.Statement.extend({
+Lobster.Outlets.CPP.Break = Outlets.CPP.Statement.extend({
     _name: "Outlets.CPP.Break",
 
     init: function(element, code, simOutlet){
@@ -643,7 +643,7 @@ UMichEBooks.Outlets.CPP.Break = Outlets.CPP.Statement.extend({
     createElement: function(){}
 });
 
-UMichEBooks.Outlets.CPP.Declaration = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Declaration = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Declaration",
 
 //    init: function(element, code, simOutlet){
@@ -705,7 +705,7 @@ UMichEBooks.Outlets.CPP.Declaration = Outlets.CPP.Code.extend({
     })
 });
 
-UMichEBooks.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Parameter",
 
     init: function(element, code, simOutlet, parent){
@@ -773,7 +773,7 @@ UMichEBooks.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Initializer",
 
     init: function (element, code, simOutlet) {
@@ -789,7 +789,7 @@ UMichEBooks.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
     })
 });
 
-UMichEBooks.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.InitializerList",
 
     init: function (element, code, simOutlet) {
@@ -815,7 +815,7 @@ UMichEBooks.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.DefaultInitializer",
 
     init: function (element, code, simOutlet) {
@@ -849,7 +849,7 @@ UMichEBooks.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
     })
 });
 
-UMichEBooks.Outlets.CPP.DirectInitializer = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.DirectInitializer = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.DirectInitializer",
 
     init: function (element, code, simOutlet) {
@@ -907,7 +907,7 @@ UMichEBooks.Outlets.CPP.DirectInitializer = Outlets.CPP.Code.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.CopyInitializer",
 
     init: function (element, code, simOutlet, options) {
@@ -959,18 +959,18 @@ UMichEBooks.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.ParameterInitializer = Outlets.CPP.CopyInitializer.extend({
+Lobster.Outlets.CPP.ParameterInitializer = Outlets.CPP.CopyInitializer.extend({
     _name: "Outlets.CPP.ParameterInitializer"
 
 });
 
-UMichEBooks.Outlets.CPP.ReturnInitializer = Outlets.CPP.CopyInitializer.extend({
+Lobster.Outlets.CPP.ReturnInitializer = Outlets.CPP.CopyInitializer.extend({
     _name: "Outlets.CPP.ReturnInitializer"
 });
 
 
 
-UMichEBooks.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Expression",
 
     init: function(element, code, simOutlet){
@@ -1137,7 +1137,7 @@ UMichEBooks.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Assignment",
     htmlOperator : htmlDecoratedOperator("=", "code-assignmentOp"),
 
@@ -1197,7 +1197,7 @@ UMichEBooks.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
     }, true)
 });
 
-UMichEBooks.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Ternary",
     htmlOperator1 : htmlDecoratedOperator("?", "code-ternaryOp"),
     htmlOperator2 : htmlDecoratedOperator(":", "code-ternaryOp"),
@@ -1224,7 +1224,7 @@ UMichEBooks.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Comma = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Comma = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Comma",
     htmlOperator: htmlDecoratedOperator(",", "code-binaryOp"),
 
@@ -1244,7 +1244,7 @@ UMichEBooks.Outlets.CPP.Comma = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.CompoundAssignment = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.CompoundAssignment = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.CompoundAssignment",
 
     init: function(element, code, simOutlet){
@@ -1265,7 +1265,7 @@ UMichEBooks.Outlets.CPP.CompoundAssignment = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
+Lobster.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.FunctionCall",
 
     init: function (code, simOutlet, returnOutlet) {
@@ -1326,7 +1326,7 @@ UMichEBooks.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
     }, true)
 });
 
-UMichEBooks.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.FunctionCallExpr",
 
     init: function (element, code, simOutlet) {
@@ -1391,7 +1391,7 @@ UMichEBooks.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
     }, true)
 });
 
-UMichEBooks.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.BinaryOp",
 
     init: function(element, code, simOutlet){
@@ -1454,7 +1454,7 @@ UMichEBooks.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.UnaryOp = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.UnaryOp = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.UnaryOp",
 
     init: function(element, code, simOutlet){
@@ -1492,7 +1492,7 @@ UMichEBooks.Outlets.CPP.UnaryOp = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.NewExpression = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.NewExpression = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.NewExpression",
 
     init: function(element, code, simOutlet){
@@ -1525,7 +1525,7 @@ UMichEBooks.Outlets.CPP.NewExpression = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Delete = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Delete = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Delete",
 
     init: function(element, code, simOutlet){
@@ -1546,7 +1546,7 @@ UMichEBooks.Outlets.CPP.Delete = Outlets.CPP.Expression.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.DeleteArray = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.DeleteArray = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.DeleteArray",
 
     init: function(element, code, simOutlet){
@@ -1565,7 +1565,7 @@ UMichEBooks.Outlets.CPP.DeleteArray = Outlets.CPP.Expression.extend({
 
 
 
-UMichEBooks.Outlets.CPP.ConstructExpression = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.ConstructExpression = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.ConstructExpression",
 
     init: function(element, code, simOutlet){
@@ -1584,7 +1584,7 @@ UMichEBooks.Outlets.CPP.ConstructExpression = Outlets.CPP.Expression.extend({
 
 
 
-UMichEBooks.Outlets.CPP.LogicalNot = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.LogicalNot = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.LogicalNot",
 
     init: function(element, code, simOutlet){
@@ -1598,7 +1598,7 @@ UMichEBooks.Outlets.CPP.LogicalNot = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Prefix = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Prefix = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Prefix",
 
     init: function(element, code, simOutlet){
@@ -1612,7 +1612,7 @@ UMichEBooks.Outlets.CPP.Prefix = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Dereference = Outlets.CPP.UnaryOp.extend({
+Lobster.Outlets.CPP.Dereference = Outlets.CPP.UnaryOp.extend({
     _name: "Outlets.CPP.Dereference",
     textOp : "*",
     init: function(element, code, simOutlet){
@@ -1623,7 +1623,7 @@ UMichEBooks.Outlets.CPP.Dereference = Outlets.CPP.UnaryOp.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Increment",
 
     init: function(element, code, simOutlet){
@@ -1636,7 +1636,7 @@ UMichEBooks.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
         this.exprElem.append(htmlDecoratedOperator("++", "code-postfixOp"));
     }
 });
-UMichEBooks.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Decrement",
 
     init: function(element, code, simOutlet){
@@ -1651,7 +1651,7 @@ UMichEBooks.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Subscript",
 
     init: function(element, code, simOutlet){
@@ -1683,7 +1683,7 @@ UMichEBooks.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Dot",
 
     init: function(element, code, simOutlet){
@@ -1704,7 +1704,7 @@ UMichEBooks.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Arrow",
 
     init: function(element, code, simOutlet){
@@ -1725,7 +1725,7 @@ UMichEBooks.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.AddressOf = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.AddressOf = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.AddressOf",
 
     init: function(element, code, simOutlet){
@@ -1739,7 +1739,7 @@ UMichEBooks.Outlets.CPP.AddressOf = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.UnaryPlus = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.UnaryPlus = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.UnaryPlus",
 
     init: function(element, code, simOutlet){
@@ -1753,7 +1753,7 @@ UMichEBooks.Outlets.CPP.UnaryPlus = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.UnaryMinus = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.UnaryMinus = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.UnaryMinus",
 
     init: function(element, code, simOutlet){
@@ -1767,7 +1767,7 @@ UMichEBooks.Outlets.CPP.UnaryMinus = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Parentheses",
 
     init: function(element, code, simOutlet){
@@ -1781,7 +1781,7 @@ UMichEBooks.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Identifier = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Identifier = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Identifier",
 
     init: function(element, code, simOutlet){
@@ -1801,7 +1801,7 @@ UMichEBooks.Outlets.CPP.Identifier = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.Literal = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.Literal = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.Literal",
 
     init: function(element, code, simOutlet){
@@ -1811,7 +1811,7 @@ UMichEBooks.Outlets.CPP.Literal = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.ThisExpression",
 
     init: function(element, code, simOutlet){
@@ -1821,7 +1821,7 @@ UMichEBooks.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.ImplicitConversion = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.ImplicitConversion = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.ImplicitConversion",
 
     init: function(element, code, simOutlet){
@@ -1834,7 +1834,7 @@ UMichEBooks.Outlets.CPP.ImplicitConversion = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.LValueToRValue = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.LValueToRValue = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.LValueToRValue",
 
     init: function(element, code, simOutlet){
@@ -1847,7 +1847,7 @@ UMichEBooks.Outlets.CPP.LValueToRValue = Outlets.CPP.Expression.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.QualificationConversion = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.QualificationConversion = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.QualificationConversion",
 
     init: function(element, code, simOutlet){
@@ -1860,7 +1860,7 @@ UMichEBooks.Outlets.CPP.QualificationConversion = Outlets.CPP.Expression.extend(
     }
 });
 
-UMichEBooks.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
+Lobster.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
     _name: "Outlets.CPP.ArrayToPointer",
 
     init: function(element, code, simOutlet){

@@ -1,6 +1,6 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
-UMichEBooks.Expressions = {
+Lobster.Expressions = {
 	
 	createExpr : function(expr, context){
         if (isA(expr, EntityExpression)){
@@ -21,7 +21,7 @@ UMichEBooks.Expressions = {
 	}
 	
 };
-var Expressions = UMichEBooks.Expressions;
+var Expressions = Lobster.Expressions;
 
 var VALUE_ID = 0;
 
@@ -345,7 +345,7 @@ Expressions.Null = Expression.extend({
     }
 });
 
-var Conversions = UMichEBooks.Conversions = {};
+var Conversions = Lobster.Conversions = {};
 
 var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
@@ -3202,7 +3202,7 @@ Expressions.Cast = Expressions.Unsupported.extend({
 
 
 
-var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expression.extend({
+var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.extend({
     _name: "NewExpression",
     valueCategory: "prvalue",
     initIndex: "allocate",
@@ -3505,7 +3505,7 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
 });
 
 // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
-var ConstructExpression = UMichEBooks.Expressions.Construct = Expressions.Expression.extend({
+var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression.extend({
     _name: "ConstructExpression",
     valueCategory: "prvalue",
     initIndex: "init",

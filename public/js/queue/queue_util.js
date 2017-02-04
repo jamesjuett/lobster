@@ -1,4 +1,4 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
 // POLYFILLS ------------------------
 // Extra methods for Array
@@ -697,7 +697,7 @@ Math.seededRandom = function(seed, max, min) {
 // 	
 // }
 
-var Vector = UMichEBooks.Vector = Class.extend({
+var Vector = Lobster.Vector = Class.extend({
     init: function(x, y, z){
 
         this.x = x;

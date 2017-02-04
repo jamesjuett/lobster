@@ -1,6 +1,6 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
-UMichEBooks.Statements = {
+Lobster.Statements = {
 	
 	create : function(stmt, context){
 		var type = stmt.statement.toLowerCase();
@@ -9,7 +9,7 @@ UMichEBooks.Statements = {
 	}
 	
 };
-var Statements = UMichEBooks.Statements;
+var Statements = Lobster.Statements;
 
 var Statement = Statements.Statement = CPPCode.extend({
    _name: "Statement",

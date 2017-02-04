@@ -2,10 +2,10 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.Outlets.CPP = UMichEBooks.Outlets.CPP || {};
+var Lobster = Lobster || {};
+Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
-UMichEBooks.Outlets.CPP.CPP_ANIMATIONS = true;
+Lobster.Outlets.CPP.CPP_ANIMATIONS = true;
 
 var dmp = new diff_match_patch();
 
@@ -33,9 +33,9 @@ var diff = function(from, to){
     return changes;
 };
 
-var UserActions = UMichEBooks.CPP.UserActions = {};
+var UserActions = Lobster.CPP.UserActions = {};
 
-UMichEBooks.CPP.UserActions.Base = Class.extend({
+Lobster.CPP.UserActions.Base = Class.extend({
     _name : "UserAction",
 
     // combine takes one parameter for the next action and returns false if this action can't
@@ -48,7 +48,7 @@ UMichEBooks.CPP.UserActions.Base = Class.extend({
 });
 
 
-UMichEBooks.CPP.UserActions.ChangeCode = UserActions.Base.extend({
+Lobster.CPP.UserActions.ChangeCode = UserActions.Base.extend({
     _name : "UserActions.ChangeCode",
     init : function(type, at, text){
         this.type = type;
@@ -93,7 +93,7 @@ UMichEBooks.CPP.UserActions.ChangeCode = UserActions.Base.extend({
     }
 });
 
-UMichEBooks.CPP.UserActions.LoadCode = UserActions.Base.extend({
+Lobster.CPP.UserActions.LoadCode = UserActions.Base.extend({
     _name : "UserActions.LoadCode",
     init : function(code){
         this.code = code;
@@ -109,7 +109,7 @@ UMichEBooks.CPP.UserActions.LoadCode = UserActions.Base.extend({
     }
 });
 
-UMichEBooks.CPP.UserActions.Simulate = UserActions.Base.extend({
+Lobster.CPP.UserActions.Simulate = UserActions.Base.extend({
     _name : "UserActions.Simulate",
     init : function(code){
         this.code = code;
@@ -125,7 +125,7 @@ UMichEBooks.CPP.UserActions.Simulate = UserActions.Base.extend({
     }
 });
 
-var UserLog = UMichEBooks.CPP.UserLog = DataPath.extend({
+var UserLog = Lobster.CPP.UserLog = DataPath.extend({
     _name : "UserLog",
     init : function(){
         this.initParent();
