@@ -1,8 +1,8 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
 var _currentEditor;
 
-var Outlets = UMichEBooks.Outlets = {};
+var Outlets = Lobster.Outlets = {};
 // function createOutlets(){
 	// for (var id in ALL_ENTITIES){
 		// ALL_ENTITIES[id].createOutlets();
@@ -25,7 +25,7 @@ function createDefaultOutlets(){
 }
 
 
-//var Outlet = UMichEBooks.Outlets.Outlet = Class.extend({
+//var Outlet = Lobster.Outlets.Outlet = Class.extend({
 //    _nextId: 0,
 //
 //
@@ -132,7 +132,7 @@ function createDefaultOutlets(){
 //	}
 //});
 
-var Outlet = UMichEBooks.Outlets.Outlet = DataPath.extend({
+var Outlet = Lobster.Outlets.Outlet = DataPath.extend({
     _name: "Outlet",
     _nextId: 0,
 
@@ -144,7 +144,7 @@ var Outlet = UMichEBooks.Outlets.Outlet = DataPath.extend({
     }
 });
 
-var WebOutlet = UMichEBooks.Outlets.WebOutlet = Outlet.extend({
+var WebOutlet = Lobster.Outlets.WebOutlet = Outlet.extend({
 
     init : function(element, readOnly){
 		element = element || $("<span></span>");
@@ -296,7 +296,7 @@ var WebOutlet = UMichEBooks.Outlets.WebOutlet = Outlet.extend({
 
 
 
-var HtmlOutlet = UMichEBooks.Outlets.HtmlOutlet = WebOutlet.extend({
+var HtmlOutlet = Lobster.Outlets.HtmlOutlet = WebOutlet.extend({
 
     init: function (element, readOnly){
         assert(element instanceof jQuery);
@@ -343,7 +343,7 @@ var HtmlOutlet = UMichEBooks.Outlets.HtmlOutlet = WebOutlet.extend({
 });
 
 
-var ValueOutlet = UMichEBooks.Outlets.ValueOutlet = WebOutlet.extend({
+var ValueOutlet = Lobster.Outlets.ValueOutlet = WebOutlet.extend({
 
     init: function (element, readOnly){
         assert(element instanceof jQuery);
@@ -376,7 +376,7 @@ var ValueOutlet = UMichEBooks.Outlets.ValueOutlet = WebOutlet.extend({
     }
 });
 
-//UMichEBooks.NumberOutlet = function(element, readOnly, entity) {
+//Lobster.NumberOutlet = function(element, readOnly, entity) {
 //	assert(element instanceof jQuery);
 //	assert(entity.isA(Entity));
 //	HtmlOutlet.call(this, element, readOnly, entity);
@@ -388,7 +388,7 @@ var ValueOutlet = UMichEBooks.Outlets.ValueOutlet = WebOutlet.extend({
 //	}
 //	return this;
 //};
-//var NumberOutlet = UMichEBooks.NumberOutlet;
+//var NumberOutlet = Lobster.NumberOutlet;
 //extend(NumberOutlet, HtmlOutlet);
 //$.extend(NumberOutlet.prototype, {
 //
@@ -414,7 +414,7 @@ var ValueOutlet = UMichEBooks.Outlets.ValueOutlet = WebOutlet.extend({
 
 
 ////TODO what is this for???
-//UMichEBooks.FuncOutlet = function(element, entity) {
+//Lobster.FuncOutlet = function(element, entity) {
 //	HtmlOutlet.call(this, element, true, entity);
 //
 //	this.element.addClass("funcOutlet");
@@ -424,10 +424,10 @@ var ValueOutlet = UMichEBooks.Outlets.ValueOutlet = WebOutlet.extend({
 //
 //	return this;
 //};
-//var FuncOutlet = UMichEBooks.FuncOutlet;
+//var FuncOutlet = Lobster.FuncOutlet;
 //extend(FuncOutlet, HtmlOutlet);
 
-var CssOutlet = UMichEBooks.Outlets.CssOutlet = Outlet.extend({
+var CssOutlet = Lobster.Outlets.CssOutlet = Outlet.extend({
 
     init : function(elemen, property) {
         assert(element instanceof jQuery);
@@ -450,7 +450,7 @@ var CssOutlet = UMichEBooks.Outlets.CssOutlet = Outlet.extend({
 
 
 
-UMichEBooks.Outlets.List = WebOutlet.extend({
+Lobster.Outlets.List = WebOutlet.extend({
     init : function(element, elementTag)
     {
         this.initParent(element, true);

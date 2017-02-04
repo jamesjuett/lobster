@@ -1,10 +1,10 @@
-var UMichEBooks = UMichEBooks || {};
-var CPP = UMichEBooks.CPP = UMichEBooks.CPP || {};
+var Lobster = Lobster || {};
+var CPP = Lobster.CPP = Lobster.CPP || {};
 
 
 
 
-var SemanticProblems = UMichEBooks.SemanticProblems = Class.extend({
+var SemanticProblems = Lobster.SemanticProblems = Class.extend({
     _name: "SemanticProblems",
     init: function() {
         this.errors = [];
@@ -52,7 +52,7 @@ var SemanticProblems = UMichEBooks.SemanticProblems = Class.extend({
 
 
 
-var CPPCode = UMichEBooks.CPPCode = Class.extend({
+var CPPCode = Lobster.CPPCode = Class.extend({
     _name: "CPPCode",
     _nextId: 0,
     initIndex: "pushChildren",
@@ -230,7 +230,7 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
 
     compile: Class._ABSTRACT
 });
-var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
+var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
     _name: "CPPCodeInstance",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -364,7 +364,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 });
 
 
-//var CPPCallInstance = UMichEBooks.CPPCallInstance = CPPCodeInstance.extend({
+//var CPPCallInstance = Lobster.CPPCallInstance = CPPCodeInstance.extend({
 //    init: function (sim, model, index, parent) {
 //        this.initParent(sim, model, index, "call", parent);
 //        this.funcContext = this;
@@ -372,7 +372,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 //});
 
 
-var Scope = UMichEBooks.Scope = Class.extend({
+var Scope = Lobster.Scope = Class.extend({
     _name: "Scope",
     _nextPrefix: 0,
     HIDDEN: [],
@@ -1855,7 +1855,7 @@ var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
 
 
 
-var Memory = UMichEBooks.Memory = DataPath.extend({
+var Memory = Lobster.Memory = DataPath.extend({
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
@@ -2170,7 +2170,7 @@ var MemoryHeap = DataPath.extend({
 
 //TODO search for StackFrame, .stack, .heap, .objects
 
-var MemoryFrame = UMichEBooks.CPP.MemoryFrame = DataPath.extend({
+var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
     _name: "MemoryFrame",
     props : {
         scope: {type: FunctionBlockScope},

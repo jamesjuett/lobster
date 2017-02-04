@@ -2,10 +2,10 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.CPP = UMichEBooks.CPP || {};
+var Lobster = Lobster || {};
+Lobster.CPP = Lobster.CPP || {};
 
-var Program = UMichEBooks.CPP.Program = DataPath.extend({
+var Program = Lobster.CPP.Program = DataPath.extend({
     _name: "Program",
 
     init: function( ){
@@ -54,7 +54,7 @@ var Program = UMichEBooks.CPP.Program = DataPath.extend({
             //}));
             //return;
 
-            var parsed = UMichEBooks.cPlusPlusParser.parse(codeStr);
+            var parsed = Lobster.cPlusPlusParser.parse(codeStr);
 
             // TODO NEW keep this?
             // this.send("parsed");

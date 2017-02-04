@@ -2,12 +2,12 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.CPP = UMichEBooks.CPP || {};
+var Lobster = Lobster || {};
+Lobster.CPP = Lobster.CPP || {};
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
 
-var Simulation = UMichEBooks.CPP.Simulation = DataPath.extend({
+var Simulation = Lobster.CPP.Simulation = DataPath.extend({
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol

@@ -109,12 +109,12 @@ var tailCheck = function(filename){
 
     for(var i = 0; i < funcsToCheck.length; ++i){
         var toCheck = funcsToCheck[i];
-        toCheck = UMichEBooks.cPlusPlusParser.parse(toCheck, {startRule:"declaration"});
+        toCheck = Lobster.cPlusPlusParser.parse(toCheck, {startRule:"declaration"});
         toCheck = Declarations.create(toCheck, {parent: null});
         toCheck.compile(NamespaceScope.instance("", null, this));
         toCheck = toCheck.entities[0];
 
-        //var decl = Declaration.instance(UMichEBooks.cPlusPlusParser.parse());
+        //var decl = Declaration.instance(Lobster.cPlusPlusParser.parse());
         //decl.compile();
         var name = toCheck.name;
         var paramTypes = toCheck.type.paramTypes;

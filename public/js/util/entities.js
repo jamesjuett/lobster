@@ -1,8 +1,8 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
 //TODO: make mechanism by which we can determine which values are compatible with which entities
 
-var Entities = UMichEBooks.Entities = {
+var Entities = Lobster.Entities = {
 
 };
 
@@ -315,7 +315,7 @@ var ValueEntity = Entities.ValueEntity = Entity.extend({
  *   cleared
  * @param {Object} id
  */
-var List = UMichEBooks.Entities.List = Entity.extend({
+var List = Lobster.Entities.List = Entity.extend({
     init: function(id) {
         this.initParent(id);
         this.arr = [];
