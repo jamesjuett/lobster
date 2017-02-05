@@ -327,7 +327,10 @@ var Class = {}; // Init with empty object quiets annoying warning.
             obj._initClass = findNextInitClass(obj._class);
             obj._initClass.init.apply(obj, arguments);
 
-            assert(obj._initClass === Class || findNextInitClass(obj._initClass._parent) === Class, "Parent class chain not fully initialized for " + obj + ".");
+            if (! (obj._initClass === Class || findNextInitClass(obj._initClass._parent) === Class) ){
+                assert(false, "Parent class chain not fully initialized for " + obj + ".");
+            }
+
 
 //            // Create properties
 //            for(var prop in this.props){
