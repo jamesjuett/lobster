@@ -80,6 +80,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+        if (this.parent) { this.parent.children.push(this); }
     },
 
     compile: Class._ABSTRACT,
