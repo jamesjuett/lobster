@@ -112,7 +112,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
                     var dest = tempEnt.type.getDestructor();
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
-                        this.compileChild(call, scope, dest, []);
+                        this.i_compileChild(call, scope, dest, []);
                         this.temporariesToDestruct.push(call);
                     }
                     else{
@@ -122,7 +122,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             }
 
             this.tempDeallocator = Statements.TemporaryDeallocator.instance("", {parent: this}, this.temporaryObjects);
-            this.compileChild(this.tempDeallocator);
+            this.i_compileChild(this.tempDeallocator);
         }
     },
 
@@ -3092,7 +3092,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         });
         this.operand = this.operand = Expressions.createExpr(this.code.operand, {parent:this, paramTypes: argTypes});
 
-        this.compileChild(this.operand, scope);
+        this.i_compileChild(this.operand, scope);
 
         if (this.semanticProblems.hasErrors()){
             return this.semanticProblems;
@@ -3241,11 +3241,11 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         var initCode = this.code.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
-            this.compileChild(this.initializer, scope, entity, initCode.args);
+            this.i_compileChild(this.initializer, scope, entity, initCode.args);
         }
         else if (initCode.args.length == 0){
             this.initializer = DefaultInitializer.instance(initCode, {parent: this});
-            this.compileChild(this.initializer, scope, entity);
+            this.i_compileChild(this.initializer, scope, entity);
         }
         else{
             this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.heapType));
@@ -3357,7 +3357,7 @@ var Delete = Expressions.Delete = Expression.extend({
                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
 
                 this.funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.compileChild(this.funcCall, this.compileScope, dest, []);
+                this.i_compileChild(this.funcCall, this.compileScope, dest, []);
                 this.type = this.funcCall.type;
             }
             else{
@@ -3532,7 +3532,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         if (isA(this.type, Types.Class) || this.code.args.length == 1){
             this.initializer = DirectInitializer.instance(this.code, {parent: this});
-            this.compileChild(this.initializer, scope, this.entity, this.code.args);
+            this.i_compileChild(this.initializer, scope, this.entity, this.code.args);
         }
         else{
             this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.type));
