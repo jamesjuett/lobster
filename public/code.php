@@ -42,6 +42,7 @@
     <script src = "/outlet.js"></script>
     <script src = "/codeDisplay.js"></script>
     <script src = "/internals.js"></script>
+    <script src = "/annotations.js"></script>
     <script src = "/error.js"></script>
     <script src = "/types.js"></script>
     <script src = "/expressions.js"></script>

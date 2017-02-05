@@ -17,10 +17,10 @@ var SemanticProblems = Lobster.SemanticProblems = Class.extend({
     },
 
     push : function(elem){
-        if (elem.cssClass === "error"){
+        if (elem._cssClass === "error"){
             this.errors.push(elem);
         }
-        else if (elem.cssClass === "warning"){
+        else if (elem._cssClass === "warning"){
             this.warnings.push(elem);
         }
         else{
