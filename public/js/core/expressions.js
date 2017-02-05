@@ -277,29 +277,33 @@ var Expression = Expressions.Expression = CPPCode.extend({
         }
     },
 
-    // I feel like this is super duper fragile, please limit use :)
-    modifyContext : function(context){
-        // Don't do anything special for first time
-        if (!this.context.parent){
-            CPPCode.modifyContext.apply(this, arguments);
-            return;
-        }
-
-        var oldFull = this.findFullExpression();
-        CPPCode.modifyContext.apply(this, arguments);
-
-        // If this construct's containing full expression has changed, we need to reassign
-        // that new full expression as the owner of any temporaries this construct would
-        // have sent to its old full expression. We don't know which of the temporaries
-        // from the old full expression those were (they could have come from elsewhere),
-        // so we just update them all.
-        var newFull = this.findFullExpression();
-        if (oldFull !== newFull && oldFull.temporaryObjects){
-            for(var id in oldFull.temporaryObjects){
-                oldFull.temporaryObjects[id].updateOwner();
-            }
-        }
-    },
+    // TODO NEW It appears this was once used, but as far as I can tell, it does
+    // nothing because it is only called once from the CPPCode constructor and
+    // on the first call, it just delegates the work to the parent class version.
+    // I've commented it out for now and will remove it later after regression
+    // testing is more mature.
+    // setContext : function(context){
+    //     // Don't do anything special for first time
+    //     if (!this.context.parent){
+    //         CPPCode.setContext.apply(this, arguments);
+    //         return;
+    //     }
+    //
+    //     var oldFull = this.findFullExpression();
+    //     CPPCode.setContext.apply(this, arguments);
+    //
+    //     // If this construct's containing full expression has changed, we need to reassign
+    //     // that new full expression as the owner of any temporaries this construct would
+    //     // have sent to its old full expression. We don't know which of the temporaries
+    //     // from the old full expression those were (they could have come from elsewhere),
+    //     // so we just update them all.
+    //     var newFull = this.findFullExpression();
+    //     if (oldFull !== newFull && oldFull.temporaryObjects){
+    //         for(var id in oldFull.temporaryObjects){
+    //             oldFull.temporaryObjects[id].updateOwner();
+    //         }
+    //     }
+    // },
     isWellTyped : function(){
         return this.type && !isA(this.type, Types.Unknown);
     },

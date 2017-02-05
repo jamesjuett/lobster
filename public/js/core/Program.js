@@ -129,6 +129,9 @@ var Program = Lobster.CPP.Program = DataPath.extend({
     },
 
 	compile : function(code){
+
+        // Program.currentProgram = this;
+
         var self = this;
         //console.log("compiling");
 		this.semanticProblems.clear();

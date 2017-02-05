@@ -1,13 +1,12 @@
 var Lobster = Lobster || {};
 
-Lobster.Declarations = {
+var Declarations = Lobster.Declarations = {
 
     create : function(decl, context){
         return this[decl.declaration.toLowerCase()].instance(decl, context);
     }
 
 };
-var Declarations = Lobster.Declarations;
 
 var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
     compile : function(scope){
@@ -349,32 +348,6 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
     },
 
     stepForward : function(sim, inst){
-        //var obj = this.entity.lookup(sim, inst);
-        //if (isA(this.type, Types.Reference)) {
-        //    obj.allocated(sim.memory, inst.argument.evalValue.address);
-        //}
-        //else if (isA(this.type, Types.Class)) {
-        //    if (inst.constructorCalled){
-        //        this.done(sim, inst);
-        //        return;
-        //    }
-        //    var args = [inst.argument];
-        //
-        //    // Push constructor instance with arguments and obj as receiver
-        //    inst.func = this.type.copyConstructor.createAndPushInstance(sim, inst, args, obj);
-        //
-        //    // Notify outlets that a function was called
-        //    inst.send("called", inst.func);
-        //    inst.constructorCalled = true;
-        //    return;
-        //}
-        //else{
-        //    obj.writeValue(inst.argument.evalValue);
-        //}
-
-
-        //inst.send("initialized", obj);
-
         this.done(sim, inst);
     }
 });
