@@ -39,15 +39,15 @@ var Annotation = Class.extend({
 
 var SimpleAnnotation = Annotation.extend({
     _name: "SimpleAnnotation",
-    init : function(src, cssClass, sentence){
+    init : function(src, cssClass, message){
         cssClass = cssClass || "";
         this.initParent(src);
         this._cssClass = cssClass;
-        this.i_sentence = _.escape(sentence);
+        this.i_message = _.escape(message);
     },
 
-    instanceString : function(){
-        return "<span>"+ "Test Line " + this.i_trackedCode.line + ": " + this.i_sentence + "</span>";
+    getMessage : function(){
+        return "<span>"+ "Line " + this.i_trackedCode.line + ": " + this.i_message + "</span>";
     },
 
     onAdd : function(outlet){
@@ -68,7 +68,7 @@ var ErrorAnnotation = SimpleAnnotation.extend({
 
     onAdd : function(outlet){
         SimpleAnnotation.onAdd.apply(this, arguments);
-        this.i_gutterMarker = outlet.addGutterError(this.i_trackedCode.line, this.toString());
+        this.i_gutterMarker = outlet.addGutterError(this.i_trackedCode.line, this.getMessage());
     },
 
     onRemove : function(outlet){
@@ -87,15 +87,11 @@ var WidgetAnnotation = Annotation.extend({
         this._cssClass = cssClass;
     },
 
-    instanceString : function(){
-        return "<span>"+ "Line " + this.i_trackedCode.line + ": " + this.i_sentence + "</span>";
-    },
-
     onAdd : function(outlet){
 
         this.i_mark = outlet.addMark(this.i_trackedCode, "widget " + this._cssClass);
 
-        var elem = this.elem = $('<span><span class="widgetHolder"><span class="widgetLink"></span></span></span>');
+        var elem = this.i_elem = $('<span><span class="widgetHolder"><span class="widgetLink"></span></span></span>');
         var self = this;
         elem.find(".widgetLink").click(function(e){
             $(this).addClass("active");
@@ -110,7 +106,7 @@ var WidgetAnnotation = Annotation.extend({
 
     onRemove : function(){
         this.i_mark.clear();
-        this.elem && this.elem.remove();
+        this.i_elem && this.i_elem.remove();
     },
 
     onClick : Class._ABSTRACT
@@ -121,19 +117,19 @@ var RecursiveCallAnnotation = WidgetAnnotation.extend({
     _name: "RecursiveCallAnnotation",
     init : function(src, isTail, reason, others){
         this.initParent(src, isTail ? "tailRecursive" : "recursive");
-        this.isTail = isTail;
-        this.reason = reason;
-        this.others = others || [];
+        this.i_isTail = isTail;
+        this.i_reason = reason;
+        this.i_others = others || [];
     },
 
     onClick : function(outlet){
         var otherMarks = [];
-        for(var i = 0; i < this.others.length; ++i){
-            otherMarks.push(outlet.addMark(this.others[i].code, "current"));
+        for(var i = 0; i < this.i_others.length; ++i){
+            otherMarks.push(outlet.addMark(this.i_others[i].code, "current"));
         }
-        var intro = this.isTail ? "This function call is tail recursive!" : "This function call is recursive, but NOT tail recursive!";
+        var intro = this.i_isTail ? "This function call is tail recursive!" : "This function call is recursive, but NOT tail recursive!";
         outlet.send("annotationMessage", {
-            text: this.reason ? intro + "\n\n" + this.reason : intro,
+            text: this.i_reason ? intro + "\n\n" + this.i_reason : intro,
             after: function() {
                 for (var i = 0; i < otherMarks.length; ++i) {
                     otherMarks[i].clear();
@@ -248,6 +244,20 @@ var DeclarationAnnotation = WidgetAnnotation.extend({
             str += "<span class='code'>" + ent.name + "</span> is " + ent.type.englishString(false, true);
         }
         outlet.send("annotationMessage", {text : str});
+    }
+
+});
+
+
+
+var ExpressionAnnotation = WidgetAnnotation.extend({
+    _name: "ExpressionAnnotation",
+    init : function(src){
+        this.initParent(src, "");
+    },
+
+    onClick : function(outlet){
+        outlet.send("annotationMessage", {text : this.i_sourceConstruct.explain().message});
     }
 
 });
