@@ -66,6 +66,7 @@ var TYPE_SPECIFIERS_GROUP_FN = function(elem){
 
 
 var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
+    _name: "TypeSpecifier",
 
 //    init : function(code, context){
 //        this.initParent(code, context);
