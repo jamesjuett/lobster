@@ -60,24 +60,18 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     // {parent: theParent}
     init: function (code, context) {
         this.code = code;
-        //if (!context){
-        //    console.log("hi");
-        //}
+
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
         this.semanticProblems = SemanticProblems.instance();
         this.sub = {};
-//        this.errorColor = randomColor(this.code.start * 100 + this.code.text.length);
-//        this.color = randomColor(this.code.start * 100 + this.code.text.length);
 
-        this.context = {};
-        this.modifyContext(context);
+        this.i_setContext(context);
     },
 
-    // I feel like this is super duper fragile, please limit use :)
-    modifyContext : function(context){
+    i_setContext : function(context){
 
-        mixin(this.context, context, true);
+        this.context = context;
 
         // Find function context if none set
         if (!this.context.func && this.context.parent){
@@ -85,6 +79,59 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+    },
+
+    compile: Class._ABSTRACT,
+
+    tryCompile : function(){
+        try{
+            return this.compile.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    isTailChild : function(child){
+        return {isTail: false};
     },
 
     done : function(sim, inst){
@@ -165,60 +212,8 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         return false;
     },
 
-    stepForward : function(){
+    stepForward : function(sim, inst){
 
-    },
-
-    isTailChild : function(child){
-        return {isTail: false};
-    },
-
-
-    tryCompile : function(){
-        try{
-            return this.compile.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-    tryCompileDeclaration : function(){
-        try{
-            return this.compileDeclaration.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-
-    tryCompileDefinition : function(){
-        try{
-            return this.compileDefinition.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
     },
 
     explain : function(sim, inst){
@@ -226,10 +221,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     },
     describe : function(sim, inst){
         return {message: "[No description available.]", ignore: false};
-    },
-
-    compile: Class._ABSTRACT
+    }
 });
+
+
 var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
     _name: "CPPCodeInstance",
     //silent: true,
