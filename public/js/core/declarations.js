@@ -8,12 +8,12 @@ var Declarations = Lobster.Declarations = {
 
 };
 
+// A POD type
 var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
     compile : function(scope){
         var semanticProblems = this.semanticProblems;
 
         this.numSpecs = 0;
-        var storageSpecs = this.code;
         for(var i = 0; i < this.code.length; ++i){
             if (this[this.code[i]]){
                 semanticProblems.push(CPPError.decl.storage.once(this, this.code[i]));
@@ -44,7 +44,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
     instType: "stmt",
     initIndex: 0,
     init: function(code, context){
-        code.specs = code.specs || {typeSpecs:[], storageSpecs:[]};
+        code.specs = code.specs || {typeSpecs:[], storageSpecs:[]}; // TODO NEW This should be taken care of in the grammar?
         this.initParent(code, context);
         this.declarators = [];
         this.initializers = [];
@@ -58,21 +58,21 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
         //this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
         return this.semanticProblems;
     },
+
     compileDeclaration : function(scope) {
         var code = this.code;
         var semanticProblems = this.semanticProblems;
 
-        // Compile the type specifier
-//        alert(JSON.stringify(code.specs));
         this.typeSpec = TypeSpecifier.instance(code.specs.typeSpecs, {parent: this});
-        semanticProblems.pushAll(this.typeSpec.compile(scope));
+        this.i_compileChild(this.typeSpec, scope);
 
         if (semanticProblems.errors.length > 0) {
             return semanticProblems;
         }
 
         this.storageSpec = StorageSpecifier.instance(code.specs.storageSpecs, {parent:this});
-        semanticProblems.pushAll(this.storageSpec.compile(scope));
+        this.i_compileChild(this.storageSpec, scope);
+
         // TODO, if storage is specified, declarators cannot be empty (classes and such)
         if (semanticProblems.errors.length > 0) {
             return semanticProblems;
@@ -86,14 +86,13 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
             semanticProblems.push(CPPError.decl.storage.typedef(this, this.storageSpec.code))
         }
 
-        this.determineStorage(scope);
-
+        this.i_determineStorage(scope);
 
 
         // Compile each declarator with respect to the type specifier
         for (var i = 0; i < code.declarators.length; ++i) {
             var decl = Declarator.instance(code.declarators[i], {parent: this}, this.typeSpec.type);
-            semanticProblems.pushAll(decl.compile(scope));
+            this.i_compileChild(decl, scope);
 
             // If there are errors in the declarator, don't create an entity or anything.
             if (decl.semanticProblems.hasErrors()){
@@ -137,15 +136,15 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
             if (initCode){
                 if (initCode.initializerList){
                     init = InitializerList.instance(initCode, {parent: this, entity:ent});
-                    this.compileChild(init, scope);
+                    this.i_compileChild(init, scope);
                 }
                 else if (initCode.initializer === "direct"){
                     init = DirectInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, initCode.args));
+                    this.i_compileChild(init, scope, ent, initCode.args);
                 }
                 else if (initCode.initializer === "copy"){
                     init = CopyInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, initCode.args));
+                    this.i_compileChild(init, scope, ent, initCode.args);
                 }
                 else{
                     assert(false, "Corrupt initializer :(");
@@ -154,7 +153,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
             else{
                 if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
                     init = DefaultInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, []));
+                    this.i_compileChild(init, scope, ent, []);
                 }
             }
             this.initializers.push(init);
@@ -166,7 +165,39 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
         return this.semanticProblems;
     },
 
-    determineStorage : function(scope){
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    i_determineStorage : function(scope){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
         if(!this.storageSpec.static && !this.storageSpec.extern && isA(scope, BlockScope)){
@@ -249,6 +280,10 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
         }
     },
 
+    isTailChild : function(child){
+        return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
+    },
+
     upNext : function(sim, inst){
         if (inst.index < this.initializers.length/* && (this.storageDuration !== "static" || !this.entities[inst.index].lookup(sim, inst).isInitialized())*/){
             var init = this.initializers[inst.index];
@@ -273,10 +308,6 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
     stepForward : function(sim, inst){
         // Don't have to do anything unless there's an initializer, right?
 
-    },
-
-    isTailChild : function(child){
-        return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
     }
 });
 
@@ -736,7 +767,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
             }
 
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this, receiver: this.entity});
-            this.compileChild(this.funcCall, scope, this.myConstructor, args);
+            this.i_compileChild(this.funcCall, scope, this.myConstructor, args);
             this.args = this.funcCall.args;
         }
         else if (isA(type, Types.Array)){
@@ -747,7 +778,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DefaultInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    if (!this.compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i))){
+                    if (!this.i_compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i))){
                         this.semanticProblems.push(CPPError.decl.init.array_default_init(this));
                         break;
                     }
@@ -879,7 +910,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DirectInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    if (!this.compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i),
+                    if (!this.i_compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i),
                             [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})])){
                         this.semanticProblems.push(CPPError.decl.init.array_direct_init(this));
                         break;
@@ -932,7 +963,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             }
 
             this.funcCall = FunctionCall.instance(this.code, {parent: this, receiver: this.entity});
-            this.compileChild(this.funcCall, scope, this.myConstructor, args);
+            this.i_compileChild(this.funcCall, scope, this.myConstructor, args);
             this.args = this.funcCall.args;
         }
 
@@ -1299,7 +1330,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{
@@ -2040,7 +2071,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         return this;
     },
 
-    determineStorage : function(scope){
+    i_determineStorage : function(scope){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
         if(this.storageSpec.static){
@@ -2388,7 +2419,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{
@@ -2401,7 +2432,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{
