@@ -109,7 +109,7 @@ Statements.Return = Statement.extend({
         this.hasExpression = !!this.code.expr;
         if (this.code.expr){
             this.sub.returnInit = ReturnInitializer.instance(this.code, {parent: this});
-            this.compileChild(this.sub.returnInit, scope, ReturnEntity.instance(returnType), [this.code.expr]);
+            this.i_compileChild(this.sub.returnInit, scope, ReturnEntity.instance(returnType), [this.code.expr]);
         }
 
         // A return statement with no expression is only allowed in void functions.
@@ -183,7 +183,7 @@ Statements.Block = Statements.Compound = Statement.extend({
         this.statements = [];
         for(var i = 0; i < this.length; ++i){
             var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this});
-            this.compileChild(stmt, this.scope);
+            this.i_compileChild(stmt, this.scope);
         }
 
         return this.semanticProblems;

@@ -181,7 +181,12 @@
     <script>
         var ID_TOKEN = "";
 
+        var firstTime = true;
         var handleWhoAmI = function(data){
+            if (!firstTime) {
+                return;
+            }
+            firstTime = false;
             data.lab2group = "2"; // hack to make everyone have Maize
             if (data.lab2group === "1"){
 //                $(".labsterTitle").append(" <span style='color:blue'>BLUE</span>");

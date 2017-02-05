@@ -64,6 +64,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
         this.semanticProblems = SemanticProblems.instance();
+        this.children = [];
         this.sub = {};
 
         this.i_setContext(context);
@@ -79,6 +80,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+        if (this.parent) { this.parent.children.push(this); }
     },
 
     compile: Class._ABSTRACT,
@@ -98,36 +100,11 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
         return this.semanticProblems;
     },
-    tryCompileDeclaration : function(){
-        try{
-            return this.compileDeclaration.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
 
-    tryCompileDefinition : function(){
-        try{
-            return this.compileDefinition.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
+    i_compileChild : function(child){
+        var childProbs = child.compile.apply(child, Array.prototype.slice.call(arguments, 1));
+        this.semanticProblems.pushAll(childProbs);
+        return !childProbs.hasErrors();
     },
 
     isTailChild : function(child){
@@ -146,12 +123,6 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         var inst = this.createInstance.apply(this, arguments);
         sim.push(inst);
         return inst;
-    },
-
-    compileChild : function(child){
-        var childProbs = child.compile.apply(child, Array.prototype.slice.call(arguments, 1));
-        this.semanticProblems.pushAll(childProbs);
-        return !childProbs.hasErrors();
     },
 
     createAndCompileChildExpr : function(childCode, scope, convertTo){
