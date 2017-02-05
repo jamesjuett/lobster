@@ -10,6 +10,7 @@ var Declarations = Lobster.Declarations = {
 
 // A POD type
 var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
+    _name: "StorageSpecifier",
     compile : function(scope){
         var semanticProblems = this.semanticProblems;
 
@@ -320,29 +321,14 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
         this.initParent(code, context);
     },
 
-    fakeCompile : function(scope, name, type){
-        this.name = name;
-        this.type = type;
-
-        if (isA(this.type, Types.Reference)){
-            this.entity = ReferenceEntity.instance(this);
-        }
-        else{
-            this.entity = AutoEntity.instance(this);
-        }
-        scope.addEntity(this.entity);
-
-        return this.semanticProblems;
-    },
-
     compile : function(scope){
         // Compile the type specifier
         var typeSpec = this.typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
-        this.semanticProblems.pushAll(typeSpec.compile(scope));
+        this.i_compileChild(typeSpec, scope);
 
         // Compile the declarator
         var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this}, typeSpec.type);
-        this.semanticProblems.pushAll(decl.compile(scope));
+        this.i_compileChild(decl, scope);
 
         this.name = decl.name;
         this.type = decl.type;
@@ -366,19 +352,8 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
         return this.semanticProblems;
     },
 
-    createInstance : function(sim, inst, argument){
-        assert(false, "Do I ever use this?");
-        var inst = CPPCodeInstance.instance(sim, this, "decl", "stmt", inst);
-        inst.argument = argument;
-        return inst;
-    },
-
-    upNext : function(sim, inst){
-        assert(false, "Do I ever use this?");
-        inst.argument.createAndPushInstance(sim, inst);
-    },
-
     stepForward : function(sim, inst){
+        assert(false, "Do I ever use this?");
         this.done(sim, inst);
     }
 });
@@ -551,81 +526,6 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
         return semanticProblems;
     }
 });
-
-//var Initializer = Lobster.Initializer = CPPCode.extend({
-//    _name : "Initializer",
-//    init: function(code, context) {
-//        assert(context.entity || context.type, "Initializer context must specify entity to be initialized!");
-//        this.initParent(code, context);
-//    },
-//    compile : function(scope){
-//        var code = this.code;
-//        var type = this.type = this.context.type || this.context.entity.type;
-//
-//        var initExpr = this.createAndCompileChildExpr(this.code, scope)
-//        if (this.semanticProblems.errors.length > 0){ return this.semanticProblems; }
-//
-//        if (isA(type, Types.reference)) {
-//            // With a reference, no conversions are done
-//            if (!sameType(type.refTo, initExpr.type)){
-//                this.semanticProblems.push(CPPError.decl.init.referenceType(this, initExpr.type, type));
-//            }
-//            else if (initExpr.valueCategory !== "lvalue"){
-//                this.semanticProblems.push(CPPError.decl.init.referenceLvalue(this));
-//            }
-//        }
-//        else{
-//            //Attempt standard conversion to declared type
-//            initExpr = standardConversion(initExpr, type);
-//            // Type check
-//            if (isA(type, Types.Array) && isA(type.elemType, Types.Char)
-//                && isA(initExpr, Expressions.Literal) && isA(initExpr.type, Types.String)){
-//                //if we're initializing a character array from a string literal, check length
-//                if (initExpr.value.value.length + 1 > type.length){
-//                    this.semanticProblems.push(CPPError.decl.init.stringLiteralLength(this, initExpr.value.value.length + 1, type.length));
-//                }
-//
-//
-//            }
-//            else if (!sameType(type, initExpr.type)) {
-//                this.semanticProblems.push(CPPError.decl.init.convert(this, initExpr.type, type));
-//            }
-//        }
-//        this.sub.initExpr = initExpr;
-//
-//        return this.semanticProblems;
-//    },
-//
-//    stepForward : function(sim, inst){
-//        if (inst.index !== "afterChildren"){
-//            return;
-//        }
-//        var type = this.context.entity.type;
-//        var obj = this.context.entity.lookup(sim, inst);
-//        var initExprInst = inst.childInstances.initExpr;
-//
-//        if (isA(type, Types.Reference)) {
-//            obj.allocated(sim.memory, initExprInst.evalValue.address);
-//        }
-//        else {
-//            // Handle char[] initialization from string literal as special case
-//            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(initExprInst.type, Types.String)) {
-//                var charArr = initExprInst.evalValue.value.split("");
-//                for (var i = 0; i < charArr.length; ++i) {
-//                    charArr[i] = charArr[i].charCodeAt(0);
-//                }
-//                charArr.push(0);
-//                obj.writeValue(charArr);
-//            }
-//            else {
-//                obj.writeValue(initExprInst.evalValue.value);
-//            }
-//        }
-//
-//        inst.index = "done";
-//        this.done(sim, inst);
-//    }
-//});
 
 // Selects from candidates the function that is the best match
 // for the arguments in the args array. Also modifies args so
@@ -1339,6 +1239,39 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         });
 
+        return this.semanticProblems;
+    },
+
+    // TODO NEW merge with the same functions in the regular Declaration class by creating a common base or a mixin
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
         return this.semanticProblems;
     },
 
