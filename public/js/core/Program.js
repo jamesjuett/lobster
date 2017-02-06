@@ -194,8 +194,6 @@ var Program = Lobster.CPP.Program = DataPath.extend({
         }
 
 
-        analyze(simOutlet.program, simOutlet.sim, simOutlet.editor);
-
 	},
 
     i_createBuiltInGlobals : function() {
