@@ -1,18 +1,18 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
-UMichEBooks.Highlights = {
+Lobster.Highlights = {
 	
 	
 	
 };
-var Highlights = UMichEBooks.Highlights;
+var Highlights = Lobster.Highlights;
 
 var NEXT_HIGHLIGHT_ID = 0;
 
 var Highlight = Highlights.Highlight = Class.extend({
     init: function(code, cssClass, style){
         this.code = code;
-        this.cssClass = cssClass || "";
+        this._cssClass = cssClass || "";
         this.style = style || {};
 
         this.id = NEXT_HIGHLIGHT_ID++;

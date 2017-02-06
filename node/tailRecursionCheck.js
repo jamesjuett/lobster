@@ -14,6 +14,7 @@ eval(fs.readFileSync("util.js")+"");
 eval(fs.readFileSync("entities.js")+"");
 eval(fs.readFileSync("outlet.js")+"");
 eval(fs.readFileSync("internals.js")+"");
+eval(fs.readFileSync("annotations.js")+"");
 eval(fs.readFileSync("error.js")+"");
 eval(fs.readFileSync("types.js")+"");
 eval(fs.readFileSync("expressions.js")+"");
@@ -21,6 +22,7 @@ eval(fs.readFileSync("declarations.js")+"");
 eval(fs.readFileSync("statements.js")+"");
 eval(fs.readFileSync("Simulation.js")+"");
 eval(fs.readFileSync("parsing.js")+"");
+eval(fs.readFileSync("analysis.js")+"");
 
 
 var tailCheck = function(filename){
@@ -74,7 +76,7 @@ var tailCheck = function(filename){
 
     sim.addListener(actor);
 
-    sim.setCodeStr(sourceCode);
+    sim.setSourceCode(sourceCode);
 
     //var funcsToCheck = [
     //    {name:"sum", paramTypes:[Types.List_t.instance()]},
@@ -109,12 +111,12 @@ var tailCheck = function(filename){
 
     for(var i = 0; i < funcsToCheck.length; ++i){
         var toCheck = funcsToCheck[i];
-        toCheck = UMichEBooks.cPlusPlusParser.parse(toCheck, {startRule:"declaration"});
+        toCheck = Lobster.cPlusPlusParser.parse(toCheck, {startRule:"declaration"});
         toCheck = Declarations.create(toCheck, {parent: null});
         toCheck.compile(NamespaceScope.instance("", null, this));
         toCheck = toCheck.entities[0];
 
-        //var decl = Declaration.instance(UMichEBooks.cPlusPlusParser.parse());
+        //var decl = Declaration.instance(Lobster.cPlusPlusParser.parse());
         //decl.compile();
         var name = toCheck.name;
         var paramTypes = toCheck.type.paramTypes;

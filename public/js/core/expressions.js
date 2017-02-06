@@ -1,6 +1,6 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
-UMichEBooks.Expressions = {
+Lobster.Expressions = {
 	
 	createExpr : function(expr, context){
         if (isA(expr, EntityExpression)){
@@ -21,7 +21,7 @@ UMichEBooks.Expressions = {
 	}
 	
 };
-var Expressions = UMichEBooks.Expressions;
+var Expressions = Lobster.Expressions;
 
 var VALUE_ID = 0;
 
@@ -101,6 +101,11 @@ var Expression = Expressions.Expression = CPPCode.extend({
 
         this.compileTemporarires(scope);
 
+
+        // if (this.isFullExpression()){
+        //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
+        // }
+
         return this.semanticProblems;
     },
     compileTemporarires : function(scope){
@@ -112,7 +117,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
                     var dest = tempEnt.type.getDestructor();
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
-                        this.compileChild(call, scope, dest, []);
+                        this.i_compileChild(call, scope, dest, []);
                         this.temporariesToDestruct.push(call);
                     }
                     else{
@@ -122,7 +127,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             }
 
             this.tempDeallocator = Statements.TemporaryDeallocator.instance("", {parent: this}, this.temporaryObjects);
-            this.compileChild(this.tempDeallocator);
+            this.i_compileChild(this.tempDeallocator);
         }
     },
 
@@ -277,29 +282,33 @@ var Expression = Expressions.Expression = CPPCode.extend({
         }
     },
 
-    // I feel like this is super duper fragile, please limit use :)
-    modifyContext : function(context){
-        // Don't do anything special for first time
-        if (!this.context.parent){
-            CPPCode.modifyContext.apply(this, arguments);
-            return;
-        }
-
-        var oldFull = this.findFullExpression();
-        CPPCode.modifyContext.apply(this, arguments);
-
-        // If this construct's containing full expression has changed, we need to reassign
-        // that new full expression as the owner of any temporaries this construct would
-        // have sent to its old full expression. We don't know which of the temporaries
-        // from the old full expression those were (they could have come from elsewhere),
-        // so we just update them all.
-        var newFull = this.findFullExpression();
-        if (oldFull !== newFull && oldFull.temporaryObjects){
-            for(var id in oldFull.temporaryObjects){
-                oldFull.temporaryObjects[id].updateOwner();
-            }
-        }
-    },
+    // TODO NEW It appears this was once used, but as far as I can tell, it does
+    // nothing because it is only called once from the CPPCode constructor and
+    // on the first call, it just delegates the work to the parent class version.
+    // I've commented it out for now and will remove it later after regression
+    // testing is more mature.
+    // setContext : function(context){
+    //     // Don't do anything special for first time
+    //     if (!this.context.parent){
+    //         CPPCode.setContext.apply(this, arguments);
+    //         return;
+    //     }
+    //
+    //     var oldFull = this.findFullExpression();
+    //     CPPCode.setContext.apply(this, arguments);
+    //
+    //     // If this construct's containing full expression has changed, we need to reassign
+    //     // that new full expression as the owner of any temporaries this construct would
+    //     // have sent to its old full expression. We don't know which of the temporaries
+    //     // from the old full expression those were (they could have come from elsewhere),
+    //     // so we just update them all.
+    //     var newFull = this.findFullExpression();
+    //     if (oldFull !== newFull && oldFull.temporaryObjects){
+    //         for(var id in oldFull.temporaryObjects){
+    //             oldFull.temporaryObjects[id].updateOwner();
+    //         }
+    //     }
+    // },
     isWellTyped : function(){
         return this.type && !isA(this.type, Types.Unknown);
     },
@@ -345,7 +354,7 @@ Expressions.Null = Expression.extend({
     }
 });
 
-var Conversions = UMichEBooks.Conversions = {};
+var Conversions = Lobster.Conversions = {};
 
 var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
@@ -2524,8 +2533,8 @@ var Dot = Expressions.Dot = Expression.extend({
             return Expression.upNext.apply(this, arguments);
         }
         else{
-            // entity may be MemberSubobjectEntity but should never be an AutoObjectEntity
-            assert(!isA(this.entity, AutoObjectEntity));
+            // entity may be MemberSubobjectEntity but should never be an AutoEntity
+            assert(!isA(this.entity, AutoEntity));
             var operand = inst.childInstances.operand.evalValue;
             inst.memberOf = operand;
             inst.receiver = operand;
@@ -2766,7 +2775,7 @@ var FunctionCall = Expression.extend({
             scope.addCall(this);
         }
 
-        if (this.func.isMain && !this.context.mainCall){
+        if (this.func.isMain && !this.context.isMainCall){
             this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
 
         }
@@ -2774,7 +2783,7 @@ var FunctionCall = Expression.extend({
         // Is the function statically bound?
         if (this.func.isStaticallyBound()){
             this.staticFunction = this.func;
-            this.isRecursive = !this.context.mainCall && this.staticFunction === this.context.func.entity;
+            this.isRecursive = !this.context.isMainCall && this.staticFunction === this.context.func.entity;
         }
 
         this.type = this.func.type.returnType;
@@ -2817,7 +2826,7 @@ var FunctionCall = Expression.extend({
                 this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
-            if (!this.context.mainCall){
+            if (!this.context.isMainCall){
                 // Register as a function call in our function context
                 this.context.func.calls.push(this);
             }
@@ -2826,7 +2835,7 @@ var FunctionCall = Expression.extend({
         return Expression.compile.apply(this, arguments);
     },
 
-    link : function(){
+    checkLinkingProblems : function(){
         var linkingProblems = SemanticProblems.instance();
         if (!this.func.isLinked()){
             linkingProblems.push(CPPError.link.def_not_found(this, this.func));
@@ -3088,7 +3097,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         });
         this.operand = this.operand = Expressions.createExpr(this.code.operand, {parent:this, paramTypes: argTypes});
 
-        this.compileChild(this.operand, scope);
+        this.i_compileChild(this.operand, scope);
 
         if (this.semanticProblems.hasErrors()){
             return this.semanticProblems;
@@ -3202,7 +3211,7 @@ Expressions.Cast = Expressions.Unsupported.extend({
 
 
 
-var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expression.extend({
+var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.extend({
     _name: "NewExpression",
     valueCategory: "prvalue",
     initIndex: "allocate",
@@ -3237,11 +3246,11 @@ var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expressi
         var initCode = this.code.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
-            this.compileChild(this.initializer, scope, entity, initCode.args);
+            this.i_compileChild(this.initializer, scope, entity, initCode.args);
         }
         else if (initCode.args.length == 0){
             this.initializer = DefaultInitializer.instance(initCode, {parent: this});
-            this.compileChild(this.initializer, scope, entity);
+            this.i_compileChild(this.initializer, scope, entity);
         }
         else{
             this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.heapType));
@@ -3290,7 +3299,7 @@ var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expressi
             var entity = DynamicObjectEntity.instance(heapType, this);
 
             var obj = sim.memory.heap.newObject(entity);
-            sim.pendingNews.push(obj);
+            sim.i_pendingNews.push(obj);
             inst.allocatedObject = obj;
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
             //if (this.initializer){
@@ -3309,7 +3318,7 @@ var NewExpression = UMichEBooks.Expressions.NewExpression = Expressions.Expressi
             else{
                 inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
             }
-            sim.pendingNews.pop();
+            sim.i_pendingNews.pop();
             this.done(sim, inst);
         }
 
@@ -3353,7 +3362,7 @@ var Delete = Expressions.Delete = Expression.extend({
                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
 
                 this.funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.compileChild(this.funcCall, this.compileScope, dest, []);
+                this.i_compileChild(this.funcCall, this.compileScope, dest, []);
                 this.type = this.funcCall.type;
             }
             else{
@@ -3505,7 +3514,7 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
 });
 
 // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
-var ConstructExpression = UMichEBooks.Expressions.Construct = Expressions.Expression.extend({
+var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression.extend({
     _name: "ConstructExpression",
     valueCategory: "prvalue",
     initIndex: "init",
@@ -3528,7 +3537,7 @@ var ConstructExpression = UMichEBooks.Expressions.Construct = Expressions.Expres
 
         if (isA(this.type, Types.Class) || this.code.args.length == 1){
             this.initializer = DirectInitializer.instance(this.code, {parent: this});
-            this.compileChild(this.initializer, scope, this.entity, this.code.args);
+            this.i_compileChild(this.initializer, scope, this.entity, this.code.args);
         }
         else{
             this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.type));
@@ -3661,6 +3670,10 @@ var Identifier = Expressions.Identifier = Expression.extend({
         else{
             return this.entity.describe(sim, inst);
         }
+    },
+
+    explain : function(sim, inst) {
+        return {message: this.entity.name};
     }
 });
 
