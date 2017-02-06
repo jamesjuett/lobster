@@ -36,17 +36,20 @@
     <script src = "js/util/outlet.js"></script>
     <script src = "js/view/codeDisplay.js"></script>
     <script src = "js/core/internals.js"></script>
+    <script src = "js/view/annotations.js"></script>
     <script src = "js/core/error.js"></script>
     <script src = "js/core/types.js"></script>
     <script src = "js/core/expressions.js"></script>
     <script src = "js/core/declarations.js"></script>
     <script src = "js/core/statements.js"></script>
+    <script src = "js/core/Program.js"></script>
     <script src = "js/core/Simulation.js"></script>
     <script src = "js/view/actions.js"></script>
     <script src = "js/view/simOutlets.js"></script>
     <script src = "js/view/codeOutlets.js"></script>
     <script src = "js/core/parsing.js"></script>
     <script src = "js/core/parsing2.js"></script>
+    <script src = "js/core/analysis.js"></script>
 
 </head>
 
@@ -171,7 +174,7 @@
     $(document).ready(function() {
 
         $("#runButton").click(function(e){
-            sim.setCodeStr()
+            sim.setSourceCode()
         });
 
             var editor = Outlets.CPP.CodeEditor.instance($(".codeMirrorEditor"), sim);

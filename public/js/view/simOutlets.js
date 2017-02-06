@@ -2,15 +2,15 @@
  * @author James
  */
 
-var UMichEBooks = UMichEBooks || {};
-UMichEBooks.Outlets.CPP = UMichEBooks.Outlets.CPP || {};
+var Lobster = Lobster || {};
+Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
 var FADE_DURATION = 300;
 var SLIDE_DURATION = 400;
 
-UMichEBooks.Outlets.CPP.CPP_ANIMATIONS = true;
+Lobster.Outlets.CPP.CPP_ANIMATIONS = true;
 
-var CodeList = UMichEBooks.Outlets.CPP.CodeList = WebOutlet.extend({
+var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
     _name: "CodeList",
     _instances : [],
     reloadLists : function(){
@@ -156,20 +156,20 @@ var CodeList = UMichEBooks.Outlets.CPP.CodeList = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
+Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     _name: "SimulationOutlet",
     DEFAULT_CONFIG : {
         initCode: "int main(){\n  \n}"
     },
-    init: function(element, sim, config) {
+    init: function(element, config) {
         this.config = makeDefaulted(config, Outlets.CPP.SimulationOutlet.DEFAULT_CONFIG);
 
         assert(element instanceof jQuery);
-        assert(sim.isA(Simulation));
 
         this.initParent(element);
 
-        this.sim = sim;
+        this.program = Program.instance();
+        this.sim = Simulation.instance(this.program);
         this.listenTo(this.sim);
 
         if (this.config.log !== false){
@@ -189,7 +189,6 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     initSuboutlets : function(){
         var element = this.element;
-        var sim = this.sim;
         var elem;
 
         var self = this;
@@ -216,9 +215,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             self.saveFunc();
             self.send("userAction", UserActions.Simulate.instance());
             simPane.focus();
-            if (self.sim.main && !self.sim.hasSemanticErrors()){
-                self.sim.start();
-            }
+            self.restart();
         });
 
 
@@ -232,8 +229,9 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 //        this.console = ValueEntity.instance();
 
         if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
-            this.editor = Outlets.CPP.CodeEditor.instance(elem, sim);
+            this.editor = Outlets.CPP.CodeEditor.instance(elem, this.program);
             this.listenTo(this.editor);
+            this.listenTo(this.editor.getProgram());
             this.sim.converse(this.editor);
             // Dismiss any annotation messages
             var self = this;
@@ -253,11 +251,11 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         }
         if ((elem = element.find(".stackFrames")).length !== 0) {
             if (this.useSourceSimulation){
-                this.stackFrames = Outlets.CPP.SourceSimulation.instance(elem, sim, this);
+                this.stackFrames = Outlets.CPP.SourceSimulation.instance(elem, this.sim, this);
                 this.listenTo(this.stackFrames);
             }
             else{
-                this.stackFrames = Outlets.CPP.SimulationStack.instance(elem, sim, this);
+                this.stackFrames = Outlets.CPP.SimulationStack.instance(elem, this.sim, this);
                 this.listenTo(this.stackFrames);
             }
         }
@@ -267,7 +265,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         //    this.listenTo(this.stackFrames2);
         //}
         if ((elem = element.find(".memory")).length !== 0) {
-            this.memory = Outlets.CPP.Memory.instance(elem, sim.memory);
+            this.memory = Outlets.CPP.Memory.instance(elem, this.sim.memory);
         }
         // TODO REMOVE
         // if ((elem = element.find(".codeSelect")).length !== 0) {
@@ -452,7 +450,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     restart : function(){
         this.setEnabledButtons({}, true);
-        this.sim.restart();
+        this.sim.start();
     },
 
     stepForward : function(n){
@@ -603,15 +601,11 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 //        this.silent = false;
             Outlets.CPP.CPP_ANIMATIONS = true;
             $.fx.off = false;
-            this.alertsOff = false;
-            this.explainOff = false;
             $("body").removeClass("noTransitions").height(); // .height() is to force reflow
 
         }
         else{
             $("body").addClass("noTransitions").height(); // .height() is to force reflow
-            this.alertsOff = true;
-            this.explainOff = true;
             $.fx.off = true;
             Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
 //        this.silent = true;
@@ -711,7 +705,7 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             this.hideAlerts();
         },
         paused : function(msg){
-            //this.paused = true;
+            //this.i_paused = true;
             this.setEnabledButtons({
                 "pause": false
             }, true);
@@ -719,7 +713,6 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             this.runningProgress.css("visibility", "hidden");
         },
         atEnded : function(msg){
-            this.atEnd = true;
             this.setEnabledButtons({
                 restart: true,
                 stepBackward: true
@@ -762,7 +755,9 @@ UMichEBooks.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 
 
-var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
+var IDLE_MS_BEFORE_COMPILE = 1000;
+
+var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
     _name: "CodeEditor",
     DEFAULT_CONFIG : {
         initCode: "int main(){\n  \n}"
@@ -777,7 +772,11 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             }
         }
     },
-    init: function(element, config) {
+    init: function(element, program, config) {
+
+        this.i_program = program;
+        this.listenTo(this.i_program);
+
         assert(element instanceof jQuery);
         this.config = makeDefaulted(config, Outlets.CPP.CodeEditor.DEFAULT_CONFIG);
         this.initParent();
@@ -815,9 +814,9 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
         CodeEditor._instances.push(this);
     },
 
-//    userEdit: function(e){
-//        console.log(JSON.stringify(e.data, null, 4));
-//    },
+    getProgram : function() {
+        return this.i_program;
+    },
 
     loadCode : function(program){
         this.programName = program.name;
@@ -849,8 +848,15 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
     //},
 
     setSource : function(src){
-        this.send("sourceCode", src);
         this.source = src;
+
+        if(this.codeSetTimeout){
+            clearTimeout(this.codeSetTimeout);
+        }
+        var self = this;
+        this.codeSetTimeout = setTimeout(function(){
+            self.i_program.setSourceCode(self.source);
+        }, IDLE_MS_BEFORE_COMPILE);
     },
 
     addMark : function(code, cssClass){
@@ -920,23 +926,6 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             this.annotations.push(ann);
         },
 
-        removeHighlight : function(msg){
-//            var data = msg.data;
-//
-//			if (this.highlights[data.id]){
-//
-//				if (Outlets.CPP.CPP_ANIMATIONS){
-//					this.highlights[data.id].fadeOut(FADE_DURATION, function(){
-//						$(this).remove();
-//					});
-//				}
-//				else{
-//					this.highlights[data.id].remove();
-//				}
-//				delete this.highlights[data.id];
-//			}
-		},
-
         clearAnnotations : function(){
             for(var i = 0; i < this.annotations.length; ++i){
                 this.annotations[i].onRemove(this);
@@ -947,47 +936,16 @@ var CodeEditor = UMichEBooks.Outlets.CPP.CodeEditor = Outlet.extend({
             if (this.problemsElem) {
                 this.problemsElem.empty();
             }
-//            this.highlights = {};
-//
-//			if (Outlets.CPP.CPP_ANIMATIONS){
-//				this.shadow.children("div").fadeOut(FADE_DURATION, function(){
-//					$(this).remove();
-//				});
-//			}
-//			else{
-//				this.shadow.children("div").remove();
-//			}
 		}
-	},
-	
-	createShadow : function(context, code, cssClass, style, zOffset){
-//		var codeStr = context.text.replace(/[^\n]/g, " ");
-//		var highlightedCodeStr = "";
-//		this.highlightZ = this.highlightZ || 1;
-//		zOffset = zOffset || 0;
-//		var zIndexStr = "z-index:"+(zOffset + this.highlightZ++)+";";
-//		var styleStr = "";
-//		if (style){
-//			for(var key in style){
-//				styleStr += key + ": " + style[key] + ";";
-//			}
-//		}
-//		highlightedCodeStr += "<div style=\""+zIndexStr+" display: none; position: absolute; background: none\">" +
-//					 replaceHtmlEntities(codeStr.substring(0, code.start-context.start)) +
-//					 "<span class=\"codeShadow "+cssClass+"\" style = \""+styleStr+"\">" +
-//					 replaceHtmlEntities(codeStr.substring(code.start-context.start, code.end-context.start)) +
-//					 "</span>" +
-//					 replaceHtmlEntities(codeStr.substring(code.end-context.start)) +
-//					 "</div>";
-//		return highlightedCodeStr;
 	}
+
 });
 $(window).on("beforeunload", CodeEditor.onbeforeunload);
 
 var SVG_DEFS = {};
 
 
-UMichEBooks.Outlets.CPP.Memory = WebOutlet.extend({
+Lobster.Outlets.CPP.Memory = WebOutlet.extend({
     init: function(element, memory){
         assert(isA(memory, Memory));
 
@@ -1086,7 +1044,7 @@ UMichEBooks.Outlets.CPP.Memory = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.MemoryObject = WebOutlet.extend({
+Lobster.Outlets.CPP.MemoryObject = WebOutlet.extend({
     _name: "MemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1218,7 +1176,7 @@ UMichEBooks.Outlets.CPP.MemoryObject = WebOutlet.extend({
 
 });
 
-UMichEBooks.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "SingleMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1261,7 +1219,7 @@ UMichEBooks.Outlets.CPP.SingleMemoryObject = Outlets.CPP.MemoryObject.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
+Lobster.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
     _name: "TreeMemoryObject",
 
     init: function(element, object, memoryOutlet){
@@ -1275,7 +1233,7 @@ UMichEBooks.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend
 });
 
 
-UMichEBooks.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
+Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
     _name: "PointerMemoryObject",
     showPtdArray : true,
     pointerMemoryObjects : [],
@@ -1503,7 +1461,7 @@ setInterval(function(){
     Outlets.CPP.CPP_ANIMATIONS = temp;
 }, 20);
 
-UMichEBooks.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ReferenceMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1542,7 +1500,7 @@ UMichEBooks.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend(
     })
 });
 
-UMichEBooks.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ArrayMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1631,7 +1589,7 @@ UMichEBooks.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ArrayElemMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1661,7 +1619,7 @@ UMichEBooks.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend(
     }
 });
 
-UMichEBooks.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
+Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
     _name: "ClassMemoryObject",
     init: function(element, object, memoryOutlet)
     {
@@ -1752,7 +1710,7 @@ var createMemoryObjectOutlet = function(elem, obj, memoryOutlet){
     }
 };
 
-UMichEBooks.Outlets.CPP.StackFrame = WebOutlet.extend({
+Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
     init: function(element, frame, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1837,7 +1795,7 @@ var OutletCustomizations = {
 };
 
 
-UMichEBooks.Outlets.CPP.StackFrames = WebOutlet.extend({
+Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1918,7 +1876,7 @@ UMichEBooks.Outlets.CPP.StackFrames = WebOutlet.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.Heap = WebOutlet.extend({
+Lobster.Outlets.CPP.Heap = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -1972,7 +1930,7 @@ UMichEBooks.Outlets.CPP.Heap = WebOutlet.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
+Lobster.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
     init: function(element, memory, memoryOutlet)
     {
         this.initParent(element, true);
@@ -2051,7 +2009,7 @@ UMichEBooks.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
+Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
     _name: "WebOutlet",
     init: function(element, sim, simOutlet){
         this.initParent(element, true);
@@ -2062,7 +2020,7 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     },
     pushed: function(codeInst){
         // main has no caller, so we have to handle creating the outlet here
-        if (codeInst.model.context.mainCall) {
+        if (codeInst.model.context.isMainCall) {
             this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
         }
 
@@ -2115,9 +2073,9 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     refresh : function(){
         this.cleared();
         this.mainCall.removeInstance();
-        this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainInst, this);
+        this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainCallInstance(), this);
         this.started();
-        var last = this.sim._execStack.last();
+        var last = this.sim.i_execStack.last();
         if (last) {
             last.send("upNext");
             last.funcContext.send("currentFunction");
@@ -2131,7 +2089,7 @@ UMichEBooks.Outlets.CPP.RunningCode = WebOutlet.extend({
     }
 });
 
-UMichEBooks.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
+Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     _name: "SimulationStack",
     init: function(element, sim, simOutlet)
     {
@@ -2221,7 +2179,7 @@ UMichEBooks.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
 });
 
 
-UMichEBooks.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
+Lobster.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
     _name: "SourceSimulation",
     init: function(element, sim, simOutlet)
     {
@@ -2245,7 +2203,7 @@ UMichEBooks.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
 
     setUpTopLevelDeclarations : function(){
         var self = this;
-        this.sim.topLevelDeclarations.forEach(function(decl){
+        this.sim.i_topLevelDeclarations.forEach(function(decl){
             if (isA(decl, FunctionDefinition)){
                 // Set up DOM element for outlet
                 var elem = $("<div style= 'display: block'></div>");

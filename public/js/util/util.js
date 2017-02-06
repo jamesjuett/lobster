@@ -1,4 +1,4 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
 function debug(message, category){
     if (category){
@@ -327,7 +327,10 @@ var Class = {}; // Init with empty object quiets annoying warning.
             obj._initClass = findNextInitClass(obj._class);
             obj._initClass.init.apply(obj, arguments);
 
-            assert(obj._initClass === Class || findNextInitClass(obj._initClass._parent) === Class, "Parent class chain not fully initialized for " + obj + ".");
+            if (! (obj._initClass === Class || findNextInitClass(obj._initClass._parent) === Class) ){
+                assert(false, "Parent class chain not fully initialized for " + obj + ".");
+            }
+
 
 //            // Create properties
 //            for(var prop in this.props){
@@ -667,7 +670,7 @@ Math.seededRandom = function(seed, max, min) {
 // 	
 // }
 
-var Vector = UMichEBooks.Vector = Class.extend({
+var Vector = Lobster.Vector = Class.extend({
     init: function(x, y, z){
 
         this.x = x;

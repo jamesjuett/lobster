@@ -42,16 +42,19 @@
     <script src = "/outlet.js"></script>
     <script src = "/codeDisplay.js"></script>
     <script src = "/internals.js"></script>
+    <script src = "/annotations.js"></script>
     <script src = "/error.js"></script>
     <script src = "/types.js"></script>
     <script src = "/expressions.js"></script>
     <script src = "/declarations.js"></script>
     <script src = "/statements.js"></script>
-    <script src = "/Simulation.js"></script>
+    <script src = "/Program.js"></script>
+    <script src = "js/core/Simulation.js"></script>
     <script src = "/simOutlets.js"></script>
     <script src = "/codeOutlets.js"></script>
     <script src = "/parsing.js"></script>
     <script src = "/parsing2.js"></script>
+    <script src = "js/core/analysis.js"></script>
 
 </head>
 

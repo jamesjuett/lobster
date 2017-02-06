@@ -1,20 +1,20 @@
-var UMichEBooks = UMichEBooks || {};
+var Lobster = Lobster || {};
 
-UMichEBooks.Declarations = {
+var Declarations = Lobster.Declarations = {
 
     create : function(decl, context){
         return this[decl.declaration.toLowerCase()].instance(decl, context);
     }
 
 };
-var Declarations = UMichEBooks.Declarations;
 
-var StorageSpecifier = UMichEBooks.StorageSpecifier = CPPCode.extend({
+// A POD type
+var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
+    _name: "StorageSpecifier",
     compile : function(scope){
         var semanticProblems = this.semanticProblems;
 
         this.numSpecs = 0;
-        var storageSpecs = this.code;
         for(var i = 0; i < this.code.length; ++i){
             if (this[this.code[i]]){
                 semanticProblems.push(CPPError.decl.storage.once(this, this.code[i]));
@@ -40,12 +40,12 @@ var StorageSpecifier = UMichEBooks.StorageSpecifier = CPPCode.extend({
 });
 
 
-var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
+var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
     init: function(code, context){
-        code.specs = code.specs || {typeSpecs:[], storageSpecs:[]};
+        code.specs = code.specs || {typeSpecs:[], storageSpecs:[]}; // TODO NEW This should be taken care of in the grammar?
         this.initParent(code, context);
         this.declarators = [];
         this.initializers = [];
@@ -56,24 +56,24 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
     compile : function(scope){
         this.compileDeclaration(scope);
         this.compileDefinition(scope);
-        //this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
+        this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
         return this.semanticProblems;
     },
+
     compileDeclaration : function(scope) {
         var code = this.code;
         var semanticProblems = this.semanticProblems;
 
-        // Compile the type specifier
-//        alert(JSON.stringify(code.specs));
         this.typeSpec = TypeSpecifier.instance(code.specs.typeSpecs, {parent: this});
-        semanticProblems.pushAll(this.typeSpec.compile(scope));
+        this.i_compileChild(this.typeSpec, scope);
 
         if (semanticProblems.errors.length > 0) {
             return semanticProblems;
         }
 
         this.storageSpec = StorageSpecifier.instance(code.specs.storageSpecs, {parent:this});
-        semanticProblems.pushAll(this.storageSpec.compile(scope));
+        this.i_compileChild(this.storageSpec, scope);
+
         // TODO, if storage is specified, declarators cannot be empty (classes and such)
         if (semanticProblems.errors.length > 0) {
             return semanticProblems;
@@ -87,14 +87,13 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
             semanticProblems.push(CPPError.decl.storage.typedef(this, this.storageSpec.code))
         }
 
-        this.determineStorage(scope);
-
+        this.i_determineStorage(scope);
 
 
         // Compile each declarator with respect to the type specifier
         for (var i = 0; i < code.declarators.length; ++i) {
             var decl = Declarator.instance(code.declarators[i], {parent: this}, this.typeSpec.type);
-            semanticProblems.pushAll(decl.compile(scope));
+            this.i_compileChild(decl, scope);
 
             // If there are errors in the declarator, don't create an entity or anything.
             if (decl.semanticProblems.hasErrors()){
@@ -138,38 +137,68 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
             if (initCode){
                 if (initCode.initializerList){
                     init = InitializerList.instance(initCode, {parent: this, entity:ent});
-                    this.compileChild(init, scope);
+                    this.i_compileChild(init, scope);
                 }
                 else if (initCode.initializer === "direct"){
                     init = DirectInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, initCode.args));
+                    this.i_compileChild(init, scope, ent, initCode.args);
                 }
                 else if (initCode.initializer === "copy"){
                     init = CopyInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, initCode.args));
+                    this.i_compileChild(init, scope, ent, initCode.args);
                 }
                 else{
                     assert(false, "Corrupt initializer :(");
                 }
             }
             else{
-                if (isA(ent, AutoObjectEntity) && !isA(this, MemberDeclaration)) {
+                if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
                     init = DefaultInitializer.instance(initCode, {parent: this});
-                    this.semanticProblems.pushAll(init.compile(scope, ent, []));
+                    this.i_compileChild(init, scope, ent, []);
                 }
             }
             this.initializers.push(init);
+            ent.setInitializer(init);
         }
 
 
-        if(this.storageDuration === "static" && this.initializers.length > 0 && !isA(scope, BlockScope)){
-            scope.sim.addStaticInitializer(this);
-        }
 
         return this.semanticProblems;
     },
 
-    determineStorage : function(scope){
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    i_determineStorage : function(scope){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
         if(!this.storageSpec.static && !this.storageSpec.extern && isA(scope, BlockScope)){
@@ -201,10 +230,10 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
             entity = ReferenceEntity.instance(decl);
         }
         else if (this.storageDuration === "static"){
-            entity = StaticObjectEntity.instance(decl);
+            entity = StaticEntity.instance(decl);
         }
         else{
-            entity = AutoObjectEntity.instance(decl);
+            entity = AutoEntity.instance(decl);
         }
 
         var otherEnt = scope.ownEntity(decl.name);
@@ -252,6 +281,10 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
         }
     },
 
+    isTailChild : function(child){
+        return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
+    },
+
     upNext : function(sim, inst){
         if (inst.index < this.initializers.length/* && (this.storageDuration !== "static" || !this.entities[inst.index].lookup(sim, inst).isInitialized())*/){
             var init = this.initializers[inst.index];
@@ -276,15 +309,11 @@ var Declaration = UMichEBooks.Declarations.Declaration = CPPCode.extend({
     stepForward : function(sim, inst){
         // Don't have to do anything unless there's an initializer, right?
 
-    },
-
-    isTailChild : function(child){
-        return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
     }
 });
 
 
-var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
+var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
     _name: "Parameter",
 
     init: function(code, context) {
@@ -292,29 +321,14 @@ var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
         this.initParent(code, context);
     },
 
-    fakeCompile : function(scope, name, type){
-        this.name = name;
-        this.type = type;
-
-        if (isA(this.type, Types.Reference)){
-            this.entity = ReferenceEntity.instance(this);
-        }
-        else{
-            this.entity = AutoObjectEntity.instance(this);
-        }
-        scope.addEntity(this.entity);
-
-        return this.semanticProblems;
-    },
-
     compile : function(scope){
         // Compile the type specifier
         var typeSpec = this.typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
-        this.semanticProblems.pushAll(typeSpec.compile(scope));
+        this.i_compileChild(typeSpec, scope);
 
         // Compile the declarator
         var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this}, typeSpec.type);
-        this.semanticProblems.pushAll(decl.compile(scope));
+        this.i_compileChild(decl, scope);
 
         this.name = decl.name;
         this.type = decl.type;
@@ -330,7 +344,7 @@ var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
                 this.entity = ReferenceEntity.instance(this);
             }
             else{
-                this.entity = AutoObjectEntity.instance(this);
+                this.entity = AutoEntity.instance(this);
             }
             scope.addEntity(this.entity);
         }
@@ -338,50 +352,13 @@ var Parameter = UMichEBooks.Declarations.Parameter = CPPCode.extend({
         return this.semanticProblems;
     },
 
-    createInstance : function(sim, inst, argument){
-        assert(false, "Do I ever use this?");
-        var inst = CPPCodeInstance.instance(sim, this, "decl", "stmt", inst);
-        inst.argument = argument;
-        return inst;
-    },
-
-    upNext : function(sim, inst){
-        assert(false, "Do I ever use this?");
-        inst.argument.createAndPushInstance(sim, inst);
-    },
-
     stepForward : function(sim, inst){
-        //var obj = this.entity.lookup(sim, inst);
-        //if (isA(this.type, Types.Reference)) {
-        //    obj.allocated(sim.memory, inst.argument.evalValue.address);
-        //}
-        //else if (isA(this.type, Types.Class)) {
-        //    if (inst.constructorCalled){
-        //        this.done(sim, inst);
-        //        return;
-        //    }
-        //    var args = [inst.argument];
-        //
-        //    // Push constructor instance with arguments and obj as receiver
-        //    inst.func = this.type.copyConstructor.createAndPushInstance(sim, inst, args, obj);
-        //
-        //    // Notify outlets that a function was called
-        //    inst.send("called", inst.func);
-        //    inst.constructorCalled = true;
-        //    return;
-        //}
-        //else{
-        //    obj.writeValue(inst.argument.evalValue);
-        //}
-
-
-        //inst.send("initialized", obj);
-
+        assert(false, "Do I ever use this?");
         this.done(sim, inst);
     }
 });
 
-var Declarator = UMichEBooks.Declarator = CPPCode.extend({
+var Declarator = Lobster.Declarator = CPPCode.extend({
     _name: "Declarator",
     init: function(code, context, baseType){
         this.initParent(code, context);
@@ -550,81 +527,6 @@ var Declarator = UMichEBooks.Declarator = CPPCode.extend({
     }
 });
 
-//var Initializer = UMichEBooks.Initializer = CPPCode.extend({
-//    _name : "Initializer",
-//    init: function(code, context) {
-//        assert(context.entity || context.type, "Initializer context must specify entity to be initialized!");
-//        this.initParent(code, context);
-//    },
-//    compile : function(scope){
-//        var code = this.code;
-//        var type = this.type = this.context.type || this.context.entity.type;
-//
-//        var initExpr = this.createAndCompileChildExpr(this.code, scope)
-//        if (this.semanticProblems.errors.length > 0){ return this.semanticProblems; }
-//
-//        if (isA(type, Types.reference)) {
-//            // With a reference, no conversions are done
-//            if (!sameType(type.refTo, initExpr.type)){
-//                this.semanticProblems.push(CPPError.decl.init.referenceType(this, initExpr.type, type));
-//            }
-//            else if (initExpr.valueCategory !== "lvalue"){
-//                this.semanticProblems.push(CPPError.decl.init.referenceLvalue(this));
-//            }
-//        }
-//        else{
-//            //Attempt standard conversion to declared type
-//            initExpr = standardConversion(initExpr, type);
-//            // Type check
-//            if (isA(type, Types.Array) && isA(type.elemType, Types.Char)
-//                && isA(initExpr, Expressions.Literal) && isA(initExpr.type, Types.String)){
-//                //if we're initializing a character array from a string literal, check length
-//                if (initExpr.value.value.length + 1 > type.length){
-//                    this.semanticProblems.push(CPPError.decl.init.stringLiteralLength(this, initExpr.value.value.length + 1, type.length));
-//                }
-//
-//
-//            }
-//            else if (!sameType(type, initExpr.type)) {
-//                this.semanticProblems.push(CPPError.decl.init.convert(this, initExpr.type, type));
-//            }
-//        }
-//        this.sub.initExpr = initExpr;
-//
-//        return this.semanticProblems;
-//    },
-//
-//    stepForward : function(sim, inst){
-//        if (inst.index !== "afterChildren"){
-//            return;
-//        }
-//        var type = this.context.entity.type;
-//        var obj = this.context.entity.lookup(sim, inst);
-//        var initExprInst = inst.childInstances.initExpr;
-//
-//        if (isA(type, Types.Reference)) {
-//            obj.allocated(sim.memory, initExprInst.evalValue.address);
-//        }
-//        else {
-//            // Handle char[] initialization from string literal as special case
-//            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(initExprInst.type, Types.String)) {
-//                var charArr = initExprInst.evalValue.value.split("");
-//                for (var i = 0; i < charArr.length; ++i) {
-//                    charArr[i] = charArr[i].charCodeAt(0);
-//                }
-//                charArr.push(0);
-//                obj.writeValue(charArr);
-//            }
-//            else {
-//                obj.writeValue(initExprInst.evalValue.value);
-//            }
-//        }
-//
-//        inst.index = "done";
-//        this.done(sim, inst);
-//    }
-//});
-
 // Selects from candidates the function that is the best match
 // for the arguments in the args array. Also modifies args so
 // that each argument is amended with any implicit conversions
@@ -723,7 +625,7 @@ var fakeExpressionsFromTypes = function(types){
 };
 
 
-var Initializer = UMichEBooks.Initializer = Expression.extend({
+var Initializer = Lobster.Initializer = Expression.extend({
     _name: "Initializer",
     init: function (code, context) {
         this.initParent(code, context);
@@ -734,7 +636,7 @@ var Initializer = UMichEBooks.Initializer = Expression.extend({
 });
 
 
-var DefaultInitializer = UMichEBooks.DefaultInitializer = Initializer.extend({
+var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     _name : "DefaultInitializer",
     //initIndex: "explain",
     init: function(code, context) {
@@ -765,7 +667,7 @@ var DefaultInitializer = UMichEBooks.DefaultInitializer = Initializer.extend({
             }
 
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this, receiver: this.entity});
-            this.compileChild(this.funcCall, scope, this.myConstructor, args);
+            this.i_compileChild(this.funcCall, scope, this.myConstructor, args);
             this.args = this.funcCall.args;
         }
         else if (isA(type, Types.Array)){
@@ -776,7 +678,7 @@ var DefaultInitializer = UMichEBooks.DefaultInitializer = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DefaultInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    if (!this.compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i))){
+                    if (!this.i_compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i))){
                         this.semanticProblems.push(CPPError.decl.init.array_default_init(this));
                         break;
                     }
@@ -852,7 +754,7 @@ var DefaultInitializer = UMichEBooks.DefaultInitializer = Initializer.extend({
     }
 });
 
-UMichEBooks.DirectCopyInitializerBase = Initializer.extend({
+Lobster.DirectCopyInitializerBase = Initializer.extend({
     _name : "DirectCopyInitializerBase",
     init: function(code, context) {
         this.initParent(code, context);
@@ -908,7 +810,7 @@ UMichEBooks.DirectCopyInitializerBase = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DirectInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    if (!this.compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i),
+                    if (!this.i_compileChild(elemInit, scope, ArraySubobjectEntity.instance(this.entity, i),
                             [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})])){
                         this.semanticProblems.push(CPPError.decl.init.array_direct_init(this));
                         break;
@@ -961,11 +863,11 @@ UMichEBooks.DirectCopyInitializerBase = Initializer.extend({
             }
 
             this.funcCall = FunctionCall.instance(this.code, {parent: this, receiver: this.entity});
-            this.compileChild(this.funcCall, scope, this.myConstructor, args);
+            this.i_compileChild(this.funcCall, scope, this.myConstructor, args);
             this.args = this.funcCall.args;
         }
 
-        return UMichEBooks.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
+        return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
     },
 
     upNext : function(sim, inst){
@@ -974,7 +876,7 @@ UMichEBooks.DirectCopyInitializerBase = Initializer.extend({
             var ent = this.entity.lookup(sim, inst);
             ent && ent.initialized();
         }
-        return UMichEBooks.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
+        return Lobster.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
     },
 
     stepForward : function(sim, inst){
@@ -1059,7 +961,7 @@ UMichEBooks.DirectCopyInitializerBase = Initializer.extend({
     }
 });
 
-var DirectInitializer = UMichEBooks.DirectInitializer = UMichEBooks.DirectCopyInitializerBase.extend({
+var DirectInitializer = Lobster.DirectInitializer = Lobster.DirectCopyInitializerBase.extend({
     _name : "DirectInitializer"
 
     //upNext : function(sim, inst){
@@ -1068,7 +970,7 @@ var DirectInitializer = UMichEBooks.DirectInitializer = UMichEBooks.DirectCopyIn
     //}
 });
 
-var CopyInitializer = UMichEBooks.CopyInitializer = UMichEBooks.DirectCopyInitializerBase.extend({
+var CopyInitializer = Lobster.CopyInitializer = Lobster.DirectCopyInitializerBase.extend({
     _name : "CopyInitializer"
 
     //upNext : function(sim, inst){
@@ -1077,7 +979,7 @@ var CopyInitializer = UMichEBooks.CopyInitializer = UMichEBooks.DirectCopyInitia
     //}
 });
 
-var ParameterInitializer = UMichEBooks.ParameterInitializer = UMichEBooks.CopyInitializer.extend({
+var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitializer.extend({
     _name : "ParameterInitializer",
 
     createInstance : function(sim, parent, calledFunction){
@@ -1097,21 +999,21 @@ var ParameterInitializer = UMichEBooks.ParameterInitializer = UMichEBooks.CopyIn
     }
 });
 
-var ReturnInitializer = UMichEBooks.ReturnInitializer = UMichEBooks.CopyInitializer.extend({
+var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.extend({
     _name : "ReturnInitializer"
 });
 
-var MemberInitializer = UMichEBooks.MemberInitializer = UMichEBooks.DirectInitializer.extend({
+var MemberInitializer = Lobster.MemberInitializer = Lobster.DirectInitializer.extend({
     _name : "MemberInitializer",
     isMemberInitializer: true
 });
 
-var DefaultMemberInitializer = UMichEBooks.DefaultMemberInitializer = UMichEBooks.DefaultInitializer.extend({
+var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.DefaultInitializer.extend({
     _name : "DefaultMemberInitializer",
     isMemberInitializer: true
 });
 
-var InitializerList = UMichEBooks.InitializerList = CPPCode.extend({
+var InitializerList = Lobster.InitializerList = CPPCode.extend({
     _name : "InitializerList",
     init: function(code, context) {
         assert(context.entity, "Initializer context must specify entity to be initialized!");
@@ -1198,7 +1100,7 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.extend({
+var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.extend({
     _name: "FunctionDefinition",
     isDefinition: true,
     subSequence: ["memberInitializers", "body"],
@@ -1310,7 +1212,7 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
 
         if (this.semanticProblems.errors.length > 0){return this.semanticProblems;}
 
-        //this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
+        this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
 
         this.autosToDestruct = this.scope.automaticObjects.filter(function(obj){
             return isA(obj.type, Types.Class);
@@ -1328,7 +1230,7 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{
@@ -1337,6 +1239,39 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
 
         });
 
+        return this.semanticProblems;
+    },
+
+    // TODO NEW merge with the same functions in the regular Declaration class by creating a common base or a mixin
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
         return this.semanticProblems;
     },
 
@@ -1624,7 +1559,6 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
             inst.receiver.callEnded();
         }
 
-        sim.currentFunction = null;
         sim.memory.stack.popFrame(inst);
         sim.pop(inst);
     },
@@ -1707,7 +1641,7 @@ var FunctionDefinition = UMichEBooks.Declarations.FunctionDefinition = CPPCode.e
 
 
 
-var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.extend({
+var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend({
     _name: "ClassDeclaration",
 
     compile : function(scope){
@@ -1921,7 +1855,7 @@ var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.exten
 
         var src = this.name + "() {}";
         //TODO: initialize members (i.e. that are classes)
-        src = UMichEBooks.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
         return ConstructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
     },
 
@@ -1955,7 +1889,7 @@ var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.exten
         })).join(", ");
 
         src += " {}";
-        src = UMichEBooks.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
 
         return ConstructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
     },
@@ -2025,7 +1959,7 @@ var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.exten
             }
         }
         src += "return *this;}";
-        src = UMichEBooks.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
         return FunctionDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
     },
 
@@ -2040,7 +1974,7 @@ var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.exten
         }
 
         var src = "~" + this.type.name + "(){}";
-        src = UMichEBooks.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
         return DestructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
     },
 
@@ -2057,7 +1991,7 @@ var ClassDeclaration = UMichEBooks.Declarations.ClassDeclaration = CPPCode.exten
     }
 });
 
-var MemberDeclaration = UMichEBooks.Declarations.Member = Declaration.extend({
+var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
     _name: "MemberDeclaration",
     init: function(code, context){
         assert(context);
@@ -2070,7 +2004,7 @@ var MemberDeclaration = UMichEBooks.Declarations.Member = Declaration.extend({
         return this;
     },
 
-    determineStorage : function(scope){
+    i_determineStorage : function(scope){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
         if(this.storageSpec.static){
@@ -2097,7 +2031,7 @@ var MemberDeclaration = UMichEBooks.Declarations.Member = Declaration.extend({
             entity = MemberFunctionEntity.instance(decl, this.memberOfClass, this.virtual);
         }
         else if (this.storageDuration === "static"){
-            entity = StaticObjectEntity.instance(decl);
+            entity = StaticEntity.instance(decl);
         }
         else{
             entity = MemberSubobjectEntity.instance(decl, this.memberOfClass);
@@ -2151,7 +2085,7 @@ var MemberDeclaration = UMichEBooks.Declarations.Member = Declaration.extend({
 });
 
 
-var ConstructorDefinition = UMichEBooks.Declarations.ConstructorDefinition = FunctionDefinition.extend({
+var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = FunctionDefinition.extend({
     _name: "ConstructorDefinition",
 
     instance : function(code, context){
@@ -2361,7 +2295,7 @@ var ConstructorDefinition = UMichEBooks.Declarations.ConstructorDefinition = Fun
 
 
 
-var DestructorDefinition = UMichEBooks.Declarations.DestructorDefinition = FunctionDefinition.extend({
+var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionDefinition.extend({
     _name: "DestructorDefinition",
 
     init : function(code, context){
@@ -2418,7 +2352,7 @@ var DestructorDefinition = UMichEBooks.Declarations.DestructorDefinition = Funct
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{
@@ -2431,7 +2365,7 @@ var DestructorDefinition = UMichEBooks.Declarations.DestructorDefinition = Funct
             var dest = obj.type.getDestructor();
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                self.compileChild(call, scope, dest, []);
+                self.i_compileChild(call, scope, dest, []);
                 return call;
             }
             else{

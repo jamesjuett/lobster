@@ -1,10 +1,10 @@
-var UMichEBooks = UMichEBooks || {};
-var CPP = UMichEBooks.CPP = UMichEBooks.CPP || {};
+var Lobster = Lobster || {};
+var CPP = Lobster.CPP = Lobster.CPP || {};
 
 
 
 
-var SemanticProblems = UMichEBooks.SemanticProblems = Class.extend({
+var SemanticProblems = Lobster.SemanticProblems = Class.extend({
     _name: "SemanticProblems",
     init: function() {
         this.errors = [];
@@ -17,10 +17,10 @@ var SemanticProblems = UMichEBooks.SemanticProblems = Class.extend({
     },
 
     push : function(elem){
-        if (elem.cssClass === "error"){
+        if (elem._cssClass === "error"){
             this.errors.push(elem);
         }
-        else if (elem.cssClass === "warning"){
+        else if (elem._cssClass === "warning"){
             this.warnings.push(elem);
         }
         else{
@@ -52,7 +52,7 @@ var SemanticProblems = UMichEBooks.SemanticProblems = Class.extend({
 
 
 
-var CPPCode = UMichEBooks.CPPCode = Class.extend({
+var CPPCode = Lobster.CPPCode = Class.extend({
     _name: "CPPCode",
     _nextId: 0,
     initIndex: "pushChildren",
@@ -60,24 +60,19 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
     // {parent: theParent}
     init: function (code, context) {
         this.code = code;
-        //if (!context){
-        //    console.log("hi");
-        //}
-        assert(context.parent !== undefined || context.mainCall);
+
+        assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
         this.semanticProblems = SemanticProblems.instance();
+        this.children = [];
         this.sub = {};
-//        this.errorColor = randomColor(this.code.start * 100 + this.code.text.length);
-//        this.color = randomColor(this.code.start * 100 + this.code.text.length);
 
-        this.context = {};
-        this.modifyContext(context);
+        this.i_setContext(context);
     },
 
-    // I feel like this is super duper fragile, please limit use :)
-    modifyContext : function(context){
+    i_setContext : function(context){
 
-        mixin(this.context, context, true);
+        this.context = context;
 
         // Find function context if none set
         if (!this.context.func && this.context.parent){
@@ -85,6 +80,35 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+        if (this.parent) { this.parent.children.push(this); }
+    },
+
+    compile: Class._ABSTRACT,
+
+    tryCompile : function(){
+        try{
+            return this.compile.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    i_compileChild : function(child){
+        var childProbs = child.compile.apply(child, Array.prototype.slice.call(arguments, 1));
+        this.semanticProblems.pushAll(childProbs);
+        return !childProbs.hasErrors();
+    },
+
+    isTailChild : function(child){
+        return {isTail: false};
     },
 
     done : function(sim, inst){
@@ -99,12 +123,6 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
         var inst = this.createInstance.apply(this, arguments);
         sim.push(inst);
         return inst;
-    },
-
-    compileChild : function(child){
-        var childProbs = child.compile.apply(child, Array.prototype.slice.call(arguments, 1));
-        this.semanticProblems.pushAll(childProbs);
-        return !childProbs.hasErrors();
     },
 
     createAndCompileChildExpr : function(childCode, scope, convertTo){
@@ -165,60 +183,8 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
         return false;
     },
 
-    stepForward : function(){
+    stepForward : function(sim, inst){
 
-    },
-
-    isTailChild : function(child){
-        return {isTail: false};
-    },
-
-
-    tryCompile : function(){
-        try{
-            return this.compile.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-    tryCompileDeclaration : function(){
-        try{
-            return this.compileDeclaration.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-
-    tryCompileDefinition : function(){
-        try{
-            return this.compileDefinition.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
     },
 
     explain : function(sim, inst){
@@ -226,11 +192,11 @@ var CPPCode = UMichEBooks.CPPCode = Class.extend({
     },
     describe : function(sim, inst){
         return {message: "[No description available.]", ignore: false};
-    },
-
-    compile: Class._ABSTRACT
+    }
 });
-var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
+
+
+var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
     _name: "CPPCodeInstance",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -244,7 +210,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
         this.subCalls = Entities.List.instance();
         this.parent = parent;
         this.pushedChildren = [];
-        assert(this.parent || this.model.context.mainCall, "All code instances must have a parent.");
+        assert(this.parent || this.model.context.isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
 
@@ -260,11 +226,11 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 
         }
 
-        if (this.model.context.mainCall){
+        if (this.model.context.isMainCall){
             this.funcContext = this;
         }
 
-        this.stepsTaken = sim.stepsTaken;
+        this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
     send: function(){
@@ -364,7 +330,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 });
 
 
-//var CPPCallInstance = UMichEBooks.CPPCallInstance = CPPCodeInstance.extend({
+//var CPPCallInstance = Lobster.CPPCallInstance = CPPCodeInstance.extend({
 //    init: function (sim, model, index, parent) {
 //        this.initParent(sim, model, index, "call", parent);
 //        this.funcContext = this;
@@ -372,7 +338,7 @@ var CPPCodeInstance = UMichEBooks.CPPCodeInstance = DataPath.extend({
 //});
 
 
-var Scope = UMichEBooks.Scope = Class.extend({
+var Scope = Lobster.Scope = Class.extend({
     _name: "Scope",
     _nextPrefix: 0,
     HIDDEN: [],
@@ -397,14 +363,14 @@ var Scope = UMichEBooks.Scope = Class.extend({
 		return str;
 	},
 	addEntity : function(ent){
-        if (isA(ent, StaticObjectEntity)){
-            this.sim.addStatic(ent);
+        if (isA(ent, StaticEntity)){
+            this.addStaticEntity(ent);
         }
-        else if (isA(ent, AutoObjectEntity)){
-            this.addAutomaticObject(ent);
+        else if (isA(ent, AutoEntity)){
+            this.addAutomaticEntity(ent);
         }
         else if (isA(ent, ReferenceEntity)){
-            this.addReferenceObject(ent);
+            this.addReferenceEntity(ent);
         }
 
         if (isA(ent, FunctionEntity)){
@@ -574,20 +540,26 @@ var Scope = UMichEBooks.Scope = Class.extend({
     //},
     addCall : function(call){
         this.sim.addCall(call);
-    }
+    },
+    addAutomaticEntity : Class._ABSTRACT,
+    addReferenceEntity : Class._ABSTRACT,
+    addStaticEntity : Class._ABSTRACT
 
 
 });
 
 var BlockScope = Scope.extend({
     _name: "BlockScope",
-    addAutomaticObject : function(obj){
+    addAutomaticEntity : function(obj){
         assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
-        this.parent.addAutomaticObject(obj);
+        this.parent.addAutomaticEntity(obj);
     },
-    addReferenceObject : function(obj){
+    addReferenceEntity : function(obj){
         assert(this.parent);
-        this.parent.addReferenceObject(obj);
+        this.parent.addReferenceEntity(obj);
+    },
+    addStaticEntity : function(ent) {
+        this.sim.addStaticEntity(ent);
     }
 
 
@@ -600,11 +572,15 @@ var FunctionBlockScope = BlockScope.extend({
         this.automaticObjects = [];
         this.referenceObjects = [];
     },
-    addAutomaticObject : function(obj){
+    addAutomaticEntity : function(obj){
         this.automaticObjects.push(obj);
     },
-    addReferenceObject : function(obj){
+    addReferenceEntity : function(obj){
         this.referenceObjects.push(obj);
+    },
+    addStaticEntity : function(ent) {
+
+        this.sim.addStaticEntity(ent);
     }
 });
 
@@ -622,6 +598,15 @@ var NamespaceScope = Scope.extend({
         if(child.name){
             this.children[child.name] = child;
         }
+    },
+    addAutomaticEntity : function(obj){
+        assert(false, "Can't add an automatic entity to a namespace scope.");
+    },
+    addReferenceEntity : function(obj){
+        assert(false, "TODO");
+    },
+    addStaticEntity : function(ent) {
+        this.sim.addStaticEntity(ent);
     }
 });
 
@@ -697,6 +682,12 @@ var CPPEntity = CPP.CPPEntity = DataPath.extend({
     isInitialized : function(){
         // default impl, do nothing
         return true;
+    },
+    setInitializer : function (init) {
+        this.i_init = init;
+    },
+    getInitializer : function() {
+        return this.i_init;
     }
 });
 
@@ -1175,8 +1166,8 @@ var ThisObject = CPP.ThisObject = ObjectEntity.extend({
     storage: "automatic"
 });
 
-var StaticObjectEntity = CPP.StaticObjectEntity = CPP.ObjectEntity.extend({
-    _name: "StaticObjectEntity",
+var StaticEntity = CPP.StaticEntity = CPP.ObjectEntity.extend({
+    _name: "StaticEntity",
     storage: "static",
     init: function(decl){
         this.initParent(decl.name, decl.type);
@@ -1213,8 +1204,8 @@ var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
     }
 });
 
-var AutoObjectEntity = CPP.AutoObjectEntity = CPP.CPPEntity.extend({
-    _name: "AutoObjectEntity",
+var AutoEntity = CPP.AutoEntity = CPP.CPPEntity.extend({
+    _name: "AutoEntity",
     storage: "automatic",
     init: function(decl){
         this.initParent(decl.name);
@@ -1830,7 +1821,7 @@ var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
 
 
 
-var Memory = UMichEBooks.Memory = DataPath.extend({
+var Memory = Lobster.Memory = DataPath.extend({
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
@@ -2145,7 +2136,7 @@ var MemoryHeap = DataPath.extend({
 
 //TODO search for StackFrame, .stack, .heap, .objects
 
-var MemoryFrame = UMichEBooks.CPP.MemoryFrame = DataPath.extend({
+var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
     _name: "MemoryFrame",
     props : {
         scope: {type: FunctionBlockScope},
