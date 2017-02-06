@@ -56,7 +56,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
     compile : function(scope){
         this.compileDeclaration(scope);
         this.compileDefinition(scope);
-        //this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
+        this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
         return this.semanticProblems;
     },
 
@@ -1212,7 +1212,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         if (this.semanticProblems.errors.length > 0){return this.semanticProblems;}
 
-        //this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
+        this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
 
         this.autosToDestruct = this.scope.automaticObjects.filter(function(obj){
             return isA(obj.type, Types.Class);

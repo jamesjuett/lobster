@@ -101,6 +101,11 @@ var Expression = Expressions.Expression = CPPCode.extend({
 
         this.compileTemporarires(scope);
 
+
+        // if (this.isFullExpression()){
+        //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
+        // }
+
         return this.semanticProblems;
     },
     compileTemporarires : function(scope){
@@ -3665,6 +3670,10 @@ var Identifier = Expressions.Identifier = Expression.extend({
         else{
             return this.entity.describe(sim, inst);
         }
+    },
+
+    explain : function(sim, inst) {
+        return {message: this.entity.name};
     }
 });
 
