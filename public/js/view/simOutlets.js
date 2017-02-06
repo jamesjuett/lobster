@@ -148,7 +148,7 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
         }
         return true;
     },
-    act: {
+    _act: {
         saved: function(){
             this.loadList();
         }
@@ -626,7 +626,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         }
     },
 
-    act : {
+    _act : {
         loadCode : "loadCode",
         runTo: "runTo",
         skipToEnd: "skipToEnd",
@@ -906,7 +906,7 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         codeMirror.addWidget(from, elem[0], false);
     },
 
-	act : {
+    _act : {
         loadCode: "loadCode",
         parsed : function(msg){
             if (this.syntaxErrorLineHandle) {
@@ -921,7 +921,7 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
 //            this.marks.push(this.codeMirror.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
 //                {className: "syntaxError"}));
             this.syntaxErrorLineHandle = this.codeMirror.addLineClass(err.line-1, "background", "syntaxError");
-            this.act.clearAnnotations.apply(this);
+            this._act.clearAnnotations.apply(this);
         },
         addAnnotation : function(msg) {
             var ann = msg.data;
@@ -1033,7 +1033,7 @@ Lobster.Outlets.CPP.Memory = WebOutlet.extend({
         arrow.oldEnd = oldEnd;
         return arrow;
     },
-    act : {
+    _act : {
         reset : function(){
 //            this.element.html(this.memory.toString());
         }
@@ -1158,7 +1158,7 @@ Lobster.Outlets.CPP.MemoryObject = WebOutlet.extend({
     //    return this.arrow;
     //},
 
-    act : {
+    _act : {
         valueRead : "valueRead",
         byteRead : "byteRead",
         bytesRead : "bytesRead",
@@ -1498,7 +1498,7 @@ Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
     updateObject : function(){
 //        this.objElem.html(this.object.valueString());
     },
-    act: copyMixin(Outlets.CPP.MemoryObject.act, {
+    _act: copyMixin(Outlets.CPP.MemoryObject._act, {
         bound: "bound"
     })
 });
@@ -1829,7 +1829,7 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
     /* Possible updates
      *
      */
-    act : {
+    _act : {
         framePushed: function(msg){
             //if (msg.data.func.context.implicit){
             //    return;
@@ -1901,7 +1901,7 @@ Lobster.Outlets.CPP.Heap = WebOutlet.extend({
         return this;
     },
 
-    act : {
+    _act : {
         heapObjectAllocated: function(msg){
             var obj = msg.data;
             var elem = $("<div style='display: none'></div>");
@@ -1981,7 +1981,7 @@ Lobster.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
         return this;
     },
 
-    act : {
+    _act : {
         temporaryObjectAllocated: function(msg){
             var obj = msg.data;
             var elem = $("<div style='display: none'></div>");
@@ -2084,7 +2084,7 @@ Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
             last.funcContext.send("currentFunction");
         }
     },
-    act : {
+    _act : {
         pushed: true,
         started: true,
         cleared: true,

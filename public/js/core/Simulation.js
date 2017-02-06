@@ -545,7 +545,7 @@ var Simulation = Lobster.CPP.Simulation = DataPath.extend({
         this.send("atEnded");
         //console.log("done!");
     },
-    act : {
+    _act : {
         sourceCode : "codeSet"
     }
 });
