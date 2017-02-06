@@ -14,6 +14,7 @@ eval(fs.readFileSync("util.js")+"");
 eval(fs.readFileSync("entities.js")+"");
 eval(fs.readFileSync("outlet.js")+"");
 eval(fs.readFileSync("internals.js")+"");
+eval(fs.readFileSync("annotations.js")+"");
 eval(fs.readFileSync("error.js")+"");
 eval(fs.readFileSync("types.js")+"");
 eval(fs.readFileSync("expressions.js")+"");
