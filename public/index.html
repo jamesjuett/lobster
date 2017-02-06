@@ -23,7 +23,6 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Replace favicon.ico & apple-touch-icon.png in the root of your domain and delete these references -->
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="stylesheet" href="css/codemirror.css">
@@ -53,6 +52,7 @@
     <script src = "js/view/codeOutlets.js"></script>
     <script src = "js/core/parsing.js"></script>
     <script src = "js/core/parsing2.js"></script>
+    <script src = "js/core/analysis.js"></script>
 
 </head>
 
@@ -66,8 +66,6 @@
             (<a href="https://drive.google.com/file/d/0B49xEM_rtERAMHRFZW5oREdGdjA/view?usp=sharing" target="_blank">Usage Guide</a>)
             <!--(Press the "s" or "->" key to step forward, or scroll while holding ctrl)-->
         </div>
-        <!--<textarea class="debug log" style="width: 800px; height: 50px"> </textarea>-->
-        <!--<input type="text" class="codeSelect" name ="codeSelect" />-->
         <div id="labster1" style="display:flex; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch; flex: 1 1 auto; -webkit-flex: 1 1 auto; -ms-flex: 1 1 auto; margin-top: 5px; margin-bottom: 5px; overflow-y: scroll">
             <div style="width: 175px; margin-right: 5px; display: flex; flex-direction:column;-webkit-flex-direction: column;-ms-flex-direction: column; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch;">
                 <div style="margin-top: 2ch; text-align: center">My Code</div>
@@ -80,10 +78,6 @@
                 <span style="font-size: 7pt">Code Name:</span><input class="friendsProgramName" style="width: 100px" type="text" maxlength="30" value="program.cpp" />
                 <button class="friendCodeButton">Find</button>
             </div>
-            <!--<div class="debug execStack" style="width: 125px; margin-right: 5px; display: flex; flex-direction:column;-webkit-flex-direction: column;-ms-flex-direction: column; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch;"></div>-->
-            <!-- <div  class="codeArea" style = "display: block; position: absolute; min-height: 300px; width: 300px;">
-                <div id = "codeAreaShadow" style = "background: none; border: none; display: block; position: relative; margin: 0; padding: 0;"></div>
-            </div> -->
             <div style="flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; display: flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column;">
                 <div class="tabs" style="flex: 0 0 auto;-webkit-flex: 0 0 auto;-ms-flex: 0 0 auto;">
                     <span class="sourceTab" class="active">Source Code</span>
@@ -189,22 +183,9 @@
             }
             firstTime = false;
             data.lab2group = "2"; // hack to make everyone have Maize
-            if (data.lab2group === "1"){
-//                $(".labsterTitle").append(" <span style='color:blue'>BLUE</span>");
-                Outlets.CPP.SimulationOutlet.useSourceSimulation = true;
-            }
-            else if (data.lab2group === "2"){
-//                $(".labsterTitle").append(" <span style='color:gold'>MAIZE</span>");
-                Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
-            }
-            else{
-                // No group?
-                Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
-            }
-//                Outlets.CPP.PointerMemoryObject.showPtdArray = false;
+            Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
 
             var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#labster1"));
-//          var simOutlet2 = Outlets.CPP.SimulationOutlet.instance($("#labster2"), Simulation.instance());
 
             var elem = $(".codeListAll");
             var codeList = CodeList.instance(elem, "api/", simOutlet.editor, false);
@@ -219,7 +200,7 @@
                 codeList.loadCode($(".friendsProgramName").val(), $(".friendsUniqname").val());
             });
 
-            codeList.loadCode(data.lastFile);
+            codeList.loadCode(data["lastFile"]);
 
 
             var dcCount = 0;
@@ -255,33 +236,10 @@
 
 
 
-
-//            var temp = "int fib(int n){\n  if (n <= 2)\n    return 1;\n  else\n    return fib(n-1) + fib(n-2);\n}\n\nint main(){\n  int x = 3;\n  int y = 4;\n  int *ptr = new int;\n  int *ptr2 = &x;\n  int **dPtr = &ptr2;\n  **dPtr = 5;\n  y = x = *ptr;\n\n  x = fib(4);\n}";
-//            // $("#codeArea textarea").val(temp);
-//            simulation.code.setValue(temp);
-
             createDefaultOutlets();
 
-//        tinymce.init({
-//            selector: ".codeArea textarea",
-//            nowrap: true,
-////            setup: function(ed){
-////                ed.on("keydown", function(evt) {
-////                   if (evt.keyCode == 9){
-////                       if (evt.shiftKey) {
-////                           ed.execCommand("Outdent");
-////                       }
-////                       else{
-////                           ed.execCommand("Indent");
-////                       }
-////                       evt.preventDefault();
-////                   }
-////                });
-////            }
-//        });
 
-
-
+            analyze(simOutlet.program, simOutlet.sim, simOutlet.editor);
         };
 
         function onSignIn(googleUser) {
@@ -291,14 +249,6 @@
             console.log('Image URL: ' + profile.getImageUrl());
             console.log('Email: ' + profile.getEmail());
             ID_TOKEN = googleUser.getAuthResponse().id_token;
-
-//        var xhr = new XMLHttpRequest();
-//        xhr.open('POST', 'api/login');
-//        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-//        xhr.onload = function() {
-//            console.log('Signed in as: ' + xhr.responseText);
-//        };
-//        xhr.send('idtoken=' + id_token);
 
             $.ajax({
                 type: "POST",
@@ -316,21 +266,6 @@
                 dataType: "json"
             });
         }
-
-
-/*        $(document).ready(function() {
-
-
-                    handleWhoAmI({
-                        lastProgram : "program.cpp",
-                        lab2Group: 2
-                    });
-
-
-
-
-        });
-*/
 
 
     </script>
