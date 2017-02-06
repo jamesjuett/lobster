@@ -14,7 +14,7 @@ var Program = Lobster.CPP.Program = DataPath.extend({
         // Things that don't change while simulation is running
         // Only change when recompiled
         this.globalScope = NamespaceScope.instance("", null, this);
-        this.i_topLevelDeclarations = [];
+        this.topLevelDeclarations = [];
         this.semanticProblems = SemanticProblems.instance(); // TODO NEW make this non-public
 
         this.staticEntities = [];
@@ -135,7 +135,7 @@ var Program = Lobster.CPP.Program = DataPath.extend({
         var self = this;
         //console.log("compiling");
 		this.semanticProblems.clear();
-		this.i_topLevelDeclarations.clear();
+		this.topLevelDeclarations.clear();
 		this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 		this.i_main = null;
@@ -155,11 +155,11 @@ var Program = Lobster.CPP.Program = DataPath.extend({
             var decl = Declarations.create(code[i], {parent: null, func: globalFunctionContext});
             //console.log(decl.name);
             var declProblems = decl.tryCompileDeclaration(this.globalScope);
-            this.i_topLevelDeclarations.push(decl);
+            this.topLevelDeclarations.push(decl);
         }
 
-        for(var i = 0; i < this.i_topLevelDeclarations.length; ++i){
-            decl = this.i_topLevelDeclarations[i];
+        for(var i = 0; i < this.topLevelDeclarations.length; ++i){
+            decl = this.topLevelDeclarations[i];
             decl.tryCompileDefinition(this.globalScope);
         }
 
@@ -172,8 +172,8 @@ var Program = Lobster.CPP.Program = DataPath.extend({
 
         var annotatedCalls = {};
         // Tail Recursion Analysis
-        for(var i = 0; i < this.i_topLevelDeclarations.length; ++i){
-            decl = this.i_topLevelDeclarations[i];
+        for(var i = 0; i < this.topLevelDeclarations.length; ++i){
+            decl = this.topLevelDeclarations[i];
             if (isA(decl, FunctionDefinition)){
                 decl.tailRecursionAnalysis(annotatedCalls);
             }

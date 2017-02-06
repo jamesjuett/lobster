@@ -22,6 +22,7 @@ eval(fs.readFileSync("declarations.js")+"");
 eval(fs.readFileSync("statements.js")+"");
 eval(fs.readFileSync("Simulation.js")+"");
 eval(fs.readFileSync("parsing.js")+"");
+eval(fs.readFileSync("analysis.js")+"");
 
 
 var tailCheck = function(filename){
