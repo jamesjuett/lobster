@@ -39,9 +39,9 @@ var Annotation = Class.extend({
 
 var SimpleAnnotation = Annotation.extend({
     _name: "SimpleAnnotation",
-    init : function(src, cssClass, message){
+    init : function(sourceConstruct, cssClass, message){
         cssClass = cssClass || "";
-        this.initParent(src);
+        this.initParent(sourceConstruct);
         this._cssClass = cssClass;
         this.i_message = _.escape(message);
     },
@@ -82,8 +82,8 @@ var ErrorAnnotation = SimpleAnnotation.extend({
 
 var WidgetAnnotation = Annotation.extend({
     _name: "WidgetAnnotation",
-    init : function(src, cssClass){
-        this.initParent(src);
+    init : function(sourceConstruct, cssClass){
+        this.initParent(sourceConstruct);
         this._cssClass = cssClass;
     },
 
@@ -115,8 +115,8 @@ var WidgetAnnotation = Annotation.extend({
 
 var RecursiveCallAnnotation = WidgetAnnotation.extend({
     _name: "RecursiveCallAnnotation",
-    init : function(src, isTail, reason, others){
-        this.initParent(src, isTail ? "tailRecursive" : "recursive");
+    init : function(sourceConstruct, isTail, reason, others){
+        this.initParent(sourceConstruct, isTail ? "tailRecursive" : "recursive");
         this.i_isTail = isTail;
         this.i_reason = reason;
         this.i_others = others || [];
@@ -143,8 +143,8 @@ var RecursiveCallAnnotation = WidgetAnnotation.extend({
 
 var RecursiveFunctionAnnotation = WidgetAnnotation.extend({
     _name: "RecursiveFunctionAnnotation",
-    init : function(src){
-        this.initParent(src, src.constantStackSpace ? "tailRecursive" : "recursive");
+    init : function(sourceConstruct){
+        this.initParent(sourceConstruct, sourceConstruct.constantStackSpace ? "tailRecursive" : "recursive");
         this.i_trackedConstruct = this.i_sourceConstruct.declarator;
         this.i_trackedCode = this.i_trackedConstruct.code;
     },
@@ -229,8 +229,8 @@ var RecursiveFunctionAnnotation = WidgetAnnotation.extend({
 
 var DeclarationAnnotation = WidgetAnnotation.extend({
     _name: "DeclarationAnnotation",
-    init : function(src){
-        this.initParent(src, "");
+    init : function(sourceConstruct){
+        this.initParent(sourceConstruct, "");
     },
 
     onClick : function(outlet){
@@ -252,8 +252,8 @@ var DeclarationAnnotation = WidgetAnnotation.extend({
 
 var ExpressionAnnotation = WidgetAnnotation.extend({
     _name: "ExpressionAnnotation",
-    init : function(src){
-        this.initParent(src, "");
+    init : function(sourceConstruct){
+        this.initParent(sourceConstruct, "");
     },
 
     onClick : function(outlet){
