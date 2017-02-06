@@ -145,7 +145,7 @@ var UserLog = Lobster.CPP.UserLog = DataPath.extend({
     addAction : function(action){
         this.actions.push(action);
     },
-    act : {
+    _act : {
         userAction : function(msg){
             this.addAction(msg.data);
         }

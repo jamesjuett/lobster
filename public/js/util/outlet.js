@@ -317,7 +317,7 @@ var HtmlOutlet = Lobster.Outlets.HtmlOutlet = WebOutlet.extend({
         return this;
     },
 
-    act : function(msg){
+    _act : function(msg){
 //        if (category == "value"){
             this.element.html(msg.data.toString());
             this.element[0].scrollTop = this.element[0].scrollHeight;
@@ -358,7 +358,7 @@ var ValueOutlet = Lobster.Outlets.ValueOutlet = WebOutlet.extend({
         return this;
     },
 
-    act : function(msg){
+    _act : function(msg){
 //        if (msg.category == "value"){
             this.element.val(msg.data);
 //        }
@@ -443,7 +443,7 @@ var CssOutlet = Lobster.Outlets.CssOutlet = Outlet.extend({
         return this;
     },
 
-	act : function(msg){
+    _act : function(msg){
 		this.element.css(msg.data.property, msg.data.value);
 	}
 });
@@ -464,7 +464,7 @@ Lobster.Outlets.List = WebOutlet.extend({
 	
 	/* Possible updates
 	 */
-	act : function(msg){
+    _act : function(msg){
         var category = msg.category;
         var data = msg.data;
 		if (category == "pushed"){

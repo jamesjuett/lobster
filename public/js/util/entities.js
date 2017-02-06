@@ -49,11 +49,11 @@ var DataPath = Entities.DataPath = Class.extend({
 
         // Call the "act" function for this data path
         var bubbledMsg;
-        if (typeof this.act === "function") {
-            bubbledMsg = this.act(msg);
+        if (typeof this._act === "function") {
+            bubbledMsg = this._act(msg);
         }
         else{
-            var catAct = this.act[msg.category];
+            var catAct = this._act[msg.category];
             if (catAct === true){
                 bubbledMsg = this[msg.category].call(this, msg.data, msg.source);
             }
@@ -63,8 +63,8 @@ var DataPath = Entities.DataPath = Class.extend({
             else if (catAct){
                 bubbledMsg = catAct.call(this, msg);
             }
-            else if (this.act._default){
-                bubbledMsg = this.act._default.call(this, msg);
+            else if (this._act._default){
+                bubbledMsg = this._act._default.call(this, msg);
             }
         }
 
@@ -78,12 +78,12 @@ var DataPath = Entities.DataPath = Class.extend({
         //}
     },
 
-    act : {
+    _act : {
 //        _default: function(category, data, source){}
     },
-//    act : function(category, data, source){
+//    _act : function(category, data, source){
 ////        if (this.actor){
-////            this.actor.act(category, data, source);
+////            this.actor._act(category, data, source);
 ////        }
 //    },
     send : function(category, data, source, target) {
@@ -228,7 +228,7 @@ var DataPath = Entities.DataPath = Class.extend({
 var Actor = Entities.Actor = DataPath.extend({
    init: function(act){
        this.initParent();
-       this.act = act;
+       this._act = act;
    }
 });
 
@@ -278,7 +278,7 @@ var ValueEntity = Entities.ValueEntity = Entity.extend({
 		return this._value;
 	},
 
-    act: function(msg){
+    _act: function(msg){
         this.prevValue = this._value;
         this._value = msg.data;
         return copyMixin(msg, {category: this.categoryName});

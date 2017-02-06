@@ -1851,7 +1851,7 @@ var Memory = Lobster.Memory = DataPath.extend({
         assert(this.heapEnd == this.capacity);
 
     },
-    act : {
+    _act : {
         clear : function(){return false;} // prevent bubble for clear
     },
     reset : function(){
