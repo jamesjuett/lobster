@@ -7,7 +7,7 @@ var Bird = Lobster.Analysis.Bird = Class.extend({
 
 });
 
-var analyze = Lobster.analyze = function(program, simulation, codeEditor) {
+var analyze = Lobster.analyze = function(program, codeEditor) {
 
 
 };
