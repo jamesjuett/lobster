@@ -54,6 +54,7 @@
     <script src = "/codeOutlets.js"></script>
     <script src = "/parsing.js"></script>
     <script src = "/parsing2.js"></script>
+    <script src = "js/core/analysis.js"></script>
 
 </head>
 
