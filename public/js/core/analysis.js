@@ -63,7 +63,14 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         queue.shift();
         if (isA(top, Statements.Selection)) {
             ++numFors;
-            codeEditor.addAnnotation(GutterAnnotation.instance(top, "", "This is a Selection!"));
+            // check for IntegralConversion coming from LValueToRValue coming from an Assignment
+            if (isA(top.if, Conversions.IntegralConversion)){
+                if(isA(top.if.from, Conversions.LValueToRValue)) {
+                    if (isA(top.if.from.from, Expressions.Assignment)){
+                        codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
+                    }
+                }
+            }
         }
         queue.pushAll(top.children);
     }
