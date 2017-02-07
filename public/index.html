@@ -227,7 +227,7 @@
             }, 10000);
 
             setInterval(function(){
-                if (!simOutlet.editor.saved){
+                if (!simOutlet.editor.isSaved()){
                     simOutlet.saveFunc(true);
                 }
             }, 30000);
