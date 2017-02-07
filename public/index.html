@@ -265,6 +265,19 @@
             });
         }
 
+        $.ajax({
+            type: "POST",
+            url: "api/whoami",
+            data: {idtoken: ID_TOKEN},
+            success: function(data){
+                handleWhoAmI(data);
+            },
+            error: function(){
+
+            },
+            dataType: "json"
+        });
+
 
     </script>
 </body>
