@@ -15,55 +15,40 @@ var DataPath = Entities.DataPath = Class.extend({
 
     init: function() {
         // Properties
-        this.categoryMap = {};
         this.listeners = {};
         this.universalListeners = [];
-        this.bubble = false;
 
         return this;
     },
 
     recv: function(msg){
 
-        // Call the "act" function for this data path
-        var bubbledMsg;
+        // Call the "_act" function for this data path
         if (typeof this._act === "function") {
-            bubbledMsg = this._act(msg);
+            this._act(msg);
         }
         else{
             var catAct = this._act[msg.category];
             if (catAct === true){
-                bubbledMsg = this[msg.category].call(this, msg.data, msg.source);
+                this[msg.category].call(this, msg.data, msg.source);
             }
             else if (typeof catAct === "string"){
-                bubbledMsg = this[catAct].call(this, msg.data, msg.source);
+                this[catAct].call(this, msg.data, msg.source);
             }
             else if (catAct){
-                bubbledMsg = catAct.call(this, msg);
+                catAct.call(this, msg);
             }
             else if (this._act._default){
-                bubbledMsg = this._act._default.call(this, msg);
+                this._act._default.call(this, msg);
             }
         }
 
-        // Rebroadcast the message if we are supposed to bubble.
-        // If the act function returns either true or false, this overrides default bubbling
-        //if (bubbledMsg){
-        //    this.send(bubbledMsg);
-        //}
-        //else if (this.bubble){
-        //    this.send(msg);
-        //}
     },
 
     _act : {
-//        _default: function(category, data, source){}
+
     },
-//    _act : function(category, data, source){
-////        if (this.actor){
-////            this.actor._act(category, data, source);
-////        }
-//    },
+
     send : function(category, data, source, target) {
         if (this.silent){
             return;

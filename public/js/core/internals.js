@@ -1852,7 +1852,7 @@ var Memory = Lobster.Memory = DataPath.extend({
 
     },
     _act : {
-        clear : function(){return false;} // prevent bubble for clear
+        clear : function(){ }
     },
     reset : function(){
 
@@ -2153,8 +2153,6 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
         var funcInst = func;
 
         this.initParent();
-
-//        this.bubble = true; // bubble valueSet messages
 
         this.size = 0;
         this.objects = {};
