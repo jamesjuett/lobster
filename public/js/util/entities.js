@@ -186,7 +186,7 @@ var Actor = Entities.Actor = Class.extend(Observer, {
    }
 });
 
-var Entity = Entities.Entity = Class.extend(Observable, {
+var Entity = Entities.Entity = Class.extend(Observable, Observer, {
     _name: "Entity",
     ALL_ENTITIES: {},
     _nextId: 0,
