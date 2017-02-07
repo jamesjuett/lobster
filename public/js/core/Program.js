@@ -20,9 +20,6 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.staticEntities = [];
         this.i_main = false;
 
-        this.code = ValueEntity.instance("code", "");
-        this.listenTo(this.code);
-
         return this;
     },
 

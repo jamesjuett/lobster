@@ -1714,6 +1714,7 @@ var createMemoryObjectOutlet = function(elem, obj, memoryOutlet){
 };
 
 Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
+    _name : "Outlets.CPP.StackFrame",
     init: function(element, frame, memoryOutlet)
     {
         this.initParent(element, true);

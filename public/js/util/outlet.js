@@ -33,7 +33,12 @@ var Outlet = Lobster.Outlets.Outlet = Class.extend(Observable, Observer, {
         this.initParent();
 
         this.id = "out_" + (Outlets.Outlet._nextId++);
-    }
+    },
+
+	converse : function(other) {
+    	this.listenTo(other);
+    	this.addListener(other);
+	}
 });
 
 var WebOutlet = Lobster.Outlets.WebOutlet = Outlet.extend({

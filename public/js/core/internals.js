@@ -233,9 +233,6 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
         this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
-    send: function(){
-        return CPPCodeInstance._parent.send.apply(this, arguments);
-    },
 	instanceString : function(){
 		return "instance of " + this._name + " (" + this.model._name + ")";
 	},
@@ -1821,7 +1818,7 @@ var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
 
 
 
-var Memory = Lobster.Memory = Class.extend({
+var Memory = Lobster.Memory = Class.extend(Observable, {
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
