@@ -6,11 +6,6 @@ var Entities = Lobster.Entities = {
 
 };
 
-var ArrMap = function(arr){
-    return function(key){
-        return arr[key];
-    }
-};
 
 var DataPath = Entities.DataPath = Class.extend({
     _name: "DataPath",
@@ -29,23 +24,6 @@ var DataPath = Entities.DataPath = Class.extend({
     },
 
     recv: function(msg){
-        //var msg = category; // if single message object was passed
-        //if (typeof category === "string"){
-        //    // if category, data, source were actually passed separately
-        //    msg = {
-        //        category: category,
-        //        data: data,
-        //        source: source,
-        //        target: target
-        //    }
-        //}
-        //assert(typeof msg === "object");
-
-        // Modify message coming in by category mapping and translating data
-        //if (this.interpret) {
-        //    msg = this.interpret(msg) || msg;
-        //}
-//        data = this.interpretData(category, data, source);
 
         // Call the "act" function for this data path
         var bubbledMsg;
@@ -135,20 +113,6 @@ var DataPath = Entities.DataPath = Class.extend({
             }
         }
     },
-
-//    mapCategory: function(category, data, source){
-//        return this.categoryMap[category] || category;
-//    },
-//
-//    interpretData: function(category, data, source){
-//        var interp = this.interpreters[category];
-//        return interp ? interp(data) : data;
-//    },
-//
-//    translateData: function(category, data, source){
-//        var trans = this.translators[category];
-//        return trans ? trans(data) : data;
-//    },
 
     /**
      * @param {object} listen
