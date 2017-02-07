@@ -60,10 +60,10 @@ var DeadObjectMessage = RuntimeMessage.extend({
 var makeError = function(src, type, sentence){
     //src = src || {context:{}};
     if (type === true){
-        return ErrorAnnotation.instance(src, "warning", sentence);
+        return GutterAnnotation.instance(src, "warning", sentence);
     }
     else if (type === false){
-        return ErrorAnnotation.instance(src, "error", sentence);
+        return GutterAnnotation.instance(src, "error", sentence);
     }
 };
 

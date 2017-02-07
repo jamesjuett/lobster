@@ -166,7 +166,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         }
     },
 
-    act: {
+    _act: {
         childPushed: "childPushed",
         upNext: function(){
             this.upNext();
@@ -182,7 +182,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         },
         current: "current",
         uncurrent: true,
-        idCodeOutlet: DataPath._IDENTIFY
+        idCodeOutlet: Observer._IDENTIFY
     }
 });
 
@@ -278,7 +278,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
         this.setUpParams();
     },
 
-    act: mixin({}, Outlets.CPP.Code.act, {
+    _act: mixin({}, Outlets.CPP.Code._act, {
 
         returned: function(msg){
             // Nothing for now
@@ -396,7 +396,7 @@ Lobster.Outlets.CPP.Block = Outlets.CPP.Code.extend({
             this.gotoLinks[i].html(">>").css("visibility", "hidden");
         }
     },
-    act: mixin({}, Outlets.CPP.Code.act, {
+    _act: mixin({}, Outlets.CPP.Code._act, {
 
         index: function(msg){
             this.gotoLinks[msg.data].html("<<");
@@ -502,7 +502,7 @@ Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
 
     },
 
-    act: $.extend({}, Outlets.CPP.Statement.act, {
+    _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
             this.cond.removeInstance();
             this.body.removeInstance();
@@ -536,7 +536,7 @@ Lobster.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
 
     },
 
-    act: $.extend({}, Outlets.CPP.Statement.act, {
+    _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
             this.cond.removeInstance();
             this.body.removeInstance();
@@ -582,7 +582,7 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
 
     },
 
-    act: $.extend({}, Outlets.CPP.Statement.act, {
+    _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
             this.cond.removeInstance();
             this.body.removeInstance();
@@ -610,7 +610,7 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
         this.element.append(";");
     },
 
-    act : mixin({}, Outlets.CPP.Code.act, {
+    _act : mixin({}, Outlets.CPP.Code._act, {
         returned: function(msg){
             var data = msg.data;
 
@@ -698,7 +698,7 @@ Lobster.Outlets.CPP.Declaration = Outlets.CPP.Code.extend({
             this.currentDeclarator = null;
         }
     },
-    act : mixin({}, Outlets.CPP.Code.act, {
+    _act : mixin({}, Outlets.CPP.Code._act, {
         initializing: function(msg){
             this.setCurrentDeclaratorIndex(msg.data);
         }
@@ -745,7 +745,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
         var x = 3;
     },
 
-    act: copyMixin(Outlets.CPP.Code.act, {
+    _act: copyMixin(Outlets.CPP.Code._act, {
         initialized: function(msg){
             var obj = msg.data;
             var val;
@@ -784,8 +784,8 @@ Lobster.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
         this.element.append(exprElem);
         this.addChild(createCodeOutlet(exprElem, this.code.sub.initExpr, this.simOutlet));
     },
-    act : copyMixin(Outlets.CPP.Code.act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+    _act : copyMixin(Outlets.CPP.Code._act, {
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -809,8 +809,8 @@ Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
 
         this.element.append("}");
     },
-    act : copyMixin(Outlets.CPP.Code.act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+    _act : copyMixin(Outlets.CPP.Code._act, {
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -844,8 +844,8 @@ Lobster.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
             this.element.append("()");
         }
     },
-    act : copyMixin(Outlets.CPP.Code.act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+    _act : copyMixin(Outlets.CPP.Code._act, {
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -901,8 +901,8 @@ Lobster.Outlets.CPP.DirectInitializer = Outlets.CPP.Code.extend({
         }
 
     },
-    act : copyMixin(Outlets.CPP.Code.act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+    _act : copyMixin(Outlets.CPP.Code._act, {
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -953,8 +953,8 @@ Lobster.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
         }
 
     },
-    act : copyMixin(Outlets.CPP.Code.act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+    _act : copyMixin(Outlets.CPP.Code._act, {
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -1105,7 +1105,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         this.removeEvalValue();
     },
 
-    act: $.extend({}, Outlets.CPP.Code.act, {
+    _act: $.extend({}, Outlets.CPP.Code._act, {
         evaluated: function(msg){
             var value = msg.data;
             this.setEvalValue(value);
@@ -1174,7 +1174,7 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
         }
     },
 
-    act: mixin({}, Outlets.CPP.Expression.act, {
+    _act: mixin({}, Outlets.CPP.Expression._act, {
 
         returned: function(msg){
             var value = msg.data;
@@ -1287,7 +1287,7 @@ Lobster.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
         }
     }),
 
-    act: mixin({}, Outlets.CPP.Code.act, {
+    _act: mixin({}, Outlets.CPP.Code._act, {
 
         returned: function(msg){
             // This may be the case for main, constructors, destructors, etc.
@@ -1370,7 +1370,7 @@ Lobster.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
         }
     },
 
-    act: mixin({}, Outlets.CPP.Expression.act, {
+    _act: mixin({}, Outlets.CPP.Expression._act, {
 
 //        calleeOutlet : function(callee, source){
 //            this.addChild(callee);

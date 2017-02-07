@@ -266,7 +266,7 @@ var Class = {}; // Init with empty object quiets annoying warning.
             var additions = {};
             for(var i = 0; i < arguments.length; ++i){
                 var ingredient = arguments[i];
-                mixin(additions, ingredient);
+                mixin(additions, ingredient, true);
             }
 
             var sub = Object.create(this);
