@@ -6,7 +6,7 @@ var Entities = Lobster.Entities = {
 
 };
 
-Mixins = Mixins || {};
+var Mixins = Mixins || {};
 
 var Observer = Mixins.Observer = {
 
@@ -37,9 +37,7 @@ var Observer = Mixins.Observer = {
         }
 
     },
-    _act : {
-
-    },
+    _act : {},
 
     listenTo : function(other, category){
         other.addListener(this, category);

@@ -32,6 +32,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         }
     },
 
+    // TODO NEW: probably remove and put elsewhere
+    converse : function(other) {
+        this.listenTo(other);
+        this.addListener(other);
+    },
+
     clear : function(){
     },
 
