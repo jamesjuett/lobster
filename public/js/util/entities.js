@@ -6,90 +6,60 @@ var Entities = Lobster.Entities = {
 
 };
 
-var ArrMap = function(arr){
-    return function(key){
-        return arr[key];
-    }
-};
+var Mixins = Mixins || {};
 
-var DataPath = Entities.DataPath = Class.extend({
-    _name: "DataPath",
+var Observer = Mixins.Observer = {
+
     _IDENTIFY : function(msg){
         msg.data(this);
     },
 
-    init: function() {
-        // Properties
-        this.categoryMap = {};
-        this.listeners = {};
-        this.universalListeners = [];
-        this.bubble = false;
-
-        return this;
-    },
-
     recv: function(msg){
-        //var msg = category; // if single message object was passed
-        //if (typeof category === "string"){
-        //    // if category, data, source were actually passed separately
-        //    msg = {
-        //        category: category,
-        //        data: data,
-        //        source: source,
-        //        target: target
-        //    }
-        //}
-        //assert(typeof msg === "object");
 
-        // Modify message coming in by category mapping and translating data
-        //if (this.interpret) {
-        //    msg = this.interpret(msg) || msg;
-        //}
-//        data = this.interpretData(category, data, source);
-
-        // Call the "act" function for this data path
-        var bubbledMsg;
-        if (typeof this.act === "function") {
-            bubbledMsg = this.act(msg);
+        // Call the "_act" function for this
+        if (typeof this._act === "function") {
+            this._act(msg);
         }
         else{
-            var catAct = this.act[msg.category];
+            var catAct = this._act[msg.category];
             if (catAct === true){
-                bubbledMsg = this[msg.category].call(this, msg.data, msg.source);
+                this[msg.category].call(this, msg.data, msg.source);
             }
             else if (typeof catAct === "string"){
-                bubbledMsg = this[catAct].call(this, msg.data, msg.source);
+                this[catAct].call(this, msg.data, msg.source);
             }
             else if (catAct){
-                bubbledMsg = catAct.call(this, msg);
+                catAct.call(this, msg);
             }
-            else if (this.act._default){
-                bubbledMsg = this.act._default.call(this, msg);
+            else if (this._act._default){
+                this._act._default.call(this, msg);
             }
         }
 
-        // Rebroadcast the message if we are supposed to bubble.
-        // If the act function returns either true or false, this overrides default bubbling
-        //if (bubbledMsg){
-        //    this.send(bubbledMsg);
-        //}
-        //else if (this.bubble){
-        //    this.send(msg);
-        //}
+    },
+    _act : {},
+
+    listenTo : function(other, category){
+        other.addListener(this, category);
+        return this;
+    }
+
+
+};
+
+var Observable = Mixins.Observable = {
+
+    _initListenerArrays : function() {
+        this._universalListeners = [];
+        this._listeners = {};
     },
 
-    act : {
-//        _default: function(category, data, source){}
-    },
-//    act : function(category, data, source){
-////        if (this.actor){
-////            this.actor.act(category, data, source);
-////        }
-//    },
     send : function(category, data, source, target) {
         if (this.silent){
             return;
         }
+        if (!this._listeners) { this._initListenerArrays(); }
+
         var msg = category; // if single message object was passed
         if (typeof category === "string"){
             // if category, data, source were actually passed separately
@@ -114,10 +84,10 @@ var DataPath = Entities.DataPath = Class.extend({
             target.recv(msg);
         }
         else { // Otherwise, broadcast
-            //if (!this.listeners[msg.category]){
-            //    this.listeners[msg.category] = [];
+            //if (!this._listeners[msg.category]){
+            //    this._listeners[msg.category] = [];
             //}
-            var listeners = this.listeners[msg.category];
+            var listeners = this._listeners[msg.category];
             if (listeners){
                 for (var i = 0; i < listeners.length; ++i) {
                     var listener = listeners[i];
@@ -127,8 +97,8 @@ var DataPath = Entities.DataPath = Class.extend({
                 }
             }
 
-            for (var i = 0; i < this.universalListeners.length; ++i){
-                var univListener = this.universalListeners[i];
+            for (var i = 0; i < this._universalListeners.length; ++i){
+                var univListener = this._universalListeners[i];
                 if (univListener !== noSend){
                     univListener.recv(msg);
                 }
@@ -136,25 +106,12 @@ var DataPath = Entities.DataPath = Class.extend({
         }
     },
 
-//    mapCategory: function(category, data, source){
-//        return this.categoryMap[category] || category;
-//    },
-//
-//    interpretData: function(category, data, source){
-//        var interp = this.interpreters[category];
-//        return interp ? interp(data) : data;
-//    },
-//
-//    translateData: function(category, data, source){
-//        var trans = this.translators[category];
-//        return trans ? trans(data) : data;
-//    },
-
     /**
      * @param {object} listen
      */
     addListener : function(listen, category) {
         assert(listen !== this, "Can't listen to yourself!");
+        if (!this._listeners) { this._initListenerArrays(); }
         if (category){
             assert(!Array.isArray(category) || category.length > 0, "Listener may not specify empty category list.");
             if (Array.isArray(category)) {
@@ -166,53 +123,50 @@ var DataPath = Entities.DataPath = Class.extend({
             else {
                 assert(String.isString(category), "Category must be a string! (or array of strings)");
                 // Create list for that category if necessary and push
-                if (!this.listeners[category]){
-                    this.listeners[category] = [];
+
+                if (!this._listeners[category]){
+                    this._listeners[category] = [];
                 }
-                this.listeners[category].push(listen);
+                this._listeners[category].push(listen);
                 this.listenerAdded(listen, category);
             }
         }
         else{
             // if no category, intent is to listen to everything
-            this.universalListeners.push(listen);
+            this._universalListeners.push(listen);
             this.listenerAdded(listen, category);
         }
         return this;
     },
 
-    listenTo : function(other, category){
-        other.addListener(this, category);
-        return this;
-    },
-
-    converse : function(other, send, recv){
-        this.addListener(other, send);
-        this.listenTo(other, recv);
-        return this;
-    },
+    // converse : function(other, send, recv){
+    //     this.addListener(other, send);
+    //     this.listenTo(other, recv);
+    //     return this;
+    // },
     /*
     Note: to remove a universal listener, you must call this with category==false.
     If a listener is universal, removing it from a particular category won't do anything.
      */
     removeListener : function(listen, category){
         assert(category !== false && category !== null);
+        if (!this._listeners) { this._initListenerArrays(); }
         if(category){
             // Remove from the list for a specific category (if list exists)
-            if (!this.listeners[category]){
-                this.listeners[category] = [];
+            if (!this._listeners[category]){
+                this._listeners[category] = [];
             }
-            this.listeners[category].remove(listen);
+            this._listeners[category].remove(listen);
             this.listenerRemoved(listen, category);
         }
         else{
             // Remove from all categories
-            for(var cat in this.listeners){
+            for(var cat in this._listeners){
                 this.removeListener(listen, cat);
             }
 
             // Also remove from universal listeners
-            this.universalListeners.remove(listen);
+            this._universalListeners.remove(listen);
         }
     },
     listenerAdded : function(listener, category){},
@@ -223,16 +177,16 @@ var DataPath = Entities.DataPath = Class.extend({
         this.send(category, func || function(o){other = o;});
         return other;
     }
-});
+};
 
-var Actor = Entities.Actor = DataPath.extend({
+var Actor = Entities.Actor = Class.extend(Observer, {
    init: function(act){
        this.initParent();
-       this.act = act;
+       this._act = act;
    }
 });
 
-var Entity = Entities.Entity = DataPath.extend({
+var Entity = Entities.Entity = Class.extend(Observable, {
     _name: "Entity",
     ALL_ENTITIES: {},
     _nextId: 0,
@@ -243,8 +197,6 @@ var Entity = Entities.Entity = DataPath.extend({
     init: function() {
         this.id = /*id || */"ent_" + (this._nextId++);
         this.initParent();
-
-//        this.update = DataPath.instance();
 
         this.ALL_ENTITIES[this.id] = this;
 
@@ -278,7 +230,7 @@ var ValueEntity = Entities.ValueEntity = Entity.extend({
 		return this._value;
 	},
 
-    act: function(msg){
+    _act: function(msg){
         this.prevValue = this._value;
         this._value = msg.data;
         return copyMixin(msg, {category: this.categoryName});

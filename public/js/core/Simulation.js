@@ -7,7 +7,7 @@ Lobster.CPP = Lobster.CPP || {};
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
 
-var Simulation = Lobster.CPP.Simulation = DataPath.extend({
+var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
@@ -30,6 +30,12 @@ var Simulation = Lobster.CPP.Simulation = DataPath.extend({
         if (this.program.mainEntity() && !this.program.hasSemanticErrors()){
             this.start();
         }
+    },
+
+    // TODO NEW: probably remove and put elsewhere
+    converse : function(other) {
+        this.listenTo(other);
+        this.addListener(other);
     },
 
     clear : function(){
@@ -545,7 +551,7 @@ var Simulation = Lobster.CPP.Simulation = DataPath.extend({
         this.send("atEnded");
         //console.log("done!");
     },
-    act : {
+    _act : {
         sourceCode : "codeSet"
     }
 });

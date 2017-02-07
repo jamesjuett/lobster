@@ -24,115 +24,7 @@ function createDefaultOutlets(){
 	});
 }
 
-
-//var Outlet = Lobster.Outlets.Outlet = Class.extend({
-//    _nextId: 0,
-//
-//
-//    init: function() {
-//
-//        // Each outlet has a unique ID
-//        this.id = "out_" + (this._nextId++);
-//    },
-//
-//    setEntity : function(key, entity, observe){
-//		assert(observe, "Outlet must specify observation criteria.");
-//		if (String.isString(observe)) { observe = [observe]; }
-//		assert(Array.isArray(observe), "Observation criteria must be string or array of strings.");
-//		assert(entity.isA(Entity), "entity must be of Entity type.");
-//
-//
-//		// Stop observing previous
-//		var old = this.entities[key];
-//		if (old){
-//			old.removeObserver(this);
-//		}
-//
-//		// Set entity and entities properties
-//		if (entity){
-//			this.entities[key] = entity;
-//		}
-//		else{
-//			delete this.entities[key];
-//		}
-//
-//		// Start observing new entity (if it exists)
-//		if (entity){
-//			entity.addObserver(this, observe);
-//		}
-//
-//		// Call entitySet hook
-//		this.entitySet(key, entity, observe);
-//
-//		return this;
-//	},
-//
-//	getEntity : function(key){
-//		return this.entities[key];
-//	},
-//
-//	entitySet : function(key, entity, observe){
-//		// hook
-//	},
-//	/**
-//	 *  @param {entity} if this is a string, remove by key.  Otherwise, remove by value
-//	 */
-//	removeEntity : function(entity){
-//		if (String.isString(entity)){
-//			this.setEntity(entity, null);
-//		}
-//		else{
-//			for(var key in this.entities){
-//				if (this.entities[key] === entity){
-//					this.setEntity(key, null);
-//				}
-//			}
-//		}
-//	},
-//
-//	setInterpreter : function(key, interpreter){
-//		if (interpreter){
-//			assert(typeof interpreter === "function", "Interprepter must be a function.");
-//			this.interpreters[key] = interpreter;
-//		}
-//		else{
-//			delete this.interpreters[key];
-//		}
-//		return this;
-//	},
-//
-//	_update : function(category, data, source){
-//		if (this.interpreters[category]){
-//			data = this.interpreters[category](data);
-//		}
-//		this.update(category, data, source);
-//	},
-//
-//    update : function(category, data, source){
-//
-//    },
-//
-//	onUupdate : function(category, data, source){
-//		//hook
-//	},
-//
-//	input : function(category, data, source, key){
-//		// alert("input called. category: " + category + " data: " + data + " source: " + source + " key: " + key);
-//		if (key){
-//			var ent = this.entities[key];
-//			if (ent){
-//				ent.input(category, data, source);
-//			}
-//		}
-//		else{
-//			for(var key in this.entities){
-//				this.input(category, data, source, key);
-//			}
-//		}
-//	}
-//});
-
-var Outlet = Lobster.Outlets.Outlet = DataPath.extend({
+var Outlet = Lobster.Outlets.Outlet = Class.extend(Observable, Observer, {
     _name: "Outlet",
     _nextId: 0,
 
@@ -141,7 +33,12 @@ var Outlet = Lobster.Outlets.Outlet = DataPath.extend({
         this.initParent();
 
         this.id = "out_" + (Outlets.Outlet._nextId++);
-    }
+    },
+
+	converse : function(other) {
+    	this.listenTo(other);
+    	this.addListener(other);
+	}
 });
 
 var WebOutlet = Lobster.Outlets.WebOutlet = Outlet.extend({
@@ -317,7 +214,7 @@ var HtmlOutlet = Lobster.Outlets.HtmlOutlet = WebOutlet.extend({
         return this;
     },
 
-    act : function(msg){
+    _act : function(msg){
 //        if (category == "value"){
             this.element.html(msg.data.toString());
             this.element[0].scrollTop = this.element[0].scrollHeight;
@@ -358,7 +255,7 @@ var ValueOutlet = Lobster.Outlets.ValueOutlet = WebOutlet.extend({
         return this;
     },
 
-    act : function(msg){
+    _act : function(msg){
 //        if (msg.category == "value"){
             this.element.val(msg.data);
 //        }
@@ -443,7 +340,7 @@ var CssOutlet = Lobster.Outlets.CssOutlet = Outlet.extend({
         return this;
     },
 
-	act : function(msg){
+    _act : function(msg){
 		this.element.css(msg.data.property, msg.data.value);
 	}
 });
@@ -464,7 +361,7 @@ Lobster.Outlets.List = WebOutlet.extend({
 	
 	/* Possible updates
 	 */
-	act : function(msg){
+    _act : function(msg){
         var category = msg.category;
         var data = msg.data;
 		if (category == "pushed"){

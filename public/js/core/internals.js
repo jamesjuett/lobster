@@ -196,7 +196,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 });
 
 
-var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
+var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
     _name: "CPPCodeInstance",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -232,9 +232,6 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
 
         this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
-    },
-    send: function(){
-        return CPPCodeInstance._parent.send.apply(this, arguments);
     },
 	instanceString : function(){
 		return "instance of " + this._name + " (" + this.model._name + ")";
@@ -657,7 +654,7 @@ var ClassScope = NamespaceScope.extend({
 });
 
 
-var CPPEntity = CPP.CPPEntity = DataPath.extend({
+var CPPEntity = CPP.CPPEntity = Class.extend(Observable, {
     _name: "CPPEntity",
     _nextEntityId: 0,
     init: function(name){
@@ -1821,7 +1818,7 @@ var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
 
 
 
-var Memory = Lobster.Memory = DataPath.extend({
+var Memory = Lobster.Memory = Class.extend(Observable, {
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
@@ -1851,9 +1848,7 @@ var Memory = Lobster.Memory = DataPath.extend({
         assert(this.heapEnd == this.capacity);
 
     },
-    act : {
-        clear : function(){return false;} // prevent bubble for clear
-    },
+
     reset : function(){
 
         // memory is a sequence of bytes, addresses starting at 0
@@ -2049,7 +2044,7 @@ var Memory = Lobster.Memory = DataPath.extend({
     }
 });
 
-var MemoryStack = DataPath.extend({
+var MemoryStack = Class.extend(Observable, {
     _name: "MemoryStack",
     init: function(memory, start){
         this.initParent();
@@ -2097,7 +2092,7 @@ var MemoryStack = DataPath.extend({
     }
 });
 
-var MemoryHeap = DataPath.extend({
+var MemoryHeap = Class.extend(Observable, {
     _name: "MemoryHeap",
     props : {
         memory: {type: Memory},
@@ -2136,7 +2131,7 @@ var MemoryHeap = DataPath.extend({
 
 //TODO search for StackFrame, .stack, .heap, .objects
 
-var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
+var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
     _name: "MemoryFrame",
     props : {
         scope: {type: FunctionBlockScope},
@@ -2153,8 +2148,6 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
         var funcInst = func;
 
         this.initParent();
-
-//        this.bubble = true; // bubble valueSet messages
 
         this.size = 0;
         this.objects = {};

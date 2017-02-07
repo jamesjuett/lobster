@@ -5,7 +5,7 @@
 var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
-var Program = Lobster.CPP.Program = DataPath.extend({
+var Program = Lobster.CPP.Program = Class.extend(Observable, {
     _name: "Program",
 
     init: function( ){
@@ -19,9 +19,6 @@ var Program = Lobster.CPP.Program = DataPath.extend({
 
         this.staticEntities = [];
         this.i_main = false;
-
-        this.code = ValueEntity.instance("code", "");
-        this.listenTo(this.code);
 
         return this;
     },

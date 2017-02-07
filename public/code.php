@@ -40,7 +40,6 @@
     <script src = "/util.js"></script>
     <script src = "/entities.js"></script>
     <script src = "/outlet.js"></script>
-    <script src = "/codeDisplay.js"></script>
     <script src = "/internals.js"></script>
     <script src = "/annotations.js"></script>
     <script src = "/error.js"></script>
