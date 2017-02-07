@@ -1821,7 +1821,7 @@ var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
 
 
 
-var Memory = Lobster.Memory = DataPath.extend({
+var Memory = Lobster.Memory = Class.extend({
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
@@ -1851,9 +1851,7 @@ var Memory = Lobster.Memory = DataPath.extend({
         assert(this.heapEnd == this.capacity);
 
     },
-    _act : {
-        clear : function(){ }
-    },
+
     reset : function(){
 
         // memory is a sequence of bytes, addresses starting at 0
