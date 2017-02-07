@@ -196,7 +196,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 });
 
 
-var CPPCodeInstance = Lobster.CPPCodeInstance = DataPath.extend({
+var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
     _name: "CPPCodeInstance",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -657,7 +657,7 @@ var ClassScope = NamespaceScope.extend({
 });
 
 
-var CPPEntity = CPP.CPPEntity = DataPath.extend({
+var CPPEntity = CPP.CPPEntity = Class.extend(Observable, {
     _name: "CPPEntity",
     _nextEntityId: 0,
     init: function(name){
@@ -2047,7 +2047,7 @@ var Memory = Lobster.Memory = Class.extend({
     }
 });
 
-var MemoryStack = DataPath.extend({
+var MemoryStack = Class.extend(Observable, {
     _name: "MemoryStack",
     init: function(memory, start){
         this.initParent();
@@ -2095,7 +2095,7 @@ var MemoryStack = DataPath.extend({
     }
 });
 
-var MemoryHeap = DataPath.extend({
+var MemoryHeap = Class.extend(Observable, {
     _name: "MemoryHeap",
     props : {
         memory: {type: Memory},
@@ -2134,7 +2134,7 @@ var MemoryHeap = DataPath.extend({
 
 //TODO search for StackFrame, .stack, .heap, .objects
 
-var MemoryFrame = Lobster.CPP.MemoryFrame = DataPath.extend({
+var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
     _name: "MemoryFrame",
     props : {
         scope: {type: FunctionBlockScope},

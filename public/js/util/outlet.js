@@ -24,7 +24,7 @@ function createDefaultOutlets(){
 	});
 }
 
-var Outlet = Lobster.Outlets.Outlet = DataPath.extend({
+var Outlet = Lobster.Outlets.Outlet = Class.extend(Observable, Observer, {
     _name: "Outlet",
     _nextId: 0,
 

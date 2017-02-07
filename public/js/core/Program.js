@@ -5,7 +5,7 @@
 var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
-var Program = Lobster.CPP.Program = DataPath.extend({
+var Program = Lobster.CPP.Program = Class.extend(Observable, {
     _name: "Program",
 
     init: function( ){
