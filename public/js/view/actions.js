@@ -125,7 +125,7 @@ Lobster.CPP.UserActions.Simulate = UserActions.Base.extend({
     }
 });
 
-var UserLog = Lobster.CPP.UserLog = DataPath.extend({
+var UserLog = Lobster.CPP.UserLog = Class.extend(Observer, {
     _name : "UserLog",
     init : function(){
         this.initParent();

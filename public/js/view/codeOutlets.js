@@ -182,7 +182,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         },
         current: "current",
         uncurrent: true,
-        idCodeOutlet: DataPath._IDENTIFY
+        idCodeOutlet: Observer._IDENTIFY
     }
 });
 
@@ -785,7 +785,7 @@ Lobster.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
         this.addChild(createCodeOutlet(exprElem, this.code.sub.initExpr, this.simOutlet));
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -810,7 +810,7 @@ Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
         this.element.append("}");
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -845,7 +845,7 @@ Lobster.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
         }
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -902,7 +902,7 @@ Lobster.Outlets.CPP.DirectInitializer = Outlets.CPP.Code.extend({
 
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 
@@ -954,7 +954,7 @@ Lobster.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
 
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
-        "idArgOutlet" : DataPath._IDENTIFY
+        "idArgOutlet" : Observer._IDENTIFY
     })
 });
 

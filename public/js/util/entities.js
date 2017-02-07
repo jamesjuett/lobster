@@ -6,24 +6,17 @@ var Entities = Lobster.Entities = {
 
 };
 
+Mixins = Mixins || {};
 
-var DataPath = Entities.DataPath = Class.extend({
-    _name: "DataPath",
+var Observer = Mixins.Observer = {
+
     _IDENTIFY : function(msg){
         msg.data(this);
     },
 
-    init: function() {
-        // Properties
-        this.listeners = {};
-        this.universalListeners = [];
-
-        return this;
-    },
-
     recv: function(msg){
 
-        // Call the "_act" function for this data path
+        // Call the "_act" function for this
         if (typeof this._act === "function") {
             this._act(msg);
         }
@@ -44,10 +37,19 @@ var DataPath = Entities.DataPath = Class.extend({
         }
 
     },
-
     _act : {
 
     },
+
+    listenTo : function(other, category){
+        other.addListener(this, category);
+        return this;
+    }
+
+
+};
+
+var Observable = Mixins.Observable = {
 
     send : function(category, data, source, target) {
         if (this.silent){
@@ -130,16 +132,11 @@ var DataPath = Entities.DataPath = Class.extend({
         return this;
     },
 
-    listenTo : function(other, category){
-        other.addListener(this, category);
-        return this;
-    },
-
-    converse : function(other, send, recv){
-        this.addListener(other, send);
-        this.listenTo(other, recv);
-        return this;
-    },
+    // converse : function(other, send, recv){
+    //     this.addListener(other, send);
+    //     this.listenTo(other, recv);
+    //     return this;
+    // },
     /*
     Note: to remove a universal listener, you must call this with category==false.
     If a listener is universal, removing it from a particular category won't do anything.
@@ -172,16 +169,16 @@ var DataPath = Entities.DataPath = Class.extend({
         this.send(category, func || function(o){other = o;});
         return other;
     }
-});
+};
 
-var Actor = Entities.Actor = DataPath.extend({
+var Actor = Entities.Actor = Class.extend(Observer, {
    init: function(act){
        this.initParent();
        this._act = act;
    }
 });
 
-var Entity = Entities.Entity = DataPath.extend({
+var Entity = Entities.Entity = Class.extend(Observable, {
     _name: "Entity",
     ALL_ENTITIES: {},
     _nextId: 0,
@@ -192,8 +189,6 @@ var Entity = Entities.Entity = DataPath.extend({
     init: function() {
         this.id = /*id || */"ent_" + (this._nextId++);
         this.initParent();
-
-//        this.update = DataPath.instance();
 
         this.ALL_ENTITIES[this.id] = this;
 
