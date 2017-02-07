@@ -63,8 +63,8 @@ var SimpleAnnotation = Annotation.extend({
 
 
 
-var ErrorAnnotation = SimpleAnnotation.extend({
-    _name: "ErrorAnnotation",
+var GutterAnnotation = SimpleAnnotation.extend({
+    _name: "GutterAnnotation",
 
     onAdd : function(outlet){
         SimpleAnnotation.onAdd.apply(this, arguments);

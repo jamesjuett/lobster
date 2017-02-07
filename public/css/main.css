@@ -275,7 +275,7 @@ div .tabPane {
 }
 
 .codeMark {
-	border: none;
+	border-bottom: solid 2px white;
 }
 
 .codeMark.current{
@@ -294,6 +294,8 @@ div .tabPane {
 	/*top: -45%;*/
 	/*border-right: solid 1px white !important;*/
 /*}*/
+
+
 
 .codeMark.error{
 	top: -45%;

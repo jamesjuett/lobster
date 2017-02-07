@@ -63,7 +63,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         queue.shift();
         if (isA(top, Statements.For)) {
             ++numFors;
-            codeEditor.addAnnotation(SimpleAnnotation.instance(top));
+            codeEditor.addAnnotation(GutterAnnotation.instance(top, "", "This is a for loop!"));
         }
         queue.pushAll(top.children);
     }
