@@ -79,10 +79,11 @@ var Observable = Mixins.Observable = {
             target.recv(msg);
         }
         else { // Otherwise, broadcast
-            //if (!this.listeners[msg.category]){
-            //    this.listeners[msg.category] = [];
+            this._listeners = this._listeners || {};
+            //if (!this._listeners[msg.category]){
+            //    this._listeners[msg.category] = [];
             //}
-            var listeners = this.listeners[msg.category];
+            var listeners = this._listeners[msg.category];
             if (listeners){
                 for (var i = 0; i < listeners.length; ++i) {
                     var listener = listeners[i];
@@ -92,8 +93,9 @@ var Observable = Mixins.Observable = {
                 }
             }
 
-            for (var i = 0; i < this.universalListeners.length; ++i){
-                var univListener = this.universalListeners[i];
+            this._universalListeners = this._universalListeners || [];
+            for (var i = 0; i < this._universalListeners.length; ++i){
+                var univListener = this._universalListeners[i];
                 if (univListener !== noSend){
                     univListener.recv(msg);
                 }
@@ -117,16 +119,19 @@ var Observable = Mixins.Observable = {
             else {
                 assert(String.isString(category), "Category must be a string! (or array of strings)");
                 // Create list for that category if necessary and push
-                if (!this.listeners[category]){
-                    this.listeners[category] = [];
+
+                this._listeners = this._listeners || {};
+                if (!this._listeners[category]){
+                    this._listeners[category] = [];
                 }
-                this.listeners[category].push(listen);
+                this._listeners[category].push(listen);
                 this.listenerAdded(listen, category);
             }
         }
         else{
             // if no category, intent is to listen to everything
-            this.universalListeners.push(listen);
+            this._universalListeners = this._universalListeners || [];
+            this._universalListeners.push(listen);
             this.listenerAdded(listen, category);
         }
         return this;
@@ -145,20 +150,23 @@ var Observable = Mixins.Observable = {
         assert(category !== false && category !== null);
         if(category){
             // Remove from the list for a specific category (if list exists)
-            if (!this.listeners[category]){
-                this.listeners[category] = [];
+            this._listeners = this._listeners || {};
+            if (!this._listeners[category]){
+                this._listeners[category] = [];
             }
-            this.listeners[category].remove(listen);
+            this._listeners[category].remove(listen);
             this.listenerRemoved(listen, category);
         }
         else{
             // Remove from all categories
-            for(var cat in this.listeners){
+            this._listeners = this._listeners || {};
+            for(var cat in this._listeners){
                 this.removeListener(listen, cat);
             }
 
             // Also remove from universal listeners
-            this.universalListeners.remove(listen);
+            this._universalListeners = this._universalListeners || [];
+            this._universalListeners.remove(listen);
         }
     },
     listenerAdded : function(listener, category){},
