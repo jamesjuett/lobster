@@ -753,9 +753,9 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
     s_instances : [],
     s_onbeforeunload : function(){
         if (CodeList.ajaxSuccessful){
-            for(var i = 0; i < CodeEditor._instances.length; ++i){
-                if (!CodeEditor._instances[i].isSaved()){
-                    return "The file (" + CodeEditor._instances[i].getProgramName() + ") has unsaved changes.";
+            for(var i = 0; i < CodeEditor.s_instances.length; ++i){
+                if (!CodeEditor.s_instances[i].isSaved()){
+                    return "The file (" + CodeEditor.s_instances[i].getProgramName() + ") has unsaved changes.";
                 }
             }
         }
@@ -799,7 +799,7 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         });
 
         //this.loadCode({name: "program.cpp", code: this.i_config.initCode});
-        CodeEditor._instances.push(this);
+        CodeEditor.s_instances.push(this);
     },
 
     getProgram : function() {
@@ -910,6 +910,21 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         codeMirror.addWidget(from, elem[0], false);
     },
 
+    addAnnotation : function(ann) {
+        ann.onAdd(this);
+        this.i_annotations.push(ann);
+    },
+
+    clearAnnotations : function(){
+        for(var i = 0; i < this.i_annotations.length; ++i){
+            this.i_annotations[i].onRemove(this);
+        }
+
+        this.i_annotations.length = 0;
+    },
+
+
+
     _act : {
         loadCode: "loadCode",
         parsed : function(msg){
@@ -927,19 +942,10 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
             this.syntaxErrorLineHandle = this.i_codeMirror.addLineClass(err.line-1, "background", "syntaxError");
             this._act.clearAnnotations.apply(this);
         },
-        addAnnotation : function(msg) {
-            var ann = msg.data;
-            ann.onAdd(this);
-            this.i_annotations.push(ann);
+        addAnnotation : function(msg){
+            this.addAnnotation(msg.data);
         },
-
-        clearAnnotations : function(){
-            for(var i = 0; i < this.i_annotations.length; ++i){
-                this.i_annotations[i].onRemove(this);
-            }
-
-            this.i_annotations.length = 0;
-		}
+        clearAnnotations : true
 	}
 
 });
