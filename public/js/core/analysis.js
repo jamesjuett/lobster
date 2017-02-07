@@ -61,13 +61,13 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
     while(queue.length > 0) {
         var top = queue[0];
         queue.shift();
-        if (isA(top, Statements.For)) {
+        if (isA(top, Statements.Selection)) {
             ++numFors;
-            codeEditor.addAnnotation(GutterAnnotation.instance(top, "", "This is a for loop!"));
+            codeEditor.addAnnotation(GutterAnnotation.instance(top, "", "This is a Selection!"));
         }
         queue.pushAll(top.children);
     }
-    console.log("There were " + numFors + " for loops.");
+    console.log("There were " + numFors + " Selections.");
   // var myBird = Bird.instance("Myrtle II", 3);
   // console.log(myBird.getName());
   //
