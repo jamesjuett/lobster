@@ -63,7 +63,6 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         queue.shift();
         if (isA(top, Statements.Selection)) {
             ++numFors;
-
             // check for IntegralConversion coming from LValueToRValue coming from an Assignment
             if (isA(top.if, Conversions.IntegralConversion)){
                 if(isA(top.if.from, Conversions.LValueToRValue)) {
@@ -75,7 +74,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         }
         queue.pushAll(top.children);
     }
-    console.log("There were " + numFors + " for loops.");
+    console.log("There were " + numFors + " Selections.");
   // var myBird = Bird.instance("Myrtle II", 3);
   // console.log(myBird.getName());
   //
