@@ -204,7 +204,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             simTab.removeClass("active");
             sourcePane.css("display", "flex");
             simPane.css("display", "none");
-            self.sim.annotate();
+            // self.program.annotate();
         });
 
         simTab.add(element.find(".runButton")).click(function(){
@@ -940,7 +940,7 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
 //            this.marks.push(this.i_codeMirror.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
 //                {className: "syntaxError"}));
             this.syntaxErrorLineHandle = this.i_codeMirror.addLineClass(err.line-1, "background", "syntaxError");
-            this._act.clearAnnotations.apply(this);
+            this.clearAnnotations();
         },
         addAnnotation : function(msg){
             this.addAnnotation(msg.data);
