@@ -108,9 +108,9 @@ h2{
 	margin-bottom: 5px;
 }
 
-li {
-	padding-bottom: 0.4em;
-}
+/*li {*/
+	/*padding-bottom: 0.4em;*/
+/*}*/
 
 .code{
     font-weight: normal;
