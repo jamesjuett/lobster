@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
 
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
-    <script src="js/lib/codemirror-compressed.js"></script>
+    <script src="js/lib/codemirror.js"></script>
+    <script src="js/lib/clike.js"></script>
     <script src="js/lib/jquery-3.1.1.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
     <script src="js/lib/peg-0.8.0.min.js"></script>
@@ -198,11 +199,11 @@
             var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#labster1"));
 
             var elem = $(".codeListAll");
-            var codeList = CodeList.instance(elem, "api/", simOutlet.editor, false);
+            var codeList = CodeList.instance(elem, "api/", simOutlet.projectEditor, false);
             simOutlet.listenTo(codeList);
 
             elem = $(".codeListMe");
-            codeList = CodeList.instance(elem, "api/me/", simOutlet.editor, true);
+            codeList = CodeList.instance(elem, "api/me/", simOutlet.projectEditor, true);
             simOutlet.listenTo(codeList);
 
             var projectList = ProjectList.instance($(".projectList"));
