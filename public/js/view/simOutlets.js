@@ -204,7 +204,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             simTab.removeClass("active");
             sourcePane.css("display", "flex");
             simPane.css("display", "none");
-            // self.program.annotate();
+            self.program.annotate();
         });
 
         simTab.add(element.find(".runButton")).click(function(){
