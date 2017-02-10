@@ -39,8 +39,8 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
     }
 });
 
+
 var BaseDeclarationMixin = {
-    // TODO NEW merge with the same functions in the regular Declaration class by creating a common base or a mixin
     tryCompileDeclaration : function(){
         try{
             return this.compileDeclaration.apply(this, arguments);
@@ -73,7 +73,6 @@ var BaseDeclarationMixin = {
         return this.semanticProblems;
     }
 };
-
 
 var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarationMixin, {
     _name: "Declaration",
@@ -1804,7 +1803,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
         // If any const data members do not have a user-provided default constructor
         if (!this.type.objectMembers.every(function(subObj){
-                if (!isA(subObj.type, Types.Class)){
+                if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
                     return true;
                 }
                 var defCon = subObj.type.getDefaultConstructor(self.scope);
