@@ -126,6 +126,40 @@ $app->post('/api/course/code/:course/:name', function ($course, $name) use ($app
 });
 
 
+
+// GET request for projects list
+$app->get('/api/me/project-list', function () use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT project, isPublic FROM user_projects WHERE email=:email');
+    $stmt->bindParam('email', $email);
+    $stmt->execute();
+    $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+    echo json_encode($res);
+});
+
+// GET request for project code
+$app->get('/api/me/project/:project', function ($project) use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT name, code FROM user_project_files WHERE email=:email AND project=:project');
+    $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $project);
+    $stmt->execute();
+    $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+    echo json_encode($res);
+
+    $stmt = $db->prepare('UPDATE user_info SET lastProject=:project WHERE uniqname=:email');
+    $stmt->bindParam('project', $project);
+    $stmt->bindParam('email', $email);
+    $stmt->execute();
+});
+
+
 $app->post('/api/me/code/:name', function ($name) use ($app) {
 
     $email = getEmailFromIdToken($app->request->post('idtoken'));
@@ -145,6 +179,26 @@ $app->post('/api/me/code/:name', function ($name) use ($app) {
     $stmt->execute();
 });
 
+
+
+$app->post('/api/me/code/:name', function ($name) use ($app) {
+
+    $email = getEmailFromIdToken($app->request->post('idtoken'));
+    $theuser = $email;
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT code FROM user_code WHERE uniqname=:uniqname AND name=:name');
+    $stmt->bindParam('uniqname', $theuser);
+    $stmt->bindParam('name', $name);
+    $stmt->execute();
+    $res = $stmt->fetchObject();
+    echo $res->code;
+
+    $stmt = $db->prepare('UPDATE user_info SET lastFile=:name WHERE uniqname=:uniqname');
+    $stmt->bindParam('name', $name);
+    $stmt->bindParam('uniqname', $theuser);
+    $stmt->execute();
+});
 
 
 
