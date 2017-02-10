@@ -187,8 +187,8 @@ var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
 
         for(var i = 0; i < projects.length; i++) {
             var project = projects[i];
-            var item = $("<div></div>");
-            var link = $('<span class="link">' + project["project"] + '</span>');
+            var item = $("<li></li>");
+            var link = $('<a class="link" data-toggle="pill">' + project["project"] + '</a>');
             item.append(link);
             link.click(function(){
                 self.send("loadProject", $(this).html());
@@ -263,7 +263,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         });
 
 
-
+        this.projectEditor = ProjectEditor.instance(sourcePane);
 
 
         this.errorStatus = ValueEntity.instance();
@@ -492,6 +492,13 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         }
     },
 
+    loadProject : function(projectName){
+        // TODO NEW: warn about losing unsaved changes
+
+        this.projectEditor.loadProject(projectName);
+
+    },
+
     restart : function(){
         this.setEnabledButtons({}, true);
         this.sim.start();
@@ -672,6 +679,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     _act : {
         loadCode : "loadCode",
+        loadProject : "loadProject",
         runTo: "runTo",
         skipToEnd: "skipToEnd",
         compiled : function(msg){
@@ -784,7 +792,59 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 });
 
+var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend({
+    _name : "ProjectEditor",
 
+    API_URL_LOAD_PROJECT : "/api/me/project/",
+
+    init : function(element) {
+        this.i_filesElem = element.find(".project-files");
+    },
+
+    loadProject : function(projectName){
+        // TODO NEW: warn about losing unsaved changes
+
+        this.ajax({
+            type: "GET",
+            url: this.API_URL_LOAD_PROJECT + projectName,
+            success: function (data) {
+                if (!data){
+                    alert("Project not found! :(");
+                    return;
+                }
+                this.i_setProject(data);
+                document.title = projectName;
+            },
+            dataType: "json"
+        });
+
+    },
+
+    i_setProject : function(project){
+
+        // Update tabs for each file name
+        this.i_filesElem.empty();
+
+        for(var i = 0; i < project.length; i++) {
+            var file = project[i];
+            var item = $('<li></li>');
+            var link = $('<a data-toggle="tab">' + file["name"] + '</a>');
+            link.click(function(){
+                console.log("Selected file: " + $(this).html());
+            });
+            item.append(link);
+            this.i_filesElem.append(item);
+        }
+
+        this.i_filesElem.children().first().addClass("active");
+
+    }
+
+
+
+});
+// <li class="active"><a href="#file1" data-toggle="tab">file1</a></li>
+//     <li><a href="#file2" data-toggle="tab">file2</a></li>
 
 
 var IDLE_MS_BEFORE_COMPILE = 1000;

@@ -5,12 +5,13 @@
 
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
     <script src="js/lib/codemirror-compressed.js"></script>
-    <script src="js/lib/jquery-1.8.3.min.js"></script>
+    <script src="js/lib/jquery-3.1.1.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
     <script src="js/lib/peg-0.8.0.min.js"></script>
     <script src="js/lib/svg.min.js"></script>
     <script src="js/lib/seedrandom.js"></script>
     <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
     <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
     Remove this if you use the .htaccess -->
@@ -25,6 +26,7 @@
 
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css">
     <link rel="stylesheet" href="css/codemirror.css">
     <link rel="stylesheet" href="css/monokai.css">
     <link rel="stylesheet" href="css/lobster.css">
@@ -56,6 +58,8 @@
 </head>
 
 <body>
+
+
 <div class="fill" style="margin-left: auto; margin-right: auto">
     <div class="fill" id="main_area" style="display:flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column;">
         <div style="text-align: center; flex:0 1 auto;-webkit-flex:0 1 auto; -ms-flex:0 1 auto">
@@ -68,7 +72,8 @@
         <div id="labster1" style="display:flex; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch; flex: 1 1 auto; -webkit-flex: 1 1 auto; -ms-flex: 1 1 auto; margin-top: 5px; margin-bottom: 5px; overflow-y: scroll">
             <div style="width: 175px; margin-right: 5px; display: flex; flex-direction:column;-webkit-flex-direction: column;-ms-flex-direction: column; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch;">
                 <div style="margin-top: 2ch; text-align: center">My Projects</div>
-                <div class = "projectList" style="flex: 1 1 100px;-webkit-flex: 1 1 100px;-ms-flex: 1 1 100px; overflow-y: auto; "></div>
+                <ul class="projectList coursePills nav nav-pills nav-stacked"></ul>
+                <!--<div class = "projectList" style="flex: 1 1 100px;-webkit-flex: 1 1 100px;-ms-flex: 1 1 100px; overflow-y: auto; "></div>-->
                 <div style="margin-top: 2ch; text-align: center">My Code</div>
                 <div style="text-align: center; font-size: 7pt">(Check the box to make the code public.)</div>
                 <div class = "codeList codeListMe" style="flex: 1 1 100px;-webkit-flex: 1 1 100px;-ms-flex: 1 1 100px; overflow-y: auto; "></div>
@@ -84,8 +89,17 @@
                     <span class="sourceTab" class="active">Source Code</span>
                     <span class="simTab">Simulation</span>
                 </div>
-                <div class = "tabPanes" style="position: relative; background-color: ghostwhite; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto;">
+                <div class = "tabPanes" style="position: relative; background-color: white; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto;">
                     <div class="sourcePane" style="display: flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column">
+                        <div>
+                            <div class="container">
+                                <div class="row">
+                                    <ul class="project-files nav nav-tabs">
+
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                         <div style= "padding:2px">
                             <input class="saveName" type="text" maxlength="30" value="" />
                             <button class="saveButton">Save</button>
@@ -111,11 +125,6 @@
                                 <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
                             </div>
                         </div>
-
-
-
-
-
                     </div>
                     <div class="simPane" style="display: none; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column; padding: 5px" tabindex="0">
                         <div style="margin-bottom: 5px;">
@@ -197,6 +206,7 @@
             simOutlet.listenTo(codeList);
 
             var projectList = ProjectList.instance($(".projectList"));
+            simOutlet.listenTo(projectList);
 
 
             $(".friendCodeButton").click(function(){
