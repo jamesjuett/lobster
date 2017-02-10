@@ -156,6 +156,50 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
 
 });
 
+var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
+    _name: "ProjectList",
+
+    API_URL : "/api/me/project-list",
+
+    // element should be a jquery object
+    init: function(element) {
+        this.i_element = element;
+        element.addClass("projectList");
+
+        this.refresh();
+    },
+
+    refresh : function(){
+        this.ajax({
+            type: "GET",
+            url: this.API_URL,
+            success: function(data){
+                this.i_setList(data);
+            },
+            dataType: "json"
+        });
+    },
+
+    i_setList : function(projects) {
+        var self = this;
+
+        this.i_element.empty();
+
+        for(var i = 0; i < projects.length; i++) {
+            var project = projects[i];
+            var item = $("<div></div>");
+            var link = $('<span class="link">' + project["project"] + '</span>');
+            item.append(link);
+            link.click(function(){
+                self.send("loadProject", $(this).html());
+            });
+
+            this.i_element.append(item);
+        }
+    }
+
+});
+
 Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     _name: "SimulationOutlet",
     DEFAULT_CONFIG : {
