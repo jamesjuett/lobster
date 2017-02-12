@@ -815,7 +815,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             tabSize: 2,
             extraKeys: {
                 "Ctrl-S" : function(){
-                    self.saveFunc();
+                    self.saveProject();
                 }
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
