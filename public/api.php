@@ -128,7 +128,7 @@ $app->post('/api/course/code/:course/:name', function ($course, $name) use ($app
 
 
 // GET request for projects list
-$app->get('/api/me/project-list', function () use ($app) {
+$app->get('/api/me/project/list', function () use ($app) {
 
     $email = getUserEmail();
 
@@ -141,7 +141,7 @@ $app->get('/api/me/project-list', function () use ($app) {
 });
 
 // GET request for project code
-$app->get('/api/me/project/:project', function ($project) use ($app) {
+$app->get('/api/me/project/get/:project', function ($project) use ($app) {
 
     $email = getUserEmail();
 
@@ -154,9 +154,52 @@ $app->get('/api/me/project/:project', function ($project) use ($app) {
     echo json_encode($res);
 
     $stmt = $db->prepare('UPDATE user_info SET lastProject=:project WHERE uniqname=:email');
-    $stmt->bindParam('project', $project);
     $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $project);
     $stmt->execute();
+});
+
+
+
+// POST request to save a project
+$app->post('/api/me/project/save/:projectName', function ($projectName) use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+
+    $stmt = $db->prepare('SELECT * FROM user_projects WHERE email=:email AND project=:project');
+    $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $projectName);
+    $stmt->execute();
+
+    if ($stmt->rowCount() == 0){
+
+        // Create a new project since it didn't exist before
+        $stmt = $db->prepare('INSERT INTO user_projects VALUES (:email, :project, false, NULL)');
+        $stmt->bindParam('email', $email);
+        $stmt->bindParam('project', $projectName);
+        $stmt->execute();
+
+        echo json_encode(array(
+            'success'=>'success'
+        ));
+    }
+
+    //$files = json_decode($app->request->post('files'), true);
+    $files = $app->request->post('files');
+    //echo json_encode($files);
+    foreach($files as $file){
+        $name = $file['name'];
+        $text = $file['text'];
+
+        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, NULL) ON DUPLICATE KEY UPDATE code=:text');
+        $stmt->bindParam('email', $email);
+        $stmt->bindParam('project', $projectName);
+        $stmt->bindParam('name', $name);
+        $stmt->bindParam('text', $text);
+        $stmt->execute();
+    }
 });
 
 
