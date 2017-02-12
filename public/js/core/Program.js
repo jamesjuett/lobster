@@ -6,7 +6,11 @@ var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
 var Program = Lobster.CPP.Program = Class.extend(Observable, {
-    _name: "Program",
+
+});
+
+var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
+    _name: "TranslationUnit",
 
     init: function( ){
         this.initParent();

@@ -160,7 +160,7 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
 var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
     _name: "ProjectList",
 
-    API_URL : "/api/me/project-list",
+    API_URL : "/api/me/project/list",
 
     // element should be a jquery object
     init: function(element) {
@@ -273,17 +273,17 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.runningProgress = element.find(".runningProgress");
 //        this.console = ValueEntity.instance();
 
-        if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
-            this.editor = Outlets.CPP.FileEditor.instance(elem, this.program);
-            this.listenTo(this.editor);
-            this.listenTo(this.editor.getProgram());
-            this.sim.converse(this.editor);
-            // Dismiss any annotation messages
-            var self = this;
-            elem.click(function(){
-                self.hideAnnotationMessage();
-            })
-        }
+        // if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
+        //     this.editor = Outlets.CPP.FileEditor.instance(elem, this.program);
+        //     this.listenTo(this.editor);
+        //     this.listenTo(this.editor.getProgram());
+        //     this.sim.converse(this.editor);
+        //     // Dismiss any annotation messages
+        //     var self = this;
+        //     elem.click(function(){
+        //         self.hideAnnotationMessage();
+        //     })
+        // }
         if ((elem = this.statusElem = element.find(".status")).length !== 0) {
             this.status = Outlets.HtmlOutlet.instance(elem, true).listenTo(this.errorStatus);
         }
@@ -345,13 +345,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 var name = self.saveNameEnt.value().trim();
 
                 if (name.match(filenameRegex)){
-                    self.saveMessage.html("Saving...").show();
-                    $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
-                        console.log("save successful");
-                        self.saveMessage.html("Saved!").fadeOut(5000);
-                        self.editor.save();
-                        CodeList.reloadLists();
-                    });
+                    self.projectEditor.saveProject();
+                    // self.saveMessage.html("Saving...").show();
+                    // $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
+                    //     console.log("save successful");
+                    //     self.saveMessage.html("Saved!").fadeOut(5000);
+                    //     self.editor.save();
+                    //     CodeList.reloadLists();
+                    // });
                 }
                 else{
                     if(!suppressAlert) {
@@ -359,7 +360,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                     }
                 }
             };
-            this.editor.saveFunc = this.saveFunc;
+            // this.editor.saveFunc = this.saveFunc;
 
             this.saveButton.click(this.saveFunc);
 
@@ -477,8 +478,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     },
 
     initListeners : function(){
-        this.log && this.log.listenTo(this);
-        this.log && this.log.listenTo(this.editor);
+        // this.log && this.log.listenTo(this);
+        // this.log && this.log.listenTo(this.editor);
     },
 
     setEnabledButtons : function(enabled, def){
@@ -796,7 +797,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _name : "ProjectEditor",
 
-    API_URL_LOAD_PROJECT : "/api/me/project/",
+    API_URL_LOAD_PROJECT : "/api/me/project/get/",
+    API_URL_SAVE_PROJECT : "/api/me/project/save/",
 
     init : function(element) {
         var self = this;
@@ -833,12 +835,40 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                     alert("Project not found! :(");
                     return;
                 }
+                this.i_projectName = projectName;
                 this.i_setProject(data);
                 document.title = projectName;
+                this.i_isSaved = true;
             },
             dataType: "json"
         });
 
+    },
+
+    saveProject : function(projectName) {
+        projectName = projectName || this.i_projectName;
+        var projectFiles = [];
+        for(var filename in this.i_fileEditors) {
+            projectFiles.push({
+                name: filename,
+                text: this.i_fileEditors[filename].getText()
+            });
+        }
+
+        this.ajax({
+            type: "POST",
+            url: this.API_URL_SAVE_PROJECT + projectName,
+            data: {files: projectFiles},
+            success: function(data){
+                console.log("saved successfully");
+                this.i_isSaved = true;
+            },
+            dataType: "json"
+        });
+    },
+
+    isSaved : function() {
+        return this.i_isSaved;
     },
 
     i_setProject : function(project){
@@ -863,7 +893,9 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             var program = this.i_programs[file["name"]] = Program.instance();
 
             // Create a CodeMirror document for each file in the project
-            this.i_fileEditors[file["name"]] = FileEditor.instance(file["code"], program);
+            var fileEd = FileEditor.instance(file["code"], program);
+            this.listenTo(fileEd);
+            this.i_fileEditors[file["name"]] = fileEd;
         }
 
         // Set first file to be active
@@ -887,14 +919,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         assert(this.i_fileEditors[filename]);
         this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
     },
-
-    isSaved : function() {
-        return this.i_isSaved;
-    },
-
-    save : function() {
-        this.i_isSaved = true;
-    },
+    _act : {
+        textChanged : function() {
+            this.i_isSaved = false;
+        }
+    }
 
 
     // setSource : function(src){
