@@ -7,8 +7,27 @@ Lobster.CPP = Lobster.CPP || {};
 
 var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
+    stuff : function() {
+
+        if (!this.i_main){
+            this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
+        }
+
+
+        this.i_main = null;
+    }
+
+
 });
 
+/**
+ * TranslationUnit
+ *
+ * Events:
+ *   "parsed": after parsing is finished *successfully*
+ *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
+ *   "compiled": after compilation is finished. data is a SemanticProblems object
+ */
 var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
@@ -55,24 +74,16 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
             //}));
             //return;
 
+            codeStr = this.i_preprocess(codeStr);
+
             var parsed = Lobster.cPlusPlusParser.parse(codeStr);
 
-            // TODO NEW keep this?
-            // this.send("parsed");
+            this.send("parsed");
 
             this.compile(parsed);
 
-            if (!this.i_main){
-                this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
-            }
-            else if (this.hasSemanticErrors()) {
-                this.send("semanticError", this.semanticProblems);
-            }
-
-            this.send("compiled");
-
-
-
+            this.send("compiled", this.semanticProblems);
+            
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
@@ -92,27 +103,27 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
             codeStr = codeStr.replace(/#ifndef.*/g, function(match){
                 return Array(match.length+1).join(" ");
             });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
         if (codeStr.contains("#define")){
             codeStr = codeStr.replace(/#define.*/g, function(match){
                 return Array(match.length+1).join(" ");
             });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
         if (codeStr.contains("#endif")){
             codeStr = codeStr.replace(/#endif.*/g, function(match){
                 return Array(match.length+1).join(" ");
             });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
+            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
-        if (codeStr.contains("#include")){
-            codeStr = codeStr.replace(/#include.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            // TODO NEW why is this commented?
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#include</span>). They aren't supported at the moement, but you shouldn't need them. Don't worry, you can still use <span class='code'>cout</span>.");
-        }
+        // if (codeStr.contains("#include")){
+        //     codeStr = codeStr.replace(/#include.*/g, function(match){
+        //         return Array(match.length+1).join(" ");
+        //     });
+        //     // TODO NEW why is this commented?
+        //     // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+        // }
         if (codeStr.contains("using namespace")){
             codeStr = codeStr.replace(/using namespace.*/g, function(match){
                 return Array(match.length+1).join(" ");
@@ -129,6 +140,12 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
         return codeStr;
     },
 
+    i_preprocess : function(codeStr) {
+        // TODO NEW impelement this!
+        return codeStr;
+    },
+
+
 	compile : function(code){
 
         // Program.currentProgram = this;
@@ -139,7 +156,6 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
 		this.topLevelDeclarations.clear();
 		this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
-		this.i_main = null;
 
 		// List of calls. Currently this is just here so they can be checked later to see if they're all linked.
         this.i_calls = [];

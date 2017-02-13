@@ -1070,6 +1070,7 @@ var InitializerList = Lobster.InitializerList = CPPCode.extend({
     }
 });
 
+// NOTE: Any MagicFunctionDefinitions will be exempt from the ODR during linking
 var MagicFunctionDefinition = Declarations.MagicFunctionDefinition = Class.extend({
     _name: "MagicFunctionDefinition",
     isDefinition: true,
