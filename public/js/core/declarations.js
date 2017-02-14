@@ -40,7 +40,41 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
 });
 
 
-var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
+var BaseDeclarationMixin = {
+    tryCompileDeclaration : function(){
+        try{
+            return this.compileDeclaration.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    },
+
+    tryCompileDefinition : function(){
+        try{
+            return this.compileDefinition.apply(this, arguments);
+        }
+        catch(e){
+            if (isA(e, SemanticException)){
+                this.semanticProblems.push(e.annotation(this));
+            }
+            else{
+                console.log(e.stack);
+                throw e;
+            }
+        }
+        return this.semanticProblems;
+    }
+};
+
+var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarationMixin, {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -163,38 +197,6 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend({
 
 
 
-        return this.semanticProblems;
-    },
-
-    tryCompileDeclaration : function(){
-        try{
-            return this.compileDeclaration.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-
-    tryCompileDefinition : function(){
-        try{
-            return this.compileDefinition.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
         return this.semanticProblems;
     },
 
@@ -1100,7 +1102,7 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.extend({
+var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.extend(BaseDeclarationMixin, {
     _name: "FunctionDefinition",
     isDefinition: true,
     subSequence: ["memberInitializers", "body"],
@@ -1239,39 +1241,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         });
 
-        return this.semanticProblems;
-    },
-
-    // TODO NEW merge with the same functions in the regular Declaration class by creating a common base or a mixin
-    tryCompileDeclaration : function(){
-        try{
-            return this.compileDeclaration.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-        return this.semanticProblems;
-    },
-
-    tryCompileDefinition : function(){
-        try{
-            return this.compileDefinition.apply(this, arguments);
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
         return this.semanticProblems;
     },
 
@@ -1641,7 +1610,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
 
 
-var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend({
+var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
 
     compile : function(scope){
@@ -1834,7 +1803,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend({
 
         // If any const data members do not have a user-provided default constructor
         if (!this.type.objectMembers.every(function(subObj){
-                if (!isA(subObj.type, Types.Class)){
+                if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
                     return true;
                 }
                 var defCon = subObj.type.getDefaultConstructor(self.scope);

@@ -171,9 +171,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         // Tail Recursion Analysis
         for(var i = 0; i < this.topLevelDeclarations.length; ++i){
             decl = this.topLevelDeclarations[i];
-            if (isA(decl, FunctionDefinition)){
-                decl.tailRecursionAnalysis(annotatedCalls);
-            }
+            // if (isA(decl, FunctionDefinition)){
+            //     decl.tailRecursionAnalysis(annotatedCalls);
+            // }
             this.semanticProblems.pushAll(decl.semanticProblems);
         }
 
