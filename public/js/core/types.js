@@ -201,7 +201,8 @@ var Types = Lobster.Types = {
         tree_t : true,
         Rank : true,
         Suit : true,
-        ostream : true
+        ostream : true,
+        istream : true
     }
 };
 
@@ -741,8 +742,8 @@ Lobster.Types.OStream = Types.SimpleType.extend({
     }
 });
 
-Lobster.Types.IStream = Types.SimpleType.extend({
-    _name: "iStream",
+Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+    _name: "IStream",
     type: "istream",
     size: 4,
     init: function(isConst, isVolatile){

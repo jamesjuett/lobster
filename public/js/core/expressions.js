@@ -1650,7 +1650,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         typeCheck : function(){
 
             // Check if it's pointer arithmetic
-            if (isA(this.left.type, Types.Pointer) && isA(this.right.type, Types.Pointer) && sameType(this.left.type, this.right.type)) {
+            if (isA(this.left.type, Types.Pointer) && isA(this.right.type, Types.Pointer) && similarType(this.left.type, this.right.type)) {
                 this.type = Types.Int.instance();
                 this.valueCategory = "prvalue";
                 this.isPointerArithmetic = true;
