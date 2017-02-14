@@ -54,27 +54,37 @@ var Duck = Lobster.Analysis.Duck = Bird.extend({
     // x ? y : false
 });
 
+// check for IntegralConversion coming from LValueToRValue coming from an Assignment
+// if (isA(top.if, Conversions.IntegralConversion)){
+//     if(isA(top.if.from, Conversions.LValueToRValue)) {
+//         if (isA(top.if.from.from, Expressions.Assignment)){
+//             codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
+//         }
+//     }
+// }
+
 var analyze = Lobster.analyze = function(program, codeEditor) {
 
-    var queue = program.topLevelDeclarations;
-    var numFors = 0;
-    while(queue.length > 0) {
-        var top = queue[0];
-        queue.shift();
-        if (isA(top, Statements.Selection)) {
-            ++numFors;
-            // check for IntegralConversion coming from LValueToRValue coming from an Assignment
-            if (isA(top.if, Conversions.IntegralConversion)){
-                if(isA(top.if.from, Conversions.LValueToRValue)) {
-                    if (isA(top.if.from.from, Expressions.Assignment)){
-                        codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
-                    }
-                }
-            }
+    var bfsChildren = function(queue, func) {
+
+        while (queue.length > 0) {
+            var top = queue[0];
+            queue.shift(); // pop front
+
+            // do the thing
+            func(top);
+
+            queue.pushAll(top.children);
         }
-        queue.pushAll(top.children);
-    }
-    console.log("There were " + numFors + " Selections.");
+    };
+
+
+    bfsChildren(program.topLevelDeclarations, function(construct){
+        if (isDot(construct)) {
+            console.log("Here's a dot! " + construct.toString() + " line " + construct.code.line);
+            codeEditor.addAnnotation(GutterAnnotation.instance(construct, "dot", "boop"));
+        }
+    });
   // var myBird = Bird.instance("Myrtle II", 3);
   // console.log(myBird.getName());
   //
@@ -83,6 +93,11 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
   // NEVER DO THIS from outside "private" scope
 //    obj.member = blah
 
+};
+
+// Determines if a construct is a dot operator
+var isDot = function(construct) {
+  return isA(construct, Expressions.Dot);
 };
 
 // var other = {
