@@ -82,7 +82,9 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
     bfsChildren(program.topLevelDeclarations, function(construct){
         if (isDot(construct)) {
             console.log("Here's a dot! " + construct.toString() + " line " + construct.code.line);
-            codeEditor.addAnnotation(GutterAnnotation.instance(construct, "dot", "boop"));
+            if (!construct.context.implicit) { // If it's not implicitly defined (i.e. not in original source code), don't annotate it
+                codeEditor.addAnnotation(GutterAnnotation.instance(construct, "dot", "boop"));
+            }
         }
     });
   // var myBird = Bird.instance("Myrtle II", 3);
