@@ -348,7 +348,7 @@ var Scope = Lobster.Scope = Class.extend({
         this.prefix = this._nextPrefix++;
         this.entities = {};
         this.parent = parent;
-        this.sim = sim;
+        this.sim = sim; // TODO rename sim to translationUnit
         if (!this.sim && this.parent) {
             this.sim = this.parent.sim;
         }
