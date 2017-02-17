@@ -6,6 +6,18 @@ var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
 var Program = Lobster.CPP.Program = Class.extend(Observable, {
+    _name : "Program",
+
+    init : function () {
+
+        this.staticEntities = [];
+    },
+
+
+
+    addStaticEntity : function(obj){
+        this.staticEntities.push(obj);
+    },
 
     stuff : function() {
 
@@ -34,20 +46,18 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
     init: function( ){
         this.initParent();
 
-        // Things that don't change while simulation is running
-        // Only change when recompiled
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
-        this.semanticProblems = SemanticProblems.instance(); // TODO NEW make this non-public
-
         this.staticEntities = [];
+        this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW make this non-public
+
         this.i_main = false;
 
         return this;
     },
 
     hasSemanticErrors : function(){
-        return this.semanticProblems.errors.length > 0;
+        return this.i_semanticProblems.errors.length > 0;
     },
 
     addStaticEntity : function(obj){
@@ -82,13 +92,13 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
 
             this.compile(parsed);
 
-            this.send("compiled", this.semanticProblems);
+            this.send("compiled", this.i_semanticProblems);
             
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
                 this.send("syntaxError", {line: err.line, column: err.column, message: err.message});
-				this.semanticProblems.clear();
+				this.i_semanticProblems.clear();
 			}
 			else{
                 this.send("unknownError");
@@ -152,7 +162,7 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
 
         var self = this;
         //console.log("compiling");
-		this.semanticProblems.clear();
+		this.i_semanticProblems.clear();
 		this.topLevelDeclarations.clear();
 		this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
@@ -185,7 +195,7 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
         this.i_calls.forEach(function(call){
             linkingProblems.pushAll(call.checkLinkingProblems());
         });
-        this.semanticProblems.pushAll(linkingProblems);
+        this.i_semanticProblems.pushAll(linkingProblems);
 
         var annotatedCalls = {};
         // Tail Recursion Analysis
@@ -194,7 +204,7 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
             // if (isA(decl, FunctionDefinition)){
             //     decl.tailRecursionAnalysis(annotatedCalls);
             // }
-            this.semanticProblems.pushAll(decl.semanticProblems);
+            this.i_semanticProblems.pushAll(decl.semanticProblems);
         }
 
         this.annotate();
@@ -324,18 +334,18 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
     annotate : function(){
         this.send("clearAnnotations");
 
-        for(var i = 0; i < this.semanticProblems.errors.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.errors[i]);
+        for(var i = 0; i < this.i_semanticProblems.errors.length; ++i){
+            // alert(this.i_semanticProblems.get(i));
+            this.send("addAnnotation", this.i_semanticProblems.errors[i]);
         }
-        for(var i = 0; i < this.semanticProblems.warnings.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.warnings[i]);
+        for(var i = 0; i < this.i_semanticProblems.warnings.length; ++i){
+            // alert(this.i_semanticProblems.get(i));
+            this.send("addAnnotation", this.i_semanticProblems.warnings[i]);
         }
 
-        for(var i = 0; i < this.semanticProblems.widgets.length; ++i){
-            // alert(this.semanticProblems.get(i));
-            this.send("addAnnotation", this.semanticProblems.widgets[i]);
+        for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
+            // alert(this.i_semanticProblems.get(i));
+            this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         }
     },
 
