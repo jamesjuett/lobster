@@ -627,8 +627,11 @@ var CPPNote = {
 var SemanticExceptions = {};
 
 var SemanticException = Class.extend({
-    _name: "SemanticException"
+    _name: "SemanticException",
+    annotation : Class._ABSTRACT
 });
+
+
 
 SemanticExceptions.BadLookup = SemanticException.extend({
     _name: "BadLookup",
@@ -691,6 +694,20 @@ SemanticExceptions.NonCovariantReturnTypes = SemanticException.extend({
 });
 
 
+SemanticExceptions.Wrapper = SemanticException.extend({
+    _name: "SemanticExceptions.Wrapper",
+    init : function(errorFunc, args){
+        this.i_errorFunc = errorFunc;
+        this.i_args = args;
+    },
+    annotation : function(src){
+        var args = this.i_args.clone();
+        args.unshift(src);
+        return this.i_errorFunc.apply(null, args);
+    }
+
+});
+
 
 var checkIdentifier = function(src, iden, semanticProblems){
     if (Array.isArray(iden)){
@@ -705,4 +722,4 @@ var checkIdentifier = function(src, iden, semanticProblems){
     if (ALT_OPS.contains(iden)){
         semanticProblems.push(CPPError.iden.alt_op(src, iden));
     }
-}
+};
