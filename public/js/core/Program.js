@@ -10,13 +10,52 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
     init : function () {
 
+        this.i_translationUnits = [];
+
+        this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities = [];
+
+        this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW do I need this?
     },
 
-
+    addTranslationUnit : function(translationUnit) {
+        this.i_translationUnits.push(translationUnit);
+    },
 
     addStaticEntity : function(obj){
         this.staticEntities.push(obj);
+    },
+
+    // REQUIRES: Assumes all translation units are already compiled!!!
+    compile : function() {
+
+        this.i_semanticProblems.clear();
+
+        this.globalScope = NamespaceScope.instance("", null, this);
+        this.staticEntities.clear();
+
+        // TODO NEW eventually move this here instead of in each translation unit. that's a long way away though
+        //this.i_createBuiltInGlobals();
+
+
+                // Linking
+        // TODO NEW move to Program level
+        var linkingProblems = SemanticProblems.instance();
+        this.i_calls.forEach(function(call){
+            linkingProblems.pushAll(call.checkLinkingProblems());
+        });
+        this.i_semanticProblems.pushAll(linkingProblems);
+
+        // TODO: move to Program level
+        // Tail Recursion Analysis
+        // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
+        //     decl = this.topLevelDeclarations[i];
+        //     if (isA(decl, FunctionDefinition)){
+        //         decl.tailRecursionAnalysis(annotatedCalls);
+        //     }
+        // }
+
+        this.annotate();
     },
 
     stuff : function() {
@@ -27,9 +66,40 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
 
         this.i_main = null;
+    },
+
+    link : function() {
+
+        // Bring together stuff from all translation units
+        for(var i = 0; i < this.i_translationUnits.length; ++i) {
+            var tu = this.i_translationUnits[i];
+            this.globalScope.merge(tu.globalScope);
+            this.staticEntities.pushAll(tu.staticEntities);
+        }
+
+
+        //look for main
+        try{
+            this.i_main = this.globalScope.requiredLookup("main", {paramTypes: []});
+        }
+        catch(e){
+            if (!isA(e, SemanticExceptions.BadLookup)){
+                console.log(e.stack);
+                throw e;
+            }
+        }
+
+
+
+        // else if (decl.name === "main") {
+        //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
+        //     return null;
+        // }
+    },
+
+    mainEntity : function() {
+        return this.i_main;
     }
-
-
 });
 
 /**
@@ -43,13 +113,16 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
-    init: function( ){
+    init: function(program){
         this.initParent();
+
+        this.i_program = program;
+        this.i_program.addTranslationUnit(this);
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
-        this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW make this non-public
+        this.i_semanticProblems = SemanticProblems.instance();
 
         this.i_main = false;
 
@@ -168,6 +241,7 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
         this.staticEntities.clear();
 
 		// List of calls. Currently this is just here so they can be checked later to see if they're all linked.
+        // TODO NEW I believe other code breaks the interface to get at this. Fix that.
         this.i_calls = [];
 
         // TODO NEW change
@@ -177,50 +251,36 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
 
 
 
+        // TODO NEW the globalFunctionContext thing seems a bit hacky. why was this needed? (i.e. why can't it be null?)
         var globalFunctionContext = MagicFunctionDefinition.instance("globalFuncContext", Types.Function.instance(Types.Void.instance(), []));
+
+        // First, compile ALL the declarations
         for(var i = 0; i < code.length; ++i){
             var decl = Declarations.create(code[i], {parent: null, func: globalFunctionContext});
-            //console.log(decl.name);
-            var declProblems = decl.tryCompileDeclaration(this.globalScope);
+            decl.tryCompileDeclaration(this.globalScope);
+            decl.tryCompileDefinition(this.globalScope);
+            this.i_semanticProblems.pushAll(decl.semanticProblems);
             this.topLevelDeclarations.push(decl);
         }
 
-        for(var i = 0; i < this.topLevelDeclarations.length; ++i){
-            decl = this.topLevelDeclarations[i];
-            decl.tryCompileDefinition(this.globalScope);
-        }
-
         // Linking
+        // TODO NEW move to Program level
         var linkingProblems = SemanticProblems.instance();
         this.i_calls.forEach(function(call){
             linkingProblems.pushAll(call.checkLinkingProblems());
         });
         this.i_semanticProblems.pushAll(linkingProblems);
 
-        var annotatedCalls = {};
+        // TODO: move to Program level
         // Tail Recursion Analysis
-        for(var i = 0; i < this.topLevelDeclarations.length; ++i){
-            decl = this.topLevelDeclarations[i];
-            // if (isA(decl, FunctionDefinition)){
-            //     decl.tailRecursionAnalysis(annotatedCalls);
-            // }
-            this.i_semanticProblems.pushAll(decl.semanticProblems);
-        }
+        // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
+        //     decl = this.topLevelDeclarations[i];
+        //     if (isA(decl, FunctionDefinition)){
+        //         decl.tailRecursionAnalysis(annotatedCalls);
+        //     }
+        // }
 
         this.annotate();
-
-        //look for main
-        try{
-            this.i_main = this.globalScope.requiredLookup("main", {paramTypes: []});
-        }
-        catch(e){
-            if (!isA(e, SemanticExceptions.BadLookup)){
-                console.log(e.stack);
-                throw e;
-            }
-        }
-
-
 	},
 
     i_createBuiltInGlobals : function() {
@@ -347,9 +407,5 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
             // alert(this.i_semanticProblems.get(i));
             this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         }
-    },
-
-    mainEntity : function() {
-        return this.i_main;
     }
 });

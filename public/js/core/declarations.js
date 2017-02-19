@@ -238,47 +238,17 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             entity = AutoEntity.instance(decl);
         }
 
-        var otherEnt = scope.ownEntity(decl.name);
+        if (this.isDefinition) {
+            entity.setDefinition(this);
+        }
 
-        if (!otherEnt){
-            // Nothing to see here, move along.
-            scope.addEntity(entity);
+        try {
+            scope.addDeclaredEntity(entity);
             this.entities.push(entity);
             return entity;
         }
-        else if (Array.isArray(otherEnt)){
-            // Array means a set of functions, check each one
-            for (var i = 0; i < otherEnt.length; ++i){
-                var otherFunc = otherEnt[i];
-                // We can't be a definition here, so 2 definitions not a problem
-
-                // Check to make sure that if they have the same parameter types,
-                // they also have the same return type
-                if (entity.type.sameParamTypes(otherFunc.type)) {
-                    if (entity.type.sameReturnType(otherFunc.type)) {
-                        // Just a redeclaration nothing to see here
-                        this.entities.push(otherFunc);
-                        return otherFunc;
-                    }
-                    else {
-                        this.semanticProblems.push(CPPError.decl.func.returnTypesMatch(this, decl.name, otherFunc.decl));
-                        return null;
-                    }
-                }
-                else if (decl.name === "main") {
-                    this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
-                    return null;
-                }
-            }
-
-            // If we made it through the previous loop, we're not the same or
-            // in conflict with any others, so go ahead and add to others
-            scope.addEntity(entity);
-            this.entities.push(entity);
-            return entity;
-        }
-        else{
-            this.semanticProblems.push(CPPError.decl.prev_def(this, decl.name, otherEnt));
+        catch(e) {
+            this.semanticProblems.push(e.annotation(decl));
             return null;
         }
     },
@@ -348,7 +318,15 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
             else{
                 this.entity = AutoEntity.instance(this);
             }
-            scope.addEntity(this.entity);
+
+            this.entity.setDefinition(this);
+
+            try {
+                scope.addDeclaredEntity(this.entity);
+            }
+            catch(e) {
+                this.semanticProblems.push(e.annotation(this));
+            }
         }
 
         return this.semanticProblems;
@@ -1434,49 +1412,16 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
             entity = FunctionEntity.instance(this);
         }
 
-        var otherEnt = scope.ownEntity(this.name);
 
-        if (!otherEnt){
-            // Nothing to see here, move along.
-            scope.addEntity(entity);
+        entity.setDefinition(this);
+
+        try {
+            scope.addDeclaredEntity(entity);
             this.entity = entity;
             return entity;
         }
-        else if (Array.isArray(otherEnt)){
-            // Array means a set of functions, check each one
-            for (var i = 0; i < otherEnt.length; ++i){
-                var otherFunc = otherEnt[i];
-
-                // Check to make sure that if they have the same parameter types,
-                // they also have the same return type
-                if (entity.type.sameParamTypes(otherFunc.type)){
-                    if (otherFunc.decl.isDefinition){
-                        this.semanticProblems.push(CPPError.decl.prev_def(this, this.name, otherEnt));
-                        return null;
-                    }
-                    if (!entity.type.sameReturnType(otherFunc.type)){
-                        this.semanticProblems.push(CPPError.decl.func.returnTypesMatch(this, this.name, otherFunc.decl));
-                        return null;
-                    }
-                    this.entity = otherFunc;
-                    this.entity.decl = this; // hackity hack hack
-                    return this.entity;
-                }
-                else if (this.name === "main") {
-                    this.semanticProblems.push(CPPError.decl.prev_main(this, this.name, otherFunc.decl));
-                    return null;
-                }
-            }
-
-            // If we made it through the previous loop, we're not the same or
-            // in conflict with any others, so go ahead and add to others
-            scope.addEntity(entity);
-            this.entity = entity;
-            return entity;
-
-        }
-        else{
-            this.semanticProblems.push(CPPError.decl.prev_def(this, this.name, otherEnt));
+        catch(e) {
+            this.semanticProblems.push(e.annotation(this));
             return null;
         }
     },
@@ -1663,7 +1608,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         this.scope = ClassScope.instance(this.name, scope, this.base && this.base.type.scope);
 
         // Check that no other type with the same name already exists
-        if (!scope.ownEntity(this.name)){
+        try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
             this.type = Types.Class.extend({
@@ -1674,10 +1619,13 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
                 base: this.base && this.base.type
             });
             this.entity = TypeEntity.instance(this);
-            scope.addEntity(this.entity);
+
+            this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
+
+            scope.addDeclaredEntity(this.entity);
         }
-        else{
-            semanticProblems.push(CPPError.decl.prev_decl(this, this.name, scope.ownEntity(this.name)));
+        catch(e){
+            semanticProblems.push(e.annotation(this));
             return semanticProblems;
         }
 
@@ -2007,48 +1955,20 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
             entity = MemberSubobjectEntity.instance(decl, this.memberOfClass);
         }
 
-        var otherEnt = scope.ownEntity(decl.name);
-
-        if (!otherEnt){
-            // Nothing to see here, move along.
-            scope.addEntity(entity);
-            if (isA(entity, MemberSubobjectEntity)){
-                this.memberOfClass.addMember(entity);
-            }
-            this.entities.push(entity);
-            return entity;
+        if (this.isDefinition) {
+            entity.setDefinition(this);
         }
-        else if (Array.isArray(otherEnt) && isA(entity, FunctionEntity)){
-            // Array means a set of functions, check each one
-            for (var i = 0; i < otherEnt.length; ++i){
-                var otherFunc = otherEnt[i];
-                // We can't be a definition here, so 2 definitions not a problem
 
-                // Check to make sure that if they have the same parameter types,
-                // they also have the same return type
-                if (entity.type.sameParamTypes(otherFunc.type)) {
-                    if (entity.type.sameReturnType(otherFunc.type)) {
-                        // Just a redeclaration nothing to see here
-                        this.entities.push(otherFunc);
-                        return otherFunc;
-                    }
-                    else {
-                        this.semanticProblems.push(CPPError.decl.func.returnTypesMatch(this, decl.name, otherFunc.decl));
-                        return null;
-                    }
-                }
-            }
-            // If we made it through the previous loop, we're not the same or
-            // in conflict with any others, so go ahead and add to others
-            scope.addEntity(entity);
+        try {
+            scope.addDeclaredEntity(entity);
             this.entities.push(entity);
-            if (isA(entity, MemberSubobjectEntity)) {
+            if (isA(entity, MemberSubobjectEntity) && !this.memberOfClass.containsMember(entity.name)){
                 this.memberOfClass.addMember(entity);
             }
             return entity;
         }
-        else{
-            this.semanticProblems.push(CPPError.decl.prev_def(this, decl.name, otherEnt));
+        catch(e) {
+            this.semanticProblems.push(e.annotation(decl));
             return null;
         }
     }

@@ -1076,6 +1076,9 @@ Lobster.Types.Class = Type.extend({
             this.size += mem.type.size;
         }
     },
+    containsMember : function(name){
+        return !!this.memberMap[name];
+    },
     addConstructor : function(con){
         this.constructors.push(con);
     },
@@ -1277,6 +1280,9 @@ Lobster.Types.Function = Type.extend({
     },
     sameReturnType : function(other){
         return this.returnType.sameType(other.returnType);
+    },
+    sameSignature : function(other){
+        return this.isThisConst === other.isThisConst && this.sameParamTypes(other);
     },
     typeString : function(excludeBase, varname){
 		return this.returnType.typeString(excludeBase, varname + this.paramStrType);
