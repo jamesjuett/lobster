@@ -79,7 +79,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
             this.context.func = this.context.parent.context.func;
         }
 
-        if (this.context.parent && this.context.parent.implicit) {
+        if (this.context.parent && this.context.parent.context.implicit) {
             this.context.implicit = true;
         }
 
