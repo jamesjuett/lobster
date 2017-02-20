@@ -650,8 +650,19 @@ var NamespaceScope = Scope.extend({
     addStaticEntity : function(ent) {
         this.sim.addStaticEntity(ent);
     },
-    merge : function(){
 
+    merge : function (otherScope) {
+        for(var name in otherScope.entities){
+            this.addDeclaredEntity(otherScope.entities[name]);
+        }
+
+        // Merge in all child scopes from the other
+        for(var childName in otherScope.children) {
+            if (!this.children[childName]) {
+                // If a matching child scope doesn't already exist, create it
+                this.children[childName] = NamespaceScope.instance(childName, this, )
+            }
+        }
     }
 });
 
