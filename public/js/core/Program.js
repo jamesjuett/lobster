@@ -66,6 +66,26 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     //     this.i_main = null;
     // },
 
+    /**
+     * Compiles all translation units that are part of this program.
+     */
+    compile : function () {
+        this.i_semanticProblems.clear();
+        var self = this;
+        this.i_translationUnits.forEach(function(tu) {
+            self.i_semanticProblems.pushAll(tu.fullCompile());
+        });
+    },
+
+    /**
+     * Compiles all translation units that are part of this program and then links the program.
+     */
+    fullCompile : function() {
+        this.compile();
+        this.link();
+        return this.i_semanticProblems;
+    },
+
     link : function() {
 
         this.globalScope = NamespaceScope.instance("", null, this);
@@ -126,7 +146,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
-    init: function(program){
+    init: function(program, sourceCode){
         this.initParent();
 
         this.i_program = program;
@@ -139,7 +159,13 @@ var TranslationUnit = Class.extend(Observable, {
 
         this.i_main = false;
 
+        this.setSourceCode(sourceCode);
+
         return this;
+    },
+
+    getSemanticProblems : function() {
+        return this.i_semanticProblems;
     },
 
     hasSemanticErrors : function(){
@@ -150,10 +176,18 @@ var TranslationUnit = Class.extend(Observable, {
         this.staticEntities.push(obj);
     },
 
-    setSourceCode : function(codeStr){
-        codeStr += "\n";
+    setSourceCode : function(codeStr) {
+        this.i_sourceCode = codeStr;
+    },
+
+    getSourceCode : function() {
+        return this.i_sourceCode;
+    },
+
+    fullCompile : function() {
+        // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
-            this.i_sourceCode = codeStr;
+            var codeStr = this.i_sourceCode;
 
             codeStr = this.i_filterSourceCode(codeStr);
 
@@ -176,9 +210,11 @@ var TranslationUnit = Class.extend(Observable, {
 
             this.send("parsed");
 
-            this.compile(parsed);
+            this.i_compile(parsed);
 
             this.send("compiled", this.i_semanticProblems);
+
+            return this.i_semanticProblems;
             
 		}
 		catch(err){
@@ -241,8 +277,7 @@ var TranslationUnit = Class.extend(Observable, {
         return codeStr;
     },
 
-
-	compile : function(code){
+	i_compile : function(code){
 
         // Program.currentProgram = this;
 
