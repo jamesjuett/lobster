@@ -313,12 +313,12 @@ var TranslationUnit = Class.extend(Observable, {
         }
 
         // Linking
-        // TODO NEW move to Program level
-        var linkingProblems = SemanticProblems.instance();
-        this.i_calls.forEach(function(call){
-            linkingProblems.pushAll(call.checkLinkingProblems());
-        });
-        this.i_semanticProblems.pushAll(linkingProblems);
+        // TODO Just get rid of this??
+        // var linkingProblems = SemanticProblems.instance();
+        // this.i_calls.forEach(function(call){
+        //     linkingProblems.pushAll(call.checkLinkingProblems());
+        // });
+        // this.i_semanticProblems.pushAll(linkingProblems);
 
         // TODO: move to Program level
         // Tail Recursion Analysis
