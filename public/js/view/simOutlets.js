@@ -902,6 +902,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         // Set first file to be active
         this.i_filesElem.children().first().addClass("active");
         this.i_selectFile(project[0]["name"]);
+
+        this.i_program.fullCompile();
     },
 
     i_clearProject : function() {
