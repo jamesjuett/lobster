@@ -317,9 +317,9 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
             }
             else{
                 this.entity = AutoEntity.instance(this);
+                this.entity.setDefinition(this);
             }
 
-            this.entity.setDefinition(this);
 
             try {
                 scope.addDeclaredEntity(this.entity);
