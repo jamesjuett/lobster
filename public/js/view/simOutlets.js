@@ -891,10 +891,10 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
             var fileName = file["name"];
             // Create a program for each file.
-            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program);
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, file["code"]);
 
             // Create a CodeMirror document for each file in the project
-            var fileEd = FileEditor.instance(fileName, file["code"], translationUnit);
+            var fileEd = FileEditor.instance(fileName, translationUnit);
             this.listenTo(fileEd);
             this.i_fileEditors[fileName] = fileEd;
         }
@@ -924,8 +924,9 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
+
             console.log("Project editor knows about source changes.");
-            this.i_program.link();
+            this.i_program.fullCompile();
         }
     }
 
@@ -962,14 +963,13 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
     /**
      *
      * @param {String} fileName The name of the file.
-     * @param {String} text The initial source code.
      * @param {TranslationUnit} translationUnit The translation unit to be connected to this file.
      * @param config
      */
-    init: function(fileName, text, translationUnit, config) {
+    init: function(fileName, translationUnit, config) {
         this.i_fileName = fileName;
-        this.i_doc =  CodeMirror.Doc(text, this.CODE_MIRROR_MODE);
         this.i_translationUnit = translationUnit;
+        this.i_doc =  CodeMirror.Doc(translationUnit.getSourceCode(), this.CODE_MIRROR_MODE);
         this.listenTo(this.i_translationUnit);
 
         this.i_config = makeDefaulted(config, Outlets.CPP.FileEditor.DEFAULT_CONFIG);
@@ -1026,11 +1026,10 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         this.i_onEditTimeout = setTimeout(function(){
             self.i_translationUnit.setSourceCode(self.getText());
 
+            self.send("textChanged", newText);
 
-            analyze(self.i_translationUnit, self);
+            // analyze(self.i_translationUnit, self);
         }, IDLE_MS_BEFORE_COMPILE);
-
-        this.send("textChanged", newText);
     },
 
     addMark : function(code, cssClass){
