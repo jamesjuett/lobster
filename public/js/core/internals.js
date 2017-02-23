@@ -382,7 +382,7 @@ var Scope = Lobster.Scope = Class.extend({
         }
     },
 
-    // TODO NEW: this documentation is kind of messy (but hey! at least it exists!)
+    // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
     /**
      * Attempts to add a new entity to this scope.
      * @param {DeclaredEntity} entity - The entity to attempt to add.
@@ -409,10 +409,10 @@ var Scope = Lobster.Scope = Class.extend({
                     }
 
                     DeclaredEntity.merge(entity, otherFunc);
-                    return otherFunc;
-                }
 
-                // Terminates early when the first match is found. It's not possible there would be more than one match.
+                    // Terminates early when the first match is found. It's not possible there would be more than one match.
+                    return otherFunc
+                }
             }
         }
         else{
@@ -629,6 +629,7 @@ var FunctionBlockScope = BlockScope.extend({
 var NamespaceScope = Scope.extend({
 
     init: function(name, parent, sim){
+        assert(!parent || isA(parent, NamespaceScope));
         this.initParent(parent, sim);
         this.name = name;
         this.children = {};
@@ -653,15 +654,25 @@ var NamespaceScope = Scope.extend({
 
     merge : function (otherScope) {
         for(var name in otherScope.entities){
-            this.addDeclaredEntity(otherScope.entities[name]);
+            var otherEntity = otherScope.entities[name];
+            if (Array.isArray(otherEntity)) {
+                for(var i = 0; i < otherEntity.length; ++i) {
+                    this.addDeclaredEntity(otherEntity[i]);
+                }
+            }
+            else{
+                this.addDeclaredEntity(otherEntity);
+            }
         }
 
         // Merge in all child scopes from the other
         for(var childName in otherScope.children) {
             if (!this.children[childName]) {
                 // If a matching child scope doesn't already exist, create it
-                this.children[childName] = NamespaceScope.instance(childName, this, )
+                this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
             }
+
+            this.children[childName].merge(otherScope.children[childName]);
         }
     }
 });
@@ -759,27 +770,41 @@ var DeclaredEntity = CPPEntity.extend({
     /**
      * If neither entity is defined, does nothing.
      * If exactly one entity is defined, gives that definition to the other one as well.
-     * If both entities are defined, throws an exception.
+     * If both entities are defined, throws an exception. If the entities are functions with
+     * the same signature and different return types, throws an exception.
+     * REQUIRES: Both entities should have the same type. (for functions, the same signature)
      * @param {DeclaredEntity} entity1 - An entity already present in a scope.
      * @param {DeclaredEntity} entity2 - A new entity matching the original one.
      * @throws {SemanticException}
      */
     merge : function(entity1, entity2) {
+
         // Attempt to merge the two
         if (!entity2.isDefined() && !entity1.isDefined()) {
             // If both are declarations, just keep the old one
         }
         else if (entity2.isDefined() && entity1.isDefined()) {
             // If both are definitions, that's a problem.
-            throw SemanticExceptions.Wrapper.instance(CPPError.decl.prev_def, [entity2.name, entity1]);
+            throw SemanticExceptions.Wrapper.instance(CPPError.link.multiple_def, [entity1.name, entity1, entity2]);
         }
         else if (entity2.isDefined() && !entity1.isDefined()) {
+            var undefinedEntity = entity1;
+            var definedEntity = entity2;
+            if (entity1.isDefined()) {
+                undefinedEntity = entity2;
+                definedEntity = entity1;
+            }
+
+            // Check return types for functions
+            if (isA(entity1, FunctionEntity)) {
+                // If they have mismatched return types, that's a problem.
+                if (!entity1.type.sameReturnType(entity2.type)){
+                    throw SemanticExceptions.Wrapper.instance(CPPError.link.func.returnTypesMatch, [entity1.name, entity2.decl]);
+                }
+            }
+
             // If a previous declaration, and now a new definition, merge
-            entity1.setDefinition(entity2.definition);
-        }
-        else if (!entity2.isDefined() && entity1.isDefined()) {
-            // If a previous declaration, and now a new definition, merge
-            entity2.setDefinition(entity1.definition);
+            undefinedEntity.setDefinition(definedEntity.definition);
         }
     },
 

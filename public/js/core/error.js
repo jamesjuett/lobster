@@ -568,9 +568,18 @@ var CPPError = {
         }
     },
     link : {
-       def_not_found : function(src, func){
-           return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
-       }
+        def_not_found : function(src, func){
+           return makeError(src, false, "Linker error: Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+        },
+        multiple_def : function(src, name, ent1, ent2){
+            return makeError(src, false, "Linker error: Multiple definitions found for" + name + ".");
+        },
+        func : {
+            returnTypesMatch : function(src, name){
+                return makeError(src, false, "Linker error: This definition of the function " + name + " has a different return type than its declaration.");
+            }
+        }
+
     },
     lookup : {
         badLookup : function(src, name){
