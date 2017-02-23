@@ -805,7 +805,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         this.i_filesElem = element.find(".project-files");
         this.i_fileEditors = {};
-        this.i_programs = {};
+        this.i_program = Program.instance();
+        this.i_translationUnits = {};
 
         this.i_codeMirror = CodeMirror(element.find(".codeMirrorEditor")[0], {
             mode: FileEditor.CODE_MIRROR_MODE,
@@ -888,14 +889,14 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             item.append(link);
             this.i_filesElem.append(item);
 
+            var fileName = file["name"];
             // Create a program for each file.
-            // TODO change to TranslationUnit when that is implemented
-            var program = this.i_programs[file["name"]] = Program.instance();
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program);
 
             // Create a CodeMirror document for each file in the project
-            var fileEd = FileEditor.instance(file["code"], program);
+            var fileEd = FileEditor.instance(fileName, file["code"], translationUnit);
             this.listenTo(fileEd);
-            this.i_fileEditors[file["name"]] = fileEd;
+            this.i_fileEditors[fileName] = fileEd;
         }
 
         // Set first file to be active
@@ -912,7 +913,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         }
         this.i_fileEditors = {};
 
-        this.i_programs = {};
+        this.i_program = Program.instance();
+        this.i_translationUnits = {};
     },
 
     i_selectFile : function(filename) {
@@ -922,6 +924,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
+            console.log("Project editor knows about source changes.");
+            this.i_program.link();
         }
     }
 
@@ -950,20 +954,27 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         if (CodeList.ajaxSuccessful){
             for(var i = 0; i < FileEditor.s_instances.length; ++i){
                 if (!FileEditor.s_instances[i].isSaved()){
-                    return "The file (" + FileEditor.s_instances[i].getProgramName() + ") has unsaved changes.";
+                    return "The file (" + FileEditor.s_instances[i].getFileName() + ") has unsaved changes.";
                 }
             }
         }
     },
-    init: function(text, program, config) {
+    /**
+     *
+     * @param {String} fileName The name of the file.
+     * @param {String} text The initial source code.
+     * @param {TranslationUnit} translationUnit The translation unit to be connected to this file.
+     * @param config
+     */
+    init: function(fileName, text, translationUnit, config) {
+        this.i_fileName = fileName;
         this.i_doc =  CodeMirror.Doc(text, this.CODE_MIRROR_MODE);
-        this.i_program = program;
-        this.listenTo(this.i_program);
+        this.i_translationUnit = translationUnit;
+        this.listenTo(this.i_translationUnit);
 
         this.i_config = makeDefaulted(config, Outlets.CPP.FileEditor.DEFAULT_CONFIG);
         this.initParent();
 
-        this.i_sourceCode = "";
         this.i_annotations = [];
         this.i_gutterErrors = [];
         this.i_isSaved = true;
@@ -980,8 +991,8 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         FileEditor.s_instances.push(this);
     },
 
-    getProgram : function() {
-        return this.i_program;
+    getTranslationUnit : function() {
+        return this.i_translationUnit;
     },
 
     getDoc : function() {
@@ -992,18 +1003,18 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         return this.i_doc.getValue();
     },
 
-    getProgramName : function() {
-        return this.i_programName;
+    getFileName : function() {
+        return this.i_fileName;
     },
     
-    loadCode : function(program){
-        this.i_programName = program.name;
-        var code = program.code;
-        this.i_doc.setValue(code);
-        this.setSource(code);
-        this.i_isSaved = true; // setting source would have made this false
-        this.send("userAction", UserActions.LoadCode.instance(code));
-    },
+    // loadCode : function(program){
+    //     this.i_programName = program.name;
+    //     var code = program.code;
+    //     this.i_doc.setValue(code);
+    //     this.setSource(code);
+    //     this.i_isSaved = true; // setting source would have made this false
+    //     this.send("userAction", UserActions.LoadCode.instance(code));
+    // },
 
     i_onEdit : function() {
         var newText = this.getText();
@@ -1013,10 +1024,10 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         }
         var self = this;
         this.i_onEditTimeout = setTimeout(function(){
-            self.i_program.setSourceCode(self.getText());
+            self.i_translationUnit.setSourceCode(self.getText());
 
 
-            analyze(self.i_program, self);
+            analyze(self.i_translationUnit, self);
         }, IDLE_MS_BEFORE_COMPILE);
 
         this.send("textChanged", newText);
@@ -1081,7 +1092,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
 
 
     _act : {
-        loadCode: "loadCode",
+        // loadCode: "loadCode", // TODO NEW remove this?
         parsed : function(msg){
             if (this.syntaxErrorLineHandle) {
                 this.i_doc.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");

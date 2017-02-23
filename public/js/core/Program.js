@@ -27,54 +27,67 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     },
 
     // REQUIRES: Assumes all translation units are already compiled!!!
-    compile : function() {
+    // compile : function() {
+    //
+    //     this.i_semanticProblems.clear();
+    //
+    //
+    //     // TODO NEW eventually move this here instead of in each translation unit. that's a long way away though
+    //     //this.i_createBuiltInGlobals();
+    //
+    //
+    //             // Linking
+    //     // TODO NEW move to Program level
+    //     // var linkingProblems = SemanticProblems.instance();
+    //     // this.i_calls.forEach(function(call){
+    //     //     linkingProblems.pushAll(call.checkLinkingProblems());
+    //     // });
+    //     // this.i_semanticProblems.pushAll(linkingProblems);
+    //
+    //     // TODO: move to Program level
+    //     // Tail Recursion Analysis
+    //     // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
+    //     //     decl = this.topLevelDeclarations[i];
+    //     //     if (isA(decl, FunctionDefinition)){
+    //     //         decl.tailRecursionAnalysis(annotatedCalls);
+    //     //     }
+    //     // }
+    //
+    //     this.annotate();
+    // },
 
-        this.i_semanticProblems.clear();
+    // stuff : function() {
+    //
+    //     if (!this.i_main){
+    //         this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
+    //     }
+    //
+    //
+    //     this.i_main = null;
+    // },
+
+    link : function() {
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 
-        // TODO NEW eventually move this here instead of in each translation unit. that's a long way away though
-        //this.i_createBuiltInGlobals();
-
-
-                // Linking
-        // TODO NEW move to Program level
-        var linkingProblems = SemanticProblems.instance();
-        this.i_calls.forEach(function(call){
-            linkingProblems.pushAll(call.checkLinkingProblems());
-        });
-        this.i_semanticProblems.pushAll(linkingProblems);
-
-        // TODO: move to Program level
-        // Tail Recursion Analysis
-        // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
-        //     decl = this.topLevelDeclarations[i];
-        //     if (isA(decl, FunctionDefinition)){
-        //         decl.tailRecursionAnalysis(annotatedCalls);
-        //     }
-        // }
-
-        this.annotate();
-    },
-
-    stuff : function() {
-
-        if (!this.i_main){
-            this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
-        }
-
-
-        this.i_main = null;
-    },
-
-    link : function() {
-
         // Bring together stuff from all translation units
-        for(var i = 0; i < this.i_translationUnits.length; ++i) {
-            var tu = this.i_translationUnits[i];
-            this.globalScope.merge(tu.globalScope);
-            this.staticEntities.pushAll(tu.staticEntities);
+        // TODO NEW: Make reporting of linker errors more elegant
+        try{
+            for(var i = 0; i < this.i_translationUnits.length; ++i) {
+                var tu = this.i_translationUnits[i];
+                this.globalScope.merge(tu.globalScope);
+            }
+        }
+        catch(e) {
+            if (isA(e, SemanticException)){
+                // this.semanticProblems.push(e.annotation(this));
+                console.log("linker error");
+            }
+            else{
+                // console.log(e.stack);
+                throw e;
+            }
         }
 
 
@@ -89,7 +102,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
             }
         }
 
-
+        console.log("linked successfully");
 
         // else if (decl.name === "main") {
         //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
@@ -110,7 +123,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
  *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
  *   "compiled": after compilation is finished. data is a SemanticProblems object
  */
-var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
+var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
     init: function(program){
@@ -409,3 +422,4 @@ var TranslationUnit = Lobster.CPP.TranslationUnit = Class.extend(Observable, {
         }
     }
 });
+Lobster.CPP.TranslationUnit = TranslationUnit;
