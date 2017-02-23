@@ -1421,7 +1421,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
         var func = this.func.lookup(sim, inst.parent);
 
         // Now we can look up object entity associated with this parameter
-        var objEntity = func.decl.params[this.num].entity;
+        var objEntity = func.definition.params[this.num].entity;
 
         return objEntity.lookup(sim, inst.calledFunction);
     },
@@ -1862,7 +1862,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
             // Sorry this is hacky :(
             // If it's a destructor, we look instead for the destructor of the dynamic type
             var func;
-            if (isA(this.decl, DestructorDefinition)) {
+            if (isA(this.definition, DestructorDefinition)) {
                 func = dynamicType.getDestructor();
             }
             else{

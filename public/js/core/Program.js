@@ -221,6 +221,7 @@ var TranslationUnit = Class.extend(Observable, {
 			if (err.name == "SyntaxError"){
                 this.send("syntaxError", {line: err.line, column: err.column, message: err.message});
 				this.i_semanticProblems.clear();
+                return this.i_semanticProblems;
 			}
 			else{
                 this.send("unknownError");
