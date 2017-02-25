@@ -16,6 +16,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.staticEntities = [];
 
         this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW do I need this?
+        this.i_linkerErrors = [];
     },
 
     addTranslationUnit : function(translationUnit) {
@@ -87,6 +88,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     },
 
     link : function() {
+
+        this.i_linkerErrors.clear();
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
