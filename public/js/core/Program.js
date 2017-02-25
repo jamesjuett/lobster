@@ -308,7 +308,11 @@ var TranslationUnit = Class.extend(Observable, {
 
         // First, compile ALL the declarations
         for(var i = 0; i < code.length; ++i){
-            var decl = Declarations.create(code[i], {parent: null, func: globalFunctionContext});
+            var decl = Declarations.create(code[i], {
+                parent: null,
+                translationUnit : this,
+                func: globalFunctionContext
+            });
             decl.tryCompileDeclaration(this.globalScope);
             decl.tryCompileDefinition(this.globalScope);
             this.i_semanticProblems.pushAll(decl.semanticProblems);
