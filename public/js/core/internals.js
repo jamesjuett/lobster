@@ -56,8 +56,8 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     _name: "CPPCode",
     _nextId: 0,
     initIndex: "pushChildren",
-    // context parameter is usually just parent code element in form
-    // {parent: theParent}
+    // context parameter is often just parent code element in form
+    // {parent: theParent}, but may also have additional information
     init: function (code, context) {
         this.code = code;
 
@@ -79,12 +79,25 @@ var CPPCode = Lobster.CPPCode = Class.extend({
             this.context.func = this.context.parent.context.func;
         }
 
-        if (this.context.parent && this.context.parent.implicit) {
+        this.parent = context.parent;
+
+        if (this.parent && !this.context.auxiliary) {
+            this.parent.children.push(this);
+        }
+
+        // Inherit implicit property of parent's context
+        if (this.parent && this.parent.context.implicit) {
             this.context.implicit = true;
         }
 
-        this.parent = context.parent;
-        if (this.parent && !this.context.auxiliary) { this.parent.children.push(this); }
+        // Inherit translation unit of parent
+        if (this.parent && this.parent.context.translationUnit) {
+            this.context.translationUnit = this.parent.context.translationUnit;
+        }
+    },
+
+    getTranslationUnit : function() {
+        return this.context.translationUnit;
     },
 
     compile: Class._ABSTRACT,
