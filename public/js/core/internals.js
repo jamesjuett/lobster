@@ -1614,16 +1614,14 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     }
 });
 
-var MemberSubobjectEntity = CPP.MemberSubobjectEntity = CPP.CPPEntity.extend({
+var MemberSubobjectEntity = DeclaredEntity.extend({
     _name: "MemberSubobjectEntity",
     storage: "none",
     init: function(decl, memberOfType){
-        this.initParent(decl.name);
-        this.type = decl.type;
+        this.initParent(decl);
         if (!this.type._isInstance){
             this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
         }
-        this.decl = decl;
         this.memberOfType = memberOfType;
         this.access = decl.access;
     },

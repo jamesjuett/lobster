@@ -799,12 +799,23 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     API_URL_LOAD_PROJECT : "/api/me/project/get/",
     API_URL_SAVE_PROJECT : "/api/me/project/save/",
 
+    s_onbeforeunload : function(){
+        for(var i = 0; i < ProjectEditor.s_instances.length; ++i){
+            var inst = ProjectEditor.s_instances[i];
+            if (inst.isOpen() && !inst.isSaved()){
+                return "The project \"" + inst.getProjectName() + "\" has unsaved changes.";
+            }
+        }
+    },
+    s_instances: [],
+
     init : function(element) {
         var self = this;
 
         this.i_filesElem = element.find(".project-files");
         this.i_fileEditors = {};
         this.i_program = Program.instance();
+        this.listenTo(this.i_program);
         this.i_translationUnits = {};
 
         this.i_codeMirror = CodeMirror(element.find(".codeMirrorEditor")[0], {
@@ -821,7 +832,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
 
-
+        this.s_instances.push(this);
     },
 
     loadProject : function(projectName){
@@ -868,10 +879,10 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     },
 
     isOpen : function() {
-        return this.i_projectName;
+        return !!this.i_projectName;
     },
 
-    projectName : function() {
+    getProjectName : function() {
         return this.i_projectName;
     },
 
@@ -898,7 +909,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
             var fileName = file["name"];
             // Create a program for each file.
-            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, file["code"]);
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, fileName, file["code"]);
 
             // Create a CodeMirror document for each file in the project
             var fileEd = FileEditor.instance(fileName, translationUnit);
@@ -922,7 +933,12 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         }
         this.i_fileEditors = {};
 
+        if (this.i_program) {
+            this.i_program.removeListener(this);
+        }
         this.i_program = Program.instance();
+        this.i_program.addListener(this);
+
         this.i_translationUnits = {};
     },
 
@@ -933,9 +949,21 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
-
-            console.log("Project editor knows about source changes.");
             this.i_program.fullCompile();
+        },
+        linked : function(msg) {
+            var linkerProblems = msg.data;
+            console.log("Project editor knows about linking.");
+            for (var i = 0; i < linkerProblems.length; ++i) {
+                var problem = linkerProblems[i];
+                var tu = problem.getConstructs()[0].getTranslationUnit();
+                var fileEd = this.i_fileEditors[tu.name];
+                fileEd.addAnnotation(GutterAnnotation.instance(
+                    problem.getConstructs()[0],
+                    "linker",
+                    problem.getMessage()
+                ));
+            }
         }
     }
 
@@ -944,11 +972,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     //     this.i_sourceCode = src;
     // },
 
-
-
-
-
 });
+$(window).on("beforeunload", ProjectEditor.s_onbeforeunload);
 
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
@@ -960,15 +985,6 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         initCode: "int main(){\n  \n}"
     },
     s_instances : [],
-    s_onbeforeunload : function(){
-        if (CodeList.ajaxSuccessful){
-            for(var i = 0; i < FileEditor.s_instances.length; ++i){
-                if (!FileEditor.s_instances[i].isSaved()){
-                    return "The file (" + FileEditor.s_instances[i].getFileName() + ") has unsaved changes.";
-                }
-            }
-        }
-    },
     /**
      *
      * @param {String} fileName The name of the file.
@@ -1150,7 +1166,6 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
 	}
 
 });
-$(window).on("beforeunload", FileEditor.s_onbeforeunload);
 
 var SVG_DEFS = {};
 
