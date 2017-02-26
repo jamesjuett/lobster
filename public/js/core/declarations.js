@@ -1093,6 +1093,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         this.calls = [];
         if (context.memberOfClass) {
             this.isMemberFunction = true;
+            this.isInlineMemberFunction = true;
             this.memberOfClass = context.memberOfClass;
             this.receiverType = this.parent.type.instance();
         }

@@ -822,6 +822,16 @@ var DeclaredEntity = CPPEntity.extend({
             }
         }
 
+        // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
+        // have already been checked above and must be the same at this point, so it's pointless and will cause errors
+        // to try to merge them.)
+        if (isA(entity1.decl, MemberDeclaration)) {
+            return;
+        }
+        if (isA(entity1.decl, FunctionDefinition) && entity1.decl.isInlineMemberFunction) {
+            return;
+        }
+
         // Attempt to merge the two
         if (!entity2.isDefined() && !entity1.isDefined()) {
             // If both are declarations, just keep the old one
