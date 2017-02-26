@@ -96,21 +96,11 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
         // Bring together stuff from all translation units
         // TODO NEW: Make reporting of linker errors more elegant
-        try{
-            for(var i = 0; i < this.i_translationUnits.length; ++i) {
-                var tu = this.i_translationUnits[i];
-                this.globalScope.merge(tu.globalScope);
-            }
-        }
-        catch(e) {
-            if (isA(e, SemanticException)){
-                // this.semanticProblems.push(e.annotation(this));
+        for(var i = 0; i < this.i_translationUnits.length; ++i) {
+            var tu = this.i_translationUnits[i];
+            this.globalScope.merge(tu.globalScope, function(e) {
                 console.log("linker error");
-            }
-            else{
-                // console.log(e.stack);
-                throw e;
-            }
+            });
         }
 
 

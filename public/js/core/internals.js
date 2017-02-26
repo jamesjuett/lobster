@@ -96,6 +96,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
     },
 
+    getSourceCode : function() {
+        return this.code;
+    },
+
     getTranslationUnit : function() {
         return this.context.translationUnit;
     },
@@ -418,17 +422,22 @@ var Scope = Lobster.Scope = Class.extend({
 
                     // If they have mismatched return types, that's a problem.
                     if (!entity.type.sameReturnType(otherFunc.type)){
-                        throw SemanticExceptions.Wrapper.instance(CPPError.decl.func.returnTypesMatch, [entity.name, otherFunc.decl]);
+                        throw CPPError.decl.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
                     }
 
                     DeclaredEntity.merge(entity, otherFunc);
 
                     // Terminates early when the first match is found. It's not possible there would be more than one match.
-                    return otherFunc
+                    return otherFunc;
                 }
             }
         }
         else{
+            // If they're not the same type, that's a problem
+            if (!sameType(entity.type, otherEnt.type)) {
+                throw CPPError.link.type_mismatch(entity.decl, entity, otherEnt);
+            }
+
             DeclaredEntity.merge(entity, otherEnt);
             return otherEnt;
         }
@@ -665,16 +674,26 @@ var NamespaceScope = Scope.extend({
         this.sim.addStaticEntity(ent);
     },
 
-    merge : function (otherScope) {
+    merge : function (otherScope, onErr) {
         for(var name in otherScope.entities){
             var otherEntity = otherScope.entities[name];
             if (Array.isArray(otherEntity)) {
                 for(var i = 0; i < otherEntity.length; ++i) {
-                    this.addDeclaredEntity(otherEntity[i]);
+                    try {
+                        this.addDeclaredEntity(otherEntity[i]);
+                    }
+                    catch (e) {
+                        onErr(e);
+                    }
                 }
             }
             else{
-                this.addDeclaredEntity(otherEntity);
+                try {
+                    this.addDeclaredEntity(otherEntity);
+                }
+                catch (e) {
+                    onErr(e);
+                }
             }
         }
 
@@ -685,7 +704,7 @@ var NamespaceScope = Scope.extend({
                 this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
             }
 
-            this.children[childName].merge(otherScope.children[childName]);
+            this.children[childName].merge(otherScope.children[childName], onErr);
         }
     }
 });
@@ -788,9 +807,20 @@ var DeclaredEntity = CPPEntity.extend({
      * REQUIRES: Both entities should have the same type. (for functions, the same signature)
      * @param {DeclaredEntity} entity1 - An entity already present in a scope.
      * @param {DeclaredEntity} entity2 - A new entity matching the original one.
-     * @throws {SemanticException}
+     * @throws {SemanticProblem}
      */
     merge : function(entity1, entity2) {
+
+        // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
+        if (isA(entity1.decl, ClassDeclaration)) {
+            if (entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
+                // exactly same tokens, so it's fine
+                return;
+            }
+            else {
+                throw CPPError.link.class_same_tokens([entity1.decl, entity2.decl], entity1, entity2);
+            }
+        }
 
         // Attempt to merge the two
         if (!entity2.isDefined() && !entity1.isDefined()) {
@@ -798,7 +828,7 @@ var DeclaredEntity = CPPEntity.extend({
         }
         else if (entity2.isDefined() && entity1.isDefined()) {
             // If both are definitions, that's a problem.
-            throw SemanticExceptions.Wrapper.instance(CPPError.link.multiple_def, [entity1.name, entity1, entity2]);
+            throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
         }
         else if (entity2.isDefined() && !entity1.isDefined()) {
             var undefinedEntity = entity1;
@@ -812,7 +842,7 @@ var DeclaredEntity = CPPEntity.extend({
             if (isA(entity1, FunctionEntity)) {
                 // If they have mismatched return types, that's a problem.
                 if (!entity1.type.sameReturnType(entity2.type)){
-                    throw SemanticExceptions.Wrapper.instance(CPPError.link.func.returnTypesMatch, [entity1.name, entity2.decl]);
+                    throw CPPError.link.func.returnTypesMatch([entity1.decl, entity2.decl], entity1.name);
                 }
             }
 

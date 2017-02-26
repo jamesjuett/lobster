@@ -248,7 +248,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             return entity;
         }
         catch(e) {
-            this.semanticProblems.push(e.annotation(decl));
+            this.semanticProblems.push(e);
             return null;
         }
     },
@@ -325,7 +325,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
                 scope.addDeclaredEntity(this.entity);
             }
             catch(e) {
-                this.semanticProblems.push(e.annotation(this));
+                this.semanticProblems.push(e);
             }
         }
 
@@ -1421,7 +1421,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
             return entity;
         }
         catch(e) {
-            this.semanticProblems.push(e.annotation(this));
+            this.semanticProblems.push(e);
             return null;
         }
     },
@@ -1625,7 +1625,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             scope.addDeclaredEntity(this.entity);
         }
         catch(e){
-            semanticProblems.push(e.annotation(this));
+            semanticProblems.push(e);
             return semanticProblems;
         }
 
@@ -1953,6 +1953,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         }
         else{
             entity = MemberSubobjectEntity.instance(decl, this.memberOfClass);
+            this.isDefinition = false; // TODO NEW: This is a hack. Since implementing a proper linking phase, static stuff may be broken.
         }
 
         if (this.isDefinition) {
@@ -1968,7 +1969,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
             return entity;
         }
         catch(e) {
-            this.semanticProblems.push(e.annotation(decl));
+            this.semanticProblems.push(e);
             return null;
         }
     }

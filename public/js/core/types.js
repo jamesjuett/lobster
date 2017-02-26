@@ -1016,13 +1016,13 @@ Lobster.Types.Class = Type.extend({
     },
     sameType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class)
+        return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class);
+        return other && other.isA(Types.Class) && other.className === this.className;
     },
     classString : function(){
         return this.className;

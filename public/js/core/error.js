@@ -618,8 +618,14 @@ var CPPError = {
         def_not_found : function(src, func){
            return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
-        multiple_def : function(src, name, ent1, ent2){
+        multiple_def : function(src, name){
             return makeError(src, false, "Multiple definitions found for " + name + ".");
+        },
+        type_mismatch : function(src, ent1, ent2){
+            return makeError(src, false, "Multiple declarations found for " + ent1.name + ", but with different types.");
+        },
+        class_same_tokens : function(src, ent1, ent2){
+            return makeError(src, false, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + ", do not match exactly.");
         },
         func : {
             returnTypesMatch : function(src, name){
