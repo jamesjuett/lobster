@@ -249,7 +249,6 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             simTab.removeClass("active");
             sourcePane.css("display", "flex");
             simPane.css("display", "none");
-            self.program.annotate();
         });
 
         simTab.add(element.find(".runButton")).click(function(){
@@ -1078,6 +1077,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
     },
 
     addAnnotation : function(ann) {
+
         ann.onAdd(this);
         this.i_annotations.push(ann);
     },
@@ -1109,10 +1109,36 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
             this.syntaxErrorLineHandle = this.i_doc.addLineClass(err.line-1, "background", "syntaxError");
             this.clearAnnotations();
         },
-        addAnnotation : function(msg){
-            this.addAnnotation(msg.data);
-        },
-        clearAnnotations : true
+        semanticProblems : function(msg){
+            this.clearAnnotations();
+
+            var semanticProblems = msg.data;
+
+
+            for(var i = 0; i < semanticProblems.errors.length; ++i){
+                var problem = semanticProblems.errors[i];
+                this.addAnnotation(GutterAnnotation.instance(
+                    problem.getConstructs()[0],
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
+            for(var i = 0; i < semanticProblems.warnings.length; ++i){
+                var problem = semanticProblems.warnings[i];
+                this.addAnnotation(GutterAnnotation.instance(
+                    problem.getConstructs()[0],
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
+
+            // TODO NEW Return support for widgets elsewhere.
+            // Perhaps reimplement as a generic kind of SemanticNote class
+            // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
+            //     // alert(this.i_semanticProblems.get(i));
+            //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
+            // }
+        }
 	}
 
 });

@@ -55,15 +55,62 @@ var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
+var SemanticProblem = Class.extend({
+    _name: "SemanticProblem",
+
+    /**
+     * Initializes a SemanticProblem associated with the provided constructs.
+     * @param {CPPCode | CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {String} message A message describing the problem.
+     */
+    init : function(constructs, message) {
+        if (Array.isArray(constructs)) {
+            this.i_constructs = constructs;
+        }
+        else {
+            this.i_constructs = [];
+            if (constructs) {
+                this.i_constructs.push(constructs);
+            }
+        }
+
+        this.i_message = message;
+    },
+
+    /**
+     *
+     * @returns {CPPCode|CPPCode[]}
+     */
+    getConstructs : function() {
+        return this.i_constructs;
+    },
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : function() {
+        return this.i_message;
+    }
+});
+
+var SemanticError = SemanticProblem.extend({
+    _name: "SemanticError"
+});
 
 
-var makeError = function(src, type, sentence){
+var SemanticWarning = SemanticProblem.extend({
+    _name: "SemanticError"
+});
+
+
+var makeError = function(src, type, message){
     //src = src || {context:{}};
     if (type === true){
-        return GutterAnnotation.instance(src, "warning", sentence);
+        return SemanticWarning.instance(src, message);
     }
     else if (type === false){
-        return GutterAnnotation.instance(src, "error", sentence);
+        return SemanticError.instance(src, message);
     }
 };
 
@@ -569,14 +616,14 @@ var CPPError = {
     },
     link : {
         def_not_found : function(src, func){
-           return makeError(src, false, "Linker error: Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+           return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
         multiple_def : function(src, name, ent1, ent2){
-            return makeError(src, false, "Linker error: Multiple definitions found for" + name + ".");
+            return makeError(src, false, "Multiple definitions found for " + name + ".");
         },
         func : {
             returnTypesMatch : function(src, name){
-                return makeError(src, false, "Linker error: This definition of the function " + name + " has a different return type than its declaration.");
+                return makeError(src, false, "This definition of the function " + name + " has a different return type than its declaration.");
             }
         }
 

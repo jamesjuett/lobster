@@ -216,6 +216,7 @@ var TranslationUnit = Class.extend(Observable, {
             this.i_compile(parsed);
 
             this.send("compiled", this.i_semanticProblems);
+            this.send("semanticProblems", this.i_semanticProblems);
 
             return this.i_semanticProblems;
             
@@ -335,8 +336,6 @@ var TranslationUnit = Class.extend(Observable, {
         //         decl.tailRecursionAnalysis(annotatedCalls);
         //     }
         // }
-
-        this.annotate();
 	},
 
     i_createBuiltInGlobals : function() {
@@ -445,24 +444,6 @@ var TranslationUnit = Class.extend(Observable, {
 
     addCall : function(call){
         this.i_calls.push(call)
-    },
-
-    annotate : function(){
-        this.send("clearAnnotations");
-
-        for(var i = 0; i < this.i_semanticProblems.errors.length; ++i){
-            // alert(this.i_semanticProblems.get(i));
-            this.send("addAnnotation", this.i_semanticProblems.errors[i]);
-        }
-        for(var i = 0; i < this.i_semanticProblems.warnings.length; ++i){
-            // alert(this.i_semanticProblems.get(i));
-            this.send("addAnnotation", this.i_semanticProblems.warnings[i]);
-        }
-
-        for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
-            // alert(this.i_semanticProblems.get(i));
-            this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
-        }
     }
 });
 Lobster.CPP.TranslationUnit = TranslationUnit;
