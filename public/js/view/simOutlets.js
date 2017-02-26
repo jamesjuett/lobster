@@ -867,6 +867,14 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         });
     },
 
+    isOpen : function() {
+        return this.i_projectName;
+    },
+
+    projectName : function() {
+        return this.i_projectName;
+    },
+
     isSaved : function() {
         return this.i_isSaved;
     },
