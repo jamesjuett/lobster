@@ -180,10 +180,6 @@ $app->post('/api/me/project/save/:projectName', function ($projectName) use ($ap
         $stmt->bindParam('email', $email);
         $stmt->bindParam('project', $projectName);
         $stmt->execute();
-
-        echo json_encode(array(
-            'success'=>'success'
-        ));
     }
 
     //$files = json_decode($app->request->post('files'), true);
@@ -200,6 +196,10 @@ $app->post('/api/me/project/save/:projectName', function ($projectName) use ($ap
         $stmt->bindParam('text', $text);
         $stmt->execute();
     }
+
+    echo json_encode(array(
+        'success'=>'success'
+    ));
 });
 
 

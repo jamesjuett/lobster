@@ -625,7 +625,7 @@ var CPPError = {
             return makeError(src, false, "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
         class_same_tokens : function(src, ent1, ent2){
-            return makeError(src, false, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + ", do not match exactly.");
+            return makeError(src, false, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
             returnTypesMatch : function(src, name){

@@ -6,8 +6,8 @@ var findNearestTrackedConstruct = function(construct){
     if (construct && !construct.code && construct.start !== undefined && construct.line !== undefined){
         return {code: construct};
     }
-    // We want to attribute it to the nearest thing that has associated code which is tracked
-    while(construct && construct.context && construct.context.parent && (!construct.code || construct.code.start === undefined)){
+    // We want to attribute it to the nearest thing that has associated code which is tracked and not implicit
+    while(construct && construct.context && construct.context.parent && (construct.context.implicit || !construct.code || construct.code.start === undefined)){
         construct = construct.context.parent;
     }
 

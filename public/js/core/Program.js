@@ -16,7 +16,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.staticEntities = [];
 
         this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW do I need this?
-        this.i_linkerErrors = [];
+        this.linkerProblems = [];
     },
 
     addTranslationUnit : function(translationUnit) {
@@ -89,17 +89,24 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
     link : function() {
 
-        this.i_linkerErrors.clear();
+        this.linkerProblems.clear();
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 
         // Bring together stuff from all translation units
         // TODO NEW: Make reporting of linker errors more elegant
+        var self = this;
         for(var i = 0; i < this.i_translationUnits.length; ++i) {
             var tu = this.i_translationUnits[i];
             this.globalScope.merge(tu.globalScope, function(e) {
-                console.log("linker error");
+                if (isA(e, SemanticProblem)) {
+                    console.log("Linker: " + e.getMessage());
+                    self.linkerProblems.push(e);
+                }
+                else{
+                    throw e;
+                }
             });
         }
 
@@ -116,6 +123,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         }
 
         console.log("linked successfully");
+        this.send("linked", this.linkerProblems);
 
         // else if (decl.name === "main") {
         //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
@@ -139,11 +147,13 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
-    init: function(program, sourceCode){
+    init: function(program, name, sourceCode){
         this.initParent();
 
         this.i_program = program;
         this.i_program.addTranslationUnit(this);
+
+        this.name = name;
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
