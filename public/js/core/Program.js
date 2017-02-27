@@ -10,7 +10,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 
     init : function () {
 
-        this.i_translationUnits = [];
+        this.i_translationUnits = {};
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities = [];
@@ -19,8 +19,15 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.linkerProblems = [];
     },
 
-    addTranslationUnit : function(translationUnit) {
-        this.i_translationUnits.push(translationUnit);
+    addTranslationUnit : function(name, translationUnit) {
+        assert(!this.i_translationUnits[name]);
+        this.i_translationUnits[name] = translationUnit;
+    },
+
+    removeTranslationUnit : function(name) {
+        if(this.i_translationUnits[name]){
+            delete this.i_translationUnits[name];
+        }
     },
 
     addStaticEntity : function(obj){
@@ -72,10 +79,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
      */
     compile : function () {
         this.i_semanticProblems.clear();
-        var self = this;
-        this.i_translationUnits.forEach(function(tu) {
-            self.i_semanticProblems.pushAll(tu.fullCompile());
-        });
+        for(var name in this.i_translationUnits) {
+            var tu = this.i_translationUnits[name];
+            this.i_semanticProblems.pushAll(tu.fullCompile());
+        }
     },
 
     /**
@@ -97,8 +104,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         // Bring together stuff from all translation units
         // TODO NEW: Make reporting of linker errors more elegant
         var self = this;
-        for(var i = 0; i < this.i_translationUnits.length; ++i) {
-            var tu = this.i_translationUnits[i];
+        for(var name in this.i_translationUnits) {
+            var tu = this.i_translationUnits[name];
             this.globalScope.merge(tu.globalScope, function(e) {
                 if (isA(e, SemanticProblem)) {
                     console.log("Linker: " + e.getMessage());
@@ -136,6 +143,23 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     }
 });
 
+var SourceFile = Class.extend({
+
+    init : function(name, sourceCode) {
+        this.name = name;
+        this.setSourceCode(sourceCode);
+    },
+
+    setSourceCode : function(codeStr) {
+        this.i_sourceCode = codeStr;
+    },
+
+    getSourceCode : function() {
+        return this.i_sourceCode;
+    }
+
+});
+
 /**
  * TranslationUnit
  *
@@ -147,11 +171,11 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
-    init: function(program, name, sourceCode){
+    init: function(program, name, sourceFile){
         this.initParent();
 
         this.i_program = program;
-        this.i_program.addTranslationUnit(this);
+        this.i_program.addTranslationUnit(name, this);
 
         this.name = name;
 
@@ -162,7 +186,7 @@ var TranslationUnit = Class.extend(Observable, {
 
         this.i_main = false;
 
-        this.setSourceCode(sourceCode);
+        this.i_originalSourceFile = sourceFile;
 
         return this;
     },
@@ -179,24 +203,13 @@ var TranslationUnit = Class.extend(Observable, {
         this.staticEntities.push(obj);
     },
 
-    setSourceCode : function(codeStr) {
-        this.i_sourceCode = codeStr;
-    },
-
-    getSourceCode : function() {
-        return this.i_sourceCode;
-    },
-
     fullCompile : function() {
         // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
-            var codeStr = this.i_sourceCode;
+            this.i_sourceCode = this.i_originalSourceFile.getSourceCode();
 
-            codeStr = this.i_filterSourceCode(codeStr);
+            this.i_sourceCode = this.i_filterSourceCode(this.i_sourceCode);
 
-            // Ensure user defined classes are recognized as types.
-            // TODO NEW not sure this is the best place for it, though.
-            Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
 
             // TODO NEW omg what a hack
             //Use for building parser :p
@@ -207,9 +220,13 @@ var TranslationUnit = Class.extend(Observable, {
             //}));
             //return;
 
-            codeStr = this.i_preprocess(codeStr);
+            this.i_preprocess();
 
-            var parsed = Lobster.cPlusPlusParser.parse(codeStr);
+            // Ensure user defined classes are recognized as types.
+            // TODO NEW not sure this is the best place for it, though.
+            Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
+
+            var parsed = Lobster.cPlusPlusParser.parse(this.i_sourceCode);
 
             this.send("parsed");
 
@@ -277,9 +294,10 @@ var TranslationUnit = Class.extend(Observable, {
         return codeStr;
     },
 
-    i_preprocess : function(codeStr) {
+    i_preprocess : function() {
+
         // TODO NEW impelement this!
-        return codeStr;
+        // return codeStr;
     },
 
 	i_compile : function(code){

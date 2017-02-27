@@ -908,11 +908,14 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             this.i_filesElem.append(item);
 
             var fileName = file["name"];
-            // Create a program for each file.
-            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, fileName, file["code"]);
+
+            // Create a SourceFile and TranslationUnit for each file.
+            // TODO NEW: each file shouldn't actually have its own translation unit
+            var sourceFile = SourceFile.instance(fileName, file["code"]);
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, fileName, sourceFile);
 
             // Create a CodeMirror document for each file in the project
-            var fileEd = FileEditor.instance(fileName, translationUnit);
+            var fileEd = FileEditor.instance(fileName, sourceFile);
             this.listenTo(fileEd);
             this.i_fileEditors[fileName] = fileEd;
         }
@@ -988,14 +991,13 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
     /**
      *
      * @param {String} fileName The name of the file.
-     * @param {TranslationUnit} translationUnit The translation unit to be connected to this file.
+     * @param {SourceFile} sourceFile The source file to be edited by this editor.
      * @param config
      */
-    init: function(fileName, translationUnit, config) {
+    init: function(fileName, sourceFile, config) {
         this.i_fileName = fileName;
-        this.i_translationUnit = translationUnit;
-        this.i_doc =  CodeMirror.Doc(translationUnit.getSourceCode(), this.CODE_MIRROR_MODE);
-        this.listenTo(this.i_translationUnit);
+        this.i_sourceFile = sourceFile;
+        this.i_doc =  CodeMirror.Doc(sourceFile.getSourceCode(), this.CODE_MIRROR_MODE);
 
         this.i_config = makeDefaulted(config, Outlets.CPP.FileEditor.DEFAULT_CONFIG);
         this.initParent();
@@ -1014,10 +1016,6 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
 
         //this.loadCode({name: "program.cpp", code: this.i_config.initCode});
         FileEditor.s_instances.push(this);
-    },
-
-    getTranslationUnit : function() {
-        return this.i_translationUnit;
     },
 
     getDoc : function() {
@@ -1049,11 +1047,9 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         }
         var self = this;
         this.i_onEditTimeout = setTimeout(function(){
-            self.i_translationUnit.setSourceCode(self.getText());
+            self.i_sourceFile.setSourceCode(self.getText());
 
             self.send("textChanged", newText);
-
-            // analyze(self.i_translationUnit, self);
         }, IDLE_MS_BEFORE_COMPILE);
     },
 
