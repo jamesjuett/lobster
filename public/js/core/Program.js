@@ -11,6 +11,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     init : function () {
 
         this.i_translationUnits = {};
+        this.i_sourceFiles = {};
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities = [];
@@ -19,14 +20,35 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.linkerProblems = [];
     },
 
-    addTranslationUnit : function(name, translationUnit) {
-        assert(!this.i_translationUnits[name]);
-        this.i_translationUnits[name] = translationUnit;
+    addSourceFile : function(sourceFile) {
+        assert(!this.i_sourceFiles[sourceFile.getName()]);
+        this.i_sourceFiles[sourceFile.getName()] = sourceFile;
     },
 
-    removeTranslationUnit : function(name) {
-        if(this.i_translationUnits[name]){
-            delete this.i_translationUnits[name];
+    removeSourceFile : function(sourceFile) {
+        if (typeof sourceFile !== "string"){
+            sourceFile = sourceFile.getName();
+        }
+        if(this.i_sourceFiles[sourceFile]){
+            delete this.i_sourceFiles[sourceFile];
+        }
+    },
+
+    getSourceFile : function(name) {
+        return this.i_sourceFiles[name];
+    },
+
+    addTranslationUnit : function(translationUnit) {
+        assert(!this.i_translationUnits[translationUnit.getName()]);
+        this.i_translationUnits[translationUnit.getName()] = translationUnit;
+    },
+
+    removeTranslationUnit : function(translationUnit) {
+        if (typeof translationUnit !== "string"){
+            translationUnit = translationUnit.getName();
+        }
+        if(this.i_translationUnits[translationUnit]){
+            delete this.i_translationUnits[translationUnit];
         }
     },
 
@@ -140,8 +162,9 @@ var TranslationUnit = Class.extend(Observable, {
 
         this.i_originalSourceFile = sourceFile;
 
+        // TODO: Better design would probably require the Program to spawn an new TranslationUnit for us.
         this.i_program = program;
-        this.i_program.addTranslationUnit(sourceFile.getName(), this);
+        this.i_program.addTranslationUnit(this);
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
@@ -263,6 +286,9 @@ var TranslationUnit = Class.extend(Observable, {
 
         // TODO NEW impelement this!
         // return codeStr;
+        var re = /#include "(.*)"/;
+        var found = this.i_sourceCode.match(re);
+        console.log(found);
     },
 
 	i_compile : function(code){
