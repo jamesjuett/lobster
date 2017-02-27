@@ -80,10 +80,6 @@ var Observable = Mixins.Observable = {
         var noSend = msg.from;
         msg.from = this;
 
-        if (this.translate) {
-            msg = this.translate(msg) || msg;
-        }
-
         if (target) {
             // If there is a specific target, send only to them
             target.recv(msg);

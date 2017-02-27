@@ -912,7 +912,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             // Create a SourceFile and TranslationUnit for each file.
             // TODO NEW: each file shouldn't actually have its own translation unit
             var sourceFile = SourceFile.instance(fileName, file["code"]);
-            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, fileName, sourceFile);
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, sourceFile);
+            this.listenTo(translationUnit);
 
             // Create a CodeMirror document for each file in the project
             var fileEd = FileEditor.instance(fileName, sourceFile);
@@ -942,6 +943,9 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         this.i_program = Program.instance();
         this.i_program.addListener(this);
 
+        for (var name in this.i_translationUnits) {
+            this.i_translationUnits[name].removeListener(this);
+        }
         this.i_translationUnits = {};
     },
 
@@ -960,12 +964,63 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             for (var i = 0; i < linkerProblems.length; ++i) {
                 var problem = linkerProblems[i];
                 var tu = problem.getConstructs()[0].getTranslationUnit();
-                var fileEd = this.i_fileEditors[tu.name];
+                var fileEd = this.i_fileEditors[tu.getName()];
                 fileEd.addAnnotation(GutterAnnotation.instance(
                     problem.getConstructs()[0],
                     "linker",
                     problem.getMessage()
                 ));
+            }
+        },
+        compiled : function(msg) {
+
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
+            var editor = this.i_fileEditors[tu.getName()];
+
+            editor.clearAnnotations();
+
+            var semanticProblems = msg.data;
+
+            for(var i = 0; i < semanticProblems.errors.length; ++i){
+                var problem = semanticProblems.errors[i];
+                editor.addAnnotation(GutterAnnotation.instance(
+                    problem.getConstructs()[0],
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
+            for(var i = 0; i < semanticProblems.warnings.length; ++i){
+                var problem = semanticProblems.warnings[i];
+                editor.addAnnotation(GutterAnnotation.instance(
+                    problem.getConstructs()[0],
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
+
+            // TODO NEW Return support for widgets elsewhere.
+            // Perhaps reimplement as a generic kind of SemanticNote class
+            // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
+            //     // alert(this.i_semanticProblems.get(i));
+            //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
+            // }
+        },
+        parsed : function(msg){
+
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
+            var editor = this.i_fileEditors[tu.getName()];
+
+            if (editor.syntaxErrorLineHandle) {
+                editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+            if (msg.data){
+                var err = msg.data;
+//            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
+//                {className: "syntaxError"}));
+                editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
+                editor.clearAnnotations();
             }
         }
     }
@@ -981,7 +1036,7 @@ $(window).on("beforeunload", ProjectEditor.s_onbeforeunload);
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
 
-var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
+var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
     _name: "FileEditor",
     CODE_MIRROR_MODE : "text/x-c++src",
     DEFAULT_CONFIG : {
@@ -1108,58 +1163,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Outlet.extend({
         }
 
         this.i_annotations.length = 0;
-    },
-
-
-
-    _act : {
-        // loadCode: "loadCode", // TODO NEW remove this?
-        parsed : function(msg){
-            if (this.syntaxErrorLineHandle) {
-                this.i_doc.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
-            }
-        },
-        syntaxError : function(msg){
-            if (this.syntaxErrorLineHandle) {
-                this.i_doc.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
-            }
-            var err = msg.data;
-//            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
-//                {className: "syntaxError"}));
-            this.syntaxErrorLineHandle = this.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-            this.clearAnnotations();
-        },
-        semanticProblems : function(msg){
-            this.clearAnnotations();
-
-            var semanticProblems = msg.data;
-
-
-            for(var i = 0; i < semanticProblems.errors.length; ++i){
-                var problem = semanticProblems.errors[i];
-                this.addAnnotation(GutterAnnotation.instance(
-                    problem.getConstructs()[0],
-                    isA(problem, SemanticError) ? "error" : "warning",
-                    problem.getMessage()
-                ));
-            }
-            for(var i = 0; i < semanticProblems.warnings.length; ++i){
-                var problem = semanticProblems.warnings[i];
-                this.addAnnotation(GutterAnnotation.instance(
-                    problem.getConstructs()[0],
-                    isA(problem, SemanticError) ? "error" : "warning",
-                    problem.getMessage()
-                ));
-            }
-
-            // TODO NEW Return support for widgets elsewhere.
-            // Perhaps reimplement as a generic kind of SemanticNote class
-            // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
-            //     // alert(this.i_semanticProblems.get(i));
-            //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
-            // }
-        }
-	}
+    }
 
 });
 

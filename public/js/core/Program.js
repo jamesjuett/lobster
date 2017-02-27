@@ -34,46 +34,6 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.staticEntities.push(obj);
     },
 
-    // REQUIRES: Assumes all translation units are already compiled!!!
-    // compile : function() {
-    //
-    //     this.i_semanticProblems.clear();
-    //
-    //
-    //     // TODO NEW eventually move this here instead of in each translation unit. that's a long way away though
-    //     //this.i_createBuiltInGlobals();
-    //
-    //
-    //             // Linking
-    //     // TODO NEW move to Program level
-    //     // var linkingProblems = SemanticProblems.instance();
-    //     // this.i_calls.forEach(function(call){
-    //     //     linkingProblems.pushAll(call.checkLinkingProblems());
-    //     // });
-    //     // this.i_semanticProblems.pushAll(linkingProblems);
-    //
-    //     // TODO: move to Program level
-    //     // Tail Recursion Analysis
-    //     // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
-    //     //     decl = this.topLevelDeclarations[i];
-    //     //     if (isA(decl, FunctionDefinition)){
-    //     //         decl.tailRecursionAnalysis(annotatedCalls);
-    //     //     }
-    //     // }
-    //
-    //     this.annotate();
-    // },
-
-    // stuff : function() {
-    //
-    //     if (!this.i_main){
-    //         this.send("otherError", "<span class='code'>main</span> function not found. (Make sure you're using only the int main() version with no arguments.)");
-    //     }
-    //
-    //
-    //     this.i_main = null;
-    // },
-
     /**
      * Compiles all translation units that are part of this program.
      */
@@ -146,8 +106,12 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
 var SourceFile = Class.extend({
 
     init : function(name, sourceCode) {
-        this.name = name;
+        this.i_name = name;
         this.setSourceCode(sourceCode);
+    },
+
+    getName : function() {
+        return this.i_name;
     },
 
     setSourceCode : function(codeStr) {
@@ -171,13 +135,13 @@ var SourceFile = Class.extend({
 var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
-    init: function(program, name, sourceFile){
+    init: function(program, sourceFile){
         this.initParent();
 
-        this.i_program = program;
-        this.i_program.addTranslationUnit(name, this);
+        this.i_originalSourceFile = sourceFile;
 
-        this.name = name;
+        this.i_program = program;
+        this.i_program.addTranslationUnit(sourceFile.getName(), this);
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
@@ -186,9 +150,12 @@ var TranslationUnit = Class.extend(Observable, {
 
         this.i_main = false;
 
-        this.i_originalSourceFile = sourceFile;
 
         return this;
+    },
+
+    getName : function() {
+        return this.i_originalSourceFile.getName();
     },
 
     getSemanticProblems : function() {
@@ -233,14 +200,12 @@ var TranslationUnit = Class.extend(Observable, {
             this.i_compile(parsed);
 
             this.send("compiled", this.i_semanticProblems);
-            this.send("semanticProblems", this.i_semanticProblems);
-
             return this.i_semanticProblems;
             
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
-                this.send("syntaxError", {line: err.line, column: err.column, message: err.message});
+                this.send("parsed", {line: err.line, column: err.column, message: err.message});
 				this.i_semanticProblems.clear();
                 return this.i_semanticProblems;
 			}
