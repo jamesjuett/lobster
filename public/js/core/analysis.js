@@ -2,68 +2,6 @@ var Lobster = Lobster || {};
 
 Lobster.Analysis = {};
 
-// var Bird = Lobster.Analysis.Bird = Class.extend({
-//     _name: "Bird",
-//
-//     init : function(name, age) {
-//         // Create and initialize instance variable
-//         this.i_name = name;
-//         this.i_age = age;
-//         //this.egg = // create an egg object.
-//     },
-//
-//     getName : function() {
-//         return this.i_name;
-//     }
-//
-// });
-//
-//
-// var Chicken = Lobster.Analysis.Chicken = Bird.extend({
-//     _name: "Chicken"
-//
-//     // inherit bird constructor implicitly
-// });
-//
-// var Duck = Lobster.Analysis.Duck = Bird.extend({
-//     _name: "Duck",
-//
-//     // new ctor for Duck. Takes in name, age is optional (default 0)
-//     // also initializes new member variable for Duck beyond Bird stuff
-//     init : function(name, age) {
-//         age = age || 0;
-//         this.initParent(name, age || 0);
-//         this.i_numDucklings = 0;
-//     },
-//
-//     setAge : function(newAge) {
-//         this.name = newAge;
-//         delete this.name;
-//     },
-//
-//     // example overriding
-//     getName : function() {
-//         // all ducks are named daffy
-//         return "daffy";
-//     }
-//
-//     // x || y
-//     // x ? x : y
-//     //
-//     // x && y
-//     // x ? y : false
-// });
-
-// check for IntegralConversion coming from LValueToRValue coming from an Assignment
-// if (isA(top.if, Conversions.IntegralConversion)){
-//     if(isA(top.if.from, Conversions.LValueToRValue)) {
-//         if (isA(top.if.from.from, Expressions.Assignment)){
-//             codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
-//         }
-//     }
-// }
-
-
 
 var analyze = Lobster.analyze = function(program, codeEditor) {
 
@@ -93,7 +31,10 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         }
     };
 
+    // TODO Make a function for both of these....duplicated code :(
 
+
+    // Looking for breaking the interface
     bfsChildren(program.topLevelDeclarations, function(construct){
         if (isDotOrArrow(construct)) {
 
@@ -125,6 +66,56 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         }
     });
 
+    // Looking if forgetting to initialize Matrix channels in Image_init functions
+    var bfsCalls = function(queue, func) {
+
+        var foundMatrix_init = false;
+
+
+        while (queue.length > 0) {
+            var top = queue[0];
+            queue.shift(); // pop front
+
+            // do the thing
+            foundMatrix_init = func(top);
+            if (foundMatrix_init) {
+                console.log("Good! You should initialize your channels because an Image is made up of Matrices.");
+                return;
+            }
+
+            // get the definitions of the functions that are called
+            queue.pushAll(top.calls.map(function(call) {
+                return call.func.decl;
+            }));
+        }
+        if (!foundMatrix_init) {
+            console.log("Oops, looks like Matrix_init was never called in Image_init.")
+        }
+    };
+
+    var imageInitEntities = program.globalScope.lookup("Image_init");
+    var imageInitDefs = imageInitEntities.map(function(ent){
+        return ent.decl;
+    });
+
+
+    // Call for both Image_init functions
+    bfsCalls([imageInitDefs[0]], function(construct) {
+
+        if (construct.name == "Matrix_init") {
+            return true;
+        }
+        return false;
+    });
+
+    bfsCalls([imageInitDefs[1]], function(construct) {
+
+        if (construct.name == "Matrix_init") {
+            return true;
+        }
+        return false;
+    });
+
 };
 
 
@@ -132,15 +123,3 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
 var isDotOrArrow = function(construct) {
     return isA(construct, Expressions.Dot) || isA(construct, Expressions.Arrow);
 };
-
-// var other = {
-//     blah: 3
-// };
-//
-// var prices = {
-//     apple: 1.3,
-//     house: 10000000,
-//     horse: {name: "mr ed"}
-// };
-// // prices["horse"];
-// // prices.horse;
