@@ -210,7 +210,8 @@ var TranslationUnit = Class.extend(Observable, {
             //}));
             //return;
 
-            this.i_preprocess();
+
+            this.i_sourceCode = this.i_preprocess(this.i_sourceCode);
 
             // Ensure user defined classes are recognized as types.
             // TODO NEW not sure this is the best place for it, though.
@@ -241,6 +242,9 @@ var TranslationUnit = Class.extend(Observable, {
 	},
 
     i_filterSourceCode : function(codeStr) {
+
+        codeStr = codeStr.replace("\r", "");
+
         if (codeStr.contains("#ifndef")){
             codeStr = codeStr.replace(/#ifndef.*/g, function(match){
                 return Array(match.length+1).join(" ");
@@ -282,13 +286,64 @@ var TranslationUnit = Class.extend(Observable, {
         return codeStr;
     },
 
-    i_preprocess : function() {
+    i_preprocess : function(codeStr) {
+        this.i_includeMapping = [];
+        this.i_currentIncludeOffset = 0;
+        this.i_currentIncludeLineNumber = 1;
+    },
 
-        // TODO NEW impelement this!
-        // return codeStr;
-        var re = /#include "(.*)"/;
-        var found = this.i_sourceCode.match(re);
-        console.log(found);
+    i_preprocessImpl : function(codeStr) {
+
+        // NOTE: carriage returns should be filtered out previously to calling this function
+
+        var currentIncludeOffset = 0;
+        var currentIncludeLineNumber = 1;
+
+        // TODO NEW implement this!
+        // Find array of included filenames
+        // [^\S\n] is a character class for all whitespace other than newlines
+        codeStr = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
+            function(includeLine, offset, original) {
+
+                var mapping = {};
+
+                // Find the line number of this include by adding up the number of newline characters
+                // since the offset of the last match up to the current one. Add this to the line number.
+                for(var i = currentIncludeOffset; i < offset; ++i) {
+                    if (original[i] === "\n") {
+                        ++currentIncludeLineNumber;
+                    }
+                }
+                currentIncludeOffset = offset;
+                mapping.startLine = currentIncludeLineNumber;
+
+                // extract the filename from the #include line match
+                // [1] yields only the match for the part of the regex in parentheses
+                var filename = includeLine.match(/"(.*)"/)[1];
+
+                // filter and preprocess the include recursively
+                var includedSource = this.i_program.getSourceFile(filename).getSourceCode();
+                includedSource = this.i_filterSourceCode(includedSource);
+                includeResults = this.i_preprocessImpl(includedSource);
+                includeSource = includeResults.source;
+
+                // count the number of lines in the included source
+                for(var i = 0)
+
+
+                // count number of included lines and update
+
+
+
+
+
+            }
+        );
+
+        // Replace each with
+
+
+        return codeStr;
     },
 
 	i_compile : function(code){
