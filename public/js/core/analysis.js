@@ -19,16 +19,21 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
 
     // BFS of the children of code constructs
     var bfsChildren = function(queue, func) {
+        var numBroken = 0;
 
         while (queue.length > 0) {
             var top = queue[0];
             queue.shift(); // pop front
 
             // do the thing
-            func(top);
+            var breaksInterface = func(top);
+            if (breaksInterface) {
+                numBroken += 1;
+            }
 
             queue.pushAll(top.children);
         }
+        console.log('Broke the interface ' + numBroken + ' times.')
     };
 
     // TODO Make a function for both of these....duplicated code :(
@@ -36,6 +41,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
 
     // Looking for breaking the interface
     bfsChildren(program.topLevelDeclarations, function(construct){
+        var breaksInterface = false;
         if (isDotOrArrow(construct)) {
 
             // If it's not implicitly defined (i.e. not in original source code), don't annotate it
@@ -50,6 +56,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
                     // If this operand is being used outside of a function starting with Matrix_, that's bad
                     if (!construct.context.func.name.startsWith("Matrix_")) {
                         codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
+                        breaksInterface = true;
                     }
                 }
 
@@ -60,10 +67,12 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
                     // If this operand is being used outside of a function starting with Matrix_, that's bad
                     if (!construct.context.func.name.startsWith("Image_")) {
                         codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
+                        breaksInterface = true;
                     }
                 }
             }
         }
+        return breaksInterface;
     });
 
     // Looking if forgetting to initialize Matrix channels in Image_init functions
