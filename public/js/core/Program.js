@@ -146,6 +146,64 @@ var SourceFile = Class.extend({
 
 });
 
+var SourceReference = Class.extend({
+
+    _name : "SourceReference",
+
+    /**
+     * Creates a wrapper to represent a reference to source code that has been included in another file.
+     * @param {SourceFile} sourceFile
+     * @param {Number} lineIncluded
+     * @param {SourceReference} originalReference
+     * @returns {SourceReference}
+     */
+    instanceIncluded : function(sourceFile, lineIncluded, originalReference) {
+        var obj = this.instance(originalReference, originalReference.line, originalReference.column,
+            originalReference.start, originalReference.end);
+        obj.i_includes.pushAll(originalReference.i_includes);
+        obj.i_includes.unshift({
+            sourceFile: sourceFile,
+            lineIncluded: lineIncluded
+        });
+        return obj;
+    },
+
+    /**
+     * @param {SourceFile} sourceFile
+     * @param line
+     * @param column
+     * @param start
+     * @param end
+     */
+    init : function(sourceFile, line, column, start, end) {
+        this.sourceFile = sourceFile;
+        this.line = line;
+        this.column = column;
+        this.start = start;
+        this.end = end;
+        this.i_includes = [];
+    },
+
+    getIncludes : function() {
+        return this.i_includes;
+    },
+
+    isIncluded : function() {
+        return this.i_includes.length > 0;
+    }
+
+    // getIncludePrelude : function() {
+    //     var str = "";
+    //     var prevInclude = this.sourceFile;
+    //     this.i_includes.forEach(function(include) {
+    //         str += "In file \"" + include.sourceFile.getName() + "\" included from " + prevInclude.getName() + "\""
+    //
+    //     });
+    // }
+
+});
+
+
 /**
  * TranslationUnit
  *
@@ -156,6 +214,34 @@ var SourceFile = Class.extend({
  */
 var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
+
+    /**
+     * An internal ADT used to make the code a bit more organized. TranslationUnit will delete work here.
+     */
+    i_SourceMapping : Class.extend({
+        _name: "SourceMapping",
+
+        init : function(translationUnit, destinationLine, originLines) {
+            this.i_destinationLine = destinationLine;
+            this.i_originLines = originLines;
+            this.i_includes = [];
+        },
+
+        addInclude : function(includedLine, length, sourceMapping) {
+
+        },
+
+        getSourceReference : function(translationUnit, line, column, start, end) {
+
+            // Iterate through all includes and check if any would contain
+
+            // If this line wasn't part of any of the includes, just return a regular source reference to the original
+            // source file associated with this translation unit
+            return SourceReference.instance(translationUnit.i_originalSourceFile, line, column, start, end);
+        }
+
+
+    }),
 
     init: function(program, sourceFile){
         this.initParent();
@@ -294,12 +380,11 @@ var TranslationUnit = Class.extend(Observable, {
 
     i_preprocessImpl : function(codeStr) {
 
-        // NOTE: carriage returns should be filtered out previously to calling this function
+        // NOTE: carriage returns should be filtered out previous to calling this function
 
         var currentIncludeOffset = 0;
         var currentIncludeLineNumber = 1;
 
-        // TODO NEW implement this!
         // Find array of included filenames
         // [^\S\n] is a character class for all whitespace other than newlines
         codeStr = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
