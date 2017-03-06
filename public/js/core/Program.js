@@ -218,17 +218,69 @@ var TranslationUnit = Class.extend(Observable, {
     /**
      * An internal ADT used to make the code a bit more organized. TranslationUnit will delete work here.
      */
-    i_SourceMapping : Class.extend({
-        _name: "SourceMapping",
+    i_PreprocessedSource : Class.extend({
+        _name: "PreprocessedSource",
 
-        init : function(translationUnit, destinationLine, originLines) {
-            this.i_destinationLine = destinationLine;
-            this.i_originLines = originLines;
+        init : function(translationUnit, sourceFile) {
+            this.i_sourceFile = sourceFile;
+
+            var codeStr = sourceFile.getSourceCode();
+
+            codeStr = this.i_filterSourceCode(codeStr);
+
             this.i_includes = [];
+            var currentIncludeOffset = 0;
+            var currentIncludeLineNumber = 1;
+
+            // Find and replace #include lines. Will also populate i_includes array.
+            // [^\S\n] is a character class for all whitespace other than newlines
+            codeStr = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
+                function(includeLine, offset, original) {
+
+                    var mapping = {};
+
+                    // Find the line number of this include by adding up the number of newline characters
+                    // since the offset of the last match up to the current one. Add this to the line number.
+                    for(var i = currentIncludeOffset; i < offset; ++i) {
+                        if (original[i] === "\n") {
+                            ++currentIncludeLineNumber;
+                        }
+                    }
+                    currentIncludeOffset = offset + includeLine.length;
+                    mapping.startLine = currentIncludeLineNumber;
+
+                    // extract the filename from the #include line match
+                    // [1] yields only the match for the part of the regex in parentheses
+                    var filename = includeLine.match(/"(.*)"/)[1];
+
+                    // Recursively preprocess the included file
+                    var includedSource = translationUnit.i_program.getSourceFile(filename).getSourceCode();
+                    var included = this._class.instance(translationUnit, includedSource);
+
+                    mapping.numLines = included.numLines;
+                    mapping.endLine = mapping.startLine + included.numLines;
+                    currentIncludeLineNumber += included.numLines;
+
+
+
+                    // count the number of lines in this source.
+                    for(var i = 0) {
+
+
+                        // count number of included lines and update
+
+
+
+
+
+                    }
+            );
+
+            // Replace each with
         },
 
-        addInclude : function(includedLine, length, sourceMapping) {
-
+        getIncludes : function() {
+                return this.i_includes;
         },
 
         getSourceReference : function(translationUnit, line, column, start, end) {
@@ -238,6 +290,51 @@ var TranslationUnit = Class.extend(Observable, {
             // If this line wasn't part of any of the includes, just return a regular source reference to the original
             // source file associated with this translation unit
             return SourceReference.instance(translationUnit.i_originalSourceFile, line, column, start, end);
+        },
+
+        i_filterSourceCode : function(codeStr) {
+
+            codeStr = codeStr.replace("\r", "");
+
+            if (codeStr.contains("#ifndef")){
+                codeStr = codeStr.replace(/#ifndef.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            if (codeStr.contains("#define")){
+                codeStr = codeStr.replace(/#define.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            if (codeStr.contains("#endif")){
+                codeStr = codeStr.replace(/#endif.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            // if (codeStr.contains("#include")){
+            //     codeStr = codeStr.replace(/#include.*/g, function(match){
+            //         return Array(match.length+1).join(" ");
+            //     });
+            //     // TODO NEW why is this commented?
+            //     // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            // }
+            if (codeStr.contains("using namespace")){
+                codeStr = codeStr.replace(/using namespace.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                // TODO NEW why is this commented?
+                // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
+            }
+            if (codeStr.contains("using std::")){
+                codeStr = codeStr.replace(/using std::.*/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                this.send("otherError", "Lobster doesn't support using declarations at the moment.");
+            }
+            return codeStr;
         }
 
 
@@ -284,9 +381,6 @@ var TranslationUnit = Class.extend(Observable, {
 		try{
             this.i_sourceCode = this.i_originalSourceFile.getSourceCode();
 
-            this.i_sourceCode = this.i_filterSourceCode(this.i_sourceCode);
-
-
             // TODO NEW omg what a hack
             //Use for building parser :p
             //console.log(PEG.buildParser(codeStr,{
@@ -327,51 +421,6 @@ var TranslationUnit = Class.extend(Observable, {
 		}
 	},
 
-    i_filterSourceCode : function(codeStr) {
-
-        codeStr = codeStr.replace("\r", "");
-
-        if (codeStr.contains("#ifndef")){
-            codeStr = codeStr.replace(/#ifndef.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
-        if (codeStr.contains("#define")){
-            codeStr = codeStr.replace(/#define.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
-        if (codeStr.contains("#endif")){
-            codeStr = codeStr.replace(/#endif.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
-        // if (codeStr.contains("#include")){
-        //     codeStr = codeStr.replace(/#include.*/g, function(match){
-        //         return Array(match.length+1).join(" ");
-        //     });
-        //     // TODO NEW why is this commented?
-        //     // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        // }
-        if (codeStr.contains("using namespace")){
-            codeStr = codeStr.replace(/using namespace.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            // TODO NEW why is this commented?
-            // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
-        }
-        if (codeStr.contains("using std::")){
-            codeStr = codeStr.replace(/using std::.*/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            this.send("otherError", "Lobster doesn't support using declarations at the moment.");
-        }
-        return codeStr;
-    },
-
     i_preprocess : function(codeStr) {
         this.i_includeMapping = [];
         this.i_currentIncludeOffset = 0;
@@ -382,50 +431,7 @@ var TranslationUnit = Class.extend(Observable, {
 
         // NOTE: carriage returns should be filtered out previous to calling this function
 
-        var currentIncludeOffset = 0;
-        var currentIncludeLineNumber = 1;
 
-        // Find array of included filenames
-        // [^\S\n] is a character class for all whitespace other than newlines
-        codeStr = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
-            function(includeLine, offset, original) {
-
-                var mapping = {};
-
-                // Find the line number of this include by adding up the number of newline characters
-                // since the offset of the last match up to the current one. Add this to the line number.
-                for(var i = currentIncludeOffset; i < offset; ++i) {
-                    if (original[i] === "\n") {
-                        ++currentIncludeLineNumber;
-                    }
-                }
-                currentIncludeOffset = offset;
-                mapping.startLine = currentIncludeLineNumber;
-
-                // extract the filename from the #include line match
-                // [1] yields only the match for the part of the regex in parentheses
-                var filename = includeLine.match(/"(.*)"/)[1];
-
-                // filter and preprocess the include recursively
-                var includedSource = this.i_program.getSourceFile(filename).getSourceCode();
-                includedSource = this.i_filterSourceCode(includedSource);
-                includeResults = this.i_preprocessImpl(includedSource);
-                includeSource = includeResults.source;
-
-                // count the number of lines in the included source
-                for(var i = 0)
-
-
-                // count number of included lines and update
-
-
-
-
-
-            }
-        );
-
-        // Replace each with
 
 
         return codeStr;
