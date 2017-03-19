@@ -67,7 +67,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
             if (isA(top.if, Conversions.IntegralConversion)){
                 if(isA(top.if.from, Conversions.LValueToRValue)) {
                     if (isA(top.if.from.from, Expressions.Assignment)){
-                        codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
+                        // codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
                     }
                 }
             }

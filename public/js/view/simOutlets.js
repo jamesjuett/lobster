@@ -912,6 +912,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             // Create a SourceFile and TranslationUnit for each file.
             // TODO NEW: each file shouldn't actually have its own translation unit
             var sourceFile = SourceFile.instance(fileName, file["code"]);
+            this.i_program.addSourceFile(sourceFile);
             var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, sourceFile);
             this.listenTo(translationUnit);
 
@@ -965,35 +966,40 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                 var problem = linkerProblems[i];
                 var tu = problem.getConstructs()[0].getTranslationUnit();
                 var fileEd = this.i_fileEditors[tu.getName()];
-                fileEd.addAnnotation(GutterAnnotation.instance(
-                    problem.getConstructs()[0],
-                    "linker",
-                    problem.getMessage()
-                ));
+                // fileEd.addAnnotation(GutterAnnotation.instance(
+                //     tu.getSourceReference(problem.getConstructs()[0]),
+                //     "linker",
+                //     problem.getMessage()
+                // ));
             }
         },
         compiled : function(msg) {
 
             // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
             var tu = msg.source;
-            var editor = this.i_fileEditors[tu.getName()];
 
-            editor.clearAnnotations();
+            for(var ed in this.i_fileEditors) {
+                this.i_fileEditors[ed].clearAnnotations();
+            }
 
             var semanticProblems = msg.data;
 
             for(var i = 0; i < semanticProblems.errors.length; ++i){
                 var problem = semanticProblems.errors[i];
+                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
-                    problem.getConstructs()[0],
+                    sourceRef,
                     isA(problem, SemanticError) ? "error" : "warning",
                     problem.getMessage()
                 ));
             }
             for(var i = 0; i < semanticProblems.warnings.length; ++i){
                 var problem = semanticProblems.warnings[i];
+                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
-                    problem.getConstructs()[0],
+                    sourceRef,
                     isA(problem, SemanticError) ? "error" : "warning",
                     problem.getMessage()
                 ));
@@ -1108,10 +1114,10 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
         }, IDLE_MS_BEFORE_COMPILE);
     },
 
-    addMark : function(code, cssClass){
+    addMark : function(sourceReference, cssClass){
         var doc = this.i_doc;
-        var from = doc.posFromIndex(code.start);
-        var to = doc.posFromIndex(code.end);
+        var from = doc.posFromIndex(sourceReference.start);
+        var to = doc.posFromIndex(sourceReference.end);
         return doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     },
 
@@ -1145,8 +1151,8 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
     },
 
 
-    addWidget : function(code, elem){
-        var from = this.i_doc.posFromIndex(code.start);
+    addWidget : function(sourceReference, elem){
+        var from = this.i_doc.posFromIndex(sourceReference.start);
 
         this.i_doc.addWidget(from, elem[0], false);
     },

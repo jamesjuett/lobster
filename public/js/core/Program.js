@@ -63,7 +63,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         this.i_semanticProblems.clear();
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
-            this.i_semanticProblems.pushAll(tu.fullCompile());
+            // TODO take this out!!!
+            if (name === "file2") {
+                this.i_semanticProblems.pushAll(tu.fullCompile());
+            }
         }
     },
 
@@ -158,7 +161,7 @@ var SourceReference = Class.extend({
      * @returns {SourceReference}
      */
     instanceIncluded : function(sourceFile, lineIncluded, originalReference) {
-        var obj = this.instance(originalReference, originalReference.line, originalReference.column,
+        var obj = this.instance(originalReference.sourceFile, originalReference.line, originalReference.column,
             originalReference.start, originalReference.end);
         obj.i_includes.pushAll(originalReference.i_includes);
         obj.i_includes.unshift({
@@ -216,13 +219,16 @@ var TranslationUnit = Class.extend(Observable, {
     _name: "TranslationUnit",
 
     /**
-     * An internal ADT used to make the code a bit more organized. TranslationUnit will delete work here.
+     * An internal ADT used to make the code a bit more organized. TranslationUnit will delegate work here.
      */
     i_PreprocessedSource : Class.extend({
         _name: "PreprocessedSource",
 
-        init : function(translationUnit, sourceFile) {
+        init : function(translationUnit, sourceFile, alreadyIncluded) {
+            this.i_translationUnit = translationUnit;
             this.i_sourceFile = sourceFile;
+            alreadyIncluded = alreadyIncluded || {};
+            alreadyIncluded[this.i_sourceFile.getName()] = true;
 
             var codeStr = sourceFile.getSourceCode();
 
@@ -231,65 +237,97 @@ var TranslationUnit = Class.extend(Observable, {
             this.i_includes = [];
             var currentIncludeOffset = 0;
             var currentIncludeLineNumber = 1;
+            var originalIncludeLineNumber = 1;
 
             // Find and replace #include lines. Will also populate i_includes array.
             // [^\S\n] is a character class for all whitespace other than newlines
-            codeStr = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
-                function(includeLine, offset, original) {
+            var self = this;
+            this.i_sourceCode = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
+                function(includeLine, filename, offset, original) {
 
                     var mapping = {};
 
                     // Find the line number of this include by adding up the number of newline characters
                     // since the offset of the last match up to the current one. Add this to the line number.
-                    for(var i = currentIncludeOffset; i < offset; ++i) {
+                    for (var i = currentIncludeOffset; i < offset; ++i) {
                         if (original[i] === "\n") {
                             ++currentIncludeLineNumber;
+                            ++originalIncludeLineNumber;
                         }
                     }
-                    currentIncludeOffset = offset + includeLine.length;
                     mapping.startLine = currentIncludeLineNumber;
+                    mapping.startOffset = currentIncludeOffset;
 
-                    // extract the filename from the #include line match
-                    // [1] yields only the match for the part of the regex in parentheses
-                    var filename = includeLine.match(/"(.*)"/)[1];
+                    currentIncludeOffset = offset + includeLine.length;
+
+                    // // extract the filename from the #include line match
+                    // // [1] yields only the match for the part of the regex in parentheses
+                    // var filename = includeLine.match(/"(.*)"/)[1];
 
                     // Recursively preprocess the included file
-                    var includedSource = translationUnit.i_program.getSourceFile(filename).getSourceCode();
-                    var included = this._class.instance(translationUnit, includedSource);
+                    assert(!alreadyIncluded[filename], "Recursive #include detected!");
+                    var includedSourceFile = translationUnit.i_program.getSourceFile(filename);
+
+                    var included = self._class.instance(translationUnit, includedSourceFile,
+                        copyMixin(alreadyIncluded, {}));
 
                     mapping.numLines = included.numLines;
                     mapping.endLine = mapping.startLine + included.numLines;
-                    currentIncludeLineNumber += included.numLines;
 
+                    mapping.lineDelta = included.numLines - 1;
+                    mapping.lengthDelta = included.length - includeLine.length;
+                    currentIncludeLineNumber += included.numLines - 1; // -1 since one line from original was replaced
+                    mapping.included = included;
+                    mapping.lineIncluded = originalIncludeLineNumber;
 
+                    self.i_includes.push(mapping);
 
-                    // count the number of lines in this source.
-                    for(var i = 0) {
-
-
-                        // count number of included lines and update
-
-
-
-
-
-                    }
+                    return included.getSourceCode();
+                }
             );
 
+            // Count lines for the rest of the file after any #includes
+            for (var i = currentIncludeOffset; i < codeStr.length; ++i) {
+                if (codeStr[i] === "\n") {
+                    ++currentIncludeLineNumber;
+                }
+            }
+
+            this.numLines = currentIncludeLineNumber;
+            this.length = this.i_sourceCode.length;
+
             // Replace each with
+        },
+
+        getSourceCode : function() {
+            return this.i_sourceCode;
         },
 
         getIncludes : function() {
                 return this.i_includes;
         },
 
-        getSourceReference : function(translationUnit, line, column, start, end) {
+        getSourceReference : function(line, column, start, end) {
 
             // Iterate through all includes and check if any would contain
+            var offset = 0;
+            var lineOffset = 1;
+            for(var i = 0; i < this.i_includes.length; ++i) {
+                var inc = this.i_includes[i];
+                if (line < inc.startLine) {
+                    return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start - offset, end - offset);
+                }
+                else if (inc.startLine <= line && line < inc.endLine) {
+                    return SourceReference.instanceIncluded(this.i_sourceFile, inc.lineIncluded,
+                        inc.included.getSourceReference(line - inc.startLine + 1, column, start - inc.startOffset, end - inc.startOffset));
+                }
+                offset += inc.lengthDelta;
+                lineOffset += inc.lineDelta;
+            }
 
             // If this line wasn't part of any of the includes, just return a regular source reference to the original
             // source file associated with this translation unit
-            return SourceReference.instance(translationUnit.i_originalSourceFile, line, column, start, end);
+            return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start - offset, end - offset);
         },
 
         i_filterSourceCode : function(codeStr) {
@@ -339,6 +377,7 @@ var TranslationUnit = Class.extend(Observable, {
 
 
     }),
+    // *** end i_PreprocessedSource ***
 
     init: function(program, sourceFile){
         this.initParent();
@@ -379,7 +418,6 @@ var TranslationUnit = Class.extend(Observable, {
     fullCompile : function() {
         // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
-            this.i_sourceCode = this.i_originalSourceFile.getSourceCode();
 
             // TODO NEW omg what a hack
             //Use for building parser :p
@@ -391,13 +429,13 @@ var TranslationUnit = Class.extend(Observable, {
             //return;
 
 
-            this.i_sourceCode = this.i_preprocess(this.i_sourceCode);
+            this.i_preprocess();
 
             // Ensure user defined classes are recognized as types.
             // TODO NEW not sure this is the best place for it, though.
             Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
 
-            var parsed = Lobster.cPlusPlusParser.parse(this.i_sourceCode);
+            var parsed = Lobster.cPlusPlusParser.parse(this.i_preprocessedSource.getSourceCode());
 
             this.send("parsed");
 
@@ -422,9 +460,17 @@ var TranslationUnit = Class.extend(Observable, {
 	},
 
     i_preprocess : function(codeStr) {
-        this.i_includeMapping = [];
-        this.i_currentIncludeOffset = 0;
-        this.i_currentIncludeLineNumber = 1;
+
+        this.i_preprocessedSource = this.i_PreprocessedSource.instance(this, this.i_originalSourceFile);
+
+    },
+
+    getSourceReference : function(construct) {
+        assert(this.i_preprocessedSource, "Can't get source references until preprocessing has been done.");
+
+        var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
+        var trackedCode = trackedConstruct.code;
+        return this.i_preprocessedSource.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
     },
 
     i_preprocessImpl : function(codeStr) {
