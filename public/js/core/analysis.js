@@ -2,8 +2,10 @@ var Lobster = Lobster || {};
 
 Lobster.Analysis = {};
 
+// Checks if Matrix or Image interfaces were violated
+var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
 
-var analyze = Lobster.analyze = function(program, codeEditor) {
+    console.log("Checking interface...");
 
     // Type Matrix
     var matrixType = program.globalScope.lookup("Matrix").type;
@@ -34,13 +36,14 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
             queue.pushAll(top.children);
         }
         console.log('Broke the interface ' + numBroken + ' times.')
+        return numBroken;
     };
 
-    // TODO Make a function for both of these....duplicated code :(
 
 
     // Looking for breaking the interface
-    bfsChildren(program.topLevelDeclarations, function(construct){
+    // Need to clone topLevelDeclarations so we populate the queue each time this is called
+    return bfsChildren(program.topLevelDeclarations.clone(), function(construct){
         var breaksInterface = false;
         if (isDotOrArrow(construct)) {
 
@@ -55,7 +58,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
 
                     // If this operand is being used outside of a function starting with Matrix_, that's bad
                     if (!construct.context.func.name.startsWith("Matrix_")) {
-                        codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
+                        // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
                         breaksInterface = true;
                     }
                 }
@@ -66,7 +69,7 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
 
                     // If this operand is being used outside of a function starting with Matrix_, that's bad
                     if (!construct.context.func.name.startsWith("Image_")) {
-                        codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
+                        // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
                         breaksInterface = true;
                     }
                 }
@@ -74,6 +77,10 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
         }
         return breaksInterface;
     });
+};
+
+// Checks if Matrix Init was called in all Image_init functions
+var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
 
     // Looking if forgetting to initialize Matrix channels in Image_init functions
     var bfsCalls = function(queue, func) {
@@ -111,18 +118,12 @@ var analyze = Lobster.analyze = function(program, codeEditor) {
     // Call for both Image_init functions
     bfsCalls([imageInitDefs[0]], function(construct) {
 
-        if (construct.name == "Matrix_init") {
-            return true;
-        }
-        return false;
+        return construct.name == "Matrix_init";
     });
 
     bfsCalls([imageInitDefs[1]], function(construct) {
 
-        if (construct.name == "Matrix_init") {
-            return true;
-        }
-        return false;
+        return construct.name == "Matrix_init";
     });
 
 };
