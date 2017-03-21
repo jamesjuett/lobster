@@ -2,15 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css">
+
 
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
     <script src="js/lib/codemirror-compressed.js"></script>
-    <script src="js/lib/jquery-1.8.3.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
     <script src="js/lib/peg-0.8.0.min.js"></script>
     <script src="js/lib/svg.min.js"></script>
     <script src="js/lib/seedrandom.js"></script>
     <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
     <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
     Remove this if you use the .htaccess -->
@@ -90,7 +93,8 @@
                             <span class="saveMessage" style="display: none">Saving...</span>
                         </div>
                         <div style = "height: 22px; padding: 2px; background-color: lightgray;flex: 0 0 auto;-webkit-flex: 0 0 auto;-ms-flex: 0 0 auto;">
-                            <button class = "runButton" style="display: inline-block">Simulate</button>
+                            <button class = "runButton" style="display: inline-block">Simulate (Public Test)</button>
+                            <button class = "interfaceButton" style="display: inline-block">Check Interface</button>
                             <span class="status"></span>
                         </div>
                         <ul class = "semanticProblems" style = "width: 100%; max-height: 100px; overflow-y: auto; box-sizing: border-box;"></ul>
@@ -237,6 +241,37 @@
 
             createDefaultOutlets();
 
+            // Event handler when interface button is clicked
+            $(".interfaceButton").click(function() {
+                $("#breakInterfaceDialog .modal-body > div").hide();
+                $("#broke-interface1").show();
+                var numBroken = checkInterface(simOutlet.program, simOutlet.editor);
+
+               // Display based on numBroken
+               $(".numTimes").html(numBroken);
+               if (numBroken != 0) {
+                   $("#happy").hide();
+                   $("#mad").show();
+               }
+               else {
+                   $("#happy").show();
+                   $("#mad").hide();
+               }
+               $("#breakInterfaceDialog").modal("show");
+            });
+
+            // Event handler when what button is clicked when inspecting interface
+            $("#whatButton").click(function() {
+                $("#breakInterfaceDialog .modal-body > div").hide();
+                $("#broke-interface2").show();
+            });
+
+            // Event handler when show me button is clicked when inspecting interface
+            $("#showMeButton").click(function() {
+                $("#breakInterfaceDialog .modal-body > div").hide();
+                $("#broke-interface3").show();
+            });
+
 
         };
 
@@ -280,5 +315,50 @@
 
 
     </script>
+
+
+    <!--Modal for breaking the interface explanation-->
+    <div id="breakInterfaceDialog" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">You broke the interface <span class="numTimes"></span> times</h4>
+                </div>
+                <div class="modal-body">
+                    <div id="broke-interface1">
+                        <div>
+                            <img src="img/madlobster.jpg" alt="angry lobster" id="mad" style="height: 200px; margin-left: 5px; display:none"></img>
+                            <img src="img/happylobster.jpg" alt="happy lobster" id="happy" style="height: 200px; margin-left: 5px; display:none"></img>
+                        </div>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Got it!</button>
+                        <button type="button" class="btn btn-default" id="whatButton">What?</button>
+                    </div>
+                    <div id="broke-interface2" style = "display:none">
+                        <div><p>We should be able to change the implementation of Matrix and Image, and the code that uses these modules should not need to change.</p>
+                        <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 200px; margin-left: 5px;"/>
+                        </div>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Okay!</button>
+                        <button type="button" class="btn btn-default" id="showMeButton">Show me</button>
+                    </div>
+                    <div id="broke-interface3" style = "display:none">
+                        <div>
+                            <code><pre>struct Matrix {
+    int num-rows;
+    int num-cols;
+    vector&lt;vector&lt;int&gt; &gt; values; <br> };</pre></code>
+                            Now a line of code such as
+                            <code>int green = *(i_ptr->green_channel.data[0]);</code>
+                            Breaks! Code outside of the modules should not depend on the underlying representation of a Matrix or an Image.
+                        </div>
+                        <button type="button" class="btn btn-default" id="thanksButton" data-dismiss="modal">Thanks!</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </body>
 </html>

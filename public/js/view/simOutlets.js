@@ -861,8 +861,6 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         this.i_codeSetTimeout = setTimeout(function(){
             self.i_program.setSourceCode(self.i_sourceCode);
 
-
-            analyze(self.i_program, self);
         }, IDLE_MS_BEFORE_COMPILE);
     },
 
