@@ -1858,7 +1858,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
         for(var i = 0; i < this.capacity + this.temporaryCapacity; ++i){
-            this.bytes[i] = 0;
+            this.bytes[i] = Math.floor(Math.random() * 100);
         }
 
         this.objects = {};
