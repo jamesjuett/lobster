@@ -7,17 +7,6 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
 
     console.log("Checking interface...");
 
-    // Type Matrix
-    var matrixType = program.globalScope.lookup("Matrix").type;
-
-    // Pointer to type Matrix
-    var matrixPointerType = Types.Pointer.instance(matrixType);
-
-    // Type Image
-    var imageType = program.globalScope.lookup("Image").type;
-
-    // Pointer to type Image
-    var imagePointerType = Types.Pointer.instance(imageType);
 
     // BFS of the children of code constructs
     var bfsChildren = function(queue, func) {
@@ -35,49 +24,68 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
 
             queue.pushAll(top.children);
         }
-        console.log('Broke the interface ' + numBroken + ' times.')
+        console.log('Broke the interface ' + numBroken + ' times.');
         return numBroken;
     };
 
+    // Returns a type or a pointer type of the module specified
+    var getTypeAndPointerType = function(module) {
+
+        // Type
+        var type = program.globalScope.lookup(module).type;
+
+        // Pointer Type
+        var pointerType = Types.Pointer.instance(type);
+
+        return [type, pointerType];
+    };
+
+    // Helper function for determining if the interface was broken in a particular module
+    // This module could be Matrix or Image
+    var checkInterface = function(construct, module) {
+
+        // Grab a representation of the module as a type or a pointer to the type
+        typeAndPointerType = getTypeAndPointerType(module);
+        type = typeAndPointerType[0];
+        pointerType = typeAndPointerType[1];
+
+        if (similarType(construct.operand.type, type) ||
+            similarType(construct.operand.type, pointerType)) {
+
+            // If this operand is being used outside of a function starting with Matrix_, that's bad
+            if (!construct.context.func.name.startsWith(module + "_")) {
+                codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface " + construct.memberName));
+                console.log(construct.memberName);
+                return true;
+            }
+        }
+        return false;
+    };
 
 
     // Looking for breaking the interface
     // Need to clone topLevelDeclarations so we populate the queue each time this is called
     return bfsChildren(program.topLevelDeclarations.clone(), function(construct){
-        var breaksInterface = false;
+
         if (isDotOrArrow(construct)) {
 
             // If it's not implicitly defined (i.e. not in original source code), don't annotate it
             if (!construct.context.implicit) {
 
-                // TODO MAKE A FUNCTION
-
-                // Check if breaking Matrix interface with a Matrix or Matrix*
-                if (similarType(construct.operand.type, matrixType) ||
-                    similarType(construct.operand.type, matrixPointerType)) {
-
-                    // If this operand is being used outside of a function starting with Matrix_, that's bad
-                    if (!construct.context.func.name.startsWith("Matrix_")) {
-                        // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
-                        breaksInterface = true;
-                    }
-                }
-
-                // Check if breaking Image interface with Image or Image*
-                if (similarType(construct.operand.type, imageType) ||
-                    similarType(construct.operand.type, imagePointerType)) {
-
-                    // If this operand is being used outside of a function starting with Matrix_, that's bad
-                    if (!construct.context.func.name.startsWith("Image_")) {
-                        // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface!"));
-                        breaksInterface = true;
-                    }
-                }
+                // Determine if broke Matrix or Image interface
+                return checkInterface(construct, "Matrix") || checkInterface(construct, "Image");
             }
         }
-        return breaksInterface;
+        return false;
     });
 };
+
+
+
+
+
+
+
 
 // Checks if Matrix Init was called in all Image_init functions
 var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
@@ -86,7 +94,6 @@ var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
     var bfsCalls = function(queue, func) {
 
         var foundMatrix_init = false;
-
 
         while (queue.length > 0) {
             var top = queue[0];
