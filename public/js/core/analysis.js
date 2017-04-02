@@ -54,8 +54,9 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
 
             // If this operand is being used outside of a function starting with Matrix_, that's bad
             if (!construct.context.func.name.startsWith(module + "_")) {
-                codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface " + construct.memberName));
-                console.log(construct.memberName);
+                // TODO: uncomment these lines to annotate what data members are being incorrectly accessed
+                // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface " + construct.memberName));
+                // console.log(construct.memberName);
                 return true;
             }
         }
