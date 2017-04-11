@@ -10,7 +10,7 @@
     <meta charset="utf-8" />
 
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
-    <script src="/codemirror-compressed.js"></script>
+    <script src="/codemirror.js"></script>
     <script src="/jquery-1.8.3.min.js"></script>
     <script src="/jquery.mousewheel.min.js"></script>
     <script src="/peg-0.8.0.min.js"></script>

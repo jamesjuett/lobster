@@ -1016,13 +1016,13 @@ Lobster.Types.Class = Type.extend({
     },
     sameType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class)
+        return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class);
+        return other && other.isA(Types.Class) && other.className === this.className;
     },
     classString : function(){
         return this.className;
@@ -1075,6 +1075,9 @@ Lobster.Types.Class = Type.extend({
             this.subobjects.push(mem);
             this.size += mem.type.size;
         }
+    },
+    containsMember : function(name){
+        return !!this.memberMap[name];
     },
     addConstructor : function(con){
         this.constructors.push(con);
@@ -1277,6 +1280,9 @@ Lobster.Types.Function = Type.extend({
     },
     sameReturnType : function(other){
         return this.returnType.sameType(other.returnType);
+    },
+    sameSignature : function(other){
+        return this.isThisConst === other.isThisConst && this.sameParamTypes(other);
     },
     typeString : function(excludeBase, varname){
 		return this.returnType.typeString(excludeBase, varname + this.paramStrType);

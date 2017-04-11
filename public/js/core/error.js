@@ -55,15 +55,62 @@ var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
+var SemanticProblem = Class.extend({
+    _name: "SemanticProblem",
+
+    /**
+     * Initializes a SemanticProblem associated with the provided constructs.
+     * @param {CPPCode | CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {String} message A message describing the problem.
+     */
+    init : function(constructs, message) {
+        if (Array.isArray(constructs)) {
+            this.i_constructs = constructs;
+        }
+        else {
+            this.i_constructs = [];
+            if (constructs) {
+                this.i_constructs.push(constructs);
+            }
+        }
+
+        this.i_message = message;
+    },
+
+    /**
+     *
+     * @returns {CPPCode|CPPCode[]}
+     */
+    getConstructs : function() {
+        return this.i_constructs;
+    },
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : function() {
+        return this.i_message;
+    }
+});
+
+var SemanticError = SemanticProblem.extend({
+    _name: "SemanticError"
+});
 
 
-var makeError = function(src, type, sentence){
+var SemanticWarning = SemanticProblem.extend({
+    _name: "SemanticError"
+});
+
+
+var makeError = function(src, type, message){
     //src = src || {context:{}};
     if (type === true){
-        return GutterAnnotation.instance(src, "warning", sentence);
+        return SemanticWarning.instance(src, message);
     }
     else if (type === false){
-        return GutterAnnotation.instance(src, "error", sentence);
+        return SemanticError.instance(src, message);
     }
 };
 
@@ -568,9 +615,24 @@ var CPPError = {
         }
     },
     link : {
-       def_not_found : function(src, func){
+        def_not_found : function(src, func){
            return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
-       }
+        },
+        multiple_def : function(src, name){
+            return makeError(src, false, "Multiple definitions found for " + name + ".");
+        },
+        type_mismatch : function(src, ent1, ent2){
+            return makeError(src, false, "Multiple declarations found for " + ent1.name + ", but with different types.");
+        },
+        class_same_tokens : function(src, ent1, ent2){
+            return makeError(src, false, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+        },
+        func : {
+            returnTypesMatch : function(src, name){
+                return makeError(src, false, "This definition of the function " + name + " has a different return type than its declaration.");
+            }
+        }
+
     },
     lookup : {
         badLookup : function(src, name){
@@ -627,8 +689,11 @@ var CPPNote = {
 var SemanticExceptions = {};
 
 var SemanticException = Class.extend({
-    _name: "SemanticException"
+    _name: "SemanticException",
+    annotation : Class._ABSTRACT
 });
+
+
 
 SemanticExceptions.BadLookup = SemanticException.extend({
     _name: "BadLookup",
@@ -691,6 +756,20 @@ SemanticExceptions.NonCovariantReturnTypes = SemanticException.extend({
 });
 
 
+SemanticExceptions.Wrapper = SemanticException.extend({
+    _name: "SemanticExceptions.Wrapper",
+    init : function(errorFunc, args){
+        this.i_errorFunc = errorFunc;
+        this.i_args = args;
+    },
+    annotation : function(src){
+        var args = this.i_args.clone();
+        args.unshift(src);
+        return this.i_errorFunc.apply(null, args);
+    }
+
+});
+
 
 var checkIdentifier = function(src, iden, semanticProblems){
     if (Array.isArray(iden)){
@@ -705,4 +784,4 @@ var checkIdentifier = function(src, iden, semanticProblems){
     if (ALT_OPS.contains(iden)){
         semanticProblems.push(CPPError.iden.alt_op(src, iden));
     }
-}
+};

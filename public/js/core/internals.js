@@ -56,8 +56,8 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     _name: "CPPCode",
     _nextId: 0,
     initIndex: "pushChildren",
-    // context parameter is usually just parent code element in form
-    // {parent: theParent}
+    // context parameter is often just parent code element in form
+    // {parent: theParent}, but may also have additional information
     init: function (code, context) {
         this.code = code;
 
@@ -84,7 +84,31 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+
         if (this.parent && !this.context.auxiliary) { this.parent.children.push(this); }
+
+        if (this.parent && !this.context.auxiliary) {
+            this.parent.children.push(this);
+        }
+
+        // Inherit implicit property of parent's context
+        if (this.parent && this.parent.context.implicit) {
+            this.context.implicit = true;
+        }
+
+        // Inherit translation unit of parent
+        if (this.parent && this.parent.context.translationUnit) {
+            this.context.translationUnit = this.parent.context.translationUnit;
+        }
+    },
+
+    getSourceCode : function() {
+        return this.code;
+    },
+
+    getTranslationUnit : function() {
+        return this.context.translationUnit;
+>>>>>>> feature-projects
     },
 
     compile: Class._ABSTRACT,
@@ -237,13 +261,13 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
         this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
-	instanceString : function(){
-		return "instance of " + this._name + " (" + this.model._name + ")";
-	},
-	stepForward : function(){
-		return this.model.stepForward(this.sim, this);
-	},
-	upNext : function(){
+    instanceString : function(){
+        return "instance of " + this._name + " (" + this.model._name + ")";
+    },
+    stepForward : function(){
+        return this.model.stepForward(this.sim, this);
+    },
+    upNext : function(){
         for(var key in this.pauses){
             var p = this.pauses[key];
             if (p.pauseWhenUpNext ||
@@ -257,49 +281,49 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
         this.send("upNext");
         this.funcContext.send("currentFunction");
         return this.model.upNext(this.sim, this);
-	},
+    },
     setPauseWhenUpNext : function(){
         this.pauses["upNext"] = {pauseWhenUpNext: true};
     },
     wait : function(){
         this.send("wait");
     },
-	done : function(){
-		if (this.model.done){
-			return this.model.done(this.sim, this);
-		}
-	},
-	pushed : function(){
+    done : function(){
+        if (this.model.done){
+            return this.model.done(this.sim, this);
+        }
+    },
+    pushed : function(){
 //		this.update({pushed: this});
-	},
-	popped : function(){
+    },
+    popped : function(){
         this.hasBeenPopped = true;
-		this.send("popped", this);
-	},
-	pushChild : function(child){
+        this.send("popped", this);
+    },
+    pushChild : function(child){
         this.pushedChildren.push(child);
-		this.send("childPushed", child);
-	},
-	pushSubCall : function(subCall){
-		this.subCalls.push(subCall);
-		this.send("subCallPushed", subCall);
-	},
-	setFrame : function(frame){
-		this.frame = frame;
+        this.send("childPushed", child);
+    },
+    pushSubCall : function(subCall){
+        this.subCalls.push(subCall);
+        this.send("subCallPushed", subCall);
+    },
+    setFrame : function(frame){
+        this.frame = frame;
 //		this.update({frameSet: this.frame});
-	},
-	findParent : function(stackType){
-		if (stackType){
-			var parent = this.parent;
-			while(parent && parent.stackType != stackType){
-				parent = parent.parent;
-			}
-			return parent;
-		}
-		else{
-			return this.parent;
-		}
-	},
+    },
+    findParent : function(stackType){
+        if (stackType){
+            var parent = this.parent;
+            while(parent && parent.stackType != stackType){
+                parent = parent.parent;
+            }
+            return parent;
+        }
+        else{
+            return this.parent;
+        }
+    },
     findParentByModel : function(model){
         assert(isA(model, CPPCode));
 
@@ -348,22 +372,19 @@ var Scope = Lobster.Scope = Class.extend({
         this.prefix = this._nextPrefix++;
         this.entities = {};
         this.parent = parent;
-        this.sim = sim;
+        this.sim = sim; // TODO rename sim to translationUnit
         if (!this.sim && this.parent) {
             this.sim = this.parent.sim;
         }
-//        if (this.parent) {
-//            this.parent.children.push(this);
-//        }
     },
     instanceString : function(){
-		var str = "";
-		for(var key in this.entities){
-			str += this.entities[key] + "\n";
-		}
-		return str;
-	},
-	addEntity : function(ent){
+        var str = "";
+        for(var key in this.entities){
+            str += this.entities[key] + "\n";
+        }
+        return str;
+    },
+    addEntity : function(ent){
         if (isA(ent, StaticEntity)){
             this.addStaticEntity(ent);
         }
@@ -383,7 +404,52 @@ var Scope = Lobster.Scope = Class.extend({
         else{
             this.entities[ent.name] = ent;
         }
-	},
+    },
+
+    // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
+    /**
+     * Attempts to add a new entity to this scope.
+     * @param {DeclaredEntity} entity - The entity to attempt to add.
+     * @returns {DeclaredEntity} Either the entity that was added, or an existing one already there, assuming it was compatible.
+     * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. Function declarations with
+     * the same signature but a mismatch of return types, duplicate definition)
+     */
+    addDeclaredEntity : function(entity) {
+        var otherEnt = this.ownEntity(entity.name);
+
+        if (!otherEnt){ // No previous entity with this name, so just add it
+            this.addEntity(entity);
+        }
+        else if (Array.isArray(otherEnt)){ // Array means a set of functions, check each one
+            for (var i = 0; i < otherEnt.length; ++i){
+                var otherFunc = otherEnt[i];
+
+                // Look for any function with the same signature
+                if (entity.type.sameSignature(otherFunc.type)) {
+
+                    // If they have mismatched return types, that's a problem.
+                    if (!entity.type.sameReturnType(otherFunc.type)){
+                        throw CPPError.decl.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
+                    }
+
+                    DeclaredEntity.merge(entity, otherFunc);
+
+                    // Terminates early when the first match is found. It's not possible there would be more than one match.
+                    return otherFunc;
+                }
+            }
+        }
+        else{
+            // If they're not the same type, that's a problem
+            if (!sameType(entity.type, otherEnt.type)) {
+                throw CPPError.link.type_mismatch(entity.decl, entity, otherEnt);
+            }
+
+            DeclaredEntity.merge(entity, otherEnt);
+            return otherEnt;
+        }
+    },
+
     ownEntity : function(name){
         return this.entities[name];
     },
@@ -539,12 +605,10 @@ var Scope = Lobster.Scope = Class.extend({
     //        return [];
     //    }
     //},
-    addCall : function(call){
-        this.sim.addCall(call);
-    },
     addAutomaticEntity : Class._ABSTRACT,
     addReferenceEntity : Class._ABSTRACT,
-    addStaticEntity : Class._ABSTRACT
+    addStaticEntity : Class._ABSTRACT,
+    merge : Class._ABSTRACT
 
 
 });
@@ -561,6 +625,10 @@ var BlockScope = Scope.extend({
     },
     addStaticEntity : function(ent) {
         this.sim.addStaticEntity(ent);
+    },
+    merge : function() {
+        // Nothing in here should have linkage, right?
+        // Unless I allow function/class declarations, etc. inside blocks, which I currently don't
     }
 
 
@@ -580,7 +648,6 @@ var FunctionBlockScope = BlockScope.extend({
         this.referenceObjects.push(obj);
     },
     addStaticEntity : function(ent) {
-
         this.sim.addStaticEntity(ent);
     }
 });
@@ -588,6 +655,7 @@ var FunctionBlockScope = BlockScope.extend({
 var NamespaceScope = Scope.extend({
 
     init: function(name, parent, sim){
+        assert(!parent || isA(parent, NamespaceScope));
         this.initParent(parent, sim);
         this.name = name;
         this.children = {};
@@ -608,6 +676,40 @@ var NamespaceScope = Scope.extend({
     },
     addStaticEntity : function(ent) {
         this.sim.addStaticEntity(ent);
+    },
+
+    merge : function (otherScope, onErr) {
+        for(var name in otherScope.entities){
+            var otherEntity = otherScope.entities[name];
+            if (Array.isArray(otherEntity)) {
+                for(var i = 0; i < otherEntity.length; ++i) {
+                    try {
+                        this.addDeclaredEntity(otherEntity[i]);
+                    }
+                    catch (e) {
+                        onErr(e);
+                    }
+                }
+            }
+            else{
+                try {
+                    this.addDeclaredEntity(otherEntity);
+                }
+                catch (e) {
+                    onErr(e);
+                }
+            }
+        }
+
+        // Merge in all child scopes from the other
+        for(var childName in otherScope.children) {
+            if (!this.children[childName]) {
+                // If a matching child scope doesn't already exist, create it
+                this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
+            }
+
+            this.children[childName].merge(otherScope.children[childName], onErr);
+        }
     }
 });
 
@@ -658,9 +760,14 @@ var ClassScope = NamespaceScope.extend({
 });
 
 
-var CPPEntity = CPP.CPPEntity = Class.extend(Observable, {
+var CPPEntity = Class.extend(Observable, {
     _name: "CPPEntity",
     _nextEntityId: 0,
+
+    linkage: "none", // TODO NEW make this abstract
+
+    type: Class._ABSTRACT, // TODO NEW this should really just be part of the constructor for CPPEntity
+
     init: function(name){
         this.initParent();
         this.entityId = CPPEntity._nextEntityId++;
@@ -691,7 +798,91 @@ var CPPEntity = CPP.CPPEntity = Class.extend(Observable, {
         return this.i_init;
     }
 });
+CPP.CPPEntity = CPPEntity;
 
+var DeclaredEntity = CPPEntity.extend({
+    _name : "DeclaredEntity",
+
+    /**
+     * If neither entity is defined, does nothing.
+     * If exactly one entity is defined, gives that definition to the other one as well.
+     * If both entities are defined, throws an exception. If the entities are functions with
+     * the same signature and different return types, throws an exception.
+     * REQUIRES: Both entities should have the same type. (for functions, the same signature)
+     * @param {DeclaredEntity} entity1 - An entity already present in a scope.
+     * @param {DeclaredEntity} entity2 - A new entity matching the original one.
+     * @throws {SemanticProblem}
+     */
+    merge : function(entity1, entity2) {
+
+        // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
+        if (isA(entity1.decl, ClassDeclaration)) {
+            if (entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
+                // exactly same tokens, so it's fine
+                return;
+            }
+            else {
+                throw CPPError.link.class_same_tokens([entity1.decl, entity2.decl], entity1, entity2);
+            }
+        }
+
+        // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
+        // have already been checked above and must be the same at this point, so it's pointless and will cause errors
+        // to try to merge them.)
+        if (isA(entity1.decl, MemberDeclaration)) {
+            return;
+        }
+        if (isA(entity1.decl, FunctionDefinition) && entity1.decl.isInlineMemberFunction) {
+            return;
+        }
+
+        // Attempt to merge the two
+        if (!entity2.isDefined() && !entity1.isDefined()) {
+            // If both are declarations, just keep the old one
+        }
+        else if (entity2.isDefined() && entity1.isDefined()) {
+            // If both are definitions, that's a problem.
+            throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
+        }
+        else if (entity2.isDefined() && !entity1.isDefined()) {
+            var undefinedEntity = entity1;
+            var definedEntity = entity2;
+            if (entity1.isDefined()) {
+                undefinedEntity = entity2;
+                definedEntity = entity1;
+            }
+
+            // Check return types for functions
+            if (isA(entity1, FunctionEntity)) {
+                // If they have mismatched return types, that's a problem.
+                if (!entity1.type.sameReturnType(entity2.type)){
+                    throw CPPError.link.func.returnTypesMatch([entity1.decl, entity2.decl], entity1.name);
+                }
+            }
+
+            // If a previous declaration, and now a new definition, merge
+            undefinedEntity.setDefinition(definedEntity.definition);
+        }
+    },
+
+    init : function(decl) {
+        this.initParent(decl.name, decl.type);
+        this.decl = decl;
+        this.type = decl.type;
+    },
+
+    setDefinition : function(definition) {
+        this.definition = definition;
+    },
+
+    isDefined : function() {
+        return !!this.definition; // TODO move to DeclaredEntity subclass and also separate declaration from definition
+    }
+});
+CPP.DeclaredEntity = DeclaredEntity;
+
+// Note: this is not derived from DeclaredEntity because it's also used as a runtime type of thing and sometimes
+// doesn't have a declaration or definition. Maybe want to change that in the future?
 var ReferenceEntity = CPP.ReferenceEntity = CPP.CPPEntity.extend({
     _name: "ReferenceEntity",
     storage: "automatic",
@@ -1012,7 +1203,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         if (this.isArray) {
             var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
             var endIndex = Math.min(
-                    beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
                 this.nonRefType.length);
 
             for (var i = beginIndex; i < endIndex; ++i) {
@@ -1059,7 +1250,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         if (this.isArray) {
             var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
             var endIndex = Math.min(
-                    beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
                 this.nonRefType.length);
 
             for (var i = beginIndex; i < endIndex; ++i) {
@@ -1106,7 +1297,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         if (this.isArray) {
             var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
             var endIndex = Math.min(
-                    beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
                 this.nonRefType.length);
 
             for (var i = beginIndex; i < endIndex; ++i) {
@@ -1167,15 +1358,20 @@ var ThisObject = CPP.ThisObject = ObjectEntity.extend({
     storage: "automatic"
 });
 
-var StaticEntity = CPP.StaticEntity = CPP.ObjectEntity.extend({
+var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     _name: "StaticEntity",
     storage: "static",
     init: function(decl){
-        this.initParent(decl.name, decl.type);
-        this.decl = decl;
+        this.initParent(decl);
+    },
+    objectInstance: function(){
+        return StaticObjectInstance.instance(this);
     },
     instanceString : function(){
         return this.name + " (" + this.type + ")";
+    },
+    lookup : function(sim, inst) {
+        return sim.memory.staticLookup(this).lookup(sim, inst);
     }
 
 });
@@ -1205,13 +1401,11 @@ var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
     }
 });
 
-var AutoEntity = CPP.AutoEntity = CPP.CPPEntity.extend({
+var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
     _name: "AutoEntity",
     storage: "automatic",
     init: function(decl){
-        this.initParent(decl.name);
-        this.type = decl.type;
-        this.decl = decl;
+        this.initParent(decl);
     },
     instanceString : function(){
         return this.name + " (" + this.type + ")";
@@ -1264,6 +1458,19 @@ var AutoObjectInstance = CPP.AutoObjectInstance = CPP.ObjectEntity.extend({
     }
 });
 
+var StaticObjectInstance = CPP.StaticObjectInstance = CPP.ObjectEntity.extend({
+    _name: "StaticObjectInstance",
+    storage: "static",
+    init: function(staticEnt){
+        this.initParent(staticEnt.name, staticEnt.type);
+        this.decl = staticEnt.decl;
+        this.entityId = staticEnt.entityId;
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    }
+});
+
 
 
 var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
@@ -1290,7 +1497,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
         var func = this.func.lookup(sim, inst.parent);
 
         // Now we can look up object entity associated with this parameter
-        var objEntity = func.decl.params[this.num].entity;
+        var objEntity = func.definition.params[this.num].entity;
 
         return objEntity.lookup(sim, inst.calledFunction);
     },
@@ -1440,16 +1647,14 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     }
 });
 
-var MemberSubobjectEntity = CPP.MemberSubobjectEntity = CPP.CPPEntity.extend({
+var MemberSubobjectEntity = DeclaredEntity.extend({
     _name: "MemberSubobjectEntity",
     storage: "none",
     init: function(decl, memberOfType){
-        this.initParent(decl.name);
-        this.type = decl.type;
+        this.initParent(decl);
         if (!this.type._isInstance){
             this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
         }
-        this.decl = decl;
         this.memberOfType = memberOfType;
         this.access = decl.access;
     },
@@ -1495,9 +1700,9 @@ var AnonObject = CPP.AnonObject = CPP.ObjectEntity.extend({
     nameString : function(){
         return this.name || "@" + this.address;
     }/*,
-    isAlive : function(){
-      return false;
-    }*/
+     isAlive : function(){
+     return false;
+     }*/
 });
 
 var Subobject = CPP.Subobject = CPP.ObjectEntity.extend({
@@ -1555,9 +1760,9 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
     },
     setOwner : function(newOwner){
         if (newOwner === this.owner)
-        if (this.owner){
-            this.owner.removeTemporaryObject(this);
-        }
+            if (this.owner){
+                this.owner.removeTemporaryObject(this);
+            }
         this.owner = newOwner;
         this.owner.addTemporaryObject(this);
     },
@@ -1655,13 +1860,10 @@ var createAnonObject = function(type, memory, address){
     return obj;
 };
 
-var FunctionEntity = CPP.FunctionEntity = CPP.CPPEntity.extend({
+var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     _name: "FunctionEntity",
     init: function(decl){
-        this.initParent(decl && decl.name || null);
-        this.type = decl && decl.type;
-        this.name = decl && decl.name;
-        this.decl = decl;
+        this.initParent(decl);
     },
     isStaticallyBound : function(){
         return true;
@@ -1674,9 +1876,6 @@ var FunctionEntity = CPP.FunctionEntity = CPP.CPPEntity.extend({
     },
     nameString : function(){
         return this.name;
-    },
-    isLinked : function(){
-        return isA(this.decl, FunctionDefinition) || isA(this.decl, MagicFunctionDefinition);
     },
     describe : function(sim, inst){
         return this.decl.describe(sim, inst);
@@ -1737,7 +1936,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
             // Sorry this is hacky :(
             // If it's a destructor, we look instead for the destructor of the dynamic type
             var func;
-            if (isA(this.decl, DestructorDefinition)) {
+            if (isA(this.definition, DestructorDefinition)) {
                 func = dynamicType.getDestructor();
             }
             else{
@@ -1804,13 +2003,10 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPP.FunctionEntity.exten
 
 
 
-var TypeEntity = CPP.TypeEntity = CPP.CPPEntity.extend({
+var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
     _name: "TypeEntity",
     init: function(decl){
-        this.initParent(decl.name);
-        this.type = decl.type;
-        this.name = decl.name;
-        this.decl = decl;
+        this.initParent(decl);
     },
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
@@ -1836,6 +2032,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.staticStart = 0;
         this.staticTop = this.staticStart + 4;
         this.staticEnd = this.staticStart + this.staticCapacity;
+        this.staticObjects = {};
 
         this.stackStart = this.staticEnd;
         this.stackEnd = this.stackStart + this.stackCapacity;
@@ -1863,6 +2060,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
 
         this.objects = {};
         this.staticTop = this.staticStart+4;
+        this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
 
         this.stack = MemoryStack.instance(this, this.staticEnd);
@@ -1893,10 +2091,17 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // I'm just leaving the dead objects here for now, that way we can provide better messages if a dead object is looked up
         //delete this.objects[addr];
     },
-    allocateStatic : function(object){
+    allocateStatic : function(staticEntity){
+        var object = staticEntity.objectInstance();
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
-	},
+        this.staticObjects[staticEntity.entityId] = object;
+    },
+
+    staticLookup : function(staticEntity) {
+        return this.staticObjects[staticEntity.entityId];
+    },
+
     getByte : function(addr){
         return this.bytes[addr];
     },
@@ -2195,16 +2400,16 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
     },
 
     instanceString : function(){
-		var str = "";
-		for(var key in this.objects){
-			var obj = this.objects[key];
+        var str = "";
+        for(var key in this.objects){
+            var obj = this.objects[key];
 //			if (!obj.type){
-				// str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
-				str += "<span>" + obj + "</span>\n";
+            // str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
+            str += "<span>" + obj + "</span>\n";
 //			}
-		}
-		return str;
-	},
+        }
+        return str;
+    },
 
     lookup : function(entity){
         // Extra lookup will do nothing for auto objects, but will find actual
