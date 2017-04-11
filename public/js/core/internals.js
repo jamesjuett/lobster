@@ -598,9 +598,6 @@ var Scope = Lobster.Scope = Class.extend({
     //        return [];
     //    }
     //},
-    addCall : function(call){
-        this.sim.addCall(call);
-    },
     addAutomaticEntity : Class._ABSTRACT,
     addReferenceEntity : Class._ABSTRACT,
     addStaticEntity : Class._ABSTRACT,
@@ -1360,8 +1357,14 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     init: function(decl){
         this.initParent(decl);
     },
+    objectInstance: function(){
+        return StaticObjectInstance.instance(this);
+    },
     instanceString : function(){
         return this.name + " (" + this.type + ")";
+    },
+    lookup : function(sim, inst) {
+        return sim.memory.staticLookup(this).lookup(sim, inst);
     }
 
 });
@@ -1442,6 +1445,19 @@ var AutoObjectInstance = CPP.AutoObjectInstance = CPP.ObjectEntity.extend({
         this.initParent(autoObj.name, autoObj.type);
         this.decl = autoObj.decl;
         this.entityId = autoObj.entityId;
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    }
+});
+
+var StaticObjectInstance = CPP.StaticObjectInstance = CPP.ObjectEntity.extend({
+    _name: "StaticObjectInstance",
+    storage: "static",
+    init: function(staticEnt){
+        this.initParent(staticEnt.name, staticEnt.type);
+        this.decl = staticEnt.decl;
+        this.entityId = staticEnt.entityId;
     },
     instanceString : function(){
         return this.name + " (" + this.type + ")";
@@ -2009,6 +2025,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.staticStart = 0;
         this.staticTop = this.staticStart + 4;
         this.staticEnd = this.staticStart + this.staticCapacity;
+        this.staticObjects = {};
 
         this.stackStart = this.staticEnd;
         this.stackEnd = this.stackStart + this.stackCapacity;
@@ -2036,6 +2053,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
 
         this.objects = {};
         this.staticTop = this.staticStart+4;
+        this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
 
         this.stack = MemoryStack.instance(this, this.staticEnd);
@@ -2066,10 +2084,17 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // I'm just leaving the dead objects here for now, that way we can provide better messages if a dead object is looked up
         //delete this.objects[addr];
     },
-    allocateStatic : function(object){
+    allocateStatic : function(staticEntity){
+        var object = staticEntity.objectInstance();
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
+        this.staticObjects[staticEntity.entityId] = object;
     },
+
+    staticLookup : function(staticEntity) {
+        return this.staticObjects[staticEntity.entityId];
+    },
+
     getByte : function(addr){
         return this.bytes[addr];
     },
