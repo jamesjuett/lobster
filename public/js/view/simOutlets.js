@@ -223,8 +223,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         var self = this;
 //        $("#sim").load("component/sim/standard", function() {
-            self.initSuboutlets();
-            self.initListeners();
+        self.initSuboutlets();
+        self.initListeners();
 
 //        });
 
@@ -1102,7 +1102,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
     getFileName : function() {
         return this.i_fileName;
     },
-    
+
     // loadCode : function(program){
     //     this.i_programName = program.name;
     //     var code = program.code;
@@ -1200,19 +1200,19 @@ Lobster.Outlets.CPP.Memory = WebOutlet.extend({
         this.svgElem = $('<div style="position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 10"></div>');
         this.svg = SVG(this.svgElem[0]);
         SVG_DEFS.arrowStart = this.svg.marker(6, 6, function(add){
-                add.circle(5);
-            }).style({
-                stroke: "#000000",
-                fill: "#FFFFFF",
-                "stroke-width": "1px"
-            });
+            add.circle(5);
+        }).style({
+            stroke: "#000000",
+            fill: "#FFFFFF",
+            "stroke-width": "1px"
+        });
         SVG_DEFS.arrowEnd = this.svg.marker(12, 12, function(add){
-                add.path("M0,2 L0,11 L8,6 L0,2");
-            }).style({
-                stroke: "#000000",
-                fill: "#FFFFFF",
-                "stroke-width": "1px"
-            });
+            add.path("M0,2 L0,11 L8,6 L0,2");
+        }).style({
+            stroke: "#000000",
+            fill: "#FFFFFF",
+            "stroke-width": "1px"
+        });
 
 
         this.element.append(this.svgElem);
@@ -1713,8 +1713,8 @@ Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
 
         this.addrElem = $("<td class='address'></td>");
         this.objElem = $("<td><div class='entity'>"+(this.object.name || "")+
-        "</div><div class='code-memoryObject-object'>"+
-        "</div></td>");
+            "</div><div class='code-memoryObject-object'>"+
+            "</div></td>");
         this.element.append("<table><tr></tr></table>");
         this.element.find("tr").append(this.addrElem).append(this.objElem);
         this.objElem = this.objElem.find(".code-memoryObject-object");
@@ -2098,18 +2098,18 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
 //                popped.remove();
 //            }
 //            else{
-                if (Outlets.CPP.CPP_ANIMATIONS){
-                    var popped = this.frames.last();
-                    this.frames.pop();
-                    popped.slideUp(SLIDE_DURATION, function(){
-                        $(this).remove();
-                    });
-                }
-                else{
-                    var popped = this.frames.last();
-                    this.frames.pop();
-                    popped.remove();
-                }
+            if (Outlets.CPP.CPP_ANIMATIONS){
+                var popped = this.frames.last();
+                this.frames.pop();
+                popped.slideUp(SLIDE_DURATION, function(){
+                    $(this).remove();
+                });
+            }
+            else{
+                var popped = this.frames.last();
+                this.frames.pop();
+                popped.remove();
+            }
 //            }
         },
         reset: function(msg){
@@ -2375,7 +2375,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
         if (Outlets.CPP.CPP_ANIMATIONS){
             (this.frames.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function(){
 //                elem.scrollTop = elem.scrollHeight;
-            }}));
+                }}));
         }
         else{
             frame.css({display: "block"});
