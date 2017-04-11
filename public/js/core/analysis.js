@@ -1,3 +1,7 @@
+/**
+ * @author Alexbro
+ */
+
 var Lobster = Lobster || {};
 
 Lobster.Analysis = {};

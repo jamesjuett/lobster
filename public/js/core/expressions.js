@@ -2770,10 +2770,6 @@ var FunctionCall = Expression.extend({
         this.func = func;
         //this.args = args;
 
-        if (!this.context.auxiliary){
-            scope.addCall(this);
-        }
-
         if (this.func.isMain && !this.context.isMainCall){
             this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
 
@@ -2816,7 +2812,7 @@ var FunctionCall = Expression.extend({
             return init;
         });
 
-        if (!isA(this.func.decl, MagicFunctionDefinition)){
+        if (!isA(this.func.definition, MagicFunctionDefinition)){
             // If we are returning by value, then we need to create a temporary object to copy-initialize.
             // If we are returning by reference, this.returnObject will be bound to what we return.
             // Temporary references do not use extra space and won't be automatically destructed.
@@ -2901,7 +2897,7 @@ var FunctionCall = Expression.extend({
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).decl;
+        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do

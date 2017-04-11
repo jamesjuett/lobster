@@ -2,10 +2,18 @@
 	/*border: solid red 3px;*/
 /*}*/
 
+.page-header {
+	font-family: 'Muli', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	font-family: 'Muli', sans-serif;
+}
+
 body{
-	font-family: Arial;
-	font-size: 11pt;
-	background-color: #f4f4f4;
+	/*font-family: Arial;*/
+	/*font-size: 11pt;*/
+	/*background-color: #f4f4f4;*/
 	margin: 0;
 	padding: 0;
 	position: absolute;
@@ -108,12 +116,19 @@ h2{
 	margin-bottom: 5px;
 }
 
-li {
-	padding-bottom: 0.4em;
+/*li {*/
+	/*padding-bottom: 0.4em;*/
+/*}*/
+
+.lobster-code{
+	font-weight: normal;
+	font-style: normal;
+	font-family: monospace;
 }
 
+
 .code{
-    font-weight: normal;
+	font-weight: normal;
 	font-style: normal;
 	font-family: monospace;
 }
@@ -246,6 +261,10 @@ div .tabPane {
 	white-space: pre-wrap;
 }
 
+.projectList {
+	font-size: 12pt;
+}
+
 .codeList > div{
     white-space: pre;
     text-overflow: ellipsis;
@@ -320,6 +339,11 @@ div .tabPane {
 .codeMark.error.warning{
 	top: -45%;
 	border-bottom: solid 2px red;
+}
+
+.codeMark.linker{
+	top: -45%;
+	border-bottom: solid 2px #ff6700;
 }
 
 .codeMark.widget{

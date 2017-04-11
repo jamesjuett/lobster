@@ -42,6 +42,11 @@ var Observer = Mixins.Observer = {
     listenTo : function(other, category){
         other.addListener(this, category);
         return this;
+    },
+
+    stopListeningTo : function(other, category){
+        other.removeListener(this, category);
+        return this;
     }
 
 
@@ -74,10 +79,6 @@ var Observable = Mixins.Observable = {
 
         var noSend = msg.from;
         msg.from = this;
-
-        if (this.translate) {
-            msg = this.translate(msg) || msg;
-        }
 
         if (target) {
             // If there is a specific target, send only to them

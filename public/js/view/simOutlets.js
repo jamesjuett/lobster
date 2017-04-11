@@ -24,7 +24,7 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
         element.addClass("codeList");
 
         this.editor = editor;
-        this.editor.converse(this);
+        // this.editor.converse(this);
 
         this.personal = personal;
         if (personal){
@@ -97,9 +97,10 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
     },
 
     loadCode : function(name, who){
-        if(!this.editor.isSaved() && !confirm("Your code has unsaved changes, and loading a file will overwrite them. Are you sure?")) {
-            return;
-        }
+        // TODO NEW put something like this back in somewhere
+        // if(!this.editor.isSaved() && !confirm("Your code has unsaved changes, and loading a file will overwrite them. Are you sure?")) {
+        //     return;
+        // }
         if(!this.personal && CodeList._personalList && CodeList._personalList.programs[name] && !confirm("WARNING! Loading code from the class repository will overwrite your local copy of the same name! Are you sure?")){
             return;
         }
@@ -156,6 +157,50 @@ var CodeList = Lobster.Outlets.CPP.CodeList = WebOutlet.extend({
 
 });
 
+var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
+    _name: "ProjectList",
+
+    API_URL : "/api/me/project/list",
+
+    // element should be a jquery object
+    init: function(element) {
+        this.i_element = element;
+        element.addClass("projectList");
+
+        this.refresh();
+    },
+
+    refresh : function(){
+        this.ajax({
+            type: "GET",
+            url: this.API_URL,
+            success: function(data){
+                this.i_setList(data);
+            },
+            dataType: "json"
+        });
+    },
+
+    i_setList : function(projects) {
+        var self = this;
+
+        this.i_element.empty();
+
+        for(var i = 0; i < projects.length; i++) {
+            var project = projects[i];
+            var item = $("<li></li>");
+            var link = $('<a class="link lobster-code" data-toggle="pill">' + project["project"] + '</a>');
+            item.append(link);
+            link.click(function(){
+                self.send("loadProject", $(this).html());
+            });
+
+            this.i_element.append(item);
+        }
+    }
+
+});
+
 Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     _name: "SimulationOutlet",
     DEFAULT_CONFIG : {
@@ -178,8 +223,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         var self = this;
 //        $("#sim").load("component/sim/standard", function() {
-            self.initSuboutlets();
-            self.initListeners();
+        self.initSuboutlets();
+        self.initListeners();
 
 //        });
 
@@ -194,32 +239,37 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
 
         // Set up simulation and source tabs
-        var sourceTab = element.find(".sourceTab");
-        var simTab = element.find(".simTab");
-        var sourcePane = element.find(".sourcePane");
-        var simPane = element.find(".simPane");
+        // var sourceTab = element.find(".sourceTab");
+        // var simTab = element.find(".simTab");
+        var sourcePane = element.find("#sourcePane");
+        var simPane = element.find("#simPane");
 
-        sourceTab.click(function(){
-            sourceTab.addClass("active");
-            simTab.removeClass("active");
-            sourcePane.css("display", "flex");
-            simPane.css("display", "none");
-            self.program.annotate();
+        // sourceTab.click(function(){
+        //     sourceTab.addClass("active");
+        //     simTab.removeClass("active");
+        //     sourcePane.css("display", "flex");
+        //     simPane.css("display", "none");
+        // });
+        //
+        // simTab.add(element.find(".runButton")).click(function(){
+        //     simTab.addClass("active");
+        //     sourceTab.removeClass("active");
+        //     simPane.css("display", "flex");
+        //     sourcePane.css("display", "none");
+        //     self.saveFunc();
+        //     self.send("userAction", UserActions.Simulate.instance());
+        //     simPane.focus();
+        //     self.restart();
+        // });
+
+
+        // var simTab = element.find(".simTab");
+        element.find(".runButton").click(function(){
+            self.sim.setProgram(self.projectEditor.getProgram());
         });
 
-        simTab.add(element.find(".runButton")).click(function(){
-            simTab.addClass("active");
-            sourceTab.removeClass("active");
-            simPane.css("display", "flex");
-            sourcePane.css("display", "none");
-            self.saveFunc();
-            self.send("userAction", UserActions.Simulate.instance());
-            simPane.focus();
-            self.restart();
-        });
 
-
-
+        this.projectEditor = ProjectEditor.instance(sourcePane);
 
 
         this.errorStatus = ValueEntity.instance();
@@ -228,17 +278,17 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.runningProgress = element.find(".runningProgress");
 //        this.console = ValueEntity.instance();
 
-        if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
-            this.editor = Outlets.CPP.CodeEditor.instance(elem, this.program);
-            this.listenTo(this.editor);
-            this.listenTo(this.editor.getProgram());
-            this.sim.converse(this.editor);
-            // Dismiss any annotation messages
-            var self = this;
-            elem.click(function(){
-                self.hideAnnotationMessage();
-            })
-        }
+        // if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
+        //     this.editor = Outlets.CPP.FileEditor.instance(elem, this.program);
+        //     this.listenTo(this.editor);
+        //     this.listenTo(this.editor.getProgram());
+        //     this.sim.converse(this.editor);
+        //     // Dismiss any annotation messages
+        //     var self = this;
+        //     elem.click(function(){
+        //         self.hideAnnotationMessage();
+        //     })
+        // }
         if ((elem = this.statusElem = element.find(".status")).length !== 0) {
             this.status = Outlets.HtmlOutlet.instance(elem, true).listenTo(this.errorStatus);
         }
@@ -300,13 +350,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 var name = self.saveNameEnt.value().trim();
 
                 if (name.match(filenameRegex)){
-                    self.saveMessage.html("Saving...").show();
-                    $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getSourceCode()}, function(){
-                        console.log("save successful");
-                        self.saveMessage.html("Saved!").fadeOut(5000);
-                        self.editor.save();
-                        CodeList.reloadLists();
-                    });
+                    self.projectEditor.saveProject();
+                    // self.saveMessage.html("Saving...").show();
+                    // $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
+                    //     console.log("save successful");
+                    //     self.saveMessage.html("Saved!").fadeOut(5000);
+                    //     self.editor.save();
+                    //     CodeList.reloadLists();
+                    // });
                 }
                 else{
                     if(!suppressAlert) {
@@ -314,7 +365,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                     }
                 }
             };
-            this.editor.saveFunc = this.saveFunc;
+            // this.editor.saveFunc = this.saveFunc;
 
             this.saveButton.click(this.saveFunc);
 
@@ -432,8 +483,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     },
 
     initListeners : function(){
-        this.log && this.log.listenTo(this);
-        this.log && this.log.listenTo(this.editor);
+        // this.log && this.log.listenTo(this);
+        // this.log && this.log.listenTo(this.editor);
     },
 
     setEnabledButtons : function(enabled, def){
@@ -446,6 +497,13 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 this.buttons[key].prop("disabled", !def);
             }
         }
+    },
+
+    loadProject : function(projectName){
+        // TODO NEW: warn about losing unsaved changes
+
+        this.projectEditor.loadProject(projectName);
+
     },
 
     restart : function(){
@@ -628,6 +686,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     _act : {
         loadCode : "loadCode",
+        loadProject : "loadProject",
         runTo: "runTo",
         skipToEnd: "skipToEnd",
         compiled : function(msg){
@@ -740,135 +799,338 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 });
 
+var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
+    _name : "ProjectEditor",
 
+    API_URL_LOAD_PROJECT : "/api/me/project/get/",
+    API_URL_SAVE_PROJECT : "/api/me/project/save/",
 
-
-var IDLE_MS_BEFORE_COMPILE = 1000;
-
-var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
-    _name: "CodeEditor",
-    DEFAULT_CONFIG : {
-        initCode: "int main(){\n  \n}"
-    },
-    s_instances : [],
     s_onbeforeunload : function(){
-        if (CodeList.ajaxSuccessful){
-            for(var i = 0; i < CodeEditor.s_instances.length; ++i){
-                if (!CodeEditor.s_instances[i].isSaved()){
-                    return "The file (" + CodeEditor.s_instances[i].getProgramName() + ") has unsaved changes.";
-                }
+        for(var i = 0; i < ProjectEditor.s_instances.length; ++i){
+            var inst = ProjectEditor.s_instances[i];
+            if (inst.isOpen() && !inst.isSaved()){
+                return "The project \"" + inst.getProjectName() + "\" has unsaved changes.";
             }
         }
     },
-    init: function(element, program, config) {
+    s_instances: [],
 
-        this.i_program = program;
-        this.listenTo(this.i_program);
-
-        assert(element instanceof jQuery);
-        this.i_config = makeDefaulted(config, Outlets.CPP.CodeEditor.DEFAULT_CONFIG);
-        this.initParent();
-
-        this.i_sourceCode = "";
-        this.i_annotations = [];
-        this.i_gutterErrors = [];
-        this.i_isSaved = true;
-
+    init : function(element) {
         var self = this;
-        var codeMirror = this.i_codeMirror = CodeMirror(element[0], {
-            value: this.i_config.initCode,
-            mode: "text/x-c++src",
+
+        this.i_filesElem = element.find(".project-files");
+        this.i_fileEditors = {};
+        this.i_program = Program.instance();
+        this.listenTo(this.i_program);
+        this.i_translationUnits = {};
+
+        this.i_codeMirror = CodeMirror(element.find(".codeMirrorEditor")[0], {
+            mode: FileEditor.CODE_MIRROR_MODE,
             theme: "monokai",
             height: "auto",
             lineNumbers: true,
             tabSize: 2,
             extraKeys: {
                 "Ctrl-S" : function(){
-                    self.saveFunc();
+                    self.saveProject();
                 }
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
 
+        this.s_instances.push(this);
+    },
 
+    loadProject : function(projectName){
+        // TODO NEW: warn about losing unsaved changes
 
-
-
-        codeMirror.on("change", function(e){
-            self.userEdit(codeMirror.getValue());
+        this.ajax({
+            type: "GET",
+            url: this.API_URL_LOAD_PROJECT + projectName,
+            success: function (data) {
+                if (!data){
+                    alert("Project not found! :(");
+                    return;
+                }
+                this.i_projectName = projectName;
+                this.i_setProject(data);
+                document.title = projectName;
+                this.i_isSaved = true;
+            },
+            dataType: "json"
         });
 
-        //this.loadCode({name: "program.cpp", code: this.i_config.initCode});
-        CodeEditor.s_instances.push(this);
+    },
+
+    saveProject : function(projectName) {
+        projectName = projectName || this.i_projectName;
+        var projectFiles = [];
+        for(var filename in this.i_fileEditors) {
+            projectFiles.push({
+                name: filename,
+                text: this.i_fileEditors[filename].getText()
+            });
+        }
+
+        this.ajax({
+            type: "POST",
+            url: this.API_URL_SAVE_PROJECT + projectName,
+            data: {files: projectFiles},
+            success: function(data){
+                console.log("saved successfully");
+                this.i_isSaved = true;
+            },
+            dataType: "json"
+        });
+    },
+
+    isOpen : function() {
+        return !!this.i_projectName;
+    },
+
+    getProjectName : function() {
+        return this.i_projectName;
+    },
+
+    isSaved : function() {
+        return this.i_isSaved;
+    },
+
+    i_setProject : function(project){
+        var self = this;
+
+        this.i_clearProject();
+
+        for(var i = 0; i < project.length; ++i) {
+            var file = project[i];
+
+            // Create tab for each file in the project
+            var item = $('<li></li>');
+            var link = $('<a href="" data-toggle="tab">' + file["name"] + '</a>');
+            link.click(function(){
+                self.i_selectFile($(this).html());
+            });
+            item.append(link);
+            this.i_filesElem.append(item);
+
+            var fileName = file["name"];
+
+            // Create a SourceFile and TranslationUnit for each file.
+            // TODO NEW: each file shouldn't actually have its own translation unit
+            var sourceFile = SourceFile.instance(fileName, file["code"]);
+            this.i_program.addSourceFile(sourceFile);
+            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, sourceFile);
+            this.listenTo(translationUnit);
+
+            // Create a CodeMirror document for each file in the project
+            var fileEd = FileEditor.instance(fileName, sourceFile);
+            this.listenTo(fileEd);
+            this.i_fileEditors[fileName] = fileEd;
+        }
+
+        // Set first file to be active
+        if (project.length > 0) {
+            this.i_filesElem.children().first().addClass("active");
+            this.i_selectFile(project[0]["name"]);
+        }
+
+        this.i_program.fullCompile();
+    },
+
+    i_clearProject : function() {
+
+        this.i_filesElem.empty();
+
+        for (var filename in this.i_fileEditors) {
+            this.i_fileEditors[filename].removeListener(this);
+        }
+        this.i_fileEditors = {};
+
+        if (this.i_program) {
+            this.i_program.removeListener(this);
+        }
+        this.i_program = Program.instance();
+        this.i_program.addListener(this);
+
+        for (var name in this.i_translationUnits) {
+            this.i_translationUnits[name].removeListener(this);
+        }
+        this.i_translationUnits = {};
     },
 
     getProgram : function() {
         return this.i_program;
     },
 
-    getSourceCode : function() {
-        return this.i_sourceCode;
+    i_selectFile : function(filename) {
+        assert(this.i_fileEditors[filename]);
+        this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
     },
+    _act : {
+        textChanged : function() {
+            this.i_isSaved = false;
+            this.i_program.fullCompile();
+        },
+        linked : function(msg) {
+            var linkerProblems = msg.data;
+            console.log("Project editor knows about linking.");
+            for (var i = 0; i < linkerProblems.length; ++i) {
+                var problem = linkerProblems[i];
+                var tu = problem.getConstructs()[0].getTranslationUnit();
+                var fileEd = this.i_fileEditors[tu.getName()];
+                // fileEd.addAnnotation(GutterAnnotation.instance(
+                //     tu.getSourceReference(problem.getConstructs()[0]),
+                //     "linker",
+                //     problem.getMessage()
+                // ));
+            }
+        },
+        compiled : function(msg) {
 
-    isSaved : function() {
-        return this.i_isSaved;
-    },
-    
-    save : function() {
-        this.i_isSaved = true;
-    },
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
 
-    getProgramName : function() {
-        return this.i_programName;
-    },
-    
-    loadCode : function(program){
-        this.i_programName = program.name;
-        var code = program.code;
-        this.i_codeMirror.setValue(code);
-        this.setSource(code);
-        this.i_isSaved = true; // setting source would have made this false
-        this.send("userAction", UserActions.LoadCode.instance(code));
-    },
+            for(var ed in this.i_fileEditors) {
+                this.i_fileEditors[ed].clearAnnotations();
+            }
 
-    userEdit : function(newSource){
-        // Figure out what the changes were by doing a diff
-        var changes = diff(this.i_sourceCode, newSource);
+            var semanticProblems = msg.data;
 
-        // Update source
-        this.setSource(newSource);
-        this.i_isSaved = false;
+            for(var i = 0; i < semanticProblems.errors.length; ++i){
+                var problem = semanticProblems.errors[i];
+                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+                editor.addAnnotation(GutterAnnotation.instance(
+                    sourceRef,
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
+            for(var i = 0; i < semanticProblems.warnings.length; ++i){
+                var problem = semanticProblems.warnings[i];
+                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+                editor.addAnnotation(GutterAnnotation.instance(
+                    sourceRef,
+                    isA(problem, SemanticError) ? "error" : "warning",
+                    problem.getMessage()
+                ));
+            }
 
-        // Send changes to logs as user actions
-        for(var i = 0; i < changes.length; i++) {
-            this.send("userAction", changes[i]);
+            // TODO NEW Return support for widgets elsewhere.
+            // Perhaps reimplement as a generic kind of SemanticNote class
+            // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
+            //     // alert(this.i_semanticProblems.get(i));
+            //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
+            // }
+        },
+        parsed : function(msg){
+
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
+            var editor = this.i_fileEditors[tu.getName()];
+
+            if (editor.syntaxErrorLineHandle) {
+                editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+            if (msg.data){
+                var err = msg.data;
+//            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
+//                {className: "syntaxError"}));
+                editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
+                editor.clearAnnotations();
+            }
         }
+    }
 
 
+    // setSource : function(src){
+    //     this.i_sourceCode = src;
+    // },
+
+});
+$(window).on("beforeunload", ProjectEditor.s_onbeforeunload);
+
+
+var IDLE_MS_BEFORE_COMPILE = 1000;
+
+var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
+    _name: "FileEditor",
+    CODE_MIRROR_MODE : "text/x-c++src",
+    DEFAULT_CONFIG : {
+        initCode: "int main(){\n  \n}"
+    },
+    s_instances : [],
+    /**
+     *
+     * @param {String} fileName The name of the file.
+     * @param {SourceFile} sourceFile The source file to be edited by this editor.
+     * @param config
+     */
+    init: function(fileName, sourceFile, config) {
+        this.i_fileName = fileName;
+        this.i_sourceFile = sourceFile;
+        this.i_doc =  CodeMirror.Doc(sourceFile.getSourceCode(), this.CODE_MIRROR_MODE);
+
+        this.i_config = makeDefaulted(config, Outlets.CPP.FileEditor.DEFAULT_CONFIG);
+        this.initParent();
+
+        this.i_annotations = [];
+        this.i_gutterErrors = [];
+        this.i_isSaved = true;
+
+
+        // TODO NEW is this still being used?
+        var self = this;
+        this.i_doc.on("change", function(e){
+            self.i_onEdit();
+        });
+
+
+        //this.loadCode({name: "program.cpp", code: this.i_config.initCode});
+        FileEditor.s_instances.push(this);
     },
 
-    //refresh : function(){
-    //    this.setSource(codeMirror.getValue());
-    //},
+    getDoc : function() {
+        return this.i_doc;
+    },
 
-    setSource : function(src){
-        this.i_sourceCode = src;
+    getText : function() {
+        return this.i_doc.getValue();
+    },
 
-        if(this.i_codeSetTimeout){
-            clearTimeout(this.i_codeSetTimeout);
+    getFileName : function() {
+        return this.i_fileName;
+    },
+
+    // loadCode : function(program){
+    //     this.i_programName = program.name;
+    //     var code = program.code;
+    //     this.i_doc.setValue(code);
+    //     this.setSource(code);
+    //     this.i_isSaved = true; // setting source would have made this false
+    //     this.send("userAction", UserActions.LoadCode.instance(code));
+    // },
+
+    i_onEdit : function() {
+        var newText = this.getText();
+
+        if(this.i_onEditTimeout){
+            clearTimeout(this.i_onEditTimeout);
         }
         var self = this;
-        this.i_codeSetTimeout = setTimeout(function(){
-            self.i_program.setSourceCode(self.i_sourceCode);
+        this.i_onEditTimeout = setTimeout(function(){
+            self.i_sourceFile.setSourceCode(self.getText());
 
+            self.send("textChanged", newText);
         }, IDLE_MS_BEFORE_COMPILE);
     },
 
-    addMark : function(code, cssClass){
-        var codeMirror = this.i_codeMirror;
-        var from = codeMirror.posFromIndex(code.start);
-        var to = codeMirror.posFromIndex(code.end);
-        return codeMirror.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
+    addMark : function(sourceReference, cssClass){
+        var doc = this.i_doc;
+        var from = doc.posFromIndex(sourceReference.start);
+        var to = doc.posFromIndex(sourceReference.end);
+        return doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     },
 
     addGutterError : function(line, text){
@@ -884,7 +1146,7 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         marker.elem.children("div").append(elem);
         ++marker.num;
         if (marker.num === 1){
-            this.i_codeMirror.setGutterMarker(line, "errors", marker.elem[0]);
+            this.i_doc.setGutterMarker(line, "errors", marker.elem[0]);
         }
         return elem;
     },
@@ -895,20 +1157,20 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         if (marker){
             --marker.num;
             if (marker.num == 0){
-                this.i_codeMirror.setGutterMarker(line, "errors",null);
+                this.i_doc.setGutterMarker(line, "errors",null);
             }
         }
     },
 
 
-    addWidget : function(code, elem){
-        var codeMirror = this.i_codeMirror;
-        var from = codeMirror.posFromIndex(code.start);
+    addWidget : function(sourceReference, elem){
+        var from = this.i_doc.posFromIndex(sourceReference.start);
 
-        codeMirror.addWidget(from, elem[0], false);
+        this.i_doc.addWidget(from, elem[0], false);
     },
 
     addAnnotation : function(ann) {
+
         ann.onAdd(this);
         this.i_annotations.push(ann);
     },
@@ -919,35 +1181,9 @@ var CodeEditor = Lobster.Outlets.CPP.CodeEditor = Outlet.extend({
         }
 
         this.i_annotations.length = 0;
-    },
-
-
-
-    _act : {
-        loadCode: "loadCode",
-        parsed : function(msg){
-            if (this.syntaxErrorLineHandle) {
-                this.i_codeMirror.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
-            }
-        },
-        syntaxError : function(msg){
-            if (this.syntaxErrorLineHandle) {
-                this.i_codeMirror.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
-            }
-            var err = msg.data;
-//            this.marks.push(this.i_codeMirror.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
-//                {className: "syntaxError"}));
-            this.syntaxErrorLineHandle = this.i_codeMirror.addLineClass(err.line-1, "background", "syntaxError");
-            this.clearAnnotations();
-        },
-        addAnnotation : function(msg){
-            this.addAnnotation(msg.data);
-        },
-        clearAnnotations : true
-	}
+    }
 
 });
-$(window).on("beforeunload", CodeEditor.s_onbeforeunload);
 
 var SVG_DEFS = {};
 
@@ -964,19 +1200,19 @@ Lobster.Outlets.CPP.Memory = WebOutlet.extend({
         this.svgElem = $('<div style="position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 10"></div>');
         this.svg = SVG(this.svgElem[0]);
         SVG_DEFS.arrowStart = this.svg.marker(6, 6, function(add){
-                add.circle(5);
-            }).style({
-                stroke: "#000000",
-                fill: "#FFFFFF",
-                "stroke-width": "1px"
-            });
+            add.circle(5);
+        }).style({
+            stroke: "#000000",
+            fill: "#FFFFFF",
+            "stroke-width": "1px"
+        });
         SVG_DEFS.arrowEnd = this.svg.marker(12, 12, function(add){
-                add.path("M0,2 L0,11 L8,6 L0,2");
-            }).style({
-                stroke: "#000000",
-                fill: "#FFFFFF",
-                "stroke-width": "1px"
-            });
+            add.path("M0,2 L0,11 L8,6 L0,2");
+        }).style({
+            stroke: "#000000",
+            fill: "#FFFFFF",
+            "stroke-width": "1px"
+        });
 
 
         this.element.append(this.svgElem);
@@ -1477,8 +1713,8 @@ Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
 
         this.addrElem = $("<td class='address'></td>");
         this.objElem = $("<td><div class='entity'>"+(this.object.name || "")+
-        "</div><div class='code-memoryObject-object'>"+
-        "</div></td>");
+            "</div><div class='code-memoryObject-object'>"+
+            "</div></td>");
         this.element.append("<table><tr></tr></table>");
         this.element.find("tr").append(this.addrElem).append(this.objElem);
         this.objElem = this.objElem.find(".code-memoryObject-object");
@@ -1862,18 +2098,18 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
 //                popped.remove();
 //            }
 //            else{
-                if (Outlets.CPP.CPP_ANIMATIONS){
-                    var popped = this.frames.last();
-                    this.frames.pop();
-                    popped.slideUp(SLIDE_DURATION, function(){
-                        $(this).remove();
-                    });
-                }
-                else{
-                    var popped = this.frames.last();
-                    this.frames.pop();
-                    popped.remove();
-                }
+            if (Outlets.CPP.CPP_ANIMATIONS){
+                var popped = this.frames.last();
+                this.frames.pop();
+                popped.slideUp(SLIDE_DURATION, function(){
+                    $(this).remove();
+                });
+            }
+            else{
+                var popped = this.frames.last();
+                this.frames.pop();
+                popped.remove();
+            }
 //            }
         },
         reset: function(msg){
@@ -2139,7 +2375,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
         if (Outlets.CPP.CPP_ANIMATIONS){
             (this.frames.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function(){
 //                elem.scrollTop = elem.scrollHeight;
-            }}));
+                }}));
         }
         else{
             frame.css({display: "block"});
