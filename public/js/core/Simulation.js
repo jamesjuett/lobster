@@ -17,7 +17,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
         this.speed = Simulation.MAX_SPEED;
 
-        this.program = program;
+        this.i_program = program;
 
         // These things need be reset when the simulation is reset
         this.memory = Memory.instance();
@@ -27,15 +27,17 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
 
-        if (this.program.mainEntity() && !this.program.hasSemanticErrors()){
+        if (this.i_program.mainEntity() && !this.i_program.hasSemanticErrors()){
             this.start();
         }
     },
 
-    // TODO NEW: probably remove and put elsewhere
-    converse : function(other) {
-        this.listenTo(other);
-        this.addListener(other);
+    getProgram : function() {
+        return this.i_program;
+    },
+
+    setProgram : function(program) {
+        this.i_program = program;
     },
 
     clear : function(){
@@ -51,26 +53,26 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.seedRandom("random seed");
 
         this.send("cleared");
+        this.memory.reset();
         this.i_execStack.clear();
         this.console.setValue("");
 
-		this.memory.reset();
 
         this.i_pendingNews = [];
         this.i_leakCheckIndex = 0;
 
         // TODO NEW move compilation of mainCall to program?
         var mainCall = FunctionCall.instance(null, {isMainCall:true});
-        mainCall.compile(this.program.globalScope, this.program.mainEntity(), []);
+        mainCall.compile(this.i_program.globalScope, this.i_program.mainEntity(), []);
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
-        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
-            this.memory.allocateStatic(this.program.staticEntities[i]);
+        for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
+            this.memory.allocateStatic(this.i_program.staticEntities[i]);
         }
         var anyStaticInits = false;
-        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
+        for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
 
-            var init = this.program.staticEntities[i].getInitializer();
+            var init = this.i_program.staticEntities[i].getInitializer();
             if(init) {
                 init.createAndPushInstance(this, this.i_mainCallInst);
                 anyStaticInits = true;

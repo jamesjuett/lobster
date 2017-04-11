@@ -189,7 +189,7 @@ var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
         for(var i = 0; i < projects.length; i++) {
             var project = projects[i];
             var item = $("<li></li>");
-            var link = $('<a class="link" data-toggle="pill">' + project["project"] + '</a>');
+            var link = $('<a class="link lobster-code" data-toggle="pill">' + project["project"] + '</a>');
             item.append(link);
             link.click(function(){
                 self.send("loadProject", $(this).html());
@@ -239,27 +239,33 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
 
         // Set up simulation and source tabs
-        var sourceTab = element.find(".sourceTab");
-        var simTab = element.find(".simTab");
-        var sourcePane = element.find(".sourcePane");
-        var simPane = element.find(".simPane");
+        // var sourceTab = element.find(".sourceTab");
+        // var simTab = element.find(".simTab");
+        var sourcePane = element.find("#sourcePane");
+        var simPane = element.find("#simPane");
 
-        sourceTab.click(function(){
-            sourceTab.addClass("active");
-            simTab.removeClass("active");
-            sourcePane.css("display", "flex");
-            simPane.css("display", "none");
-        });
+        // sourceTab.click(function(){
+        //     sourceTab.addClass("active");
+        //     simTab.removeClass("active");
+        //     sourcePane.css("display", "flex");
+        //     simPane.css("display", "none");
+        // });
+        //
+        // simTab.add(element.find(".runButton")).click(function(){
+        //     simTab.addClass("active");
+        //     sourceTab.removeClass("active");
+        //     simPane.css("display", "flex");
+        //     sourcePane.css("display", "none");
+        //     self.saveFunc();
+        //     self.send("userAction", UserActions.Simulate.instance());
+        //     simPane.focus();
+        //     self.restart();
+        // });
 
-        simTab.add(element.find(".runButton")).click(function(){
-            simTab.addClass("active");
-            sourceTab.removeClass("active");
-            simPane.css("display", "flex");
-            sourcePane.css("display", "none");
-            self.saveFunc();
-            self.send("userAction", UserActions.Simulate.instance());
-            simPane.focus();
-            self.restart();
+
+        // var simTab = element.find(".simTab");
+        element.find(".runButton").click(function(){
+            self.sim.setProgram(self.projectEditor.getProgram());
         });
 
 
@@ -923,8 +929,10 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         }
 
         // Set first file to be active
-        this.i_filesElem.children().first().addClass("active");
-        this.i_selectFile(project[0]["name"]);
+        if (project.length > 0) {
+            this.i_filesElem.children().first().addClass("active");
+            this.i_selectFile(project[0]["name"]);
+        }
 
         this.i_program.fullCompile();
     },
@@ -948,6 +956,10 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             this.i_translationUnits[name].removeListener(this);
         }
         this.i_translationUnits = {};
+    },
+
+    getProgram : function() {
+        return this.i_program;
     },
 
     i_selectFile : function(filename) {

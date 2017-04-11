@@ -2770,10 +2770,6 @@ var FunctionCall = Expression.extend({
         this.func = func;
         //this.args = args;
 
-        if (!this.context.auxiliary){
-            scope.addCall(this);
-        }
-
         if (this.func.isMain && !this.context.isMainCall){
             this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
 

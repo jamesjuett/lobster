@@ -494,10 +494,6 @@ var TranslationUnit = Class.extend(Observable, {
 		this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 
-		// List of calls. Currently this is just here so they can be checked later to see if they're all linked.
-        // TODO NEW I believe other code breaks the interface to get at this. Fix that.
-        this.i_calls = [];
-
         // TODO NEW change
         this.send("clearAnnotations");
 
@@ -641,10 +637,6 @@ var TranslationUnit = Class.extend(Observable, {
         // this.globalScope.addEntity(tree_left);
         // this.globalScope.addEntity(tree_right);
         // this.globalScope.addEntity(tree_print);
-    },
-
-    addCall : function(call){
-        this.i_calls.push(call)
     }
 });
 Lobster.CPP.TranslationUnit = TranslationUnit;

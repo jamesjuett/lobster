@@ -403,10 +403,10 @@
     position: relative;
 }
 
-.braces:hover > .open{
+.braces:hover > .curly-open{
     outline: rgba(0,0,0,0.2) solid 1px;
 }
-.braces:hover > .close{
+.braces:hover > .curly-close{
     outline: rgba(0,0,0,0.2) solid 1px;
 }
 
@@ -417,6 +417,7 @@
     color: #f8f8f2;
     /*height: 300px;*/
     overflow-y: auto;
+    line-height: normal;
 }
 
 .code-simStack{
