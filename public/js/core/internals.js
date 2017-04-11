@@ -79,7 +79,13 @@ var CPPCode = Lobster.CPPCode = Class.extend({
             this.context.func = this.context.parent.context.func;
         }
 
+        if (this.context.parent && this.context.parent.context.implicit) {
+            this.context.implicit = true;
+        }
+
         this.parent = context.parent;
+
+        if (this.parent && !this.context.auxiliary) { this.parent.children.push(this); }
 
         if (this.parent && !this.context.auxiliary) {
             this.parent.children.push(this);
@@ -102,6 +108,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
     getTranslationUnit : function() {
         return this.context.translationUnit;
+>>>>>>> feature-projects
     },
 
     compile: Class._ABSTRACT,
@@ -2048,7 +2055,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
         for(var i = 0; i < this.capacity + this.temporaryCapacity; ++i){
-            this.bytes[i] = 0;
+            this.bytes[i] = Math.floor(Math.random() * 100);
         }
 
         this.objects = {};

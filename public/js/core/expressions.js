@@ -455,7 +455,7 @@ Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
         var evalValue = inst.childInstances.from.evalValue;
         // Note, we get the type from the evalValue to preserve RTTI
 
-        inst.setEvalValue(evalValue.readValue());
+        inst.setEvalValue(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     },
 
     upNext : function(sim, inst){
