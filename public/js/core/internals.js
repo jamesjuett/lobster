@@ -108,7 +108,6 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
     getTranslationUnit : function() {
         return this.context.translationUnit;
->>>>>>> feature-projects
     },
 
     compile: Class._ABSTRACT,
@@ -438,6 +437,10 @@ var Scope = Lobster.Scope = Class.extend({
                     return otherFunc;
                 }
             }
+
+            // If none were found with the same signature, this is an overload, so go ahead and add it
+            this.addEntity(entity);
+
         }
         else{
             // If they're not the same type, that's a problem
@@ -844,7 +847,7 @@ var DeclaredEntity = CPPEntity.extend({
             // If both are definitions, that's a problem.
             throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
         }
-        else if (entity2.isDefined() && !entity1.isDefined()) {
+        else { // one of them is defined and one is undefined
             var undefinedEntity = entity1;
             var definedEntity = entity2;
             if (entity1.isDefined()) {

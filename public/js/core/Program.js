@@ -64,9 +64,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
             // TODO take this out!!!
-            if (name === "file2") {
+            // if (name === "file2") {
                 this.i_semanticProblems.pushAll(tu.fullCompile());
-            }
+            // }
         }
     },
 
@@ -315,11 +315,11 @@ var TranslationUnit = Class.extend(Observable, {
             for(var i = 0; i < this.i_includes.length; ++i) {
                 var inc = this.i_includes[i];
                 if (line < inc.startLine) {
-                    return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start - offset, end - offset);
+                    return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
                 }
                 else if (inc.startLine <= line && line < inc.endLine) {
                     return SourceReference.instanceIncluded(this.i_sourceFile, inc.lineIncluded,
-                        inc.included.getSourceReference(line - inc.startLine + 1, column, start - inc.startOffset, end - inc.startOffset));
+                        inc.included.getSourceReference(line - inc.startLine + 1, column, start && start - inc.startOffset, end && end - inc.startOffset));
                 }
                 offset += inc.lengthDelta;
                 lineOffset += inc.lineDelta;
@@ -327,7 +327,7 @@ var TranslationUnit = Class.extend(Observable, {
 
             // If this line wasn't part of any of the includes, just return a regular source reference to the original
             // source file associated with this translation unit
-            return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start - offset, end - offset);
+            return SourceReference.instance(this.i_sourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
         },
 
         i_filterSourceCode : function(codeStr) {
@@ -338,26 +338,25 @@ var TranslationUnit = Class.extend(Observable, {
                 codeStr = codeStr.replace(/#ifndef.*/g, function(match){
                     return Array(match.length+1).join(" ");
                 });
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
             }
             if (codeStr.contains("#define")){
                 codeStr = codeStr.replace(/#define.*/g, function(match){
                     return Array(match.length+1).join(" ");
                 });
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
             }
             if (codeStr.contains("#endif")){
                 codeStr = codeStr.replace(/#endif.*/g, function(match){
                     return Array(match.length+1).join(" ");
                 });
-                this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
             }
-            // if (codeStr.contains("#include")){
-            //     codeStr = codeStr.replace(/#include.*/g, function(match){
-            //         return Array(match.length+1).join(" ");
-            //     });
-            //     // TODO NEW why is this commented?
-            //     // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            // if (codeStr.contains(/#include.*<.*>/g)){
+                codeStr = codeStr.replace(/#include.*<.*>/g, function(match){
+                    return Array(match.length+1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
             // }
             if (codeStr.contains("using namespace")){
                 codeStr = codeStr.replace(/using namespace.*/g, function(match){
@@ -370,7 +369,7 @@ var TranslationUnit = Class.extend(Observable, {
                 codeStr = codeStr.replace(/using std::.*/g, function(match){
                     return Array(match.length+1).join(" ");
                 });
-                this.send("otherError", "Lobster doesn't support using declarations at the moment.");
+                // this.send("otherError", "Lobster doesn't support using declarations at the moment.");
             }
             return codeStr;
         }
@@ -447,7 +446,7 @@ var TranslationUnit = Class.extend(Observable, {
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
-                this.send("parsed", {line: err.line, column: err.column, message: err.message});
+                this.send("parsingError", {ref: this.getSourceReference(err.line, err.column), message: err.message});
 				this.i_semanticProblems.clear();
                 return this.i_semanticProblems;
 			}
@@ -465,12 +464,16 @@ var TranslationUnit = Class.extend(Observable, {
 
     },
 
-    getSourceReference : function(construct) {
+    getSourceReferenceForConstruct : function(construct) {
         assert(this.i_preprocessedSource, "Can't get source references until preprocessing has been done.");
 
         var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
         var trackedCode = trackedConstruct.code;
         return this.i_preprocessedSource.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
+    },
+
+    getSourceReference : function(line, column, start, end) {
+        return this.i_preprocessedSource.getSourceReference(line, column, start, end);
     },
 
     i_preprocessImpl : function(codeStr) {
