@@ -969,6 +969,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
+
+            for(var ed in this.i_fileEditors) {
+                this.i_fileEditors[ed].clearAnnotations();
+            }
+
             this.i_program.fullCompile();
         },
         linked : function(msg) {
@@ -979,7 +984,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                 var tu = problem.getConstructs()[0].getTranslationUnit();
                 var fileEd = this.i_fileEditors[tu.getName()];
                 // fileEd.addAnnotation(GutterAnnotation.instance(
-                //     tu.getSourceReference(problem.getConstructs()[0]),
+                //     tu.getSourceReferenceForConstruct(problem.getConstructs()[0]),
                 //     "linker",
                 //     problem.getMessage()
                 // ));
@@ -990,15 +995,12 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
             var tu = msg.source;
 
-            for(var ed in this.i_fileEditors) {
-                this.i_fileEditors[ed].clearAnnotations();
-            }
 
             var semanticProblems = msg.data;
 
             for(var i = 0; i < semanticProblems.errors.length; ++i){
                 var problem = semanticProblems.errors[i];
-                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
                 var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
                     sourceRef,
@@ -1008,7 +1010,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             }
             for(var i = 0; i < semanticProblems.warnings.length; ++i){
                 var problem = semanticProblems.warnings[i];
-                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
                 var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
                     sourceRef,
@@ -1038,8 +1040,28 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
 //                {className: "syntaxError"}));
                 editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-                editor.clearAnnotations();
+                // editor.clearAnnotations();
             }
+        },
+        parsingError : function(msg){
+
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
+            var editor = this.i_fileEditors[tu.getName()];
+
+            if (editor.syntaxErrorLineHandle) {
+                editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+
+
+            var sourceRef = msg.data.ref;
+            var sourceEditor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+
+            if (sourceEditor.syntaxErrorLineHandle) {
+                sourceEditor.i_doc.removeLineClass(sourceEditor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+            sourceEditor.syntaxErrorLineHandle = sourceEditor.i_doc.addLineClass(sourceRef.line-1, "background", "syntaxError");
+            // sourceEditor.clearAnnotations();
         }
     }
 
