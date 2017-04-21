@@ -548,27 +548,27 @@ var TranslationUnit = Class.extend(Observable, {
         this.globalScope.addEntity(this.endlEntity);
 
 
-        var cassert = FunctionEntity.instance(MagicFunctionDefinition.instance(
+        var cassert = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "assert",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
         this.globalScope.addEntity(cassert);
 
-        var pause = FunctionEntity.instance(MagicFunctionDefinition.instance(
+        var pause = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "pause",
             Types.Function.instance(Types.Void.instance(), [])
         ));
         this.globalScope.addEntity(pause);
 
 
-        var pauseIf = FunctionEntity.instance(MagicFunctionDefinition.instance(
+        var pauseIf = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "pauseIf",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
         this.globalScope.addEntity(pauseIf);
 
 
-        this.globalScope.addEntity(FunctionEntity.instance(
+        this.globalScope.addEntity(MagicFunctionEntity.instance(
             MagicFunctionDefinition.instance("rand",
                 Types.Function.instance(Types.Int.instance(), []))));
 

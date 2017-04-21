@@ -7,7 +7,7 @@ var Lobster = Lobster || {};
 Lobster.Analysis = {};
 
 // Checks if Matrix or Image interfaces were violated
-var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
+var checkInterface = Lobster.checkInterface = function (program, projectEditor) {
 
     console.log("Checking interface...");
 
@@ -15,9 +15,10 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
     // BFS of the children of code constructs
     var bfsChildren = function(queue, func) {
         var numBroken = 0;
-
+        var explored = {};
         while (queue.length > 0) {
             var top = queue[0];
+            explored[top] = true;
             queue.shift(); // pop front
 
             // do the thing
@@ -26,7 +27,15 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
                 numBroken += 1;
             }
 
-            queue.pushAll(top.children);
+            // queue.pushAll(top.children);
+            for(var i = 0; i < top.children.length; ++i) {
+                // if (!explored[top.children[i]]) {
+                    queue.push(top.children[i]);
+                // }
+                // else{
+                //     console.log("duplicate");
+                // }
+            }
         }
         console.log('Broke the interface ' + numBroken + ' times.');
         return numBroken;
@@ -48,6 +57,10 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
     // This module could be Matrix or Image
     var checkInterface = function(construct, module) {
 
+        // Get the original file in which the construct was used
+        var constructRef = construct.getSourceReference();
+        var moduleName = constructRef.sourceFile.getName();
+
         // Grab a representation of the module as a type or a pointer to the type
         typeAndPointerType = getTypeAndPointerType(module);
         type = typeAndPointerType[0];
@@ -57,9 +70,10 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
             similarType(construct.operand.type, pointerType)) {
 
             // If this operand is being used outside of a function starting with Matrix_, that's bad
-            if (!construct.context.func.name.startsWith(module + "_")) {
+            if (moduleName != module+".cpp") {
                 // TODO: uncomment these lines to annotate what data members are being incorrectly accessed
-                // codeEditor.addAnnotation(GutterAnnotation.instance(construct, "breakInterface", "Breaking the interface " + construct.memberName));
+                var codeEditor = projectEditor.getEditor(moduleName);
+                codeEditor.addAnnotation(GutterAnnotation.instance(constructRef, "breakInterface", "Breaking the interface " + construct.memberName));
                 // console.log(construct.memberName);
                 return true;
             }
@@ -67,10 +81,20 @@ var checkInterface = Lobster.checkInterface = function (program, codeEditor) {
         return false;
     };
 
+    // Get an array of all function definitions in the program
+
+    var functionDefinitions = program.globalScope.allEntities().filter(function(ent){
+        return isA(ent, FunctionEntity) && !isA(ent, MagicFunctionEntity); // filter to only functions
+    }).map(function(ent){
+        return ent.definition; // map to their definitions
+    }).filter(function(def){
+        return !!def; // remove any that weren't defined (shouldn't be any of them anyway but whatever)
+    });
+
+
 
     // Looking for breaking the interface
-    // Need to clone topLevelDeclarations so we populate the queue each time this is called
-    return bfsChildren(program.topLevelDeclarations.clone(), function(construct){
+    return bfsChildren(functionDefinitions, function(construct){
 
         if (isDotOrArrow(construct)) {
 

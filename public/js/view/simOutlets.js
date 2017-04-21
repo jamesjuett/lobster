@@ -213,8 +213,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.initParent(element);
 
-        this.program = Program.instance();
-        this.sim = Simulation.instance(this.program);
+        this.sim = Simulation.instance(Program.instance());
         this.listenTo(this.sim);
 
         if (this.i_config.log !== false){
@@ -480,6 +479,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         });
         this.afterAnnotation = [];
 //        makeEventHandler(element.find("#simPane")[0], this, "mousewheel", true);
+    },
+
+    getProgram : function() {
+        return this.projectEditor.getProgram();
     },
 
     initListeners : function(){
@@ -966,6 +969,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         assert(this.i_fileEditors[filename]);
         this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
     },
+
+    getEditor : function(fileName){
+        return this.i_fileEditors[fileName];
+    },
+
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
