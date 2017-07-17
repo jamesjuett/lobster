@@ -959,9 +959,11 @@ Lobster.Types.Class = Type.extend({
     _name: "Class",
     precedence: 0,
     className: Class._ABSTRACT,
+    _nextClassId: 0,
 
     extend: function(){
         var sub = Type.extend.apply(this, arguments);
+        sub.classId = this._nextClassId++;
         sub.scope = sub.scope; // TODO does this do anything? I think it actually makes the class have it's own version of the scope instead of an alias
         sub.members = sub.members || [];
         sub.objectMembers = [];
@@ -1009,6 +1011,10 @@ Lobster.Types.Class = Type.extend({
         return sub;
     },
 
+    merge : function(class1, class2) {
+        class1.classId = class2.classId = Math.min(class1.classId, class2.classId);
+    },
+
     init: function(isConst, isVolatile){
 
         this.initParent(isConst, isVolatile);
@@ -1022,7 +1028,7 @@ Lobster.Types.Class = Type.extend({
     },
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(Types.Class) && other.className === this.className;
+        return other && other.isA(Types.Class) && other.classId === this.classId;
     },
     classString : function(){
         return this.className;
@@ -1126,12 +1132,15 @@ Lobster.Types.Class = Type.extend({
     isDerivedFrom : function(potentialBase){
         var b = this.base;
         while(b){
-            if (isA(potentialBase, b)){
+            if (similarType(potentialBase, b)){
                 return true;
             }
             b = b.base;
         }
         return false;
+    },
+    isInstanceOf : function(other) {
+        return this.classId === other.classId;
     },
     isComplete : function(){
         return !!(this._isComplete || this._isTemporarilyComplete);

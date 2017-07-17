@@ -213,8 +213,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.initParent(element);
 
-        this.program = Program.instance();
-        this.sim = Simulation.instance(this.program);
+        this.sim = Simulation.instance(Program.instance());
         this.listenTo(this.sim);
 
         if (this.i_config.log !== false){
@@ -266,6 +265,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         // var simTab = element.find(".simTab");
         element.find(".runButton").click(function(){
             self.sim.setProgram(self.projectEditor.getProgram());
+            $("#simulateTab").tab("show");
+            self.restart();
         });
 
 
@@ -339,37 +340,37 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.runButton = element.find(".runButton");
 
-        if (element.find(".saveName").length !== 0){
-            var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
-            this.saveNameEnt = ValueEntity.instance("saveName", "program");
-            ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
+        // if (element.find(".saveName").length !== 0){
+        //     var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
+            // this.saveNameEnt = ValueEntity.instance("saveName", "program");
+            // ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
             this.saveButton = element.find(".saveButton");
             this.saveMessage = element.find(".saveMessage");
 
             this.saveFunc = function(suppressAlert){
-                var name = self.saveNameEnt.value().trim();
-
-                if (name.match(filenameRegex)){
+                // var name = self.saveNameEnt.value().trim();
+                //
+                // if (name.match(filenameRegex)){
                     self.projectEditor.saveProject();
-                    // self.saveMessage.html("Saving...").show();
+                    self.saveMessage.html("Saving...").show();
                     // $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
                     //     console.log("save successful");
-                    //     self.saveMessage.html("Saved!").fadeOut(5000);
+                        self.saveMessage.html("Saved!").fadeOut(5000);
                     //     self.editor.save();
                     //     CodeList.reloadLists();
                     // });
-                }
-                else{
-                    if(!suppressAlert) {
-                        alert("Sorry, couldn't save the file. (Invalid file name.)");
-                    }
-                }
+                // }
+                // else{
+                //     if(!suppressAlert) {
+                //         alert("Sorry, couldn't save the file. (Invalid file name.)");
+                //     }
+                // }
             };
             // this.editor.saveFunc = this.saveFunc;
 
             this.saveButton.click(this.saveFunc);
 
-        }
+        // }
 
 
 
@@ -480,6 +481,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         });
         this.afterAnnotation = [];
 //        makeEventHandler(element.find("#simPane")[0], this, "mousewheel", true);
+    },
+
+    getProgram : function() {
+        return this.projectEditor.getProgram();
     },
 
     initListeners : function(){
@@ -650,7 +655,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     },
 
     loadCode : function(program){
-        this.saveNameEnt.setValue(program.name);
+        // this.saveNameEnt.setValue(program.name);
     },
 
     setAnimationsOn : function(animOn){
@@ -966,9 +971,19 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         assert(this.i_fileEditors[filename]);
         this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
     },
+
+    getEditor : function(fileName){
+        return this.i_fileEditors[fileName];
+    },
+
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
+
+            for(var ed in this.i_fileEditors) {
+                this.i_fileEditors[ed].clearAnnotations();
+            }
+
             this.i_program.fullCompile();
         },
         linked : function(msg) {
@@ -979,7 +994,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                 var tu = problem.getConstructs()[0].getTranslationUnit();
                 var fileEd = this.i_fileEditors[tu.getName()];
                 // fileEd.addAnnotation(GutterAnnotation.instance(
-                //     tu.getSourceReference(problem.getConstructs()[0]),
+                //     tu.getSourceReferenceForConstruct(problem.getConstructs()[0]),
                 //     "linker",
                 //     problem.getMessage()
                 // ));
@@ -990,15 +1005,12 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
             var tu = msg.source;
 
-            for(var ed in this.i_fileEditors) {
-                this.i_fileEditors[ed].clearAnnotations();
-            }
 
             var semanticProblems = msg.data;
 
             for(var i = 0; i < semanticProblems.errors.length; ++i){
                 var problem = semanticProblems.errors[i];
-                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
                 var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
                     sourceRef,
@@ -1008,7 +1020,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             }
             for(var i = 0; i < semanticProblems.warnings.length; ++i){
                 var problem = semanticProblems.warnings[i];
-                var sourceRef = tu.getSourceReference(problem.getConstructs()[0]);
+                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
                 var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                 editor.addAnnotation(GutterAnnotation.instance(
                     sourceRef,
@@ -1038,8 +1050,28 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
 //                {className: "syntaxError"}));
                 editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-                editor.clearAnnotations();
+                // editor.clearAnnotations();
             }
+        },
+        parsingError : function(msg){
+
+            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+            var tu = msg.source;
+            var editor = this.i_fileEditors[tu.getName()];
+
+            if (editor.syntaxErrorLineHandle) {
+                editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+
+
+            var sourceRef = msg.data.ref;
+            var sourceEditor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+
+            if (sourceEditor.syntaxErrorLineHandle) {
+                sourceEditor.i_doc.removeLineClass(sourceEditor.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+            sourceEditor.syntaxErrorLineHandle = sourceEditor.i_doc.addLineClass(sourceRef.line-1, "background", "syntaxError");
+            // sourceEditor.clearAnnotations();
         }
     }
 

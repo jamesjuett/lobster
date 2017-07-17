@@ -133,7 +133,7 @@ $app->get('/api/me/project/list', function () use ($app) {
     $email = getUserEmail();
 
     $db = dbConnect();
-    $stmt = $db->prepare('SELECT project, isPublic FROM user_projects WHERE email=:email');
+    $stmt = $db->prepare('SELECT project, isPublic FROM user_projects WHERE email=:email UNION DISTINCT SELECT project, 0 FROM starter_projects');
     $stmt->bindParam('email', $email);
     $stmt->execute();
     $res = $stmt->fetchAll(PDO::FETCH_CLASS);
@@ -150,8 +150,20 @@ $app->get('/api/me/project/get/:project', function ($project) use ($app) {
     $stmt->bindParam('email', $email);
     $stmt->bindParam('project', $project);
     $stmt->execute();
-    $res = $stmt->fetchAll(PDO::FETCH_CLASS);
-    echo json_encode($res);
+
+    if ($stmt->rowCount() != 0){
+        $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+        echo json_encode($res);
+    }
+    else {
+        // Instead grab values from starter projects table
+        $stmt = $db->prepare('SELECT name, code FROM starter_project_files WHERE project=:project');
+        $stmt->bindParam('project', $project);
+        $stmt->execute();
+
+        $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+        echo json_encode($res);
+    }
 
     $stmt = $db->prepare('UPDATE user_info SET lastProject=:project WHERE uniqname=:email');
     $stmt->bindParam('email', $email);

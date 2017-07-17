@@ -85,8 +85,6 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
         this.parent = context.parent;
 
-        if (this.parent && !this.context.auxiliary) { this.parent.children.push(this); }
-
         if (this.parent && !this.context.auxiliary) {
             this.parent.children.push(this);
         }
@@ -102,13 +100,16 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
     },
 
+    getSourceReference : function() {
+        return this.context.translationUnit.getSourceReferenceForConstruct(this);
+    },
+
     getSourceCode : function() {
         return this.code;
     },
 
     getTranslationUnit : function() {
         return this.context.translationUnit;
->>>>>>> feature-projects
     },
 
     compile: Class._ABSTRACT,
@@ -406,6 +407,19 @@ var Scope = Lobster.Scope = Class.extend({
         }
     },
 
+    allEntities : function() {
+        var ents = [];
+        for(var name in this.entities) {
+            if (Array.isArray(this.entities[name])) {
+                ents.pushAll(this.entities[name]);
+            }
+            else{
+                ents.push(this.entities[name]);
+            }
+        }
+        return ents;
+    },
+
     // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
     /**
      * Attempts to add a new entity to this scope.
@@ -438,13 +452,12 @@ var Scope = Lobster.Scope = Class.extend({
                     return otherFunc;
                 }
             }
+
+            // If none were found with the same signature, this is an overload, so go ahead and add it
+            this.addEntity(entity);
+
         }
         else{
-            // If they're not the same type, that's a problem
-            if (!sameType(entity.type, otherEnt.type)) {
-                throw CPPError.link.type_mismatch(entity.decl, entity, otherEnt);
-            }
-
             DeclaredEntity.merge(entity, otherEnt);
             return otherEnt;
         }
@@ -815,15 +828,32 @@ var DeclaredEntity = CPPEntity.extend({
      */
     merge : function(entity1, entity2) {
 
+        // TODO: Add support for "forward declarations" of a class/struct
+
+        // Special case: ignore magic functions
+        if (isA(entity1, MagicFunctionEntity) || isA(entity2, MagicFunctionEntity)) {
+            return;
+        }
+
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
-        if (isA(entity1.decl, ClassDeclaration)) {
+        if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
+            && entity1.type.className === entity2.type.className) {
             if (entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
+
+                // merge the types too, so that the type system recognizes them as the same
+                Types.Class.merge(entity1.type, entity2.type);
+
                 return;
             }
             else {
                 throw CPPError.link.class_same_tokens([entity1.decl, entity2.decl], entity1, entity2);
             }
+        }
+
+        // If they're not the same type, that's a problem
+        if (!sameType(entity1.type, entity2.type)) {
+            throw CPPError.link.type_mismatch(entity1.decl, entity1, entity2);
         }
 
         // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
@@ -844,7 +874,7 @@ var DeclaredEntity = CPPEntity.extend({
             // If both are definitions, that's a problem.
             throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
         }
-        else if (entity2.isDefined() && !entity1.isDefined()) {
+        else { // one of them is defined and one is undefined
             var undefinedEntity = entity1;
             var definedEntity = entity2;
             if (entity1.isDefined()) {
@@ -1664,7 +1694,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
     lookup: function (sim, inst) {
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
-        while(memberOf && !isA(memberOf.type, this.memberOfType)){
+        while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
             memberOf = memberOf.type.base && memberOf.baseSubobjects[0];
         }
 
@@ -1879,6 +1909,13 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     },
     describe : function(sim, inst){
         return this.decl.describe(sim, inst);
+    }
+});
+
+var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
+    init : function(decl) {
+        this.initParent(decl);
+        this.setDefinition(decl);
     }
 });
 
