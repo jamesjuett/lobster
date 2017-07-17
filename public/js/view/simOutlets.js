@@ -265,6 +265,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         // var simTab = element.find(".simTab");
         element.find(".runButton").click(function(){
             self.sim.setProgram(self.projectEditor.getProgram());
+            $("#simulateTab").tab("show");
+            self.restart();
         });
 
 
@@ -338,37 +340,37 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.runButton = element.find(".runButton");
 
-        if (element.find(".saveName").length !== 0){
-            var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
-            this.saveNameEnt = ValueEntity.instance("saveName", "program");
-            ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
+        // if (element.find(".saveName").length !== 0){
+        //     var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
+            // this.saveNameEnt = ValueEntity.instance("saveName", "program");
+            // ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
             this.saveButton = element.find(".saveButton");
             this.saveMessage = element.find(".saveMessage");
 
             this.saveFunc = function(suppressAlert){
-                var name = self.saveNameEnt.value().trim();
-
-                if (name.match(filenameRegex)){
+                // var name = self.saveNameEnt.value().trim();
+                //
+                // if (name.match(filenameRegex)){
                     self.projectEditor.saveProject();
-                    // self.saveMessage.html("Saving...").show();
+                    self.saveMessage.html("Saving...").show();
                     // $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
                     //     console.log("save successful");
-                    //     self.saveMessage.html("Saved!").fadeOut(5000);
+                        self.saveMessage.html("Saved!").fadeOut(5000);
                     //     self.editor.save();
                     //     CodeList.reloadLists();
                     // });
-                }
-                else{
-                    if(!suppressAlert) {
-                        alert("Sorry, couldn't save the file. (Invalid file name.)");
-                    }
-                }
+                // }
+                // else{
+                //     if(!suppressAlert) {
+                //         alert("Sorry, couldn't save the file. (Invalid file name.)");
+                //     }
+                // }
             };
             // this.editor.saveFunc = this.saveFunc;
 
             this.saveButton.click(this.saveFunc);
 
-        }
+        // }
 
 
 
@@ -653,7 +655,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     },
 
     loadCode : function(program){
-        this.saveNameEnt.setValue(program.name);
+        // this.saveNameEnt.setValue(program.name);
     },
 
     setAnimationsOn : function(animOn){
