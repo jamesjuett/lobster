@@ -5,6 +5,11 @@
 var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
+/**
+ *
+ * The program also needs to know about all source files involved so that #include preprocessor
+ * directives can be processed.
+ */
 var Program = Lobster.CPP.Program = Class.extend(Observable, {
     _name : "Program",
 
@@ -38,9 +43,16 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         return this.i_sourceFiles[name];
     },
 
-    addTranslationUnit : function(translationUnit) {
-        assert(!this.i_translationUnits[translationUnit.getName()]);
-        this.i_translationUnits[translationUnit.getName()] = translationUnit;
+    createTranslationUnitForSourceFile : function(sourceFileName) {
+        if (typeof sourceFileName !== "string"){
+            sourceFileName = sourceFileName.getName();
+        }
+        assert(this.i_sourceFiles[sourceFileName]);
+        assert(!this.i_translationUnits[sourceFileName]);
+
+        var tu = TranslationUnit.instance(this, this.i_sourceFiles[sourceFileName]);
+        this.i_translationUnits[tu.getName()] = tu;
+        return tu;
     },
 
     removeTranslationUnit : function(translationUnit) {
@@ -50,6 +62,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         if(this.i_translationUnits[translationUnit]){
             delete this.i_translationUnits[translationUnit];
         }
+    },
+
+    clearTranslationUnits : function() {
+        this.i_translationUnits = {};
     },
 
     addStaticEntity : function(obj){
@@ -383,9 +399,7 @@ var TranslationUnit = Class.extend(Observable, {
 
         this.i_originalSourceFile = sourceFile;
 
-        // TODO: Better design would probably require the Program to spawn an new TranslationUnit for us.
         this.i_program = program;
-        this.i_program.addTranslationUnit(this);
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
