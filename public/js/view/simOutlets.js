@@ -804,6 +804,12 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 });
 
+/**
+ * This class manages all of the source files associated with a project and the editors
+ * for those files. It is also owns the Program object and controls its compilation. It
+ * also internally routes annotations (e.g. for compilation errors) to the appropriate
+ * editor based on the source reference of the annotation.
+ */
 var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     _name : "ProjectEditor",
 
@@ -823,6 +829,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     init : function(element) {
         var self = this;
 
+        this.i_sourceFiles = {};
         this.i_filesElem = element.find(".project-files");
         this.i_fileEditors = {};
         this.i_program = Program.instance();
@@ -902,35 +909,20 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     },
 
     i_setProject : function(project){
-        var self = this;
 
         this.i_clearProject();
 
         for(var i = 0; i < project.length; ++i) {
-            var file = project[i];
+            var fileData = project[i];
+            var fileName = fileData["name"];
 
-            // Create tab for each file in the project
-            var item = $('<li></li>');
-            var link = $('<a href="" data-toggle="tab">' + file["name"] + '</a>');
-            link.click(function(){
-                self.i_selectFile($(this).html());
-            });
-            item.append(link);
-            this.i_filesElem.append(item);
+            var sourceFile = this.i_createFile(fileData);
 
-            var fileName = file["name"];
-
-            // Create a SourceFile and TranslationUnit for each file.
-            // TODO NEW: each file shouldn't actually have its own translation unit
-            var sourceFile = SourceFile.instance(fileName, file["code"]);
-            this.i_program.addSourceFile(sourceFile);
-            var translationUnit = this.i_translationUnits[fileName] = TranslationUnit.instance(this.i_program, sourceFile);
-            this.listenTo(translationUnit);
-
-            // Create a CodeMirror document for each file in the project
-            var fileEd = FileEditor.instance(fileName, sourceFile);
-            this.listenTo(fileEd);
-            this.i_fileEditors[fileName] = fileEd;
+            if (fileData["isTranslationUnit"]==="yes") {
+                var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(sourceFile);
+                this.listenTo(translationUnit);
+                // Note: the TranslationUnit constructor automatically adds itself to the program
+            }
         }
 
         // Set first file to be active
@@ -943,6 +935,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     },
 
     i_clearProject : function() {
+
+        this.i_sourceFiles = {};
 
         this.i_filesElem.empty();
 
@@ -965,6 +959,33 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
     getProgram : function() {
         return this.i_program;
+    },
+
+    i_createFile : function(fileData) {
+        var fileName = fileData["name"];
+
+        // Create the file itself
+        var sourceFile = SourceFile.instance(fileName, fileData["code"]);
+        this.i_sourceFiles[fileName] = sourceFile;
+        this.i_program.addSourceFile(sourceFile);
+
+        // Create a FileEditor object to manage editing the file
+        var fileEd = FileEditor.instance(fileName, sourceFile);
+        this.i_fileEditors[fileName] = fileEd;
+        this.listenTo(fileEd);
+
+        // Create tab to select this file for viewing/editing
+        var item = $('<li></li>');
+        var link = $('<a href="" data-toggle="tab">' + fileData["name"] + '</a>');
+        var self = this;
+        link.click(function(){
+            self.i_selectFile(fileName);
+        });
+        item.append(link);
+
+        this.i_filesElem.append(item);
+
+        return sourceFile;
     },
 
     i_selectFile : function(filename) {

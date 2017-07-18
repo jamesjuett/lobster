@@ -146,7 +146,7 @@ $app->get('/api/me/project/get/:project', function ($project) use ($app) {
     $email = getUserEmail();
 
     $db = dbConnect();
-    $stmt = $db->prepare('SELECT name, code FROM user_project_files WHERE email=:email AND project=:project');
+    $stmt = $db->prepare('SELECT * FROM user_project_files WHERE email=:email AND project=:project');
     $stmt->bindParam('email', $email);
     $stmt->bindParam('project', $project);
     $stmt->execute();
@@ -157,7 +157,7 @@ $app->get('/api/me/project/get/:project', function ($project) use ($app) {
     }
     else {
         // Instead grab values from starter projects table
-        $stmt = $db->prepare('SELECT name, code FROM starter_project_files WHERE project=:project');
+        $stmt = $db->prepare('SELECT * FROM starter_project_files WHERE project=:project');
         $stmt->bindParam('project', $project);
         $stmt->execute();
 
@@ -200,12 +200,14 @@ $app->post('/api/me/project/save/:projectName', function ($projectName) use ($ap
     foreach($files as $file){
         $name = $file['name'];
         $text = $file['text'];
+        $isTranslationUnit = $file['isTranslationUnit'];
 
-        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, NULL) ON DUPLICATE KEY UPDATE code=:text');
+        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, :isTranslationUnit, NULL) ON DUPLICATE KEY UPDATE code=:text');
         $stmt->bindParam('email', $email);
         $stmt->bindParam('project', $projectName);
         $stmt->bindParam('name', $name);
         $stmt->bindParam('text', $text);
+        $stmt->bindParam('isTranslationUnit', $isTranslationUnit);
         $stmt->execute();
     }
 
