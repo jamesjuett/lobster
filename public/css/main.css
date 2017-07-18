@@ -671,3 +671,10 @@ ul.stackFrames li{
 	pointer-events: none;
 	z-index: 10;
 }
+
+.translation-units-list li{
+	padding-left: 1.5em;
+	padding-right: 1.5em;
+	padding-top: 4px;
+	padding-bottom: 4px;
+}

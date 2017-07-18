@@ -831,6 +831,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         this.i_sourceFiles = {};
         this.i_filesElem = element.find(".project-files");
+        this.i_translationUnitsListElem = $(".translation-units-list");
         this.i_fileEditors = {};
         this.i_program = Program.instance();
         this.listenTo(this.i_program);
@@ -922,7 +923,15 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                 var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(sourceFile);
                 this.listenTo(translationUnit);
                 // Note: the TranslationUnit constructor automatically adds itself to the program
+
+                // TODO: this section should probably be moved to individual functions e.g. i_createFile
+
+                this.i_translationUnitsListElem.append($('<li class="bg-info">' + fileName + '</li>'));
             }
+            else{
+                this.i_translationUnitsListElem.append($('<li class="text-muted">' + fileName + '</li>'));
+            }
+
         }
 
         // Set first file to be active
@@ -944,6 +953,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             this.i_fileEditors[filename].removeListener(this);
         }
         this.i_fileEditors = {};
+
+        this.i_translationUnitsListElem.empty();
 
         if (this.i_program) {
             this.i_program.removeListener(this);
@@ -976,7 +987,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         // Create tab to select this file for viewing/editing
         var item = $('<li></li>');
-        var link = $('<a href="" data-toggle="tab">' + fileData["name"] + '</a>');
+        var link = $('<a href="" data-toggle="pill">' + fileData["name"] + '</a>');
         var self = this;
         link.click(function(){
             self.i_selectFile(fileName);
