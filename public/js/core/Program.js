@@ -37,6 +37,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         if(this.i_sourceFiles[sourceFile]){
             delete this.i_sourceFiles[sourceFile];
         }
+
+        // Also remove any associated translation unit (if it exists)
+        this.removeTranslationUnit(sourceFile);
     },
 
     getSourceFile : function(name) {
