@@ -45,7 +45,9 @@ var Observer = Mixins.Observer = {
     },
 
     stopListeningTo : function(other, category){
-        other.removeListener(this, category);
+        if (other) {
+            other.removeListener(this, category);
+        }
         return this;
     }
 

@@ -832,6 +832,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         this.i_sourceFiles = {};
         this.i_filesElem = element.find(".project-files");
         this.i_translationUnitsListElem = $(".translation-units-list");
+        this.i_translationUnitsButtons = {};
         this.i_fileEditors = {};
         this.i_program = Program.instance();
         this.listenTo(this.i_program);
@@ -881,7 +882,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         for(var filename in this.i_fileEditors) {
             projectFiles.push({
                 name: filename,
-                text: this.i_fileEditors[filename].getText()
+                text: this.i_fileEditors[filename].getText(),
+                isTranslationUnit: this.i_translationUnits[filename] ? "yes" : "no"
             });
         }
 
@@ -919,18 +921,6 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
             var sourceFile = this.i_createFile(fileData);
 
-            if (fileData["isTranslationUnit"]==="yes") {
-                var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(sourceFile);
-                this.listenTo(translationUnit);
-                // Note: the TranslationUnit constructor automatically adds itself to the program
-
-                // TODO: this section should probably be moved to individual functions e.g. i_createFile
-
-                this.i_translationUnitsListElem.append($('<li class="bg-info">' + fileName + '</li>'));
-            }
-            else{
-                this.i_translationUnitsListElem.append($('<li class="text-muted">' + fileName + '</li>'));
-            }
 
         }
 
@@ -955,6 +945,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         this.i_fileEditors = {};
 
         this.i_translationUnitsListElem.empty();
+        this.i_translationUnitsButtons = {};
 
         if (this.i_program) {
             this.i_program.removeListener(this);
@@ -993,8 +984,32 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             self.i_selectFile(fileName);
         });
         item.append(link);
-
         this.i_filesElem.append(item);
+
+        // Create buttons for each file to toggle whether it's a translation unit or not
+        var button = $('<button class="btn text-muted">' + fileName + '</button>');
+        var self = this;
+        button.click(function(){
+            if (self.i_translationUnits[fileName]) {
+                self.i_removeTranslationUnit(fileName);
+            }
+            else{
+                self.i_addTranslationUnit(fileName);
+            }
+        });
+        this.i_translationUnitsButtons[fileName] = button;
+
+        this.i_translationUnitsListElem.append($('<li></li>').append(button));
+
+
+        // Add a translation unit if appropriate
+        if (fileData["isTranslationUnit"]==="yes") {
+            this.i_addTranslationUnit(fileName);
+            // Note: the TranslationUnit constructor automatically adds itself to the program
+
+        }
+
+
 
         return sourceFile;
     },
@@ -1002,6 +1017,24 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     i_selectFile : function(filename) {
         assert(this.i_fileEditors[filename]);
         this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
+    },
+
+    i_addTranslationUnit : function(fileName) {
+        assert(this.i_sourceFiles[fileName]);
+        var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(this.i_sourceFiles[fileName]);
+        this.listenTo(translationUnit);
+        var button = this.i_translationUnitsButtons[fileName];
+        button.addClass("btn-info");
+        button.removeClass("text-muted");
+    },
+
+    i_removeTranslationUnit : function(fileName) {
+        delete this.i_translationUnits[fileName];
+        this.stopListeningTo(this.i_translationUnits[fileName]);
+        this.i_program.removeTranslationUnit(fileName);
+        var button = this.i_translationUnitsButtons[fileName];
+        button.addClass("text-muted");
+        button.removeClass("btn-info");
     },
 
     getEditor : function(fileName){
