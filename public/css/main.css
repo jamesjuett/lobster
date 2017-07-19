@@ -10,6 +10,14 @@ h1, h2, h3, h4, h5, h6 {
 	font-family: 'Muli', sans-serif;
 }
 
+.nav-tabs > li > a {
+	font-family: 'Muli', sans-serif;
+}
+
+.nav-pills > li > a {
+	font-family: 'Muli', sans-serif;
+}
+
 body{
 	/*font-family: Arial;*/
 	/*font-size: 11pt;*/
@@ -677,4 +685,37 @@ ul.stackFrames li{
 	padding-right: 1em;
 	padding-top: 4px;
 	padding-bottom: 4px;
+}
+
+.loader {
+	/*Based on https://www.w3schools.com/howto/howto_css_loader.asp*/
+	border: 5px solid #f3f3f3; /* Light grey */
+	border-top: 5px solid #3498db; /* Blue */
+	border-radius: 50%;
+	animation: spin 2s linear infinite;
+}
+
+.loader-sm {
+	border-width: 3px;
+}
+
+.loader-md {
+	border-width: 7px;
+}
+
+.loader-lg {
+	border-width: 20px;
+}
+
+.loader-inline {
+	display: inline-block;
+	vertical-align: baseline;
+	border-width:0.15em;
+	height: 0.8em;
+	width: 0.8em
+}
+
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
 }
