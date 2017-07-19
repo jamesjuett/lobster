@@ -202,7 +202,7 @@ $app->post('/api/me/project/save/:projectName', function ($projectName) use ($ap
         $text = $file['text'];
         $isTranslationUnit = $file['isTranslationUnit'];
 
-        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, :isTranslationUnit, NULL) ON DUPLICATE KEY UPDATE code=:text');
+        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, :isTranslationUnit, NULL) ON DUPLICATE KEY UPDATE code=:text, isTranslationUnit=:isTranslationUnit');
         $stmt->bindParam('email', $email);
         $stmt->bindParam('project', $projectName);
         $stmt->bindParam('name', $name);

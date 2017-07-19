@@ -91,7 +91,15 @@
                 <div id="projectSettingsPane" class="tab-pane fade">
                     <div>
                         <h3>Translation Units</h3>
-                        <p>These files are those that would be included in the compile command.</p>
+                        <p>A program may be composed of many different translation units, one for each source file
+                            that needs to be compiled into the executable program. Generally, you want a translation
+                            unit for each .cpp file, and these are the files you would list out in a compile command.
+                            The files being used for this purpose are highlighted below. Note that files may be
+                            indirectly used if they are #included in other translation units, but not shown here.
+                        </p>
+                        <p style="font-weight: bold;">
+                            Click files below to toggle whether they are being used to create a translation unit.
+                        </p>
                         <ul class="translation-units-list list-inline">
                         </ul>
                     </div>
