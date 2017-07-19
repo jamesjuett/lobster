@@ -62,13 +62,13 @@
 <body>
 
 
-<div class="page-header" style="text-align: center; margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
-    <div class="container">
-        <h4 style="display: inline-block; vertical-align: middle;">Lobster: A C++ Program Visualization Tool for Education</h4>
-        <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
-        <div style="display: inline-block; vertical-align: middle; float: right">
+<div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
+    <div class="container-fluid">
+        <div style="display: inline-block; vertical-align: middle;">
             <div class="g-signin2" data-onsuccess="onSignIn"></div>
         </div>
+        <h4 style="display: inline-block; vertical-align: middle; margin-left: 10px;">Lobster: A C++ Program Visualization Tool for Education</h4>
+        <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
 </div>
 
@@ -81,9 +81,13 @@
         </div>
         <div class="col-xs-8 col-sm-9 col-md-10">
             <ul class="nav nav-tabs">
-                <li><a data-toggle="tab" href="#projectSettingsPane"><h6>Project Settings</h6></a></li>
-                <li class="active"><a data-toggle="tab" href="#sourcePane"><h6>Source Code</h6></a></li>
-                <li><a id="simulateTab" data-toggle="tab" href="#simPane"><h6>Simulation</h6></a></li>
+                <li><a data-toggle="tab" href="#projectSettingsPane">Project Settings</a></li>
+                <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
+                <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
+                <li style="float: right;">
+                    <div class = "loader loader-inline"></div>
+                    Saving...
+                </li>
             </ul>
 
             <div class="tab-content">
