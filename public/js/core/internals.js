@@ -516,7 +516,7 @@ var Scope = Lobster.Scope = Class.extend({
     },
     qualifiedLookup : function(names, options){
         assert(Array.isArray(names) && names.length > 0);
-        var scope = this.sim.globalScope;
+        var scope = this.sim.getGlobalScope();
         for(var i = 0; scope && i < names.length - 1; ++i){
             scope = scope.children[names[i].identifier];
         }

@@ -27,7 +27,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
 
-        if (this.i_program.mainEntity() && !this.i_program.hasErrors()){
+        if (this.i_program.getMainEntity() && !this.i_program.hasErrors()){
             this.start();
         }
     },
@@ -63,7 +63,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
         // TODO NEW move compilation of mainCall to program?
         var mainCall = FunctionCall.instance(null, {isMainCall:true});
-        mainCall.compile(this.i_program.globalScope, this.i_program.mainEntity(), []);
+        mainCall.compile(this.i_program.getGlobalScope(), this.i_program.getMainEntity(), []);
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
@@ -485,8 +485,9 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     leakCheckObj : function(query) {
         ++this.i_leakCheckIndex;
         var frontier = [];
-        for (var key in this.globalScope.entities) {
-            var ent = this.globalScope.entities[key];
+        var globalScope = this.getGlobalScope();
+        for (var key in globalScope.entities) {
+            var ent = globalScope.entities[key];
             if (isA(ent, ObjectEntity)){
                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);

@@ -153,24 +153,37 @@ var NoteRecorder = NoteHandler.extend({
  *
  * The program also needs to know about all source files involved so that #include preprocessor
  * directives can be processed.
+ *
+ * Events:
+ *  reset
+ *  sourceFileAdded
+ *  sourceFileRemoved
+ *  translationUnitCreated
+ *  translationUnitRemoved
+ *  compiled
+ *  linked
  */
 var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
     _name : "Program",
 
     init : function () {
         NoteRecorder.init.apply(this, arguments);
+        this.reset();
+    },
+
+    reset : function () {
         this.i_translationUnits = {};
         this.i_sourceFiles = {};
 
-        this.globalScope = NamespaceScope.instance("", null, this);
-        this.staticEntities = [];
-
-        this.linkerProblems = [];
+        this.staticEntities.length = 0;
+        this.i_globalScope = NamespaceScope.instance("", null, this);
+        this.send("reset");
     },
 
     addSourceFile : function(sourceFile) {
         assert(!this.i_sourceFiles[sourceFile.getName()]);
         this.i_sourceFiles[sourceFile.getName()] = sourceFile;
+        this.send("sourceFileAdded", sourceFile);
     },
 
     removeSourceFile : function(sourceFile) {
@@ -183,6 +196,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
         // Also remove any associated translation unit (if it exists)
         this.removeTranslationUnit(sourceFile);
+        this.send("sourceFileRemoved", sourceFile);
     },
 
     getSourceFile : function(name) {
@@ -198,6 +212,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
         var tu = TranslationUnit.instance(this, this.i_sourceFiles[sourceFileName]);
         this.i_translationUnits[tu.getName()] = tu;
+        this.send("translationUnitCreated", tu);
         return tu;
     },
 
@@ -208,14 +223,19 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         if(this.i_translationUnits[translationUnit]){
             delete this.i_translationUnits[translationUnit];
         }
-    },
-
-    clearTranslationUnits : function() {
-        this.i_translationUnits = {};
+        this.send("translationUnitRemoved", translationUnit);
     },
 
     addStaticEntity : function(obj){
         this.staticEntities.push(obj);
+    },
+
+    /**
+     * Compiles all translation units that are part of this program and then links the program.
+     */
+    fullCompile : function() {
+        this.compile();
+        this.link();
     },
 
     /**
@@ -228,21 +248,12 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
             tu.fullCompile();
             this.addNotes(tu.getNotes);
         }
-    },
-
-    /**
-     * Compiles all translation units that are part of this program and then links the program.
-     */
-    fullCompile : function() {
-        this.compile();
-        this.link();
+        this.send("compiled");
     },
 
     link : function() {
 
-        this.linkerProblems.clear();
-
-        this.globalScope = NamespaceScope.instance("", null, this);
+        this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 
         // Bring together stuff from all translation units
@@ -250,7 +261,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         var self = this;
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
-            this.globalScope.merge(tu.globalScope, function(e) {
+            this.i_globalScope.merge(tu.getGlobalScope(), function(e) {
                 if (isA(e, LinkerNote)) {
                     self.addNote(e);
                     console.log("Linker: " + e.getMessage());
@@ -264,7 +275,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
         //look for main
         try{
-            this.i_main = this.globalScope.requiredLookup("main", {paramTypes: []});
+            this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
         }
         catch(e){
             if (!isA(e, SemanticExceptions.BadLookup)){
@@ -277,7 +288,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         }
 
         console.log("linked successfully");
-        this.send("linked", this.linkerProblems);
+        this.send("linked");
 
         // else if (decl.name === "main") {
         //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
@@ -285,8 +296,12 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         // }
     },
 
-    mainEntity : function() {
+    getMainEntity : function() {
         return this.i_main;
+    },
+
+    getGlobalScope : function() {
+        return this.i_globalScope;
     }
 });
 
@@ -554,7 +569,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         this.i_program = program;
 
-        this.globalScope = NamespaceScope.instance("", null, this);
+        this.i_globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
 
@@ -649,7 +664,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         //console.log("compiling");
         this.clearNotes();
 		this.topLevelDeclarations.clear();
-		this.globalScope = NamespaceScope.instance("", null, this);
+		this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
 
         // TODO NEW change
@@ -669,8 +684,8 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                 translationUnit : this,
                 func: globalFunctionContext
             });
-            decl.tryCompileDeclaration(this.globalScope);
-            decl.tryCompileDefinition(this.globalScope);
+            decl.tryCompileDeclaration(this.i_globalScope);
+            decl.tryCompileDefinition(this.i_globalScope);
             this.topLevelDeclarations.push(decl);
             this.addNotes(decl.getNotes());
         }
@@ -694,36 +709,36 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 	},
 
     i_createBuiltInGlobals : function() {
-        this.globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
-        this.globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+        this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
+        this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
 
         // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
         this.endlEntity = StaticEntity.instance({name:"endl", type:Types.String.instance()});
         this.endlEntity.defaultValue = "\\n";
-        this.globalScope.addEntity(this.endlEntity);
+        this.i_globalScope.addEntity(this.endlEntity);
 
 
         var cassert = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "assert",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
-        this.globalScope.addEntity(cassert);
+        this.i_globalScope.addEntity(cassert);
 
         var pause = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "pause",
             Types.Function.instance(Types.Void.instance(), [])
         ));
-        this.globalScope.addEntity(pause);
+        this.i_globalScope.addEntity(pause);
 
 
         var pauseIf = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
             "pauseIf",
             Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         ));
-        this.globalScope.addEntity(pauseIf);
+        this.i_globalScope.addEntity(pauseIf);
 
 
-        this.globalScope.addEntity(MagicFunctionEntity.instance(
+        this.i_globalScope.addEntity(MagicFunctionEntity.instance(
             MagicFunctionDefinition.instance("rand",
                 Types.Function.instance(Types.Int.instance(), []))));
 
@@ -736,21 +751,21 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         //     var enumLit = Types.Rank.values[i];
         //     var ent = StaticEntity.instance({name:enumLit, type:Types.Rank.instance()});
         //     ent.defaultValue = Types.Rank.valueMap[enumLit];
-        //     this.globalScope.addEntity(ent);
+        //     this.i_globalScope.addEntity(ent);
         // }
         //
         // for(var i = 0; i < Types.Suit.values.length; ++i){
         //     var enumLit = Types.Suit.values[i];
         //     var ent = StaticEntity.instance({name:enumLit, type:Types.Suit.instance()});
         //     ent.defaultValue = Types.Suit.valueMap[enumLit];
-        //     this.globalScope.addEntity(ent);
+        //     this.i_globalScope.addEntity(ent);
         // }
         //
         // var make_face = FunctionEntity.instance(MagicFunctionDefinition.instance(
         //     "make_face",
         //     Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance())])
         // ));
-        // this.globalScope.addEntity(make_face);
+        // this.i_globalScope.addEntity(make_face);
         //
         //
         //
@@ -763,20 +778,20 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // var list_magic_reverse = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_reverse", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
         // var list_magic_append = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_append", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance(), Types.List_t.instance()])));
         //
-        // this.globalScope.addEntity(list_make_empty);
-        // this.globalScope.addEntity(list_make);
-        // this.globalScope.addEntity(list_isEmpty);
-        // this.globalScope.addEntity(list_first);
-        // this.globalScope.addEntity(list_rest);
-        // this.globalScope.addEntity(list_print);
-        // this.globalScope.addEntity(list_magic_reverse);
-        // this.globalScope.addEntity(list_magic_append);
+        // this.i_globalScope.addEntity(list_make_empty);
+        // this.i_globalScope.addEntity(list_make);
+        // this.i_globalScope.addEntity(list_isEmpty);
+        // this.i_globalScope.addEntity(list_first);
+        // this.i_globalScope.addEntity(list_rest);
+        // this.i_globalScope.addEntity(list_print);
+        // this.i_globalScope.addEntity(list_magic_reverse);
+        // this.i_globalScope.addEntity(list_magic_append);
         //
         //
         //
         // var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
         // emptyList.defaultValue = [];
-        // this.globalScope.addEntity(emptyList);
+        // this.i_globalScope.addEntity(emptyList);
         // this.addStaticEntity(emptyList);
         //
         //
@@ -788,13 +803,17 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // var tree_right = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_right", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
         // var tree_print = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_print", Types.Function.instance(Types.Void.instance(), [Types.Tree_t.instance()])));
         //
-        // this.globalScope.addEntity(tree_make_empty);
-        // this.globalScope.addEntity(tree_make);
-        // this.globalScope.addEntity(tree_isEmpty);
-        // this.globalScope.addEntity(tree_elt);
-        // this.globalScope.addEntity(tree_left);
-        // this.globalScope.addEntity(tree_right);
-        // this.globalScope.addEntity(tree_print);
+        // this.i_globalScope.addEntity(tree_make_empty);
+        // this.i_globalScope.addEntity(tree_make);
+        // this.i_globalScope.addEntity(tree_isEmpty);
+        // this.i_globalScope.addEntity(tree_elt);
+        // this.i_globalScope.addEntity(tree_left);
+        // this.i_globalScope.addEntity(tree_right);
+        // this.i_globalScope.addEntity(tree_print);
+    },
+
+    getGlobalScope : function() {
+	    return this.i_globalScope;
     }
 });
 Lobster.CPP.TranslationUnit = TranslationUnit;

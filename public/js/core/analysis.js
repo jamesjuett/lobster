@@ -45,7 +45,7 @@ var checkInterface = Lobster.checkInterface = function (program, projectEditor) 
     var getTypeAndPointerType = function(module) {
 
         // Type
-        var type = program.globalScope.lookup(module).type;
+        var type = program.getGlobalScope().lookup(module).type;
 
         // Pointer Type
         var pointerType = Types.Pointer.instance(type);
@@ -83,7 +83,7 @@ var checkInterface = Lobster.checkInterface = function (program, projectEditor) 
 
     // Get an array of all function definitions in the program
 
-    var functionDefinitions = program.globalScope.allEntities().filter(function(ent){
+    var functionDefinitions = program.getGlobalScope().allEntities().filter(function(ent){
         return isA(ent, FunctionEntity) && !isA(ent, MagicFunctionEntity); // filter to only functions
     }).map(function(ent){
         return ent.definition; // map to their definitions
@@ -145,7 +145,7 @@ var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
         }
     };
 
-    var imageInitEntities = program.globalScope.lookup("Image_init");
+    var imageInitEntities = program.getGlobalScope().lookup("Image_init");
     var imageInitDefs = imageInitEntities.map(function(ent){
         return ent.decl;
     });
