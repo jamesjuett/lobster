@@ -5,23 +5,166 @@
 var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
+var NoteHandler = Class.extend({
+    _name : "NoteHandler",
+
+    /**
+     *
+     * @param {Note} note
+     */
+    addNote : function() {}
+
+
+});
+
+//TODO: Remove this once I'm confident I don't need it
+// var CompoundNoteHandler = NoteHandler.extend({
+//     _name : "CompoundNoteHandler",
+//
+//     instance : function(handler1, handler2) {
+//         if (!handler1) {
+//             return handler2;
+//         }
+//         if (!handler2) {
+//             return handler1;
+//         }
+//
+//         return this._class._parent.instance.apply(this, arguments);
+//     },
+//
+//     /**
+//      *
+//      * @param {NoteHandler} handler1
+//      * @param {NoteHandler} handler2
+//      */
+//     init : function(handler1, handler2) {
+//         this.i_handler1 = handler1;
+//         this.i_handler2 = handler2;
+//     },
+//
+//     /**
+//      *
+//      * @param {PreprocessorNote} note
+//      */
+//     preprocessorNote : function(note) {
+//         this.i_handler1.preprocessorNote(note);
+//         this.i_handler2.preprocessorNote(note);
+//     },
+//
+//
+//     /**
+//      *
+//      * @param {CompilerNote} note
+//      */
+//     compilerNote : function(note) {
+//         this.i_handler1.compilerNote(note);
+//         this.i_handler2.compilerNote(note);
+//     },
+//
+//
+//
+//     /**
+//      *
+//      * @param {LinkerNote} note
+//      */
+//     linkerNote : function(note) {
+//         this.i_handler1.linkerNote(note);
+//         this.i_handler2.linkerNote(note);
+//     }
+//
+//
+// });
+
+/**
+ * @class
+ * @extends NoteHandler
+ */
+var NoteRecorder = NoteHandler.extend({
+    _name : "NoteRecorder",
+
+    init : function() {
+        // this.i_preprocessorNotes = [];
+        // this.i_compilerNotes = [];
+        // this.i_linkerNotes = [];
+        this.i_allNotes = [];
+        this.i_hasErrors = false;
+    },
+
+    /**
+     *
+     * @param {Note} note
+     */
+    addNote : function(note) {
+        this.i_allNotes.push(note);
+        if (note.getType() === Note.TYPE_ERROR) {
+            this.i_hasErrors = true;
+        }
+        // this.i_preprocessorNotes.push(note);
+    },
+
+    addNotes : function(notes) {
+        for(var i = 0; i < notes.length; ++i) {
+            this.addNote(notes[i]);
+        }
+    },
+
+    // /**
+    //  * @returns {PreprocessorNote[]}
+    //  */
+    // getPreprocessorNotes : function() {
+    //     return this.i_preprocessorNotes;
+    // },
+    //
+    //
+    // /**
+    //  * @returns {CompilerNote[]}
+    //  */
+    // getCompilerNotes : function() {
+    //     return this.i_compilerNotes;
+    // },
+    //
+    //
+    // /**
+    //  * @returns {LinkerNote[]}
+    //  */
+    // getLinkerNotes : function() {
+    //     return this.i_linkerNotes;
+    // },
+
+    /**
+     * @returns {LinkerNote[]}
+     */
+    getNotes : function() {
+        return this.i_allNotes;
+    },
+
+    clearNotes : function() {
+        this.i_allNotes = [];
+        // this.i_preprocessorNotes = [];
+        // this.i_compilerNotes = [];
+        // this.i_linkerNotes = [];
+    },
+    hasErrors : function() {
+        return this.i_hasErrors;
+    }
+});
+
 /**
  *
  * The program also needs to know about all source files involved so that #include preprocessor
  * directives can be processed.
  */
-var Program = Lobster.CPP.Program = Class.extend(Observable, {
+var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
     _name : "Program",
 
     init : function () {
-
+        NoteRecorder.init.apply(this, arguments);
         this.i_translationUnits = {};
         this.i_sourceFiles = {};
 
         this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities = [];
 
-        this.i_semanticProblems = SemanticProblems.instance(); // TODO NEW do I need this?
         this.linkerProblems = [];
     },
 
@@ -79,13 +222,11 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
      * Compiles all translation units that are part of this program.
      */
     compile : function () {
-        this.i_semanticProblems.clear();
+        this.clearNotes();
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
-            // TODO take this out!!!
-            // if (name === "file2") {
-                this.i_semanticProblems.pushAll(tu.fullCompile());
-            // }
+            tu.fullCompile();
+            this.addNotes(tu.getNotes);
         }
     },
 
@@ -95,7 +236,6 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
     fullCompile : function() {
         this.compile();
         this.link();
-        return this.i_semanticProblems;
     },
 
     link : function() {
@@ -111,9 +251,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
             this.globalScope.merge(tu.globalScope, function(e) {
-                if (isA(e, SemanticProblem)) {
+                if (isA(e, LinkerNote)) {
+                    self.addNote(e);
                     console.log("Linker: " + e.getMessage());
-                    self.linkerProblems.push(e);
                 }
                 else{
                     throw e;
@@ -128,7 +268,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, {
         }
         catch(e){
             if (!isA(e, SemanticExceptions.BadLookup)){
+                this.addNote(e);
                 console.log(e.stack);
+            }
+            else{
                 throw e;
             }
         }
@@ -234,7 +377,7 @@ var SourceReference = Class.extend({
  *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
  *   "compiled": after compilation is finished. data is a SemanticProblems object
  */
-var TranslationUnit = Class.extend(Observable, {
+var TranslationUnit = Class.extend(Observable, NoteRecorder, {
     _name: "TranslationUnit",
 
     /**
@@ -284,11 +427,18 @@ var TranslationUnit = Class.extend(Observable, {
                     // var filename = includeLine.match(/"(.*)"/)[1];
 
                     // Recursively preprocess the included file
+                    if (alreadyIncluded[filename]) {
+                        self.i_translationUnit.addNote(CPPError.preprocess.recursiveInclude(
+                            SourceReference.instance(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
+                        return ""; // replace with nothing i.e. ignore it
+                    }
                     assert(!alreadyIncluded[filename], "Recursive #include detected!");
                     var includedSourceFile = translationUnit.i_program.getSourceFile(filename);
 
                     var included = self._class.instance(translationUnit, includedSourceFile,
                         copyMixin(alreadyIncluded, {}));
+
+
 
                     mapping.numLines = included.numLines;
                     mapping.endLine = mapping.startLine + included.numLines;
@@ -398,7 +548,7 @@ var TranslationUnit = Class.extend(Observable, {
     // *** end i_PreprocessedSource ***
 
     init: function(program, sourceFile){
-        this.initParent();
+        NoteRecorder.init.apply(this, arguments);
 
         this.i_originalSourceFile = sourceFile;
 
@@ -407,7 +557,6 @@ var TranslationUnit = Class.extend(Observable, {
         this.globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
-        this.i_semanticProblems = SemanticProblems.instance();
 
         this.i_main = false;
 
@@ -417,14 +566,6 @@ var TranslationUnit = Class.extend(Observable, {
 
     getName : function() {
         return this.i_originalSourceFile.getName();
-    },
-
-    getSemanticProblems : function() {
-        return this.i_semanticProblems;
-    },
-
-    hasSemanticErrors : function(){
-        return this.i_semanticProblems.errors.length > 0;
     },
 
     addStaticEntity : function(obj){
@@ -457,15 +598,12 @@ var TranslationUnit = Class.extend(Observable, {
 
             this.i_compile(parsed);
 
-            this.send("compiled", this.i_semanticProblems);
-            return this.i_semanticProblems;
-            
+            this.send("compiled", this.getNotes());
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
                 this.send("parsingError", {ref: this.getSourceReference(err.line, err.column), message: err.message});
-				this.i_semanticProblems.clear();
-                return this.i_semanticProblems;
+				this.clearNotes();
 			}
 			else{
                 this.send("unknownError");
@@ -509,7 +647,7 @@ var TranslationUnit = Class.extend(Observable, {
 
         var self = this;
         //console.log("compiling");
-		this.i_semanticProblems.clear();
+        this.clearNotes();
 		this.topLevelDeclarations.clear();
 		this.globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
@@ -533,8 +671,8 @@ var TranslationUnit = Class.extend(Observable, {
             });
             decl.tryCompileDeclaration(this.globalScope);
             decl.tryCompileDefinition(this.globalScope);
-            this.i_semanticProblems.pushAll(decl.semanticProblems);
             this.topLevelDeclarations.push(decl);
+            this.addNotes(decl.getNotes());
         }
 
         // Linking

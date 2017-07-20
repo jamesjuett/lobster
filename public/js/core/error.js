@@ -55,15 +55,69 @@ var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
-var SemanticProblem = Class.extend({
-    _name: "SemanticProblem",
+var Note = Class.extend({
+    _name: "Note",
+
+    TYPE_ERROR: "error",
+    TYPE_WARNING: "warning",
+    TYPE_STYLE: "style",
+    TYPE_OTHER: "other",
+
+    init : function(type) {
+        this.i_type = type;
+    },
+
 
     /**
-     * Initializes a SemanticProblem associated with the provided constructs.
-     * @param {CPPCode | CPPCode[]} constructs A single code construct or array of constructs.
-     * @param {String} message A message describing the problem.
+     *
+     * @returns {String}
      */
-    init : function(constructs, message) {
+    getMessage : Class._ABSTRACT,
+
+    getType : function() {
+        return this.i_type;
+    }
+});
+
+
+
+var PreprocessorNote = Note.extend({
+    _name: "PreprocessorNote",
+
+    init : function(sourceRef, type, message) {
+        this.initParent(type);
+        this.i_sourceRef = sourceRef;
+        this.i_message = message;
+    },
+
+    /**
+     *
+     * @returns {?SourceReference}
+     */
+    getSourceReference : function() {
+        return this.i_sourceRef || null;
+    },
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : function() {
+        return this.i_message;
+    }
+});
+
+var CompilerNote = Note.extend({
+    _name: "CompilerNote",
+
+    /**
+     * Initializes a CompilerNote associated with the provided constructs.
+     * @param {?CPPCode | ?CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {String} message A message describing the problem.
+     * @type {String} one of the types associated with this class
+     */
+    init : function(constructs, type, message) {
+        this.initParent(type);
         if (Array.isArray(constructs)) {
             this.i_constructs = constructs;
         }
@@ -79,7 +133,7 @@ var SemanticProblem = Class.extend({
 
     /**
      *
-     * @returns {CPPCode|CPPCode[]}
+     * @returns {CPPCode[]}
      */
     getConstructs : function() {
         return this.i_constructs;
@@ -92,27 +146,23 @@ var SemanticProblem = Class.extend({
     getMessage : function() {
         return this.i_message;
     }
-});
 
-var SemanticError = SemanticProblem.extend({
-    _name: "SemanticError"
-});
-
-
-var SemanticWarning = SemanticProblem.extend({
-    _name: "SemanticError"
 });
 
 
 var makeError = function(src, type, message){
     //src = src || {context:{}};
     if (type === true){
-        return SemanticWarning.instance(src, message);
+        return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, message);
     }
     else if (type === false){
-        return SemanticError.instance(src, message);
+        return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, message);
     }
 };
+
+var LinkerNote = CompilerNote.extend({
+    _name: "LinkerNote"
+});
 
 var CPPError = {
 	attributeEmptyTo : function(problems, code){
@@ -616,20 +666,20 @@ var CPPError = {
     },
     link : {
         def_not_found : function(src, func){
-           return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
         multiple_def : function(src, name){
-            return makeError(src, false, "Multiple definitions found for " + name + ".");
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple definitions found for " + name + ".");
         },
         type_mismatch : function(src, ent1, ent2){
-            return makeError(src, false, "Multiple declarations found for " + ent1.name + ", but with different types.");
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
         class_same_tokens : function(src, ent1, ent2){
-            return makeError(src, false, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
             returnTypesMatch : function(src, name){
-                return makeError(src, false, "This definition of the function " + name + " has a different return type than its declaration.");
+                return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "This definition of the function " + name + " has a different return type than its declaration.");
             }
         }
 
@@ -659,7 +709,12 @@ var CPPError = {
             name = Identifier.qualifiedNameString(name);
             return makeError(src, false, "Cannot find declaration for \""+name+"\".");
         }
-    }
+    },
+    preprocess : {
+        recursiveInclude : function(sourceRef){
+             return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the origianl, etc.");
+        }
+    },
 };
 
 CPPError.stmt.iteration.cond_bool = CPPError.stmt.selection.cond_bool;
@@ -692,8 +747,6 @@ var SemanticException = Class.extend({
     _name: "SemanticException",
     annotation : Class._ABSTRACT
 });
-
-
 
 SemanticExceptions.BadLookup = SemanticException.extend({
     _name: "BadLookup",
@@ -771,17 +824,17 @@ SemanticExceptions.Wrapper = SemanticException.extend({
 });
 
 
-var checkIdentifier = function(src, iden, semanticProblems){
+var checkIdentifier = function(src, iden, noteHandler){
     if (Array.isArray(iden)){
         iden.forEach(function(elem){
-            checkIdentifier(src, elem.identifier, semanticProblems);
+            checkIdentifier(src, elem.identifier, noteHandler);
         });
     }
     // Check that identifier is not a keyword or an alternative representation for an operator
     if (KEYWORDS.contains(iden)){
-        semanticProblems.push(CPPError.iden.keyword(src, iden));
+        noteHandler.addNote(CPPError.iden.keyword(src, iden));
     }
     if (ALT_OPS.contains(iden)){
-        semanticProblems.push(CPPError.iden.alt_op(src, iden));
+        noteHandler.addNote(CPPError.iden.alt_op(src, iden));
     }
 };
