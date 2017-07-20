@@ -63,9 +63,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPCode._nextId++;
-        this.semanticProblems = SemanticProblems.instance();
         this.children = [];
         this.sub = {};
+        this.i_notes = [];
+        this.i_hasErrors = false;
 
         this.i_setContext(context);
     },
@@ -120,20 +121,13 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
         catch(e){
             if (isA(e, SemanticException)){
-                this.semanticProblems.push(e.annotation(this));
+                this.addNote(e.annotation(this));
             }
             else{
                 console.log(e.stack);
                 throw e;
             }
         }
-        return this.semanticProblems;
-    },
-
-    i_compileChild : function(child){
-        var childProbs = child.compile.apply(child, Array.prototype.slice.call(arguments, 1));
-        this.semanticProblems.pushAll(childProbs);
-        return !childProbs.hasErrors();
     },
 
     isTailChild : function(child){
@@ -156,7 +150,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
     createAndCompileChildExpr : function(childCode, scope, convertTo){
         var child = Expressions.createExpr(childCode, {parent: this});
-        this.semanticProblems.pushAll(child.tryCompile(scope));
+        child.tryCompile(scope);
         if (convertTo){
             child = standardConversion(child, convertTo);
         }
@@ -221,6 +215,27 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     },
     describe : function(sim, inst){
         return {message: "[No description available.]", ignore: false};
+    },
+    /**
+     *
+     * @param {Note} note
+     */
+    addNote : function(note) {
+        this.i_notes.push(note);
+        if (note.getType() === Note.TYPE_ERROR) {
+            this.i_hasErrors = true;
+        }
+        if (this.parent) {
+            this.parent.addNote(note);
+        }
+    },
+
+    getNotes : function() {
+        return this.i_notes;
+    },
+
+    hasErrors : function() {
+        return this.i_hasErrors;
     }
 });
 
@@ -824,7 +839,7 @@ var DeclaredEntity = CPPEntity.extend({
      * REQUIRES: Both entities should have the same type. (for functions, the same signature)
      * @param {DeclaredEntity} entity1 - An entity already present in a scope.
      * @param {DeclaredEntity} entity2 - A new entity matching the original one.
-     * @throws {SemanticProblem}
+     * @throws {Note}
      */
     merge : function(entity1, entity2) {
 

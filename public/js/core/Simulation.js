@@ -27,7 +27,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
 
-        if (this.i_program.mainEntity() && !this.i_program.hasSemanticErrors()){
+        if (this.i_program.mainEntity() && !this.i_program.hasErrors()){
             this.start();
         }
     },

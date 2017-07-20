@@ -1071,27 +1071,26 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             var tu = msg.source;
 
 
-            var semanticProblems = msg.data;
+            var notes = msg.data;
 
-            for(var i = 0; i < semanticProblems.errors.length; ++i){
-                var problem = semanticProblems.errors[i];
-                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
-                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
-                editor.addAnnotation(GutterAnnotation.instance(
-                    sourceRef,
-                    isA(problem, SemanticError) ? "error" : "warning",
-                    problem.getMessage()
-                ));
-            }
-            for(var i = 0; i < semanticProblems.warnings.length; ++i){
-                var problem = semanticProblems.warnings[i];
-                var sourceRef = tu.getSourceReferenceForConstruct(problem.getConstructs()[0]);
-                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
-                editor.addAnnotation(GutterAnnotation.instance(
-                    sourceRef,
-                    isA(problem, SemanticError) ? "error" : "warning",
-                    problem.getMessage()
-                ));
+            for(var i = 0; i < notes.length; ++i){
+                var note = notes[i];
+                if (isA(note, PreprocessorNote)) {
+                    console.log("preprocessor note received: " + note.getMessage());
+                }
+                else if (isA(note, CompilerNote)) {
+                    var sourceRef = tu.getSourceReferenceForConstruct(note.getConstructs()[0]);
+                    var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+                    editor.addAnnotation(GutterAnnotation.instance(
+                        sourceRef,
+                        note.getType(),
+                        note.getMessage()
+                    ));
+                }
+                else if (isA(note, LinkerNote)) {
+                    console.log("linker note received: " + note.getMessage());
+                }
+
             }
 
             // TODO NEW Return support for widgets elsewhere.
