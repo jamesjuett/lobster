@@ -1019,24 +1019,6 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         this.i_codeMirror.swapDoc(this.i_fileEditors[filename].getDoc());
     },
 
-    i_addTranslationUnit : function(fileName) {
-        assert(this.i_sourceFiles[fileName]);
-        var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(this.i_sourceFiles[fileName]);
-        this.listenTo(translationUnit);
-        var button = this.i_translationUnitsButtons[fileName];
-        button.addClass("btn-info");
-        button.removeClass("text-muted");
-    },
-
-    i_removeTranslationUnit : function(fileName) {
-        delete this.i_translationUnits[fileName];
-        this.stopListeningTo(this.i_translationUnits[fileName]);
-        this.i_program.removeTranslationUnit(fileName);
-        var button = this.i_translationUnitsButtons[fileName];
-        button.addClass("text-muted");
-        button.removeClass("btn-info");
-    },
-
     getEditor : function(fileName){
         return this.i_fileEditors[fileName];
     },
@@ -1146,6 +1128,62 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
 });
 $(window).on("beforeunload", ProjectEditor.s_onbeforeunload);
+
+
+/**
+ * Allows a user to view and manage the compilation scheme for a program.
+ */
+var CompilationOutlet = Class.extend(Observer, {
+    _name: "CompilationOutlet",
+
+    init: function (element, program) {
+        var self = this;
+
+        this.i_translationUnitsListElem = $(".translation-units-list");
+        this.i_translationUnitsButtons = {};
+
+        this.listenTo(program);
+
+    },
+
+    i_updateButtons : function() {
+        assert(this.i_sourceFiles[fileName]);
+        var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(this.i_sourceFiles[fileName]);
+        this.listenTo(translationUnit);
+        var button = this.i_translationUnitsButtons[fileName];
+        button.addClass("btn-info");
+        button.removeClass("text-muted");
+    },
+
+    i_removeTranslationUnit : function(fileName) {
+        delete this.i_translationUnits[fileName];
+        this.stopListeningTo(this.i_translationUnits[fileName]);
+        this.i_program.removeTranslationUnit(fileName);
+        var button = this.i_translationUnitsButtons[fileName];
+        button.addClass("text-muted");
+        button.removeClass("btn-info");
+    },
+
+    act : {
+        reset : function() {
+
+        },
+        sourceFileAdded : function() {
+
+        }
+    }
+    /*
+
+     * Events:
+     *  reset
+     *  sourceFileAdded
+     *  sourceFileRemoved
+     *  translationUnitCreated
+     *  translationUnitRemoved
+     *  compiled
+     *  linked
+     */
+});
 
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
