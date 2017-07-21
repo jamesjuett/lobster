@@ -168,6 +168,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
     init : function () {
         NoteRecorder.init.apply(this, arguments);
+
+        this.staticEntities = [];
+
         this.reset();
     },
 
@@ -177,6 +180,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
         this.staticEntities.length = 0;
         this.i_globalScope = NamespaceScope.instance("", null, this);
+        this.i_functionCalls = [];
         this.send("reset");
     },
 
@@ -203,6 +207,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         return this.i_sourceFiles[name];
     },
 
+    getSourceFiles : function() {
+        return this.i_sourceFiles;
+    },
+
     createTranslationUnitForSourceFile : function(sourceFileName) {
         if (typeof sourceFileName !== "string"){
             sourceFileName = sourceFileName.getName();
@@ -226,6 +234,14 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         this.send("translationUnitRemoved", translationUnit);
     },
 
+    getTranslationUnit : function(name) {
+        return this.i_translationUnits[name];
+    },
+
+    getTranslationUnits : function() {
+        return this.i_translationUnits;
+    },
+
     addStaticEntity : function(obj){
         this.staticEntities.push(obj);
     },
@@ -243,6 +259,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
      */
     compile : function () {
         this.clearNotes();
+        this.i_functionCalls = [];
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
             tu.fullCompile();
@@ -272,17 +289,26 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
             });
         }
 
+        // Make sure all function calls have a definition
+        var calls = this.getFunctionCalls();
+        for(var i = 0; i < calls.length; ++i) {
+            var note = calls[i].checkLinkingProblems();
+            if (note) {
+                this.addNote(note);
+            }
+        }
+
 
         //look for main
         try{
             this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
         }
         catch(e){
-            if (!isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(e);
-                console.log(e.stack);
+            if (isA(e, SemanticExceptions.BadLookup)){
+                this.addNote(e.annotation());
             }
             else{
+                console.log(e.stack);
                 throw e;
             }
         }
@@ -302,6 +328,14 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
     getGlobalScope : function() {
         return this.i_globalScope;
+    },
+
+    getFunctionCalls : function(call) {
+        return this.i_functionCalls;
+    },
+
+    registerFunctionCall : function(call) {
+        this.i_functionCalls.push(call);
     }
 });
 
@@ -320,7 +354,7 @@ var SourceFile = Class.extend({
         this.i_sourceCode = codeStr;
     },
 
-    getSourceCode : function() {
+    getText : function() {
         return this.i_sourceCode;
     }
 
@@ -407,7 +441,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             alreadyIncluded = alreadyIncluded || {};
             alreadyIncluded[this.i_sourceFile.getName()] = true;
 
-            var codeStr = sourceFile.getSourceCode();
+            var codeStr = sourceFile.getText();
 
             codeStr = this.i_filterSourceCode(codeStr);
 
@@ -466,7 +500,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
                     self.i_includes.push(mapping);
 
-                    return included.getSourceCode();
+                    return included.getText();
                 }
             );
 
@@ -483,7 +517,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             // Replace each with
         },
 
-        getSourceCode : function() {
+        getText : function() {
             return this.i_sourceCode;
         },
 
@@ -572,6 +606,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
+        this.i_functionCalls = [];
 
         this.i_main = false;
 
@@ -607,7 +642,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             // TODO NEW not sure this is the best place for it, though.
             Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
 
-            var parsed = Lobster.cPlusPlusParser.parse(this.i_preprocessedSource.getSourceCode());
+            var parsed = Lobster.cPlusPlusParser.parse(this.i_preprocessedSource.getText());
 
             this.send("parsed");
 
@@ -666,6 +701,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		this.topLevelDeclarations.clear();
 		this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
+        this.i_functionCalls = [];
 
         // TODO NEW change
         this.send("clearAnnotations");
@@ -814,6 +850,15 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
     getGlobalScope : function() {
 	    return this.i_globalScope;
+    },
+
+    getFunctionCalls : function(call) {
+	    return this.i_functionCalls;
+    },
+
+    registerFunctionCall : function(call) {
+	    this.i_functionCalls.push(call);
+	    this.i_program.registerFunctionCall(call);
     }
 });
 Lobster.CPP.TranslationUnit = TranslationUnit;
