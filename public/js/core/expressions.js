@@ -1279,10 +1279,13 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
 
         // If either has problems that prevent us from determining type, nothing more can be done
         if (!auxLeft.isWellTyped() || !auxRight.isWellTyped()){
-            // TODO: Check whether these are needed. For now, auxiliary expressions do add their
-            // notes to those of their parent
-            // this.semanticProblems.pushAll(auxLeft.semanticProblems);
-            // this.semanticProblems.pushAll(auxRight.semanticProblems);
+
+            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
+            var self = this;
+            auxLeft.getNotes().forEach(function(note) {self.addNote(note);});
+            auxRight.getNotes().forEach(function(note) {self.addNote(note);});
+
+            return;
         }
 
         if (isA(auxLeft.type, Types.Class) || isA(auxRight.type, Types.Class)){
@@ -2806,9 +2809,12 @@ var FunctionCall = Expression.extend({
                 this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
-            if (!this.context.isMainCall){
+            if (!this.context.isMainCall && !this.context.auxiliary){
                 // Register as a function call in our function context
                 this.context.func.calls.push(this);
+
+                // Register as a call in the translation unit (this is used during the linking process later)
+                this.context.translationUnit.registerFunctionCall(this);
             }
         }
 
@@ -2817,8 +2823,11 @@ var FunctionCall = Expression.extend({
 
     checkLinkingProblems : function(){
         if (!this.func.isLinked()){
-            this.addNote(CPPError.link.def_not_found(this, this.func));
+            var note = CPPError.link.def_not_found(this, this.func);
+            this.addNote(note);
+            return note;
         }
+        return null;
     },
 
     tailRecursionCheck : function(){
@@ -3063,7 +3072,15 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         });
 
         // If we already have errors from any auxiliary arguments, we cannot recover
-        if (this.hasErrors()){ return; }
+        if (auxArgs.some(function(auxArg) {return auxArg.hasErrors()})){
+            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
+            auxArgs.forEach(function(auxArg){
+                auxArg.getNotes().forEach(function(note) {
+                    self.addNote(note);
+                });
+            });
+            return;
+        }
 
         var argTypes = auxArgs.map(function(arg){
             return arg.type;

@@ -271,6 +271,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 
         this.projectEditor = ProjectEditor.instance(sourcePane);
+        this.compilationOutlet = CompilationOutlet.instance(element.find(".translation-units-list"), this.projectEditor.getProgram());
 
 
         this.errorStatus = ValueEntity.instance();
@@ -831,12 +832,9 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         this.i_sourceFiles = {};
         this.i_filesElem = element.find(".project-files");
-        this.i_translationUnitsListElem = $(".translation-units-list");
-        this.i_translationUnitsButtons = {};
         this.i_fileEditors = {};
         this.i_program = Program.instance();
         this.listenTo(this.i_program);
-        this.i_translationUnits = {};
 
         this.i_codeMirror = CodeMirror(element.find(".codeMirrorEditor")[0], {
             mode: FileEditor.CODE_MIRROR_MODE,
@@ -879,11 +877,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
     saveProject : function(projectName) {
         projectName = projectName || this.i_projectName;
         var projectFiles = [];
-        for(var filename in this.i_fileEditors) {
+        for(var filename in this.i_program.getSourceFiles()) {
             projectFiles.push({
                 name: filename,
-                text: this.i_fileEditors[filename].getText(),
-                isTranslationUnit: this.i_translationUnits[filename] ? "yes" : "no"
+                text: this.i_program.getSourceFile(filename).getText(),
+                isTranslationUnit: this.i_program.getTranslationUnit(filename) ? "yes" : "no"
             });
         }
 
@@ -917,11 +915,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         for(var i = 0; i < project.length; ++i) {
             var fileData = project[i];
-            var fileName = fileData["name"];
-
-            var sourceFile = this.i_createFile(fileData);
-
-
+            this.i_createFile(fileData);
         }
 
         // Set first file to be active
@@ -944,19 +938,14 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         }
         this.i_fileEditors = {};
 
-        this.i_translationUnitsListElem.empty();
-        this.i_translationUnitsButtons = {};
-
         if (this.i_program) {
             this.i_program.removeListener(this);
         }
-        this.i_program = Program.instance();
-        this.i_program.addListener(this);
 
-        for (var name in this.i_translationUnits) {
-            this.i_translationUnits[name].removeListener(this);
-        }
-        this.i_translationUnits = {};
+        // this.i_program = Program.instance();
+        this.i_program.reset();
+
+        this.i_program.addListener(this);
     },
 
     getProgram : function() {
@@ -986,32 +975,13 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         item.append(link);
         this.i_filesElem.append(item);
 
-        // Create buttons for each file to toggle whether it's a translation unit or not
-        var button = $('<button class="btn text-muted">' + fileName + '</button>');
-        var self = this;
-        button.click(function(){
-            if (self.i_translationUnits[fileName]) {
-                self.i_removeTranslationUnit(fileName);
-            }
-            else{
-                self.i_addTranslationUnit(fileName);
-            }
-        });
-        this.i_translationUnitsButtons[fileName] = button;
-
-        this.i_translationUnitsListElem.append($('<li></li>').append(button));
-
 
         // Add a translation unit if appropriate
-        if (fileData["isTranslationUnit"]==="yes") {
-            this.i_addTranslationUnit(fileName);
+        if (fileData["isTranslationUnit"] === "yes") {
+            this.i_program.createTranslationUnitForSourceFile(fileName);
             // Note: the TranslationUnit constructor automatically adds itself to the program
 
         }
-
-
-
-        return sourceFile;
     },
 
     i_selectFile : function(filename) {
@@ -1033,27 +1003,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
             this.i_program.fullCompile();
         },
-        linked : function(msg) {
-            var linkerProblems = msg.data;
-            console.log("Project editor knows about linking.");
-            for (var i = 0; i < linkerProblems.length; ++i) {
-                var problem = linkerProblems[i];
-                var tu = problem.getConstructs()[0].getTranslationUnit();
-                var fileEd = this.i_fileEditors[tu.getName()];
-                // fileEd.addAnnotation(GutterAnnotation.instance(
-                //     tu.getSourceReferenceForConstruct(problem.getConstructs()[0]),
-                //     "linker",
-                //     problem.getMessage()
-                // ));
-            }
-        },
         compiled : function(msg) {
-
-            // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
-            var tu = msg.source;
-
-
-            var notes = msg.data;
+            var notes = this.i_program.getNotes();
 
             for(var i = 0; i < notes.length; ++i){
                 var note = notes[i];
@@ -1061,7 +1012,8 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
                     console.log("preprocessor note received: " + note.getMessage());
                 }
                 else if (isA(note, CompilerNote)) {
-                    var sourceRef = tu.getSourceReferenceForConstruct(note.getConstructs()[0]);
+                    // TODO: Should I be annotating more than just the first construct and its source reference?
+                    var sourceRef = note.getConstructs()[0].getSourceReference();
                     var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                     editor.addAnnotation(GutterAnnotation.instance(
                         sourceRef,
@@ -1081,6 +1033,20 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             //     // alert(this.i_semanticProblems.get(i));
             //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
             // }
+        },
+        linked : function() {
+            var linkerNotes = this.i_program.getNotes().filter(function(n) {return isA(n, LinkerNote);});
+            console.log("Project editor knows about linking.");
+            for (var i = 0; i < linkerNotes.length; ++i) {
+                var note = linkerNotes[i];
+                var sourceRef = note.getConstructs()[0].getSourceReference();
+                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+                editor.addAnnotation(GutterAnnotation.instance(
+                    sourceRef,
+                    "linker",
+                    note.getMessage()
+                ));
+            }
         },
         parsed : function(msg){
 
@@ -1137,52 +1103,54 @@ var CompilationOutlet = Class.extend(Observer, {
     _name: "CompilationOutlet",
 
     init: function (element, program) {
-        var self = this;
+        this.i_program = program;
+
 
         this.i_translationUnitsListElem = $(".translation-units-list");
-        this.i_translationUnitsButtons = {};
 
         this.listenTo(program);
 
     },
 
     i_updateButtons : function() {
-        assert(this.i_sourceFiles[fileName]);
-        var translationUnit = this.i_translationUnits[fileName] = this.i_program.createTranslationUnitForSourceFile(this.i_sourceFiles[fileName]);
-        this.listenTo(translationUnit);
-        var button = this.i_translationUnitsButtons[fileName];
-        button.addClass("btn-info");
-        button.removeClass("text-muted");
-    },
+        this.i_translationUnitsListElem.empty();
 
-    i_removeTranslationUnit : function(fileName) {
-        delete this.i_translationUnits[fileName];
-        this.stopListeningTo(this.i_translationUnits[fileName]);
-        this.i_program.removeTranslationUnit(fileName);
-        var button = this.i_translationUnitsButtons[fileName];
-        button.addClass("text-muted");
-        button.removeClass("btn-info");
-    },
-
-    act : {
-        reset : function() {
-
-        },
-        sourceFileAdded : function() {
-
+        // Create buttons for each file to toggle whether it's a translation unit or not
+        for(var fileName in this.i_program.getSourceFiles()) {
+            this.i_createButton(fileName);
         }
-    }
-    /*
+    },
 
-     * Events:
-     *  reset
-     *  sourceFileAdded
-     *  sourceFileRemoved
-     *  translationUnitCreated
-     *  translationUnitRemoved
-     *  compiled
-     *  linked
-     */
+    i_createButton : function(fileName) {
+        var button = $('<button class="btn">' + fileName + '</button>');
+
+        if (this.i_program.getTranslationUnit(fileName)) {
+            button.addClass("btn-info");
+        }
+        else{
+            button.addClass("text-muted");
+        }
+
+        var self = this;
+        button.click(function(){
+            if (self.i_program.getTranslationUnit(fileName)) {
+                self.i_program.removeTranslationUnit(fileName);
+            }
+            else{
+                self.i_program.createTranslationUnitForSourceFile(fileName);
+            }
+        });
+
+        this.i_translationUnitsListElem.append($('<li></li>').append(button));
+    },
+
+    _act : {
+        reset : "i_updateButtons",
+        sourceFileAdded : "i_updateButtons",
+        sourceFileRemoved : "i_updateButtons",
+        translationUnitCreated : "i_updateButtons",
+        translationUnitRemoved : "i_updateButtons"
+    }
 });
 
 
@@ -1204,7 +1172,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
     init: function(fileName, sourceFile, config) {
         this.i_fileName = fileName;
         this.i_sourceFile = sourceFile;
-        this.i_doc =  CodeMirror.Doc(sourceFile.getSourceCode(), this.CODE_MIRROR_MODE);
+        this.i_doc =  CodeMirror.Doc(sourceFile.getText(), this.CODE_MIRROR_MODE);
 
         this.i_config = makeDefaulted(config, Outlets.CPP.FileEditor.DEFAULT_CONFIG);
         this.initParent();

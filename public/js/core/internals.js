@@ -85,6 +85,9 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
+        if (this.parent && this.parent.context.auxiliary){
+            this.context.auxiliary = true;
+        }
 
         if (this.parent && !this.context.auxiliary) {
             this.parent.children.push(this);
@@ -225,7 +228,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         if (note.getType() === Note.TYPE_ERROR) {
             this.i_hasErrors = true;
         }
-        if (this.parent) {
+        if (this.parent && !this.context.auxiliary) {
             this.parent.addNote(note);
         }
     },
@@ -236,6 +239,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
     hasErrors : function() {
         return this.i_hasErrors;
+    },
+
+    getSourceReference : function() {
+        return this.context.translationUnit.getSourceReferenceForConstruct(this);
     }
 });
 
@@ -1924,6 +1931,9 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     },
     describe : function(sim, inst){
         return this.decl.describe(sim, inst);
+    },
+    isLinked : function() {
+        return this.isDefined();
     }
 });
 
@@ -1976,7 +1986,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         return this.virtual;
     },
     isLinked : function(){
-        return this.virtual && this.pureVirtual || FunctionEntity.isLinked.apply(this);
+        return this.virtual && this.pureVirtual || this.isDefined();
     },
     lookup : function(sim, inst){
         if (this.virtual){
