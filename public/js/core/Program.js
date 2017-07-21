@@ -263,7 +263,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
             tu.fullCompile();
-            this.addNotes(tu.getNotes);
+            this.addNotes(tu.getNotes());
         }
         this.send("compiled");
     },
@@ -456,6 +456,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             this.i_sourceCode = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
                 function(includeLine, filename, offset, original) {
 
+
                     var mapping = {};
 
                     // Find the line number of this include by adding up the number of newline characters
@@ -467,7 +468,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                         }
                     }
                     mapping.startLine = currentIncludeLineNumber;
-                    mapping.startOffset = currentIncludeOffset;
+                    mapping.startOffset = offset;
 
                     currentIncludeOffset = offset + includeLine.length;
 
@@ -475,13 +476,15 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                     // // [1] yields only the match for the part of the regex in parentheses
                     // var filename = includeLine.match(/"(.*)"/)[1];
 
-                    // Recursively preprocess the included file
+
+                    // check for self inclusion
                     if (alreadyIncluded[filename]) {
                         self.i_translationUnit.addNote(CPPError.preprocess.recursiveInclude(
                             SourceReference.instance(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
-                        return ""; // replace with nothing i.e. ignore it
+                        return Array(includeLine.length).join(" "); // replace with spaces
                     }
-                    assert(!alreadyIncluded[filename], "Recursive #include detected!");
+
+                    // Recursively preprocess the included file
                     var includedSourceFile = translationUnit.i_program.getSourceFile(filename);
 
                     var included = self._class.instance(translationUnit, includedSourceFile,
@@ -635,6 +638,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             //}));
             //return;
 
+            this.clearNotes();
 
             this.i_preprocess();
 
@@ -697,7 +701,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         var self = this;
         //console.log("compiling");
-        this.clearNotes();
 		this.topLevelDeclarations.clear();
 		this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
