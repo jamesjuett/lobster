@@ -1009,7 +1009,13 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             for(var i = 0; i < notes.length; ++i){
                 var note = notes[i];
                 if (isA(note, PreprocessorNote)) {
-                    console.log("preprocessor note received: " + note.getMessage());
+                    var sourceRef = note.getSourceReference();
+                    var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
+                    editor.addAnnotation(GutterAnnotation.instance(
+                        sourceRef,
+                        note.getType(),
+                        note.getMessage()
+                    ));
                 }
                 else if (isA(note, CompilerNote)) {
                     // TODO: Should I be annotating more than just the first construct and its source reference?

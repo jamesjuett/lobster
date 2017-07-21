@@ -712,7 +712,7 @@ var CPPError = {
     },
     preprocess : {
         recursiveInclude : function(sourceRef){
-             return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the origianl, etc.");
+             return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
         }
     },
 };
