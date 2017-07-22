@@ -250,8 +250,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
      * Compiles all translation units that are part of this program and then links the program.
      */
     fullCompile : function() {
+        this.send("fullCompilationStarted");
         this.compile();
         this.link();
+        this.send("fullCompilationFinished");
     },
 
     /**

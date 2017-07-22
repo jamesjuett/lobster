@@ -271,7 +271,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 
         this.projectEditor = ProjectEditor.instance(sourcePane);
-        this.compilationOutlet = CompilationOutlet.instance(element.find(".translation-units-list"), this.projectEditor.getProgram());
+        this.compilationOutlet = CompilationOutlet.instance(element.find("#compilationPane"), this.projectEditor.getProgram());
 
 
         this.errorStatus = ValueEntity.instance();
@@ -1112,7 +1112,8 @@ var CompilationOutlet = Class.extend(Observer, {
         this.i_program = program;
 
 
-        this.i_translationUnitsListElem = $(".translation-units-list");
+        this.i_translationUnitsListElem = element.find(".translation-units-list");
+        this.compilationNotesOutlet = CompilationNotesOutlet.instance(element.find(".compilation-notes-list"), program);
 
         this.listenTo(program);
 
@@ -1156,6 +1157,35 @@ var CompilationOutlet = Class.extend(Observer, {
         sourceFileRemoved : "i_updateButtons",
         translationUnitCreated : "i_updateButtons",
         translationUnitRemoved : "i_updateButtons"
+    }
+});
+
+/**
+ * Allows a user to view and manage the compilation scheme for a program.
+ */
+var CompilationNotesOutlet = Class.extend(Observer, {
+    _name: "CompilationNotesOutlet",
+
+    init: function (element, program) {
+        this.i_element = element;
+        this.i_program = program;
+
+        this.listenTo(program);
+
+    },
+
+    i_updateNotes : function() {
+        this.i_element.empty();
+
+        var self = this;
+        this.i_program.getNotes().forEach(function(note) {
+            self.i_element.append($('<li>' + note.getMessage() + '</li>'))
+        });
+    },
+
+    _act : {
+        reset : "i_updateNotes",
+        fullCompilationFinished : "i_updateNotes"
     }
 });
 
