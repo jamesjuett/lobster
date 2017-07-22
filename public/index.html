@@ -81,7 +81,7 @@
         </div>
         <div class="col-xs-8 col-sm-9 col-md-10">
             <ul class="nav nav-tabs">
-                <li><a data-toggle="tab" href="#projectSettingsPane">Project Settings</a></li>
+                <li><a data-toggle="tab" href="#compilationPane">Compilation</a></li>
                 <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
                 <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
                 <li style="float: right; padding-top: 10px;">
@@ -92,7 +92,7 @@
 
             <div class="tab-content">
 
-                <div id="projectSettingsPane" class="tab-pane fade">
+                <div id="compilationPane" class="tab-pane fade">
                     <div>
                         <h3>Translation Units</h3>
                         <p>A program may be composed of many different translation units, one for each source file
@@ -105,6 +105,13 @@
                             Click files below to toggle whether they are being used to create a translation unit.
                         </p>
                         <ul class="translation-units-list list-inline">
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Compilation Errors</h3>
+                        <p>These errors were based on your last compilation.
+                        </p>
+                        <ul class="compilation-notes-list">
                         </ul>
                     </div>
                     <div>
