@@ -67,6 +67,20 @@ var Note = Class.extend({
         this.i_type = type;
     },
 
+    /**
+     * Returns the primary source reference for this note, although more than one may exist.
+     * Use the getAllSourceReferences function to retrieve an array of all source references.
+     * If the note doesn't concern any particular part of the source (i.e. no source references exist), returns null.
+     * @returns {?SourceReference}
+     */
+    getSourceReference : Class._ABSTRACT,
+
+    /**
+     * Returns an array of all source references for this note.
+     * If the note doesn't concern any particular part of the source (i.e. no source references exist),
+     * returns an empty array.
+     */
+    getAllSourceReferences : Class._ABSTRACT,
 
     /**
      *
@@ -98,6 +112,10 @@ var PreprocessorNote = Note.extend({
         return this.i_sourceRef || null;
     },
 
+    getAllSourceReferences : function() {
+        return [this.getSourceReference()];
+    },
+
     /**
      *
      * @returns {String}
@@ -113,8 +131,8 @@ var CompilerNote = Note.extend({
     /**
      * Initializes a CompilerNote associated with the provided constructs.
      * @param {?CPPCode | ?CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {String} type one of the types associated with this class
      * @param {String} message A message describing the problem.
-     * @type {String} one of the types associated with this class
      */
     init : function(constructs, type, message) {
         this.initParent(type);
@@ -137,6 +155,16 @@ var CompilerNote = Note.extend({
      */
     getConstructs : function() {
         return this.i_constructs;
+    },
+
+    getSourceReference : function() {
+        return this.i_constructs.length > 0 ? this.i_constructs[0].getSourceReference() : null;
+    },
+
+    getAllSourceReferences : function() {
+        return this.i_constructs.map(
+            function(construct) { return construct.getSourceReference(); }
+        );
     },
 
     /**
