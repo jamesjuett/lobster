@@ -1,3 +1,7 @@
+a {
+	cursor: pointer;
+}
+
 /**:focus{*/
 	/*border: solid red 3px;*/
 /*}*/
@@ -376,6 +380,9 @@ div .tabPane {
 	border-bottom: solid 1px rgb(0,100,100);
 }
 
+.CodeMirror {
+	height: 400px;
+}
 
 .CodeMirror .widgetHolder{
 	position: absolute;
@@ -718,4 +725,20 @@ ul.stackFrames li{
 @keyframes spin {
 	0% { transform: rotate(0deg); }
 	100% { transform: rotate(360deg); }
+}
+
+.label.lobster-note-error {
+	background-color: #d9534f
+}
+
+.label.lobster-note-warning {
+	background-color: #f0ad4e
+}
+
+.label.lobster-note-style {
+	background-color: #c381ff
+}
+
+.label.lobster-note-other {
+	background-color: #777
 }

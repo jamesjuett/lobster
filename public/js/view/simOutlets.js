@@ -240,6 +240,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         // Set up simulation and source tabs
         // var sourceTab = element.find(".sourceTab");
         // var simTab = element.find(".simTab");
+
+        this.i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
+
+
         var sourcePane = element.find("#sourcePane");
         var simPane = element.find("#simPane");
 
@@ -271,6 +275,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
 
         this.projectEditor = ProjectEditor.instance(sourcePane);
+        this.listenTo(this.projectEditor);
+
+        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+        this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
+            self.projectEditor.refreshEditorView();
+        });
+
+
         this.compilationOutlet = CompilationOutlet.instance(element.find("#compilationPane"), this.projectEditor.getProgram());
 
 
@@ -693,6 +705,18 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     _act : {
         loadCode : "loadCode",
         loadProject : "loadProject",
+        requestFocus : function(msg) {
+            if (msg.source === this.projectEditor) {
+                var self = this;
+                var response = function() {
+                    self.i_tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
+                    msg.data();
+                };
+                // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+                this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
+                this.i_tabsElem.find('a[href="#sourcePane"]').tab("show");
+            }
+        },
         runTo: "runTo",
         skipToEnd: "skipToEnd",
         compiled : function(msg){
@@ -811,7 +835,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
  * also internally routes annotations (e.g. for compilation errors) to the appropriate
  * editor based on the source reference of the annotation.
  */
-var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
+var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, Observable, {
     _name : "ProjectEditor",
 
     API_URL_LOAD_PROJECT : "/api/me/project/get/",
@@ -831,6 +855,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         var self = this;
 
         this.i_sourceFiles = {};
+        this.i_fileTabs = [];
         this.i_filesElem = element.find(".project-files");
         this.i_fileEditors = {};
         this.i_program = Program.instance();
@@ -839,7 +864,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         this.i_codeMirror = CodeMirror(element.find(".codeMirrorEditor")[0], {
             mode: FileEditor.CODE_MIRROR_MODE,
             theme: "monokai",
-            height: "auto",
+            height: "400px",
             lineNumbers: true,
             tabSize: 2,
             extraKeys: {
@@ -849,6 +874,10 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
+
+        // setInterval(function() {
+        //     self.i_codeMirror.scrollIntoView({line: 50, ch: 0}, 10);
+        // }, 1000);
 
         this.s_instances.push(this);
     },
@@ -931,6 +960,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
         this.i_sourceFiles = {};
 
+        this.i_fileTabs = {};
         this.i_filesElem.empty();
 
         for (var filename in this.i_fileEditors) {
@@ -969,10 +999,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         var item = $('<li></li>');
         var link = $('<a href="" data-toggle="pill">' + fileData["name"] + '</a>');
         var self = this;
-        link.click(function(){
+        link.on("shown.bs.tab", function(){
             self.i_selectFile(fileName);
         });
         item.append(link);
+        this.i_fileTabs[fileData["name"]] = link;
         this.i_filesElem.append(item);
 
 
@@ -993,6 +1024,13 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
         return this.i_fileEditors[fileName];
     },
 
+    refreshEditorView : function() {
+        this.i_codeMirror.refresh();
+
+        // scroll cursor (indicated by null) into view with vertical margin of 50 pixels
+        this.i_codeMirror.scrollIntoView(null, 50);
+    },
+
     _act : {
         textChanged : function() {
             this.i_isSaved = false;
@@ -1003,6 +1041,15 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, {
 
             this.i_program.fullCompile();
         },
+
+        requestFocus : function(msg) {
+            this.send("requestFocus");
+            if (isA(msg.source, FileEditor)) {
+                var ed = msg.source;
+                this.i_fileTabs[ed.getFileName()].tab("show");
+            }
+        },
+
         compiled : function(msg) {
             var notes = this.i_program.getNotes();
 
@@ -1160,6 +1207,18 @@ var CompilationOutlet = Class.extend(Observer, {
     }
 });
 
+var NoteCSSClasses = {};
+NoteCSSClasses[Note.TYPE_ERROR] = "lobster-note-error";
+NoteCSSClasses[Note.TYPE_WARNING] = "lobster-note-warning";
+NoteCSSClasses[Note.TYPE_STYLE] = "lobster-note-style";
+NoteCSSClasses[Note.TYPE_OTHER] = "lobster-note-other";
+
+var NoteDescriptions= {};
+NoteDescriptions[Note.TYPE_ERROR] = "Error";
+NoteDescriptions[Note.TYPE_WARNING] = "Warning";
+NoteDescriptions[Note.TYPE_STYLE] = "Style";
+NoteDescriptions[Note.TYPE_OTHER] = "Info";
+
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */
@@ -1179,8 +1238,28 @@ var CompilationNotesOutlet = Class.extend(Observer, {
 
         var self = this;
         this.i_program.getNotes().forEach(function(note) {
-            self.i_element.append($('<li>' + note.getMessage() + '</li>'))
+
+            var item = $('<li></li>');
+            item.append(self.i_createBadgeForNote(note)).append(" ");
+
+            var ref = note.getSourceReference();
+            if (ref){
+                var sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
+                SourceReferenceOutlet.instance(sourceReferenceElem, ref, self.i_program);
+                item.append(sourceReferenceElem).append(" ");
+            }
+
+            item.append(note.getMessage());
+
+            self.i_element.append(item);
         });
+    },
+
+    i_createBadgeForNote : function(note) {
+        var elem = $('<span class="label"></span>');
+        elem.html(NoteDescriptions[note.getType()]);
+        elem.addClass(NoteCSSClasses[note.getType()]);
+        return elem;
     },
 
     _act : {
@@ -1189,10 +1268,30 @@ var CompilationNotesOutlet = Class.extend(Observer, {
     }
 });
 
+var SourceReferenceOutlet = Class.extend({
+    _name : "SourceReferenceOutlet",
+
+    /**
+     *
+     * @param element
+     * @param {SourceReference} sourceReference
+     */
+    init : function (element, sourceReference) {
+        this.i_element = element;
+        var link = $('<a><code>' + sourceReference.sourceFile.getName() + ':' + sourceReference.line + '</code></a>');
+
+        link.click(function() {
+            sourceReference.sourceFile.send("gotoSourceReference", sourceReference, this);
+        });
+
+        element.append(link);
+    }
+});
+
 
 var IDLE_MS_BEFORE_COMPILE = 1000;
 
-var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
+var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Observer, {
     _name: "FileEditor",
     CODE_MIRROR_MODE : "text/x-c++src",
     DEFAULT_CONFIG : {
@@ -1223,6 +1322,8 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
         this.i_doc.on("change", function(e){
             self.i_onEdit();
         });
+
+        this.listenTo(sourceFile);
 
 
         //this.loadCode({name: "program.cpp", code: this.i_config.initCode});
@@ -1319,6 +1420,18 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, {
         }
 
         this.i_annotations.length = 0;
+    },
+
+    _act : {
+        gotoSourceReference : function(msg) {
+            var ref = msg.data;
+            console.log("got the message " + ref.sourceFile.getName() + ":" + ref.line);
+            var self = this;
+            this.send("requestFocus", function() {});
+            this.i_doc.setCursor({line: ref.line, ch: ref.column}, {scroll:true});
+            // self.i_doc.scrollIntoView(, 10);
+            // });
+        }
     }
 
 });

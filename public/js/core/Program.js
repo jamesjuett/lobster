@@ -341,7 +341,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
     }
 });
 
-var SourceFile = Class.extend({
+var SourceFile = Class.extend(Observable, {
 
     init : function(name, sourceCode) {
         this.i_name = name;
@@ -483,7 +483,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                     if (alreadyIncluded[filename]) {
                         self.i_translationUnit.addNote(CPPError.preprocess.recursiveInclude(
                             SourceReference.instance(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
-                        return Array(includeLine.length).join(" "); // replace with spaces
+                        return Array(includeLine.length + 1).join(" "); // replace with spaces
                     }
 
                     // Recursively preprocess the included file
