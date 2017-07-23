@@ -285,6 +285,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.compilationOutlet = CompilationOutlet.instance(element.find("#compilationPane"), this.projectEditor.getProgram());
 
+        this.compilationStatusOutlet = CompilationStatusOutlet.instance(element.find(".compilation-status-outlet"), this.projectEditor.getProgram());
 
         this.errorStatus = ValueEntity.instance();
 
@@ -719,11 +720,11 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         },
         runTo: "runTo",
         skipToEnd: "skipToEnd",
-        compiled : function(msg){
-            this.errorStatus.setValue("Compilation successful!");
-            this.statusElem.removeClass("error");
-            this.runButton.css("display", "inline-block");
-        },
+        // compiled : function(msg){
+        //     this.errorStatus.setValue("Compilation successful!");
+        //     this.statusElem.removeClass("error");
+        //     this.runButton.css("display", "inline-block");
+        // },
         syntaxError : function(msg){
             var err = msg.data;
             this.errorStatus.setValue("Syntax error at line " + err.line + ", column " + err.column/* + ": " + err.message*/);
@@ -1050,32 +1051,19 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
             }
         },
 
-        compiled : function(msg) {
+        fullCompilationFinished : function(msg) {
             var notes = this.i_program.getNotes();
 
             for(var i = 0; i < notes.length; ++i){
                 var note = notes[i];
-                if (isA(note, PreprocessorNote)) {
-                    var sourceRef = note.getSourceReference();
+                var sourceRef = note.getSourceReference();
+                if (sourceRef) {
                     var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
                     editor.addAnnotation(GutterAnnotation.instance(
                         sourceRef,
                         note.getType(),
                         note.getMessage()
                     ));
-                }
-                else if (isA(note, CompilerNote)) {
-                    // TODO: Should I be annotating more than just the first construct and its source reference?
-                    var sourceRef = note.getConstructs()[0].getSourceReference();
-                    var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
-                    editor.addAnnotation(GutterAnnotation.instance(
-                        sourceRef,
-                        note.getType(),
-                        note.getMessage()
-                    ));
-                }
-                else if (isA(note, LinkerNote)) {
-                    console.log("linker note received: " + note.getMessage());
                 }
 
             }
@@ -1086,20 +1074,6 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
             //     // alert(this.i_semanticProblems.get(i));
             //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
             // }
-        },
-        linked : function() {
-            var linkerNotes = this.i_program.getNotes().filter(function(n) {return isA(n, LinkerNote);});
-            console.log("Project editor knows about linking.");
-            for (var i = 0; i < linkerNotes.length; ++i) {
-                var note = linkerNotes[i];
-                var sourceRef = note.getConstructs()[0].getSourceReference();
-                var editor = this.i_fileEditors[sourceRef.sourceFile.getName()];
-                editor.addAnnotation(GutterAnnotation.instance(
-                    sourceRef,
-                    "linker",
-                    note.getMessage()
-                ));
-            }
         },
         parsed : function(msg){
 
@@ -1265,6 +1239,30 @@ var CompilationNotesOutlet = Class.extend(Observer, {
     _act : {
         reset : "i_updateNotes",
         fullCompilationFinished : "i_updateNotes"
+    }
+});
+
+var CompilationStatusOutlet = Class.extend(Observer, {
+    _name: "CompilationStatusOutlet",
+
+    init: function (element, program) {
+        this.i_element = element;
+        this.i_program = program;
+
+        this.listenTo(program);
+
+    },
+
+    _act : {
+        reset : function () {
+
+        },
+        fullCompilationStarted : function () {
+            this.i_element.html("compilation started");
+        },
+        fullCompilationFinished : function () {
+            this.i_element.html("compilation finished");
+        }
     }
 });
 
