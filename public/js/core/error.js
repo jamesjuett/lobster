@@ -125,8 +125,8 @@ var PreprocessorNote = Note.extend({
     }
 });
 
-var CompilerNote = Note.extend({
-    _name: "CompilerNote",
+var CompilerLinkerNoteBase = Note.extend({
+    _name: "CompilerLinkerNoteBase",
 
     /**
      * Initializes a CompilerNote associated with the provided constructs.
@@ -177,6 +177,13 @@ var CompilerNote = Note.extend({
 
 });
 
+var CompilerNote = CompilerLinkerNoteBase.extend({
+    _name: "CompilerNote"
+});
+
+var LinkerNote = CompilerLinkerNoteBase.extend({
+    _name: "LinkerNote"
+});
 
 var makeError = function(src, type, message){
     //src = src || {context:{}};
@@ -188,9 +195,6 @@ var makeError = function(src, type, message){
     }
 };
 
-var LinkerNote = CompilerNote.extend({
-    _name: "LinkerNote"
-});
 
 var CPPError = {
 	attributeEmptyTo : function(problems, code){

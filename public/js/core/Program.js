@@ -160,8 +160,12 @@ var NoteRecorder = NoteHandler.extend({
  *  sourceFileRemoved
  *  translationUnitCreated
  *  translationUnitRemoved
- *  compiled
- *  linked
+ *  fullCompilationStarted
+ *  fullCompilationFinished
+ *  compilationStarted
+ *  compilationFinished
+ *  linkingStarted
+ *  linkingFinished
  */
 var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
     _name : "Program",
@@ -260,6 +264,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
      * Compiles all translation units that are part of this program.
      */
     compile : function () {
+        this.send("compilationStarted");
         this.clearNotes();
         this.i_functionCalls = [];
         for(var name in this.i_translationUnits) {
@@ -267,10 +272,11 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
             tu.fullCompile();
             this.addNotes(tu.getNotes());
         }
-        this.send("compiled");
+        this.send("compilationFinished");
     },
 
     link : function() {
+        this.send("linkingStarted");
 
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
@@ -315,8 +321,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
             }
         }
 
-        console.log("linked successfully");
-        this.send("linked");
+        this.send("linkingFinished");
 
         // else if (decl.name === "main") {
         //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
@@ -426,7 +431,7 @@ var SourceReference = Class.extend({
  * Events:
  *   "parsed": after parsing is finished *successfully*
  *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
- *   "compiled": after compilation is finished. data is a SemanticProblems object
+ *   "compilationFinished": after compilation is finished
  */
 var TranslationUnit = Class.extend(Observable, NoteRecorder, {
     _name: "TranslationUnit",
@@ -628,6 +633,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
     },
 
     fullCompile : function() {
+        this.send("tuFullCompilationStarted");
         // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
 
@@ -654,7 +660,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
             this.i_compile(parsed);
 
-            this.send("compiled", this.getNotes());
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
@@ -667,6 +672,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 				throw err;
 			}
 		}
+        this.send("tuFullCompilationFinished");
 	},
 
     i_preprocess : function(codeStr) {
