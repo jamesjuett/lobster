@@ -810,7 +810,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
             // Need to select constructor, so have to compile auxiliary arguments
             var auxArgs = args.map(function (arg) {
-                var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: true});
+                var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
                 auxArg.compile(scope);
                 return auxArg;
             });

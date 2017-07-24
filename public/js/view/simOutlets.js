@@ -1036,11 +1036,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
         textChanged : function() {
             this.i_isSaved = false;
 
-            for(var ed in this.i_fileEditors) {
-                this.i_fileEditors[ed].clearAnnotations();
-            }
-
-            this.i_program.fullCompile();
+            // this.i_program.fullCompile();
         },
 
         requestFocus : function(msg) {
@@ -1052,6 +1048,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
         },
 
         fullCompilationFinished : function(msg) {
+
+            for(var ed in this.i_fileEditors) {
+                this.i_fileEditors[ed].clearAnnotations();
+            }
+
             var notes = this.i_program.getNotes();
 
             for(var i = 0; i < notes.length; ++i){
@@ -1249,6 +1250,16 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         this.i_element = element;
         this.i_program = program;
 
+        var self = this;
+        this.i_compileButton = $('<button class="btn">Compile</button>')
+            .click(function() {
+                self.i_program.fullCompile();
+            })
+            .appendTo(this.i_element);
+
+        this.i_statusElem = $('<span></span>');
+        this.i_element.append(this.i_statusElem);
+
         this.listenTo(program);
 
     },
@@ -1257,11 +1268,13 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         reset : function () {
 
         },
-        fullCompilationStarted : function () {
-            this.i_element.html("compilation started");
-        },
-        fullCompilationFinished : function () {
-            this.i_element.html("compilation finished");
+        isCompilationUpToDate : function (msg) {
+            if (msg.data) {
+                this.i_statusElem.html("compilation up to date");
+            }
+            else {
+                this.i_statusElem.html("compilation is NOT up to date");
+            }
         }
     }
 });
@@ -1357,7 +1370,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         }
         var self = this;
         this.i_onEditTimeout = setTimeout(function(){
-            self.i_sourceFile.setSourceCode(self.getText());
+            self.i_sourceFile.setText(self.getText());
 
             self.send("textChanged", newText);
         }, IDLE_MS_BEFORE_COMPILE);
