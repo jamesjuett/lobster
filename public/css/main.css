@@ -742,3 +742,7 @@ ul.stackFrames li{
 .label.lobster-note-other {
 	background-color: #777
 }
+
+.btn > .glyphicon {
+	vertical-align: text-top;
+}
