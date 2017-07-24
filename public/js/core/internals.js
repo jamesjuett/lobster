@@ -75,6 +75,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
         this.context = context;
 
+
         // Find function context if none set
         if (!this.context.func && this.context.parent){
             this.context.func = this.context.parent.context.func;
@@ -85,11 +86,19 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         }
 
         this.parent = context.parent;
-        if (this.parent && this.parent.context.auxiliary){
-            this.context.auxiliary = true;
+
+        // by default, auxiliary level inherited from parent.
+        // if no parent, base auxiliary level of 0
+        if (!this.context.auxiliary) {
+            if (this.parent){
+                this.context.auxiliary = this.parent.context.auxiliary;
+            }
+            else{
+                this.context.auxiliary = 0;
+            }
         }
 
-        if (this.parent && !this.context.auxiliary) {
+        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
             this.parent.children.push(this);
         }
 
@@ -228,7 +237,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         if (note.getType() === Note.TYPE_ERROR) {
             this.i_hasErrors = true;
         }
-        if (this.parent && !this.context.auxiliary) {
+        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
             this.parent.addNote(note);
         }
     },

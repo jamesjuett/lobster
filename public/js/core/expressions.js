@@ -963,7 +963,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
             //var assnOp = this.lhs.type.memberMap["operator="];
-            var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: true});
+            var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxRhs.compile(this.compileScope);
 
             try{
@@ -1271,8 +1271,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
     compile : function(scope){
 
         // Compile left
-        var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: true});
-        var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: true});
+        var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: this.context.auxiliary + 1});
+        var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: this.context.auxiliary + 1});
 
         auxLeft.compile(scope);
         auxRight.compile(scope);
@@ -1870,7 +1870,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     },
 
     compile : function(scope){
-        var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: true});
+        var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
         auxOperand.compile(scope);
 
         if (isA(auxOperand.type, Types.Class)){
@@ -2344,7 +2344,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         if (isA(this.operand.type, Types.Class)){
             this.isOverloaded = true;
 
-            var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: true});
+            var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxOffset.compile(scope);
 
             this.processMemberOverload(this.operand, [auxOffset], "[]");
@@ -2485,7 +2485,7 @@ var Dot = Expressions.Dot = Expression.extend({
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
                 this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
-                this.addNote(e.annotation(this));
+                // this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -2568,7 +2568,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
                 this.addNote(CPPError.expr.arrow.memberLookup(this, this.operand.type.ptrTo, this.memberName));
-                this.addNote(e.annotation(this));
+                // this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -3066,8 +3066,8 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
 
         // Need to select function, so have to compile auxiliary arguments
         var auxArgs = this.code.args.map(function(arg){
-            var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: true});
-            auxArg.compile(scope);
+            var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
+            auxArg.tryCompile(scope);
             return auxArg;
         });
 

@@ -167,30 +167,41 @@ var NoteRecorder = NoteHandler.extend({
  *  linkingStarted
  *  linkingFinished
  */
-var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
+var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecorder, {
     _name : "Program",
 
     init : function () {
         NoteRecorder.init.apply(this, arguments);
 
         this.staticEntities = [];
+        this.i_isCompilationUpToDate = false;
 
         this.reset();
     },
 
     reset : function () {
         this.i_translationUnits = {};
+
+        for (var fileName in this.i_sourceFiles) {
+            this.stopListeningTo(this.i_sourceFiles[fileName]);
+        }
+
         this.i_sourceFiles = {};
 
         this.staticEntities.length = 0;
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.i_functionCalls = [];
+
+        this.i_includedSourceFiles = {};
+
+        this.i_setCompilationUpToDate(true);
         this.send("reset");
     },
 
     addSourceFile : function(sourceFile) {
         assert(!this.i_sourceFiles[sourceFile.getName()]);
         this.i_sourceFiles[sourceFile.getName()] = sourceFile;
+        this.listenTo(sourceFile);
         this.send("sourceFileAdded", sourceFile);
     },
 
@@ -201,6 +212,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         if(this.i_sourceFiles[sourceFile]){
             delete this.i_sourceFiles[sourceFile];
         }
+
+        this.stopListeningTo(sourceFile);
 
         // Also remove any associated translation unit (if it exists)
         this.removeTranslationUnit(sourceFile);
@@ -224,6 +237,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
         var tu = TranslationUnit.instance(this, this.i_sourceFiles[sourceFileName]);
         this.i_translationUnits[tu.getName()] = tu;
+
+        this.i_setCompilationUpToDate(false);
+
         this.send("translationUnitCreated", tu);
         return tu;
     },
@@ -235,6 +251,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         if(this.i_translationUnits[translationUnit]){
             delete this.i_translationUnits[translationUnit];
         }
+
+        this.i_setCompilationUpToDate(false);
+
         this.send("translationUnitRemoved", translationUnit);
     },
 
@@ -257,6 +276,9 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         this.send("fullCompilationStarted");
         this.compile();
         this.link();
+
+        this.i_setCompilationUpToDate(true);
+
         this.send("fullCompilationFinished");
     },
 
@@ -267,9 +289,13 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
         this.send("compilationStarted");
         this.clearNotes();
         this.i_functionCalls = [];
+        this.i_includedSourceFiles = {};
+
         for(var name in this.i_translationUnits) {
             var tu = this.i_translationUnits[name];
+
             tu.fullCompile();
+            mixin(this.i_includedSourceFiles, tu.getIncludedSourceFiles());
             this.addNotes(tu.getNotes());
         }
         this.send("compilationFinished");
@@ -343,26 +369,44 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, NoteRecorder, {
 
     registerFunctionCall : function(call) {
         this.i_functionCalls.push(call);
+    },
+
+    isCompilationUpToDate : function() {
+        return this.i_isCompilationUpToDate;
+    },
+
+    i_setCompilationUpToDate : function(isUpToDate) {
+        this.i_isCompilationUpToDate = isUpToDate;
+        this.send("isCompilationUpToDate", isUpToDate);
+    },
+
+    _act : {
+        textChanged : function(msg) {
+            if (this.i_includedSourceFiles[msg.source.getName()]) {
+                this.i_setCompilationUpToDate(false);
+            }
+        }
     }
 });
 
 var SourceFile = Class.extend(Observable, {
 
-    init : function(name, sourceCode) {
+    init : function(name, text) {
         this.i_name = name;
-        this.setSourceCode(sourceCode);
+        this.setText(text);
     },
 
     getName : function() {
         return this.i_name;
     },
 
-    setSourceCode : function(codeStr) {
-        this.i_sourceCode = codeStr;
+    setText : function(text) {
+        this.i_text = text;
+        this.send("textChanged");
     },
 
     getText : function() {
-        return this.i_sourceCode;
+        return this.i_text;
     }
 
 });
@@ -524,7 +568,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             this.numLines = currentIncludeLineNumber;
             this.length = this.i_sourceCode.length;
 
-            // Replace each with
+            this.i_sourceFilesIncluded = alreadyIncluded;
         },
 
         getText : function() {
@@ -681,6 +725,12 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
     },
 
+    getIncludedSourceFiles : function() {
+        if (!this.i_preprocessedSource) { return {}; }
+
+        return this.i_preprocessedSource.i_sourceFilesIncluded;
+    },
+
     getSourceReferenceForConstruct : function(construct) {
         assert(this.i_preprocessedSource, "Can't get source references until preprocessing has been done.");
 
@@ -691,16 +741,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
     getSourceReference : function(line, column, start, end) {
         return this.i_preprocessedSource.getSourceReference(line, column, start, end);
-    },
-
-    i_preprocessImpl : function(codeStr) {
-
-        // NOTE: carriage returns should be filtered out previous to calling this function
-
-
-
-
-        return codeStr;
     },
 
 	i_compile : function(code){
