@@ -64,10 +64,10 @@
 
 <div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
     <div class="container-fluid">
-        <div style="display: inline-block; vertical-align: middle;">
+        <h4 style="display: inline-block; vertical-align: middle; margin-left: 10px;">Lobster: A C++ Program Visualization Tool for Education</h4>
+        <div style="display: inline-block; float: right; vertical-align: middle;">
             <div class="g-signin2" data-onsuccess="onSignIn"></div>
         </div>
-        <h4 style="display: inline-block; vertical-align: middle; margin-left: 10px;">Lobster: A C++ Program Visualization Tool for Education</h4>
         <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
 </div>
@@ -80,17 +80,23 @@
 
         </div>
         <div class="col-xs-8 col-sm-9 col-md-10">
-            <ul class="lobster-simulation-outlet-tabs nav nav-tabs">
+            <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
+                <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
+                    <div style="display: inline-block">
+                        <div class = "compilation-status-outlet" >
+                        </div>
+                    </div>
+                    <div style="display: inline-block">
+                        <div>
+                            <span class = "project-save-outlet"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <li><a data-toggle="tab" href="#compilationPane">Compilation</a></li>
                 <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
                 <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
-                <li style="float: right; padding-top: 10px;">
-                    <div class = "loader loader-inline"></div>
-                    Saving...
-                </li>
-                <li class = "compilation-status-outlet" style="float: right; padding-top: 10px;">
 
-                </li>
             </ul>
 
             <div class="tab-content">
@@ -123,14 +129,11 @@
                         The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.
                     </div>
                 </div>
+
+
                 <div id="sourcePane" class="tab-pane fade active in">
                     <ul class="project-files nav nav-pills"></ul>
 
-                    <div id="projectEditorControls" class = "panel panel-default">
-                        <input class="saveName" type="text" maxlength="30" value="" />
-                        <button class="saveButton">Save</button>
-                        <span class="saveMessage" style="display: none">Saving...</span>
-                    </div>
                     <div style = "height: 22px; padding: 2px; background-color: lightgray;">
                         <button class = "runButton" style="display: inline-block">Simulate</button>
                         <span class="status"></span>
@@ -391,12 +394,6 @@
                     });
                 }
             }, 10000);
-
-            setInterval(function(){
-                if (simOutlet.projectEditor.isOpen() && !simOutlet.projectEditor.isSaved()){
-                    simOutlet.saveFunc(true);
-                }
-            }, 30000);
 //        simOutlet.editor.listenTo(codeList);
 
 

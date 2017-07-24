@@ -286,6 +286,8 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.compilationOutlet = CompilationOutlet.instance(element.find("#compilationPane"), this.projectEditor.getProgram());
 
         this.compilationStatusOutlet = CompilationStatusOutlet.instance(element.find(".compilation-status-outlet"), this.projectEditor.getProgram());
+        this.projectSaveOutlet = ProjectSaveOutlet.instance(element.find(".project-save-outlet"), this.projectEditor);
+
 
         this.errorStatus = ValueEntity.instance();
 
@@ -358,31 +360,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         //     var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
             // this.saveNameEnt = ValueEntity.instance("saveName", "program");
             // ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
-            this.saveButton = element.find(".saveButton");
-            this.saveMessage = element.find(".saveMessage");
 
-            this.saveFunc = function(suppressAlert){
-                // var name = self.saveNameEnt.value().trim();
-                //
-                // if (name.match(filenameRegex)){
-                    self.projectEditor.saveProject();
-                    self.saveMessage.html("Saving...").show();
-                    // $.post("api/me/save", {idtoken: ID_TOKEN, name: name, code: self.editor.getText()}, function(){
-                    //     console.log("save successful");
-                        self.saveMessage.html("Saved!").fadeOut(5000);
-                    //     self.editor.save();
-                    //     CodeList.reloadLists();
-                    // });
-                // }
-                // else{
-                //     if(!suppressAlert) {
-                //         alert("Sorry, couldn't save the file. (Invalid file name.)");
-                //     }
-                // }
-            };
             // this.editor.saveFunc = this.saveFunc;
 
-            this.saveButton.click(this.saveFunc);
+            // this.saveButton.click(this.saveFunc);
 
         // }
 
@@ -849,6 +830,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
                 return "The project \"" + inst.getProjectName() + "\" has unsaved changes.";
             }
         }
+        return "blah";
     },
     s_instances: [],
 
@@ -898,6 +880,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
                 this.i_setProject(data);
                 document.title = projectName;
                 this.i_isSaved = true;
+                this.send("projectLoaded");
             },
             dataType: "json"
         });
@@ -921,10 +904,11 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
             data: {files: projectFiles},
             success: function(data){
                 console.log("saved successfully");
-                this.i_isSaved = true;
+                this.i_setSaved(true);
             },
             dataType: "json"
         });
+        this.send("saveAttempted");
     },
 
     isOpen : function() {
@@ -937,6 +921,16 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
 
     isSaved : function() {
         return this.i_isSaved;
+    },
+
+    i_setSaved : function(isSaved) {
+        this.i_isSaved = isSaved;
+        if (!isSaved) {
+            this.send("unsavedChanges");
+        }
+        else {
+            this.send("saveSuccessful");
+        }
     },
 
     i_setProject : function(project){
@@ -990,6 +984,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
         var sourceFile = SourceFile.instance(fileName, fileData["code"]);
         this.i_sourceFiles[fileName] = sourceFile;
         this.i_program.addSourceFile(sourceFile);
+        this.listenTo(sourceFile);
 
         // Create a FileEditor object to manage editing the file
         var fileEd = FileEditor.instance(fileName, sourceFile);
@@ -1033,18 +1028,34 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
     },
 
     _act : {
-        textChanged : function() {
-            this.i_isSaved = false;
-
-            // this.i_program.fullCompile();
-        },
-
         requestFocus : function(msg) {
             this.send("requestFocus");
             if (isA(msg.source, FileEditor)) {
                 var ed = msg.source;
                 this.i_fileTabs[ed.getFileName()].tab("show");
             }
+        },
+
+        textChanged : function() {
+            this.i_setSaved(false);
+
+            // this.i_program.fullCompile();
+        },
+
+        sourceFileAdded : function() {
+            this.i_setSaved(false);
+        },
+
+        sourceFileRemoved : function() {
+            this.i_setSaved(false);
+        },
+
+        translationUnitCreated : function() {
+            this.i_setSaved(false);
+        },
+
+        translationUnitRemoved : function() {
+            this.i_setSaved(false);
         },
 
         fullCompilationFinished : function(msg) {
@@ -1121,7 +1132,73 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
     // },
 
 });
-$(window).on("beforeunload", ProjectEditor.s_onbeforeunload);
+$(window).bind("beforeunload", ProjectEditor.s_onbeforeunload);
+
+var ProjectSaveOutlet = Class.extend(Observer, {
+    _name: "ProjectSaveOutlet",
+
+    init : function(element, project) {
+        this.i_element = element;
+        this.i_project = project;
+        this.listenTo(project);
+
+        this.i_saveButtonElem = $('<button class="btn"></button>');
+        this.i_saveButtonElem.addClass("btn-basic");
+        this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-remove"></span> No Project');
+
+        var self = this;
+        this.i_saveButtonElem.on("click", function() {
+            self.i_project.saveProject();
+        });
+
+        this.i_element.append(this.i_saveButtonElem);
+
+        this.i_isAutosaveOn = true;
+
+        setInterval(function(){
+            self.i_autosaveCallback();
+        }, 30000);
+
+
+    },
+
+    i_autosaveCallback : function() {
+        if (!this.i_isAutosaveOn) {
+            return;
+        }
+        if (this.i_project.isOpen() && !this.i_project.isSaved()){
+            this.i_project.saveProject();
+        }
+    },
+
+    _act : {
+        projectLoaded : function() {
+            this.i_saveButtonElem.removeClass("btn-basic");
+            this.i_saveButtonElem.removeClass("btn-warning");
+            this.i_saveButtonElem.addClass("btn-success");
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span> Saved');
+        },
+        unsavedChanges : function() {
+            this.i_saveButtonElem.removeClass("btn-basic");
+            this.i_saveButtonElem.removeClass("btn-success");
+            this.i_saveButtonElem.addClass("btn-warning");
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span> Save');
+        },
+        saveAttempted : function() {
+            this.i_saveButtonElem.removeClass("btn-basic");
+            this.i_saveButtonElem.removeClass("btn-success");
+            this.i_saveButtonElem.addClass("btn-warning");
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open"></span> Saving...');
+        },
+        saveSuccessful : function() {
+            this.i_saveButtonElem.removeClass("btn-basic");
+            this.i_saveButtonElem.removeClass("btn-warning");
+            this.i_saveButtonElem.addClass("btn-success");
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span> Saved');
+        }
+    }
+
+});
 
 
 /**
@@ -1251,14 +1328,28 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         this.i_program = program;
 
         var self = this;
-        this.i_compileButton = $('<button class="btn">Compile</button>')
+        this.i_compileButton = $('<button class="btn"></button>')
             .click(function() {
-                self.i_program.fullCompile();
-            })
-            .appendTo(this.i_element);
+                self.i_statusElem.html("Compiling...");
+                self.i_loaderElem.show();
 
-        this.i_statusElem = $('<span></span>');
-        this.i_element.append(this.i_statusElem);
+                // check offsetHeight to force a redraw operation
+                // then wrap fullCompile in a timeout which goes on stack after redraw
+                var redraw = self.i_statusElem.offsetHeight;
+                setTimeout(function() {
+                    self.i_program.fullCompile();
+                },1);
+            });
+
+        this.i_loaderElem = $('<div style="margin-right: 0.75em;" class = "loader loader-inline"></div>');
+        this.i_compileButton.append(this.i_loaderElem);
+        this.i_loaderElem.hide();
+
+        this.i_statusElem = $('<span>Compile</span>').appendTo(this.i_compileButton);
+
+        this.i_element.append(this.i_compileButton);
+
+
 
         this.listenTo(program);
 
@@ -1300,7 +1391,7 @@ var SourceReferenceOutlet = Class.extend({
 });
 
 
-var IDLE_MS_BEFORE_COMPILE = 1000;
+var IDLE_MS_BEFORE_UPDATE = 500;
 
 var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Observer, {
     _name: "FileEditor",
@@ -1325,7 +1416,6 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
 
         this.i_annotations = [];
         this.i_gutterErrors = [];
-        this.i_isSaved = true;
 
 
         // TODO NEW is this still being used?
@@ -1358,7 +1448,6 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
     //     var code = program.code;
     //     this.i_doc.setValue(code);
     //     this.setSource(code);
-    //     this.i_isSaved = true; // setting source would have made this false
     //     this.send("userAction", UserActions.LoadCode.instance(code));
     // },
 
@@ -1371,9 +1460,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         var self = this;
         this.i_onEditTimeout = setTimeout(function(){
             self.i_sourceFile.setText(self.getText());
-
-            self.send("textChanged", newText);
-        }, IDLE_MS_BEFORE_COMPILE);
+        }, IDLE_MS_BEFORE_UPDATE);
     },
 
     addMark : function(sourceReference, cssClass){

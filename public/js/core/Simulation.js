@@ -5,8 +5,6 @@
 var Lobster = Lobster || {};
 Lobster.CPP = Lobster.CPP || {};
 
-var IDLE_MS_BEFORE_COMPILE = 1000;
-
 var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
 
