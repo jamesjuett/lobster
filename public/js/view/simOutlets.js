@@ -830,7 +830,7 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
                 return "The project \"" + inst.getProjectName() + "\" has unsaved changes.";
             }
         }
-        return "blah";
+        // return "blah";
     },
     s_instances: [],
 
@@ -1146,7 +1146,7 @@ var ProjectSaveOutlet = Class.extend(Observer, {
 
         this.i_saveButtonElem = $('<button class="btn"></button>');
         this.i_saveButtonElem.addClass("btn-basic");
-        this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-remove"></span> No Project');
+        this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-remove"></span>');
 
         var self = this;
         this.i_saveButtonElem.on("click", function() {
@@ -1180,25 +1180,25 @@ var ProjectSaveOutlet = Class.extend(Observer, {
             this.i_saveButtonElem.removeClass("btn-basic");
             this.i_saveButtonElem.removeClass("btn-warning");
             this.i_saveButtonElem.addClass("btn-success");
-            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span> Saved');
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
         },
         unsavedChanges : function() {
             this.i_saveButtonElem.removeClass("btn-basic");
             this.i_saveButtonElem.removeClass("btn-success");
             this.i_saveButtonElem.addClass("btn-warning");
-            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span> Save');
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
         },
         saveAttempted : function() {
             this.i_saveButtonElem.removeClass("btn-basic");
             this.i_saveButtonElem.removeClass("btn-success");
             this.i_saveButtonElem.addClass("btn-warning");
-            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open"></span> Saving...');
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open pulse"></span>');
         },
         saveSuccessful : function() {
             this.i_saveButtonElem.removeClass("btn-basic");
             this.i_saveButtonElem.removeClass("btn-warning");
             this.i_saveButtonElem.addClass("btn-success");
-            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span> Saved');
+            this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
         }
     }
 
@@ -1331,12 +1331,35 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         this.i_element = element;
         this.i_program = program;
 
+
+        this.i_notesElem = $('<span></span>').appendTo(this.i_element).hide();
+        this.i_errorsButton = $('<button class="btn lobster-note-error" style="padding: 6px 6px;"></button>')
+            .append(this.i_numErrorsElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-remove"></span>')
+            .appendTo(this.i_notesElem);
+        this.i_notesElem.append(" ");
+        this.i_warningsButton = $('<button class="btn lobster-note-warning" style="padding: 6px 6px;"></button>')
+            .append(this.i_numWarningsElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-alert"></span>')
+            .appendTo(this.i_notesElem);
+        this.i_notesElem.append(" ");
+        this.i_styleButton = $('<button class="btn lobster-note-style" style="padding: 6px 6px;"></button>')
+            .append(this.i_numStyleElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-sunglasses"></span>')
+            .appendTo(this.i_notesElem);
+
+        this.i_element.append(" ");
+
         var self = this;
+        var oldStatus = "";
         this.i_compileButton = $('<button class="btn"></button>')
             .click(function() {
                 self.i_statusElem.html("Compiling...");
                 console.log("compiling...");
-                // self.i_loaderElem.show();
+                self.i_loaderElem.show();
 
                 // check offsetHeight to force a redraw operation
                 // then wrap fullCompile in a timeout which goes on stack after redraw
@@ -1345,13 +1368,26 @@ var CompilationStatusOutlet = Class.extend(Observer, {
                 window.setTimeout(function() {
                     self.i_program.fullCompile();
                 },1);
-            });
+            })
+            /*.hover(
+                function(){
+                    oldStatus = self.i_statusElem.html();
+                    self.i_statusElem.css("width", self.i_statusElem.width() + "px");
+                    self.i_statusElem.html("Recompile?");
+                },
+                function(){
+                    self.i_statusElem.html(oldStatus);
+                    self.i_statusElem.css("width", "auto");
+                }
+            )*/;
+
 
         this.i_loaderElem = $('<div style="margin-right: 0.75em;" class = "loader loader-inline"></div>');
         this.i_compileButton.append(this.i_loaderElem);
         this.i_loaderElem.hide();
 
         this.i_statusElem = $('<span>Compile</span>').appendTo(this.i_compileButton);
+        this.i_statusElem.css("display", "inline-block");
 
         this.i_element.append(this.i_compileButton);
 
@@ -1364,6 +1400,24 @@ var CompilationStatusOutlet = Class.extend(Observer, {
     _act : {
         reset : function () {
 
+        },
+        projectLoaded : function() {
+
+        },
+        fullCompilationFinished : function() {
+            this.i_notesElem.show();
+            this.i_numErrorsElem.html(this.i_program.getNotes().filter(function(note) {
+                    return note.getType() === Note.TYPE_ERROR;
+                }
+            ).length);
+            this.i_numWarningsElem.html(this.i_program.getNotes().filter(function(note) {
+                    return note.getType() === Note.TYPE_WARNING;
+                }
+            ).length);
+            this.i_numStyleElem.html(this.i_program.getNotes().filter(function(note) {
+                    return note.getType() === Note.TYPE_STYLE;
+                }
+            ).length);
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
