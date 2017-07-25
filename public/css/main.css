@@ -717,9 +717,13 @@ ul.stackFrames li{
 .loader-inline {
 	display: inline-block;
 	vertical-align: baseline;
-	border-width:0.15em;
+	border-width:0.2em;
 	height: 0.8em;
 	width: 0.8em
+}
+
+.spin {
+	animation: spin 2s linear infinite;
 }
 
 @keyframes spin {
@@ -737,26 +741,29 @@ ul.stackFrames li{
 	100% { transform: scale(1); }
 }
 
-.label.lobster-note-error,
-.btn.lobster-note-error {
-	background-color: #d9534f
+
+
+.label.lobster-note-error{
+	background-color: #d9534f;
 }
 
-.label.lobster-note-warning,
-.btn.lobster-note-warning {
-	background-color: #f0ad4e
+.label.lobster-note-warning {
+	background-color: #f0ad4e;
+
 }
 
-.label.lobster-note-style,
-.btn.lobster-note-style {
-	background-color: #c381ff
+.label.lobster-note-style {
+	background-color: #c381ff;
 }
 
-.label.lobster-note-other,
-.btn.lobster-note-other {
-	background-color: #777
+.label.lobster-note-other {
+	background-color: #ddd;
 }
 
 .btn > .glyphicon {
+	vertical-align: text-top;
+}
+
+.btn > .loader-inline {
 	vertical-align: text-top;
 }

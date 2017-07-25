@@ -1144,13 +1144,13 @@ var ProjectSaveOutlet = Class.extend(Observer, {
         this.i_project = project;
         this.listenTo(project);
 
-        this.i_saveButtonElem = $('<button class="btn"></button>');
-        this.i_saveButtonElem.addClass("btn-basic");
+        this.i_saveButtonElem = $('<button class="btn btn-default"></button>');
+        this.i_saveButtonElem.prop("disabled", true);
         this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-remove"></span>');
 
         var self = this;
         this.i_saveButtonElem.on("click", function() {
-            if (!self.i_project.isSaved()){
+            if (self.i_project.isOpen() && !self.i_project.isSaved()){
                 self.i_project.saveProject();
             }
         });
@@ -1177,27 +1177,28 @@ var ProjectSaveOutlet = Class.extend(Observer, {
 
     _act : {
         projectLoaded : function() {
-            this.i_saveButtonElem.removeClass("btn-basic");
-            this.i_saveButtonElem.removeClass("btn-warning");
-            this.i_saveButtonElem.addClass("btn-success");
+            this.i_saveButtonElem.prop("disabled", false);
+            this.i_saveButtonElem.removeClass("btn-default");
+            this.i_saveButtonElem.removeClass("btn-warning-muted");
+            this.i_saveButtonElem.addClass("btn-success-muted");
             this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
         },
         unsavedChanges : function() {
-            this.i_saveButtonElem.removeClass("btn-basic");
-            this.i_saveButtonElem.removeClass("btn-success");
-            this.i_saveButtonElem.addClass("btn-warning");
+            this.i_saveButtonElem.removeClass("btn-default");
+            this.i_saveButtonElem.removeClass("btn-success-muted");
+            this.i_saveButtonElem.addClass("btn-warning-muted");
             this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
         },
         saveAttempted : function() {
-            this.i_saveButtonElem.removeClass("btn-basic");
-            this.i_saveButtonElem.removeClass("btn-success");
-            this.i_saveButtonElem.addClass("btn-warning");
+            this.i_saveButtonElem.removeClass("btn-default");
+            this.i_saveButtonElem.removeClass("btn-success-muted");
+            this.i_saveButtonElem.addClass("btn-warning-muted");
             this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open pulse"></span>');
         },
         saveSuccessful : function() {
-            this.i_saveButtonElem.removeClass("btn-basic");
-            this.i_saveButtonElem.removeClass("btn-warning");
-            this.i_saveButtonElem.addClass("btn-success");
+            this.i_saveButtonElem.removeClass("btn-default");
+            this.i_saveButtonElem.removeClass("btn-warning-muted");
+            this.i_saveButtonElem.addClass("btn-success-muted");
             this.i_saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
         }
     }
@@ -1333,19 +1334,19 @@ var CompilationStatusOutlet = Class.extend(Observer, {
 
 
         this.i_notesElem = $('<span></span>').appendTo(this.i_element).hide();
-        this.i_errorsButton = $('<button class="btn lobster-note-error" style="padding: 6px 6px;"></button>')
+        this.i_errorsButton = $('<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>')
             .append(this.i_numErrorsElem = $('<span></span>'))
             .append(" ")
             .append('<span class="glyphicon glyphicon-remove"></span>')
             .appendTo(this.i_notesElem);
         this.i_notesElem.append(" ");
-        this.i_warningsButton = $('<button class="btn lobster-note-warning" style="padding: 6px 6px;"></button>')
+        this.i_warningsButton = $('<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>')
             .append(this.i_numWarningsElem = $('<span></span>'))
             .append(" ")
             .append('<span class="glyphicon glyphicon-alert"></span>')
             .appendTo(this.i_notesElem);
         this.i_notesElem.append(" ");
-        this.i_styleButton = $('<button class="btn lobster-note-style" style="padding: 6px 6px;"></button>')
+        this.i_styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
             .append(this.i_numStyleElem = $('<span></span>'))
             .append(" ")
             .append('<span class="glyphicon glyphicon-sunglasses"></span>')
@@ -1354,40 +1355,32 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         this.i_element.append(" ");
 
         var self = this;
-        var oldStatus = "";
-        this.i_compileButton = $('<button class="btn"></button>')
+        this.i_compileButtonText = "Compile";
+        this.i_compileButton = $('<button class="btn btn-primary-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
             .click(function() {
-                self.i_statusElem.html("Compiling...");
-                console.log("compiling...");
-                self.i_loaderElem.show();
+                self.i_compileButtonText = "Compiling";
+                self.i_compileButton.html('<span class = "glyphicon glyphicon-refresh spin"></span> ' + self.i_compileButtonText);
 
                 // check offsetHeight to force a redraw operation
                 // then wrap fullCompile in a timeout which goes on stack after redraw
-                // var redraw = self.i_statusElem.offsetHeight;
-                // self.i_statusElem.offsetHeight = redraw;
+                // var redraw = self.i_compileButton.offsetHeight;
+                // self.i_compileButton.offsetHeight = redraw;
                 window.setTimeout(function() {
                     self.i_program.fullCompile();
                 },1);
             })
             /*.hover(
                 function(){
-                    oldStatus = self.i_statusElem.html();
-                    self.i_statusElem.css("width", self.i_statusElem.width() + "px");
-                    self.i_statusElem.html("Recompile?");
+                    oldStatus = self.i_compileButton.html();
+                    self.i_compileButton.css("width", self.i_compileButton.width() + "px");
+                    self.i_compileButton.html("Recompile?");
                 },
                 function(){
-                    self.i_statusElem.html(oldStatus);
-                    self.i_statusElem.css("width", "auto");
+                    self.i_compileButton.html(oldStatus);
+                    self.i_compileButton.css("width", "auto");
                 }
             )*/;
 
-
-        this.i_loaderElem = $('<div style="margin-right: 0.75em;" class = "loader loader-inline"></div>');
-        this.i_compileButton.append(this.i_loaderElem);
-        this.i_loaderElem.hide();
-
-        this.i_statusElem = $('<span>Compile</span>').appendTo(this.i_compileButton);
-        this.i_statusElem.css("display", "inline-block");
 
         this.i_element.append(this.i_compileButton);
 
@@ -1421,11 +1414,10 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
-                this.i_statusElem.html('<span class="glyphicon glyphicon-ok"></span> Compilation Finished');
-                this.i_loaderElem.hide();
+                this.i_compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
             }
             else {
-                this.i_statusElem.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
+                this.i_compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
             }
         }
     }
