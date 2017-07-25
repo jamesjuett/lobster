@@ -852,7 +852,9 @@ var ProjectEditor = Lobster.Outlets.CPP.ProjectEditor = Class.extend(Observer, O
             tabSize: 2,
             extraKeys: {
                 "Ctrl-S" : function(){
-                    self.saveProject();
+                    if (!self.isSaved()) {
+                        self.saveProject();
+                    }
                 }
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
@@ -1148,7 +1150,9 @@ var ProjectSaveOutlet = Class.extend(Observer, {
 
         var self = this;
         this.i_saveButtonElem.on("click", function() {
-            self.i_project.saveProject();
+            if (!self.i_project.isSaved()){
+                self.i_project.saveProject();
+            }
         });
 
         this.i_element.append(this.i_saveButtonElem);
@@ -1331,12 +1335,14 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         this.i_compileButton = $('<button class="btn"></button>')
             .click(function() {
                 self.i_statusElem.html("Compiling...");
-                self.i_loaderElem.show();
+                console.log("compiling...");
+                // self.i_loaderElem.show();
 
                 // check offsetHeight to force a redraw operation
                 // then wrap fullCompile in a timeout which goes on stack after redraw
-                var redraw = self.i_statusElem.offsetHeight;
-                setTimeout(function() {
+                // var redraw = self.i_statusElem.offsetHeight;
+                // self.i_statusElem.offsetHeight = redraw;
+                window.setTimeout(function() {
                     self.i_program.fullCompile();
                 },1);
             });
@@ -1361,10 +1367,11 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
-                this.i_statusElem.html("compilation up to date");
+                this.i_statusElem.html('<span class="glyphicon glyphicon-ok"></span> Compilation Finished');
+                this.i_loaderElem.hide();
             }
             else {
-                this.i_statusElem.html("compilation is NOT up to date");
+                this.i_statusElem.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
             }
         }
     }
