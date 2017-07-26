@@ -1,98 +1,171 @@
+/**
+ * @author Alexbro
+ */
+
 var Lobster = Lobster || {};
 
 Lobster.Analysis = {};
 
-var Bird = Lobster.Analysis.Bird = Class.extend({
-    _name: "Bird",
+// Checks if Matrix or Image interfaces were violated
+var checkInterface = Lobster.checkInterface = function (program, projectEditor) {
 
-    init : function(name, age) {
-        // Create and initialize instance variable
-        this.i_name = name;
-        this.i_age = age;
-        //this.egg = // create an egg object.
-    },
-
-    getName : function() {
-        return this.i_name;
-    }
-
-});
+    console.log("Checking interface...");
 
 
-var Chicken = Lobster.Analysis.Chicken = Bird.extend({
-    _name: "Chicken"
+    // BFS of the children of code constructs
+    var bfsChildren = function(queue, func) {
+        var numBroken = 0;
+        var explored = {};
+        while (queue.length > 0) {
+            var top = queue[0];
+            explored[top] = true;
+            queue.shift(); // pop front
 
-    // inherit bird constructor implicitly
-});
+            // do the thing
+            var breaksInterface = func(top);
+            if (breaksInterface) {
+                numBroken += 1;
+            }
 
-var Duck = Lobster.Analysis.Duck = Bird.extend({
-    _name: "Duck",
-
-    // new ctor for Duck. Takes in name, age is optional (default 0)
-    // also initializes new member variable for Duck beyond Bird stuff
-    init : function(name, age) {
-        age = age || 0;
-        this.initParent(name, age || 0);
-        this.i_numDucklings = 0;
-    },
-
-    setAge : function(newAge) {
-        this.name = newAge;
-        delete this.name;
-    },
-
-    // example overriding
-    getName : function() {
-        // all ducks are named daffy
-        return "daffy";
-    }
-
-    // x || y
-    // x ? x : y
-    //
-    // x && y
-    // x ? y : false
-});
-
-var analyze = Lobster.analyze = function(program, codeEditor) {
-
-    var queue = program.topLevelDeclarations;
-    var numFors = 0;
-    while(queue.length > 0) {
-        var top = queue[0];
-        queue.shift();
-        if (isA(top, Statements.Selection)) {
-            ++numFors;
-            // check for IntegralConversion coming from LValueToRValue coming from an Assignment
-            if (isA(top.if, Conversions.IntegralConversion)){
-                if(isA(top.if.from, Conversions.LValueToRValue)) {
-                    if (isA(top.if.from.from, Expressions.Assignment)){
-                        codeEditor.addAnnotation(GutterAnnotation.instance(top.if.from.from, "", "Careful! Did you really want to do assignment here??"));
-                    }
-                }
+            // queue.pushAll(top.children);
+            for(var i = 0; i < top.children.length; ++i) {
+                // if (!explored[top.children[i]]) {
+                    queue.push(top.children[i]);
+                // }
+                // else{
+                //     console.log("duplicate");
+                // }
             }
         }
-        queue.pushAll(top.children);
-    }
-    console.log("There were " + numFors + " Selections.");
-  // var myBird = Bird.instance("Myrtle II", 3);
-  // console.log(myBird.getName());
-  //
-  // var myDuck = Duck.instance("scrooge");
+        console.log('Broke the interface ' + numBroken + ' times.');
+        return numBroken;
+    };
 
-  // NEVER DO THIS from outside "private" scope
-//    obj.member = blah
+    // Returns a type or a pointer type of the module specified
+    var getTypeAndPointerType = function(module) {
+
+        // Type
+        var type = program.getGlobalScope().lookup(module).type;
+
+        // Pointer Type
+        var pointerType = Types.Pointer.instance(type);
+
+        return [type, pointerType];
+    };
+
+    // Helper function for determining if the interface was broken in a particular module
+    // This module could be Matrix or Image
+    var checkInterface = function(construct, module) {
+
+        // Get the original file in which the construct was used
+        var constructRef = construct.getSourceReference();
+        var moduleName = constructRef.sourceFile.getName();
+
+        // Grab a representation of the module as a type or a pointer to the type
+        typeAndPointerType = getTypeAndPointerType(module);
+        type = typeAndPointerType[0];
+        pointerType = typeAndPointerType[1];
+
+        if (similarType(construct.operand.type, type) ||
+            similarType(construct.operand.type, pointerType)) {
+
+            // If this operand is being used outside of a function starting with Matrix_, that's bad
+            if (moduleName != module+".cpp") {
+                // TODO: uncomment these lines to annotate what data members are being incorrectly accessed
+                var codeEditor = projectEditor.getEditor(moduleName);
+                codeEditor.addAnnotation(GutterAnnotation.instance(constructRef, "breakInterface", "Breaking the interface " + construct.memberName));
+                // console.log(construct.memberName);
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Get an array of all function definitions in the program
+
+    var functionDefinitions = program.getGlobalScope().allEntities().filter(function(ent){
+        return isA(ent, FunctionEntity) && !isA(ent, MagicFunctionEntity); // filter to only functions
+    }).map(function(ent){
+        return ent.definition; // map to their definitions
+    }).filter(function(def){
+        return !!def; // remove any that weren't defined (shouldn't be any of them anyway but whatever)
+    });
+
+
+
+    // Looking for breaking the interface
+    return bfsChildren(functionDefinitions, function(construct){
+
+        if (isDotOrArrow(construct)) {
+
+            // If it's not implicitly defined (i.e. not in original source code), don't annotate it
+            if (!construct.context.implicit) {
+
+                // Determine if broke Matrix or Image interface
+                return checkInterface(construct, "Matrix") || checkInterface(construct, "Image");
+            }
+        }
+        return false;
+    });
+};
+
+
+
+
+
+
+
+
+// Checks if Matrix Init was called in all Image_init functions
+var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
+
+    // Looking if forgetting to initialize Matrix channels in Image_init functions
+    var bfsCalls = function(queue, func) {
+
+        var foundMatrix_init = false;
+
+        while (queue.length > 0) {
+            var top = queue[0];
+            queue.shift(); // pop front
+
+            // do the thing
+            foundMatrix_init = func(top);
+            if (foundMatrix_init) {
+                console.log("Good! You should initialize your channels because an Image is made up of Matrices.");
+                return;
+            }
+
+            // get the definitions of the functions that are called
+            queue.pushAll(top.calls.map(function(call) {
+                return call.func.decl;
+            }));
+        }
+        if (!foundMatrix_init) {
+            console.log("Oops, looks like Matrix_init was never called in Image_init.")
+        }
+    };
+
+    var imageInitEntities = program.getGlobalScope().lookup("Image_init");
+    var imageInitDefs = imageInitEntities.map(function(ent){
+        return ent.decl;
+    });
+
+
+    // Call for both Image_init functions
+    bfsCalls([imageInitDefs[0]], function(construct) {
+
+        return construct.name == "Matrix_init";
+    });
+
+    bfsCalls([imageInitDefs[1]], function(construct) {
+
+        return construct.name == "Matrix_init";
+    });
 
 };
 
-// var other = {
-//     blah: 3
-// };
-//
-// var prices = {
-//     apple: 1.3,
-//     house: 10000000,
-//     horse: {name: "mr ed"}
-// };
-// // prices["horse"];
-// // prices.horse;
+
+// Function for detecting dots or arrow operators to detect breaking the interface
+var isDotOrArrow = function(construct) {
+    return isA(construct, Expressions.Dot) || isA(construct, Expressions.Arrow);
+};

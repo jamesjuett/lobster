@@ -37,11 +37,12 @@
     return eater;
   }
 
-  function track(obj, offset, text, line, column){
-    obj.start = offset();
-    obj.text = text();
-    obj.line = line();
-    obj.column = column();
+  function track(obj, location, text){
+    obj.location = location;
+    obj.start = location.start.offset;
+    obj.text = text;
+    obj.line = location.start.line;
+    obj.column = location.start.column;
     obj.end = obj.start + obj.text.length;
     return obj;
   }
@@ -125,7 +126,7 @@ comment
 
 
 statement
-  = t:statement_tracked {return track(t, offset, text, line, column);}
+  = t:statement_tracked {return track(t, location(), text());}
 
 statement_tracked
   = stmt:labeled_statement
@@ -176,7 +177,7 @@ iteration_statement
 
 for_init_statement
   = expression_statement
-  / d:declaration_statement { return track(d, offset, text, line, column); }
+  / d:declaration_statement { return track(d, location(), text()); }
 
 jump_statement
   = "break" !identifierChar ws ";" { return {statement:"break"}; }
@@ -201,7 +202,7 @@ declaration
 
 simple_declaration
   = specs:decl_specifiers ! identifier ws declarators:declarator_list ws ";"
-    { return track({declaration: "declaration", specs:specs, declarators:declarators}, offset, text, line, column); }
+    { return track({declaration: "declaration", specs:specs, declarators:declarators}, location(), text()); }
 
 declarator_list
   = first:declarator_init rest:(ws "," ws d:declarator_init {return d;})*
@@ -209,29 +210,29 @@ declarator_list
 
 class_declaration
   = spec:class_specifier ws ";" {
-    return track(absorb({declaration: "class"}, spec), offset, text, line, column);
+    return track(absorb({declaration: "class"}, spec), location(), text());
   }
 
 function_definition
   = specs:decl_specifiers ! identifier ws declarator:declarator ws body:function_body
-    {return track({declaration: "functionDefinition", specs:specs, declarator:declarator, body:body}, offset, text, line, column); }
+    {return track({declaration: "functionDefinition", specs:specs, declarator:declarator, body:body}, location(), text()); }
 
 
 constructor_definition
   = name:class_name ws "(" ws args:argument_declaration_list ws ")" ws init:ctor_initializer? ws body:(function_body / ";" {return null;})
-    {return track({declaration: "constructorDefinition", name:name, body:body, initializer:init, args: args}, offset, text, line, column); }
+    {return track({declaration: "constructorDefinition", name:name, body:body, initializer:init, args: args}, location(), text()); }
 
 destructor_definition
   = "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({declaration: "destructorDefinition", name:"~"+name, body:body}, offset, text, line, column); }
+    {return track({declaration: "destructorDefinition", name:"~"+name, body:body}, location(), text()); }
   / "virtual" WS "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({declaration: "destructorDefinition", name:"~"+name, body:body, virtual:true}, offset, text, line, column); }
+    {return track({declaration: "destructorDefinition", name:"~"+name, body:body, virtual:true}, location(), text()); }
 
 ctor_initializer
   = ":" ws first:mem_initializer rest:(ws "," ws m:mem_initializer {return m;})* {rest.unshift(first); return rest;}
 
 mem_initializer
-  = i:identifier ws "(" ws args:exp_list? ws ")" {return track({member: i, initializer:"direct", args:args}, offset, text, line, column); }
+  = i:identifier ws "(" ws args:exp_list? ws ")" {return track({member: i, initializer:"direct", args:args}, location(), text()); }
 
 function_body
   = compound_statement
@@ -241,7 +242,7 @@ decl_specifiers
     {
       before.push({typeSpec:t});
       var rest = before.concat(after);
-      
+
       var declSpecs = {
         typeSpecs: [],
         storageSpecs: []
@@ -272,7 +273,7 @@ decl_specifiers
         }
       }
 
-      return track(declSpecs, offset, text, line, column); }
+      return track(declSpecs, location(), text()); }
 
 decl_specifier
   = t:type_specifier { return {typeSpec:t}; }
@@ -285,10 +286,10 @@ type_specifiers
   = before:(s:type_specifier WS {return s})* t:simple_type_name after:(WS s:type_specifier {return s})*
     { before.push(t);
       before = before.concat(after);
-      return track(before, offset, text, line, column); }
+      return track(before, location(), text()); }
 
 type_specifier
-  //= simple_type_name 
+  //= simple_type_name
   // / class_specifier
   = enum_specifier
   / "const"
@@ -346,7 +347,7 @@ enumerator
 //Declarators
 
 declarator_init
-  = d:declarator ws i:initializer? {return track(absorb(d, {init: i}), offset, text, line, column);}
+  = d:declarator ws i:initializer? {return track(absorb(d, {init: i}), location(), text());}
 
 initializer
   = brace_or_equal_initializer
@@ -358,13 +359,13 @@ brace_or_equal_initializer
   = "=" ws init:exp_assn {return {initializer:"copy", args:[init]};}
   // / "=" ws "{" ws "}" {return [];}
   / "=" ws "{" ws init:initializer_list ws "}" {return init;}
-    
+
 
 initializer_list
   = first:exp_assn rest:(ws op:"," ws e:exp_assn {return e;})*
     {
       rest.unshift(first);
-      return track({initializerList: rest}, offset, text, line, column);
+      return track({initializerList: rest}, location(), text());
     }
   /// exp:expression {return exp;}
 
@@ -372,14 +373,14 @@ declarator
   = d:_declarator
     {
     //d = insideOut(d);
-    var d2 = track(absorb({declarator:"declarator"}, d), offset, text, line, column);
+    var d2 = track(absorb({declarator:"declarator"}, d), location(), text());
    return d2;
   }
 
 abstract_declarator
   = d:_abs_declarator {
     //d = insideOut(d);
-    var d2 = track(absorb({declarator:"declarator", abstract: true}, d), offset, text, line, column);
+    var d2 = track(absorb({declarator:"declarator", abstract: true}, d), location(), text());
     return d2;
   }
 
@@ -443,7 +444,7 @@ dname = name
 
 type_id
   = specs:type_specifiers ws decl:abstract_declarator
-    { return track({specs:specs, declarator:decl}, offset, text, line, column); }
+    { return track({specs:specs, declarator:decl}, location(), text()); }
 
 
 
@@ -467,12 +468,12 @@ argument_declaration
   = specs:decl_specifiers ws decl:declarator ws "=" ws init:exp_assn
     {return {declaration:"parameter", declarator:decl, specs:specs, init:init}; }
   / specs:decl_specifiers ws decl:declarator
-    {return track({declaration:"parameter", specs:specs, declarator:decl}, offset, text, line, column); }
+    {return track({declaration:"parameter", specs:specs, declarator:decl}, location(), text()); }
 
   / specs:decl_specifiers ws decl:abstract_declarator ws "=" ws init:exp_assn
     {return {declaration:"parameter", declarator:decl, specs:specs, init:init}; }
   / specs:decl_specifiers ws decl:abstract_declarator
-    {return track({declaration:"parameter", specs:specs, declarator:decl}, offset, text, line, column); }
+    {return track({declaration:"parameter", specs:specs, declarator:decl}, location(), text()); }
 
   /* TODO abstract arg declarations */
 
@@ -480,12 +481,12 @@ argument_declaration
 
 expression
   = first:exp_assn rest:(ws op:"," ws e:exp_assn {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left", "comma"), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest, "left", "comma"), location(), text()); }
   / exp_assn
 
 exp_assn
-  = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({expression: "assignment", lhs:lhs, op:op, rhs:rhs}, offset, text, line, column); }
-  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({expression: "compoundAssignment", lhs:lhs, op:op, rhs:rhs}, offset, text, line, column); }
+  = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({expression: "assignment", lhs:lhs, op:op, rhs:rhs}, location(), text()); }
+  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({expression: "compoundAssignment", lhs:lhs, op:op, rhs:rhs}, location(), text()); }
   / exp_cond
 
 op_comp_assn
@@ -504,36 +505,36 @@ exp_const
   = sub:exp_cond { sub.constant = true; return sub; }
 
 exp_cond
-  = _if:exp_or ws "?" ws then:expression ws ":" ws _else:exp_assn { return track({expression: "ternary", _if:_if, then:then, _else:_else}, offset, text, line, column); }
+  = _if:exp_or ws "?" ws then:expression ws ":" ws _else:exp_assn { return track({expression: "ternary", _if:_if, then:then, _else:_else}, location(), text()); }
   / exp_or
 
 exp_or
   = first:exp_and rest:(ws op:("||" / "or" !identifierChar) ws e:exp_and {return ["||",e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
 
 exp_and
   = first:exp_or_bit rest:(ws op:("&&" / "and" !identifierChar) ws e:exp_or_bit {return ["&&",e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 exp_or_bit
   = first:exp_xor_bit rest:(ws op:("|" / "bitor" !identifierChar) ws e:exp_xor_bit {return ["|",e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 exp_xor_bit
   = first:exp_and_bit rest:(ws op:("^" / "xor") ws e:exp_and_bit {return ["^",e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 exp_and_bit
   = first:exp_eq rest:(ws op:("&" !"&" / "bitand" !identifierChar) ws e:exp_eq {return ["&",e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 exp_eq
   = first:exp_rel rest:(ws op:("==" / ("!=" / "not_eq" !identifierChar {return "!=";})) ws e:exp_rel {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 exp_rel
   = first:exp_shift rest:(ws op:op_rel ws e:exp_shift {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
 
 op_rel
   = "<="
@@ -543,7 +544,7 @@ op_rel
 
 exp_shift
   = first:exp_add rest:(ws op:op_shift ws e:exp_add {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
 
 op_shift
   = "<<"
@@ -551,7 +552,7 @@ op_shift
 
 exp_add
   = first:exp_mult rest:(ws op:op_add ws e:exp_mult {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
 
 op_add
   = "+"
@@ -559,7 +560,7 @@ op_add
 
 exp_mult
   = first:exp_pm rest:(ws op:op_mult ws e:exp_pm {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 op_mult
   = "*"
@@ -568,7 +569,7 @@ op_mult
 
 exp_pm
   = first:exp_cast rest:(ws op:op_pm ws e:exp_cast {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), offset, text, line, column); }
+      { return track(composeBinaryOp(first, rest), location(), text()); }
 
 op_pm
   = ".*"
@@ -576,25 +577,25 @@ op_pm
 
 exp_cast
   = "(" ws t:type_id ws ")" ws sub:exp_cast {
-      return track({expression: "cast", type:t, sub:sub}, offset, text, line, column);
+      return track({expression: "cast", type:t, sub:sub}, location(), text());
 }
   / exp_unary
 
 exp_unary
   = op:"++" ws sub:exp_unary {
-      return track({expression: "prefix", op:op, sub:sub}, offset, text, line, column);
+      return track({expression: "prefix", op:op, sub:sub}, location(), text());
 }
   / op:"--" ws sub:exp_unary {
-      return track({expression: "prefix", op:op, sub:sub}, offset, text, line, column);
+      return track({expression: "prefix", op:op, sub:sub}, location(), text());
 }
   / op:op_unary ws sub:exp_cast {
-      return track(absorb({sub:sub}, op), offset, text, line, column);
+      return track(absorb({sub:sub}, op), location(), text());
 }
   / op:"sizeof" ws sub:exp_unary {
-      return track({expression: "sizeof", operator:"sizeof", sub:sub}, offset, text, line, column);
+      return track({expression: "sizeof", operator:"sizeof", sub:sub}, location(), text());
 }
   / op:"sizeof" ws "(" ws sub:type_name ws ")" {
-      return track({expression: "sizeofType", operator:"sizeof", sub:sub}, offset, text, line, column);
+      return track({expression: "sizeofType", operator:"sizeof", sub:sub}, location(), text());
 }
   / exp_new
   / exp_delete
@@ -610,11 +611,11 @@ op_unary
   / "compl" {return {expression: "bitwiseNot", op: "~"};}
 
 exp_new
-  = "new" WS id:new_type_id ws init:new_initializer? { 
-    return track(absorb({expression: "newExpression", initializer: init}, id), offset, text, line, column);
+  = "new" WS id:new_type_id ws init:new_initializer? {
+    return track(absorb({expression: "newExpression", initializer: init}, id), location(), text());
   }
   / "new" ws "(" ws id:type_id ws ")" ws init:new_initializer? {
-    return track(absorb({expression: "newExpression", initializer: init}, id), offset, text, line, column);
+    return track(absorb({expression: "newExpression", initializer: init}, id), location(), text());
 }
 
   /*  / exp_dealloc
@@ -623,13 +624,13 @@ exp_new
 
 new_type_id
   = specs:type_specifiers decl:(ws id:new_declarator {return id;})? {
-    return track({specs:specs, declarator:decl}, offset, text, line, column);
+    return track({specs:specs, declarator:decl}, location(), text());
   }
 
 
 new_declarator = d:_new_declarator {
   //d = insideOut(d);
-  var d2 = track(absorb({declarator:"declarator"}, d), offset, text, line, column);
+  var d2 = track(absorb({declarator:"declarator"}, d), location(), text());
   return d2;
 
 }
@@ -658,37 +659,37 @@ new_initializer
 
 exp_delete
   = "delete" WS t:exp_cast {
-    return track({expression: "delete", target: t}, offset, text, line, column);
+    return track({expression: "delete", target: t}, location(), text());
   }
   / "delete" ws "[" ws "]" WS t:exp_cast {
-    return track({expression: "deleteArray", target: t}, offset, text, line, column); }
+    return track({expression: "deleteArray", target: t}, location(), text()); }
   / exp_postfix
 
 
 
 exp_postfix
   = "static_cast" ws "<" ws t:type_name ws ">" ws "(" ws sub:exp_cast ws ")"
-    { return track({expression: "StaticCast", type: t, operand:sub}, offset, text, line, column);}
+    { return track({expression: "StaticCast", type: t, operand:sub}, location(), text());}
   / "dynamic_cast" ws "<" ws t:type_name ws ">" ws "(" ws sub:exp_cast ws ")"
-    { return track({expression: "DynamicCast", type: t, operand:sub}, offset, text, line, column);}
+    { return track({expression: "DynamicCast", type: t, operand:sub}, location(), text());}
   / "reinterpret_cast" ws "<" ws t:type_name ws ">" ws "(" ws sub:exp_cast ws ")"
-    { return track({expression: "ReinterpretCast", type: t, operand:sub}, offset, text, line, column);}
+    { return track({expression: "ReinterpretCast", type: t, operand:sub}, location(), text());}
   / "const_cast" ws "<" ws t:type_name ws ">" ws "(" ws sub:exp_cast ws ")"
-    { return track({expression: "ConstCast", type: t, operand:sub}, offset, text, line, column);}
+    { return track({expression: "ConstCast", type: t, operand:sub}, location(), text());}
   / sub:(exp_construct / exp_primary) ops:(ws op:op_postfix {return op;} )*
-      { return ops.length > 0 ? track(postfixExp(ops, sub), offset, text, line, column) : sub;}
+      { return ops.length > 0 ? track(postfixExp(ops, sub), location(), text()) : sub;}
 
 op_postfix
-  = "[" ws sub:expression ws "]" { return track({expression:"subscript", sub: sub}, offset, text, line, column); }
-  / "(" ws args:exp_list? ws ")" { return track({expression: "functionCall", args: args || []}, offset, text, line, column); }
-  / "." ws name:name { return track({expression: "dot", member: name}, offset, text, line, column); }
-  / "->" ws name:name  { return track({expression: "arrow", member: name}, offset, text, line, column); }
-  / "++" { return track({expression: "increment"}, offset, text, line, column); }
-  / "--" { return track({expression: "decrement"}, offset, text, line, column); }
+  = "[" ws sub:expression ws "]" { return track({expression:"subscript", sub: sub}, location(), text()); }
+  / "(" ws args:exp_list? ws ")" { return track({expression: "functionCall", args: args || []}, location(), text()); }
+  / "." ws name:name { return track({expression: "dot", member: name}, location(), text()); }
+  / "->" ws name:name  { return track({expression: "arrow", member: name}, location(), text()); }
+  / "++" { return track({expression: "increment"}, location(), text()); }
+  / "--" { return track({expression: "decrement"}, location(), text()); }
 
 exp_construct
   = type:simple_type_name ws "(" ws args:exp_list? ws ")" {
-    return track({expression: "construct", type:type, args:args || []}, offset, text, line, column);
+    return track({expression: "construct", type:type, args:args || []}, location(), text());
 }
 
 type_name
@@ -699,17 +700,17 @@ exp_list
       { rest.unshift(first); return rest; }
 
 exp_primary
-  = "(" ws sub:expression ws ")" {return track({expression: "parentheses", sub:sub}, offset, text, line, column);}
+  = "(" ws sub:expression ws ")" {return track({expression: "parentheses", sub:sub}, location(), text());}
   / literal
-  / "this" !identifierChar {return track({expression: "thisExpression"}, offset, text, line, column); }
+  / "this" !identifierChar {return track({expression: "thisExpression"}, location(), text()); }
   / exp_id
 
 exp_id
-  = id:(qualified_id / unqualified_id) { return track(absorb({expression: "identifier"}, id), offset, text, line, column); }
+  = id:(qualified_id / unqualified_id) { return track(absorb({expression: "identifier"}, id), location(), text()); }
 
 
 unqualified_id
-  = name 
+  = name
 
 qualified_id
   = n:nested_name_specifier ws u:unqualified_id {
@@ -723,7 +724,7 @@ nested_name_specifier
 
 type_name_id
   = id:type_name
-    {return track({identifier: id}, offset, text, line, column);}
+    {return track({identifier: id}, location(), text());}
 
 namespace_name
   = identifier
@@ -733,7 +734,7 @@ name
 
 operator_function_id
   = "operator" ws op:overloadable_op
-{return track({identifier: "operator"+op, operator: op}, offset, text, line, column);}
+{return track({identifier: "operator"+op, operator: op}, location(), text());}
 
 overloadable_op
   = "new[]"
@@ -753,15 +754,15 @@ unoverloadable_op
 
 literal
   = lit:literal_float
-    {return track({expression: "literal", type:"float", value:lit}, offset, text, line, column);}
+    {return track({expression: "literal", type:"float", value:lit}, location(), text());}
   / lit:literal_int
-    {return track({expression: "literal", type:"int", value:lit}, offset, text, line, column);}
+    {return track({expression: "literal", type:"int", value:lit}, location(), text());}
   / lit:literal_char
-    {return track({expression: "literal", type:"char", value:lit}, offset, text, line, column);}
+    {return track({expression: "literal", type:"char", value:lit}, location(), text());}
   / lit:literal_string
-    {return track({expression: "literal", type:"string", value:lit}, offset, text, line, column);}
+    {return track({expression: "literal", type:"string", value:lit}, location(), text());}
   / lit:literal_boolean
-    {return track({expression: "literal", type:"bool", value:lit}, offset, text, line, column);}
+    {return track({expression: "literal", type:"bool", value:lit}, location(), text());}
 
 literal_int
   = neg:"-"? digits:[0-9]+ { return parseInt((neg ? neg : "") + digits.join("")); }
@@ -806,7 +807,7 @@ octal_escape
 
 identifier "identifier"
   = first:identifierFirstChar rest:identifierChar*
-    {return track({identifier: first + rest.join("")}, offset, text, line, column);}
+    {return track({identifier: first + rest.join("")}, location(), text());}
 
 identifierChar = [a-zA-Z0-9_]
 
@@ -830,13 +831,13 @@ class_name
 
 class_specifier
   = head:class_head !{getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
-    { return track({head: head, member_specs: mems}, offset, text, line, column); }
+    { return track({head: head, member_specs: mems}, location(), text()); }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
-    { return track({key:key, name:name, bases:bases}, offset, text, line, column); }
+    { return track({key:key, name:name, bases:bases}, location(), text()); }
   // = key:class_key WS base:base_clause?
-  //   { return track({key:key, base:base}, offset, text, line, column); }
+  //   { return track({key:key, base:base}, location(), text()); }
 
 class_head_name
   = /* nested_name_specifier? ws */ class_name
@@ -859,7 +860,7 @@ access_specifier
 
 member_declaration
   = specs:decl_specifiers !identifier ws declarators:member_declarator_list ws ";"
-    { return track({declaration: "member", specs:specs, declarators:declarators}, offset, text, line, column); }
+    { return track({declaration: "member", specs:specs, declarators:declarators}, location(), text()); }
   / c:constructor_definition ws ";"? { return c; }
   / d:destructor_definition ws ";"? { return d; }
   / f:function_definition ws ";"? { return f; }
@@ -907,5 +908,3 @@ qualified_class_name
 
 
 
-
-//end = "" {return offset;}

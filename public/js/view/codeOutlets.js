@@ -304,8 +304,8 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     }, true)
 });
 
-var curlyOpen = "<span class=\"curly open\">{</span>";
-var curlyClose = "<span class=\"curly close\">}</span>";
+var curlyOpen = "<span class=\"curly-open\">{</span>";
+var curlyClose = "<span class=\"curly-close\">}</span>";
 
 Lobster.Outlets.CPP.Block = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Block",
