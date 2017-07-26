@@ -189,7 +189,6 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
 
 var Types = Lobster.Types = {
-    maxSize : 0,
     userTypeNames : {},
     builtInTypes : {},
     defaultUserTypeNames : {
@@ -311,9 +310,19 @@ var Type = Lobster.Types.Type = Class.extend({
     // Default instance properties
     compoundNext : null,
 
+    i_maxSize : 0,
+
+    setMaxSize : function(newMax) {
+        this.i_maxSize = newMax;
+    },
+
+    getMaxSize : function() {
+        return this.i_maxSize;
+    },
+
     init: function (isConst, isVolatile) {
-        if (this.size > Types.maxSize){
-            Types.maxSize = this.size;
+        if (this.size > Type.getMaxSize()){
+            Type.setMaxSize(this.size);
         }
         this.isConst = isConst || false;
         // ignore volatile completely for now (and perhaps forever lol)
@@ -916,8 +925,8 @@ Lobster.Types.Array = Type.extend({
         this.length = length;
         this.properSize = this.elemType.size * length;
         this.size = Math.max(1, this.properSize);
-        if (this.size > Types.maxSize){
-            Types.maxSize = this.size;
+        if (this.size > Type.getMaxSize()){
+            Type.setMaxSize(this.size);
         }
     },
     sameType : function(other){

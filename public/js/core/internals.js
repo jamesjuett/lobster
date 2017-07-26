@@ -2179,7 +2179,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
     readByte : function(ad, fromObj){
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2196,7 +2196,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         var end = ad + num;
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = end-1; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2211,7 +2211,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.bytes[ad] = value;
 
         // Notify any object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj && obj.size > ad - i){
@@ -2223,7 +2223,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.bytes[ad] = value;
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2239,7 +2239,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         }
 
         // Notify any other object that is interested in that byte
-        //var begin = ad - Types.maxSize;
+        //var begin = ad - Type.getMaxSize();
         //for(var i = ad+values.length; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj && obj.size > ad - i){
@@ -2267,7 +2267,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         }
 
         // Notify any other object that is interested in that byte
-        //var begin = ad - Types.maxSize;
+        //var begin = ad - Type.getMaxSize();
         //for(var i = ad+values.length-1; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }

@@ -1568,6 +1568,8 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
             try{
                 var baseCode = this.code.head.bases[0];
+
+                // TODO NEW: Use an actual Identifier expression for this
                 this.base = scope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
