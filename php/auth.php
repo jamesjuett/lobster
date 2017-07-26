@@ -41,7 +41,7 @@ function isUserLoggedIn() {
 }
 
 function getUserEmail() {
-  assert(isset($_SESSION["email"]));
+  assert(isUserLoggedIn());
   return $_SESSION["email"];
 }
 

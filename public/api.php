@@ -126,6 +126,97 @@ $app->post('/api/course/code/:course/:name', function ($course, $name) use ($app
 });
 
 
+
+// GET request for projects list
+$app->get('/api/me/project/list', function () use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT project, isPublic FROM user_projects WHERE email=:email UNION DISTINCT SELECT project, 0 FROM starter_projects');
+    $stmt->bindParam('email', $email);
+    $stmt->execute();
+    $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+    echo json_encode($res);
+});
+
+// GET request for project code
+$app->get('/api/me/project/get/:project', function ($project) use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT * FROM user_project_files WHERE email=:email AND project=:project');
+    $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $project);
+    $stmt->execute();
+
+    if ($stmt->rowCount() != 0){
+        $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+        echo json_encode($res);
+    }
+    else {
+        // Instead grab values from starter projects table
+        $stmt = $db->prepare('SELECT * FROM starter_project_files WHERE project=:project');
+        $stmt->bindParam('project', $project);
+        $stmt->execute();
+
+        $res = $stmt->fetchAll(PDO::FETCH_CLASS);
+        echo json_encode($res);
+    }
+
+    $stmt = $db->prepare('UPDATE user_info SET lastProject=:project WHERE uniqname=:email');
+    $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $project);
+    $stmt->execute();
+});
+
+
+
+// POST request to save a project
+$app->post('/api/me/project/save/:projectName', function ($projectName) use ($app) {
+
+    $email = getUserEmail();
+
+    $db = dbConnect();
+
+    $stmt = $db->prepare('SELECT * FROM user_projects WHERE email=:email AND project=:project');
+    $stmt->bindParam('email', $email);
+    $stmt->bindParam('project', $projectName);
+    $stmt->execute();
+
+    if ($stmt->rowCount() == 0){
+
+        // Create a new project since it didn't exist before
+        $stmt = $db->prepare('INSERT INTO user_projects VALUES (:email, :project, false, NULL)');
+        $stmt->bindParam('email', $email);
+        $stmt->bindParam('project', $projectName);
+        $stmt->execute();
+    }
+
+    //$files = json_decode($app->request->post('files'), true);
+    $files = $app->request->post('files');
+    //echo json_encode($files);
+    foreach($files as $file){
+        $name = $file['name'];
+        $text = $file['text'];
+        $isTranslationUnit = $file['isTranslationUnit'];
+
+        $stmt = $db->prepare('INSERT INTO user_project_files VALUES (:email, :project, :name, :text, :isTranslationUnit, NULL) ON DUPLICATE KEY UPDATE code=:text, isTranslationUnit=:isTranslationUnit');
+        $stmt->bindParam('email', $email);
+        $stmt->bindParam('project', $projectName);
+        $stmt->bindParam('name', $name);
+        $stmt->bindParam('text', $text);
+        $stmt->bindParam('isTranslationUnit', $isTranslationUnit);
+        $stmt->execute();
+    }
+
+    echo json_encode(array(
+        'success'=>'success'
+    ));
+});
+
+
 $app->post('/api/me/code/:name', function ($name) use ($app) {
 
     $email = getEmailFromIdToken($app->request->post('idtoken'));
@@ -145,6 +236,26 @@ $app->post('/api/me/code/:name', function ($name) use ($app) {
     $stmt->execute();
 });
 
+
+
+$app->post('/api/me/code/:name', function ($name) use ($app) {
+
+    $email = getEmailFromIdToken($app->request->post('idtoken'));
+    $theuser = $email;
+
+    $db = dbConnect();
+    $stmt = $db->prepare('SELECT code FROM user_code WHERE uniqname=:uniqname AND name=:name');
+    $stmt->bindParam('uniqname', $theuser);
+    $stmt->bindParam('name', $name);
+    $stmt->execute();
+    $res = $stmt->fetchObject();
+    echo $res->code;
+
+    $stmt = $db->prepare('UPDATE user_info SET lastFile=:name WHERE uniqname=:uniqname');
+    $stmt->bindParam('name', $name);
+    $stmt->bindParam('uniqname', $theuser);
+    $stmt->execute();
+});
 
 
 

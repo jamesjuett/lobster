@@ -78,7 +78,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
         for (var subName in this.subMetas) {
             var subMeta = this.subMetas[subName];
             var sub = this[subName] = this.sub[subName] = this.originalSub[subName] = Expressions.createExpr(this.code[subMeta.parsedName || subName], {parent: this});
-            this.semanticProblems.pushAll(sub.compile(scope));
+            sub.compile(scope);
 
             if (subMeta.convertTo) {
                 sub = this[subName] = this.sub[subName] = standardConversion(sub, subMeta.convertTo);
@@ -89,8 +89,8 @@ var Expression = Expressions.Expression = CPPCode.extend({
         }
 
         // If subexpressions have problems, just forget it :(
-        if (this.semanticProblems.errors.length > 0) {
-            return this.semanticProblems;
+        if (this.hasErrors()) {
+            return;
         }
 
         // Attempt custom conversions
@@ -105,8 +105,6 @@ var Expression = Expressions.Expression = CPPCode.extend({
         // if (this.isFullExpression()){
         //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
         // }
-
-        return this.semanticProblems;
     },
     compileTemporarires : function(scope){
         if (this.temporaryObjects) {
@@ -117,17 +115,17 @@ var Expression = Expressions.Expression = CPPCode.extend({
                     var dest = tempEnt.type.getDestructor();
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
-                        this.i_compileChild(call, scope, dest, []);
+                        call.compile(scope, dest, []);
                         this.temporariesToDestruct.push(call);
                     }
                     else{
-                        this.semanticProblems.push(CPPError.decl.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
+                        this.addNote(CPPError.decl.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
                     }
                 }
             }
 
             this.tempDeallocator = Statements.TemporaryDeallocator.instance("", {parent: this}, this.temporaryObjects);
-            this.i_compileChild(this.tempDeallocator);
+            this.tempDeallocator.compile();
         }
     },
 
@@ -140,8 +138,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
 //    compileSubexpressions : function(scope){
 //		this.subexpressionProblems = {};
 //		for (var key in this.subexpressions){
-//            var probs = this.subexpressions[key].compile(scope)
-//			this.semanticProblems.pushAll(probs);
+//          this.subexpressions[key].compile(scope)
 //			this.subexpressionProblems[key] = probs;
 //		}
 //	},
@@ -163,9 +160,9 @@ var Expression = Expressions.Expression = CPPCode.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.semanticProblems.push(CPPError.expr.overloadLookup(this, op));
-                this.semanticProblems.push(e.annotation(this));
-                return this.semanticProblems;
+                this.addNote(CPPError.expr.overloadLookup(this, op));
+                this.addNote(e.annotation(this));
+                return;
             }
             else{
                 throw e;
@@ -187,9 +184,9 @@ var Expression = Expressions.Expression = CPPCode.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.semanticProblems.push(CPPError.expr.overloadLookup(this, op));
-                this.semanticProblems.push(e.annotation(this));
-                return this.semanticProblems;
+                this.addNote(CPPError.expr.overloadLookup(this, op));
+                this.addNote(e.annotation(this));
+                return;
             }
             else{
                 throw e;
@@ -340,7 +337,7 @@ Expressions.Unsupported = Expression.extend({
     _name: "Unsupported",
     valueCategory: "prvalue",
     typeCheck : function(){
-        this.semanticProblems.push(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
     }
 });
 
@@ -379,12 +376,9 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
 //        this.operand = this.sub.operand = Expressions.createExpr(this.code.sub, {parent:this});
 //
 //        this.compileSubexpressions(scope);
-//
-//        return this.semanticProblems;
 //    },
     compile : function(scope){
         this.compileTemporarires(scope);
-        return this.semanticProblems;
     },
 
     upNext : function(sim, inst){
@@ -455,7 +449,7 @@ Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
         var evalValue = inst.childInstances.from.evalValue;
         // Note, we get the type from the evalValue to preserve RTTI
 
-        inst.setEvalValue(evalValue.readValue());
+        inst.setEvalValue(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     },
 
     upNext : function(sim, inst){
@@ -894,16 +888,16 @@ Expressions.Ternary = Expression.extend({
         var sub = this.sub;
 
         if (!isA(sub._if.type, Types.Bool)){
-            this.semanticProblems.push(CPPError.expr.ternary.cond_bool(sub._if, sub._if.type));
+            this.addNote(CPPError.expr.ternary.cond_bool(sub._if, sub._if.type));
         }
         if (!sameType(sub.then.type, sub._else.type)) {
-            this.semanticProblems.push(CPPError.expr.ternary.sameType(this, this.then, this._else));
+            this.addNote(CPPError.expr.ternary.sameType(this, this.then, this._else));
         }
         if (isA(sub.then.type, Types.Void) || isA(sub._else.type, Types.Void)) {
-            this.semanticProblems.push(CPPError.expr.ternary.noVoid(this, this.then, this._else));
+            this.addNote(CPPError.expr.ternary.noVoid(this, this.then, this._else));
         }
         if (sub.then.valueCategory !== sub._else.valueCategory){
-            this.semanticProblems.push(CPPError.expr.ternary.sameValueCategory(this));
+            this.addNote(CPPError.expr.ternary.sameValueCategory(this));
         }
 
         this.type = this.then.type;
@@ -962,14 +956,14 @@ var Assignment = Expressions.Assignment = Expression.extend({
     convert : function(){
 
         if (!this.lhs.isWellTyped()){
-            return this.semanticProblems;
+            return;
         }
 
         // Check for overloaded assignment
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
             //var assnOp = this.lhs.type.memberMap["operator="];
-            var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: true});
+            var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxRhs.compile(this.compileScope);
 
             try{
@@ -979,9 +973,9 @@ var Assignment = Expressions.Assignment = Expression.extend({
             }
             catch(e){
                 if (isA(e, SemanticExceptions.BadLookup)){
-                    this.semanticProblems.push(CPPError.expr.overloadLookup(this, "="));
-                    this.semanticProblems.push(e.annotation(this));
-                    return this.semanticProblems;
+                    this.addNote(CPPError.expr.overloadLookup(this, "="));
+                    this.addNote(e.annotation(this));
+                    return;
                 }
                 else{
                     throw e;
@@ -995,7 +989,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 this.subSequence = this.overloadSubSequence;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.assignment.not_defined(this, this.lhs.type));
+                this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
             }
         }
         else{
@@ -1007,7 +1001,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
     typeCheck : function(){
 
         if (!this.lhs.isWellTyped()){
-            return this.semanticProblems;
+            return;
         }
 
         // All type checking is handled by the function call child it's overloaded.
@@ -1017,24 +1011,24 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
         // Type Check
         if (this.lhs.valueCategory != "lvalue") {
-            this.semanticProblems.push(CPPError.expr.assignment.lhs_lvalue(this));
+            this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
 
         if (this.lhs.type.isConst) {
-            this.semanticProblems.push(CPPError.expr.assignment.lhs_const(this));
+            this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
         // Checking for non overloaded cases where we have an rhs
         if (this.rhs){
 
             if (!this.rhs.isWellTyped()){
-                return this.semanticProblems;
+                return;
             }
 
             //If non-class type, check against cv-unqualified version of lhs type
             if (!isA(this.lhs.type, Types.Class)){
                 if (!sameType(this.rhs.type, this.lhs.type.cvUnqualified())) {
-                    this.semanticProblems.push(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
+                    this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
                 }
             }
             else{
@@ -1043,7 +1037,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
             // Just for fun
             if (isA(this.lhs, Identifier) && isA(this.rhs, Identifier) && this.lhs.entity === this.rhs.entity){
-                this.semanticProblems.push(CPPError.expr.assignment.self(this, this.lhs.entity));
+                this.addNote(CPPError.expr.assignment.self(this, this.lhs.entity));
             }
         }
 
@@ -1126,10 +1120,10 @@ Expressions.CompoundAssignment = Expression.extend({
     compile : function(scope) {
 
         //compiles left and right
-        this.semanticProblems.pushAll(this.rhs.compile(scope));
+        this.rhs.compile(scope);
 
-        if(this.semanticProblems.errors.length > 0){
-            return this.semanticProblems;
+        if(this.hasErrors()){
+            return;
         }
 
 
@@ -1142,18 +1136,17 @@ Expressions.CompoundAssignment = Expression.extend({
 
         // Type Check
         if (this.lhs.valueCategory !== "lvalue") {
-            this.semanticProblems.push(CPPError.expr.assignment.lhs_lvalue(this));
+            this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
 
         if (!sameType(this.rhs.type, this.lhs.type)) {
-            this.semanticProblems.push(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
+            this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
         }
 
         this.type = this.lhs.type;
 
         this.compileTemporarires(scope);
 //        return Expression.compile.call(this, scope);
-        return this.semanticProblems;
     },
 
     upNext : function(sim, inst){
@@ -1278,17 +1271,21 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
     compile : function(scope){
 
         // Compile left
-        var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: true});
-        var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: true});
+        var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: this.context.auxiliary + 1});
+        var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: this.context.auxiliary + 1});
 
         auxLeft.compile(scope);
         auxRight.compile(scope);
 
         // If either has problems that prevent us from determining type, nothing more can be done
         if (!auxLeft.isWellTyped() || !auxRight.isWellTyped()){
-            this.semanticProblems.pushAll(auxLeft.semanticProblems);
-            this.semanticProblems.pushAll(auxRight.semanticProblems);
-            return this.semanticProblems;
+
+            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
+            var self = this;
+            auxLeft.getNotes().forEach(function(note) {self.addNote(note);});
+            auxRight.getNotes().forEach(function(note) {self.addNote(note);});
+
+            return;
         }
 
         if (isA(auxLeft.type, Types.Class) || isA(auxRight.type, Types.Class)){
@@ -1316,7 +1313,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
                 this.valueCategory = this.sub.funcCall.valueCategory;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.binary.overload_not_found(this, this.op, auxLeft.type, auxRight.type));
+                this.addNote(CPPError.expr.binary.overload_not_found(this, this.op, auxLeft.type, auxRight.type));
             }
         }
         else{
@@ -1325,9 +1322,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
 
             // If either has problems that prevent us from determining type, nothing more can be done
             if (!this.left.isWellTyped() || !this.right.isWellTyped()){
-                this.semanticProblems.pushAll(this.left.semanticProblems);
-                this.semanticProblems.pushAll(this.right.semanticProblems);
-                return this.semanticProblems;
+                return;
             }
 
             this.convert();
@@ -1335,7 +1330,6 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             this.typeCheck();
             this.compileTemporarires(scope);
         }
-        return this.semanticProblems;
     },
 
     usualArithmeticConversions : function(){
@@ -1365,7 +1359,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             }
         }
 
-        this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+        this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         return false;
     },
 
@@ -1431,7 +1425,7 @@ Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
         if (isA(this.left.type, Types.Pointer)){
             if (!isA(this.right.type, Types.Pointer)){
                 // TODO this is a hack until I implement functions to determine cv-combined type and composite pointer types
-                this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
                 return false;
             }
         }
@@ -1455,7 +1449,7 @@ Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
             return true;
         }
         else{
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         }
     },
 
@@ -1494,7 +1488,7 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
             return true;
         }
         else{
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         }
     },
     upNext : function(sim, inst){
@@ -1556,7 +1550,6 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
 });
 
 
-
 var BINARY_OPS = Expressions.BINARY_OPS = {
     "|" : Expressions.Unsupported.extend({
         _name: "BinaryOp[|]",
@@ -1615,7 +1608,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         },
 
         operate : function(left, right, sim, inst){
@@ -1651,7 +1644,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         typeCheck : function(){
 
             // Check if it's pointer arithmetic
-            if (isA(this.left.type, Types.Pointer) && isA(this.right.type, Types.Pointer) && sameType(this.left.type, this.right.type)) {
+            if (isA(this.left.type, Types.Pointer) && isA(this.right.type, Types.Pointer) && similarType(this.left.type, this.right.type)) {
                 this.type = Types.Int.instance();
                 this.valueCategory = "prvalue";
                 this.isPointerArithmetic = true;
@@ -1670,7 +1663,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         },
 
         operate : function(left, right, sim, inst){
@@ -1754,7 +1747,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
             }
         },
 
@@ -1826,7 +1819,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         },
         stepForward : function(sim, inst){
             Expressions.BinaryOp.stepForward.apply(this, arguments);
@@ -1855,7 +1848,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.semanticProblems.push(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
         }
     })
 };
@@ -1877,7 +1870,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     },
 
     compile : function(scope){
-        var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: true});
+        var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
         auxOperand.compile(scope);
 
         if (isA(auxOperand.type, Types.Class)){
@@ -1924,7 +1917,6 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
             this.compileTemporarires(scope);
         }
-        return this.semanticProblems;
     },
 
     upNext : function(sim, inst){
@@ -1977,10 +1969,10 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
     typeCheck : function(){
         // Type check
         if (!isA(this.operand.type, Types.Pointer)) {
-            this.semanticProblems.push(CPPError.expr.dereference.pointer(this, this.operand.type));
+            this.addNote(CPPError.expr.dereference.pointer(this, this.operand.type));
         }
         else if (!(this.operand.type.ptrTo.isObjectType || isA(this.operand.type.ptrTo, Types.Function))){
-            this.semanticProblems.push(CPPError.expr.dereference.pointerToObjectType(this, this.operand.type));
+            this.addNote(CPPError.expr.dereference.pointerToObjectType(this, this.operand.type));
         }
         else{
             this.type = this.operand.type.ptrTo;
@@ -2070,12 +2062,10 @@ var AddressOf = Expressions.AddressOf = UnaryOp.extend({
     typeCheck : function(){
         // operand must be an lvalue
         if(this.operand.valueCategory !== "lvalue"){
-            this.semanticProblems.push(CPPError.expr.addressOf.lvalue_required(this));
+            this.addNote(CPPError.expr.addressOf.lvalue_required(this));
         }
 
         this.type = Types.Pointer.instance(this.operand.type);
-
-        return this.semanticProblems;
     },
 
     operate: function(sim, inst){
@@ -2102,7 +2092,7 @@ Expressions.UnaryPlus = UnaryOp.extend({
             return true;
         }
         else{
-            this.semanticProblems.push(CPPError.expr.unaryPlus.operand(this));
+            this.addNote(CPPError.expr.unaryPlus.operand(this));
             return false;
         }
     },
@@ -2130,7 +2120,7 @@ Expressions.UnaryMinus = UnaryOp.extend({
             return true;
         }
         else{
-            this.semanticProblems.push(CPPError.expr.unaryMinus.operand(this));
+            this.addNote(CPPError.expr.unaryMinus.operand(this));
             return false;
         }
     },
@@ -2155,7 +2145,7 @@ Expressions.LogicalNot = UnaryOp.extend({
     typeCheck : function(){
         // Type check
         if (!isA(this.operand.type, Types.Bool)){
-            this.semanticProblems.push(CPPError.expr.logicalNot.operand_bool(this, this.operand));
+            this.addNote(CPPError.expr.logicalNot.operand_bool(this, this.operand));
         }
     },
 
@@ -2181,18 +2171,18 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
             this.type = this.operand.type;
 
             if (this.op == "--" && isA(this.operand.type, Types.Bool)){
-                this.semanticProblems.push(CPPError.expr.invalid_operand(this, this.op, this.operand));
+                this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
             }
 
             else if (this.operand.valueCategory === "lvalue") {
                 return true;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.lvalue_operand(this, this.op));
+                this.addNote(CPPError.expr.lvalue_operand(this, this.op));
             }
         }
         else{
-            this.semanticProblems.push(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
         }
     },
     operate: function(sim, inst){
@@ -2242,11 +2232,11 @@ Expressions.Increment = Expression.extend({
                 return true;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.lvalue_operand(this, "++"));
+                this.addNote(CPPError.expr.lvalue_operand(this, "++"));
             }
         }
         else{
-            this.semanticProblems.push(CPPError.expr.invalid_operand(this, "++", this.operand));
+            this.addNote(CPPError.expr.invalid_operand(this, "++", this.operand));
         }
     },
     stepForward : function(sim, inst){
@@ -2293,17 +2283,17 @@ Expressions.Decrement = Expression.extend({
             this.type = this.operand.type;
 
             if (this.op = "--" && isA(this.operand.type, Types.Bool)){
-                this.semanticProblems.push(CPPError.expr.invalid_operand(this, this.op, this.operand));
+                this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
             }
             else if (this.operand.valueCategory === "lvalue") {
                 return true;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.lvalue_operand(this, this.op));
+                this.addNote(CPPError.expr.lvalue_operand(this, this.op));
             }
         }
         else{
-            this.semanticProblems.push(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
         }
     },
     stepForward : function(sim, inst){
@@ -2354,7 +2344,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         if (isA(this.operand.type, Types.Class)){
             this.isOverloaded = true;
 
-            var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: true});
+            var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxOffset.compile(scope);
 
             this.processMemberOverload(this.operand, [auxOffset], "[]");
@@ -2373,14 +2363,14 @@ var Subscript = Expressions.Subscript = Expression.extend({
             return;
         }
         if (!isA(this.operand.type, Types.Pointer)) {
-            this.semanticProblems.push(CPPError.expr.array_operand(this, this.operand.type));
+            this.addNote(CPPError.expr.array_operand(this, this.operand.type));
         }
         else{
             this.type = this.operand.type.ptrTo;
         }
 
         if (!isA(this.offset.type, Types.Int)) {
-            this.semanticProblems.push(CPPError.expr.array_offset(this, this.offset.type));
+            this.addNote(CPPError.expr.array_offset(this, this.offset.type));
         }
     },
 
@@ -2483,7 +2473,7 @@ var Dot = Expressions.Dot = Expression.extend({
     },
     typeCheck : function(){
         if (!isA(this.operand.type, Types.Class)) {
-            this.semanticProblems.push(CPPError.expr.dot.class_type(this));
+            this.addNote(CPPError.expr.dot.class_type(this));
             return false;
         }
 
@@ -2494,8 +2484,8 @@ var Dot = Expressions.Dot = Expression.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.semanticProblems.push(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
-                this.semanticProblems.push(e.annotation(this));
+                this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
+                // this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -2510,7 +2500,7 @@ var Dot = Expressions.Dot = Expression.extend({
         //    this.memberIndex = mem.memberIndex;
         //}
         //else{
-        //    this.semanticProblems.push(CPPError.expr.dot.no_such_member(this, this.operand, this.memberName));
+        //    this.addNote(CPPError.expr.dot.no_such_member(this, this.operand, this.memberName));
         //    return false;
         //}
 
@@ -2566,7 +2556,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
     },
     typeCheck : function(){
         if (!isA(this.operand.type, Types.Pointer) || !isA(this.operand.type.ptrTo, Types.Class)) {
-            this.semanticProblems.push(CPPError.expr.arrow.class_pointer_type(this));
+            this.addNote(CPPError.expr.arrow.class_pointer_type(this));
             return false;
         }
 
@@ -2577,8 +2567,8 @@ var Arrow = Expressions.Arrow = Expression.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.semanticProblems.push(CPPError.expr.arrow.memberLookup(this, this.operand.type.ptrTo, this.memberName));
-                this.semanticProblems.push(e.annotation(this));
+                this.addNote(CPPError.expr.arrow.memberLookup(this, this.operand.type.ptrTo, this.memberName));
+                // this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -2771,12 +2761,8 @@ var FunctionCall = Expression.extend({
         this.func = func;
         //this.args = args;
 
-        if (!this.context.auxiliary){
-            scope.addCall(this);
-        }
-
         if (this.func.isMain && !this.context.isMainCall){
-            this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
+            this.addNote(CPPError.expr.functionCall.numParams(this));
 
         }
 
@@ -2802,22 +2788,19 @@ var FunctionCall = Expression.extend({
         // Check that we have the right number of parameters
         // Note: at the moment, this is not already "checked" by name lookup / overload resolution
         if (args.length !== this.func.type.paramTypes.length){
-            this.semanticProblems.push(CPPError.expr.functionCall.numParams(this));
-            return this.semanticProblems;
+            this.addNote(CPPError.expr.functionCall.numParams(this));
+            return;
         }
 
         // Parameter passing is done by copy initialization, so create initializers.
         this.argInitializers = args.map(function(arg, i){
             var init = ParameterInitializer.instance(arg.code, {parent: self});
-            self.semanticProblems.pushAll(init.compile(scope,
-                ParameterEntity.instance(self.func,i),
-                [arg]
-            ));
+            init.compile(scope, ParameterEntity.instance(self.func,i), [arg]);
             init.initIndex = "afterChildren"; // These initializers expect their expression to already be evaluated
             return init;
         });
 
-        if (!isA(this.func.decl, MagicFunctionDefinition)){
+        if (!isA(this.func.definition, MagicFunctionDefinition)){
             // If we are returning by value, then we need to create a temporary object to copy-initialize.
             // If we are returning by reference, this.returnObject will be bound to what we return.
             // Temporary references do not use extra space and won't be automatically destructed.
@@ -2826,9 +2809,12 @@ var FunctionCall = Expression.extend({
                 this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
-            if (!this.context.isMainCall){
+            if (!this.context.isMainCall && !this.context.auxiliary){
                 // Register as a function call in our function context
                 this.context.func.calls.push(this);
+
+                // Register as a call in the translation unit (this is used during the linking process later)
+                this.context.translationUnit.registerFunctionCall(this);
             }
         }
 
@@ -2836,15 +2822,15 @@ var FunctionCall = Expression.extend({
     },
 
     checkLinkingProblems : function(){
-        var linkingProblems = SemanticProblems.instance();
         if (!this.func.isLinked()){
-            linkingProblems.push(CPPError.link.def_not_found(this, this.func));
+            var note = CPPError.link.def_not_found(this, this.func);
+            this.addNote(note);
+            return note;
         }
-        this.semanticProblems.pushAll(linkingProblems);
-        return linkingProblems;
+        return null;
     },
 
-    tailRecursionCheck : function(semanticProblems){
+    tailRecursionCheck : function(){
         if (this.isTail !== undefined) {
             return;
         }
@@ -2902,7 +2888,7 @@ var FunctionCall = Expression.extend({
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).decl;
+        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do
@@ -3080,37 +3066,41 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
 
         // Need to select function, so have to compile auxiliary arguments
         var auxArgs = this.code.args.map(function(arg){
-            var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: true});
-            auxArg.compile(scope);
+            var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
+            auxArg.tryCompile(scope);
             return auxArg;
         });
 
-        // If any auxiliary arguments have semantic problems, we cannot recover
-        auxArgs.forEach(function(aa){
-            self.semanticProblems.pushAll(aa.semanticProblems);
-        });
-
-        if (this.semanticProblems.hasErrors()){ return this.semanticProblems; }
+        // If we already have errors from any auxiliary arguments, we cannot recover
+        if (auxArgs.some(function(auxArg) {return auxArg.hasErrors()})){
+            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
+            auxArgs.forEach(function(auxArg){
+                auxArg.getNotes().forEach(function(note) {
+                    self.addNote(note);
+                });
+            });
+            return;
+        }
 
         var argTypes = auxArgs.map(function(arg){
             return arg.type;
         });
         this.operand = this.operand = Expressions.createExpr(this.code.operand, {parent:this, paramTypes: argTypes});
 
-        this.i_compileChild(this.operand, scope);
+        this.operand.compile(scope);
 
-        if (this.semanticProblems.hasErrors()){
-            return this.semanticProblems;
+        if (this.hasErrors()){
+            return;
         }
 
         this.bindFunction(scope);
 
-        if (this.semanticProblems.hasErrors()){
-            return this.semanticProblems;
+        if (this.hasErrors()){
+            return;
         }
 
         var funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-        this.semanticProblems.pushAll(funcCall.compile(scope, this.boundFunction, this.code.args));
+        funcCall.compile(scope, this.boundFunction, this.code.args);
 
         this.type = funcCall.type;
         this.valueCategory = funcCall.valueCategory;
@@ -3129,8 +3119,8 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
                 this.type = noRef(callOp.type.returnType);
             }
             else{
-                this.semanticProblems.push(CPPError.expr.functionCall.not_defined(this, this.operand.type));
-                return this.semanticProblems;
+                this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type));
+                return;
             }
         }
         else if (isA(this.operand.entity, FunctionEntity)){
@@ -3149,8 +3139,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
             this.boundFunction = PointedFunctionEntity.instance(this.operand.type);
         }
         else{
-            this.semanticProblems.push(CPPError.expr.functionCall.operand(this, this.operand));
-            return this.semanticProblems;
+            this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
         }
 
     },
@@ -3219,14 +3208,14 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         // Compile the type specifier
         this.typeSpec = TypeSpecifier.instance(this.code.specs, {parent:this});
-        this.semanticProblems.pushAll(this.typeSpec.compile(scope));
+        this.typeSpec.compile(scope);
 
         this.heapType = this.typeSpec.type;
 
         // Compile declarator if it exists
         if(this.code.declarator) {
             this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
-            this.semanticProblems.pushAll(this.declarator.compile(scope));
+            this.declarator.compile(scope);
             this.heapType = this.declarator.type;
         }
 
@@ -3246,19 +3235,17 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         var initCode = this.code.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
-            this.i_compileChild(this.initializer, scope, entity, initCode.args);
+            this.initializer.compile(scope, entity, initCode.args);
         }
         else if (initCode.args.length == 0){
             this.initializer = DefaultInitializer.instance(initCode, {parent: this});
-            this.i_compileChild(this.initializer, scope, entity);
+            this.initializer.compile(scope, entity);
         }
         else{
-            this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.heapType));
+            this.addNote(CPPError.decl.init.scalar_args(this, this.heapType));
         }
 
         this.compileTemporarires(scope);
-
-        return this.semanticProblems;
     },
 
     upNext : function(sim, inst){
@@ -3362,20 +3349,20 @@ var Delete = Expressions.Delete = Expression.extend({
                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
 
                 this.funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.i_compileChild(this.funcCall, this.compileScope, dest, []);
+                this.funcCall.compile(this.compileScope, dest, []);
                 this.type = this.funcCall.type;
             }
             else{
-                this.semanticProblems.push(CPPError.expr.delete.no_destructor(this, classType));
+                this.addNote(CPPError.expr.delete.no_destructor(this, classType));
             }
         }
 
         // Type check
         if (!isA(this.operand.type, Types.Pointer)) {
-            this.semanticProblems.push(CPPError.expr.delete.pointer(this, this.operand.type));
+            this.addNote(CPPError.expr.delete.pointer(this, this.operand.type));
         }
         else if (!this.operand.type.ptrTo.isObjectType){
-            this.semanticProblems.push(CPPError.expr.delete.pointerToObjectType(this, this.operand.type));
+            this.addNote(CPPError.expr.delete.pointerToObjectType(this, this.operand.type));
         }
     },
     stepForward : function(sim, inst){
@@ -3522,14 +3509,14 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         // Compile the type specifier
         this.typeSpec = TypeSpecifier.instance([this.code.type], {parent:this});
-        this.semanticProblems.pushAll(this.typeSpec.compile(scope));
+        this.typeSpec.compile(scope);
 
         this.type = this.typeSpec.type;
 
         // Compile declarator if it exists
         if(this.code.declarator) {
             this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
-            this.semanticProblems.pushAll(this.declarator.compile(scope));
+            this.declarator.compile(scope);
             this.heapType = this.declarator.type;
         }
 
@@ -3537,15 +3524,13 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         if (isA(this.type, Types.Class) || this.code.args.length == 1){
             this.initializer = DirectInitializer.instance(this.code, {parent: this});
-            this.i_compileChild(this.initializer, scope, this.entity, this.code.args);
+            this.initializer.compile(scope, this.entity, this.code.args);
         }
         else{
-            this.semanticProblems.push(CPPError.decl.init.scalar_args(this, this.type));
+            this.addNote(CPPError.decl.init.scalar_args(this, this.type));
         }
 
         this.compileTemporarires(scope);
-
-        return this.semanticProblems;
     },
 
     createInstance : function(sim, parent, receiver){
@@ -3628,7 +3613,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
         this.identifierText = identifierToText(this.identifier);
     },
     typeCheck : function(){
-        checkIdentifier(this, this.identifier, this.semanticProblems);
+        checkIdentifier(this, this.identifier, this);
 
 		try{
             this.entity = this.compileScope.requiredLookup(this.identifier, copyMixin(this.context, {isThisConst:this.context.func.type.isThisConst}));
@@ -3636,7 +3621,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
             if(isA(this.entity, CPPEntity)) {
                 this.type = this.entity.type;
                 if(isA(this.type, Types.IStream)){
-                    this.semanticProblems.push(makeError(this, "warning", "Sorry, <span class='code'>cin</span> is not supported yet :(."));
+                    this.addNote(makeError(this, "warning", "Sorry, <span class='code'>cin</span> is not supported yet :(."));
                 }
             }
 
@@ -3646,7 +3631,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.semanticProblems.push(e.annotation(this));
+                this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -3689,9 +3674,8 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
             this.type = Types.Pointer.instance(func.receiverType);
         }
         else{
-            this.semanticProblems.push(CPPError.expr.this_memberFunc(this));
+            this.addNote(CPPError.expr.this_memberFunc(this));
         }
-        return this.semanticProblems;
     },
     stepForward : function(sim, inst){
         // Set this pointer with RTTI to point to receiver
@@ -3709,7 +3693,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
         this.type = this.entity.type;
     },
     compile : function(scope){
-        return this.semanticProblems;
+
     },
     upNext : function(sim, inst){
         inst.setEvalValue(this.entity.lookup(sim, inst));
@@ -3746,7 +3730,6 @@ var Literal = Expressions.Literal = Expression.extend({
     initIndex: false,
     compile : function(scope){
 		
-		var semanticProblems = this.semanticProblems;
 		var code = this.code;
 		
 		var conv = literalJSParse[code.type];
@@ -3764,8 +3747,6 @@ var Literal = Expressions.Literal = Expression.extend({
 //            val.push(0);
 //            this.value = Value.instance(val, this.type);
 //        }
-
-		return semanticProblems;
 	},
 
     upNext : function(sim, inst){
