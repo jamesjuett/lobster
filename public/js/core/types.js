@@ -306,7 +306,6 @@ var Type = Lobster.Types.Type = Class.extend({
     _name: "Type",
     size: Class._ABSTRACT,
     isObjectType : true,
-    _cv : "",
     // Default instance properties
     compoundNext : null,
 
@@ -327,8 +326,11 @@ var Type = Lobster.Types.Type = Class.extend({
         this.isConst = isConst || false;
         // ignore volatile completely for now (and perhaps forever lol)
         this.isVolatile = false;// isVolatile || false;
-        this._cv = ""+(this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
         return this;
+    },
+
+    getCVString : function() {
+        return ""+(this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
     },
 
     describe : function(){
@@ -436,13 +438,13 @@ Lobster.Types.SimpleType = Type.extend({
             return varname ? varname : "";
         }
         else{
-            return this._cv + (decorated ? htmlDecoratedType(this.type) : this.type) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.type) : this.type) + (varname ? " " + varname : "");
         }
 	},
 	englishString : function(plural){
 		// no recursive calls to this.type.englishString() here
 		// because this.type is just a string representing the type
-        var word = this._cv + this.type;
+        var word = this.getCVString() + this.type;
 		return (plural ? this.type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
 	},
 	valueToString : function(value){
@@ -791,10 +793,10 @@ Lobster.Types.Pointer = Type.extend({
             && this.ptrTo.similarType(other.ptrTo);
     },
     typeString : function(excludeBase, varname){
-        return this.ptrTo.typeString(excludeBase, this.parenthesize(this.ptrTo, this._cv + "*" + varname));
+        return this.ptrTo.typeString(excludeBase, this.parenthesize(this.ptrTo, this.getCVString() + "*" + varname));
     },
     englishString : function(plural){
-        return (plural ? this._cv+"pointers to" : "a " +this._cv+"pointer to") + " " + this.ptrTo.englishString();
+        return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
     },
     valueToString : function(value){
         if (isA(this.ptrTo, Types.Function) && value) {
@@ -890,10 +892,10 @@ Lobster.Types.Reference = Type.extend({
         return other && other.isA(Types.Reference) && this.refTo.similarType(other.refTo);
     },
     typeString : function(excludeBase, varname){
-		return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this._cv + "&" + varname));
+		return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this.getCVString() + "&" + varname));
 	},
 	englishString : function(plural){
-		return this._cv + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString();
+		return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString();
 	},
 	valueToString : function(value){
 		return ""+value;
@@ -1047,13 +1049,13 @@ Lobster.Types.Class = Type.extend({
             return varname ? varname : "";
         }
         else{
-            return this._cv + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
         }
     },
     englishString : function(plural){
         // no recursive calls to this.type.englishString() here
         // because this.type is just a string representing the type
-        return this._cv + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
+        return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
     },
     valueToString : function(value){
         return JSON.stringify(value, null, 2);
