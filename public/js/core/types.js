@@ -794,6 +794,9 @@ Lobster.Types.Pointer = Type.extend({
         else{
             return "0x" + value;
         }
+    },
+    isObjectPointer : function() {
+        return this.ptrTo.isObjectType || isA(this.ptrTo, Types.Void);
     }
 });
 
