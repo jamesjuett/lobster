@@ -120,7 +120,7 @@ var tailCheck = function(filename){
         //decl.compile();
         var name = toCheck.name;
         var paramTypes = toCheck.type.paramTypes;
-        var func = sim.globalScope.lookup(name, {paramTypes: paramTypes, exactMatch:true});
+        var func = sim.getGlobalScope().lookup(name, {paramTypes: paramTypes, exactMatch:true});
 
         //console.log(name + ", " + func);
 

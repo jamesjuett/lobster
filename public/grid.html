@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
 
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
-    <script src="js/lib/codemirror-compressed.js"></script>
+    <script src="js/lib/codemirror.js"></script>
     <script src="js/lib/jquery-1.8.3.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
     <script src="js/lib/peg-0.8.0.min.js"></script>
@@ -176,7 +176,7 @@
             sim.setSourceCode()
         });
 
-            var editor = Outlets.CPP.CodeEditor.instance($(".codeMirrorEditor"), sim);
+            var editor = Outlets.CPP.FileEditor.instance($(".codeMirrorEditor"), sim);
             sim.converse(editor);
             editor.loadCode({
                 name: "grid",

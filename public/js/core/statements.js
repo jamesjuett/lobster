@@ -24,8 +24,7 @@ var Statement = Statements.Statement = CPPCode.extend({
 Statements.Unsupported = Statement.extend({
     _name: "Unsupported",
     compile : function(){
-        this.semanticProblems.push(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
-        return this.semanticProblems;
+        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
     }
 });
 
@@ -39,7 +38,6 @@ Statements.Expression = Statement.extend({
     initIndex: "expr",
     compile : function(scope){
 		this.expression = this.createAndCompileChildExpr(this.code.expr, scope);
-		return this.semanticProblems;
 	},
 
 
@@ -67,13 +65,11 @@ Statements.Declaration = Statement.extend({
     initIndex: "decl",
     compile : function(scope){
 		this.declaration = Declarations.create(this.code, {parent: this});
-		this.semanticProblems.pushAll(this.declaration.compile(scope));
+		this.declaration.compile(scope);
 
         if (!isA(this.declaration, Declarations.Declaration)){
-            this.semanticProblems.push(CPPError.stmt.declaration(this, this.declaration));
+            this.addNote(CPPError.stmt.declaration(this, this.declaration));
         }
-
-        return this.semanticProblems;
 	},
 	
 	upNext : function(sim, inst){
@@ -109,24 +105,21 @@ Statements.Return = Statement.extend({
         this.hasExpression = !!this.code.expr;
         if (this.code.expr){
             this.sub.returnInit = ReturnInitializer.instance(this.code, {parent: this});
-            this.i_compileChild(this.sub.returnInit, scope, ReturnEntity.instance(returnType), [this.code.expr]);
+            this.sub.returnInit.compile(scope, ReturnEntity.instance(returnType), [this.code.expr]);
         }
 
         // A return statement with no expression is only allowed in void functions.
         // At the moment, constructors/destructors are hacked to have void return type.
         if (!this.code.expr && !isA(func.type.returnType, Types.Void)){
-            this.semanticProblems.push(CPPError.stmt._return.empty(this))
-            return this.semanticProblems;
+            this.addNote(CPPError.stmt._return.empty(this))
         }
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
         //if (this.code.expr && !isA(this.expression.type, Types.Void) && isA(func.type.returnType, Types.Void)){
-        //    this.semanticProblems.push(CPPError.stmt._return.exprVoid(this));
-        //    return this.semanticProblems;
+        //    this.addNote(CPPError.stmt._return.exprVoid(this));
+        //    return;
         //}
-
-		return this.semanticProblems;
 	},
 
 	stepForward : function(sim, inst){
@@ -183,10 +176,8 @@ Statements.Block = Statements.Compound = Statement.extend({
         this.statements = [];
         for(var i = 0; i < this.length; ++i){
             var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this});
-            this.i_compileChild(stmt, this.scope);
+            stmt.compile(this.scope);
         }
-
-        return this.semanticProblems;
     },
 
     createInstance : function(){
@@ -252,20 +243,19 @@ Statements.Selection = Statement.extend({
     initIndex: "condition",
     compile : function(scope){
         this["if"] = Expressions.createExpr(this.code["if"], {parent: this});
-        this.semanticProblems.pushAll(this["if"].compile(scope));
+        this["if"].compile(scope);
         this["if"] = standardConversion(this["if"], Types.Bool.instance());
         if (!isA(this["if"].type, Types.Bool)){
-            this.semanticProblems.push(CPPError.stmt.selection.cond_bool(this, this["if"]));
+            this.addNote(CPPError.stmt.selection.cond_bool(this, this["if"]));
         }
 
         this.then = Statements.create(this.code.then, {parent: this});
-        this.semanticProblems.pushAll(this.then.compile(scope));
+        this.then.compile(scope);
 
         if (this.code["else"]){
             this["else"] = Statements.create(this.code["else"], {parent: this});
-            this.semanticProblems.pushAll(this["else"].compile(scope));
+            this["else"].compile(scope);
         }
-        return this.semanticProblems;
     },
 
     upNext : function(sim, inst){
@@ -345,18 +335,15 @@ Statements.While = Statements.Iteration.extend({
         this.scope = BlockScope.instance(scope);
 
         this.cond = Expressions.createExpr(this.code.cond, {parent:this});
-        this.semanticProblems.pushAll(this.cond.compile(this.scope));
+        this.cond.compile(this.scope);
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
         if (!isA(this.cond.type, Types.Bool)){
-            this.semanticProblems.push(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
         }
 
         this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.semanticProblems.pushAll(this.body.compile(this.scope));
-
-
-        return this.semanticProblems;
+        this.body.compile(this.scope);
     },
 
     upNext : function(sim, inst){
@@ -408,24 +395,21 @@ Statements.For = Statements.Iteration.extend({
 
         // Note: grammar ensures this will be an expression or declaration statement
         this.forInit = Statements.create(this.code.init, {parent: this});
-        this.semanticProblems.pushAll(this.forInit.compile(this.scope));
+        this.forInit.compile(this.scope);
 
         this.cond = Expressions.createExpr(this.code.cond, {parent: this});
-        this.semanticProblems.pushAll(this.cond.compile(this.scope));
+        this.cond.compile(this.scope);
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
         if (!isA(this.cond.type, Types.Bool)){
-            this.semanticProblems.push(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
         }
 
         this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.semanticProblems.pushAll(this.body.compile(this.scope));
+        this.body.compile(this.scope);
 
         this.post = Expressions.createExpr(this.code.post, {parent: this});
-        this.semanticProblems.pushAll(this.post.compile(this.scope));
-
-
-        return this.semanticProblems;
+        this.post.compile(this.scope);
     },
 
 
@@ -482,10 +466,8 @@ Statements.Break = Statement.extend({
 
         // container should exist, otherwise this break is somewhere it shouldn't be
         if (!container || !isA(container, Statements.Iteration)){
-            this.semanticProblems.push(CPPError.stmt._break.location(this, this["if"]));
+            this.addNote(CPPError.stmt._break.location(this, this["if"]));
         }
-
-        return this.semanticProblems;
     },
 
     createAndPushInstance : function(sim, inst){
@@ -513,7 +495,7 @@ Statements.TemporaryDeallocator = Statement.extend({
     },
 
     compile : function(scope){
-        return this.semanticProblems;
+
     },
 
     //stepForward : function(sim, inst){

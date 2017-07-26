@@ -1,0 +1,43 @@
+"class A {
+ int x; 
+};
+ 
+int func(int x) {
+  return 2 * x;
+} 
+ 
+int main() {
+  int x = 2;
+  int y = 3;
+  A z; 
+  int z = "temp";
+} 
+
+class A{
+  int     x;
+};
+ 
+int func2(int x){
+  return x;
+}
+ 
+class A {
+ int x; 
+};
+ 
+int func(int x) {
+  return 2 * x;
+} 
+ 
+int main() {
+  int x = 2;
+  int y = 3;
+  A z; 
+  int z = "temp";
+} 
+
+int main() {
+  int x = 3;
+  x = "test";
+  A z;
+}  "
