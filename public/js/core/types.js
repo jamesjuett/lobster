@@ -74,8 +74,6 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
     compile : function(scope){
 //		var groups = arrayGroups(this.code, TYPE_SPECIFIERS_GROUP_MAP);
 		
-		var semanticProblems = this.semanticProblems;
-
         var constCount = 0;
         var volatileCount = 0;
 
@@ -85,7 +83,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
             var spec = specs[i];
             if(spec === "const"){
                 if(this.isConst) {
-                    semanticProblems.push(CPPError.type.const_once(this));
+                    this.addNote(CPPError.type.const_once(this));
                 }
                 else{
                     this.isConst = true;
@@ -93,7 +91,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
             }
             else if(spec === "volatile"){
                 if (this.volatile){
-                    semanticProblems.push(CPPError.type.volatile_once(this));
+                    this.addNote(CPPError.type.volatile_once(this));
                 }
                 else{
                     this.volatile = true;
@@ -101,10 +99,10 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
             }
             else if (spec === "unsigned"){
                 if (this.unsigned){
-                    semanticProblems.push(CPPError.type.unsigned_once(this));
+                    this.addNote(CPPError.type.unsigned_once(this));
                 }
                 else if (this.signed){
-                    semanticProblems.push(CPPError.type.signed_unsigned(this));
+                    this.addNote(CPPError.type.signed_unsigned(this));
                 }
                 else{
                     this.unsigned = true;
@@ -112,10 +110,10 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
             }
             else if (spec === "signed"){
                 if (this.signed){
-                    semanticProblems.push(CPPError.type.signed_once(this));
+                    this.addNote(CPPError.type.signed_once(this));
                 }
                 else if (this.unsigned){
-                    semanticProblems.push(CPPError.type.signed_unsigned(this));
+                    this.addNote(CPPError.type.signed_unsigned(this));
                 }
                 else{
                     this.signed = true;
@@ -123,7 +121,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
             }
             else{ // It's a typename
                 if (this.typeName){
-                    semanticProblems.push(CPPError.type.one_type(this));
+                    this.addNote(CPPError.type.one_type(this));
                 }
                 else{
                     // TODO will need to look up the typename in scope to check it
@@ -134,15 +132,15 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
         // If we don't have a typeName by now, it means there wasn't a type specifier
         if (!this.typeName){
-            semanticProblems.push(CPPError.decl.func.no_return_type(this));
-            return semanticProblems;
+            this.addNote(CPPError.decl.func.no_return_type(this));
+            return;
         }
 
         if (this.unsigned){
             if (!this.typeName){
                 this.typeName = "int";
             }
-            semanticProblems.push(CPPError.type.unsigned_not_supported(this));
+            this.addNote(CPPError.type.unsigned_not_supported(this));
         }
         if (this.signed){
             if (!this.typeName){
@@ -152,12 +150,12 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 		
 		if (this.typeName == "list_t"){
 			this.type = Types.List_t.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-            return semanticProblems;
+            return;
 		}
 
 		if (this.typeName == "tree_t"){
 			this.type = Types.Tree_t.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-            return semanticProblems;
+            return;
 		}
 
         // NOTE: HARDCODED TYPEDEFS GO HERE
@@ -172,21 +170,19 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
         if (Types.builtInTypes[this.typeName]){
 			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-            return semanticProblems;
+            return;
 		}
 
         var scopeType;
         if (scopeType = scope.lookup(this.typeName)){
             if (isA(scopeType, TypeEntity)){
                 this.type = scopeType.type.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-                return semanticProblems;
+                return;
             }
         }
 
         this.type = Types.Unknown.instance();
-        semanticProblems.push(CPPError.type.typeNotFound(this, this.typeName));
-        return semanticProblems;
-
+        this.addNote(CPPError.type.typeNotFound(this, this.typeName));
 	}
 });
 
@@ -201,7 +197,8 @@ var Types = Lobster.Types = {
         tree_t : true,
         Rank : true,
         Suit : true,
-        ostream : true
+        ostream : true,
+        istream : true
     }
 };
 
@@ -741,8 +738,8 @@ Lobster.Types.OStream = Types.SimpleType.extend({
     }
 });
 
-Lobster.Types.IStream = Types.SimpleType.extend({
-    _name: "iStream",
+Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+    _name: "IStream",
     type: "istream",
     size: 4,
     init: function(isConst, isVolatile){
@@ -958,9 +955,11 @@ Lobster.Types.Class = Type.extend({
     _name: "Class",
     precedence: 0,
     className: Class._ABSTRACT,
+    _nextClassId: 0,
 
     extend: function(){
         var sub = Type.extend.apply(this, arguments);
+        sub.classId = this._nextClassId++;
         sub.scope = sub.scope; // TODO does this do anything? I think it actually makes the class have it's own version of the scope instead of an alias
         sub.members = sub.members || [];
         sub.objectMembers = [];
@@ -1008,6 +1007,10 @@ Lobster.Types.Class = Type.extend({
         return sub;
     },
 
+    merge : function(class1, class2) {
+        class1.classId = class2.classId = Math.min(class1.classId, class2.classId);
+    },
+
     init: function(isConst, isVolatile){
 
         this.initParent(isConst, isVolatile);
@@ -1015,13 +1018,13 @@ Lobster.Types.Class = Type.extend({
     },
     sameType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class)
+        return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(this._class);
+        return other && other.isA(Types.Class) && other.classId === this.classId;
     },
     classString : function(){
         return this.className;
@@ -1075,6 +1078,9 @@ Lobster.Types.Class = Type.extend({
             this.size += mem.type.size;
         }
     },
+    containsMember : function(name){
+        return !!this.memberMap[name];
+    },
     addConstructor : function(con){
         this.constructors.push(con);
     },
@@ -1122,12 +1128,15 @@ Lobster.Types.Class = Type.extend({
     isDerivedFrom : function(potentialBase){
         var b = this.base;
         while(b){
-            if (isA(potentialBase, b)){
+            if (similarType(potentialBase, b)){
                 return true;
             }
             b = b.base;
         }
         return false;
+    },
+    isInstanceOf : function(other) {
+        return this.classId === other.classId;
     },
     isComplete : function(){
         return !!(this._isComplete || this._isTemporarilyComplete);
@@ -1276,6 +1285,9 @@ Lobster.Types.Function = Type.extend({
     },
     sameReturnType : function(other){
         return this.returnType.sameType(other.returnType);
+    },
+    sameSignature : function(other){
+        return this.isThisConst === other.isThisConst && this.sameParamTypes(other);
     },
     typeString : function(excludeBase, varname){
 		return this.returnType.typeString(excludeBase, varname + this.paramStrType);

@@ -55,17 +55,154 @@ var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
+var Note = Class.extend({
+    _name: "Note",
+
+    TYPE_ERROR: "error",
+    TYPE_WARNING: "warning",
+    TYPE_STYLE: "style",
+    TYPE_OTHER: "other",
+
+    init : function(type) {
+        this.i_type = type;
+    },
+
+    /**
+     * Returns the primary source reference for this note, although more than one may exist.
+     * Use the getAllSourceReferences function to retrieve an array of all source references.
+     * If the note doesn't concern any particular part of the source (i.e. no source references exist), returns null.
+     * @returns {?SourceReference}
+     */
+    getSourceReference : Class._ABSTRACT,
+
+    /**
+     * Returns an array of all source references for this note.
+     * If the note doesn't concern any particular part of the source (i.e. no source references exist),
+     * returns an empty array.
+     */
+    getAllSourceReferences : Class._ABSTRACT,
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : Class._ABSTRACT,
+
+    getType : function() {
+        return this.i_type;
+    }
+});
 
 
-var makeError = function(src, type, sentence){
+
+var BasicNoteBase = Note.extend({
+    _name: "BasicNoteBase",
+
+    init : function(sourceRef, type, message) {
+        this.initParent(type);
+        this.i_sourceRef = sourceRef;
+        this.i_message = message;
+    },
+
+    /**
+     *
+     * @returns {?SourceReference}
+     */
+    getSourceReference : function() {
+        return this.i_sourceRef || null;
+    },
+
+    getAllSourceReferences : function() {
+        return [this.getSourceReference()];
+    },
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : function() {
+        return this.i_message;
+    }
+});
+
+var PreprocessorNote = BasicNoteBase.extend({
+    _name: "PreprocessorNote"
+});
+
+var SyntaxNote = BasicNoteBase.extend({
+    _name: "SyntaxNote"
+});
+
+var CompilerLinkerNoteBase = Note.extend({
+    _name: "CompilerLinkerNoteBase",
+
+    /**
+     * Initializes a CompilerNote associated with the provided constructs.
+     * @param {?CPPCode | ?CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {String} type one of the types associated with this class
+     * @param {String} message A message describing the problem.
+     */
+    init : function(constructs, type, message) {
+        this.initParent(type);
+        if (Array.isArray(constructs)) {
+            this.i_constructs = constructs;
+        }
+        else {
+            this.i_constructs = [];
+            if (constructs) {
+                this.i_constructs.push(constructs);
+            }
+        }
+
+        this.i_message = message;
+    },
+
+    /**
+     *
+     * @returns {CPPCode[]}
+     */
+    getConstructs : function() {
+        return this.i_constructs;
+    },
+
+    getSourceReference : function() {
+        return this.i_constructs.length > 0 ? this.i_constructs[0].getSourceReference() : null;
+    },
+
+    getAllSourceReferences : function() {
+        return this.i_constructs.map(
+            function(construct) { return construct.getSourceReference(); }
+        );
+    },
+
+    /**
+     *
+     * @returns {String}
+     */
+    getMessage : function() {
+        return this.i_message;
+    }
+
+});
+
+var CompilerNote = CompilerLinkerNoteBase.extend({
+    _name: "CompilerNote"
+});
+
+var LinkerNote = CompilerLinkerNoteBase.extend({
+    _name: "LinkerNote"
+});
+
+var makeError = function(src, type, message){
     //src = src || {context:{}};
     if (type === true){
-        return ErrorAnnotation.instance(src, "warning", sentence);
+        return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, message);
     }
     else if (type === false){
-        return ErrorAnnotation.instance(src, "error", sentence);
+        return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, message);
     }
 };
+
 
 var CPPError = {
 	attributeEmptyTo : function(problems, code){
@@ -82,7 +219,7 @@ var CPPError = {
 		}
 		return str;
 	},
-    classDef :{
+    classDef : {
         prev_def : function(src, name, prev){
             return makeError(src, false, name + " cannot be defined more than once. Note that Labster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
         },
@@ -568,9 +705,24 @@ var CPPError = {
         }
     },
     link : {
-       def_not_found : function(src, func){
-           return makeError(src, false, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
-       }
+        def_not_found : function(src, func){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+        },
+        multiple_def : function(src, name){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple definitions found for " + name + ".");
+        },
+        type_mismatch : function(src, ent1, ent2){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple declarations found for " + ent1.name + ", but with different types.");
+        },
+        class_same_tokens : function(src, ent1, ent2){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+        },
+        func : {
+            returnTypesMatch : function(src, name){
+                return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "This definition of the function " + name + " has a different return type than its declaration.");
+            }
+        }
+
     },
     lookup : {
         badLookup : function(src, name){
@@ -597,7 +749,12 @@ var CPPError = {
             name = Identifier.qualifiedNameString(name);
             return makeError(src, false, "Cannot find declaration for \""+name+"\".");
         }
-    }
+    },
+    preprocess : {
+        recursiveInclude : function(sourceRef){
+             return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
+        }
+    },
 };
 
 CPPError.stmt.iteration.cond_bool = CPPError.stmt.selection.cond_bool;
@@ -627,7 +784,8 @@ var CPPNote = {
 var SemanticExceptions = {};
 
 var SemanticException = Class.extend({
-    _name: "SemanticException"
+    _name: "SemanticException",
+    annotation : Class._ABSTRACT
 });
 
 SemanticExceptions.BadLookup = SemanticException.extend({
@@ -691,18 +849,32 @@ SemanticExceptions.NonCovariantReturnTypes = SemanticException.extend({
 });
 
 
+SemanticExceptions.Wrapper = SemanticException.extend({
+    _name: "SemanticExceptions.Wrapper",
+    init : function(errorFunc, args){
+        this.i_errorFunc = errorFunc;
+        this.i_args = args;
+    },
+    annotation : function(src){
+        var args = this.i_args.clone();
+        args.unshift(src);
+        return this.i_errorFunc.apply(null, args);
+    }
 
-var checkIdentifier = function(src, iden, semanticProblems){
+});
+
+
+var checkIdentifier = function(src, iden, noteHandler){
     if (Array.isArray(iden)){
         iden.forEach(function(elem){
-            checkIdentifier(src, elem.identifier, semanticProblems);
+            checkIdentifier(src, elem.identifier, noteHandler);
         });
     }
     // Check that identifier is not a keyword or an alternative representation for an operator
     if (KEYWORDS.contains(iden)){
-        semanticProblems.push(CPPError.iden.keyword(src, iden));
+        noteHandler.addNote(CPPError.iden.keyword(src, iden));
     }
     if (ALT_OPS.contains(iden)){
-        semanticProblems.push(CPPError.iden.alt_op(src, iden));
+        noteHandler.addNote(CPPError.iden.alt_op(src, iden));
     }
-}
+};
