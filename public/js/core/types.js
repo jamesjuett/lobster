@@ -458,6 +458,7 @@ Lobster.Types.Void = Types.SimpleType.extend({
     _name: "Void",
     type: "void",
     isObjectType: false,
+    isComplete: false,
     size: 0,
     init: function(isConst, isVolatile){
         this.initParent(isConst, isVolatile);
@@ -892,7 +893,7 @@ Lobster.Types.Reference = Type.extend({
 Lobster.Types.Array = Type.extend({
     _name: "Array",
     precedence: 2,
-    _isComplete: true, // Assume complete. If length is unknown, individual Array types set to false
+    _isComplete: true, // Assume complete. If length is unknown, individual Array types will set to false
     init: function(elemType, length, isConst, isVolatile){
 
         if (length === undefined){
