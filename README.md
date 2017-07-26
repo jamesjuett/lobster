@@ -2,15 +2,15 @@
 Interactive Program Visualization Tools
 
 
-###Install virtualbox
+### Install virtualbox ###
 
 https://www.virtualbox.org/wiki/Downloads
 
-###Install vagrant
+### Install vagrant ###
 
 https://www.vagrantup.com/downloads.html
 
-###Clone the repo to your local machine.
+### Clone the repo to your local machine. ###
 
 Edit your hosts file. Add an entry to map the VM's IP to "lobster-dev". The IP should always be the same as here.
 
