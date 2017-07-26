@@ -942,15 +942,12 @@ var DeclaredEntity = CPPEntity.extend({
 });
 CPP.DeclaredEntity = DeclaredEntity;
 
-// Note: this is not derived from DeclaredEntity because it's also used as a runtime type of thing and sometimes
-// doesn't have a declaration or definition. Maybe want to change that in the future?
-var ReferenceEntity = CPP.ReferenceEntity = CPP.CPPEntity.extend({
+// TODO: create a separate class for runtime references that doesn't extend DeclaredEntity
+var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     _name: "ReferenceEntity",
-    storage: "automatic",
+    storage: "automatic", // TODO: is this correct?
     init: function (decl, type) {
-        this.initParent(decl && decl.name || null);
-        this.decl = decl;
-        this.type = type || decl.type;
+        this.initParent(decl || {name: null, type: type});
     },
     allocated : function(){},
     bindTo : function(refersTo){
@@ -989,19 +986,20 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.
     init: function (entity) {
         this.initParent(entity.decl, entity.type);
     },
-    bindTo : function(refersTo){
-        assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
-
-        // If the thing we refer to is a reference, look it up first so we refer to the source.
-        // This eliminates chains of references, which for now is what I want.
-        if (isA(refersTo, ReferenceEntity)) {
-            this.refersTo = refersTo.lookup();
-        }
-        else{
-            this.refersTo = refersTo;
-        }
-        this.send("bound");
-    },
+    // TODO: I think this should be removed
+    // bindTo : function(refersTo){
+    //     assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
+    //
+    //     // If the thing we refer to is a reference, look it up first so we refer to the source.
+    //     // This eliminates chains of references, which for now is what I want.
+    //     if (isA(refersTo, ReferenceEntity)) {
+    //         this.refersTo = refersTo.lookup();
+    //     }
+    //     else{
+    //         this.refersTo = refersTo;
+    //     }
+    //     this.send("bound");
+    // },
 
     lookup : function(){
         // It's possible someone will be looking up the reference in order to bind it (e.g. auxiliary reference used

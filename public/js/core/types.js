@@ -330,7 +330,7 @@ var Type = Lobster.Types.Type = Class.extend({
     },
 
     getCVString : function() {
-        return ""+(this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
+        return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
     },
 
     describe : function(){
