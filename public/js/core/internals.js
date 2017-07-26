@@ -1071,8 +1071,8 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     nameString : function(){
         return this.name || "0x" + this.address;
     },
-    coutString : function(){
-        return this.type.coutString(this.rawValue());
+    valueToOstreamString : function(){
+        return this.type.valueToOstreamString(this.rawValue());
     },
     isAlive : function(){
         return !!this.alive;
