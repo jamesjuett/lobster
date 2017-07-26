@@ -95,8 +95,8 @@ var Note = Class.extend({
 
 
 
-var PreprocessorNote = Note.extend({
-    _name: "PreprocessorNote",
+var BasicNoteBase = Note.extend({
+    _name: "BasicNoteBase",
 
     init : function(sourceRef, type, message) {
         this.initParent(type);
@@ -123,6 +123,14 @@ var PreprocessorNote = Note.extend({
     getMessage : function() {
         return this.i_message;
     }
+});
+
+var PreprocessorNote = BasicNoteBase.extend({
+    _name: "PreprocessorNote"
+});
+
+var SyntaxNote = BasicNoteBase.extend({
+    _name: "SyntaxNote"
 });
 
 var CompilerLinkerNoteBase = Note.extend({
@@ -211,7 +219,7 @@ var CPPError = {
 		}
 		return str;
 	},
-    classDef :{
+    classDef : {
         prev_def : function(src, name, prev){
             return makeError(src, false, name + " cannot be defined more than once. Note that Labster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
         },

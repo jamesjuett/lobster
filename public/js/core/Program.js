@@ -88,6 +88,7 @@ var NoteRecorder = NoteHandler.extend({
         // this.i_linkerNotes = [];
         this.i_allNotes = [];
         this.i_hasErrors = false;
+        this.i_hasSyntaxErrors = false;
     },
 
     /**
@@ -98,6 +99,9 @@ var NoteRecorder = NoteHandler.extend({
         this.i_allNotes.push(note);
         if (note.getType() === Note.TYPE_ERROR) {
             this.i_hasErrors = true;
+            if (isA(note, SyntaxNote)) {
+                this.i_hasSyntaxErrors = true;
+            }
         }
         // this.i_preprocessorNotes.push(note);
     },
@@ -140,12 +144,17 @@ var NoteRecorder = NoteHandler.extend({
 
     clearNotes : function() {
         this.i_allNotes = [];
+        this.i_hasErrors = false;
+        this.i_hasSyntaxErrors = false;
         // this.i_preprocessorNotes = [];
         // this.i_compilerNotes = [];
         // this.i_linkerNotes = [];
     },
     hasErrors : function() {
         return this.i_hasErrors;
+    },
+    hasSyntaxErrors : function() {
+        return this.i_hasSyntaxErrors;
     }
 });
 
@@ -275,7 +284,11 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
     fullCompile : function() {
         this.send("fullCompilationStarted");
         this.compile();
-        this.link();
+
+        if (!this.hasSyntaxErrors()) {
+            this.link();
+        }
+
 
         this.i_setCompilationUpToDate(true);
 
@@ -295,8 +308,12 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
             var tu = this.i_translationUnits[name];
 
             tu.fullCompile();
-            mixin(this.i_includedSourceFiles, tu.getIncludedSourceFiles());
+            mixin(this.i_includedSourceFiles, tu.getIncludedSourceFiles(), true);
             this.addNotes(tu.getNotes());
+
+            if (this.hasSyntaxErrors()) {
+                break;
+            }
         }
         this.send("compilationFinished");
     },
@@ -501,6 +518,9 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             var currentIncludeLineNumber = 1;
             var originalIncludeLineNumber = 1;
 
+            this.i_sourceFilesIncluded = {};
+            this.i_sourceFilesIncluded[this.i_sourceFile.getName()] = true;
+
             // Find and replace #include lines. Will also populate i_includes array.
             // [^\S\n] is a character class for all whitespace other than newlines
             var self = this;
@@ -540,7 +560,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
                     var included = self._class.instance(translationUnit, includedSourceFile,
                         copyMixin(alreadyIncluded, {}));
-
+                    mixin(self.i_sourceFilesIncluded, included.i_sourceFilesIncluded, true);
 
 
                     mapping.numLines = included.numLines;
@@ -567,8 +587,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
             this.numLines = currentIncludeLineNumber;
             this.length = this.i_sourceCode.length;
-
-            this.i_sourceFilesIncluded = alreadyIncluded;
         },
 
         getText : function() {
@@ -707,8 +725,8 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
-                this.send("parsingError", {ref: this.getSourceReference(err.line, err.column), message: err.message});
-				this.clearNotes();
+			    var note = SyntaxNote.instance(this.getSourceReference(err.line, err.column, err.offset, err.offset + 1), Note.TYPE_ERROR, err.message);
+				this.addNote(note);
 			}
 			else{
                 this.send("unknownError");

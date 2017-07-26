@@ -1314,8 +1314,17 @@ var CompilationNotesOutlet = Class.extend(Observer, {
 
     i_createBadgeForNote : function(note) {
         var elem = $('<span class="label"></span>');
-        elem.html(NoteDescriptions[note.getType()]);
+
+        // hacky special case
+        if (isA(note, SyntaxNote)) {
+            elem.html("Syntax Error");
+        }
+        else {
+            elem.html(NoteDescriptions[note.getType()]);
+        }
+
         elem.addClass(NoteCSSClasses[note.getType()]);
+
         return elem;
     },
 
@@ -1414,9 +1423,13 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
+                this.i_compileButton.removeClass("btn-primary-muted");
+                this.i_compileButton.addClass("btn-success-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
             }
             else {
+                this.i_compileButton.removeClass("btn-success-muted");
+                this.i_compileButton.addClass("btn-primary-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
             }
         }
