@@ -277,8 +277,8 @@ var isCvConvertible = function(t1, t2){
 
     // Discard 0th level of cv-qualification signatures, we don't care about them.
     // (It's essentially a value semantics thing, we're making a copy so top level const doesn't matter.)
-    t1 = t1.compoundNext;
-    t2 = t2.compoundNext;
+    t1 = t1.getCompoundNext();
+    t2 = t2.getCompoundNext();
 
     // check that t2 has const everywhere that t1 does
     // also if we ever find a difference, t2 needs const everywhere leading
@@ -294,8 +294,8 @@ var isCvConvertible = function(t1, t2){
 
         // Update allConst
         t2AllConst = t2AllConst && t2.isConst;
-        t1 = t1.compoundNext;
-        t2 = t2.compoundNext;
+        t1 = t1.getCompoundNext();
+        t2 = t2.getCompoundNext();
     }
 
     // If no violations, t1 is convertable to t2
@@ -307,7 +307,6 @@ var Type = Lobster.Types.Type = Class.extend({
     size: Class._ABSTRACT,
     isObjectType : true,
     // Default instance properties
-    compoundNext : null,
 
     i_maxSize : 0,
 
@@ -379,6 +378,18 @@ var Type = Lobster.Types.Type = Class.extend({
     isComplete : function(){
         return !!this._isComplete;
     },
+
+    /**
+     * If this is a compound type, returns the "next" type.
+     * e.g. if this is a pointer-to-int, returns int
+     * e.g. if this ia a reference to pointer-to-int, returns int
+     * e.g. if this is an array of bool, returns bool
+     * @returns {null | Type}
+     */
+    getCompoundNext : function() {
+        return null;
+    },
+
     cvUnqualified : function(){
         if (!this.isConst && !this.isVolatile){
             return this;
@@ -778,9 +789,12 @@ Lobster.Types.Pointer = Type.extend({
 
     init: function(ptrTo, isConst, isVolatile){
         this.initParent(isConst, isVolatile);
-        this.compoundNext = this.ptrTo = ptrTo;
+        this.ptrTo = ptrTo;
         this.funcPtr = isA(this.ptrTo, Types.Function);
         return this;
+    },
+    getCompoundNext : function() {
+        return this.ptrTo;
     },
     sameType : function(other){
         return other && other.isA(Types.Pointer)
@@ -884,6 +898,11 @@ Lobster.Types.Reference = Type.extend({
         this.size = this.refTo.size;
         return this;
     },
+
+    getCompoundNext : function() {
+        return this.refTo;
+    }
+
     sameType : function(other){
         return other && other.isA(Types.Reference) && this.refTo.sameType(other.refTo);
     },
@@ -919,10 +938,15 @@ Lobster.Types.Array = Type.extend({
         this.size = Math.max(1, this.properSize);
 
         this.initParent(elemType.isConst, elemType.isVolatile);
-        this.compoundNext = this.elemType = elemType;
+        this.elemType = elemType;
         this.length = length;
         return this;
     },
+
+    getCompoundNext : function() {
+        return this.elemType;
+    },
+
     setLength : function(length){
         this.length = length;
         this.properSize = this.elemType.size * length;
