@@ -938,6 +938,11 @@ var DeclaredEntity = CPPEntity.extend({
 
     isDefined : function() {
         return !!this.definition; // TODO move to DeclaredEntity subclass and also separate declaration from definition
+    },
+
+    // TODO: when namespaces are implemented, need to fix this function
+    getFullyQualifiedName : function() {
+        return "::" + this.name;
     }
 });
 CPP.DeclaredEntity = DeclaredEntity;
@@ -2164,11 +2169,11 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         var object = staticEntity.objectInstance();
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
-        this.staticObjects[staticEntity.entityId] = object;
+        this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
     },
 
     staticLookup : function(staticEntity) {
-        return this.staticObjects[staticEntity.entityId];
+        return this.staticObjects[staticEntity.getFullyQualifiedName()];
     },
 
     getByte : function(addr){
