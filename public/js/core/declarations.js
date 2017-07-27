@@ -1599,13 +1599,8 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.extend({
-                _name: this.name,
-                className: this.name,
-                members: [],
-                scope: this.scope,
-                base: this.base && this.base.type
-            });
+            this.type = Types.Class.createClassType(this.name, this.scope, this.base && this.base.type, []);
+
             this.entity = TypeEntity.instance(this);
 
             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
