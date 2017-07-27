@@ -993,10 +993,11 @@ Lobster.Types.Class = Type.extend({
         var classType = this.extend({
             _name : name,
             i_classId : this._nextClassId++,
+            i_isComplete : false,
             className : name,
             size : 1,
             i_reallyZeroSize : true,
-            scope : ClassScope.instance(this.name, parentScope, base && base.scope),
+            scope : ClassScope.instance(name, parentScope, base && base.scope),
             memberEntities : [],
             subobjectEntities : [],
             baseClassSubobjectEntities : [],
@@ -1005,18 +1006,20 @@ Lobster.Types.Class = Type.extend({
             copyConstructor : null,
             destructor : null,
 
-            i_memberMap : {}
+            i_memberMap : {},
+            i_baseClass : base || null // TODO: change if we ever want multiple inheritance
 
 
         });
 
-        if (base){
-            this.addBaseClass(base);
+        if (classType.base){
+            classType.addBaseClass(base);
         }
 
 
-        members && members.forEach(this.addMember.bind(this));
+        members && members.forEach(classType.addMember.bind(classType));
 
+        return classType;
     },
 
     addBaseClass : function(base) {
@@ -1035,6 +1038,10 @@ Lobster.Types.Class = Type.extend({
         return this.i_memberMap[name] || null;
     },
 
+    containsMember : function(name){
+        return !!this.i_memberMap[name];
+    },
+
     addMember : function(mem){
         assert(this._isClass);
         this.memberEntities.push(mem);
@@ -1046,28 +1053,26 @@ Lobster.Types.Class = Type.extend({
             }
             mem.memberIndex = this.memberSubobjectEntities.length;
             this.memberSubobjectEntities.push(mem);
-            this.subobjects.push(mem);
+            this.subobjectEntities.push(mem);
             this.size += mem.type.size;
         }
     },
-    containsMember : function(name){
-        return !!this.i_memberMap[name];
+
+    addConstructor : function(constructor){
+        this.constructors.push(constructor);
     },
-    addConstructor : function(con){
-        this.constructors.push(con);
+
+    addDestructor : function(destructor){
+        this.destructor = destructor;
     },
-    addDestructor : function(con){
-        this.destructor = con;
-    },
-    getDestructor : function(){
-        return this.scope.singleLookup("~"+this.className, {own:true, noBase:true});
-    },
-    getDefaultConstructor : function(scope){
+
+    getDefaultConstructor : function(){
         return this.scope.singleLookup(this.className+"\0", {
             own:true, noBase:true, exactMatch:true,
             paramTypes:[]});
     },
-    getCopyConstructor : function(scope, requireConst){
+
+    getCopyConstructor : function(requireConst){
         return this.scope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
@@ -1076,6 +1081,7 @@ Lobster.Types.Class = Type.extend({
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]});
     },
+
     getAssignmentOperator : function(requireConst, isThisConst){
         return this.scope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
@@ -1090,13 +1096,32 @@ Lobster.Types.Class = Type.extend({
 
     },
 
-    hasMember : function(name){
-        return this.i_memberMap.hasOwnProperty(name);
+    makeComplete : function() {
+        this.i_isComplete = true;
     },
-    /**
-     *
-     * @param name is a string
-     */
+
+    isComplete : function(){
+        return this.i_isComplete || this.i_isTemporarilyComplete;
+    },
+    setTemporarilyComplete : function(){
+        this.i_isTemporarilyComplete = true;
+    },
+    unsetTemporarilyComplete : function(){
+        delete this.i_isTemporarilyComplete;
+    },
+
+
+    // TODO: I think this is fragile dependent on order of compilation of translation units
+    merge : function(class1, class2) {
+        class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
+    },
+
+    classString : function(){
+        return this.className;
+    },
+
+    // Functions that may be called on either the class or the instance
+
     isDerivedFrom : function(potentialBase){
         var b = this.base;
         while(b){
@@ -1107,41 +1132,24 @@ Lobster.Types.Class = Type.extend({
         }
         return false;
     },
+
+
+    // Below this are instance-only functions
+
     isInstanceOf : function(other) {
         return this.i_classId === other.i_classId;
     },
-    isComplete : function(){
-        return !!(this._isComplete || this._isTemporarilyComplete);
-    },
-    setTemporarilyComplete : function(){
-        this._isTemporarilyComplete = true;
-    },
-    unsetTemporarilyComplete : function(){
-        delete this._isTemporarilyComplete;
-    },
 
-
-    merge : function(class1, class2) {
-        class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
-    },
-
-    init: function(isConst, isVolatile){
-
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
     sameType : function(other){
         //alert(other && other.isA(this._class));
         return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
+
     similarType : function(other){
         //alert(other && other.isA(this._class));
         return other && other.isA(Types.Class) && other.i_classId === this.i_classId;
-    },
-    classString : function(){
-        return this.className;
     },
     typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {

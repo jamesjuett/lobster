@@ -112,7 +112,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             for (var entId in this.temporaryObjects){
                 var tempEnt = this.temporaryObjects[entId];
                 if (isA(tempEnt.type, Types.Class)){
-                    var dest = tempEnt.type.getDestructor();
+                    var dest = tempEnt.type.destructor;
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
                         call.compile(scope, dest, []);
@@ -3340,7 +3340,7 @@ var Delete = Expressions.Delete = Expression.extend({
 
         if (isA(this.operand.type.ptrTo, Types.Class)){
             var classType = this.operand.type.ptrTo;
-            var dest = classType.getDestructor();
+            var dest = classType.destructor;
             //TODO not found and ambiguous
             if (isA(dest, FunctionEntity)){
                 //this.assnOp = assnOp;
