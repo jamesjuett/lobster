@@ -1095,13 +1095,6 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             }
         }
 
-        if(this.defaultValue !== undefined){
-            this.setValue(this.defaultValue);
-        }
-        else if (this.type.defaultValue !== undefined){
-            this.setValue(this.type.defaultValue);
-        }
-
         this.send("allocated");
     },
     deallocated : function(inst){
@@ -1689,7 +1682,7 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !isA(memberOf.type, this.type)){
-            memberOf = memberOf.type.base && memberOf.baseSubobjects[0];
+            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
         }
         assert(memberOf, "Internal lookup failed to find subobject in class or base classes.");
 
@@ -1721,7 +1714,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
-            memberOf = memberOf.type.base && memberOf.baseSubobjects[0];
+            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
         }
 
         assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
@@ -1832,7 +1825,7 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
         this.owner.addTemporaryObject(this);
     },
     objectInstance: function(creatorInst){
-        var obj = creatorInst.sim.memory.allocateTemporaryObject(TemporaryObjectInstance.instance(this));
+        var obj = creatorInst.sim.memory.allocateTemporaryObject(this);
 
         var inst = creatorInst;
         while (inst.model !== this.owner){
@@ -1963,7 +1956,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         this.checkForOverride();
     },
     checkForOverride : function(){
-        if (!this.memberOfClass.base){
+        if (!this.memberOfClass.getBaseClass()){
             return;
         }
 
@@ -1971,7 +1964,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.memberOfClass.base.scope.singleLookup(this.name, {
+        var overridden = this.memberOfClass.getBaseClass().scope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
@@ -2162,6 +2155,13 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
         this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
+
+        if(staticEntity.defaultValue !== undefined){
+            object.setValue(staticEntity.defaultValue);
+        }
+        else if (staticEntity.type.defaultValue !== undefined){
+            object.setValue(staticEntity.type.defaultValue);
+        }
     },
 
     staticLookup : function(staticEntity) {
@@ -2304,11 +2304,20 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // then we need to create an anonymous object of the appropriate type instead
         return createAnonObject(type, this, addr);
     },
-    allocateTemporaryObject: function(obj){
+    allocateTemporaryObject: function(tempEntity){
+        var obj = TemporaryObjectInstance.instance(tempEntity);
         this.allocateObject(obj, this.temporaryBottom);
-        this.temporaryBottom += obj.type.size;
-        this.temporaryObjects[obj.entityId] = obj;
+        this.temporaryBottom += tempEntity.type.size;
+        this.temporaryObjects[tempEntity.entityId] = obj;
         this.send("temporaryObjectAllocated", obj);
+
+        if(tempEntity.defaultValue !== undefined){
+            obj.setValue(tempEntity.defaultValue);
+        }
+        else if (tempEntity.type.defaultValue !== undefined){
+            obj.setValue(tempEntity.type.defaultValue);
+        }
+
         return obj;
     },
     deallocateTemporaryObject: function(obj, inst){
@@ -2389,6 +2398,15 @@ var MemoryHeap = Class.extend(Observable, {
         this.memory.allocateObject(obj, this.bottom);
         this.objectMap[obj.address] = obj;
         this.memory.send("heapObjectAllocated", obj);
+
+
+        if(obj.defaultValue !== undefined){
+            obj.setValue(obj.defaultValue);
+        }
+        else if (obj.type.defaultValue !== undefined){
+            obj.setValue(obj.type.defaultValue);
+        }
+
         return obj;
     },
 
@@ -2447,10 +2465,10 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
         // Push objects for all entities in the frame
         var autos = scope.automaticObjects;
         for (var i = 0; i < autos.length; ++i) {
-            var obj = autos[i];
+            var objEntity = autos[i];
 
             // Create instance of the object
-            obj = obj.objectInstance();
+            obj = objEntity.objectInstance();
 
             // Allocate object
             this.memory.allocateObject(obj, addr);
@@ -2458,6 +2476,13 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
 
             this.objects[obj.entityId] = obj;
             this.size += obj.size;
+
+            if(objEntity.defaultValue !== undefined){
+                obj.setValue(objEntity.defaultValue);
+            }
+            else if (objEntity.type.defaultValue !== undefined){
+                obj.setValue(objEntity.type.defaultValue);
+            }
 //                console.log("----" + key);
         }
 

@@ -867,10 +867,10 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
         else if (isA(type, Types.Reference)) { // Old reference, TODO remove
             assert(false, "Should never be using old reference mechanism.");
-            obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
-            obj.initialized();
-            inst.send("initialized", obj);
-            this.done(sim, inst);
+            // obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
+            // obj.initialized();
+            // inst.send("initialized", obj);
+            // this.done(sim, inst);
         }
         else if (isA(type, Types.Class)) {
             // Nothing to do, handled by function call child
@@ -2065,7 +2065,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
         // If there is a base class subobject, initialize it
         var base;
-        if (base = this.memberOfClass.base){
+        if (base = this.memberOfClass.getBaseClass()){
             // Check to see if there is a base class initializer.
             var baseInits = memInits.filter(function(memInit){
                 return memInit.member.identifier === base.className;

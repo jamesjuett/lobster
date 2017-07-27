@@ -1012,7 +1012,7 @@ Lobster.Types.Class = Type.extend({
 
         });
 
-        if (classType.base){
+        if (base){
             classType.addBaseClass(base);
         }
 
@@ -1026,6 +1026,15 @@ Lobster.Types.Class = Type.extend({
         this.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
         this.subobjectEntities.push();
         this.size += base.size;
+    },
+
+    getBaseClass : function() {
+        if (this.baseClassSubobjectEntities.length > 0) {
+            return this.baseClassSubobjectEntities[0].type;
+        }
+        else {
+            return null;
+        }
     },
 
     /**
@@ -1123,7 +1132,7 @@ Lobster.Types.Class = Type.extend({
     // Functions that may be called on either the class or the instance
 
     isDerivedFrom : function(potentialBase){
-        var b = this.base;
+        var b = this.getBaseClass();
         while(b){
             if (similarType(potentialBase, b)){
                 return true;
