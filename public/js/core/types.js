@@ -147,26 +147,6 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
                 this.typeName = "int";
             }
         }
-		
-		if (this.typeName == "list_t"){
-			this.type = Types.List_t.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-            return;
-		}
-
-		if (this.typeName == "tree_t"){
-			this.type = Types.Tree_t.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
-            return;
-		}
-
-        // NOTE: HARDCODED TYPEDEFS GO HERE
-
-        //if (this.typeName == "Chicken"){
-        //    this.type = Types.Pointer.instance(Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance()), Types.Int.instance()]));
-        //    this.type.type = "Chicken";
-        //    this.type.typeString = Types.SimpleType.typeString;
-        //    this.type.englishString = Types.SimpleType.englishString;
-        //    return semanticProblems;
-        //}
 
         if (Types.builtInTypes[this.typeName]){
 			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
@@ -189,14 +169,9 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
 
 var Types = Lobster.Types = {
-    maxSize : 0,
     userTypeNames : {},
     builtInTypes : {},
     defaultUserTypeNames : {
-        list_t : true,
-        tree_t : true,
-        Rank : true,
-        Suit : true,
         ostream : true,
         istream : true
     }
@@ -278,8 +253,8 @@ var isCvConvertible = function(t1, t2){
 
     // Discard 0th level of cv-qualification signatures, we don't care about them.
     // (It's essentially a value semantics thing, we're making a copy so top level const doesn't matter.)
-    t1 = t1.compoundNext;
-    t2 = t2.compoundNext;
+    t1 = t1.getCompoundNext();
+    t2 = t2.getCompoundNext();
 
     // check that t2 has const everywhere that t1 does
     // also if we ever find a difference, t2 needs const everywhere leading
@@ -295,8 +270,8 @@ var isCvConvertible = function(t1, t2){
 
         // Update allConst
         t2AllConst = t2AllConst && t2.isConst;
-        t1 = t1.compoundNext;
-        t2 = t2.compoundNext;
+        t1 = t1.getCompoundNext();
+        t2 = t2.getCompoundNext();
     }
 
     // If no violations, t1 is convertable to t2
@@ -307,47 +282,167 @@ var Type = Lobster.Types.Type = Class.extend({
     _name: "Type",
     size: Class._ABSTRACT,
     isObjectType : true,
-    _cv : "",
-    // Default instance properties
-    compoundNext : null,
+    isArithmeticType : false,
+    isIntegralType : false,
+    isFloatingPointType : false,
+
+    /**
+     * Used in parenthesization of string representations of types.
+     * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
+     */
+    i_precedence : Class._ABSTRACT,
+
+    i_maxSize : 0,
+    i_isComplete: false,
+
+
+    setMaxSize : function(newMax) {
+        this.i_maxSize = newMax;
+    },
+
+    getMaxSize : function() {
+        return this.i_maxSize;
+    },
 
     init: function (isConst, isVolatile) {
-        if (this.size > Types.maxSize){
-            Types.maxSize = this.size;
+        if (this.size > Type.getMaxSize()){
+            Type.setMaxSize(this.size);
         }
         this.isConst = isConst || false;
-        // ignore volatile completely for now (and perhaps forever lol)
+        // TODO ignore volatile completely? for now (and perhaps forever lol)
         this.isVolatile = false;// isVolatile || false;
-        this._cv = ""+(this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
-        return this;
     },
 
-    describe : function(){
-        var str = this.instanceString();
-        return {name: str, message: str};
+    getCVString : function() {
+        return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
     },
+
     instanceString: function(){
         return this.typeString(false, "");
     },
-    typeString : Class._ABSTRACT,
-    englishString : Class._ABSTRACT,
-    valueToString : Class._ABSTRACT,
-    coutString : function(value){
-        return this.valueToString(value);
+
+
+    /**
+     * Returns true if other represents exactly the same type as this, including cv-qualifications.
+     * @param {Type} other
+     * @returns {Boolean}
+     */
+    sameType : Class._ABSTRACT,
+
+    /**
+     * Returns true if other represents the same type as this, ignoring cv-qualifications.
+     * @param {Type} other
+     * @returns {Boolean}
+     */
+    similarType : Class._ABSTRACT,
+
+
+    /**
+     * Returns true if this type is reference-related (see C++ standard) to the type other.
+     * @param {Type} other
+     * @returns {boolean}
+     */
+    isReferenceRelated : function(other){
+        return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
+            subType(this.cvUnqualified(),other.cvUnqualified());
     },
+
+    /**
+     * Returns true if this type is reference-compatible (see C++ standard) to the type other.
+     * @param {Type} other
+     * @returns {boolean}
+     */
+    isReferenceCompatible : function(other){
+        return this.isReferenceRelated(other) && other && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
+
+    },
+
+    /**
+     * Returns a C++ styled string representation of this type.
+     * @param {boolean} excludeBase If true, exclude the base type.
+     * @param {String} varname The name of the variable. May be the empty string.
+     * @param {boolean} decorated If true, html tags will be added.
+     * @returns {String}
+     */
+    typeString : Class._ABSTRACT,
+
+    /**
+     * Returns a C++ styled string representation of this type, with the base type excluded as
+     * would be suitable for only printing the declarator part of a declaration.
+     * @param {String} varname The name of the variable. May be the empty string.
+     * @returns {String}
+     */
     declaratorString : function(varname){
         return this.typeString(true, varname);
     },
-    isCVQualified : function() {
-        return this.isConst || this.isVolatile;
-    },
-    sameType : Class._ABSTRACT,
-    similarType : Class._ABSTRACT,
 
+    /**
+     * Returns a string representing a type as it might be read verbally in english.
+     * e.g. int const * var[5] --> "an array of 5 pointers to const int"
+     * @param {boolean} plural Whether the returned string should be plural.
+     * @returns {String}
+     */
+    englishString : Class._ABSTRACT,
+
+    /**
+     * Helper function for functions that create string representations of types.
+     */
+    i_parenthesize : function(outside, str){
+        return this.i_precedence < outside.i_precedence ? "(" + str + ")" : str;
+    },
+
+    /**
+     * Returns a human-readable string representation of the given raw value for this Type.
+     * This is the representation that might be displayed to the user when inspecting the
+     * value of an object.
+     * Note that the value representation for the type in Lobster is just a javascript
+     * value. It is not the C++ value representation for the type.
+     * @param {Value} value
+     * @returns {String}
+     */
+    valueToString : Class._ABSTRACT,
+
+    /**
+     * Returns the string representation of the given raw value for this Type that would be
+     * printed to an ostream.
+     * Note that the raw value representation for the type in Lobster is just a javascript
+     * value. It is not the C++ value representation for the type.
+     * Note: This is a hack that may eventually be removed since printing to a stream should
+     * really be handled by overloaded << operator functions.
+     * @param {Value} value
+     * @returns {String}
+     */
+    valueToOstreamString : function(value){
+        return this.valueToString(value);
+    },
+
+    /**
+     * Both the name and message are just a C++ styled string representation of the type.
+     * @returns {{name: {String}, message: {String}}}
+     */
+    describe : function(){
+        var str = this.typeString(false, "");
+        return {name: str, message: str};
+    },
+
+    /**
+     * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
+     * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
+     * TODO: Right now, the hack that is used is that the whole value
+     * @param bytes
+     * @returns {*}
+     */
     bytesToValue : function(bytes){
         //TODO: this is a hack for now.
         return bytes[0];
     },
+
+    /**
+     * Converts a raw value representing a value of this type to a sequence of bytes
+     * (i.e. the C++ object representation)
+     * @param {*} value
+     * @returns {Array}
+     */
     valueToBytes : function(value){
         var bytes = [];
         bytes[0] = value;
@@ -356,20 +451,53 @@ var Type = Lobster.Types.Type = Class.extend({
         }
         return bytes;
     },
+
+    /**
+     * Returns whether a given raw value for this type is valid. For example, a pointer type may track runtime
+     * type information about the array from which it was originally derived. If the pointer value increases such
+     * that it wanders over the end of that array, its value becomes invalid.
+     * @param {*} value
+     * @returns {boolean}
+     */
     isValueValid : function(value){
         return true;
     },
-    precedence : Class._ABSTRACT,
-    parenthesize : function(outside, str){
-        return this.precedence < outside.precedence ? "(" + str + ")" : str;
-    },
-    isArithmetic : false,
-    _isComplete: false,
+
+    /**
+     * Returns whether or not the type is complete. Note a type may be incomplete at one point during compilation
+     * and then completed later. e.g. a class type is incomplete until its definition is finished
+     * @returns {boolean}
+     */
     isComplete : function(){
         return !!this._isComplete;
     },
+
+    /**
+     * If this is a compound type, returns the "next" type.
+     * e.g. if this is a pointer-to-int, returns int
+     * e.g. if this ia a reference to pointer-to-int, returns int
+     * e.g. if this is an array of bool, returns bool
+     * @returns {null | Type}
+     */
+    getCompoundNext : function() {
+        return null;
+    },
+
+    /**
+     * Returns true if this type is either const or volatile (or both)
+     * @returns {boolean}
+     */
+    isCVQualified : function() {
+        return this.isConst || this.isVolatile;
+    },
+
+    /**
+     * Returns a cv-unqualified proxy object for this type, unless this type was already cv-unqualified,
+     * in which case just returns this object.
+     * @returns {Type}
+     */
     cvUnqualified : function(){
-        if (!this.isConst && !this.isVolatile){
+        if (!this.isCVQualified()){
             return this;
         }
         else{
@@ -379,6 +507,12 @@ var Type = Lobster.Types.Type = Class.extend({
             }, false);
         }
     },
+
+    /**
+     * Returns a proxy object for this type with the specified cv-qualifications, unless this type already matches
+     * the given cv-qualifications, in which case just returns this object.
+     * @returns {Type}
+     */
     cvQualified : function(isConst, isVolatile){
         if (this.isConst == isConst && this.isVolatile == isVolatile){
             return this;
@@ -389,192 +523,124 @@ var Type = Lobster.Types.Type = Class.extend({
                 isVolatile: isVolatile
             }, false);
         }
-    },
-    isReferenceRelated : function(other){
-        return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
-            subType(this.cvUnqualified(),other.cvUnqualified());
-    },
-    isReferenceCompatible : function(other){
-        return this.isReferenceRelated(other) && other && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
-
     }
 });
 
-// REQUIRES: type must be one of "int", "double", "bool", "char"
 Lobster.Types.SimpleType = Type.extend({
     _name: "SimpleType",
-    precedence: 0,
-    type: Class._ABSTRACT,
+    i_precedence: 0,
     _isComplete: true,
-    init: function(isConst, isVolatile, isUnsigned, isSigned) {
-        this.initParent(isConst, isVolatile);
-        this.isUnsigned = isUnsigned;
-        this.isSigned = isSigned;
-        return this;
-    },
+
+    /**
+     * Subclasses must implement a concrete i_type property that should be a
+     * string indicating the kind of type e.g. "int", "double", "bool", etc.
+     */
+    i_type: Class._ABSTRACT,
+
     sameType : function(other){
         return other && other.isA(Types.SimpleType)
-            && other.type === this.type
+            && other.i_type === this.i_type
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
         return other && other.isA(Types.SimpleType)
-            && other.type === this.type;
+            && other.i_type === this.i_type;
     },
+
 	typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {
             return varname ? varname : "";
         }
         else{
-            return this._cv + (decorated ? htmlDecoratedType(this.type) : this.type) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.i_type) : this.i_type) + (varname ? " " + varname : "");
         }
 	},
 	englishString : function(plural){
-		// no recursive calls to this.type.englishString() here
-		// because this.type is just a string representing the type
-        var word = this._cv + this.type;
-		return (plural ? this.type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+		// no recursive calls to this.i_type.englishString() here
+		// because this.i_type is just a string representing the type
+        var word = this.getCVString() + this.i_type;
+		return (plural ? this.i_type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
 	},
 	valueToString : function(value){
 		return ""+value;
 	}
 });
 
+/**
+ * Used when a compilation error causes an unknown type.
+ */
 Types.builtInTypes["unknown"] =
 Lobster.Types.Unknown = Types.SimpleType.extend({
     _name: "UnknownType",
-    type: "unknown",
+    i_type: "unknown",
     isObjectType: false,
-    size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    }
+    size: 4
 });
 
 Types.builtInTypes["void"] =
 Lobster.Types.Void = Types.SimpleType.extend({
     _name: "Void",
-    type: "void",
+    i_type: "void",
     isObjectType: false,
-    size: 0,
-    init: function(isConst, isVolatile){
+    isComplete: false,
+    size: 0
+});
+
+Types.IntegralTypeBase = Types.SimpleType.extend({
+    _name: "IntegralTypeBase",
+    isIntegralType: true,
+    isArithmeticType: true,
+
+    init: function(isConst, isVolatile, isUnsigned, isSigned) {
         this.initParent(isConst, isVolatile);
-        return this;
+        this.isUnsigned = isUnsigned;
+        this.isSigned = isSigned;
     }
 });
 
 Types.builtInTypes["char"] =
-Lobster.Types.Char = Types.SimpleType.extend({
+Lobster.Types.Char = Types.IntegralTypeBase.extend({
     _name: "Char",
-    type: "char",
+    i_type: "char",
     size: 1,
-    isArithmetic: true,
-    isIntegral: true,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
+
     valueToString : function(value){
         return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
     },
-    coutString : function(value){
+    valueToOstreamString : function(value){
         return String.fromCharCode(value);
     }
 });
 
 Types.builtInTypes["int"] =
-Lobster.Types.Int = Types.SimpleType.extend({
+Lobster.Types.Int = Types.IntegralTypeBase.extend({
     _name: "Int",
-    type: "int",
-    size: 4,
-    isArithmetic: true,
-    isIntegral: true,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    }
-});
-
-Types.builtInTypes["float"] =
-    Lobster.Types.Float = Types.SimpleType.extend({
-    _name: "Float",
-    type: "float",
-    size: 4,
-    isArithmetic: true,
-    isFloatingPoint: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
-    valueToString : function(value){
-        var str = ""+value;
-        return str.indexOf(".") != -1 ? str : str + ".";
-    }
-});
-
-Types.builtInTypes["double"] =
-    Lobster.Types.Double = Types.SimpleType.extend({
-    _name: "Double",
-    type: "double",
-    size: 8,
-    isArithmetic: true,
-    isFloatingPoint: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
-    valueToString : function(value){
-        var str = ""+value;
-        return str.indexOf(".") != -1 ? str : str + ".";
-    }
+    i_type: "int",
+    size: 4
 });
 
 Types.builtInTypes["bool"] =
-    Lobster.Types.Bool = Types.SimpleType.extend({
+Lobster.Types.Bool = Types.IntegralTypeBase.extend({
     _name: "Bool",
-    type: "bool",
+    i_type: "bool",
     size: 1,
-    isArithmetic: true,
-    isIntegral: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-    },
+
     bytesToValue : function(bytes){
         return (bytes[0] ? true : false);
+    },
+
+    valueToOstreamString : function(value) {
+        return value ? "1" : "0";
     }
     //valueToString : function(value){
     //    return value ? "T" : "F";
     //}
 });
 
-Types.builtInTypes["string"] =
-    Lobster.Types.String = Types.SimpleType.extend({
-    _name: "String",
-    type: "string",
-    size: 4,
-    defaultValue: "",
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-    },
-    valueToString : function(value){
-        value = value.replace(/\n/g,"\\n");
-        return '"' + value + '"';
-    },
-    coutString : function(value){
-        return value;
-    },
-    bytesToValue : function(bytes){
-        return ""+bytes[0];
-    }
-});
-
-Lobster.Types.Enum = Types.SimpleType.extend({
+Lobster.Types.Enum = Types.IntegralTypeBase.extend({
     _name: "Enum",
     size: 4,
-    isArithmetic: true,
-    isIntegral: true,
     extend: function(){
 
         var sub = Types.SimpleType.extend.apply(this, arguments);
@@ -592,147 +658,87 @@ Lobster.Types.Enum = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["rank"] =
-    Lobster.Types.Rank = Types.Enum.extend({
-    type: "Rank",
+Lobster.Types.Rank = Types.Enum.extend({
+    i_type: "Rank",
     values: ["TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "JACK", "QUEEN", "KING", "ACE"]
 });
 
 Types.builtInTypes["suit"] =
-    Lobster.Types.Suit = Types.Enum.extend({
-    type: "Suit",
+Lobster.Types.Suit = Types.Enum.extend({
+    i_type: "Suit",
     values: ["SPADES", "HEARTS", "CLUBS", "DIAMONDS"]
 });
 
 
 
 
-Types.builtInTypes["list_t"] =
-    Lobster.Types.List_t = Types.SimpleType.extend({
-    _name: "List_t",
-    type: "list_t",
-    size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
+
+
+
+Types.FloatingPointBase = Types.SimpleType.extend({
+    _name: "FloatingPointBase",
+    isFloatingPointType: true,
+    isArithmeticType: true,
+
     valueToString : function(value){
-        return JSON.stringify(value);
+        var str = ""+value;
+        return str.indexOf(".") != -1 ? str : str + ".";
+    }
+
+});
+
+Types.builtInTypes["float"] =
+    Lobster.Types.Float = Types.FloatingPointBase.extend({
+    _name: "Float",
+    i_type: "float",
+    size: 4
+});
+
+Types.builtInTypes["double"] =
+    Lobster.Types.Double = Types.FloatingPointBase.extend({
+    _name: "Double",
+    i_type: "double",
+    size: 8
+});
+
+
+
+
+
+
+
+Types.builtInTypes["string"] =
+    Lobster.Types.String = Types.SimpleType.extend({
+    _name: "String",
+    i_type: "string",
+    size: 4,
+    defaultValue: "",
+
+    valueToString : function(value){
+        value = value.replace(/\n/g,"\\n");
+        return '"' + value + '"';
+    },
+    valueToOstreamString : function(value){
+        return value;
     },
     bytesToValue : function(bytes){
-        //TODO: this is a hack for now.
-        return Array.isArray(bytes[0]) ? bytes[0] : [];
+        return ""+bytes[0];
     }
 });
 
-//TODO haha I know of a much more efficient solution for this
-var breadthFirstTree = function(tree){
-    if (!tree || tree.elt === undefined){
-        return ".";
-    }
-    var queue = [{tree: tree, row: 0, col: 0}];
-    var lines = [];
-    var minLeft = 0;
-    var minRight = 0;
-    while (queue.length > 0){
-        var next = queue.pop();
-        if (next.tree.elt === undefined){
-            continue; // ignore empty trees
-        }
-
-        //is it a new line?
-        if (lines.length <= next.row){
-            lines.push({str:"", left:next.col});
-            if (next.col < minLeft){
-                minLeft = next.col;
-            }
-        }
-
-        var line = lines[next.row];
-        // add spaces to line until we get to next elt to be printed
-        while (line.left + line.str.length < next.col){
-            line.str += " ";
-        }
-        line.str += next.tree.elt; // print elt
-
-        var left = next.tree.left;
-        var right = next.tree.right;
-        if (left){
-            left = {tree: left, row: next.row+1, col: next.col-1};
-            queue.unshift(left);
-        }
-        if (right){
-            right = {tree: right, row: next.row+1, col: next.col+1};
-            queue.unshift(right);
-        }
-    }
-
-    //Adjust left sides. record max length to adjust right side
-    var maxLength = 0;
-    for(var i = 0; i < lines.length; ++i){
-        var line = lines[i];
-        for(var j = 0; j < line.left - minLeft; ++j){
-            line.str = " " + line.str;
-        }
-        if (line.str.length > maxLength){
-            maxLength = line.str.length;
-        }
-    }
-
-    // Adjust right sides, which is just adjusting length since left is already done.
-    for(var i = 0; i < lines.length; ++i){
-        var line = lines[i];
-        while (line.str.length < maxLength){
-            line.str += " ";
-        }
-    }
 
 
-    var str = "";
-    for(var i = 0; i < lines.length; ++i){
-        str += lines[i].str;
-        str += "\n";
-    }
-    return str;
-};
 
-Types.builtInTypes["tree_t"] =
-    Lobster.Types.Tree_t = Types.SimpleType.extend({
-    _name: "Tree_t",
-    type: "tree_t",
-    size: 4,
 
-    //depth: function(tree){
-    //    var leftDepth = tree.left ? Types.Tree_t.depth(tree.left) : 0;
-    //    var rightDepth = tree.right ? Types.Tree_t.depth(tree.right) : 0;
-    //    var depth = tree.elt ? 1 : 0;
-    //    depth += (leftDepth > rightDepth ? leftDepth : rightDepth);
-    //    return depth;
-    //},
 
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
-    valueToString : function(value){
-        //if (value.left){
-        //    return "{" + this.valueToString(value.left) + " " + value.elt + " " + this.valueToString(value.right) + "}";
-        //}
-        //else{
-        //    return "{}";
-        //}
-        return breadthFirstTree(value);
-    },
-    bytesToValue : function(bytes){
-        return typeof bytes[0] === "object" ? bytes[0] : {};
-    }
-});
 
 Types.builtInTypes["ostream"] =
 Lobster.Types.OStream = Types.SimpleType.extend({
     _name: "OStream",
-    type: "ostream",
+    i_type: "ostream",
     size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
     valueToString : function(value){
         return JSON.stringify(value);
     }
@@ -740,21 +746,25 @@ Lobster.Types.OStream = Types.SimpleType.extend({
 
 Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
     _name: "IStream",
-    type: "istream",
+    i_type: "istream",
     size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
     valueToString : function(value){
         return JSON.stringify(value);
     }
 });
 
+
+
+
+
+
+
 // REQUIRES: ptrTo must be a type
 Lobster.Types.Pointer = Type.extend({
     _name: "Pointer",
     size: 8,
-    precedence: 1,
+    i_precedence: 1,
     _isComplete: true,
 
     isNull : function(value){
@@ -766,9 +776,12 @@ Lobster.Types.Pointer = Type.extend({
 
     init: function(ptrTo, isConst, isVolatile){
         this.initParent(isConst, isVolatile);
-        this.compoundNext = this.ptrTo = ptrTo;
+        this.ptrTo = ptrTo;
         this.funcPtr = isA(this.ptrTo, Types.Function);
         return this;
+    },
+    getCompoundNext : function() {
+        return this.ptrTo;
     },
     sameType : function(other){
         return other && other.isA(Types.Pointer)
@@ -780,11 +793,11 @@ Lobster.Types.Pointer = Type.extend({
         return other && other.isA(Types.Pointer)
             && this.ptrTo.similarType(other.ptrTo);
     },
-    typeString : function(excludeBase, varname){
-        return this.ptrTo.typeString(excludeBase, this.parenthesize(this.ptrTo, this._cv + "*" + varname));
+    typeString : function(excludeBase, varname, decorated){
+        return this.ptrTo.typeString(excludeBase, this.i_parenthesize(this.ptrTo, this.getCVString() + "*" + varname), decorated);
     },
     englishString : function(plural){
-        return (plural ? this._cv+"pointers to" : "a " +this._cv+"pointer to") + " " + this.ptrTo.englishString();
+        return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
     },
     valueToString : function(value){
         if (isA(this.ptrTo, Types.Function) && value) {
@@ -793,13 +806,15 @@ Lobster.Types.Pointer = Type.extend({
         else{
             return "0x" + value;
         }
+    },
+    isObjectPointer : function() {
+        return this.ptrTo.isObjectType || isA(this.ptrTo, Types.Void);
     }
 });
 
 Lobster.Types.ArrayPointer = Types.Pointer.extend({
     _name: "ArrayPointer",
     size: 8,
-    precedence: 1,
 
     init: function(arrObj, isConst, isVolatile){
         this.initParent(arrObj.type.elemType, isConst, isVolatile);
@@ -859,7 +874,7 @@ Lobster.Types.ObjectPointer = Types.Pointer.extend({
 Lobster.Types.Reference = Type.extend({
     _name: "Reference",
     isObjectType: false,
-    precedence: 1,
+    i_precedence: 1,
     _isComplete: true,
 
     init: function(refTo, isConst, isVolatile){
@@ -869,6 +884,11 @@ Lobster.Types.Reference = Type.extend({
         this.size = this.refTo.size;
         return this;
     },
+
+    getCompoundNext : function() {
+        return this.refTo;
+    },
+
     sameType : function(other){
         return other && other.isA(Types.Reference) && this.refTo.sameType(other.refTo);
     },
@@ -876,11 +896,11 @@ Lobster.Types.Reference = Type.extend({
     similarType : function(other){
         return other && other.isA(Types.Reference) && this.refTo.similarType(other.refTo);
     },
-    typeString : function(excludeBase, varname){
-		return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this._cv + "&" + varname));
+    typeString : function(excludeBase, varname, decorated){
+		return this.refTo.typeString(excludeBase, this.i_parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
 	},
 	englishString : function(plural){
-		return this._cv + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString();
+		return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString();
 	},
 	valueToString : function(value){
 		return ""+value;
@@ -891,8 +911,8 @@ Lobster.Types.Reference = Type.extend({
 // REQUIRES: elemType must be a type
 Lobster.Types.Array = Type.extend({
     _name: "Array",
-    precedence: 2,
-    _isComplete: true, // Assume complete. If length is unknown, individual Array types set to false
+    i_precedence: 2,
+    _isComplete: true, // Assume complete. If length is unknown, individual Array types will set to false
     init: function(elemType, length, isConst, isVolatile){
 
         if (length === undefined){
@@ -904,16 +924,21 @@ Lobster.Types.Array = Type.extend({
         this.size = Math.max(1, this.properSize);
 
         this.initParent(elemType.isConst, elemType.isVolatile);
-        this.compoundNext = this.elemType = elemType;
+        this.elemType = elemType;
         this.length = length;
         return this;
     },
+
+    getCompoundNext : function() {
+        return this.elemType;
+    },
+
     setLength : function(length){
         this.length = length;
         this.properSize = this.elemType.size * length;
         this.size = Math.max(1, this.properSize);
-        if (this.size > Types.maxSize){
-            Types.maxSize = this.size;
+        if (this.size > Type.getMaxSize()){
+            Type.setMaxSize(this.size);
         }
     },
     sameType : function(other){
@@ -922,8 +947,8 @@ Lobster.Types.Array = Type.extend({
     similarType : function(other){
         return other && other.isA(Types.Array) && this.elemType.similarType(other.elemType) && this.length === other.length;
     },
-    typeString : function(excludeBase, varname){
-		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]");
+    typeString : function(excludeBase, varname, decorated){
+		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]", decorated);
 	},
 	englishString : function(plural){
 		return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
@@ -949,168 +974,130 @@ Lobster.Types.Array = Type.extend({
 });
 
 
-
-// REQUIRES: elemType must be a type
+/**
+ * memberEntities - an array of all member entities. does not inlcude constructors, destructor, or base class subobject entities
+ * subobjectEntities - an array containing all subobject entities, include base class subobjects and member subobjects
+ * baseClassSubobjectEntities - an array containing entities for any base class subobjects
+ * memberSubobjectEntities - an array containing entities for member subobjects (does not contain base class subobjects)
+ * constructors - an array of the constructor entities for this class. may be empty if no constructors
+ * copyConstructor - the copy constructor entity for this class. might be null if doesn't have a copy constructor
+ * destructor - the destructor entity for this class. might be null if doesn't have a destructor
+ */
 Lobster.Types.Class = Type.extend({
     _name: "Class",
-    precedence: 0,
+    i_precedence: 0,
     className: Class._ABSTRACT,
     _nextClassId: 0,
 
-    extend: function(){
-        var sub = Type.extend.apply(this, arguments);
-        sub.classId = this._nextClassId++;
-        sub.scope = sub.scope; // TODO does this do anything? I think it actually makes the class have it's own version of the scope instead of an alias
-        sub.members = sub.members || [];
-        sub.objectMembers = [];
-        sub.constructors = [];
-        sub.destructor = null;
-        // Set size before initParent since that assumes size is what it should be when it runs
-        sub.size = 0;
-        sub.memberMap = {};
-        if (sub.base === undefined){
-            delete sub.base;
+    createClassType : function(name, parentScope, base, members) {
+        var classType = this.extend({
+            _name : name,
+            i_classId : this._nextClassId++,
+            i_isComplete : false,
+            className : name,
+            size : 1,
+            i_reallyZeroSize : true,
+            scope : ClassScope.instance(name, parentScope, base && base.scope),
+            memberEntities : [],
+            subobjectEntities : [],
+            baseClassSubobjectEntities : [],
+            memberSubobjectEntities : [],
+            constructors : [],
+            copyConstructor : null,
+            destructor : null,
+
+            i_memberMap : {},
+            i_baseClass : base || null // TODO: change if we ever want multiple inheritance
+
+
+        });
+
+        if (base){
+            classType.addBaseClass(base);
         }
 
 
-        //this.type = Types.Class.extend({
-        //    _name: this.name,
-        //    className: this.name,
-        //    members: [],
-        //    scope: this.scope,
-        //    base: this.base
-        //});
-        if (sub.base){
-            sub.baseSubobjects = [BaseClassSubobjectEntity.instance(sub.base, this, "public")];
-            sub.size += sub.base.size;
-        }
-        else{
-            sub.baseSubobjects = [];
-        }
+        members && members.forEach(classType.addMember.bind(classType));
 
-        for(var i = 0; i < sub.members.length; ++i) {
-            var mem = sub.members[i];
-            sub.memberMap[mem.name] = mem;
-            if(mem.type.isObjectType){
-                sub.size += mem.type.size;
-                mem.memberIndex = sub.objectMembers.length;
-                sub.objectMembers.push(mem);
-            }
-        }
-        if (sub.size === 0){
-            sub.size = 1;
-            sub.reallyZeroSize = true;
-        }
-
-        sub.subobjects = sub.baseSubobjects.concat(sub.objectMembers);
-
-        return sub;
+        return classType;
     },
 
-    merge : function(class1, class2) {
-        class1.classId = class2.classId = Math.min(class1.classId, class2.classId);
+    addBaseClass : function(base) {
+        this.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
+        this.subobjectEntities.push();
+        this.size += base.size;
     },
 
-    init: function(isConst, isVolatile){
+    getBaseClass : function() {
+        if (this.baseClassSubobjectEntities.length > 0) {
+            return this.baseClassSubobjectEntities[0].type;
+        }
+        else {
+            return null;
+        }
+    },
 
-        this.initParent(isConst, isVolatile);
-        return this;
+    /**
+     * Returns the member entity for the member with the given name.
+     * If no member with that name exists, returns null.
+     * @param {String} name
+     * @returns {?CPPEntity}
+     */
+    getMember : function(name) {
+        return this.i_memberMap[name] || null;
     },
-    sameType : function(other){
-        //alert(other && other.isA(this._class));
-        return this.similarType(other)
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
+
+    containsMember : function(name){
+        return !!this.i_memberMap[name];
     },
-    similarType : function(other){
-        //alert(other && other.isA(this._class));
-        return other && other.isA(Types.Class) && other.classId === this.classId;
-    },
-    classString : function(){
-        return this.className;
-    },
-    typeString : function(excludeBase, varname, decorated){
-        if (excludeBase) {
-            return varname ? varname : "";
-        }
-        else{
-            return this._cv + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
-        }
-    },
-    englishString : function(plural){
-        // no recursive calls to this.type.englishString() here
-        // because this.type is just a string representing the type
-        return this._cv + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
-    },
-    valueToString : function(value){
-        return JSON.stringify(value, null, 2);
-    },
-    bytesToValue : function(bytes){
-        var val = {};
-        var b = 0;
-        for(var i = 0; i < this.objectMembers.length; ++i) {
-            var mem = this.objectMembers[i];
-            val[mem.name] = mem.type.bytesToValue(bytes.slice(b, b + mem.type.size));
-            b += mem.type.size;
-        }
-        return val;
-    },
-    valueToBytes : function(value){
-        var bytes = [];
-        for(var i = 0; i < this.objectMembers.length; ++i) {
-            var mem = this.objectMembers[i];
-            bytes.pushAll(mem.type.valueToBytes(value[mem.name]));
-        }
-        return bytes;
-    },
+
     addMember : function(mem){
         assert(this._isClass);
-        this.members.push(mem);
-        this.memberMap[mem.name] = mem;
+        this.memberEntities.push(mem);
+        this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){
-            if (this.reallyZeroSize){
+            if (this.i_reallyZeroSize){
                 this.size = 0;
-                delete this.reallyZeroSize;
+                delete this.i_reallyZeroSize;
             }
-            mem.memberIndex = this.objectMembers.length;
-            this.objectMembers.push(mem);
-            this.subobjects.push(mem);
+            mem.memberIndex = this.memberSubobjectEntities.length;
+            this.memberSubobjectEntities.push(mem);
+            this.subobjectEntities.push(mem);
             this.size += mem.type.size;
         }
     },
-    containsMember : function(name){
-        return !!this.memberMap[name];
+
+    addConstructor : function(constructor){
+        this.constructors.push(constructor);
     },
-    addConstructor : function(con){
-        this.constructors.push(con);
+
+    addDestructor : function(destructor){
+        this.destructor = destructor;
     },
-    addDestructor : function(con){
-        this.destructor = con;
-    },
-    getDestructor : function(){
-        return this.scope.singleLookup("~"+this.className, {own:true, noBase:true});
-    },
-    getDefaultConstructor : function(scope){
+
+    getDefaultConstructor : function(){
         return this.scope.singleLookup(this.className+"\0", {
             own:true, noBase:true, exactMatch:true,
             paramTypes:[]});
     },
-    getCopyConstructor : function(scope, requireConst){
+
+    getCopyConstructor : function(requireConst){
         return this.scope.singleLookup(this.className+"\0", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
             this.scope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]});
     },
+
     getAssignmentOperator : function(requireConst, isThisConst){
         return this.scope.singleLookup("operator=", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[this.instance()]}) ||
-        this.scope.singleLookup("operator=", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[this.instance()]}) ||
+            this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
             this.scope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
@@ -1118,15 +1105,34 @@ Lobster.Types.Class = Type.extend({
 
     },
 
-    hasMember : function(name){
-        return this.memberMap.hasOwnProperty(name);
+    makeComplete : function() {
+        this.i_isComplete = true;
     },
-    /**
-     *
-     * @param name is a string
-     */
+
+    isComplete : function(){
+        return this.i_isComplete || this.i_isTemporarilyComplete;
+    },
+    setTemporarilyComplete : function(){
+        this.i_isTemporarilyComplete = true;
+    },
+    unsetTemporarilyComplete : function(){
+        delete this.i_isTemporarilyComplete;
+    },
+
+
+    // TODO: I think this is fragile dependent on order of compilation of translation units
+    merge : function(class1, class2) {
+        class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
+    },
+
+    classString : function(){
+        return this.className;
+    },
+
+    // Functions that may be called on either the class or the instance
+
     isDerivedFrom : function(potentialBase){
-        var b = this.base;
+        var b = this.getBaseClass();
         while(b){
             if (similarType(potentialBase, b)){
                 return true;
@@ -1135,83 +1141,70 @@ Lobster.Types.Class = Type.extend({
         }
         return false;
     },
+
+
+    // Below this are instance-only functions
+
     isInstanceOf : function(other) {
-        return this.classId === other.classId;
+        return this.i_classId === other.i_classId;
     },
-    isComplete : function(){
-        return !!(this._isComplete || this._isTemporarilyComplete);
+
+    sameType : function(other){
+        //alert(other && other.isA(this._class));
+        return this.similarType(other)
+            && other.isConst === this.isConst
+            && other.isVolatile === this.isVolatile;
     },
-    setTemporarilyComplete : function(){
-        this._isTemporarilyComplete = true;
+
+    similarType : function(other){
+        //alert(other && other.isA(this._class));
+        return other && other.isA(Types.Class) && other.i_classId === this.i_classId;
     },
-    unsetTemporarilyComplete : function(){
-        delete this._isTemporarilyComplete;
+    typeString : function(excludeBase, varname, decorated){
+        if (excludeBase) {
+            return varname ? varname : "";
+        }
+        else{
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+        }
+    },
+    englishString : function(plural){
+        // no recursive calls to this.type.englishString() here
+        // because this.type is just a string representing the type
+        return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
+    },
+    valueToString : function(value){
+        return JSON.stringify(value, null, 2);
+    },
+    bytesToValue : function(bytes){
+        var val = {};
+        var b = 0;
+        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+            var mem = this.memberSubobjectEntities[i];
+            val[mem.name] = mem.type.bytesToValue(bytes.slice(b, b + mem.type.size));
+            b += mem.type.size;
+        }
+        return val;
+    },
+    valueToBytes : function(value){
+        var bytes = [];
+        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+            var mem = this.memberSubobjectEntities[i];
+            bytes.pushAll(mem.type.valueToBytes(value[mem.name]));
+        }
+        return bytes;
     }
+
 });
 
-//Lobster.Types.Card = Types.Class.extend({
-//    _name: "Card",
-//    className: "Card",
-//    members: [
-//        {name: "rank", type: Types.Rank.instance()},
-//        {name: "suit", type: Types.Suit.instance()}
-//    ]
-//});
-//
-//Lobster.Types.Pack = Types.Class.extend({
-//    _name: "Pack",
-//    className: "Pack",
-//    members: [
-//        {name: "cards", type: Types.Array.instance(Types.Card.instance(),24)},
-//        {name: "next", type: Types.Pointer.instance(Types.Card.instance())}
-//    ]
-//});
-//
-//Lobster.Types.Player = Types.Class.extend({
-//    _name: "Player",
-//    className: "Player",
-//    members: [
-//        {name: "name", type: Types.Array.instance(Types.Char.instance(),10)},
-//        {name: "hand", type: Types.Array.instance(Types.Card.instance(),5)},
-//        {name: "hand_size", type: Types.Int.instance()}
-//    ]
-//});
-//
-//
-//
-//Lobster.Types.Basket = Types.Class.extend({
-//    _name: "Basket",
-//    className: "Basket",
-//    members: [
-//        {name: "fruits", type: Types.Pointer.instance(Types.String.instance())},
-//        {name: "num_fruits", type: Types.Int.instance()}
-//    ]
-//});
-//
-//
-//Lobster.Types.Quote = Types.Class.extend({
-//    _name: "Quote",
-//    className: "Quote",
-//    members: [
-//        {name: "price", type: Types.Double.instance()},
-//        {name: "time", type: Types.Int.instance()}
-//    ]
-//});
-//Lobster.Types.Pricebook = Types.Class.extend({
-//    _name: "Pricebook",
-//    className: "Pricebook",
-//    members: [
-//        {name: "quotes", type: Types.Array.instance(Types.Quote.instance(), 5)},
-//        {name: "size", type: Types.Int.instance()}
-//    ]
-//});
+
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 Lobster.Types.Function = Type.extend({
     _name: "Function",
     isObjectType: false,
-    precedence: 2,
+    i_precedence: 2,
     size: 0,
     init: function(returnType, paramTypes, isConst, isVolatile, isThisConst){
         this.initParent(isConst, isVolatile);
@@ -1289,10 +1282,11 @@ Lobster.Types.Function = Type.extend({
     sameSignature : function(other){
         return this.isThisConst === other.isThisConst && this.sameParamTypes(other);
     },
-    typeString : function(excludeBase, varname){
-		return this.returnType.typeString(excludeBase, varname + this.paramStrType);
+    typeString : function(excludeBase, varname, decorated){
+		return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
 	},
-	englishString : function(plural){
+
+    englishString : function(plural){
 		return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
 			   (plural ? "and return " : "and returns ") + this.returnType.englishString();
 	},
@@ -1304,55 +1298,6 @@ Lobster.Types.Function = Type.extend({
 
 
 
-
-
-
-
-
-
-
-// kind will be one of either "pointer" ""
-// Lobster.Type = function(kind, sub) {
-	// this.kind = kind;
-	// this.sub = sub;
-	// this.typeSpec = typeSpec;
-	// this.declarator = declarator;
-// 	
-	// this.size = 4; //TODO hack for now, fix later (shouldn't be constant)
-// 	
-	// this.semanticProblems = [];
-// };
-// var Type = Lobster.Type;
-// Type.prototype = {
-// 	
-	// compile : function(scope){
-// 		
-		// var semanticProblems = this.semanticProblems;
-// 		
-		// var typeSpec = this.typeSpec;
-		// var declarator = this.declarator;
-// 		
-		// // Determine base type (i.e. what do we have to store?)
-		// this.baseType = declarator.baseType || typeSpec.typeName;
-// 		
-		// var str = this.declarator.sentence;
-		// if (this.declarator.plural){
-			// str += this.typeSpec.sentence + "s";
-		// }
-		// else{
-			// str += (isVowel(this.typeSpec.sentence.charAt(0)) ? "an " : "a ") + this.typeSpec.sentence;
-		// }
-// 		
-		// this.sentence = str;
-		// return semanticProblems; // TODO add more semantic checking to this
-	// },
-	// isFunction : function(){
-		// return this.baseType == "function";
-	// },
-	// toString : function(){
-		// return this.sentence;
-	// }
-// }
 
 
 
