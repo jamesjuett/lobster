@@ -276,6 +276,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         this.projectEditor = ProjectEditor.instance(sourcePane);
         this.listenTo(this.projectEditor);
+        this.listenTo(this.projectEditor.getProgram());
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
         this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
@@ -698,6 +699,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
                 this.i_tabsElem.find('a[href="#sourcePane"]').tab("show");
             }
+        },
+        fullCompilationFinished : function() {
+            this.sim.setProgram(this.projectEditor.getProgram());
+            this.restart();
         },
         runTo: "runTo",
         skipToEnd: "skipToEnd",

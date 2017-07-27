@@ -938,19 +938,21 @@ var DeclaredEntity = CPPEntity.extend({
 
     isDefined : function() {
         return !!this.definition; // TODO move to DeclaredEntity subclass and also separate declaration from definition
+    },
+
+    // TODO: when namespaces are implemented, need to fix this function
+    getFullyQualifiedName : function() {
+        return "::" + this.name;
     }
 });
 CPP.DeclaredEntity = DeclaredEntity;
 
-// Note: this is not derived from DeclaredEntity because it's also used as a runtime type of thing and sometimes
-// doesn't have a declaration or definition. Maybe want to change that in the future?
-var ReferenceEntity = CPP.ReferenceEntity = CPP.CPPEntity.extend({
+// TODO: create a separate class for runtime references that doesn't extend DeclaredEntity
+var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     _name: "ReferenceEntity",
-    storage: "automatic",
+    storage: "automatic", // TODO: is this correct?
     init: function (decl, type) {
-        this.initParent(decl && decl.name || null);
-        this.decl = decl;
-        this.type = type || decl.type;
+        this.initParent(decl || {name: null, type: type});
     },
     allocated : function(){},
     bindTo : function(refersTo){
@@ -989,19 +991,20 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.
     init: function (entity) {
         this.initParent(entity.decl, entity.type);
     },
-    bindTo : function(refersTo){
-        assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
-
-        // If the thing we refer to is a reference, look it up first so we refer to the source.
-        // This eliminates chains of references, which for now is what I want.
-        if (isA(refersTo, ReferenceEntity)) {
-            this.refersTo = refersTo.lookup();
-        }
-        else{
-            this.refersTo = refersTo;
-        }
-        this.send("bound");
-    },
+    // TODO: I think this should be removed
+    // bindTo : function(refersTo){
+    //     assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
+    //
+    //     // If the thing we refer to is a reference, look it up first so we refer to the source.
+    //     // This eliminates chains of references, which for now is what I want.
+    //     if (isA(refersTo, ReferenceEntity)) {
+    //         this.refersTo = refersTo.lookup();
+    //     }
+    //     else{
+    //         this.refersTo = refersTo;
+    //     }
+    //     this.send("bound");
+    // },
 
     lookup : function(){
         // It's possible someone will be looking up the reference in order to bind it (e.g. auxiliary reference used
@@ -1043,25 +1046,17 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
 
 
             // TODO I think the 3 statements below can be replaced with:
-            //this.subobjects = classType.subobjects.map(function(mem){
+            //this.subobjects = classType.subobjectEntities.map(function(mem){
             //    return mem.objectInstance(self);
             //});
-            this.baseSubobjects = classType.baseSubobjects.map(function(mem){
+            this.baseSubobjects = classType.baseClassSubobjectEntities.map(function(mem){
                 return mem.objectInstance(self);
             });
-            this.memberSubobjects = classType.objectMembers.map(function(mem){
+            this.memberSubobjects = classType.memberSubobjectEntities.map(function(mem){
                 return mem.objectInstance(self);
             });
             this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
 
-            //if (classType.base){
-            //    this.subobjects.push(BaseClassSubobject.instance(classType.base, this));
-            //}
-
-            //for(var i = 0; i < classType.objectMembers.length; ++i){
-            //    this.subobjects.
-            //    this.subobjects.push(MemberSubobject.instance(classType.objectMembers[i].type, this, classType.objectMembers[i].name));
-            //}
         }
     },
     instanceString : function(){
@@ -1073,8 +1068,8 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     nameString : function(){
         return this.name || "0x" + this.address;
     },
-    coutString : function(){
-        return this.type.coutString(this.rawValue());
+    valueToOstreamString : function(){
+        return this.type.valueToOstreamString(this.rawValue());
     },
     isAlive : function(){
         return !!this.alive;
@@ -1098,13 +1093,6 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
                 this.subobjects[i].allocated(memory, subAddr);
                 subAddr += this.subobjects[i].type.size;
             }
-        }
-
-        if(this.defaultValue !== undefined){
-            this.setValue(this.defaultValue);
-        }
-        else if (this.type.defaultValue !== undefined){
-            this.setValue(this.type.defaultValue);
         }
 
         this.send("allocated");
@@ -1694,7 +1682,7 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !isA(memberOf.type, this.type)){
-            memberOf = memberOf.type.base && memberOf.baseSubobjects[0];
+            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
         }
         assert(memberOf, "Internal lookup failed to find subobject in class or base classes.");
 
@@ -1726,7 +1714,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
-            memberOf = memberOf.type.base && memberOf.baseSubobjects[0];
+            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
         }
 
         assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
@@ -1837,7 +1825,7 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
         this.owner.addTemporaryObject(this);
     },
     objectInstance: function(creatorInst){
-        var obj = creatorInst.sim.memory.allocateTemporaryObject(TemporaryObjectInstance.instance(this));
+        var obj = creatorInst.sim.memory.allocateTemporaryObject(this);
 
         var inst = creatorInst;
         while (inst.model !== this.owner){
@@ -1968,7 +1956,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         this.checkForOverride();
     },
     checkForOverride : function(){
-        if (!this.memberOfClass.base){
+        if (!this.memberOfClass.getBaseClass()){
             return;
         }
 
@@ -1976,7 +1964,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.memberOfClass.base.scope.singleLookup(this.name, {
+        var overridden = this.memberOfClass.getBaseClass().scope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
@@ -2008,7 +1996,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
             // If it's a destructor, we look instead for the destructor of the dynamic type
             var func;
             if (isA(this.definition, DestructorDefinition)) {
-                func = dynamicType.getDestructor();
+                func = dynamicType.destructor;
             }
             else{
                 func = dynamicType.scope.singleLookup(this.name, {
@@ -2166,11 +2154,18 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         var object = staticEntity.objectInstance();
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
-        this.staticObjects[staticEntity.entityId] = object;
+        this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
+
+        if(staticEntity.defaultValue !== undefined){
+            object.setValue(staticEntity.defaultValue);
+        }
+        else if (staticEntity.type.defaultValue !== undefined){
+            object.setValue(staticEntity.type.defaultValue);
+        }
     },
 
     staticLookup : function(staticEntity) {
-        return this.staticObjects[staticEntity.entityId];
+        return this.staticObjects[staticEntity.getFullyQualifiedName()];
     },
 
     getByte : function(addr){
@@ -2179,7 +2174,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
     readByte : function(ad, fromObj){
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2196,7 +2191,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         var end = ad + num;
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = end-1; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2211,7 +2206,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.bytes[ad] = value;
 
         // Notify any object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj && obj.size > ad - i){
@@ -2223,7 +2218,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         this.bytes[ad] = value;
 
         // Notify any other object that is interested in that byte
-        var begin = ad - Types.maxSize;
+        // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2239,7 +2234,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         }
 
         // Notify any other object that is interested in that byte
-        //var begin = ad - Types.maxSize;
+        //var begin = ad - Type.getMaxSize();
         //for(var i = ad+values.length; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj && obj.size > ad - i){
@@ -2267,7 +2262,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         }
 
         // Notify any other object that is interested in that byte
-        //var begin = ad - Types.maxSize;
+        //var begin = ad - Type.getMaxSize();
         //for(var i = ad+values.length-1; begin < i; --i){
         //    var obj = this.objects[i];
         //    if (obj == fromObj) { continue; }
@@ -2309,11 +2304,20 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // then we need to create an anonymous object of the appropriate type instead
         return createAnonObject(type, this, addr);
     },
-    allocateTemporaryObject: function(obj){
+    allocateTemporaryObject: function(tempEntity){
+        var obj = TemporaryObjectInstance.instance(tempEntity);
         this.allocateObject(obj, this.temporaryBottom);
-        this.temporaryBottom += obj.type.size;
-        this.temporaryObjects[obj.entityId] = obj;
+        this.temporaryBottom += tempEntity.type.size;
+        this.temporaryObjects[tempEntity.entityId] = obj;
         this.send("temporaryObjectAllocated", obj);
+
+        if(tempEntity.defaultValue !== undefined){
+            obj.setValue(tempEntity.defaultValue);
+        }
+        else if (tempEntity.type.defaultValue !== undefined){
+            obj.setValue(tempEntity.type.defaultValue);
+        }
+
         return obj;
     },
     deallocateTemporaryObject: function(obj, inst){
@@ -2394,6 +2398,15 @@ var MemoryHeap = Class.extend(Observable, {
         this.memory.allocateObject(obj, this.bottom);
         this.objectMap[obj.address] = obj;
         this.memory.send("heapObjectAllocated", obj);
+
+
+        if(obj.defaultValue !== undefined){
+            obj.setValue(obj.defaultValue);
+        }
+        else if (obj.type.defaultValue !== undefined){
+            obj.setValue(obj.type.defaultValue);
+        }
+
         return obj;
     },
 
@@ -2452,10 +2465,10 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
         // Push objects for all entities in the frame
         var autos = scope.automaticObjects;
         for (var i = 0; i < autos.length; ++i) {
-            var obj = autos[i];
+            var objEntity = autos[i];
 
             // Create instance of the object
-            obj = obj.objectInstance();
+            obj = objEntity.objectInstance();
 
             // Allocate object
             this.memory.allocateObject(obj, addr);
@@ -2463,6 +2476,13 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
 
             this.objects[obj.entityId] = obj;
             this.size += obj.size;
+
+            if(objEntity.defaultValue !== undefined){
+                obj.setValue(objEntity.defaultValue);
+            }
+            else if (objEntity.type.defaultValue !== undefined){
+                obj.setValue(objEntity.type.defaultValue);
+            }
 //                console.log("----" + key);
         }
 

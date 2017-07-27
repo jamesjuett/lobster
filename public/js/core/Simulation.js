@@ -383,12 +383,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             var addr = value.value;
             var c = this.memory.bytes[addr];
             while (c){
-                text += Types.Char.coutString(c);
+                text += Types.Char.valueToOstreamString(c);
                 c = this.memory.bytes[++addr];
             }
         }
         else{
-            var text = escapeString(value.coutString());
+            var text = escapeString(value.valueToOstreamString());
         }
         this.console.setValue(this.console.value() + text);
     },

@@ -41,8 +41,8 @@ var Value = Expressions.Value = Class.extend({
     valueString : function(){
         return this.type.valueToString(this.value);
     },
-    coutString : function(){
-        return this.type.coutString(this.value);
+    valueToOstreamString : function(){
+        return this.type.valueToOstreamString(this.value);
     },
     getValue : function(){
         return this;
@@ -112,7 +112,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             for (var entId in this.temporaryObjects){
                 var tempEnt = this.temporaryObjects[entId];
                 if (isA(tempEnt.type, Types.Class)){
-                    var dest = tempEnt.type.getDestructor();
+                    var dest = tempEnt.type.destructor;
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
                         call.compile(scope, dest, []);
@@ -582,8 +582,8 @@ Conversions.IntegralConversion = ImplicitConversion.extend({
     _name: "IntegralConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegral);
-        assert(toType.isIntegral);
+        assert(from.type.isIntegralType);
+        assert(toType.isIntegralType);
         this.initParent(from, toType, "prvalue");
         this.englishName = from.type.englishString() + " to " + toType.englishString();
     },
@@ -608,8 +608,8 @@ Conversions.IntegralFloatingConversion = ImplicitConversion.extend({
     _name: "IntegralFloatingConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegral);
-        assert(toType.isFloatingPoint);
+        assert(from.type.isIntegralType);
+        assert(toType.isFloatingPointType);
         this.initParent(from, toType, "prvalue");
     },
 
@@ -630,8 +630,8 @@ Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
     _name: "FloatingIntegralConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
-        assert(from.type.isFloatingPoint);
-        assert(toType.isIntegral);
+        assert(from.type.isFloatingPointType);
+        assert(toType.isIntegralType);
         this.initParent(from, toType, "prvalue");
     },
 
@@ -685,8 +685,8 @@ Conversions.IntegralPromotion = ImplicitConversion.extend({
     _name: "IntegralPromotion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegral);
-        assert(toType.isIntegral);
+        assert(from.type.isIntegralType);
+        assert(toType.isIntegralType);
         this.initParent(from, toType, "prvalue");
     },
 
@@ -760,17 +760,17 @@ var standardConversion2 = function(from, toType, options){
         }
     }
 
-    if (toType.isFloatingPoint){
-        if (from.type.isIntegral){
+    if (toType.isFloatingPointType){
+        if (from.type.isIntegralType){
             return Conversions.IntegralFloatingConversion.instance(from, toType);
         }
     }
 
-    if (toType.isIntegral){
-        if (from.type.isIntegral){
+    if (toType.isIntegralType){
+        if (from.type.isIntegralType){
             return Conversions.IntegralConversion.instance(from, toType);
         }
-        if (from.type.isFloatingPoint){
+        if (from.type.isFloatingPointType){
             return Conversions.FloatingIntegralConversion.instance(from, toType);
         }
     }
@@ -814,7 +814,7 @@ var standardConversion = function(from, toType, options){
 };
 
 var integralPromotion = function(expr){
-    if (expr.type.isIntegral && !isA(expr.type, Types.Int)) {
+    if (expr.type.isIntegralType && !isA(expr.type, Types.Int)) {
         return Conversions.IntegralPromotion.instance(expr, Types.Int.instance());
     }
     else{
@@ -962,7 +962,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         // Check for overloaded assignment
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
-            //var assnOp = this.lhs.type.memberMap["operator="];
+            //var assnOp = this.lhs.type.getMember(["operator="]);
             var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxRhs.compile(this.compileScope);
 
@@ -1198,7 +1198,7 @@ Expressions.CompoundAssignment = Expression.extend({
 
 var usualArithmeticConversions = function(){
     // Only do conversions if both are arithmetic
-    if (!this.left.type.isArithmetic || !this.right.type.isArithmetic){
+    if (!this.left.type.isArithmeticType || !this.right.type.isArithmeticType){
         return;
     }
 
@@ -1342,7 +1342,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
         this.left = this.sub.left = standardConversion1(this.left);
         this.right = this.sub.right = standardConversion1(this.right);
 
-        if (this.left.type.isArithmetic && this.right.type.isArithmetic) { // Regular arithmetic
+        if (this.left.type.isArithmeticType && this.right.type.isArithmeticType) { // Regular arithmetic
             this.usualArithmeticConversions();
             // After usual arithmetic conversions they should be the same type
         }
@@ -1351,7 +1351,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
     // Default typecheck assumes the operands should be the same type
     typeCheck : function(){
         if (sameType(this.left.type, this.right.type)){
-            if (!this.requiresArithmeticOperands || this.left.type.isArithmetic && this.right.type.isArithmetic){
+            if (!this.requiresArithmeticOperands || this.left.type.isArithmeticType && this.right.type.isArithmeticType){
                 if(!this.type || isA(this.type, Types.Unknown)){
                     this.type = this.left.type;
                 }
@@ -1437,7 +1437,7 @@ Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
             return true;
         }
         // after first if, we know left and right have same type
-        else if(this.left.type.isArithmetic){
+        else if(this.left.type.isArithmeticType){
             return true;
         }
         else if (isA(this.left.type, Types.String)){
@@ -1593,7 +1593,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     this.sub.right = this.right;
                 }
 
-                if (this.right.type.isIntegral || this.right.type.isEnum){
+                if (this.right.type.isIntegralType || this.right.type.isEnum){
                     this.type = this.left.type;
                     this.isPointerArithmetic = true;
                     this.type = this.left.type;
@@ -1603,7 +1603,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 //            else if(!Expressions.BinaryOp.typeCheck.apply(this)){
 //                return false;
 //            }
-            else if(this.left.type.isArithmetic && this.right.type.isArithmetic){
+            else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
                 this.type = this.left.type;
                 return true;
             }
@@ -1650,7 +1650,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 this.isPointerArithmetic = true;
                 return true;
             }
-            else if (isA(this.left.type, Types.Pointer) && this.right.type.isIntegral) {
+            else if (isA(this.left.type, Types.Pointer) && this.right.type.isIntegralType) {
                 this.type = this.left.type;
                 this.valueCategory = "prvalue";
                 this.isPointerArithmetic = true;
@@ -1659,7 +1659,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             else if(!Expressions.BinaryOp.typeCheck.apply(this)){
                 return false;
             }
-            else if(this.left.type.isArithmetic && this.right.type.isArithmetic){
+            else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
                 return true;
             }
 
@@ -1668,7 +1668,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 
         operate : function(left, right, sim, inst){
             if (this.isPointerArithmetic) {
-                if (this.right.type.isIntegral){
+                if (this.right.type.isIntegralType){
                     // pointer - integral
                     var result = Value.instance(left.value - right.value * this.left.type.ptrTo.size, left.type);
                     if (isA(left.type, Types.ArrayPointer)){
@@ -1725,7 +1725,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         requiresArithmeticOperands : true,
 
         operate : function(left, right, sim, inst){
-            if (this.left.type.isIntegral){
+            if (this.left.type.isIntegralType){
                 return Value.instance(integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
             }
             else{
@@ -1743,7 +1743,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             if (!Expressions.BinaryOp.typeCheck.apply(this)){
                 return false;
             }
-            else if(this.left.type.isIntegral && this.right.type.isIntegral){
+            else if(this.left.type.isIntegralType && this.right.type.isIntegralType){
                 return true;
             }
             else{
@@ -2081,13 +2081,13 @@ Expressions.UnaryPlus = UnaryOp.extend({
 
     convert : function(){
         this.operand = this.sub.operand = standardConversion1(this.operand);
-        if (this.operand.type.isIntegral){
+        if (this.operand.type.isIntegralType){
             this.operand = this.sub.operand = integralPromotion(this.operand);
         }
     },
 
     typeCheck : function(){
-        if(this.operand.type.isArithmetic || isA(this.operand.type, Types.Pointer)) {
+        if(this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
             return true;
         }
@@ -2109,13 +2109,13 @@ Expressions.UnaryMinus = UnaryOp.extend({
 
     convert : function(){
         this.operand = this.sub.operand = standardConversion1(this.operand);
-        if (this.operand.type.isIntegral){
+        if (this.operand.type.isIntegralType){
             this.operand = this.sub.operand = integralPromotion(this.operand);
         }
     },
 
     typeCheck : function(){
-        if(this.operand.type.isArithmetic) {
+        if(this.operand.type.isArithmeticType) {
             this.type = this.operand.type;
             return true;
         }
@@ -2167,7 +2167,7 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
     },
     typeCheck : function(){
         // Type check
-        if (this.operand.type.isArithmetic || isA(this.operand.type, Types.Pointer)) {
+        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
 
             if (this.op == "--" && isA(this.operand.type, Types.Bool)){
@@ -2225,7 +2225,7 @@ Expressions.Increment = Expression.extend({
     },
     typeCheck : function(){
         // Type check
-        if (this.operand.type.isArithmetic || isA(this.operand.type, Types.Pointer)) {
+        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
 
             if (this.operand.valueCategory === "lvalue") {
@@ -2279,7 +2279,7 @@ Expressions.Decrement = Expression.extend({
     },
     typeCheck : function(){
         // Type check
-        if (this.operand.type.isArithmetic || isA(this.operand.type, Types.Pointer)) {
+        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
 
             if (this.op = "--" && isA(this.operand.type, Types.Bool)){
@@ -2496,7 +2496,7 @@ var Dot = Expressions.Dot = Expression.extend({
         //}
 
         //var mem;
-        //if (mem = this.operand.type.memberMap[this.memberName]) {
+        //if (mem = this.operand.type.getMember([this.memberName])) {
         //    this.memberIndex = mem.memberIndex;
         //}
         //else{
@@ -3112,7 +3112,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         var self = this;
         if (isA(this.operand.type, Types.Class)){
             // Check for function call operator and if so, find function
-            var callOp = this.operand.type.memberMap["operator()"];
+            var callOp = this.operand.type.getMember(["operator()"]);
             if (callOp){
                 this.callOp = callOp;
                 this.boundFunction = this.callOp;
@@ -3340,7 +3340,7 @@ var Delete = Expressions.Delete = Expression.extend({
 
         if (isA(this.operand.type.ptrTo, Types.Class)){
             var classType = this.operand.type.ptrTo;
-            var dest = classType.getDestructor();
+            var dest = classType.destructor;
             //TODO not found and ambiguous
             if (isA(dest, FunctionEntity)){
                 //this.assnOp = assnOp;
