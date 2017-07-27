@@ -1776,7 +1776,7 @@ Lobster.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
         this.exprElem.append("(");
         var elem = $("<span></span>");
         this.addChild(createCodeOutlet(elem, this.code.subExpr, this.simOutlet));
-        this.exprElem.append(elem)
+        this.exprElem.append(elem);
         this.exprElem.append(")");
     }
 });

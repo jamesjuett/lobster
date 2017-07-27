@@ -712,8 +712,12 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
             this.i_preprocess();
 
-            // Ensure user defined classes are recognized as types.
-            // TODO NEW not sure this is the best place for it, though.
+            // This is kind of a hack to communicate with the PEG.js generated parsing code.
+            // This both "resets" the user-defined type names that exist for each translation
+            // unit (e.g. so that Class names declared in another translation unit aren't hanging
+            // around), and also ensures "default" user-defined type names like ostream, etc. are
+            // recognized as such. The copyMixin is important so that we don't modify the original
+            // which will potentially be used by other translation units.
             Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
 
             var parsed = Lobster.cPlusPlusParser.parse(this.i_preprocessedSource.getText());
