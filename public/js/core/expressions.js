@@ -962,7 +962,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         // Check for overloaded assignment
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
-            //var assnOp = this.lhs.type.memberMap["operator="];
+            //var assnOp = this.lhs.type.getMember(["operator="]);
             var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
             auxRhs.compile(this.compileScope);
 
@@ -2496,7 +2496,7 @@ var Dot = Expressions.Dot = Expression.extend({
         //}
 
         //var mem;
-        //if (mem = this.operand.type.memberMap[this.memberName]) {
+        //if (mem = this.operand.type.getMember([this.memberName])) {
         //    this.memberIndex = mem.memberIndex;
         //}
         //else{
@@ -3112,7 +3112,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         var self = this;
         if (isA(this.operand.type, Types.Class)){
             // Check for function call operator and if so, find function
-            var callOp = this.operand.type.memberMap["operator()"];
+            var callOp = this.operand.type.getMember(["operator()"]);
             if (callOp){
                 this.callOp = callOp;
                 this.boundFunction = this.callOp;
