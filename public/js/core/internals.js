@@ -1046,10 +1046,10 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
 
 
             // TODO I think the 3 statements below can be replaced with:
-            //this.subobjects = classType.subobjects.map(function(mem){
+            //this.subobjects = classType.subobjectEntities.map(function(mem){
             //    return mem.objectInstance(self);
             //});
-            this.baseSubobjects = classType.baseSubobjects.map(function(mem){
+            this.baseSubobjects = classType.baseClassSubobjectEntities.map(function(mem){
                 return mem.objectInstance(self);
             });
             this.memberSubobjects = classType.memberSubobjectEntities.map(function(mem){
@@ -1057,14 +1057,6 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             });
             this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
 
-            //if (classType.base){
-            //    this.subobjects.push(BaseClassSubobject.instance(classType.base, this));
-            //}
-
-            //for(var i = 0; i < classType.memberSubobjectEntities.length; ++i){
-            //    this.subobjects.
-            //    this.subobjects.push(MemberSubobject.instance(classType.memberSubobjectEntities[i].type, this, classType.memberSubobjectEntities[i].name));
-            //}
         }
     },
     instanceString : function(){
@@ -2011,7 +2003,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
             // If it's a destructor, we look instead for the destructor of the dynamic type
             var func;
             if (isA(this.definition, DestructorDefinition)) {
-                func = dynamicType.getDestructor();
+                func = dynamicType.destructor;
             }
             else{
                 func = dynamicType.scope.singleLookup(this.name, {
