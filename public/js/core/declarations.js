@@ -867,10 +867,10 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
         else if (isA(type, Types.Reference)) { // Old reference, TODO remove
             assert(false, "Should never be using old reference mechanism.");
-            obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
-            obj.initialized();
-            inst.send("initialized", obj);
-            this.done(sim, inst);
+            // obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
+            // obj.initialized();
+            // inst.send("initialized", obj);
+            // this.done(sim, inst);
         }
         else if (isA(type, Types.Class)) {
             // Nothing to do, handled by function call child
@@ -1194,7 +1194,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         });
 
         this.autosToDestruct = this.autosToDestruct.map(function(obj){
-            var dest = obj.type.getDestructor();
+            var dest = obj.type.destructor;
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
                 call.compile(scope, dest, []);
@@ -1568,6 +1568,8 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
             try{
                 var baseCode = this.code.head.bases[0];
+
+                // TODO NEW: Use an actual Identifier expression for this
                 this.base = scope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
@@ -1597,13 +1599,8 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.extend({
-                _name: this.name,
-                className: this.name,
-                members: [],
-                scope: this.scope,
-                base: this.base && this.base.type
-            });
+            this.type = Types.Class.createClassType(this.name, this.scope, this.base && this.base.type, []);
+
             this.entity = TypeEntity.instance(this);
 
             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
@@ -1664,7 +1661,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         var bigThreeYes = [];
         var bigThreeNo = [];
         (this.type.copyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
-        (this.type.memberMap["operator="] ? bigThreeYes : bigThreeNo).push("assignment operator");
+        (this.type.getMember(["operator="]) ? bigThreeYes : bigThreeNo).push("assignment operator");
         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
 
         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
@@ -1698,7 +1695,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             }
         }
 
-        if (!this.type.memberMap["operator="]){
+        if (!this.type.getMember(["operator="])){
 
             // Create implicit assignment operator
             var iao = this.createImplicitAssignmentOperator();
@@ -1723,28 +1720,28 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         var self = this;
 
         // If any data members are of reference type, do not create the implicit default constructor
-        if (!this.type.objectMembers.every(function(subObj){
+        if (!this.type.memberSubobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Reference);
             })){
             return;
         }
 
         // If any const data members do not have a user-provided default constructor
-        if (!this.type.objectMembers.every(function(subObj){
+        if (!this.type.memberSubobjectEntities.every(function(subObj){
                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
                     return true;
                 }
-                var defCon = subObj.type.getDefaultConstructor(self.scope);
+                var defCon = subObj.type.getDefaultConstructor();
                 return defCon && !defCon.decl.context.implicit;
             })){
             return;
         }
 
         // If any subobjects do not have a default constructor or destructor
-        if (!this.type.subobjects.every(function(subObj){
+        if (!this.type.subobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getDefaultConstructor(self.scope) &&
-                    subObj.type.getDestructor(self.scope);
+                    subObj.type.getDefaultConstructor() &&
+                    subObj.type.destructor;
             })){
             return;
         }
@@ -1759,29 +1756,29 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
     createImplicitCopyConstructor : function(){
         var self = this;
         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-        if (!this.type.subobjects.every(function(subObj){
+        if (!this.type.subobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getCopyConstructor(self.scope, subObj.type.isConst);
+                    subObj.type.getCopyConstructor(subObj.type.isConst);
             })){
             return;
         }
 
         // If any subobjects are missing a destructor, do not create implicit copy ctor
-        if (!this.type.subobjects.every(function(subObj){
+        if (!this.type.subobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getDestructor(self.scope);
+                    subObj.type.destructor;
             })){
             return;
         }
 
         var src = this.name + "(const " + this.name + " &other)";
 
-        if (this.type.subobjects.length > 0){
+        if (this.type.subobjectEntities.length > 0){
             src += "\n : ";
         }
-        src += this.type.baseSubobjects.map(function(subObj){
+        src += this.type.baseClassSubobjectEntities.map(function(subObj){
             return subObj.name + "(other)";
-        }).concat(this.type.objectMembers.map(function(subObj){
+        }).concat(this.type.memberSubobjectEntities.map(function(subObj){
             return subObj.name + "(other." + subObj.name + ")";
         })).join(", ");
 
@@ -1794,12 +1791,12 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
     createImplicitAssignmentOperator : function () {
         var self = this;
         // Parameter will only be const if all subobjects have assignment ops that take const params
-        var canMakeConst = this.type.subobjects.every(function(subObj){
+        var canMakeConst = this.type.subobjectEntities.every(function(subObj){
             return !isA(subObj.type, Types.Class) ||
                 subObj.type.getAssignmentOperator(true);
         });
 
-        var canMakeNonConst = canMakeConst || this.type.subobjects.every(function(subObj){
+        var canMakeNonConst = canMakeConst || this.type.subobjectEntities.every(function(subObj){
             return !isA(subObj.type, Types.Class) ||
                 subObj.type.getAssignmentOperator(false);
         });
@@ -1811,14 +1808,14 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         var constPart = canMakeConst ? "const " : "";
 
         // If any data member is a reference, we can't make implicit assignment operator
-        if (!this.type.objectMembers.every(function(subObj){
+        if (!this.type.memberSubobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Reference);
             })){
             return;
         }
 
         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-        if (!this.type.objectMembers.every(function(subObj){
+        if (!this.type.memberSubobjectEntities.every(function(subObj){
                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
                 return !subObj.type.isConst
@@ -1829,11 +1826,11 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
 
-        src += this.type.baseSubobjects.map(function(subObj){
+        src += this.type.baseClassSubobjectEntities.map(function(subObj){
             return subObj.type.className + "::operator=(rhs);";
         }).join("\n");
 
-        var mems = this.type.objectMembers;
+        var mems = this.type.memberSubobjectEntities;
         for(var i = 0; i < mems.length; ++i){
             var mem = mems[i];
             if (isA(mem.type, Types.Array)){
@@ -1863,9 +1860,9 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
     createImplicitDestructor : function(){
         var self = this;
         // If any subobjects are missing a destructor, do not create implicit destructor
-        if (!this.type.subobjects.every(function(subObj){
+        if (!this.type.subobjectEntities.every(function(subObj){
                 return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getDestructor(self.scope);
+                    subObj.type.destructor;
             })){
             return;
         }
@@ -1948,8 +1945,13 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
             return entity;
         }
         catch(e) {
-            this.addNote(e);
-            return null;
+            if (isA(e, Note)){
+                this.addNote(e);
+                return null;
+            }
+            else {
+                throw e;
+            }
         }
     }
 });
@@ -2063,7 +2065,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
         // If there is a base class subobject, initialize it
         var base;
-        if (base = this.memberOfClass.base){
+        if (base = this.memberOfClass.getBaseClass()){
             // Check to see if there is a base class initializer.
             var baseInits = memInits.filter(function(memInit){
                 return memInit.member.identifier === base.className;
@@ -2077,12 +2079,12 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             }
             else if (baseInits.length === 1){
                 var mem = MemberInitializer.instance(baseInits[0], {parent: this});
-                mem.compile(this.scope, this.memberOfClass.baseSubobjects[0], baseInits[0].args || []);
+                mem.compile(this.scope, this.memberOfClass.baseClassSubobjectEntities[0], baseInits[0].args || []);
                 this.sub.memberInitializers.push(mem);
             }
             else{
                 var mem = DefaultMemberInitializer.instance(this.code, {parent: this});
-                mem.compile(this.scope, this.memberOfClass.baseSubobjects[0]);
+                mem.compile(this.scope, this.memberOfClass.baseClassSubobjectEntities[0]);
                 this.sub.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
             }
@@ -2092,7 +2094,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
         // Create a map of name to initializer. Initially all initializers are null.
         var initMap = {};
-        this.memberOfClass.objectMembers.forEach(function(objMember){
+        this.memberOfClass.memberSubobjectEntities.forEach(function(objMember){
             initMap[objMember.name] = objMember;
         });
 
@@ -2116,7 +2118,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         // from above or default initializer if there wasn't one.
 
         var self = this;
-        this.memberOfClass.objectMembers.forEach(function(objMember){
+        this.memberOfClass.memberSubobjectEntities.forEach(function(objMember){
             if (isA(initMap[objMember.name], MemberInitializer)){
                 self.sub.memberInitializers.push(initMap[objMember.name]);
             }
@@ -2208,10 +2210,10 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         // Call parent class version. Will handle body, automatic object destruction, etc.
         FunctionDefinition.compileDefinition.apply(this, arguments);
 
-        this.membersToDestruct = this.memberOfClass.objectMembers.filter(function(obj){
+        this.membersToDestruct = this.memberOfClass.memberSubobjectEntities.filter(function(obj){
             return isA(obj.type, Types.Class);
         }).map(function(obj){
-            var dest = obj.type.getDestructor();
+            var dest = obj.type.destructor;
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
                 call.compile(scope, dest, []);
@@ -2223,8 +2225,8 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
 
         });
 
-        this.basesToDestruct = this.memberOfClass.baseSubobjects.map(function(obj){
-            var dest = obj.type.getDestructor();
+        this.basesToDestruct = this.memberOfClass.baseClassSubobjectEntities.map(function(obj){
+            var dest = obj.type.destructor;
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
                 call.compile(scope, dest, []);
