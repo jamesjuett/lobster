@@ -172,10 +172,6 @@ var Types = Lobster.Types = {
     userTypeNames : {},
     builtInTypes : {},
     defaultUserTypeNames : {
-        list_t : true,
-        tree_t : true,
-        Rank : true,
-        Suit : true,
         ostream : true,
         istream : true
     }
@@ -978,66 +974,155 @@ Lobster.Types.Array = Type.extend({
 });
 
 
-
-// REQUIRES: elemType must be a type
+/**
+ * memberEntities - an array of all member entities. does not inlcude constructors, destructor, or base class subobject entities
+ * subobjectEntities - an array containing all subobject entities, include base class subobjects and member subobjects
+ * baseClassSubobjectEntities - an array containing entities for any base class subobjects
+ * memberSubobjectEntities - an array containing entities for member subobjects (does not contain base class subobjects)
+ * constructors - an array of the constructor entities for this class. may be empty if no constructors
+ * copyConstructor - the copy constructor entity for this class. might be null if doesn't have a copy constructor
+ * destructor - the destructor entity for this class. might be null if doesn't have a destructor
+ */
 Lobster.Types.Class = Type.extend({
     _name: "Class",
     i_precedence: 0,
     className: Class._ABSTRACT,
     _nextClassId: 0,
 
-    extend: function(){
-        var sub = Type.extend.apply(this, arguments);
-        sub.classId = this._nextClassId++;
-        sub.scope = sub.scope; // TODO does this do anything? I think it actually makes the class have it's own version of the scope instead of an alias
-        sub.members = sub.members || [];
-        sub.objectMembers = [];
-        sub.constructors = [];
-        sub.destructor = null;
-        // Set size before initParent since that assumes size is what it should be when it runs
-        sub.size = 0;
-        sub.memberMap = {};
-        if (sub.base === undefined){
-            delete sub.base;
+    createClassType : function(name, parentScope, base, members) {
+        var classType = this.extend({
+            _name : name,
+            i_classId : this._nextClassId++,
+            className : name,
+            size : 1,
+            i_reallyZeroSize : true,
+            scope : ClassScope.instance(this.name, parentScope, base && base.scope),
+            memberEntities : [],
+            subobjectEntities : [],
+            baseClassSubobjectEntities : [],
+            memberSubobjectEntities : [],
+            constructors : [],
+            copyConstructor : null,
+            destructor : null,
+
+            i_memberMap : {}
+
+
+        });
+
+        if (base){
+            this.addBaseClass(base);
         }
 
 
-        //this.type = Types.Class.extend({
-        //    _name: this.name,
-        //    className: this.name,
-        //    members: [],
-        //    scope: this.scope,
-        //    base: this.base
-        //});
-        if (sub.base){
-            sub.baseSubobjects = [BaseClassSubobjectEntity.instance(sub.base, this, "public")];
-            sub.size += sub.base.size;
-        }
-        else{
-            sub.baseSubobjects = [];
-        }
+        members && members.forEach(this.addMember.bind(this));
 
-        for(var i = 0; i < sub.members.length; ++i) {
-            var mem = sub.members[i];
-            sub.memberMap[mem.name] = mem;
-            if(mem.type.isObjectType){
-                sub.size += mem.type.size;
-                mem.memberIndex = sub.objectMembers.length;
-                sub.objectMembers.push(mem);
-            }
-        }
-        if (sub.size === 0){
-            sub.size = 1;
-            sub.reallyZeroSize = true;
-        }
-
-        sub.subobjects = sub.baseSubobjects.concat(sub.objectMembers);
-
-        return sub;
     },
 
+    addBaseClass : function(base) {
+        classType.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
+        classType.subobjectEntities.push();
+        classType.size += base.size;
+    },
+
+    /**
+     * Returns the member entity for the member with the given name.
+     * If no member with that name exists, returns null.
+     * @param {String} name
+     * @returns {?CPPEntity}
+     */
+    getMember : function(name) {
+        return this.i_memberMap[name] || null;
+    },
+
+    addMember : function(mem){
+        assert(this._isClass);
+        this.memberEntities.push(mem);
+        this.i_memberMap[mem.name] = mem;
+        if(mem.type.isObjectType){
+            if (this.i_reallyZeroSize){
+                this.size = 0;
+                delete this.i_reallyZeroSize;
+            }
+            mem.memberIndex = this.memberSubobjectEntities.length;
+            this.memberSubobjectEntities.push(mem);
+            this.subobjects.push(mem);
+            this.size += mem.type.size;
+        }
+    },
+    containsMember : function(name){
+        return !!this.i_memberMap[name];
+    },
+    addConstructor : function(con){
+        this.constructors.push(con);
+    },
+    addDestructor : function(con){
+        this.destructor = con;
+    },
+    getDestructor : function(){
+        return this.scope.singleLookup("~"+this.className, {own:true, noBase:true});
+    },
+    getDefaultConstructor : function(scope){
+        return this.scope.singleLookup(this.className+"\0", {
+            own:true, noBase:true, exactMatch:true,
+            paramTypes:[]});
+    },
+    getCopyConstructor : function(scope, requireConst){
+        return this.scope.singleLookup(this.className+"\0", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+            !requireConst &&
+            this.scope.singleLookup(this.className+"\0", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(false))]});
+    },
+    getAssignmentOperator : function(requireConst, isThisConst){
+        return this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[this.instance()]}) ||
+            this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+            !requireConst &&
+            this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[Types.Reference.instance(this.instance(false))]})
+
+    },
+
+    hasMember : function(name){
+        return this.i_memberMap.hasOwnProperty(name);
+    },
+    /**
+     *
+     * @param name is a string
+     */
+    isDerivedFrom : function(potentialBase){
+        var b = this.base;
+        while(b){
+            if (similarType(potentialBase, b)){
+                return true;
+            }
+            b = b.base;
+        }
+        return false;
+    },
+    isInstanceOf : function(other) {
+        return this.i_classId === other.i_classId;
+    },
+    isComplete : function(){
+        return !!(this._isComplete || this._isTemporarilyComplete);
+    },
+    setTemporarilyComplete : function(){
+        this._isTemporarilyComplete = true;
+    },
+    unsetTemporarilyComplete : function(){
+        delete this._isTemporarilyComplete;
+    },
+
+
     merge : function(class1, class2) {
-        class1.classId = class2.classId = Math.min(class1.classId, class2.classId);
+        class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
     },
 
     init: function(isConst, isVolatile){
@@ -1053,7 +1138,7 @@ Lobster.Types.Class = Type.extend({
     },
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(Types.Class) && other.classId === this.classId;
+        return other && other.isA(Types.Class) && other.i_classId === this.i_classId;
     },
     classString : function(){
         return this.className;
@@ -1077,8 +1162,8 @@ Lobster.Types.Class = Type.extend({
     bytesToValue : function(bytes){
         var val = {};
         var b = 0;
-        for(var i = 0; i < this.objectMembers.length; ++i) {
-            var mem = this.objectMembers[i];
+        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+            var mem = this.memberSubobjectEntities[i];
             val[mem.name] = mem.type.bytesToValue(bytes.slice(b, b + mem.type.size));
             b += mem.type.size;
         }
@@ -1086,96 +1171,13 @@ Lobster.Types.Class = Type.extend({
     },
     valueToBytes : function(value){
         var bytes = [];
-        for(var i = 0; i < this.objectMembers.length; ++i) {
-            var mem = this.objectMembers[i];
+        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+            var mem = this.memberSubobjectEntities[i];
             bytes.pushAll(mem.type.valueToBytes(value[mem.name]));
         }
         return bytes;
-    },
-    addMember : function(mem){
-        assert(this._isClass);
-        this.members.push(mem);
-        this.memberMap[mem.name] = mem;
-        if(mem.type.isObjectType){
-            if (this.reallyZeroSize){
-                this.size = 0;
-                delete this.reallyZeroSize;
-            }
-            mem.memberIndex = this.objectMembers.length;
-            this.objectMembers.push(mem);
-            this.subobjects.push(mem);
-            this.size += mem.type.size;
-        }
-    },
-    containsMember : function(name){
-        return !!this.memberMap[name];
-    },
-    addConstructor : function(con){
-        this.constructors.push(con);
-    },
-    addDestructor : function(con){
-        this.destructor = con;
-    },
-    getDestructor : function(){
-        return this.scope.singleLookup("~"+this.className, {own:true, noBase:true});
-    },
-    getDefaultConstructor : function(scope){
-        return this.scope.singleLookup(this.className+"\0", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[]});
-    },
-    getCopyConstructor : function(scope, requireConst){
-        return this.scope.singleLookup(this.className+"\0", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
-            !requireConst &&
-            this.scope.singleLookup(this.className+"\0", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(false))]});
-    },
-    getAssignmentOperator : function(requireConst, isThisConst){
-        return this.scope.singleLookup("operator=", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[this.instance()]}) ||
-        this.scope.singleLookup("operator=", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
-            !requireConst &&
-            this.scope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(false))]})
-
-    },
-
-    hasMember : function(name){
-        return this.memberMap.hasOwnProperty(name);
-    },
-    /**
-     *
-     * @param name is a string
-     */
-    isDerivedFrom : function(potentialBase){
-        var b = this.base;
-        while(b){
-            if (similarType(potentialBase, b)){
-                return true;
-            }
-            b = b.base;
-        }
-        return false;
-    },
-    isInstanceOf : function(other) {
-        return this.classId === other.classId;
-    },
-    isComplete : function(){
-        return !!(this._isComplete || this._isTemporarilyComplete);
-    },
-    setTemporarilyComplete : function(){
-        this._isTemporarilyComplete = true;
-    },
-    unsetTemporarilyComplete : function(){
-        delete this._isTemporarilyComplete;
     }
+
 });
 
 

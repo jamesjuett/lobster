@@ -1052,7 +1052,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             this.baseSubobjects = classType.baseSubobjects.map(function(mem){
                 return mem.objectInstance(self);
             });
-            this.memberSubobjects = classType.objectMembers.map(function(mem){
+            this.memberSubobjects = classType.memberSubobjectEntities.map(function(mem){
                 return mem.objectInstance(self);
             });
             this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
@@ -1061,9 +1061,9 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             //    this.subobjects.push(BaseClassSubobject.instance(classType.base, this));
             //}
 
-            //for(var i = 0; i < classType.objectMembers.length; ++i){
+            //for(var i = 0; i < classType.memberSubobjectEntities.length; ++i){
             //    this.subobjects.
-            //    this.subobjects.push(MemberSubobject.instance(classType.objectMembers[i].type, this, classType.objectMembers[i].name));
+            //    this.subobjects.push(MemberSubobject.instance(classType.memberSubobjectEntities[i].type, this, classType.memberSubobjectEntities[i].name));
             //}
         }
     },
