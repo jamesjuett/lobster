@@ -550,27 +550,26 @@ var Type = Lobster.Types.Type = Class.extend({
     }
 });
 
-// REQUIRES: type must be one of "int", "double", "bool", "char"
 Lobster.Types.SimpleType = Type.extend({
     _name: "SimpleType",
     i_precedence: 0,
-    type: Class._ABSTRACT,
     _isComplete: true,
-    init: function(isConst, isVolatile, isUnsigned, isSigned) {
-        this.initParent(isConst, isVolatile);
-        this.isUnsigned = isUnsigned;
-        this.isSigned = isSigned;
-        return this;
-    },
+
+    /**
+     * Subclasses must implement a concrete i_type property that should be a
+     * string indicating the kind of type e.g. "int", "double", "bool", etc.
+     */
+    i_type: Class._ABSTRACT,
+
     sameType : function(other){
         return other && other.isA(Types.SimpleType)
-            && other.type === this.type
+            && other.i_type === this.i_type
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
         return other && other.isA(Types.SimpleType)
-            && other.type === this.type;
+            && other.i_type === this.i_type;
     },
 
 	typeString : function(excludeBase, varname, decorated){
@@ -578,56 +577,58 @@ Lobster.Types.SimpleType = Type.extend({
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? htmlDecoratedType(this.type) : this.type) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.i_type) : this.i_type) + (varname ? " " + varname : "");
         }
 	},
 	englishString : function(plural){
-		// no recursive calls to this.type.englishString() here
-		// because this.type is just a string representing the type
-        var word = this.getCVString() + this.type;
-		return (plural ? this.type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+		// no recursive calls to this.i_type.englishString() here
+		// because this.i_type is just a string representing the type
+        var word = this.getCVString() + this.i_type;
+		return (plural ? this.i_type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
 	},
 	valueToString : function(value){
 		return ""+value;
 	}
 });
 
+/**
+ * Used when a compilation error causes an unknown type.
+ */
 Types.builtInTypes["unknown"] =
 Lobster.Types.Unknown = Types.SimpleType.extend({
     _name: "UnknownType",
-    type: "unknown",
+    i_type: "unknown",
     isObjectType: false,
-    size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    }
+    size: 4
 });
 
 Types.builtInTypes["void"] =
 Lobster.Types.Void = Types.SimpleType.extend({
     _name: "Void",
-    type: "void",
+    i_type: "void",
     isObjectType: false,
     isComplete: false,
-    size: 0,
-    init: function(isConst, isVolatile){
+    size: 0
+});
+
+Types.IntegralTypeBase = Types.SimpleType.extend({
+    _name: "IntegralTypeBase",
+    isIntegralType: true,
+    isArithmeticType: true,
+
+    init: function(isConst, isVolatile, isUnsigned, isSigned) {
         this.initParent(isConst, isVolatile);
-        return this;
+        this.isUnsigned = isUnsigned;
+        this.isSigned = isSigned;
     }
 });
 
 Types.builtInTypes["char"] =
-Lobster.Types.Char = Types.SimpleType.extend({
+Lobster.Types.Char = Types.IntegralTypeBase.extend({
     _name: "Char",
-    type: "char",
+    i_type: "char",
     size: 1,
-    isArithmeticType: true,
-    isIntegralType: true,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
+
     valueToString : function(value){
         return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
     },
@@ -637,96 +638,33 @@ Lobster.Types.Char = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["int"] =
-Lobster.Types.Int = Types.SimpleType.extend({
+Lobster.Types.Int = Types.IntegralTypeBase.extend({
     _name: "Int",
-    type: "int",
-    size: 4,
-    isArithmeticType: true,
-    isIntegralType: true,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-        return this;
-    }
-});
-
-Types.builtInTypes["float"] =
-    Lobster.Types.Float = Types.SimpleType.extend({
-    _name: "Float",
-    type: "float",
-    size: 4,
-    isArithmeticType: true,
-    isFloatingPointType: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
-    valueToString : function(value){
-        var str = ""+value;
-        return str.indexOf(".") != -1 ? str : str + ".";
-    }
-});
-
-Types.builtInTypes["double"] =
-    Lobster.Types.Double = Types.SimpleType.extend({
-    _name: "Double",
-    type: "double",
-    size: 8,
-    isArithmeticType: true,
-    isFloatingPointType: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-        return this;
-    },
-    valueToString : function(value){
-        var str = ""+value;
-        return str.indexOf(".") != -1 ? str : str + ".";
-    }
+    i_type: "int",
+    size: 4
 });
 
 Types.builtInTypes["bool"] =
-    Lobster.Types.Bool = Types.SimpleType.extend({
+Lobster.Types.Bool = Types.IntegralTypeBase.extend({
     _name: "Bool",
-    type: "bool",
+    i_type: "bool",
     size: 1,
-    isArithmeticType: true,
-    isIntegralType: true,
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-    },
+
     bytesToValue : function(bytes){
         return (bytes[0] ? true : false);
+    },
+
+    valueToOstreamString : function(value) {
+        return value ? "1" : "0";
     }
     //valueToString : function(value){
     //    return value ? "T" : "F";
     //}
 });
 
-Types.builtInTypes["string"] =
-    Lobster.Types.String = Types.SimpleType.extend({
-    _name: "String",
-    type: "string",
-    size: 4,
-    defaultValue: "",
-    init: function (isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
-    },
-    valueToString : function(value){
-        value = value.replace(/\n/g,"\\n");
-        return '"' + value + '"';
-    },
-    valueToOstreamString : function(value){
-        return value;
-    },
-    bytesToValue : function(bytes){
-        return ""+bytes[0];
-    }
-});
-
-Lobster.Types.Enum = Types.SimpleType.extend({
+Lobster.Types.Enum = Types.IntegralTypeBase.extend({
     _name: "Enum",
     size: 4,
-    isArithmeticType: true,
-    isIntegralType: true,
     extend: function(){
 
         var sub = Types.SimpleType.extend.apply(this, arguments);
@@ -744,16 +682,76 @@ Lobster.Types.Enum = Types.SimpleType.extend({
 });
 
 Types.builtInTypes["rank"] =
-    Lobster.Types.Rank = Types.Enum.extend({
-    type: "Rank",
+Lobster.Types.Rank = Types.Enum.extend({
+    i_type: "Rank",
     values: ["TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "JACK", "QUEEN", "KING", "ACE"]
 });
 
 Types.builtInTypes["suit"] =
-    Lobster.Types.Suit = Types.Enum.extend({
-    type: "Suit",
+Lobster.Types.Suit = Types.Enum.extend({
+    i_type: "Suit",
     values: ["SPADES", "HEARTS", "CLUBS", "DIAMONDS"]
 });
+
+
+
+
+
+
+
+
+Types.FloatingPointBase = Types.SimpleType.extend({
+    _name: "FloatingPointBase",
+    isFloatingPointType: true,
+    isArithmeticType: true,
+
+    valueToString : function(value){
+        var str = ""+value;
+        return str.indexOf(".") != -1 ? str : str + ".";
+    }
+
+});
+
+Types.builtInTypes["float"] =
+    Lobster.Types.Float = Types.FloatingPointBase.extend({
+    _name: "Float",
+    i_type: "float",
+    size: 4
+});
+
+Types.builtInTypes["double"] =
+    Lobster.Types.Double = Types.FloatingPointBase.extend({
+    _name: "Double",
+    i_type: "double",
+    size: 8
+});
+
+
+
+
+
+
+
+Types.builtInTypes["string"] =
+    Lobster.Types.String = Types.SimpleType.extend({
+    _name: "String",
+    i_type: "string",
+    size: 4,
+    defaultValue: "",
+
+    valueToString : function(value){
+        value = value.replace(/\n/g,"\\n");
+        return '"' + value + '"';
+    },
+    valueToOstreamString : function(value){
+        return value;
+    },
+    bytesToValue : function(bytes){
+        return ""+bytes[0];
+    }
+});
+
+
 
 
 
@@ -761,11 +759,9 @@ Types.builtInTypes["suit"] =
 Types.builtInTypes["list_t"] =
     Lobster.Types.List_t = Types.SimpleType.extend({
     _name: "List_t",
-    type: "list_t",
+    i_type: "list_t",
     size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
     valueToString : function(value){
         return JSON.stringify(value);
     },
@@ -849,7 +845,7 @@ var breadthFirstTree = function(tree){
 Types.builtInTypes["tree_t"] =
     Lobster.Types.Tree_t = Types.SimpleType.extend({
     _name: "Tree_t",
-    type: "tree_t",
+    i_type: "tree_t",
     size: 4,
 
     //depth: function(tree){
@@ -860,9 +856,6 @@ Types.builtInTypes["tree_t"] =
     //    return depth;
     //},
 
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
     valueToString : function(value){
         //if (value.left){
         //    return "{" + this.valueToString(value.left) + " " + value.elt + " " + this.valueToString(value.right) + "}";
@@ -880,11 +873,9 @@ Types.builtInTypes["tree_t"] =
 Types.builtInTypes["ostream"] =
 Lobster.Types.OStream = Types.SimpleType.extend({
     _name: "OStream",
-    type: "ostream",
+    i_type: "ostream",
     size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
     valueToString : function(value){
         return JSON.stringify(value);
     }
@@ -892,11 +883,9 @@ Lobster.Types.OStream = Types.SimpleType.extend({
 
 Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
     _name: "IStream",
-    type: "istream",
+    i_type: "istream",
     size: 4,
-    init: function(isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
-    },
+
     valueToString : function(value){
         return JSON.stringify(value);
     }
