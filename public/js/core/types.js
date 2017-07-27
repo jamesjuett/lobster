@@ -1020,9 +1020,9 @@ Lobster.Types.Class = Type.extend({
     },
 
     addBaseClass : function(base) {
-        classType.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
-        classType.subobjectEntities.push();
-        classType.size += base.size;
+        this.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
+        this.subobjectEntities.push();
+        this.size += base.size;
     },
 
     /**
