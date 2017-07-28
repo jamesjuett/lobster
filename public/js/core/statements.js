@@ -159,6 +159,8 @@ Statements.Block = Statements.Compound = Statement.extend({
     init: function(code, context){
         this.initParent(code, context);
         this.length = this.code.statements.length;
+
+        this.blockScope = this.i_createBlockScope();
     },
 
     i_createBlockScope : function() {
@@ -167,7 +169,6 @@ Statements.Block = Statements.Compound = Statement.extend({
 
     compile : function(){
 
-        this.blockScope = this.i_createBlockScope();
 
         // Compile all the statements
         this.statements = [];
@@ -234,7 +235,7 @@ Statements.FunctionBodyBlock = Statements.Block.extend({
     _name: "FunctionBodyBlock",
 
     i_createBlockScope : function() {
-        return BlockScope.instance(this.contextualScope);
+        return FunctionBlockScope.instance(this.contextualScope);
     }
 });
 
