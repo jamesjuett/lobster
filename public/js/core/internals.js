@@ -106,10 +106,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
 
         // Inherit parent's scope, unless a different scope was specified
         if(this.context.scope) {
-            this.compileScope = this.context.scope;
+            this.contextualScope = this.context.scope;
         }
         else if (this.parent) {
-            this.compileScope = this.context.scope = this.parent.scope;
+            this.contextualScope = this.parent.contextualScope;
         }
 
         if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
@@ -2012,7 +2012,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.memberOfClass.getBaseClass().scope.singleLookup(this.name, {
+        var overridden = this.memberOfClass.getBaseClass().classScope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
@@ -2047,7 +2047,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
                 func = dynamicType.destructor;
             }
             else{
-                func = dynamicType.scope.singleLookup(this.name, {
+                func = dynamicType.classScope.singleLookup(this.name, {
                     paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
                     exactMatch:true, own:true, noNameHiding:true});
             }
@@ -2394,7 +2394,7 @@ var MemoryStack = Class.extend(Observable, {
         return this.frames.last();
     },
     pushFrame : function(func){
-        var frame = MemoryFrame.instance(func.funcDecl.scope, this.memory, this.top, func);
+        var frame = MemoryFrame.instance(func.funcDecl.bodyScope, this.memory, this.top, func);
         this.top += frame.size;
         this.frames.push(frame);
 

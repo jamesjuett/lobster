@@ -162,7 +162,7 @@ Statements.Block = Statements.Compound = Statement.extend({
     },
 
     i_createBlockScope : function() {
-        return BlockScope.instance(this.compileScope);
+        return BlockScope.instance(this.contextualScope);
     },
 
     compile : function(){
@@ -234,7 +234,7 @@ Statements.FunctionBodyBlock = Statements.Block.extend({
     _name: "FunctionBodyBlock",
 
     i_createBlockScope : function() {
-        return BlockScope.instance(this.compileScope);
+        return BlockScope.instance(this.contextualScope);
     }
 });
 
@@ -345,7 +345,7 @@ Statements.While = Statements.Iteration.extend({
 
         this.cond = Expressions.createExpr(this.code.cond, {
             parent: this,
-            scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope)
+            scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope)
         });
 
 
@@ -395,7 +395,7 @@ Statements.While = Statements.Iteration.extend({
 
 Statements.DoWhile = Statements.While.extend({
     _name: "DoWhile",
-    initIndex: "body",
+    initIndex: "body"
 });
 
 
@@ -406,7 +406,7 @@ Statements.For = Statements.Iteration.extend({
 
         this.body = Statements.create(this.code.body, {parent: this});
 
-        var bodyScope = isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope;
+        var bodyScope = isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope;
 
         // Note: grammar ensures this will be an expression or declaration statement
         this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});

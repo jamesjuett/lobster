@@ -195,7 +195,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
     i_determineStorage : function(){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
-        if(!this.storageSpec.static && !this.storageSpec.extern && isA(this.compileScope, BlockScope)){
+        if(!this.storageSpec.static && !this.storageSpec.extern && isA(this.contextualScope, BlockScope)){
             this.storageDuration = "automatic";
         }
         else{
@@ -235,7 +235,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         }
 
         try {
-            this.compileScope.addDeclaredEntity(entity);
+            this.contextualScope.addDeclaredEntity(entity);
             this.entities.push(entity);
             return entity;
         }
@@ -313,7 +313,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
 
 
             try {
-                this.compileScope.addDeclaredEntity(this.entity);
+                this.contextualScope.addDeclaredEntity(this.entity);
             }
             catch(e) {
                 this.addNote(e);
@@ -1414,7 +1414,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         if (!this.isMemberFunction) {
             try {
-                this.compileScope.addDeclaredEntity(entity);
+                this.contextualScope.addDeclaredEntity(entity);
             }
             catch(e) {
                 this.addNote(e);
@@ -1582,7 +1582,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
                 var baseCode = this.code.head.bases[0];
 
                 // TODO NEW: Use an actual Identifier expression for this
-                this.base = this.compileScope.requiredLookup(baseCode.name.identifier);
+                this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
                     this.addNote(CPPError.classDef.base_class_type({code:baseCode.name}, baseCode.name.identifier));
@@ -1608,15 +1608,15 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.createClassType(this.name, this.compileScope, this.base && this.base.type, []);
+            this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
 
-            this.classScope = this.type.scope;
+            this.classScope = this.type.classScope;
 
             this.entity = TypeEntity.instance(this);
 
             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
 
-            this.compileScope.addDeclaredEntity(this.entity);
+            this.contextualScope.addDeclaredEntity(this.entity);
         }
         catch(e){
             if (isA(e, Note)){
