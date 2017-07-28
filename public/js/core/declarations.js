@@ -2126,7 +2126,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 initMap[memberName] = mem;
             }
             else{
-                this.addNote(CPPError.declaration.ctor.init.improper_member(memInit.member));
+                this.addNote(CPPError.declaration.ctor.init.improper_member(this, this.memberOfClass, memberName));
             }
         }
 

@@ -148,6 +148,7 @@ var CompilerLinkerNoteBase = Note.extend({
             this.i_constructs = constructs;
         }
         else {
+            assert(isA(constructs, CPPCode));
             this.i_constructs = [];
             if (constructs) {
                 this.i_constructs.push(constructs);
@@ -257,7 +258,7 @@ var CPPError = {
                     return makeError(src, false, "Class " + classType.toString() + " has no member named " + name + ".");
                 },
                 improper_member : function(src, classType, name){
-                    return makeError(src, false, "A member initializer can only be used for non-static data members.");
+                    return makeError(src, false, "A member initializer can only be used for non-static data members. There is no such member named " + name + " in the " + classType.className + " class.");
                 },
                 delegating_only : function(src, classType, name){
                     return makeError(src, false, "If a constructor's initializer list delegates to another constructor from the same class, that must be the only thing it does.");
