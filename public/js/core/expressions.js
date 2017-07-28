@@ -995,7 +995,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         else{
             //Non-class type
             // Attempt standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue
-            this.rhs = this.sub.rhs = this.createAndCompileChildExpr(this.code.rhs, this.compileScope, this.lhs.type.cvUnqualified());
+            this.rhs = this.sub.rhs = this.createAndCompileChildExpr(this.code.rhs, this.lhs.type.cvUnqualified());
         }
     },
     typeCheck : function(){
@@ -1301,7 +1301,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             if (overloadOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
                 if (this.isMemberOverload){
-                    this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left, scope);
+                    this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
                     this.sub.funcCall.compile(scope, overloadOp, [this.code.right]);
                     this.subSequence = this.memberOverloadSubSequence;
                 }
@@ -1317,8 +1317,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             }
         }
         else{
-            this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left, scope);
-            this.right = this.sub.right = this.createAndCompileChildExpr(this.code.right, scope);
+            this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
+            this.right = this.sub.right = this.createAndCompileChildExpr(this.code.right);
 
             // If either has problems that prevent us from determining type, nothing more can be done
             if (!this.left.isWellTyped() || !this.right.isWellTyped()){
@@ -1886,7 +1886,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
             if (overloadOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
                 if (this.isMemberOverload){
-                    this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
+                    this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
                     this.sub.funcCall.compile(scope, overloadOp, []);
                     this.subSequence = this.memberOverloadSubSequence;
                 }
@@ -1899,7 +1899,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
             }
             else{
 
-                this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
+                this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
 
                 this.convert();
 
@@ -1909,7 +1909,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
             }
         }
         else{
-            this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
+            this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
 
             this.convert();
 
@@ -2338,7 +2338,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
     compile : Class.BEFORE(function(scope){
 
         this.compileScope = scope;
-        this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.operand, scope);
+        this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.operand);
 
         // Check for overload
         if (isA(this.operand.type, Types.Class)){
@@ -2354,7 +2354,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         }
         else{
             this.operand = this.sub.operand = standardConversion(this.operand, Types.Pointer);
-            this.offset = this.sub.offset = this.createAndCompileChildExpr(this.code.sub, scope, Types.Int.instance());
+            this.offset = this.sub.offset = this.createAndCompileChildExpr(this.code.sub, Types.Int.instance());
         }
     }),
 
@@ -3222,7 +3222,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         if (isA(this.heapType, Types.Array)){
             this.type = Types.Pointer.instance(this.heapType.elemType);
             if (this.declarator.dynamicLengthExpression){
-                this.dynamicLength = this.createAndCompileChildExpr(this.declarator.dynamicLengthExpression, scope, Types.Int.instance());
+                this.dynamicLength = this.createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
                 this.initIndex = "length";
             }
         }

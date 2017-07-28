@@ -56,6 +56,12 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     _name: "CPPCode",
     _nextId: 0,
     initIndex: "pushChildren",
+
+    // Default function for now just uses constructor. Will be gradually phased out.
+    createFromASTSource : function() {
+        var construct = this.instance.apply(this, arguments);
+    },
+
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
     init: function (code, context) {
@@ -98,6 +104,14 @@ var CPPCode = Lobster.CPPCode = Class.extend({
             }
         }
 
+        // Inherit parent's scope, unless a different scope was specified
+        if(this.context.scope) {
+            this.compileScope = this.context.scope;
+        }
+        else if (this.parent) {
+            this.compileScope = this.context.scope = this.parent.scope;
+        }
+
         if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
             this.parent.children.push(this);
         }
@@ -111,6 +125,10 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         if (this.parent && this.parent.context.translationUnit) {
             this.context.translationUnit = this.parent.context.translationUnit;
         }
+    },
+
+    i_setASTSource : function(ast) {
+        this.i_astSource = ast;
     },
 
     getSourceReference : function() {
@@ -160,9 +178,9 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         return inst;
     },
 
-    createAndCompileChildExpr : function(childCode, scope, convertTo){
+    createAndCompileChildExpr : function(childCode, convertTo){
         var child = Expressions.createExpr(childCode, {parent: this});
-        child.tryCompile(scope);
+        child.tryCompile();
         if (convertTo){
             child = standardConversion(child, convertTo);
         }

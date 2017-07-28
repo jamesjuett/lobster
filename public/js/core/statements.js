@@ -36,8 +36,8 @@ Statements.Labeled = Statements.Unsupported.extend({
 Statements.Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
-    compile : function(scope){
-		this.expression = this.createAndCompileChildExpr(this.code.expr, scope);
+    compile : function(){
+		this.expression = this.createAndCompileChildExpr(this.code.expr);
 	},
 
 
