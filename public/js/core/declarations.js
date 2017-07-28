@@ -1097,7 +1097,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         this.sub.memberInitializers = [];
         this.autosToDestruct = [];
 
-        this.body = this.sub.body = Statements.Block.instance(this.code.body, {func: this, parent: this});
+        this.body = this.sub.body = Statements.FunctionBodyBlock.instance(this.code.body, {func: this, parent: this});
     },
 
     compile : function(){
