@@ -58,7 +58,7 @@ var Value = Expressions.Value = Class.extend({
     }
 });
 
-var Expression = Expressions.Expression = CPPCode.extend({
+var Expression = Expressions.Expression = CPPConstruct.extend({
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
@@ -205,7 +205,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             return true;
         }
 
-        return CPPCode.upNext.apply(this, arguments);
+        return CPPConstruct.upNext.apply(this, arguments);
     },
 	
 	done : function(sim, inst){
@@ -279,19 +279,19 @@ var Expression = Expressions.Expression = CPPCode.extend({
     },
 
     // TODO NEW It appears this was once used, but as far as I can tell, it does
-    // nothing because it is only called once from the CPPCode constructor and
+    // nothing because it is only called once from the CPPConstruct constructor and
     // on the first call, it just delegates the work to the parent class version.
     // I've commented it out for now and will remove it later after regression
     // testing is more mature.
     // setContext : function(context){
     //     // Don't do anything special for first time
     //     if (!this.context.parent){
-    //         CPPCode.setContext.apply(this, arguments);
+    //         CPPConstruct.setContext.apply(this, arguments);
     //         return;
     //     }
     //
     //     var oldFull = this.findFullExpression();
-    //     CPPCode.setContext.apply(this, arguments);
+    //     CPPConstruct.setContext.apply(this, arguments);
     //
     //     // If this construct's containing full expression has changed, we need to reassign
     //     // that new full expression as the owner of any temporaries this construct would
@@ -344,7 +344,7 @@ Expressions.Null = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
     createAndPushInstance : function(sim, inst){
-//        var inst =  CPPCodeInstance.instance(sim, this, "subexpressions", "expr", inst);
+//        var inst =  CPPConstructInstance.instance(sim, this, "subexpressions", "expr", inst);
 //        sim.push(inst);
 //        return inst;
     }
@@ -1146,8 +1146,8 @@ Expressions.CompoundAssignment = Expression.extend({
         // Evaluate subexpressions
         if (inst.index == "subexpressions") {
             inst.rhs = this.rhs.createAndPushInstance(sim, inst);
-            //inst.leftInst = CPPCodeInstance.instance(sim, this.rhs.left, "subexpressions", "expr", inst);
-            //inst.rightInst = CPPCodeInstance.instance(sim, this.rhs.right, "subexpressions", "expr", inst);
+            //inst.leftInst = CPPConstructInstance.instance(sim, this.rhs.left, "subexpressions", "expr", inst);
+            //inst.rightInst = CPPConstructInstance.instance(sim, this.rhs.right, "subexpressions", "expr", inst);
             //
             //// Push rhs
             //sim.push(inst.leftInst);

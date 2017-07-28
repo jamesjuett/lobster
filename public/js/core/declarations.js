@@ -13,7 +13,7 @@ var Declarations = Lobster.Declarations = {
 };
 
 // A POD type
-var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
+var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
     _name: "StorageSpecifier",
     compile : function(){
 
@@ -75,7 +75,7 @@ var BaseDeclarationMixin = {
     }
 };
 
-var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarationMixin, {
+var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -277,7 +277,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
 });
 
 
-var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
+var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
     _name: "Parameter",
 
     init: function(code, context) {
@@ -327,7 +327,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
     }
 });
 
-var Declarator = Lobster.Declarator = CPPCode.extend({
+var Declarator = Lobster.Declarator = CPPConstruct.extend({
     _name: "Declarator",
     init: function(code, context, baseType){
         this.initParent(code, context);
@@ -983,7 +983,7 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
     isMemberInitializer: true
 });
 
-var InitializerList = Lobster.InitializerList = CPPCode.extend({
+var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
     _name : "InitializerList",
     init: function(code, context) {
         assert(context.entity, "Initializer context must specify entity to be initialized!");
@@ -1071,7 +1071,7 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.extend(BaseDeclarationMixin, {
+var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "FunctionDefinition",
     isDefinition: true,
     subSequence: ["memberInitializers", "body"],
@@ -1425,7 +1425,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
     },
 
     createInstance : function(args){
-        var inst = CPPCode.createInstance.apply(this, arguments);
+        var inst = CPPConstruct.createInstance.apply(this, arguments);
         inst.returnValue = Value.instance("", Types.Void.instance()); // TODO lol hack
         inst.funcContext = inst; // Each function definition starts a new function context.
         inst.caller = inst.parent;
@@ -1554,7 +1554,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
 
 
-var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(BaseDeclarationMixin, {
+var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
 
     compile : function(){
@@ -1889,7 +1889,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
     },
 
     createInstance : function(sim, inst){
-        return CPPCodeInstance.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
+        return CPPConstructInstance.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
     },
 
     upNext : function(sim, inst){

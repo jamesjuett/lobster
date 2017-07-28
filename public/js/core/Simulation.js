@@ -331,7 +331,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_alertsOff = true;
         this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //CPPCodeInstance.silent = true;
+        //CPPConstructInstance.silent = true;
 		if (this.i_stepsTaken > 0){
 			this.clear();
 			var steps = this.i_stepsTaken-n;
@@ -340,7 +340,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
                 this.stepForward();
 			}
 		}
-        //CPPCodeInstance.silent = false;
+        //CPPConstructInstance.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
         this.i_alertsOff = false;
         this.i_explainOff = false;
