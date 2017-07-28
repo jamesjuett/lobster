@@ -367,7 +367,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
         this.send("linkingFinished");
 
         // else if (decl.name === "main") {
-        //     this.semanticProblems.push(CPPError.decl.prev_main(this, decl.name, otherFunc.decl));
+        //     this.semanticProblems.push(CPPError.declaration.prev_main(this, decl.name, otherFunc.decl));
         //     return null;
         // }
     },
