@@ -1640,14 +1640,14 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             var access = spec.access || "private";
             for(var j = 0; j < spec.members.length; ++j){
                 spec.members[j].access = access;
-                var memDecl = Declarations.create(spec.members[j], {parent:this, memberOfClass: this.type, access:access});
+                var memDecl = Declarations.create(spec.members[j], {parent:this, scope: this.classScope, memberOfClass: this.type, access:access});
 
                 // Within member function definitions, class is considered as complete even though it isn't yet
                 if (isA(memDecl, FunctionDefinition)){
                     this.type.setTemporarilyComplete();
                 }
 
-                memDecl.compileDeclaration(this.classScope);
+                memDecl.compileDeclaration();
 
                 // Remove temporarily complete
                 this.type.unsetTemporarilyComplete();
