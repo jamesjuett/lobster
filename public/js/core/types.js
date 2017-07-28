@@ -65,13 +65,13 @@ var TYPE_SPECIFIERS_GROUP_FN = function(elem){
 };
 
 
-var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
+var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
     _name: "TypeSpecifier",
 
 //    init : function(code, context){
 //        this.initParent(code, context);
 //    },
-    compile : function(scope){
+    compile : function(){
 //		var groups = arrayGroups(this.code, TYPE_SPECIFIERS_GROUP_MAP);
 		
         var constCount = 0;
@@ -132,7 +132,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
         // If we don't have a typeName by now, it means there wasn't a type specifier
         if (!this.typeName){
-            this.addNote(CPPError.decl.func.no_return_type(this));
+            this.addNote(CPPError.declaration.func.no_return_type(this));
             return;
         }
 
@@ -154,7 +154,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 		}
 
         var scopeType;
-        if (scopeType = scope.lookup(this.typeName)){
+        if (scopeType = this.contextualScope.lookup(this.typeName)){
             if (isA(scopeType, TypeEntity)){
                 this.type = scopeType.type.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
                 return;
@@ -997,7 +997,7 @@ Lobster.Types.Class = Type.extend({
             className : name,
             size : 1,
             i_reallyZeroSize : true,
-            scope : ClassScope.instance(name, parentScope, base && base.scope),
+            classScope : ClassScope.instance(name, parentScope, base && base.classScope),
             memberEntities : [],
             subobjectEntities : [],
             baseClassSubobjectEntities : [],
@@ -1018,6 +1018,9 @@ Lobster.Types.Class = Type.extend({
 
 
         members && members.forEach(classType.addMember.bind(classType));
+
+        var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
+        classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
 
         return classType;
     },
@@ -1053,6 +1056,7 @@ Lobster.Types.Class = Type.extend({
 
     addMember : function(mem){
         assert(this._isClass);
+        this.classScope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
         this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){
@@ -1076,30 +1080,30 @@ Lobster.Types.Class = Type.extend({
     },
 
     getDefaultConstructor : function(){
-        return this.scope.singleLookup(this.className+"\0", {
+        return this.classScope.singleLookup(this.className+"\0", {
             own:true, noBase:true, exactMatch:true,
             paramTypes:[]});
     },
 
     getCopyConstructor : function(requireConst){
-        return this.scope.singleLookup(this.className+"\0", {
+        return this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
-            this.scope.singleLookup(this.className+"\0", {
+            this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]});
     },
 
     getAssignmentOperator : function(requireConst, isThisConst){
-        return this.scope.singleLookup("operator=", {
+        return this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[this.instance()]}) ||
-            this.scope.singleLookup("operator=", {
+            this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
-            this.scope.singleLookup("operator=", {
+            this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]})
 

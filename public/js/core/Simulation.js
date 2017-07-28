@@ -60,8 +60,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
         // TODO NEW move compilation of mainCall to program?
-        var mainCall = FunctionCall.instance(null, {isMainCall:true});
-        mainCall.compile(this.i_program.getGlobalScope(), this.i_program.getMainEntity(), []);
+        var mainCall = FunctionCall.instance(null, {isMainCall:true, scope: this.i_program.getGlobalScope()});
+        mainCall.compile(this.i_program.getMainEntity(), []);
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
@@ -331,7 +331,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_alertsOff = true;
         this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //CPPCodeInstance.silent = true;
+        //CPPConstructInstance.silent = true;
 		if (this.i_stepsTaken > 0){
 			this.clear();
 			var steps = this.i_stepsTaken-n;
@@ -340,7 +340,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
                 this.stepForward();
 			}
 		}
-        //CPPCodeInstance.silent = false;
+        //CPPConstructInstance.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
         this.i_alertsOff = false;
         this.i_explainOff = false;

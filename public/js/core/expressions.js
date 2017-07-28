@@ -58,7 +58,7 @@ var Value = Expressions.Value = Class.extend({
     }
 });
 
-var Expression = Expressions.Expression = CPPCode.extend({
+var Expression = Expressions.Expression = CPPConstruct.extend({
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
@@ -69,8 +69,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
         this.sub = {};
         this.originalSub = {};
     },
-    compile : function(scope) {
-        this.compileScope = scope;
+    compile : function() {
 
         // Create and compile all subexpressions
         // Also attempt standard conversions specified in the subMetas
@@ -78,7 +77,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
         for (var subName in this.subMetas) {
             var subMeta = this.subMetas[subName];
             var sub = this[subName] = this.sub[subName] = this.originalSub[subName] = Expressions.createExpr(this.code[subMeta.parsedName || subName], {parent: this});
-            sub.compile(scope);
+            sub.compile();
 
             if (subMeta.convertTo) {
                 sub = this[subName] = this.sub[subName] = standardConversion(sub, subMeta.convertTo);
@@ -99,14 +98,14 @@ var Expression = Expressions.Expression = CPPCode.extend({
         // Type check
         this.typeCheck();
 
-        this.compileTemporarires(scope);
+        this.compileTemporarires();
 
 
         // if (this.isFullExpression()){
         //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
         // }
     },
-    compileTemporarires : function(scope){
+    compileTemporarires : function(){
         if (this.temporaryObjects) {
             this.temporariesToDestruct = [];
             for (var entId in this.temporaryObjects){
@@ -115,11 +114,11 @@ var Expression = Expressions.Expression = CPPCode.extend({
                     var dest = tempEnt.type.destructor;
                     if (dest) {
                         var call = FunctionCall.instance(null, {parent: this, receiver: tempEnt});
-                        call.compile(scope, dest, []);
+                        call.compile(dest, []);
                         this.temporariesToDestruct.push(call);
                     }
                     else{
-                        this.addNote(CPPError.decl.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
+                        this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
                     }
                 }
             }
@@ -135,10 +134,10 @@ var Expression = Expressions.Expression = CPPCode.extend({
     typeCheck : function(){
 
     },
-//    compileSubexpressions : function(scope){
+//    compileSubexpressions : function(){
 //		this.subexpressionProblems = {};
 //		for (var key in this.subexpressions){
-//          this.subexpressions[key].compile(scope)
+//          this.subexpressions[key].compile()
 //			this.subexpressionProblems[key] = probs;
 //		}
 //	},
@@ -149,11 +148,11 @@ var Expression = Expressions.Expression = CPPCode.extend({
 
     processNonMemberOverload : function(args, op){
         try{
-            var overloadedOp = this.compileScope.requiredLookup("operator"+op, {
+            var overloadedOp = this.contextualScope.requiredLookup("operator"+op, {
                 own:true, paramTypes:args.map(function(arg){return arg.type;})
             });
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(this.compileScope, overloadedOp, args.map(function(arg){return arg.code;}));
+            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
             this.type = this.sub.funcCall.type;
             this.valueCategory = this.sub.funcCall.valueCategory;
             this.subSequence = this.overloadSubSequence;
@@ -173,11 +172,11 @@ var Expression = Expressions.Expression = CPPCode.extend({
 
     processMemberOverload : function(thisArg, args, op){
         try{
-            var overloadedOp = thisArg.type.scope.requiredLookup("operator"+op, {
+            var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
                 own:true, paramTypes:args.map(function(arg){return arg.type;})
             });
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(this.compileScope, overloadedOp, args.map(function(arg){return arg.code;}));
+            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
             this.type = this.sub.funcCall.type;
             this.valueCategory = this.sub.funcCall.valueCategory;
             this.subSequence = this.overloadSubSequence;
@@ -206,7 +205,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
             return true;
         }
 
-        return CPPCode.upNext.apply(this, arguments);
+        return CPPConstruct.upNext.apply(this, arguments);
     },
 	
 	done : function(sim, inst){
@@ -280,19 +279,19 @@ var Expression = Expressions.Expression = CPPCode.extend({
     },
 
     // TODO NEW It appears this was once used, but as far as I can tell, it does
-    // nothing because it is only called once from the CPPCode constructor and
+    // nothing because it is only called once from the CPPConstruct constructor and
     // on the first call, it just delegates the work to the parent class version.
     // I've commented it out for now and will remove it later after regression
     // testing is more mature.
     // setContext : function(context){
     //     // Don't do anything special for first time
     //     if (!this.context.parent){
-    //         CPPCode.setContext.apply(this, arguments);
+    //         CPPConstruct.setContext.apply(this, arguments);
     //         return;
     //     }
     //
     //     var oldFull = this.findFullExpression();
-    //     CPPCode.setContext.apply(this, arguments);
+    //     CPPConstruct.setContext.apply(this, arguments);
     //
     //     // If this construct's containing full expression has changed, we need to reassign
     //     // that new full expression as the owner of any temporaries this construct would
@@ -345,7 +344,7 @@ Expressions.Null = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
     createAndPushInstance : function(sim, inst){
-//        var inst =  CPPCodeInstance.instance(sim, this, "subexpressions", "expr", inst);
+//        var inst =  CPPConstructInstance.instance(sim, this, "subexpressions", "expr", inst);
 //        sim.push(inst);
 //        return inst;
     }
@@ -370,15 +369,9 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
             this.conversionLength = 1;
         }
     },
-//    compile : function(scope){
-//
-//        this.op = this.code.op;
-//        this.operand = this.sub.operand = Expressions.createExpr(this.code.sub, {parent:this});
-//
-//        this.compileSubexpressions(scope);
-//    },
-    compile : function(scope){
-        this.compileTemporarires(scope);
+
+    compile : function(){
+        this.compileTemporarires();
     },
 
     upNext : function(sim, inst){
@@ -964,10 +957,10 @@ var Assignment = Expressions.Assignment = Expression.extend({
         if (isA(this.lhs.type, Types.Class)){
             //var assnOp = this.lhs.type.getMember(["operator="]);
             var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
-            auxRhs.compile(this.compileScope);
+            auxRhs.compile();
 
             try{
-                var assnOp = this.lhs.type.scope.requiredLookup("operator=", {
+                var assnOp = this.lhs.type.classScope.requiredLookup("operator=", {
                     own:true, paramTypes:[auxRhs.type]
                 });
             }
@@ -984,7 +977,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
             if (assnOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.sub.funcCall.compile(this.compileScope, assnOp, [this.code.rhs]);
+                this.sub.funcCall.compile(assnOp, [this.code.rhs]);
                 this.type = this.sub.funcCall.type;
                 this.subSequence = this.overloadSubSequence;
             }
@@ -995,7 +988,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         else{
             //Non-class type
             // Attempt standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue
-            this.rhs = this.sub.rhs = this.createAndCompileChildExpr(this.code.rhs, this.compileScope, this.lhs.type.cvUnqualified());
+            this.rhs = this.sub.rhs = this.createAndCompileChildExpr(this.code.rhs, this.lhs.type.cvUnqualified());
         }
     },
     typeCheck : function(){
@@ -1117,10 +1110,10 @@ Expressions.CompoundAssignment = Expression.extend({
         this.rhs = binaryOpClass.instance(binCode, {parent: this});
     },
 
-    compile : function(scope) {
+    compile : function() {
 
         //compiles left and right
-        this.rhs.compile(scope);
+        this.rhs.compile();
 
         if(this.hasErrors()){
             return;
@@ -1145,16 +1138,16 @@ Expressions.CompoundAssignment = Expression.extend({
 
         this.type = this.lhs.type;
 
-        this.compileTemporarires(scope);
-//        return Expression.compile.call(this, scope);
+        this.compileTemporarires();
+//        return Expression.compile.call(this);
     },
 
     upNext : function(sim, inst){
         // Evaluate subexpressions
         if (inst.index == "subexpressions") {
             inst.rhs = this.rhs.createAndPushInstance(sim, inst);
-            //inst.leftInst = CPPCodeInstance.instance(sim, this.rhs.left, "subexpressions", "expr", inst);
-            //inst.rightInst = CPPCodeInstance.instance(sim, this.rhs.right, "subexpressions", "expr", inst);
+            //inst.leftInst = CPPConstructInstance.instance(sim, this.rhs.left, "subexpressions", "expr", inst);
+            //inst.rightInst = CPPConstructInstance.instance(sim, this.rhs.right, "subexpressions", "expr", inst);
             //
             //// Push rhs
             //sim.push(inst.leftInst);
@@ -1268,14 +1261,14 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
         return desiredSubClass.instance(code, context);
     },
 
-    compile : function(scope){
+    compile : function(){
 
         // Compile left
         var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: this.context.auxiliary + 1});
         var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: this.context.auxiliary + 1});
 
-        auxLeft.compile(scope);
-        auxRight.compile(scope);
+        auxLeft.compile();
+        auxRight.compile();
 
         // If either has problems that prevent us from determining type, nothing more can be done
         if (!auxLeft.isWellTyped() || !auxRight.isWellTyped()){
@@ -1291,22 +1284,22 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
         if (isA(auxLeft.type, Types.Class) || isA(auxRight.type, Types.Class)){
             // If left one is of class type, we look for overloads
             var overloadOp =
-                auxLeft.type.scope && auxLeft.type.scope.singleLookup("operator" + this.op, {
+                auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.op, {
                     own:true, paramTypes:[auxRight.type]
                 }) ||
-                scope.singleLookup("operator" + this.op, {
+                this.contextualScope.singleLookup("operator" + this.op, {
                     paramTypes:[auxLeft.type, auxRight.type]
                 });
             this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
             if (overloadOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
                 if (this.isMemberOverload){
-                    this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left, scope);
-                    this.sub.funcCall.compile(scope, overloadOp, [this.code.right]);
+                    this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
+                    this.sub.funcCall.compile(overloadOp, [this.code.right]);
                     this.subSequence = this.memberOverloadSubSequence;
                 }
                 else{
-                    this.sub.funcCall.compile(scope, overloadOp, [this.code.left, this.code.right]);
+                    this.sub.funcCall.compile(overloadOp, [this.code.left, this.code.right]);
                     this.subSequence = this.overloadSubSequence;
                 }
                 this.type = this.sub.funcCall.type;
@@ -1317,8 +1310,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             }
         }
         else{
-            this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left, scope);
-            this.right = this.sub.right = this.createAndCompileChildExpr(this.code.right, scope);
+            this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
+            this.right = this.sub.right = this.createAndCompileChildExpr(this.code.right);
 
             // If either has problems that prevent us from determining type, nothing more can be done
             if (!this.left.isWellTyped() || !this.right.isWellTyped()){
@@ -1328,7 +1321,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             this.convert();
 
             this.typeCheck();
-            this.compileTemporarires(scope);
+            this.compileTemporarires();
         }
     },
 
@@ -1869,16 +1862,16 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
         this.op = this.code.op;
     },
 
-    compile : function(scope){
+    compile : function(){
         var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
-        auxOperand.compile(scope);
+        auxOperand.compile();
 
         if (isA(auxOperand.type, Types.Class)){
             // If it's of class type, we look for overloads
-            var overloadOp = auxOperand.type.scope.singleLookup("operator" + this.op, {
+            var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.op, {
                     own:true, paramTypes:[]
                 }) ||
-                scope.singleLookup("operator" + this.op, {
+                this.contextualScope.singleLookup("operator" + this.op, {
                     paramTypes:[auxOperand.type]
                 });
 
@@ -1886,12 +1879,12 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
             if (overloadOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
                 if (this.isMemberOverload){
-                    this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
-                    this.sub.funcCall.compile(scope, overloadOp, []);
+                    this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
+                    this.sub.funcCall.compile(overloadOp, []);
                     this.subSequence = this.memberOverloadSubSequence;
                 }
                 else{
-                    this.sub.funcCall.compile(scope, overloadOp, [this.code.sub]);
+                    this.sub.funcCall.compile(overloadOp, [this.code.sub]);
                     this.subSequence = this.overloadSubSequence;
                 }
                 this.type = this.sub.funcCall.type;
@@ -1899,23 +1892,23 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
             }
             else{
 
-                this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
+                this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
 
                 this.convert();
 
                 this.typeCheck();
 
-                this.compileTemporarires(scope);
+                this.compileTemporarires();
             }
         }
         else{
-            this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub, scope);
+            this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
 
             this.convert();
 
             this.typeCheck();
 
-            this.compileTemporarires(scope);
+            this.compileTemporarires();
         }
     },
 
@@ -2335,17 +2328,16 @@ var Subscript = Expressions.Subscript = Expression.extend({
     subSequence : ["operand", "offset"],
     overloadSubSequence : ["operand"], // does not include offset because function call does that
 
-    compile : Class.BEFORE(function(scope){
+    compile : Class.BEFORE(function(){
 
-        this.compileScope = scope;
-        this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.operand, scope);
+        this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.operand);
 
         // Check for overload
         if (isA(this.operand.type, Types.Class)){
             this.isOverloaded = true;
 
             var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
-            auxOffset.compile(scope);
+            auxOffset.compile();
 
             this.processMemberOverload(this.operand, [auxOffset], "[]");
 
@@ -2354,7 +2346,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         }
         else{
             this.operand = this.sub.operand = standardConversion(this.operand, Types.Pointer);
-            this.offset = this.sub.offset = this.createAndCompileChildExpr(this.code.sub, scope, Types.Int.instance());
+            this.offset = this.sub.offset = this.createAndCompileChildExpr(this.code.sub, Types.Int.instance());
         }
     }),
 
@@ -2479,7 +2471,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
         // Find out what this identifies
         try {
-            this.entity = this.operand.type.scope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.isConst}));
+            this.entity = this.operand.type.classScope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.isConst}));
             this.type = this.entity.type;
         }
         catch(e){
@@ -2562,7 +2554,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
 
         // Find out what this identifies
         try{
-            this.entity = this.operand.type.ptrTo.scope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.ptrTo.isConst}));
+            this.entity = this.operand.type.ptrTo.classScope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.ptrTo.isConst}));
             this.type = this.entity.type;
         }
         catch(e){
@@ -2754,7 +2746,7 @@ var FunctionCall = Expression.extend({
     initIndex: "arguments",
     instType: "expr",
 
-    compile : function(scope, func, args) {
+    compile : function(func, args) {
         var self = this;
         assert(isA(func, FunctionEntity));
         assert(Array.isArray(args));
@@ -2795,7 +2787,7 @@ var FunctionCall = Expression.extend({
         // Parameter passing is done by copy initialization, so create initializers.
         this.argInitializers = args.map(function(arg, i){
             var init = ParameterInitializer.instance(arg.code, {parent: self});
-            init.compile(scope, ParameterEntity.instance(self.func,i), [arg]);
+            init.compile(ParameterEntity.instance(self.func,i), [arg]);
             init.initIndex = "afterChildren"; // These initializers expect their expression to already be evaluated
             return init;
         });
@@ -3059,7 +3051,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
     _name: "FunctionCallExpr",
     initIndex: "operand",
 
-    compile : function(scope) {
+    compile : function() {
         var self = this;
 
         this.code.args = this.code.args || [];
@@ -3067,7 +3059,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         // Need to select function, so have to compile auxiliary arguments
         var auxArgs = this.code.args.map(function(arg){
             var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
-            auxArg.tryCompile(scope);
+            auxArg.tryCompile();
             return auxArg;
         });
 
@@ -3087,20 +3079,20 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         });
         this.operand = this.operand = Expressions.createExpr(this.code.operand, {parent:this, paramTypes: argTypes});
 
-        this.operand.compile(scope);
+        this.operand.compile();
 
         if (this.hasErrors()){
             return;
         }
 
-        this.bindFunction(scope);
+        this.bindFunction();
 
         if (this.hasErrors()){
             return;
         }
 
         var funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-        funcCall.compile(scope, this.boundFunction, this.code.args);
+        funcCall.compile(this.boundFunction, this.code.args);
 
         this.type = funcCall.type;
         this.valueCategory = funcCall.valueCategory;
@@ -3204,25 +3196,25 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
     _name: "NewExpression",
     valueCategory: "prvalue",
     initIndex: "allocate",
-    compile : function(scope){
+    compile : function(){
 
         // Compile the type specifier
         this.typeSpec = TypeSpecifier.instance(this.code.specs, {parent:this});
-        this.typeSpec.compile(scope);
+        this.typeSpec.compile();
 
         this.heapType = this.typeSpec.type;
 
         // Compile declarator if it exists
         if(this.code.declarator) {
             this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
-            this.declarator.compile(scope);
+            this.declarator.compile();
             this.heapType = this.declarator.type;
         }
 
         if (isA(this.heapType, Types.Array)){
             this.type = Types.Pointer.instance(this.heapType.elemType);
             if (this.declarator.dynamicLengthExpression){
-                this.dynamicLength = this.createAndCompileChildExpr(this.declarator.dynamicLengthExpression, scope, Types.Int.instance());
+                this.dynamicLength = this.createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
                 this.initIndex = "length";
             }
         }
@@ -3235,17 +3227,17 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         var initCode = this.code.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
-            this.initializer.compile(scope, entity, initCode.args);
+            this.initializer.compile(entity, initCode.args);
         }
         else if (initCode.args.length == 0){
             this.initializer = DefaultInitializer.instance(initCode, {parent: this});
-            this.initializer.compile(scope, entity);
+            this.initializer.compile(entity);
         }
         else{
-            this.addNote(CPPError.decl.init.scalar_args(this, this.heapType));
+            this.addNote(CPPError.declaration.init.scalar_args(this, this.heapType));
         }
 
-        this.compileTemporarires(scope);
+        this.compileTemporarires();
     },
 
     upNext : function(sim, inst){
@@ -3349,7 +3341,7 @@ var Delete = Expressions.Delete = Expression.extend({
                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
 
                 this.funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.funcCall.compile(this.compileScope, dest, []);
+                this.funcCall.compile(dest, []);
                 this.type = this.funcCall.type;
             }
             else{
@@ -3505,18 +3497,18 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
     _name: "ConstructExpression",
     valueCategory: "prvalue",
     initIndex: "init",
-    compile : function(scope){
+    compile : function(){
 
         // Compile the type specifier
         this.typeSpec = TypeSpecifier.instance([this.code.type], {parent:this});
-        this.typeSpec.compile(scope);
+        this.typeSpec.compile();
 
         this.type = this.typeSpec.type;
 
         // Compile declarator if it exists
         if(this.code.declarator) {
             this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
-            this.declarator.compile(scope);
+            this.declarator.compile();
             this.heapType = this.declarator.type;
         }
 
@@ -3524,13 +3516,13 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         if (isA(this.type, Types.Class) || this.code.args.length == 1){
             this.initializer = DirectInitializer.instance(this.code, {parent: this});
-            this.initializer.compile(scope, this.entity, this.code.args);
+            this.initializer.compile(this.entity, this.code.args);
         }
         else{
-            this.addNote(CPPError.decl.init.scalar_args(this, this.type));
+            this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
         }
 
-        this.compileTemporarires(scope);
+        this.compileTemporarires();
     },
 
     createInstance : function(sim, parent, receiver){
@@ -3616,7 +3608,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
         checkIdentifier(this, this.identifier, this);
 
 		try{
-            this.entity = this.compileScope.requiredLookup(this.identifier, copyMixin(this.context, {isThisConst:this.context.func.type.isThisConst}));
+            this.entity = this.contextualScope.requiredLookup(this.identifier, copyMixin(this.context, {isThisConst:this.context.func.type.isThisConst}));
 
             if(isA(this.entity, CPPEntity)) {
                 this.type = this.entity.type;
@@ -3668,7 +3660,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
 var ThisExpression = Expressions.ThisExpression = Expression.extend({
     _name: "ThisExpression",
     valueCategory: "prvalue",
-    compile : function(scope){
+    compile : function(){
         var func = this.context.func;
         if (func.isMemberFunction){
             this.type = Types.Pointer.instance(func.receiverType);
@@ -3692,7 +3684,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
         this.entity = entity;
         this.type = this.entity.type;
     },
-    compile : function(scope){
+    compile : function(){
 
     },
     upNext : function(sim, inst){
@@ -3728,7 +3720,7 @@ var literalTypes = {
 var Literal = Expressions.Literal = Expression.extend({
     _name: "Literal",
     initIndex: false,
-    compile : function(scope){
+    compile : function(){
 		
 		var code = this.code;
 		
