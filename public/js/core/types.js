@@ -132,7 +132,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
         // If we don't have a typeName by now, it means there wasn't a type specifier
         if (!this.typeName){
-            this.addNote(CPPError.decl.func.no_return_type(this));
+            this.addNote(CPPError.declaration.func.no_return_type(this));
             return;
         }
 
@@ -1019,6 +1019,9 @@ Lobster.Types.Class = Type.extend({
 
         members && members.forEach(classType.addMember.bind(classType));
 
+        var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
+        classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
+
         return classType;
     },
 
@@ -1053,6 +1056,7 @@ Lobster.Types.Class = Type.extend({
 
     addMember : function(mem){
         assert(this._isClass);
+        this.scope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
         this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){

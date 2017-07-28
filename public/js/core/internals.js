@@ -255,6 +255,36 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     }
 });
 
+var FakeConstruct = Class.extend({
+    _name : "FakeConstruct",
+
+    init: function () {
+
+        this.id = CPPCode._nextId++;
+        this.children = [];
+
+        // this.i_notes = [];
+        // this.i_hasErrors = false;
+
+        // this.i_setContext(context);
+    },
+
+
+    getSourceReference : function() {
+        return null;
+    }
+});
+
+var FakeDeclaration = FakeConstruct.extend({
+    _name : FakeDeclaration,
+
+    init : function(name, type) {
+        this.initParent();
+        this.name = name;
+        this.type = type;
+    }
+});
+
 
 var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
     _name: "CPPCodeInstance",
@@ -474,7 +504,7 @@ var Scope = Lobster.Scope = Class.extend({
 
                     // If they have mismatched return types, that's a problem.
                     if (!entity.type.sameReturnType(otherFunc.type)){
-                        throw CPPError.decl.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
+                        throw CPPError.declaration.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
                     }
 
                     DeclaredEntity.merge(entity, otherFunc);
@@ -937,7 +967,7 @@ var DeclaredEntity = CPPEntity.extend({
     },
 
     isDefined : function() {
-        return !!this.definition; // TODO move to DeclaredEntity subclass and also separate declaration from definition
+        return !!this.definition;
     },
 
     // TODO: when namespaces are implemented, need to fix this function

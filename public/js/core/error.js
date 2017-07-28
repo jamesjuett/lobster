@@ -843,7 +843,7 @@ SemanticExceptions.NonCovariantReturnTypes = SemanticException.extend({
         this.overridden = overridden;
     },
     annotation : function(src){
-        return CPPError.decl.func.nonCovariantReturnType(src, this.overrider.type.returnType, this.overridden.type.returnType);
+        return CPPError.declaration.func.nonCovariantReturnType(src, this.overrider.type.returnType, this.overridden.type.returnType);
     }
 
 });
