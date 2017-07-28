@@ -337,7 +337,18 @@ Statements.While = Statements.Iteration.extend({
 
         this.body = Statements.create(this.code.body, {parent: this});
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent:this, scope: this.body.scope});
+        // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
+        // This appears to be currently impossible in Lobster, but when implemented it will require
+        // special implementation of the scope of the body if it's not already a block.
+        // Or maybe we could just decide to parse it correctly (will still require some changes), but
+        // then simply say it's not supported since it's such a rare thing.
+
+        this.cond = Expressions.createExpr(this.code.cond, {
+            parent: this,
+            scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope)
+        });
+
+
         this.cond.compile();
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
@@ -395,11 +406,13 @@ Statements.For = Statements.Iteration.extend({
 
         this.body = Statements.create(this.code.body, {parent: this});
 
+        var bodyScope = (isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope;
+
         // Note: grammar ensures this will be an expression or declaration statement
-        this.forInit = Statements.create(this.code.init, {parent: this, scope: this.body.scope});
+        this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});
         this.forInit.compile();
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent: this, scope: this.body.scope});
+        this.cond = Expressions.createExpr(this.code.cond, {parent: this, scope: bodyScope});
         this.cond.compile();
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
@@ -409,7 +422,7 @@ Statements.For = Statements.Iteration.extend({
 
         this.body.compile();
 
-        this.post = Expressions.createExpr(this.code.post, {parent: this, scope: this.body.scope});
+        this.post = Expressions.createExpr(this.code.post, {parent: this, scope: bodyScope});
         this.post.compile();
     },
 

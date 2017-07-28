@@ -1205,7 +1205,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         this.autosToDestruct = this.autosToDestruct.map(function(obj){
             var dest = obj.type.destructor;
             if (dest){
-                var call = FunctionCall.instance(null, {parent: self, scope: this.bodyScope, receiver: obj});
+                var call = FunctionCall.instance(null, {parent: self, scope: self.bodyScope, receiver: obj});
                 call.compile(dest, []);
                 return call;
             }
