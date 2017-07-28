@@ -1112,7 +1112,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
                 return;
             }
 
-
             // If main, should have no parameters
             if (this.isMain && this.params.length > 0){
                 this.addNote(CPPError.declaration.func.mainParams(this.params[0]));
