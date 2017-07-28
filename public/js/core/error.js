@@ -138,7 +138,7 @@ var CompilerLinkerNoteBase = Note.extend({
 
     /**
      * Initializes a CompilerNote associated with the provided constructs.
-     * @param {?CPPCode | ?CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {?CPPConstruct | ?CPPConstruct[]} constructs A single code construct or array of constructs.
      * @param {String} type one of the types associated with this class
      * @param {String} message A message describing the problem.
      */
@@ -148,6 +148,7 @@ var CompilerLinkerNoteBase = Note.extend({
             this.i_constructs = constructs;
         }
         else {
+            assert(isA(constructs, CPPConstruct));
             this.i_constructs = [];
             if (constructs) {
                 this.i_constructs.push(constructs);
@@ -159,7 +160,7 @@ var CompilerLinkerNoteBase = Note.extend({
 
     /**
      *
-     * @returns {CPPCode[]}
+     * @returns {CPPConstruct[]}
      */
     getConstructs : function() {
         return this.i_constructs;
@@ -244,7 +245,7 @@ var CPPError = {
             return makeError(src, false, "Sorry, but for now Labster only supports destructors that are defined inline. (i.e. You need a body.)");
         }
     },
-	decl : {
+	declaration : {
         ctor : {
             copy : {
                 pass_by_value : function(src, type, name){
@@ -257,7 +258,7 @@ var CPPError = {
                     return makeError(src, false, "Class " + classType.toString() + " has no member named " + name + ".");
                 },
                 improper_member : function(src, classType, name){
-                    return makeError(src, false, "A member initializer can only be used for non-static data members.");
+                    return makeError(src, false, "A member initializer can only be used for non-static data members. There is no such member named " + name + " in the " + classType.className + " class.");
                 },
                 delegating_only : function(src, classType, name){
                     return makeError(src, false, "If a constructor's initializer list delegates to another constructor from the same class, that must be the only thing it does.");

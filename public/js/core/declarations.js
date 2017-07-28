@@ -4,14 +4,18 @@ var Declarations = Lobster.Declarations = {
 
     create : function(decl, context){
         return this[decl.declaration.toLowerCase()].instance(decl, context);
+    },
+
+    createFromASTSource : function(declAST, context) {
+        return this[declAST.declaration].createFromASTSource(arguments);
     }
 
 };
 
 // A POD type
-var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
+var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
     _name: "StorageSpecifier",
-    compile : function(scope){
+    compile : function(){
 
 
         this.numSpecs = 0;
@@ -71,7 +75,7 @@ var BaseDeclarationMixin = {
     }
 };
 
-var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarationMixin, {
+var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -84,24 +88,24 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         return this;
     },
 
-    compile : function(scope){
-        this.compileDeclaration(scope);
-        this.compileDefinition(scope);
+    compile : function(){
+        this.compileDeclaration();
+        this.compileDefinition();
     },
 
-    compileDeclaration : function(scope) {
+    compileDeclaration : function() {
         var code = this.code;
 
 
         this.typeSpec = TypeSpecifier.instance(code.specs.typeSpecs, {parent: this});
-        this.typeSpec.compile(scope);
+        this.typeSpec.compile();
 
         if (this.hasErrors() > 0) {
             return;
         }
 
         this.storageSpec = StorageSpecifier.instance(code.specs.storageSpecs, {parent:this});
-        this.storageSpec.compile(scope);
+        this.storageSpec.compile();
 
         // TODO, if storage is specified, declarators cannot be empty (classes and such)
         if (this.hasErrors() > 0) {
@@ -116,13 +120,13 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.code))
         }
 
-        this.i_determineStorage(scope);
+        this.i_determineStorage();
 
 
         // Compile each declarator with respect to the type specifier
         for (var i = 0; i < code.declarators.length; ++i) {
             var decl = Declarator.instance(code.declarators[i], {parent: this}, this.typeSpec.type);
-            decl.compile(scope);
+            decl.compile();
 
             // If there are errors in the declarator, don't create an entity or anything.
             if (decl.hasErrors()){
@@ -130,7 +134,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             }
 
             try{
-                var entity = decl.entity = this.makeEntity(scope, decl);
+                var entity = decl.entity = this.makeEntity(decl);
             }
             catch(e){
                 if (isA(e, SemanticException)){
@@ -149,7 +153,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         }
     },
 
-    compileDefinition : function(scope){
+    compileDefinition : function(){
         if (!this.isDefinition){
             return;
         }
@@ -163,15 +167,15 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             if (initCode){
                 if (initCode.initializerList){
                     init = InitializerList.instance(initCode, {parent: this, entity:ent});
-                    init.compile(scope);
+                    init.compile();
                 }
                 else if (initCode.initializer === "direct"){
                     init = DirectInitializer.instance(initCode, {parent: this});
-                    init.compile(scope, ent, initCode.args);
+                    init.compile(ent, initCode.args);
                 }
                 else if (initCode.initializer === "copy"){
                     init = CopyInitializer.instance(initCode, {parent: this});
-                    init.compile(scope, ent, initCode.args);
+                    init.compile(ent, initCode.args);
                 }
                 else{
                     assert(false, "Corrupt initializer :(");
@@ -180,7 +184,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
             else{
                 if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
                     init = DefaultInitializer.instance(initCode, {parent: this});
-                    init.compile(scope, ent, []);
+                    init.compile(ent, []);
                 }
             }
             this.initializers.push(init);
@@ -188,10 +192,10 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         }
     },
 
-    i_determineStorage : function(scope){
+    i_determineStorage : function(){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
-        if(!this.storageSpec.static && !this.storageSpec.extern && isA(scope, BlockScope)){
+        if(!this.storageSpec.static && !this.storageSpec.extern && isA(this.contextualScope, BlockScope)){
             this.storageDuration = "automatic";
         }
         else{
@@ -199,7 +203,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         }
     },
 
-    makeEntity: function(scope, decl){
+    makeEntity: function(decl){
 
         // Note: we know it's not a function definition because that goes to the FunctionDefinition
         // class.  Thus any functions are not definitions.
@@ -231,7 +235,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         }
 
         try {
-            scope.addDeclaredEntity(entity);
+            this.contextualScope.addDeclaredEntity(entity);
             this.entities.push(entity);
             return entity;
         }
@@ -273,7 +277,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
 });
 
 
-var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
+var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
     _name: "Parameter",
 
     init: function(code, context) {
@@ -281,21 +285,20 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
         this.initParent(code, context);
     },
 
-    compile : function(scope){
+    compile : function(){
         // Compile the type specifier
         var typeSpec = this.typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
-        typeSpec.compile(scope);
+        typeSpec.compile();
 
         // Compile the declarator
         var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this}, typeSpec.type);
-        decl.compile(scope);
+        decl.compile();
 
         this.name = decl.name;
         this.type = decl.type;
 
         // Errors related to parameters of void type are handled elsewhere in function declarator part
 
-        // Add to scope ----- point of declaration ----- //
         if (isA(this.parent.parent, FunctionDefinition) ||
             isA(this.parent, ConstructorDefinition)){ // TODO this is way too hacky
 
@@ -310,7 +313,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
 
 
             try {
-                scope.addDeclaredEntity(this.entity);
+                this.contextualScope.addDeclaredEntity(this.entity);
             }
             catch(e) {
                 this.addNote(e);
@@ -324,13 +327,13 @@ var Parameter = Lobster.Declarations.Parameter = CPPCode.extend({
     }
 });
 
-var Declarator = Lobster.Declarator = CPPCode.extend({
+var Declarator = Lobster.Declarator = CPPConstruct.extend({
     _name: "Declarator",
     init: function(code, context, baseType){
         this.initParent(code, context);
         this.baseType = baseType;
     },
-    compile : function(scope){
+    compile : function(){
 
         var code = this.code;
 
@@ -418,7 +421,7 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
                         for (var j = 0; j < postfix.args.length; ++j) {
                             var arg = postfix.args[j];
                             var paramDecl = Parameter.instance(arg, {parent:this});
-                            paramDecl.compile(scope);
+                            paramDecl.compile();
                             params[j] = paramDecl;
                             paramTypes[j] = paramDecl.declarator.type;
                         }
@@ -608,7 +611,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
         this.initParent(code, context);
     },
 
-    compile : function(scope, entity) {
+    compile : function(entity) {
         assert(isA(entity, CPPEntity));
         this.entity = entity;
         var args = [];
@@ -632,7 +635,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
             }
 
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this, receiver: this.entity});
-            this.funcCall.compile(scope, this.myConstructor, args);
+            this.funcCall.compile(this.myConstructor, args);
             this.args = this.funcCall.args;
         }
         else if (isA(type, Types.Array)){
@@ -643,7 +646,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DefaultInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    elemInit.compile(scope, ArraySubobjectEntity.instance(this.entity, i));
+                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
                     if (elemInit.hasErrors()){
                         this.addNote(CPPError.declaration.init.array_default_init(this));
                         break;
@@ -726,7 +729,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         this.initParent(code, context);
     },
 
-    compile : function(scope, entity, args) {
+    compile : function(entity, args) {
         var self = this;
         assert(isA(entity, CPPEntity));
         args = args || [];
@@ -748,7 +751,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 if (isA(arg, EntityExpression)){
                     return arg;
                 }
-                return self.createAndCompileChildExpr(arg, scope);
+                return self.createAndCompileChildExpr(arg);
             });
             var arg = this.args[0];
             if (isA(type, Types.Reference)) {
@@ -776,7 +779,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 for(var i = 0; i < type.length; ++i){
                     var elemInit = DirectInitializer.instance(this.code, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    elemInit.compile(scope, ArraySubobjectEntity.instance(this.entity, i),
+                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i),
                             [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]);
                     if(elemInit.hasErrors()) {
                         this.addNote(CPPError.declaration.init.array_direct_init(this));
@@ -811,7 +814,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             // Need to select constructor, so have to compile auxiliary arguments
             var auxArgs = args.map(function (arg) {
                 var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
-                auxArg.compile(scope);
+                auxArg.compile();
                 return auxArg;
             });
             this.myConstructor = overloadResolution(type.constructors, auxArgs);
@@ -830,7 +833,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             }
 
             this.funcCall = FunctionCall.instance(this.code, {parent: this, receiver: this.entity});
-            this.funcCall.compile(scope, this.myConstructor, args);
+            this.funcCall.compile(this.myConstructor, args);
             this.args = this.funcCall.args;
         }
 
@@ -980,14 +983,14 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
     isMemberInitializer: true
 });
 
-var InitializerList = Lobster.InitializerList = CPPCode.extend({
+var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
     _name : "InitializerList",
     init: function(code, context) {
         assert(context.entity, "Initializer context must specify entity to be initialized!");
         this.initParent(code, context);
         this.initializerListLength = code.initializerList.length;
     },
-    compile : function(scope){
+    compile : function(){
         var code = this.code;
         var type = this.context.entity.type;
 
@@ -1003,7 +1006,7 @@ var InitializerList = Lobster.InitializerList = CPPCode.extend({
         var list = code.initializerList;
         //this.initializerList = [];
         for(var i = 0; i < list.length; ++i){
-            var initListElem = this.sub["arg"+i] = this.createAndCompileChildExpr(list[i], scope, type.elemType);
+            var initListElem = this.sub["arg"+i] = this.createAndCompileChildExpr(list[i], type.elemType);
 
             if(!sameType(initListElem.type, type.elemType)){
                 this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));
@@ -1047,7 +1050,7 @@ var MagicFunctionDefinition = Declarations.MagicFunctionDefinition = Class.exten
         this.context = {};
     },
 
-    compile : function(scope){
+    compile : function(){
 
     }
 });
@@ -1068,11 +1071,18 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.extend(BaseDeclarationMixin, {
+var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "FunctionDefinition",
     isDefinition: true,
     subSequence: ["memberInitializers", "body"],
     instType: "call",
+
+    createFromASTSource : function(ast, context) {
+        // HACK: should handle this when ast is created, I think
+        ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
+
+
+    },
 
     init : function(code, context){
         code.specs = code.specs || {typeSpecs: [], storageSpecs: []};
@@ -1086,32 +1096,33 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         }
         this.sub.memberInitializers = [];
         this.autosToDestruct = [];
+
+        this.body = this.sub.body = Statements.FunctionBodyBlock.instance(this.code.body, {func: this, parent: this});
     },
 
-    compile : function(scope){
-        this.compileDeclaration(scope);
-        this.compileDefinition(scope);
+    compile : function(){
+        this.compileDeclaration();
+        this.compileDefinition();
     },
 
     // EFFECTS: returns an array of errors
-    compileDeclaration : function(scope){
+    compileDeclaration : function(){
         var code = this.code;
 
 
         // This function's scope (actually scope used for its body block)
-        this.scope = FunctionBlockScope.instance(scope);
+        this.bodyScope = this.body.blockScope;
 
-        this.compileDeclarator(scope);
+        this.compileDeclarator();
         if (this.hasErrors()){
             return;
         }
 
         // Add entity to scope
         try{
-            if (!this.makeEntity(scope)) {
+            if (!this.makeEntity()) {
                 return;
             }
-
 
             // If main, should have no parameters
             if (this.isMain && this.params.length > 0){
@@ -1143,10 +1154,10 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
     },
 
     // Responsible for setting the type, params, and paramTypes properties
-    compileDeclarator : function(scope){
+    compileDeclarator : function(){
         // Compile the type specifier
         var typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
-        typeSpec.compile(scope);
+        typeSpec.compile();
         if (this.hasErrors()){
             return;
         }
@@ -1154,8 +1165,8 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         this.virtual = !!this.code.specs.virtual;
 
         // Compile the declarator
-        var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this}, typeSpec.type);
-        decl.compile(this.scope);
+        var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this, scope: this.bodyScope}, typeSpec.type);
+        decl.compile();
         this.name = decl.name;
         this.isMain = this.name === "main";
         this.type = decl.type;
@@ -1166,25 +1177,24 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         });
     },
 
-    compileDefinition : function(scope){
+    compileDefinition : function(){
         var self = this;
         if (this.hasErrors()){
             return;
         }
 
         // Compile the body
-        this.body = this.sub.body = Statements.Block.instance(this.code.body, {func: this, parent: this});
-        this.body.compile(this.scope);
+        this.body.compile();
 
         if (this.hasErrors()){return;}
 
         // this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
 
-        this.autosToDestruct = this.scope.automaticObjects.filter(function(obj){
+        this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
             return isA(obj.type, Types.Class);
         });
 
-        this.scope.automaticObjects.filter(function(obj){
+        this.bodyScope.automaticObjects.filter(function(obj){
           return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
         }).map(function(arr){
           for(var i = 0; i < arr.type.length; ++i){
@@ -1195,8 +1205,8 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         this.autosToDestruct = this.autosToDestruct.map(function(obj){
             var dest = obj.type.destructor;
             if (dest){
-                var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                call.compile(scope, dest, []);
+                var call = FunctionCall.instance(null, {parent: self, scope: self.bodyScope, receiver: obj});
+                call.compile(dest, []);
                 return call;
             }
             else{
@@ -1388,7 +1398,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         // this.semanticProblems.addWidget(RecursiveFunctionAnnotation.instance(this));
     },
 
-    makeEntity : function(scope){
+    makeEntity : function(){
         var entity;
         if (this.isMemberFunction){
             entity = MemberFunctionEntity.instance(this, this.memberOfClass, this.virtual);
@@ -1404,7 +1414,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         if (!this.isMemberFunction) {
             try {
-                scope.addDeclaredEntity(entity);
+                this.contextualScope.addDeclaredEntity(entity);
             }
             catch(e) {
                 this.addNote(e);
@@ -1415,7 +1425,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
     },
 
     createInstance : function(args){
-        var inst = CPPCode.createInstance.apply(this, arguments);
+        var inst = CPPConstruct.createInstance.apply(this, arguments);
         inst.returnValue = Value.instance("", Types.Void.instance()); // TODO lol hack
         inst.funcContext = inst; // Each function definition starts a new function context.
         inst.caller = inst.parent;
@@ -1507,7 +1517,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
                 reason: "The highlighted local variables ("
 
                 +
-                this.scope.automaticObjects.filter(function(obj){
+                this.bodyScope.automaticObjects.filter(function(obj){
                     return isA(obj.type, Types.Class);
                 }).map(function(obj){
 
@@ -1517,7 +1527,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
                     +
 
                 ") have destructors that will run at the end of the function body (i.e. after any possible recursive call).",
-                others: this.scope.automaticObjects.filter(function(obj){
+                others: this.bodyScope.automaticObjects.filter(function(obj){
                     return isA(obj.type, Types.Class);
                 }).map(function(obj){
 
@@ -1544,14 +1554,14 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
 
 
-var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(BaseDeclarationMixin, {
+var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
 
-    compile : function(scope){
+    compile : function(){
         assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
     },
 
-    compileDeclaration : function(scope){
+    compileDeclaration : function(){
         var code = this.code;
 
 
@@ -1572,7 +1582,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
                 var baseCode = this.code.head.bases[0];
 
                 // TODO NEW: Use an actual Identifier expression for this
-                this.base = scope.requiredLookup(baseCode.name.identifier);
+                this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
                     this.addNote(CPPError.classDef.base_class_type({code:baseCode.name}, baseCode.name.identifier));
@@ -1598,15 +1608,15 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.createClassType(this.name, scope, this.base && this.base.type, []);
+            this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
 
-            this.scope = this.type.scope;
+            this.classScope = this.type.classScope;
 
             this.entity = TypeEntity.instance(this);
 
             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
 
-            scope.addDeclaredEntity(this.entity);
+            this.contextualScope.addDeclaredEntity(this.entity);
         }
         catch(e){
             if (isA(e, Note)){
@@ -1630,14 +1640,14 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             var access = spec.access || "private";
             for(var j = 0; j < spec.members.length; ++j){
                 spec.members[j].access = access;
-                var memDecl = Declarations.create(spec.members[j], {parent:this, memberOfClass: this.type, access:access});
+                var memDecl = Declarations.create(spec.members[j], {parent:this, scope: this.classScope, memberOfClass: this.type, access:access});
 
                 // Within member function definitions, class is considered as complete even though it isn't yet
                 if (isA(memDecl, FunctionDefinition)){
                     this.type.setTemporarilyComplete();
                 }
 
-                memDecl.compileDeclaration(this.scope);
+                memDecl.compileDeclaration();
 
                 // Remove temporarily complete
                 this.type.unsetTemporarilyComplete();
@@ -1650,7 +1660,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         if(this.type.constructors.length == 0){
             var idc = this.createImplicitDefaultConstructor();
             if (idc){
-                idc.compile(this.scope);
+                idc.compile();
                 assert(!idc.hasErrors());
             }
         }
@@ -1686,7 +1696,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             // Create implicit copy constructor
             var icc = this.createImplicitCopyConstructor();
             if (icc) {
-                icc.compile(this.scope);
+                icc.compile();
                 assert(!icc.hasErrors());
                 this.type.copyConstructor = icc.entity;
             }
@@ -1696,7 +1706,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             // Create implicit destructor
             var idd = this.createImplicitDestructor();
             if (idd) {
-                idd.compile(this.scope);
+                idd.compile();
                 assert(!idd.hasErrors());
             }
         }
@@ -1706,18 +1716,18 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             // Create implicit assignment operator
             var iao = this.createImplicitAssignmentOperator();
             if (iao){
-                iao.compile(this.scope);
+                iao.compile();
                 assert(!iao.hasErrors());
             }
         }
     },
 
-    compileDefinition : function(scope) {
+    compileDefinition : function() {
         if (this.hasErrors()){
             return;
         }
         for(var i = 0; i < this.memDecls.length; ++i){
-            this.memDecls[i].compileDefinition(scope);
+            this.memDecls[i].compileDefinition();
         }
     },
 
@@ -1756,7 +1766,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         var src = this.name + "() {}";
         //TODO: initialize members (i.e. that are classes)
         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return ConstructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
+        return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, memberOfClass: this.type, access:"public", implicit:true});
     },
 
     createImplicitCopyConstructor : function(){
@@ -1791,7 +1801,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         src += " {}";
         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
 
-        return ConstructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
+        return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, memberOfClass: this.type, access:"public", implicit:true});
     },
 
     createImplicitAssignmentOperator : function () {
@@ -1860,7 +1870,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
         }
         src += "return *this;}";
         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return FunctionDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
+        return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, memberOfClass: this.type, access:"public", implicit:true});
     },
 
     createImplicitDestructor : function(){
@@ -1875,11 +1885,11 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
         var src = "~" + this.type.name + "(){}";
         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return DestructorDefinition.instance(src, {parent:this, memberOfClass: this.type, access:"public", implicit:true});
+        return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, memberOfClass: this.type, access:"public", implicit:true});
     },
 
     createInstance : function(sim, inst){
-        return CPPCodeInstance.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
+        return CPPConstructInstance.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
     },
 
     upNext : function(sim, inst){
@@ -1904,7 +1914,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         return this;
     },
 
-    i_determineStorage : function(scope){
+    i_determineStorage : function(){
         // Determine storage duration based on the kind of scope in which the declaration
         // occurs and any storage specifiers.
         if(this.storageSpec.static){
@@ -1915,7 +1925,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         }
     },
 
-    makeEntity: function(scope, decl){
+    makeEntity: function(decl){
 
         // Note: we know it's not a function definition because that goes to the FunctionDefinition
         // class.  Thus any functions are not definitions.
@@ -1945,7 +1955,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         try {
             this.entities.push(entity);
             if (isA(entity, MemberSubobjectEntity) && !this.memberOfClass.containsMember(entity.name)){
-                this.memberOfClass.addMember(entity); // this internally adds it to the scope
+                this.memberOfClass.addMember(entity); // this internally adds it to the class scope
             }
             return entity;
         }
@@ -1982,7 +1992,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         this.initParent(code, context);
     },
 
-    compileDeclaration : function(scope) {
+    compileDeclaration : function() {
         FunctionDefinition.compileDeclaration.apply(this, arguments);
 
         if (!this.hasErrors()){
@@ -1990,12 +2000,13 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         }
     },
 
-    compileDeclarator : function(scope){
+    compileDeclarator : function(){
         var code = this.code;
 
 
         // NOTE: a constructor doesn't have a "name", and so we don't need to add it to any scope.
         // However, to make lookup easier, we give all constructors their class name plus the null character. LOL
+        // TODO: this is silly. remote it pls :)
         this.name = this.memberOfClass.className + "\0";
 
         // Compile the parameters
@@ -2003,8 +2014,8 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         this.params = [];
         this.paramTypes = [];
         for (var j = 0; j < args.length; ++j) {
-            var paramDecl = Parameter.instance(args[j], {parent: this});
-            paramDecl.compile(this.scope);
+            var paramDecl = Parameter.instance(args[j], {parent: this, scope: this.bodyScope});
+            paramDecl.compile();
             this.params.push(paramDecl);
             this.paramTypes.push(paramDecl.type);
         }
@@ -2024,7 +2035,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         this.type = Types.Function.instance(Types.Void.instance(), this.paramTypes);
     },
 
-    compileDefinition : function(scope){
+    compileDefinition : function(){
         var self = this;
         var code = this.code;
 
@@ -2033,13 +2044,13 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             return;
         }
 
-        this.compileCtorInitializer(scope);
+        this.compileCtorInitializer();
 
         // Call parent class version. Will handle body, automatic object destruction, etc.
         FunctionDefinition.compileDefinition.apply(this, arguments);
     },
 
-    compileCtorInitializer : function(scope){
+    compileCtorInitializer : function(){
         var memInits = this.code.initializer || [];
 
         // First, check to see if this is a delegating constructor.
@@ -2056,8 +2067,8 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             targetConstructor = memInits.splice(targetConstructor, 1)[0];
             // If it is a delegating constructor, there can be no other memInits
             if (memInits.length === 0){ // should be 0 since one removed
-                var mem = MemberInitializer.instance(targetConstructor, {parent: this});
-                mem.compile(this.scope, ReceiverEntity.instance(this.memberOfClass), targetConstructor.args || []);
+                var mem = MemberInitializer.instance(targetConstructor, {parent: this, scope: this.bodyScope});
+                mem.compile(ReceiverEntity.instance(this.memberOfClass), targetConstructor.args || []);
                 this.sub.memberInitializers.push(mem);
             }
             else{
@@ -2083,13 +2094,13 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 this.addNote(CPPError.declaration.ctor.init.multiple_base_inits(this));
             }
             else if (baseInits.length === 1){
-                var mem = MemberInitializer.instance(baseInits[0], {parent: this});
-                mem.compile(this.scope, this.memberOfClass.baseClassSubobjectEntities[0], baseInits[0].args || []);
+                var mem = MemberInitializer.instance(baseInits[0], {parent: this, scope: this.bodyScope});
+                mem.compile(this.memberOfClass.baseClassSubobjectEntities[0], baseInits[0].args || []);
                 this.sub.memberInitializers.push(mem);
             }
             else{
-                var mem = DefaultMemberInitializer.instance(this.code, {parent: this});
-                mem.compile(this.scope, this.memberOfClass.baseClassSubobjectEntities[0]);
+                var mem = DefaultMemberInitializer.instance(this.code, {parent: this, scope: this.bodyScope});
+                mem.compile(this.memberOfClass.baseClassSubobjectEntities[0]);
                 this.sub.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
             }
@@ -2110,12 +2121,12 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             // Make sure this type has a member of the given name
             var memberName = memInit.member.identifier;
             if (initMap.hasOwnProperty(memberName)) {
-                var mem = MemberInitializer.instance(this, {parent: this});
-                mem.compile(this.scope, initMap[memberName], memInit.args || []);
+                var mem = MemberInitializer.instance(this, {parent: this, scope: this.bodyScope});
+                mem.compile(initMap[memberName], memInit.args || []);
                 initMap[memberName] = mem;
             }
             else{
-                this.addNote(CPPError.declaration.ctor.init.improper_member(memInit.member));
+                this.addNote(CPPError.declaration.ctor.init.improper_member(this, this.memberOfClass, memberName));
             }
         }
 
@@ -2128,8 +2139,8 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 self.sub.memberInitializers.push(initMap[objMember.name]);
             }
             else if (isA(objMember.type, Types.Class) || isA(objMember.type, Types.Array)){
-                var mem = DefaultMemberInitializer.instance(self.code, {parent: self});
-                mem.compile(self.scope, objMember);
+                var mem = DefaultMemberInitializer.instance(self.code, {parent: self, scope: self.bodyScope});
+                mem.compile(objMember);
                 self.sub.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
             }
@@ -2180,12 +2191,12 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         this.memberOfClass = context.memberOfClass;
     },
 
-    compileDeclaration : function(scope) {
+    compileDeclaration : function() {
         FunctionDefinition.compileDeclaration.apply(this, arguments);
         this.memberOfClass.addDestructor(this.entity);
     },
 
-    compileDeclarator : function(scope) {
+    compileDeclarator : function() {
         var code = this.code;
 
 
@@ -2202,7 +2213,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         this.type = Types.Function.instance(Types.Void.instance(), this.paramTypes);
     },
 
-    compileDefinition: function(scope){
+    compileDefinition: function(){
         var self = this;
         var code = this.code;
 
@@ -2221,7 +2232,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             var dest = obj.type.destructor;
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                call.compile(scope, dest, []);
+                call.compile(dest, []);
                 return call;
             }
             else{
@@ -2234,7 +2245,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             var dest = obj.type.destructor;
             if (dest){
                 var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                call.compile(scope, dest, []);
+                call.compile(dest, []);
                 return call;
             }
             else{

@@ -12,10 +12,10 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.simOutlet = simOutlet;
 
-        if (code.isA(CPPCode)){
+        if (code.isA(CPPConstruct)){
             this.code = code;
         }
-        else if (code.isA(CPPCodeInstance)){
+        else if (code.isA(CPPConstructInstance)){
             this.code = code.model;
         }
         else{
@@ -26,7 +26,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
             parent.addChild(this);
         }
 
-        // children are stored by the ID of the CPPCode they display
+        // children are stored by the ID of the CPPConstruct they display
         this.children = {};
 
         this.element.addClass("codeInstance");
@@ -36,7 +36,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.createElement();
 
-        if (code.isA(CPPCodeInstance)){
+        if (code.isA(CPPConstructInstance)){
             this.setInstance(code);
         }
     },
@@ -190,7 +190,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Function",
 
     init: function(element, codeOrInst, simOutlet, parent){
-        //assert(isA(callInst, CPPCodeInstance) && isA(callInst.model, FunctionCall));
+        //assert(isA(callInst, CPPConstructInstance) && isA(callInst.model, FunctionCall));
         this.initParent(element, codeOrInst, simOutlet, parent);
 
 
