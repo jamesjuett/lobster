@@ -1111,6 +1111,24 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
             if (!this.makeEntity(scope)) {
                 return;
             }
+
+
+            // If main, should have no parameters
+            if (this.isMain && this.params.length > 0){
+                this.addNote(CPPError.decl.func.mainParams(this.params[0]));
+            }
+
+            if (this.isMemberFunction){
+                this.memberOfClass.addMember(this.entity);
+            }
+
+
+            if (!this.isMemberFunction && this.virtual){
+                this.addNote(CPPError.decl.func.virtual_member(this));
+            }
+
+            this.checkOverloadSemantics();
+
         }
         catch(e){
             if (isA(e, SemanticException)){
@@ -1122,25 +1140,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
                 throw e;
             }
         }
-
-
-
-        // If main, should have no parameters
-        if (this.isMain && this.params.length > 0){
-            this.addNote(CPPError.decl.func.mainParams(this.params[0]));
-        }
-
-        if (this.isMemberFunction){
-            this.memberOfClass.addMember(this.entity);
-        }
-
-
-        if (!this.isMemberFunction && this.virtual){
-            this.addNote(CPPError.decl.func.virtual_member(this));
-        }
-
-        this.checkOverloadSemantics();
-
     },
 
     // Responsible for setting the type, params, and paramTypes properties
@@ -1401,15 +1400,18 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
         entity.setDefinition(this);
 
-        try {
-            scope.addDeclaredEntity(entity);
-            this.entity = entity;
-            return entity;
+        this.entity = entity;
+
+        if (!this.isMemberFunction) {
+            try {
+                scope.addDeclaredEntity(entity);
+            }
+            catch(e) {
+                this.addNote(e);
+                return null;
+            }
         }
-        catch(e) {
-            this.addNote(e);
-            return null;
-        }
+        return entity;
     },
 
     createInstance : function(args){
@@ -1592,14 +1594,13 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
 
 
 
-        // class scope
-        this.scope = ClassScope.instance(this.name, scope, this.base && this.base.type.scope);
-
         // Check that no other type with the same name already exists
         try {
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.createClassType(this.name, this.scope, this.base && this.base.type, []);
+            this.type = Types.Class.createClassType(this.name, scope, this.base && this.base.type, []);
+
+            this.scope = this.type.scope;
 
             this.entity = TypeEntity.instance(this);
 
@@ -1608,8 +1609,13 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPCode.extend(Ba
             scope.addDeclaredEntity(this.entity);
         }
         catch(e){
-            this.addNote(e);
-            return;
+            if (isA(e, Note)){
+                this.addNote(e);
+                return;
+            }
+            else {
+                throw e;
+            }
         }
 
 
@@ -1937,10 +1943,9 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         }
 
         try {
-            scope.addDeclaredEntity(entity);
             this.entities.push(entity);
             if (isA(entity, MemberSubobjectEntity) && !this.memberOfClass.containsMember(entity.name)){
-                this.memberOfClass.addMember(entity);
+                this.memberOfClass.addMember(entity); // this internally adds it to the scope
             }
             return entity;
         }
