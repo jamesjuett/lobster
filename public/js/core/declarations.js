@@ -17,13 +17,13 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
         this.numSpecs = 0;
         for(var i = 0; i < this.code.length; ++i){
             if (this[this.code[i]]){
-                this.addNote(CPPError.decl.storage.once(this, this.code[i]));
+                this.addNote(CPPError.declaration.storage.once(this, this.code[i]));
             }
             else {
                 this[this.code[i]] = true;
                 ++this.numSpecs;
                 if (this.code[i] != "static"){
-                    this.addNote(CPPError.decl.storage.unsupported(this, this.code[i]));
+                    this.addNote(CPPError.declaration.storage.unsupported(this, this.code[i]));
                 }
             }
 
@@ -33,7 +33,7 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPCode.extend({
             //ok
         }
         else{
-            this.addNote(CPPError.decl.storage.incompatible(this, this.code));
+            this.addNote(CPPError.declaration.storage.incompatible(this, this.code));
         }
     }
 });
@@ -113,7 +113,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         this.virtual = !!code.specs.virtual;
 
         if (this.storageSpec.numSpecs > 0 && this.typedef) {
-            this.addNote(CPPError.decl.storage.typedef(this, this.storageSpec.code))
+            this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.code))
         }
 
         this.i_determineStorage(scope);
@@ -212,7 +212,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPCode.extend(BaseDeclarat
         var entity;
         if (isA(decl.type, Types.Function)){
             if (this.virtual){
-                this.addNote(CPPError.decl.func.virtual_member(this));
+                this.addNote(CPPError.declaration.func.virtual_member(this));
             }
             entity = FunctionEntity.instance(decl);
         }
@@ -372,10 +372,10 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
                     innermost = innermostTemp && i === 0;
                     if(postfix.type == "array"){
                         if (prev && prev == "function") {
-                            this.addNote(CPPError.decl.func.array(this));
+                            this.addNote(CPPError.declaration.func.array(this));
                         }
                         if (prev && prev == "reference"){
-                            this.addNote(CPPError.decl.ref.array(this));
+                            this.addNote(CPPError.declaration.ref.array(this));
                         }
                         // If it's a parameter and it's an array, adjust to pointer
                         if (isParam && innermost && i == decl.postfixes.length - 1) {
@@ -385,13 +385,13 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
                         else{
                             //TODO need to evaluate size of array if it's a constant expression
                             if (!postfix.size){
-                                this.addNote(CPPError.decl.array.length_required(this));
+                                this.addNote(CPPError.declaration.array.length_required(this));
                             }
                             else if (postfix.size.expression !== "literal" && !(innermost && isA(this.parent, Expressions.NewExpression))){
-                                this.addNote(CPPError.decl.array.literal_length_only(this));
+                                this.addNote(CPPError.declaration.array.literal_length_only(this));
                             }
                             else if (postfix.size.expression === "literal" && postfix.size.value == 0 && !(innermost && isA(this.parent, Expressions.NewExpression))){
-                                this.addNote(CPPError.decl.array.zero_length(this));
+                                this.addNote(CPPError.declaration.array.zero_length(this));
                             }
 
                             prev = "array";
@@ -405,10 +405,10 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
                     else if (postfix.type == "function") {
 
                         if (prev && prev == "function") {
-                            this.addNote(CPPError.decl.func.return_func(this));
+                            this.addNote(CPPError.declaration.func.return_func(this));
                         }
                         if (prev && prev == "array"){
-                            this.addNote(CPPError.decl.func.return_array(this));
+                            this.addNote(CPPError.declaration.func.return_array(this));
                         }
                         prev = "function";
 
@@ -432,7 +432,7 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
                             // Otherwise void parameters are bad
                             for (var j = 0; j < paramTypes.length; ++j) {
                                 if (isA(paramTypes[j], Types.Void)) {
-                                    this.addNote(CPPError.decl.func.void_param(params[j]));
+                                    this.addNote(CPPError.declaration.func.void_param(params[j]));
                                 }
                             }
                         }
@@ -457,7 +457,7 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
             // Process pointers/references next
             if (decl.hasOwnProperty("pointer")){
                 if (prev && prev == "reference"){
-                    this.addNote(CPPError.decl.ref.pointer(this));
+                    this.addNote(CPPError.declaration.ref.pointer(this));
                 }
                 type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
                 decl = decl.pointer;
@@ -465,7 +465,7 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
             }
             else if (decl.hasOwnProperty("reference")){
                 if (prev && prev == "reference"){
-                    this.addNote(CPPError.decl.ref.ref(this));
+                    this.addNote(CPPError.declaration.ref.ref(this));
                 }
                 type = Types.Reference.instance(type, decl["const"], decl["volatile"]);
                 decl = decl.reference;
@@ -483,10 +483,10 @@ var Declarator = Lobster.Declarator = CPPCode.extend({
         this.type = type;
 
         if (isMember && isA(this.type, Types.reference)){
-            this.addNote(CPPError.decl.ref.memberNotSupported(this));
+            this.addNote(CPPError.declaration.ref.memberNotSupported(this));
         }
         if (!isParam && !isMember && isA(this.type, Types.reference) && !code.init) {
-            this.addNote(CPPError.decl.init.referenceBind(this));
+            this.addNote(CPPError.declaration.init.referenceBind(this));
         }
 
     }
@@ -620,14 +620,14 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
 
         if (isA(type, Types.Reference)) {
             // Cannot default initialize a reference
-            this.addNote(CPPError.decl.init.referenceBind(this));
+            this.addNote(CPPError.declaration.init.referenceBind(this));
             return;
         }
         else if (isA(type, Types.Class)){
             // Try to find default constructor. Not using lookup because constructors have no name.
             this.myConstructor = overloadResolution(type.constructors, []);
             if (!this.myConstructor) {
-                this.addNote(CPPError.decl.init.no_default_constructor(this, this.entity));
+                this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
                 return;
             }
 
@@ -645,7 +645,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
                     this.sub.arrayElemInitializers.push(elemInit);
                     elemInit.compile(scope, ArraySubobjectEntity.instance(this.entity, i));
                     if (elemInit.hasErrors()){
-                        this.addNote(CPPError.decl.init.array_default_init(this));
+                        this.addNote(CPPError.declaration.init.array_default_init(this));
                         break;
                     }
                 }
@@ -654,7 +654,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
         else{
             // Do nothing
             if(!isA(type, Types.Pointer)){
-                this.addNote(CPPError.decl.init.uninitialized(this, this.entity));
+                this.addNote(CPPError.declaration.init.uninitialized(this, this.entity));
             }
         }
 
@@ -754,22 +754,22 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             if (isA(type, Types.Reference)) {
                 // With a reference, no conversions are done
                 if (this.args.length > 1){
-                    this.addNote(CPPError.decl.init.referenceBindMultiple(this));
+                    this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
                 }
                 else if (!referenceCompatible(arg.type, type.refTo)){
-                    this.addNote(CPPError.decl.init.referenceType(this, arg, type));
+                    this.addNote(CPPError.declaration.init.referenceType(this, arg, type));
                 }
                 else if (!isA(type.refTo, Types.Class) && arg.valueCategory !== "lvalue"){
-                    this.addNote(CPPError.decl.init.referenceLvalue(this));
+                    this.addNote(CPPError.declaration.init.referenceLvalue(this));
                 }
                 else if (arg.valueCategory === "prvalue" && !type.refTo.isConst){
-                    this.addNote(CPPError.decl.init.referencePrvalueConst(this));
+                    this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
                 }
                 this.sub.args = this.args;
             }
             else if (isA(type, Types.Array) && isA(this.args[0].type, Types.Array) && this.args[0].entity){
                 if (this.args.length > 1){
-                    this.addNote(CPPError.decl.init.array_args(this, type));
+                    this.addNote(CPPError.declaration.init.array_args(this, type));
                 }
 
                 this.sub.arrayElemInitializers = [];
@@ -779,14 +779,14 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     elemInit.compile(scope, ArraySubobjectEntity.instance(this.entity, i),
                             [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]);
                     if(elemInit.hasErrors()) {
-                        this.addNote(CPPError.decl.init.array_direct_init(this));
+                        this.addNote(CPPError.declaration.init.array_direct_init(this));
                         break;
                     }
                 }
             }
             else{ // Scalar type
                 if (this.args.length > 1){
-                    this.addNote(CPPError.decl.init.scalar_args(this, type));
+                    this.addNote(CPPError.declaration.init.scalar_args(this, type));
                 }
 
                 //Attempt standard conversion to declared type
@@ -797,11 +797,11 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     && isA(arg, Expressions.Literal) && isA(arg.type, Types.String)){
                     //if we're initializing a character array from a string literal, check length
                     if (arg.value.value.length + 1 > type.length){
-                        this.addNote(CPPError.decl.init.stringLiteralLength(this, arg.value.value.length + 1, type.length));
+                        this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.value.value.length + 1, type.length));
                     }
                 }
                 else if (!sameType(type, arg.type)) {
-                    this.addNote(CPPError.decl.init.convert(this, arg.type, type));
+                    this.addNote(CPPError.declaration.init.convert(this, arg.type, type));
                 }
                 this.sub.args = this.args;
             }
@@ -818,10 +818,10 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
             if (!this.myConstructor) {
                 if (args.length == 0) {
-                    this.addNote(CPPError.decl.init.no_default_constructor(this, this.entity));
+                    this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
                 }
                 else {
-                    this.addNote(CPPError.decl.init.matching_constructor(this, this.entity,
+                    this.addNote(CPPError.declaration.init.matching_constructor(this, this.entity,
                         auxArgs.map(function (aa) {
                             return aa.type;
                         })));
@@ -992,10 +992,10 @@ var InitializerList = Lobster.InitializerList = CPPCode.extend({
         var type = this.context.entity.type;
 
         if (!isA(type, Types.Array)){
-            this.addNote(CPPError.decl.init.list_array(this));
+            this.addNote(CPPError.declaration.init.list_array(this));
         }
         else if (type.length !== code.initializerList.length){
-            this.addNote(CPPError.decl.init.list_length(this, type.length));
+            this.addNote(CPPError.declaration.init.list_length(this, type.length));
         }
 
         if (this.hasErrors()){ return; }
@@ -1006,11 +1006,11 @@ var InitializerList = Lobster.InitializerList = CPPCode.extend({
             var initListElem = this.sub["arg"+i] = this.createAndCompileChildExpr(list[i], scope, type.elemType);
 
             if(!sameType(initListElem.type, type.elemType)){
-                this.addNote(CPPError.decl.init.convert(initListElem, initListElem.type, type.elemType));
+                this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));
             }
             else if (initListElem.isNarrowingConversion){
                 // TODO: as of now, still need to add code that identifies certain conversions as narrowing
-                this.addNote(CPPError.decl.init.list_narrowing(initListElem, initListElem.from.type, type.elemType));
+                this.addNote(CPPError.declaration.init.list_narrowing(initListElem, initListElem.from.type, type.elemType));
             }
             //this.initializerList.push(initListElem);
         }
@@ -1115,7 +1115,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
             // If main, should have no parameters
             if (this.isMain && this.params.length > 0){
-                this.addNote(CPPError.decl.func.mainParams(this.params[0]));
+                this.addNote(CPPError.declaration.func.mainParams(this.params[0]));
             }
 
             if (this.isMemberFunction){
@@ -1124,7 +1124,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
 
             if (!this.isMemberFunction && this.virtual){
-                this.addNote(CPPError.decl.func.virtual_member(this));
+                this.addNote(CPPError.declaration.func.virtual_member(this));
             }
 
             this.checkOverloadSemantics();
@@ -1200,7 +1200,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
                 return call;
             }
             else{
-                self.addNote(CPPError.decl.dtor.no_destructor_auto(obj.decl, obj));
+                self.addNote(CPPError.declaration.dtor.no_destructor_auto(obj.decl, obj));
             }
 
         });
@@ -1209,12 +1209,12 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
     checkOverloadSemantics : function(){
         if (this.name === "operator=" || this.name === "operator()" || this.name === "operator[]"){
             if (!this.isMemberFunction){
-                this.addNote(CPPError.decl.func.op_member(this));
+                this.addNote(CPPError.declaration.func.op_member(this));
             }
         }
 
         if (this.name === "operator[]" && this.params.length !== 1){
-            this.addNote(CPPError.decl.func.op_subscript_one_param(this));
+            this.addNote(CPPError.declaration.func.op_subscript_one_param(this));
         }
     },
 
@@ -2017,7 +2017,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
         // Give error for copy constructor that passes by value
         if (this.isCopyConstructor && isA(this.paramTypes[0], this.memberOfClass)){
-            this.addNote(CPPError.decl.ctor.copy.pass_by_value(this.params[0], this.paramTypes[0], this.params[0].name));
+            this.addNote(CPPError.declaration.ctor.copy.pass_by_value(this.params[0], this.paramTypes[0], this.params[0].name));
         }
 
         // I know this is technically wrong but I think it makes things run smoother
@@ -2061,7 +2061,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 this.sub.memberInitializers.push(mem);
             }
             else{
-                this.addNote(CPPError.decl.ctor.init.delegating_only(this));
+                this.addNote(CPPError.declaration.ctor.init.delegating_only(this));
             }
             return;
         }
@@ -2080,7 +2080,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             });
 
             if (baseInits.length > 1){
-                this.addNote(CPPError.decl.ctor.init.multiple_base_inits(this));
+                this.addNote(CPPError.declaration.ctor.init.multiple_base_inits(this));
             }
             else if (baseInits.length === 1){
                 var mem = MemberInitializer.instance(baseInits[0], {parent: this});
@@ -2115,7 +2115,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 initMap[memberName] = mem;
             }
             else{
-                this.addNote(CPPError.decl.ctor.init.improper_member(memInit.member));
+                this.addNote(CPPError.declaration.ctor.init.improper_member(memInit.member));
             }
         }
 
@@ -2225,7 +2225,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
                 return call;
             }
             else{
-                self.addNote(CPPError.decl.dtor.no_destructor_member(obj.decl, obj, self.memberOfClass));
+                self.addNote(CPPError.declaration.dtor.no_destructor_member(obj.decl, obj, self.memberOfClass));
             }
 
         });
@@ -2238,7 +2238,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
                 return call;
             }
             else{
-                self.addNote(CPPError.decl.dtor.no_destructor_base(obj.decl, obj, self.memberOfClass));
+                self.addNote(CPPError.declaration.dtor.no_destructor_base(obj.decl, obj, self.memberOfClass));
             }
 
         });

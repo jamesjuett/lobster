@@ -119,7 +119,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
                         this.temporariesToDestruct.push(call);
                     }
                     else{
-                        this.addNote(CPPError.decl.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
+                        this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
                     }
                 }
             }
@@ -3242,7 +3242,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
             this.initializer.compile(scope, entity);
         }
         else{
-            this.addNote(CPPError.decl.init.scalar_args(this, this.heapType));
+            this.addNote(CPPError.declaration.init.scalar_args(this, this.heapType));
         }
 
         this.compileTemporarires(scope);
@@ -3527,7 +3527,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
             this.initializer.compile(scope, this.entity, this.code.args);
         }
         else{
-            this.addNote(CPPError.decl.init.scalar_args(this, this.type));
+            this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
         }
 
         this.compileTemporarires(scope);
