@@ -132,7 +132,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 
         // If we don't have a typeName by now, it means there wasn't a type specifier
         if (!this.typeName){
-            this.addNote(CPPError.decl.func.no_return_type(this));
+            this.addNote(CPPError.declaration.func.no_return_type(this));
             return;
         }
 

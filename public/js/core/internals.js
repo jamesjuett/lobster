@@ -504,7 +504,7 @@ var Scope = Lobster.Scope = Class.extend({
 
                     // If they have mismatched return types, that's a problem.
                     if (!entity.type.sameReturnType(otherFunc.type)){
-                        throw CPPError.decl.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
+                        throw CPPError.declaration.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
                     }
 
                     DeclaredEntity.merge(entity, otherFunc);
