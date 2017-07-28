@@ -679,6 +679,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     hideAnnotationMessage : function(){
         this.annotationMessages.css("top", "125px");
+        
         if (this.afterAnnotation.length > 0){
             this.afterAnnotation.forEach(function(fn){fn();})
             this.afterAnnotation.length = 0;
