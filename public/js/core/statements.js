@@ -406,7 +406,7 @@ Statements.For = Statements.Iteration.extend({
 
         this.body = Statements.create(this.code.body, {parent: this});
 
-        var bodyScope = (isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope;
+        var bodyScope = isA(this.body, Statements.Block) ? this.bodyScope : this.compileScope;
 
         // Note: grammar ensures this will be an expression or declaration statement
         this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});
