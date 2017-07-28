@@ -701,8 +701,10 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             }
         },
         fullCompilationFinished : function() {
-            this.sim.setProgram(this.projectEditor.getProgram());
-            this.restart();
+            if(!this.projectEditor.getProgram().hasErrors()) {
+                this.sim.setProgram(this.projectEditor.getProgram());
+                this.restart();
+            }
         },
         runTo: "runTo",
         skipToEnd: "skipToEnd",
