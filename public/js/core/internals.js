@@ -52,8 +52,8 @@ var SemanticProblems = Lobster.SemanticProblems = Class.extend({
 
 
 
-var CPPCode = Lobster.CPPCode = Class.extend({
-    _name: "CPPCode",
+var CPPConstruct = Lobster.CPPConstruct = Class.extend({
+    _name: "CPPConstruct",
     _nextId: 0,
     initIndex: "pushChildren",
 
@@ -68,7 +68,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
         this.code = code;
 
         assert(context.parent !== undefined || context.isMainCall);
-        this.id = CPPCode._nextId++;
+        this.id = CPPConstruct._nextId++;
         this.children = [];
         this.sub = {};
         this.i_notes = [];
@@ -169,7 +169,7 @@ var CPPCode = Lobster.CPPCode = Class.extend({
     },
 
     createInstance : function(sim, parent){
-        return CPPCodeInstance.instance(sim, this, this.initIndex, this.instType, parent);
+        return CPPConstructInstance.instance(sim, this, this.initIndex, this.instType, parent);
     },
 
     createAndPushInstance : function(sim, parent){
@@ -278,7 +278,7 @@ var FakeConstruct = Class.extend({
 
     init: function () {
 
-        this.id = CPPCode._nextId++;
+        this.id = CPPConstruct._nextId++;
         this.children = [];
 
         // this.i_notes = [];
@@ -304,8 +304,8 @@ var FakeDeclaration = FakeConstruct.extend({
 });
 
 
-var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
-    _name: "CPPCodeInstance",
+var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observable,{
+    _name: "CPPConstructInstance",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
         this.initParent();
@@ -405,7 +405,7 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
         }
     },
     findParentByModel : function(model){
-        assert(isA(model, CPPCode));
+        assert(isA(model, CPPConstruct));
 
         var parent = this.parent;
         while(parent && parent.model.id != model.id){
@@ -435,7 +435,7 @@ var CPPCodeInstance = Lobster.CPPCodeInstance = Class.extend(Observable,{
 });
 
 
-//var CPPCallInstance = Lobster.CPPCallInstance = CPPCodeInstance.extend({
+//var CPPCallInstance = Lobster.CPPCallInstance = CPPConstructInstance.extend({
 //    init: function (sim, model, index, parent) {
 //        this.initParent(sim, model, index, "call", parent);
 //        this.funcContext = this;

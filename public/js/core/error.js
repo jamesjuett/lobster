@@ -138,7 +138,7 @@ var CompilerLinkerNoteBase = Note.extend({
 
     /**
      * Initializes a CompilerNote associated with the provided constructs.
-     * @param {?CPPCode | ?CPPCode[]} constructs A single code construct or array of constructs.
+     * @param {?CPPConstruct | ?CPPConstruct[]} constructs A single code construct or array of constructs.
      * @param {String} type one of the types associated with this class
      * @param {String} message A message describing the problem.
      */
@@ -148,7 +148,7 @@ var CompilerLinkerNoteBase = Note.extend({
             this.i_constructs = constructs;
         }
         else {
-            assert(isA(constructs, CPPCode));
+            assert(isA(constructs, CPPConstruct));
             this.i_constructs = [];
             if (constructs) {
                 this.i_constructs.push(constructs);
@@ -160,7 +160,7 @@ var CompilerLinkerNoteBase = Note.extend({
 
     /**
      *
-     * @returns {CPPCode[]}
+     * @returns {CPPConstruct[]}
      */
     getConstructs : function() {
         return this.i_constructs;

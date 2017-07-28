@@ -11,7 +11,7 @@ Lobster.Statements = {
 };
 var Statements = Lobster.Statements;
 
-var Statement = Statements.Statement = CPPCode.extend({
+var Statement = Statements.Statement = CPPConstruct.extend({
    _name: "Statement",
     instType: "stmt",
 
@@ -486,7 +486,7 @@ Statements.Break = Statement.extend({
     },
 
     createAndPushInstance : function(sim, inst){
-        var inst = CPPCodeInstance.instance(sim, this, "break", "stmt", inst);
+        var inst = CPPConstructInstance.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },
