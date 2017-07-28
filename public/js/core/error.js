@@ -244,7 +244,7 @@ var CPPError = {
             return makeError(src, false, "Sorry, but for now Labster only supports destructors that are defined inline. (i.e. You need a body.)");
         }
     },
-	decl : {
+	declaration : {
         ctor : {
             copy : {
                 pass_by_value : function(src, type, name){
