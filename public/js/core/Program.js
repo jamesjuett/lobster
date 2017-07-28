@@ -790,11 +790,12 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         for(var i = 0; i < code.length; ++i){
             var decl = Declarations.create(code[i], {
                 parent: null,
+                scope : this.i_globalScope,
                 translationUnit : this,
                 func: globalFunctionContext
             });
-            decl.tryCompileDeclaration(this.i_globalScope);
-            decl.tryCompileDefinition(this.i_globalScope);
+            decl.tryCompileDeclaration();
+            decl.tryCompileDefinition();
             this.topLevelDeclarations.push(decl);
             this.addNotes(decl.getNotes());
         }
