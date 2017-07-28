@@ -152,7 +152,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
                 own:true, paramTypes:args.map(function(arg){return arg.type;})
             });
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(this.contextualScope, overloadedOp, args.map(function(arg){return arg.code;}));
+            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
             this.type = this.sub.funcCall.type;
             this.valueCategory = this.sub.funcCall.valueCategory;
             this.subSequence = this.overloadSubSequence;
@@ -176,7 +176,7 @@ var Expression = Expressions.Expression = CPPCode.extend({
                 own:true, paramTypes:args.map(function(arg){return arg.type;})
             });
             this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(this.contextualScope, overloadedOp, args.map(function(arg){return arg.code;}));
+            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
             this.type = this.sub.funcCall.type;
             this.valueCategory = this.sub.funcCall.valueCategory;
             this.subSequence = this.overloadSubSequence;
@@ -957,7 +957,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         if (isA(this.lhs.type, Types.Class)){
             //var assnOp = this.lhs.type.getMember(["operator="]);
             var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
-            auxRhs.compile(this.contextualScope);
+            auxRhs.compile();
 
             try{
                 var assnOp = this.lhs.type.classScope.requiredLookup("operator=", {
@@ -977,7 +977,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
             if (assnOp){
                 this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.sub.funcCall.compile(this.contextualScope, assnOp, [this.code.rhs]);
+                this.sub.funcCall.compile(assnOp, [this.code.rhs]);
                 this.type = this.sub.funcCall.type;
                 this.subSequence = this.overloadSubSequence;
             }
@@ -3341,7 +3341,7 @@ var Delete = Expressions.Delete = Expression.extend({
                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
 
                 this.funcCall = this.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.funcCall.compile(this.contextualScope, dest, []);
+                this.funcCall.compile(dest, []);
                 this.type = this.funcCall.type;
             }
             else{
