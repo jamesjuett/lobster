@@ -1914,16 +1914,16 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         return this;
     },
 
-    // i_determineStorage : function(){
-    //     // Determine storage duration based on the kind of scope in which the declaration
-    //     // occurs and any storage specifiers.
-    //     if(this.storageSpec.static){
-    //         this.storageDuration = "static";
-    //     }
-    //     else{
-    //         this.storageDuration = "automatic";
-    //     }
-    // },
+    i_determineStorage : function(){
+        // Determine storage duration based on the kind of scope in which the declaration
+        // occurs and any storage specifiers.
+        if(this.storageSpec.static){
+            this.storageDuration = "static";
+        }
+        else{
+            this.storageDuration = "automatic";
+        }
+    },
 
     makeEntity: function(decl){
 
