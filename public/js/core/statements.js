@@ -63,9 +63,9 @@ Statements.Expression = Statement.extend({
 Statements.Declaration = Statement.extend({
     _name: "DeclarationStatement",
     initIndex: "decl",
-    compile : function(scope){
+    compile : function(){
 		this.declaration = Declarations.create(this.code, {parent: this});
-		this.declaration.compile(scope);
+		this.declaration.compile();
 
         if (!isA(this.declaration, Declarations.Declaration)){
             this.addNote(CPPError.stmt.declaration(this, this.declaration));
@@ -96,7 +96,7 @@ Statements.Declaration = Statement.extend({
 
 Statements.Return = Statement.extend({
     _name: "Return",
-    compile : function(scope){
+    compile : function(){
 
         // Find function to which this return corresponds
         var func = this.context.func;
@@ -105,7 +105,7 @@ Statements.Return = Statement.extend({
         this.hasExpression = !!this.code.expr;
         if (this.code.expr){
             this.sub.returnInit = ReturnInitializer.instance(this.code, {parent: this});
-            this.sub.returnInit.compile(scope, ReturnEntity.instance(returnType), [this.code.expr]);
+            this.sub.returnInit.compile(ReturnEntity.instance(returnType), [this.code.expr]);
         }
 
         // A return statement with no expression is only allowed in void functions.
@@ -149,9 +149,10 @@ Statements.Return = Statement.extend({
 });
 
 
-
-
-
+/**
+ * @property {BlockScope} blockScope
+ *
+ */
 Statements.Block = Statements.Compound = Statement.extend({
     _name: "Block",
     initIndex: 0,
@@ -159,24 +160,20 @@ Statements.Block = Statements.Compound = Statement.extend({
         this.initParent(code, context);
         this.length = this.code.statements.length;
     },
-    compile : function(parentScope){
 
-        // if my parent is a function, just use scope from that
-        if (isA(this.parent, Declarations.FunctionDefinition)){
-            this.scope = this.parent.scope;
-        }
-        else if (this.context.scope){
-            this.scope = this.context.scope;
-        }
-        else {
-            this.scope = BlockScope.instance(parentScope);
-        }
+    i_createBlockScope : function() {
+        return BlockScope.instance(this.compileScope);
+    },
+
+    compile : function(){
+
+        this.blockScope = this.i_createBlockScope();
 
         // Compile all the statements
         this.statements = [];
         for(var i = 0; i < this.length; ++i){
-            var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this});
-            stmt.compile(this.scope);
+            var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this, scope: this.blockScope});
+            stmt.compile();
         }
     },
 
@@ -233,7 +230,13 @@ Statements.Block = Statements.Compound = Statement.extend({
     }
 });
 
+Statements.FunctionBodyBlock = Statements.Block.extend({
+    _name: "FunctionBodyBlock",
 
+    i_createBlockScope : function() {
+        return BlockScope.instance(this.compileScope);
+    }
+});
 
 
 
@@ -241,20 +244,20 @@ Statements.Block = Statements.Compound = Statement.extend({
 Statements.Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
-    compile : function(scope){
+    compile : function(){
         this["if"] = Expressions.createExpr(this.code["if"], {parent: this});
-        this["if"].compile(scope);
+        this["if"].compile();
         this["if"] = standardConversion(this["if"], Types.Bool.instance());
         if (!isA(this["if"].type, Types.Bool)){
             this.addNote(CPPError.stmt.selection.cond_bool(this, this["if"]));
         }
 
         this.then = Statements.create(this.code.then, {parent: this});
-        this.then.compile(scope);
+        this.then.compile();
 
         if (this.code["else"]){
             this["else"] = Statements.create(this.code["else"], {parent: this});
-            this["else"].compile(scope);
+            this["else"].compile();
         }
     },
 
@@ -330,20 +333,19 @@ Statements.Iteration = Statement.extend({
 Statements.While = Statements.Iteration.extend({
     _name: "While",
     initIndex: "condition",
-    compile : function(scope){
+    compile : function(){
 
-        this.scope = BlockScope.instance(scope);
+        this.body = Statements.create(this.code.body, {parent: this});
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent:this});
-        this.cond.compile(this.scope);
+        this.cond = Expressions.createExpr(this.code.cond, {parent:this, scope: this.body.scope});
+        this.cond.compile();
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
         if (!isA(this.cond.type, Types.Bool)){
             this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
         }
 
-        this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.body.compile(this.scope);
+        this.body.compile();
     },
 
     upNext : function(sim, inst){
@@ -389,27 +391,26 @@ Statements.DoWhile = Statements.While.extend({
 Statements.For = Statements.Iteration.extend({
     _name: "For",
     initIndex: "init",
-    compile : function(scope){
+    compile : function(){
 
-        this.scope = BlockScope.instance(scope);
+        this.body = Statements.create(this.code.body, {parent: this});
 
         // Note: grammar ensures this will be an expression or declaration statement
-        this.forInit = Statements.create(this.code.init, {parent: this});
-        this.forInit.compile(this.scope);
+        this.forInit = Statements.create(this.code.init, {parent: this, scope: this.body.scope});
+        this.forInit.compile();
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent: this});
-        this.cond.compile(this.scope);
+        this.cond = Expressions.createExpr(this.code.cond, {parent: this, scope: this.body.scope});
+        this.cond.compile();
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
         if (!isA(this.cond.type, Types.Bool)){
             this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
         }
 
-        this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.body.compile(this.scope);
+        this.body.compile();
 
-        this.post = Expressions.createExpr(this.code.post, {parent: this});
-        this.post.compile(this.scope);
+        this.post = Expressions.createExpr(this.code.post, {parent: this, scope: this.body.scope});
+        this.post.compile();
     },
 
 
@@ -455,7 +456,7 @@ Statements.For = Statements.Iteration.extend({
 
 Statements.Break = Statement.extend({
     _name: "Break",
-    compile : function(scope){
+    compile : function(){
 
         var container = this.parent;
         while(container && !isA(container, Statements.Iteration)){
@@ -494,7 +495,7 @@ Statements.TemporaryDeallocator = Statement.extend({
         this.temporaries = temporaries;
     },
 
-    compile : function(scope){
+    compile : function(){
 
     },
 

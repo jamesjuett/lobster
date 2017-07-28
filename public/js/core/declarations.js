@@ -1096,6 +1096,8 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         }
         this.sub.memberInitializers = [];
         this.autosToDestruct = [];
+
+        this.body = this.sub.body = Statements.Block.instance(this.code.body, {func: this, parent: this});
     },
 
     compile : function(){
@@ -1109,7 +1111,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
 
 
         // This function's scope (actually scope used for its body block)
-        this.bodyScope = FunctionBlockScope.instance();
+        this.bodyScope = this.body.blockScope;
 
         this.compileDeclarator();
         if (this.hasErrors()){
@@ -1182,7 +1184,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPCode.exten
         }
 
         // Compile the body
-        this.body = this.sub.body = Statements.Block.instance(this.code.body, {func: this, parent: this, scope: this.bodyScope});
         this.body.compile();
 
         if (this.hasErrors()){return;}
