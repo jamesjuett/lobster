@@ -22,15 +22,20 @@ var Statement = Statements.Statement = CPPConstruct.extend({
 });
 
 Statements.Unsupported = Statement.extend({
-    _name: "Unsupported",
+    _name: "Statements.Unsupported",
     compile : function(){
         this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
     }
 });
 
 Statements.Labeled = Statements.Unsupported.extend({
-    _name: "Labeled",
+    _name: "Statements.Labeled",
     englishName: "labeled statement"
+});
+
+Statements.Switch = Statements.Unsupported.extend({
+    _name: "Statements.Switch",
+    englishName: "switch statement"
 });
 
 /**
@@ -69,7 +74,9 @@ Statements.Expression = Statement.extend({
     }
 });
 
-
+Statements.Null = Statements.Expression.extend({
+    _name : "NullStatement"
+});
 
 /**
  * @property {Declaration} declaration
@@ -557,6 +564,13 @@ Statements.Break = Statement.extend({
         }
     }
 });
+
+
+Statements.Continue = Statements.Unsupported.extend({
+    _name: "Statements.Continue",
+    englishName: "continue statement"
+});
+
 
 Statements.TemporaryDeallocator = Statement.extend({
     _name: "TemporaryDeallocator",
