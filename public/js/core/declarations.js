@@ -160,12 +160,12 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
         for (var i = 0; i < this.entities.length; ++i) {
             var ent = this.entities[i];
             var decl = ent.decl;
-            var initCode = decl.code.init;
+            var initCode = decl.code.initializer;
 
             // Compile initializer
             var init;
             if (initCode){
-                if (initCode.initializerList){
+                if (initCode["construct_type"] === "initializer_list"){
                     init = InitializerList.instance(initCode, {parent: this, entity:ent});
                     init.compile();
                 }
@@ -210,7 +210,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
         // Don't have to check for classes, for similar reasons.
 
         this.isDefinition = !isA(decl.type, Types.Function)
-        && !(this.storageSpec.extern && !(decl.initializer || decl.initializerList))
+        && !(this.storageSpec.extern && !(decl.initializer))
         && !this.typedef;
 
         var entity;
@@ -488,7 +488,7 @@ var Declarator = Lobster.Declarator = CPPConstruct.extend({
         if (isMember && isA(this.type, Types.reference)){
             this.addNote(CPPError.declaration.ref.memberNotSupported(this));
         }
-        if (!isParam && !isMember && isA(this.type, Types.reference) && !code.init) {
+        if (!isParam && !isMember && isA(this.type, Types.reference) && !code.initializer) {
             this.addNote(CPPError.declaration.init.referenceBind(this));
         }
 
@@ -980,7 +980,7 @@ var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
         this.i_entityToInitialize = context.entity;
         assert(context.entity, "Initializer context must specify entity to be initialized!");
         this.initParent(code, context);
-        this.initializerListLength = code.initializerList.length;
+        this.initializerListLength = code.args.length;
     },
     compile : function(){
         var code = this.code;
@@ -989,13 +989,13 @@ var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
         if (!isA(type, Types.Array)){
             this.addNote(CPPError.declaration.init.list_array(this));
         }
-        else if (type.length !== code.initializerList.length){
+        else if (type.length !== code.args.length){
             this.addNote(CPPError.declaration.init.list_length(this, type.length));
         }
 
         if (this.hasErrors()){ return; }
 
-        var list = code.initializerList;
+        var list = code.args;
         //this.initializerList = [];
         for(var i = 0; i < list.length; ++i){
             var initListElem = this.sub["arg"+i] = this.createAndCompileChildExpr(list[i], type.elemType);
