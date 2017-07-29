@@ -57,16 +57,24 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _nextId: 0,
     initIndex: "pushChildren",
 
-    // Default function for now just uses constructor. Will be gradually phased out.
-    createFromASTSource : function() {
-        var construct = this.instance.apply(this, arguments);
+    createFromASTSource : function(ast, context) {
+        var construct = this.instance(context);
+        construct.i_setASTSource(ast);
+        this.i_createFromASTSourceImpl(construct, ast, context);
+
+        return construct;
+    },
+
+    createWithChildren : function(children, context) {
+        var construct = this.instance(context);
+        this.i_createWithChildrenImpl(construct, children, context);
+
+        return construct;
     },
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    init: function (code, context) {
-        this.code = code;
-
+    init: function (context) {
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPConstruct._nextId++;
         this.children = [];
@@ -74,7 +82,13 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         this.i_notes = [];
         this.i_hasErrors = false;
 
-        this.i_setContext(context);
+        this.i_context = context;
+    },
+
+    i_connectChild : function(childConstruct) {
+        childConstruct.i_setContext(childConstruct.i_context);
+        this.children.push(childConstruct);
+        return childConstruct;
     },
 
     i_setContext : function(context){
@@ -108,24 +122,30 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
 
 
+        // !Removed since addition of addChild function that must be called explicitly!
         // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
         // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
-        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
-            this.parent.children.push(this);
-        }
-    },
-
-    i_setASTSource : function(ast) {
-        this.i_astSource = ast;
+        // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
+        //     this.parent.children.push(this);
+        // }
     },
 
     getSourceReference : function() {
         return this.i_translationUnit.getSourceReferenceForConstruct(this);
     },
 
-    getSourceCode : function() {
-        return this.code;
+    hasASTSource : function() {
+        return !!this.i_astSource;
     },
+
+    getASTSource : function() {
+        return this.i_astSource;
+    },
+
+    i_setASTSource : function(ast) {
+        this.i_astSource = ast;
+    },
+
 
     getTranslationUnit : function() {
         return this.i_translationUnit;
@@ -917,7 +937,8 @@ var DeclaredEntity = CPPEntity.extend({
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
         if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
             && entity1.type.className === entity2.type.className) {
-            if (entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
+            if (entity1.decl.hasASTSource() && entity2.decl.hasASTSource() &&
+                entity1.decl.getASTSource().text.replace(/\s/g,'') === entity2.decl.getASTSource().text.replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
 
                 // merge the types too, so that the type system recognizes them as the same

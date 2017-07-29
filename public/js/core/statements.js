@@ -33,20 +33,24 @@ Statements.Labeled = Statements.Unsupported.extend({
     englishName: "labeled statement"
 });
 
+/**
+ * @property {Expression} expression
+ */
 Statements.Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
 
-    createFromASTSource : function(ast) {
-        Expressions.createExpressionFromASTSource(ast.expr, {parent: this});
+    i_createFromASTSourceImpl : function(construct, ast, context) {
+        this.expression = this.i_connectChild(Expressions.createExpressionFromASTSource(ast.expr));
     },
 
-
+    i_createWithChildrenImpl : function(construct, children, context) {
+        this.expression = this.i_connectChild(children.expression);
+    },
 
     compile : function(){
-		this.expression = this.createAndCompileChildExpr(this.code.expr);
+        this.expression.compile();
 	},
-
 
 	upNext : function(sim, inst){
         if (inst.index === "expr"){
@@ -67,11 +71,22 @@ Statements.Expression = Statement.extend({
 
 
 
+/**
+ * @property {Declaration} declaration
+ */
 Statements.Declaration = Statement.extend({
     _name: "DeclarationStatement",
     initIndex: "decl",
+
+    i_createFromASTSourceImpl : function(construct, ast, context) {
+        this.declaration = this.i_connectChild(Declarations.create(ast));
+    },
+
+    i_createWithChildrenImpl : function(construct, children, context) {
+        this.declaration = this.i_connectChild(children.declaration);
+    },
+
     compile : function(){
-		this.declaration = Declarations.create(this.code, {parent: this});
 		this.declaration.compile();
 
         if (!isA(this.declaration, Declarations.Declaration)){
@@ -101,18 +116,43 @@ Statements.Declaration = Statement.extend({
 
 
 
+/**
+ * @property {ReturnInitializer} returnInitializer
+ * @property {boolean} hasExpression
+ *
+ * To create with children
+ * @property {?Expression} expression
+ */
 Statements.Return = Statement.extend({
     _name: "Return",
-    compile : function(){
+
+    i_createFromASTSourceImpl : function(construct, ast, context) {
+
+        this.hasExpression = !!this.code.expr;
+        if (this.hasExpression) {
+            this.i_expression = Expressions.createFromASTSource(ast.expr);
+            this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
+        }
+    },
+
+    i_createWithChildrenImpl : function(construct, children, context) {
+        this.hasExpression = !!children.expression;
+        if (this.hasExpression) {
+            this.i_expression = children.expression;
+            this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
+        }
+    },
+
+    compile : function() {
 
         // Find function to which this return corresponds
         var func = this.containingFunction();
         var returnType = this.returnType = func.type.returnType;
 
-        this.hasExpression = !!this.code.expr;
-        if (this.code.expr){
-            this.sub.returnInit = ReturnInitializer.instance(this.code, {parent: this});
-            this.sub.returnInit.compile(ReturnEntity.instance(returnType), [this.code.expr]);
+        if (this.hasExpression){
+            // TODO: I feel like the expression argument should be connected to its parent before the compilation happens
+            this.returnInitializer.compile(ReturnEntity.instance(returnType), this.i_expression);
+            this.sub.returnInitializer = this.returnInitializer;
         }
 
         // A return statement with no expression is only allowed in void functions.
