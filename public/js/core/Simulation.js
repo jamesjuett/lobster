@@ -60,7 +60,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
         // TODO NEW move compilation of mainCall to program?
-        var mainCall = FunctionCall.instance(null, {isMainCall:true, scope: this.i_program.getGlobalScope()});
+        var mainCall = FunctionCall.instance(null, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
         mainCall.compile(this.i_program.getMainEntity(), []);
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 

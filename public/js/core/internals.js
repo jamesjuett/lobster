@@ -78,7 +78,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     i_setContext : function(context){
-        
+
         assert(context.parent !== undefined); // should be specified, even if null for root construct
         this.parent = context.parent;
 

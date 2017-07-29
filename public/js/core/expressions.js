@@ -2755,6 +2755,7 @@ var FunctionCall = Expression.extend({
     instType: "expr",
 
     init : function(code, context) {
+        this.initParent(code, context);
         if (context.isMainCall) {
             this.i_isMainCall = true;
         }
