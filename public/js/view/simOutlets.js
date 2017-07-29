@@ -2495,7 +2495,7 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
      */
     _act : {
         framePushed: function(msg){
-            //if (msg.data.func.context.implicit){
+            //if (msg.data.func.isImplicit()){
             //    return;
             //}
             var frame = msg.data;
@@ -2512,7 +2512,7 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
             }
         },
         framePopped: function(msg){
-            //if (msg.data.func.context.implicit){
+            //if (msg.data.func.isImplicit()){
             //    return;
             //}
 //            if (this.frames.length == 1){
@@ -2687,7 +2687,7 @@ Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
     },
     pushed: function(codeInst){
         // main has no caller, so we have to handle creating the outlet here
-        if (codeInst.model.context.isMainCall) {
+        if (codeInst.model.i_isMainCall) {
             this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
         }
 
@@ -2780,7 +2780,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     },
 
     pushFunction : function(funcInst, callOutlet){
-        //if (funcInst.model.context.implicit){
+        //if (funcInst.model.isImplicit()){
         //    return;
         //}
 
@@ -2810,7 +2810,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     },
 
     popFunction : function(funcInst){
-        //if (funcInst.model.context.implicit){
+        //if (funcInst.model.isImplicit()){
         //    return;
         //}
         var popped = this.frames.last();

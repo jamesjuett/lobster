@@ -615,7 +615,7 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
             var data = msg.data;
 
             // If it's main just return
-            if (this.code.context.func.isMain){
+            if (this.code.containingFunction().isMain){
                 return;
             }
 
@@ -916,7 +916,7 @@ Lobster.Outlets.CPP.CopyInitializer = Outlets.CPP.Code.extend({
 
         this.element.addClass("code-copyInitializer");
 
-        if (isA(this.code.context.parent, Declaration)){
+        if (isA(this.code.parent, Declaration)){
             this.element.append(" = ");
         }
         var self = this;

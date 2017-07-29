@@ -7,8 +7,8 @@ var findNearestTrackedConstruct = function(construct){
         return {code: construct};
     }
     // We want to attribute it to the nearest thing that has associated code which is tracked and not implicit
-    while(construct && construct.context && construct.context.parent && (construct.context.implicit || !construct.code || construct.code.start === undefined)){
-        construct = construct.context.parent;
+    while(construct && construct.parent && (construct.isImplicit() || !construct.code || construct.code.start === undefined)){
+        construct = construct.parent;
     }
 
     if (construct && construct.code){
@@ -175,7 +175,7 @@ var RecursiveCallAnnotation = WidgetAnnotation.extend({
 //                 // Check to see if any of the calls are from this context.
 //                 var self = this;
 //                 var fromContext = this.i_sourceConstruct.nonTailCycleCalls.filter(function(call){
-//                     return call.context.func === selfi_sourceConstruct;
+//                     return call.containingFunction() === selfi_sourceConstruct;
 //                 });
 //
 //                 if (fromContext.length == 0){
