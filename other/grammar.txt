@@ -795,7 +795,7 @@ octal_escape
 
 identifier "identifier"
   = first:identifierFirstChar rest:identifierChar*
-    {return track({construct_type: "identifier", identifier: first + rest.join("")}, location(), text());}
+    {return track({identifier: first + rest.join("")}, location(), text());}
 
 identifierChar = [a-zA-Z0-9_]
 
