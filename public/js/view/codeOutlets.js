@@ -600,10 +600,10 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
         this.argOutlets = [];
         this.element.append('<span class="code-keyword">return</span>');
 
-        var exprElem = this.exprElem = $("<span></span>")
-        if (this.code.sub.returnInit) {
+        var exprElem = this.exprElem = $("<span></span>");
+        if (this.code.sub.returnInitializer) {
             this.element.append(" ");
-            this.argOutlets.push(this.expr = this.addChild(createCodeOutlet(exprElem, this.code.sub.returnInit, this.simOutlet)));
+            this.argOutlets.push(this.expr = this.addChild(createCodeOutlet(exprElem, this.code.sub.returnInitializer, this.simOutlet)));
         }
         this.element.append(exprElem);
 

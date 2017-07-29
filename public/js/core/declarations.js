@@ -595,9 +595,6 @@ var fakeExpressionsFromTypes = function(types){
 
 var Initializer = Lobster.Initializer = Expression.extend({
     _name: "Initializer",
-    init: function (code, context) {
-        this.initParent(code, context);
-    },
     isTailChild : function(child){
         return {isTail: true};
     }
@@ -607,9 +604,6 @@ var Initializer = Lobster.Initializer = Expression.extend({
 var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     _name : "DefaultInitializer",
     //initIndex: "explain",
-    init: function(code, context) {
-        this.initParent(code, context);
-    },
 
     compile : function(entity) {
         assert(isA(entity, CPPEntity));
@@ -725,9 +719,6 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
 
 Lobster.DirectCopyInitializerBase = Initializer.extend({
     _name : "DirectCopyInitializerBase",
-    init: function(code, context) {
-        this.initParent(code, context);
-    },
 
     compile : function(entity, args) {
         var self = this;
