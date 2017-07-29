@@ -858,9 +858,9 @@ Expressions.Ternary = Expression.extend({
     _name: "Ternary",
     englishName: "ternary",
     subMetas : {
-        _if: {convertTo: Types.Bool.instance()},
+        condition: {convertTo: Types.Bool.instance()},
         then: {},
-        _else: {}
+        otherwise: {}
     },
     initIndex: "cond",
 
@@ -868,11 +868,11 @@ Expressions.Ternary = Expression.extend({
         var sub = this.sub;
 
         // If one of the expressions is a prvalue, make the other one as well
-        if (sub.then.valueCategory === "prvalue" && sub._else.valueCategory === "lvalue"){
-            this._else = sub._else = standardConversion1(sub._else);
+        if (sub.then.valueCategory === "prvalue" && sub.otherwise.valueCategory === "lvalue"){
+            this.otherwise = sub.otherwise = standardConversion1(sub.otherwise);
         }
 
-        if (sub._else.valueCategory === "prvalue" && sub.then.valueCategory === "lvalue"){
+        if (sub.otherwise.valueCategory === "prvalue" && sub.then.valueCategory === "lvalue"){
             this.then = sub.then = standardConversion1(sub.then);
         }
     },
@@ -880,16 +880,16 @@ Expressions.Ternary = Expression.extend({
     typeCheck : function(){
         var sub = this.sub;
 
-        if (!isA(sub._if.type, Types.Bool)){
-            this.addNote(CPPError.expr.ternary.cond_bool(sub._if, sub._if.type));
+        if (!isA(sub.condition.type, Types.Bool)){
+            this.addNote(CPPError.expr.ternary.condition_bool(sub.condition, sub.condition.type));
         }
-        if (!sameType(sub.then.type, sub._else.type)) {
-            this.addNote(CPPError.expr.ternary.sameType(this, this.then, this._else));
+        if (!sameType(sub.then.type, sub.otherwise.type)) {
+            this.addNote(CPPError.expr.ternary.sameType(this, this.then, this.otherwise));
         }
-        if (isA(sub.then.type, Types.Void) || isA(sub._else.type, Types.Void)) {
-            this.addNote(CPPError.expr.ternary.noVoid(this, this.then, this._else));
+        if (isA(sub.then.type, Types.Void) || isA(sub.otherwise.type, Types.Void)) {
+            this.addNote(CPPError.expr.ternary.noVoid(this, this.then, this.otherwise));
         }
-        if (sub.then.valueCategory !== sub._else.valueCategory){
+        if (sub.then.valueCategory !== sub.otherwise.valueCategory){
             this.addNote(CPPError.expr.ternary.sameValueCategory(this));
         }
 
@@ -899,16 +899,16 @@ Expressions.Ternary = Expression.extend({
 
     upNext : function(sim, inst){
         if (inst.index === "cond"){
-            inst._if = this.sub._if.createAndPushInstance(sim, inst);
+            inst.condition = this.sub.condition.createAndPushInstance(sim, inst);
             inst.index = "checkCond";
             return true;
         }
         else if (inst.index === "checkCond"){
-            if(inst._if.evalValue.value){
+            if(inst.condition.evalValue.value){
                 inst.then = this.sub.then.createAndPushInstance(sim, inst);
             }
             else{
-                inst._else = this.sub._else.createAndPushInstance(sim, inst);
+                inst.otherwise = this.sub.otherwise.createAndPushInstance(sim, inst);
             }
             inst.index = "operate";
             return true;
@@ -919,16 +919,16 @@ Expressions.Ternary = Expression.extend({
 
         // Evaluate subexpressions
         if (inst.index === "operate"){
-            inst.setEvalValue(inst._if.evalValue.value ? inst.then.evalValue : inst._else.evalValue);
+            inst.setEvalValue(inst.condition.evalValue.value ? inst.then.evalValue : inst.otherwise.evalValue);
             this.done(sim, inst);
         }
     },
 
     isTailChild : function(child){
-        if (child === this.sub._if){
+        if (child === this.sub.condition){
             return {isTail: false,
                 reason: "One of the two subexpressions in the ternary operator will be evaluated after the function call.",
-                others: [this.sub.then, this.sub._else]
+                others: [this.sub.then, this.sub.otherwise]
             };
         }
         else{
@@ -1852,7 +1852,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 var UnaryOp = Expressions.UnaryOp = Expression.extend({
     _name: "UnaryOp",
     //subMetas : {
-    //    operand : {parsedName : "sub"}
+    //    operand : {}
     //},
     subSequence : ["operand"],
     memberOverloadSubSequence : ["operand", "funcCall"], // does not include rhs because function call does that
@@ -1954,7 +1954,7 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
     _name: "Dereference",
     valueCategory: "lvalue",
     //subMetas : {
-    //    operand : {parsedName : "sub", convertTo: Types.Pointer}
+    //    operand : {convertTo: Types.Pointer}
     //},
     convert : function(){
         this.operand = this.sub.operand = standardConversion(this.operand, Types.Pointer);
@@ -2129,7 +2129,7 @@ Expressions.LogicalNot = UnaryOp.extend({
     valueCategory: "prvalue",
     type: Types.Bool.instance(),
     subMetas : {
-        operand : {parsedName : "sub"}
+        operand : {}
     },
     convert : function(){
         this.operand = this.sub.operand = standardConversion(this.operand, Types.Bool.instance());
@@ -2156,7 +2156,7 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
     _name: "Prefix",
     valueCategory: "lvalue",
     subMetas : {
-        operand : {parsedName : "sub"}
+        operand : {}
     },
     typeCheck : function(){
         // Type check
@@ -3782,7 +3782,7 @@ var Literal = Expressions.Literal = Expression.extend({
 var Parentheses = Expressions.Parentheses = Expression.extend({
     _name: "Parentheses",
     subMetas:{
-        subExpr: {parsedName: "sub"}
+        subExpr: {parsedName: "subexpression"}
     },
 
     typeCheck : function(){

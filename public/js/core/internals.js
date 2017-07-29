@@ -57,20 +57,20 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _nextId: 0,
     initIndex: "pushChildren",
 
-    createFromASTSource : function(ast, context) {
-        var construct = this.instance(context);
-        construct.i_setASTSource(ast);
-        this.i_createFromASTSourceImpl(construct, ast, context);
-
-        return construct;
-    },
-
-    createWithChildren : function(children, context) {
-        var construct = this.instance(context);
-        this.i_createWithChildrenImpl(construct, children, context);
-
-        return construct;
-    },
+    // createFromASTSource : function(ast, context) {
+    //     var construct = this.instance(context);
+    //     construct.i_setASTSource(ast);
+    //     this.i_createFromASTSourceImpl(construct, ast, context);
+    //
+    //     return construct;
+    // },
+    //
+    // createWithChildren : function(children, context) {
+    //     var construct = this.instance(context);
+    //     this.i_createWithChildrenImpl(construct, children, context);
+    //
+    //     return construct;
+    // },
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information

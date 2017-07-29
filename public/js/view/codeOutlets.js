@@ -458,7 +458,7 @@ Lobster.Outlets.CPP.Selection = Outlets.CPP.Statement.extend({
         this.element.append('(');
 
         var ifElem = $("<span></span>");
-        this.addChild(createCodeOutlet(ifElem, this.code["if"], this.simOutlet));
+        this.addChild(createCodeOutlet(ifElem, this.code.condition, this.simOutlet));
         this.element.append(ifElem);
 
         this.element.append(") ");
@@ -491,7 +491,7 @@ Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
         this.element.append("(");
 
         var condElem = $("<span></span>")
-        this.addChild(this.cond = createCodeOutlet(condElem, this.code.cond, this.simOutlet));
+        this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append(") ");
@@ -504,7 +504,7 @@ Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
 
     _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
-            this.cond.removeInstance();
+            this.condition.removeInstance();
             this.body.removeInstance();
         }
     })
@@ -528,7 +528,7 @@ Lobster.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
         this.element.append("\n" + htmlDecoratedKeyword("while") + "(");
 
         var condElem = $("<span></span>")
-        this.addChild(this.cond = createCodeOutlet(condElem, this.code.cond, this.simOutlet));
+        this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append(") ");
@@ -538,7 +538,7 @@ Lobster.Outlets.CPP.DoWhile = Outlets.CPP.Statement.extend({
 
     _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
-            this.cond.removeInstance();
+            this.condition.removeInstance();
             this.body.removeInstance();
         }
     })
@@ -565,7 +565,7 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
         this.element.append(" ");
 
         var condElem = $("<span></span>")
-        this.addChild(this.cond = createCodeOutlet(condElem, this.code.cond, this.simOutlet));
+        this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append("; ");
@@ -584,7 +584,7 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
 
     _act: $.extend({}, Outlets.CPP.Statement._act, {
         reset: function(){
-            this.cond.removeInstance();
+            this.condition.removeInstance();
             this.body.removeInstance();
             this.post.removeInstance();
         }
@@ -1207,7 +1207,7 @@ Lobster.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
         this.element.addClass("code-ternary");
 
         var elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub._if, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.sub.condition, this.simOutlet));
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + this.htmlOperator1 + " ");
@@ -1219,7 +1219,7 @@ Lobster.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
         this.exprElem.append(" " + this.htmlOperator2 + " ");
 
         elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub._else, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.sub.otherwise, this.simOutlet));
         this.exprElem.append(elem);
     }
 });

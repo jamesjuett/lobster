@@ -41,7 +41,7 @@ Statements.Expression = Statement.extend({
     initIndex: "expr",
 
     i_createFromASTSourceImpl : function(construct, ast, context) {
-        this.expression = this.i_connectChild(Expressions.createExpressionFromASTSource(ast.expr));
+        this.expression = this.i_connectChild(Expressions.createExpressionFromASTSource(ast.expression));
     },
 
     i_createWithChildrenImpl : function(construct, children, context) {
@@ -126,11 +126,15 @@ Statements.Declaration = Statement.extend({
 Statements.Return = Statement.extend({
     _name: "Return",
 
+    i_create : function(construct, children, context) {
+
+    },
+
     i_createFromASTSourceImpl : function(construct, ast, context) {
 
-        this.hasExpression = !!this.code.expr;
+        this.hasExpression = !!this.code.expression;
         if (this.hasExpression) {
-            this.i_expression = Expressions.createFromASTSource(ast.expr);
+            this.i_expression = Expressions.createFromASTSource(ast.expression);
             this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
         }
     },
@@ -141,6 +145,10 @@ Statements.Return = Statement.extend({
             this.i_expression = children.expression;
             this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
         }
+    },
+
+    init : function(context) {
+
     },
 
     compile : function() {
@@ -157,13 +165,13 @@ Statements.Return = Statement.extend({
 
         // A return statement with no expression is only allowed in void functions.
         // At the moment, constructors/destructors are hacked to have void return type.
-        if (!this.code.expr && !isA(func.type.returnType, Types.Void)){
+        if (!this.code.expression && !isA(func.type.returnType, Types.Void)){
             this.addNote(CPPError.stmt._return.empty(this))
         }
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
-        //if (this.code.expr && !isA(this.expression.type, Types.Void) && isA(func.type.returnType, Types.Void)){
+        //if (this.code.expression && !isA(this.expression.type, Types.Void) && isA(func.type.returnType, Types.Void)){
         //    this.addNote(CPPError.stmt._return.exprVoid(this));
         //    return;
         //}
@@ -203,11 +211,12 @@ Statements.Return = Statement.extend({
 Statements.Block = Statements.Compound = Statement.extend({
     _name: "Block",
     initIndex: 0,
+
+
     init: function(code, context){
         this.initParent(code, context);
         this.length = this.code.statements.length;
 
-        this.blockScope = this.i_createBlockScope();
     },
 
     i_createBlockScope : function() {
@@ -216,6 +225,7 @@ Statements.Block = Statements.Compound = Statement.extend({
 
     compile : function(){
 
+        this.blockScope = this.i_createBlockScope();
 
         // Compile all the statements
         this.statements = [];
@@ -293,11 +303,11 @@ Statements.Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
     compile : function(){
-        this["if"] = Expressions.createExpressionFromASTSource(this.code["if"], {parent: this});
-        this["if"].compile();
-        this["if"] = standardConversion(this["if"], Types.Bool.instance());
-        if (!isA(this["if"].type, Types.Bool)){
-            this.addNote(CPPError.stmt.selection.cond_bool(this, this["if"]));
+        this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {parent: this});
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
         }
 
         this.then = Statements.create(this.code.then, {parent: this});
@@ -311,12 +321,12 @@ Statements.Selection = Statement.extend({
 
     upNext : function(sim, inst){
         if(inst.index == "condition"){
-            inst["if"] = this["if"].createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "body";
             return true;
         }
         else if (inst.index == "body"){
-            if(inst["if"].evalValue.value){
+            if(inst.condition.evalValue.value){
                 inst.then = this.then.createAndPushInstance(sim, inst);
                 inst.index = "done";
                 return true;
@@ -340,7 +350,7 @@ Statements.Selection = Statement.extend({
     },
 
     isTailChild : function(child){
-        if (child === this["if"]){
+        if (child === this.condition){
             return {isTail: false,
                 reason: "After the function returns, one of the branches will run.",
                 others: [this.then, this["else"]]
@@ -391,17 +401,17 @@ Statements.While = Statements.Iteration.extend({
         // Or maybe we could just decide to parse it correctly (will still require some changes), but
         // then simply say it's not supported since it's such a rare thing.
 
-        this.cond = Expressions.createExpressionFromASTSource(this.code.cond, {
+        this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {
             parent: this,
             scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope)
         });
 
 
-        this.cond.compile();
-        this.cond = standardConversion(this.cond, Types.Bool.instance());
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
 
-        if (!isA(this.cond.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
         }
 
         this.body.compile();
@@ -413,12 +423,12 @@ Statements.While = Statements.Iteration.extend({
         }
         else if(inst.index == "condition"){
             inst.send("reset");
-            inst.cond = this.cond.createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "checkCond";
             return true;
         }
         else if (inst.index == "checkCond"){
-            if(inst.cond.evalValue.value) {
+            if(inst.condition.evalValue.value) {
                 inst.index = "body";
             }
             else{
@@ -460,12 +470,12 @@ Statements.For = Statements.Iteration.extend({
         this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});
         this.forInit.compile();
 
-        this.cond = Expressions.createExpressionFromASTSource(this.code.cond, {parent: this, scope: bodyScope});
-        this.cond.compile();
-        this.cond = standardConversion(this.cond, Types.Bool.instance());
+        this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {parent: this, scope: bodyScope});
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
 
-        if (!isA(this.cond.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
         }
 
         this.body.compile();
@@ -486,12 +496,12 @@ Statements.For = Statements.Iteration.extend({
         }
         else if(inst.index == "condition"){
             inst.send("reset");
-            inst.cond = this.cond.createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "body";
             return true;
         }
         else if (inst.index == "body"){
-            if(inst.cond.evalValue.value){
+            if(inst.condition.evalValue.value){
                 inst.body = this.body.createAndPushInstance(sim, inst);
                 inst.index = "post";
                 return true;
@@ -528,7 +538,7 @@ Statements.Break = Statement.extend({
 
         // container should exist, otherwise this break is somewhere it shouldn't be
         if (!container || !isA(container, Statements.Iteration)){
-            this.addNote(CPPError.stmt._break.location(this, this["if"]));
+            this.addNote(CPPError.stmt._break.location(this, this.condition));
         }
     },
 

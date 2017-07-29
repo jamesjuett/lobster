@@ -758,7 +758,7 @@ var CPPError = {
     },
 };
 
-CPPError.stmt.iteration.cond_bool = CPPError.stmt.selection.cond_bool;
+CPPError.stmt.iteration.condition_bool = CPPError.stmt.selection.condition_bool;
 
 var CPPNote = {
     attributeEmptyTo: function (problems, code) {
