@@ -36,6 +36,13 @@ Statements.Labeled = Statements.Unsupported.extend({
 Statements.Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
+
+    createFromASTSource : function(ast) {
+        Expressions.createExpressionFromASTSource(ast.expr, {parent: this});
+    },
+
+
+
     compile : function(){
 		this.expression = this.createAndCompileChildExpr(this.code.expr);
 	},
@@ -99,7 +106,7 @@ Statements.Return = Statement.extend({
     compile : function(){
 
         // Find function to which this return corresponds
-        var func = this.context.func;
+        var func = this.containingFunction();
         var returnType = this.returnType = func.type.returnType;
 
         this.hasExpression = !!this.code.expr;
@@ -246,7 +253,7 @@ Statements.Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
     compile : function(){
-        this["if"] = Expressions.createExpr(this.code["if"], {parent: this});
+        this["if"] = Expressions.createExpressionFromASTSource(this.code["if"], {parent: this});
         this["if"].compile();
         this["if"] = standardConversion(this["if"], Types.Bool.instance());
         if (!isA(this["if"].type, Types.Bool)){
@@ -344,7 +351,7 @@ Statements.While = Statements.Iteration.extend({
         // Or maybe we could just decide to parse it correctly (will still require some changes), but
         // then simply say it's not supported since it's such a rare thing.
 
-        this.cond = Expressions.createExpr(this.code.cond, {
+        this.cond = Expressions.createExpressionFromASTSource(this.code.cond, {
             parent: this,
             scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope)
         });
@@ -413,7 +420,7 @@ Statements.For = Statements.Iteration.extend({
         this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});
         this.forInit.compile();
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent: this, scope: bodyScope});
+        this.cond = Expressions.createExpressionFromASTSource(this.code.cond, {parent: this, scope: bodyScope});
         this.cond.compile();
         this.cond = standardConversion(this.cond, Types.Bool.instance());
 
@@ -423,7 +430,7 @@ Statements.For = Statements.Iteration.extend({
 
         this.body.compile();
 
-        this.post = Expressions.createExpr(this.code.post, {parent: this, scope: bodyScope});
+        this.post = Expressions.createExpressionFromASTSource(this.code.post, {parent: this, scope: bodyScope});
         this.post.compile();
     },
 

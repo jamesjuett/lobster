@@ -78,52 +78,40 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     i_setContext : function(context){
-
-        this.context = context;
-
-
-        // Find function context if none set
-        if (!this.context.func && this.context.parent){
-            this.context.func = this.context.parent.context.func;
-        }
-
-        if (this.context.parent && this.context.parent.context.implicit) {
-            this.context.implicit = true;
-        }
-
+        
+        assert(context.parent !== undefined); // should be specified, even if null for root construct
         this.parent = context.parent;
 
-        // by default, auxiliary level inherited from parent.
-        // if no parent, base auxiliary level of 0
-        if (!this.context.auxiliary) {
+        // Use containing function from context or inherit from parent
+        this.i_containingFunction = context.func || (this.parent && this.parent.i_containingFunction);
+
+        // Use implicit from context or inherit from parent
+        this.i_isImplicit = context.implicit || (this.parent && this.parent.i_isImplicit);
+
+        // Use implicit from context, inherit from parent, or use default of 0
+        if (context.auxiliaryLevel !== undefined) {
+            this.i_auxiliaryLevel = context.auxiliaryLevel;
+        }
+        else {
             if (this.parent){
-                this.context.auxiliary = this.parent.context.auxiliary;
+                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel;
             }
             else{
-                this.context.auxiliary = 0;
+                this.i_auxiliaryLevel = 0;
             }
         }
 
-        // Inherit parent's scope, unless a different scope was specified
-        if(this.context.scope) {
-            this.contextualScope = this.context.scope;
-        }
-        else if (this.parent) {
-            this.contextualScope = this.parent.contextualScope;
-        }
+        // If a contextual scope was specified, use that. Otherwise inherit from parent
+        this.contextualScope = context.scope || (this.parent && this.parent.contextualScope);
 
-        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
+        // Use translation unit from context or inherit from parent
+        this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
+
+
+        // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
+        // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
+        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
             this.parent.children.push(this);
-        }
-
-        // Inherit implicit property of parent's context
-        if (this.parent && this.parent.context.implicit) {
-            this.context.implicit = true;
-        }
-
-        // Inherit translation unit of parent
-        if (this.parent && this.parent.context.translationUnit) {
-            this.context.translationUnit = this.parent.context.translationUnit;
         }
     },
 
@@ -132,7 +120,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     getSourceReference : function() {
-        return this.context.translationUnit.getSourceReferenceForConstruct(this);
+        return this.i_translationUnit.getSourceReferenceForConstruct(this);
     },
 
     getSourceCode : function() {
@@ -140,7 +128,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     getTranslationUnit : function() {
-        return this.context.translationUnit;
+        return this.i_translationUnit;
     },
 
     compile: Class._ABSTRACT,
@@ -179,7 +167,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     createAndCompileChildExpr : function(childCode, convertTo){
-        var child = Expressions.createExpr(childCode, {parent: this});
+        var child = Expressions.createExpressionFromASTSource(childCode, {parent: this});
         child.tryCompile();
         if (convertTo){
             child = standardConversion(child, convertTo);
@@ -255,7 +243,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         if (note.getType() === Note.TYPE_ERROR) {
             this.i_hasErrors = true;
         }
-        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
+        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
             this.parent.addNote(note);
         }
     },
@@ -269,7 +257,19 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     getSourceReference : function() {
-        return this.context.translationUnit.getSourceReferenceForConstruct(this);
+        return this.i_translationUnit.getSourceReferenceForConstruct(this);
+    },
+
+    isAuxiliary : function() {
+        return this.i_auxiliaryLevel > 0;
+    },
+
+    isImplicit : function() {
+        return this.i_isImplicit;
+    },
+
+    containingFunction : function() {
+        return this.i_containingFunction;
     }
 });
 
@@ -318,7 +318,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         this.subCalls = Entities.List.instance();
         this.parent = parent;
         this.pushedChildren = [];
-        assert(this.parent || this.model.context.isMainCall, "All code instances must have a parent.");
+        assert(this.parent || this.model.i_isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
 
@@ -334,7 +334,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
 
         }
 
-        if (this.model.context.isMainCall){
+        if (this.model.i_isMainCall){
             this.funcContext = this;
         }
 
@@ -1993,9 +1993,9 @@ var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
 var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend({
     _name: "MemberFunctionEntity",
     isMemberFunction: true,
-    init: function(decl, memberOfClass, virtual){
+    init: function(decl, containingClass, virtual){
         this.initParent(decl);
-        this.memberOfClass = memberOfClass;
+        this.i_containingClass = containingClass;
         this.virtual = virtual;
         this.pureVirtual = decl.pureVirtual;
         // May be set to virtual if it's discovered to be an overrider
@@ -2004,7 +2004,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         this.checkForOverride();
     },
     checkForOverride : function(){
-        if (!this.memberOfClass.getBaseClass()){
+        if (!this.i_containingClass.getBaseClass()){
             return;
         }
 
@@ -2012,7 +2012,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.memberOfClass.getBaseClass().classScope.singleLookup(this.name, {
+        var overridden = this.i_containingClass.getBaseClass().classScope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 

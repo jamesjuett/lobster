@@ -2,7 +2,7 @@ var Lobster = Lobster || {};
 
 Lobster.Expressions = {
 	
-	createExpr : function(expr, context){
+	createExpressionFromASTSource : function(expr, context){
         if (isA(expr, EntityExpression)){
             return expr;
         }
@@ -76,7 +76,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 
         for (var subName in this.subMetas) {
             var subMeta = this.subMetas[subName];
-            var sub = this[subName] = this.sub[subName] = this.originalSub[subName] = Expressions.createExpr(this.code[subMeta.parsedName || subName], {parent: this});
+            var sub = this[subName] = this.sub[subName] = this.originalSub[subName] = Expressions.createExpressionFromASTSource(this.code[subMeta.parsedName || subName], {parent: this});
             sub.compile();
 
             if (subMeta.convertTo) {
@@ -250,19 +250,19 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 
         // Special case - an auxiliary expression is always its own full expression.
         // e.g. We don't want temporaries from auxiliary expressions to sneak in!
-        if (this.context.auxiliary){
+        if (this.isAuxiliary()){
             return true;
         }
 
         // Special case - initializer that is in context of declaration and does not require function call is not
         // considered an expression.
         // So if our parent is one of these, then we are the full expression!
-        var parent = this.context.parent;
+        var parent = this.parent;
         if (isA(parent, Initializer) && (isA(parent.parent, Declaration) && !parent.makesFunctionCall)){
             return true;
         }
 
-        return !isA(this.context.parent, Expression);
+        return !isA(this.parent, Expression);
     },
 
     /**
@@ -274,7 +274,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
             return this;
         }
         else{
-            return this.context.parent.findFullExpression();
+            return this.parent.findFullExpression();
         }
     },
 
@@ -285,7 +285,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     // testing is more mature.
     // setContext : function(context){
     //     // Don't do anything special for first time
-    //     if (!this.context.parent){
+    //     if (!this.parent){
     //         CPPConstruct.setContext.apply(this, arguments);
     //         return;
     //     }
@@ -956,7 +956,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
             //var assnOp = this.lhs.type.getMember(["operator="]);
-            var auxRhs = Expressions.createExpr(this.code.rhs, {parent: this, auxiliary: this.context.auxiliary + 1});
+            var auxRhs = Expressions.createExpressionFromASTSource(this.code.rhs, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
             auxRhs.compile();
 
             try{
@@ -1264,8 +1264,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
     compile : function(){
 
         // Compile left
-        var auxLeft = Expressions.createExpr(this.code.left, {parent: this, auxiliary: this.context.auxiliary + 1});
-        var auxRight = Expressions.createExpr(this.code.right, {parent: this, auxiliary: this.context.auxiliary + 1});
+        var auxLeft = Expressions.createExpressionFromASTSource(this.code.left, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
+        var auxRight = Expressions.createExpressionFromASTSource(this.code.right, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
 
         auxLeft.compile();
         auxRight.compile();
@@ -1863,7 +1863,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     },
 
     compile : function(){
-        var auxOperand = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
+        var auxOperand = Expressions.createExpressionFromASTSource(this.code.sub, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
         auxOperand.compile();
 
         if (isA(auxOperand.type, Types.Class)){
@@ -2336,7 +2336,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         if (isA(this.operand.type, Types.Class)){
             this.isOverloaded = true;
 
-            var auxOffset = Expressions.createExpr(this.code.sub, {parent: this, auxiliary: this.context.auxiliary + 1});
+            var auxOffset = Expressions.createExpressionFromASTSource(this.code.sub, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
             auxOffset.compile();
 
             this.processMemberOverload(this.operand, [auxOffset], "[]");
@@ -2462,6 +2462,10 @@ var Dot = Expressions.Dot = Expression.extend({
     init: function(code, context){
         this.initParent(code, context);
         this.memberName = this.code.member.identifier;
+        this.i_paramContext = {
+            params : context.params,
+            paramTypes : context.paramTypes
+        }
     },
     typeCheck : function(){
         if (!isA(this.operand.type, Types.Class)) {
@@ -2471,7 +2475,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
         // Find out what this identifies
         try {
-            this.entity = this.operand.type.classScope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.isConst}));
+            this.entity = this.operand.type.classScope.requiredLookup(this.memberName, copyMixin(this.i_paramContext, {isThisConst:this.operand.type.isConst}));
             this.type = this.entity.type;
         }
         catch(e){
@@ -2545,6 +2549,10 @@ var Arrow = Expressions.Arrow = Expression.extend({
     init: function(code, context){
         this.initParent(code, context);
         this.memberName = this.code.member.identifier;
+        this.i_paramContext = {
+            params : context.params,
+            paramTypes : context.paramTypes
+        }
     },
     typeCheck : function(){
         if (!isA(this.operand.type, Types.Pointer) || !isA(this.operand.type.ptrTo, Types.Class)) {
@@ -2554,7 +2562,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
 
         // Find out what this identifies
         try{
-            this.entity = this.operand.type.ptrTo.classScope.requiredLookup(this.memberName, copyMixin(this.context, {isThisConst:this.operand.type.ptrTo.isConst}));
+            this.entity = this.operand.type.ptrTo.classScope.requiredLookup(this.memberName, copyMixin(this.i_paramContext, {isThisConst:this.operand.type.ptrTo.isConst}));
             this.type = this.entity.type;
         }
         catch(e){
@@ -2746,6 +2754,14 @@ var FunctionCall = Expression.extend({
     initIndex: "arguments",
     instType: "expr",
 
+    init : function(code, context) {
+        if (context.isMainCall) {
+            this.i_isMainCall = true;
+        }
+
+        this.i_receiver = context.receiver || null;
+    },
+
     compile : function(func, args) {
         var self = this;
         assert(isA(func, FunctionEntity));
@@ -2753,7 +2769,7 @@ var FunctionCall = Expression.extend({
         this.func = func;
         //this.args = args;
 
-        if (this.func.isMain && !this.context.isMainCall){
+        if (this.func.isMain && !this.i_isMainCall){
             this.addNote(CPPError.expr.functionCall.numParams(this));
 
         }
@@ -2761,7 +2777,7 @@ var FunctionCall = Expression.extend({
         // Is the function statically bound?
         if (this.func.isStaticallyBound()){
             this.staticFunction = this.func;
-            this.isRecursive = !this.context.isMainCall && this.staticFunction === this.context.func.entity;
+            this.isRecursive = !this.i_isMainCall && this.staticFunction === this.containingFunction().entity;
         }
 
         this.type = this.func.type.returnType;
@@ -2801,12 +2817,12 @@ var FunctionCall = Expression.extend({
                 this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
-            if (!this.context.isMainCall && !this.context.auxiliary){
+            if (!this.i_isMainCall && !this.isAuxiliary()){
                 // Register as a function call in our function context
-                this.context.func.calls.push(this);
+                this.containingFunction().calls.push(this);
 
                 // Register as a call in the translation unit (this is used during the linking process later)
-                this.context.translationUnit.registerFunctionCall(this);
+                this.i_translationUnit.registerFunctionCall(this);
             }
         }
 
@@ -2860,7 +2876,7 @@ var FunctionCall = Expression.extend({
         this.isTail = isTail;
         this.isTailReason = reason;
         this.isTailOthers = others;
-        //this.context.func.isTailRecursive = this.context.func.isTailRecursive && isTail;
+        //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
 
         this.canUseTCO = this.isRecursive && this.isTail;
     },
@@ -2869,10 +2885,10 @@ var FunctionCall = Expression.extend({
         var inst = Expression.createInstance.apply(this, arguments);
         inst.receiver = receiver;
 
-        if (!inst.receiver && this.context.receiver){
+        if (!inst.receiver && this.i_receiver){
             // Used for constructors. Make sure to look up in context of parent instance
             // or else you'll be looking at the wrong thing for parameter entities.
-            inst.receiver = this.context.receiver.lookup(sim, parent);
+            inst.receiver = this.i_receiver.lookup(sim, parent);
         }
 
         // For function pointers. It's a hack!
@@ -2982,7 +2998,7 @@ var FunctionCall = Expression.extend({
     },
 
     stepForward : function(sim, inst){
-        //if (this.func && this.func.decl && this.func.decl.context.implicit){
+        //if (this.func && this.func.decl && this.func.decl.isImplicit()){
         //    setTimeout(function(){
         //        while (!inst.hasBeenPopped){
         //            sim.stepForward();
@@ -3058,7 +3074,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
 
         // Need to select function, so have to compile auxiliary arguments
         var auxArgs = this.code.args.map(function(arg){
-            var auxArg = Expressions.createExpr(arg, {parent: self, auxiliary: self.context.auxiliary + 1});
+            var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliaryLevel: self.i_auxiliaryLevel + 1});
             auxArg.tryCompile();
             return auxArg;
         });
@@ -3077,7 +3093,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         var argTypes = auxArgs.map(function(arg){
             return arg.type;
         });
-        this.operand = this.operand = Expressions.createExpr(this.code.operand, {parent:this, paramTypes: argTypes});
+        this.operand = this.operand = Expressions.createExpressionFromASTSource(this.code.operand, {parent:this, paramTypes: argTypes});
 
         this.operand.compile();
 
@@ -3603,12 +3619,16 @@ var Identifier = Expressions.Identifier = Expression.extend({
         this.initParent(code, context);
         this.identifier = this.code.identifier;
         this.identifierText = identifierToText(this.identifier);
+        this.i_paramContext = {
+            params : context.params,
+            paramTypes : context.paramTypes
+        }
     },
     typeCheck : function(){
         checkIdentifier(this, this.identifier, this);
 
 		try{
-            this.entity = this.contextualScope.requiredLookup(this.identifier, copyMixin(this.context, {isThisConst:this.context.func.type.isThisConst}));
+            this.entity = this.contextualScope.requiredLookup(this.identifier, copyMixin(this.i_paramContext, {isThisConst:this.containingFunction().type.isThisConst}));
 
             if(isA(this.entity, CPPEntity)) {
                 this.type = this.entity.type;
@@ -3661,7 +3681,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     _name: "ThisExpression",
     valueCategory: "prvalue",
     compile : function(){
-        var func = this.context.func;
+        var func = this.containingFunction();
         if (func.isMemberFunction){
             this.type = Types.Pointer.instance(func.receiverType);
         }
