@@ -64,8 +64,8 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     initIndex : "subexpressions",
     instType : "expr",
     conversionLength: 0,
-    init: function(code, context){
-        this.initParent(code, context);
+    init: function(source, context){
+        this.initParent(source, context);
         this.sub = {};
         this.originalSub = {};
     },
@@ -362,7 +362,7 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
         this.type = toType;
         this.valueCategory = valueCategory;
 
-        if (isA(from), Conversions.ImplicitConversion){
+        if (isA(from, Conversions.ImplicitConversion)){
             this.conversionLength = from.conversionLength+1;
         }
         else{

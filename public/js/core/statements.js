@@ -40,17 +40,18 @@ Statements.Switch = Statements.Unsupported.extend({
 
 /**
  * @property {Expression} expression
+ *
+ * * When creating an instance, specify these options
+ *  - expression
+ *
  */
 Statements.Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
 
-    i_createFromASTSourceImpl : function(construct, ast, context) {
-        this.expression = this.i_connectChild(Expressions.createExpressionFromASTSource(ast.expression));
-    },
-
-    i_createWithChildrenImpl : function(construct, children, context) {
-        this.expression = this.i_connectChild(children.expression);
+    init : function(source, context) {
+        this.initParent(source, context);
+        this.expression = this.i_createAndConnectChild(source.expression);
     },
 
     compile : function(){
@@ -80,17 +81,18 @@ Statements.Null = Statements.Expression.extend({
 
 /**
  * @property {Declaration} declaration
+ *
+ * * When creating an instance, specify these options
+ *  - declaration
+ *
  */
 Statements.Declaration = Statement.extend({
     _name: "DeclarationStatement",
     initIndex: "decl",
 
-    i_createFromASTSourceImpl : function(construct, ast, context) {
-        this.declaration = this.i_connectChild(Declarations.create(ast));
-    },
-
-    i_createWithChildrenImpl : function(construct, children, context) {
-        this.declaration = this.i_connectChild(children.declaration);
+    init : function(source, context) {
+        this.initParent(source, context);
+        this.declaration = this.i_createAndConnectChild(source.declaration);
     },
 
     compile : function(){
@@ -125,60 +127,51 @@ Statements.Declaration = Statement.extend({
 
 /**
  * @property {ReturnInitializer} returnInitializer
- * @property {boolean} hasExpression
- *
- * To create with children
  * @property {?Expression} expression
+ * @property {Type} returnType
+ *
+ * When creating an instance, specify these options
+ *  - expression (optional)
+ *
  */
 Statements.Return = Statement.extend({
     _name: "Return",
 
-    i_create : function(construct, children, context) {
+    init : function(source, context) {
+        this.initParent(source, context);
 
-    },
-
-    i_createFromASTSourceImpl : function(construct, ast, context) {
-
-        this.hasExpression = !!this.code.expression;
-        if (this.hasExpression) {
-            this.i_expression = Expressions.createFromASTSource(ast.expression);
-            this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
+        // If we have a return expression, create an initializer with that expression
+        if (source.expression) {
+            this.returnInitializer = ReturnInitializer.instance({
+                args: [source.expression]
+            }, {parent: this});
+            this.expression = this.returnInitializer.expression;
         }
-    },
-
-    i_createWithChildrenImpl : function(construct, children, context) {
-        this.hasExpression = !!children.expression;
-        if (this.hasExpression) {
-            this.i_expression = children.expression;
-            this.returnInitializer = this.i_connectChild(ReturnInitializer.instance());
+        else {
+            this.expression = null;
         }
-    },
-
-    init : function(context) {
-
     },
 
     compile : function() {
 
         // Find function to which this return corresponds
-        var func = this.containingFunction();
-        var returnType = this.returnType = func.type.returnType;
+        var returnType = this.returnType = this.containingFunction().type.returnType;
 
-        if (this.hasExpression){
-            // TODO: I feel like the expression argument should be connected to its parent before the compilation happens
-            this.returnInitializer.compile(ReturnEntity.instance(returnType), this.i_expression);
+        if (this.expression){
+            this.returnInitializer.compile(ReturnEntity.instance(returnType));
             this.sub.returnInitializer = this.returnInitializer;
         }
 
         // A return statement with no expression is only allowed in void functions.
-        // At the moment, constructors/destructors are hacked to have void return type.
-        if (!this.code.expression && !isA(func.type.returnType, Types.Void)){
+        // At the moment, constructors/destructors are hacked to have void return type,
+        // so this check is ok for return statements in a constructor.
+        if (!this.code.expression && !isA(returnType, Types.Void)){
             this.addNote(CPPError.stmt._return.empty(this))
         }
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
-        //if (this.code.expression && !isA(this.expression.type, Types.Void) && isA(func.type.returnType, Types.Void)){
+        //if (this.code.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
         //    this.addNote(CPPError.stmt._return.exprVoid(this));
         //    return;
         //}
@@ -213,15 +206,26 @@ Statements.Return = Statement.extend({
 
 /**
  * @property {BlockScope} blockScope
+ * @property {Number} length - The number of statements within the block
+ * @property {Statement[]} statements
+ *
+ * When creating an instance, specify these
+ *  - statements
  *
  */
 Statements.Block = Statements.Compound = Statement.extend({
     _name: "Block",
     initIndex: 0,
 
+    init: function(source, context){
+        this.initParent(source, context);
 
-    init: function(code, context){
-        this.initParent(code, context);
+        this.blockScope = this.i_createBlockScope();
+
+        var self = this;
+        this.statements = source.statements.map(function(stmt){
+            self.i_createAndConnectChild(stmt, {scope: self.blockScope});
+        });
         this.length = this.code.statements.length;
 
     },
@@ -232,14 +236,10 @@ Statements.Block = Statements.Compound = Statement.extend({
 
     compile : function(){
 
-        this.blockScope = this.i_createBlockScope();
-
         // Compile all the statements
-        this.statements = [];
-        for(var i = 0; i < this.length; ++i){
-            var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this, scope: this.blockScope});
+        this.statements.forEach(function(stmt){
             stmt.compile();
-        }
+        });
     },
 
     createInstance : function(){
@@ -309,21 +309,27 @@ Statements.FunctionBodyBlock = Statements.Block.extend({
 Statements.Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
+
+    init : function(source, context) {
+        this.initParent(source, context);
+        this.condition = this.i_createAndConnectChild(source.condition);
+        this.then = this.i_createAndConnectChild(source.then);
+        this.otherwise = this.i_createAndConnectChild(source.otherwise);
+
+    },
+
     compile : function(){
-        this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {parent: this});
+
+        // Compile condition, convert to bool
         this.condition.compile();
         this.condition = standardConversion(this.condition, Types.Bool.instance());
         if (!isA(this.condition.type, Types.Bool)){
             this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
         }
 
-        this.then = Statements.create(this.code.then, {parent: this});
         this.then.compile();
 
-        if (this.code["else"]){
-            this["else"] = Statements.create(this.code["else"], {parent: this});
-            this["else"].compile();
-        }
+        this.otherwise && this.otherwise.compile();
     },
 
     upNext : function(sim, inst){
@@ -339,8 +345,8 @@ Statements.Selection = Statement.extend({
                 return true;
             }
             else{
-                if (this["else"]) {
-                    inst["else"] = this["else"].createAndPushInstance(sim, inst);
+                if (this.otherwise) {
+                    inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
                 }
                 inst.index = "done";
                 return true;
@@ -360,11 +366,11 @@ Statements.Selection = Statement.extend({
         if (child === this.condition){
             return {isTail: false,
                 reason: "After the function returns, one of the branches will run.",
-                others: [this.then, this["else"]]
+                others: [this.then, this.otherwise]
             }
         }
         else{
-            if (this["else"]){
+            if (this.otherwise){
                 //if (child === this.then){
                     return {isTail: true,
                         reason: "Only one branch in a selection structure (i.e. if/else) can ever execute, so don't worry about the code in the other branches."
@@ -398,25 +404,27 @@ Statements.Iteration = Statement.extend({
 Statements.While = Statements.Iteration.extend({
     _name: "While",
     initIndex: "condition",
-    compile : function(){
 
-        this.body = Statements.create(this.code.body, {parent: this});
+    init : function(source, context) {
+        this.initParent(source, context);
+
+        this.body = this.i_createAndConnectChild(source.body);
 
         // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
         // This appears to be currently impossible in Lobster, but when implemented it will require
         // special implementation of the scope of the body if it's not already a block.
         // Or maybe we could just decide to parse it correctly (will still require some changes), but
         // then simply say it's not supported since it's such a rare thing.
-
-        this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {
-            parent: this,
-            scope: (isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope)
+        this.condition = this.i_createAndConnectChild(source.condition, {
+            scope : (isA(this.body, Statements.Block) ? this.body.blockScope : this.contextualScope)
         });
 
+    },
+
+    compile : function(){
 
         this.condition.compile();
         this.condition = standardConversion(this.condition, Types.Bool.instance());
-
         if (!isA(this.condition.type, Types.Bool)){
             this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
         }
@@ -467,14 +475,30 @@ Statements.DoWhile = Statements.While.extend({
 Statements.For = Statements.Iteration.extend({
     _name: "For",
     initIndex: "init",
+
+    init : function(source, context) {
+        this.initParent(source, context);
+
+        this.body = this.i_createAndConnectChild(source.body);
+
+        this.bodyScope = (isA(this.body, Statements.Block) ? this.body.blockScope : BlockScope.instance(this.contextualScope);
+
+        // Note: grammar ensures this will be an expression or declaration statement
+        this.initial = this.i_createAndConnectChild(source.initial, {scope: bodyScope});
+
+
+        this.condition = this.i_createAndConnectChild(source.condition, {
+            scope : (isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope)
+        });
+
+    },
+
     compile : function(){
 
         this.body = Statements.create(this.code.body, {parent: this});
 
         var bodyScope = isA(this.body, Statements.Block) ? this.bodyScope : this.contextualScope;
 
-        // Note: grammar ensures this will be an expression or declaration statement
-        this.forInit = Statements.create(this.code.init, {parent: this, scope: bodyScope});
         this.forInit.compile();
 
         this.condition = Expressions.createExpressionFromASTSource(this.code.condition, {parent: this, scope: bodyScope});

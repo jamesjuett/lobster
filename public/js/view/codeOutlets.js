@@ -467,12 +467,12 @@ Lobster.Outlets.CPP.Selection = Outlets.CPP.Statement.extend({
         this.addChild(createCodeOutlet(thenElem, this.code.then, this.simOutlet));
         this.element.append(thenElem);
 
-        if (this.code["else"]){
+        if (this.code.otherwise){
             this.element.append("<br />");
             this.element.append(htmlDecoratedKeyword("else"));
             this.element.append(" ");
             var elseElem = $("<span></span>");
-            this.addChild(createCodeOutlet(elseElem, this.code["else"], this.simOutlet));
+            this.addChild(createCodeOutlet(elseElem, this.code.otherwise, this.simOutlet));
             this.element.append(elseElem);
         }
     }
@@ -559,7 +559,7 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
         this.element.append("(");
 
         var initElem = $("<span></span>")
-        this.addChild(this.forInit = createCodeOutlet(initElem, this.code.forInit, this.simOutlet));
+        this.addChild(this.initial = createCodeOutlet(initElem, this.code.initial, this.simOutlet));
         this.element.append(initElem);
 
         this.element.append(" ");

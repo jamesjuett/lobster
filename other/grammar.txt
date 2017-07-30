@@ -38,12 +38,14 @@
   }
 
   function track(obj, location, text){
-    obj.location = location;
-    obj.start = location.start.offset;
-    obj.text = text;
-    obj.line = location.start.line;
-    obj.column = location.start.column;
-    obj.end = obj.start + obj.text.length;
+    obj.code = {
+      location : location,
+      start : location.start.offset,
+      text : text,
+      line : location.start.line,
+      column : location.start.column,
+      end : obj.start + obj.text.length
+    };
     return obj;
   }
 
@@ -171,7 +173,7 @@ iteration_statement
   / "do" !identifierChar ws body:statement ws "while" ws "(" ws cond:expression ws ")" ws ";" { return {construct_type:"dowhile_statement", condition:cond, body:body}; }
 
   / "for" ws "(" ws init:for_init_statement ws cond:expression ws ";" ws post:expression ws ")" ws body:statement
-    { return {construct_type:"for_statement", condition:cond, init:init, post:post, body:body}; }
+    { return {construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}; }
 
 for_init_statement
   = expression_statement
