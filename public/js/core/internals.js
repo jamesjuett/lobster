@@ -57,13 +57,13 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _nextId: 0,
     initIndex: "pushChildren",
 
-    // createFromASTSource : function(ast, context) {
-    //     var construct = this.instance(context);
-    //     construct.i_setASTSource(ast);
-    //     this.i_createFromASTSourceImpl(construct, ast, context);
-    //
-    //     return construct;
-    // },
+    createFromASTSource : function(ast, context) {
+        var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
+        var construct = constructClass.instance(ast, context);
+        construct.i_setASTSource(ast);
+
+        return construct;
+    },
     //
     // createWithChildren : function(children, context) {
     //     var construct = this.instance(context);
@@ -74,25 +74,44 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    init: function (context) {
+    init: function (source, context) {
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPConstruct._nextId++;
         this.children = [];
         this.sub = {};
         this.i_notes = [];
         this.i_hasErrors = false;
+        this.i_isAttached = false;
 
         this.i_context = context;
+        if (context.parent) {
+            context.parent.i_connectChild(this);
+        }
+        else if (context.parent === null) {
+            // never intended to have a parent, go ahead and set context
+        }
+    },
+
+    i_createChild : function(source, context) {
+        if (!source) {return source;}
+        return isA(source, CPPConstruct) ? source : CPPConstruct.createFromASTSource(source, context);
+    },
+
+    i_createAndConnectChild : function(source, context) {
+        return this.i_connectChild(this.i_createChild(source, context));
     },
 
     i_connectChild : function(childConstruct) {
+        if(!childConstruct) {return childConstruct;}
+        childConstruct.i_context.parent = this;
         childConstruct.i_setContext(childConstruct.i_context);
         this.children.push(childConstruct);
         return childConstruct;
     },
 
     i_setContext : function(context){
-
+        assert(!this.i_isAttached);
+        this.i_isAttached = true;
         assert(context.parent !== undefined); // should be specified, even if null for root construct
         this.parent = context.parent;
 
@@ -122,12 +141,11 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
 
 
-        // !Removed since addition of addChild function that must be called explicitly!
         // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
         // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
-        // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
-        //     this.parent.children.push(this);
-        // }
+        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
+            this.parent.children.push(this);
+        }
     },
 
     getSourceReference : function() {
