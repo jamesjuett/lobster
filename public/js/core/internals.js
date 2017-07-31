@@ -57,12 +57,12 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _nextId: 0,
     initIndex: "pushChildren",
 
-    createFromASTSource : function(ast, context) {
-        var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
-        var construct = constructClass.instance(ast, context);
-        construct.i_setASTSource(ast);
+    i_childrenToCreate : [],
 
-        return construct;
+    create : function(ast, context) {
+        var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
+        assert(constructClass, "Unrecognized construct_type.");
+        return constructClass.instance(ast, context);
     },
     //
     // createWithChildren : function(children, context) {
@@ -74,7 +74,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    init: function (source, context) {
+    init: function (ast, context) {
         assert(context.parent !== undefined || context.isMainCall);
         this.id = CPPConstruct._nextId++;
         this.children = [];
@@ -83,31 +83,44 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         this.i_hasErrors = false;
         this.i_isAttached = false;
 
-        this.i_context = context;
-        if (context.parent) {
-            context.parent.i_connectChild(this);
+        this.i_setContext(context);
+
+        if (ast.code) {
+            this.code = ast.code;
         }
-        else if (context.parent === null) {
-            // never intended to have a parent, go ahead and set context
+
+        this.i_createChildren(ast);
+    },
+
+    /**
+     * Default for derived classes, pulls children from i_childrenToCreate array.
+     * Derived classes may also provide an override if they need customization (e.g. providing
+     * a new scope in the context for children.)
+     * @param ast
+     */
+    i_createChildren : function(ast) {
+        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+            var childName = this.i_childrenToCreate[i];
+            this[childName] = this.i_createChild(ast[childName]);
         }
     },
 
-    i_createChild : function(source, context) {
-        if (!source) {return source;}
-        return isA(source, CPPConstruct) ? source : CPPConstruct.createFromASTSource(source, context);
+    i_createChild : function(ast, context) {
+        if (!ast) {return ast;}
+        return CPPConstruct.create(ast, mixin({parent:this}, context || {}));
     },
 
-    i_createAndConnectChild : function(source, context) {
-        return this.i_connectChild(this.i_createChild(source, context));
-    },
+    // i_createAndConnectChild : function(source, context) {
+    //     return this.i_connectChild(this.i_createChild(source, context));
+    // },
 
-    i_connectChild : function(childConstruct) {
-        if(!childConstruct) {return childConstruct;}
-        childConstruct.i_context.parent = this;
-        childConstruct.i_setContext(childConstruct.i_context);
-        this.children.push(childConstruct);
-        return childConstruct;
-    },
+    // i_connectChild : function(childConstruct) {
+    //     if(!childConstruct) {return childConstruct;}
+    //     childConstruct.i_context.parent = this;
+    //     childConstruct.i_setContext(childConstruct.i_context);
+    //     this.children.push(childConstruct);
+    //     return childConstruct;
+    // },
 
     i_setContext : function(context){
         assert(!this.i_isAttached);
@@ -169,7 +182,20 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         return this.i_translationUnit;
     },
 
-    compile: Class._ABSTRACT,
+    /**
+     * Default for derived classes, simply compiles children from i_childrenToCreate array.
+     * Usually, derived classes will need to override (e.g. to do any typechecking at all)
+     */
+    compile: function() {
+        this.i_compileChildren();
+    },
+
+    i_compileChildren: function() {
+        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+            var childName = this.i_childrenToCreate[i];
+            this[childName].compile();
+        }
+    },
 
     tryCompile : function(){
         try{

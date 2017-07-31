@@ -574,7 +574,7 @@ var CPPError = {
             }
         },
         ternary : {
-            cond_bool : function(src, type){
+            condition_bool : function(src, type){
                 return makeError(src, false, "Expression of type (" + type + ") cannot be converted to boolean condition.");
             },
             sameType : function(src) {
@@ -676,12 +676,12 @@ var CPPError = {
             return makeError(src, false, "Sorry, this kind of declaration (" + decl.describe().message + ") is not allowed here.");
         },
         selection : {
-            cond_bool : function(src, expr){
+            condition_bool : function(src, expr){
                 return makeError(expr, false, "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
         iteration: {
-            cond_bool : function(src, expr){
+            condition_bool : function(src, expr){
                 return makeError(expr, false, "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
