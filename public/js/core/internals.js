@@ -85,6 +85,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
         this.i_setContext(context);
 
+        this.ast = ast;
         if (ast.code) {
             this.code = ast.code;
         }
@@ -134,17 +135,17 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         // Use implicit from context or inherit from parent
         this.i_isImplicit = context.implicit || (this.parent && this.parent.i_isImplicit);
 
-        // Use implicit from context, inherit from parent, or use default of 0
-        if (context.auxiliaryLevel !== undefined) {
-            this.i_auxiliaryLevel = context.auxiliaryLevel;
-        }
-        else {
-            if (this.parent){
+        // If auxiliary, increase auxiliary level over parent. If no parent, use default of 0
+        if (this.parent){
+            if (context.auxiliary) {
+                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel + 1;
+            }
+            else {
                 this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel;
             }
-            else{
-                this.i_auxiliaryLevel = 0;
-            }
+        }
+        else{
+            this.i_auxiliaryLevel = 0;
         }
 
         // If a contextual scope was specified, use that. Otherwise inherit from parent
@@ -206,7 +207,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
                 this.addNote(e.annotation(this));
             }
             else{
-                console.log(e.stack);
                 throw e;
             }
         }
@@ -230,8 +230,8 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         return inst;
     },
 
-    createAndCompileChildExpr : function(childCode, convertTo){
-        var child = Expressions.createExpressionFromASTSource(childCode, {parent: this});
+    i_createAndCompileChildExpr : function(ast, convertTo){
+        var child = this.i_createChild(ast);
         child.tryCompile();
         if (convertTo){
             child = standardConversion(child, convertTo);

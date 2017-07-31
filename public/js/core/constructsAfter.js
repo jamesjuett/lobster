@@ -26,6 +26,7 @@ var CONSTRUCT_CLASSES = {
     assignment_expression : Expressions.Assignment,
     compound_assignment : Expressions.CompoundAssignment,
     ternary_expression : Expressions.Ternary,
+    binary_expression : Expressions.BinaryOperator,
     cast_expression : Expressions.Cast,
     prefix_increment_expression : Expressions.Prefix,
     prefix_decrement_expression : Expressions.Prefix,

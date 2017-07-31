@@ -475,8 +475,8 @@ expression
   / exp_assn
 
 exp_assn
-  = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({construct_type: "assignment_expression", lhs:lhs, op:op, rhs:rhs}, location(), text()); }
-  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment", lhs:lhs, op:op, rhs:rhs}, location(), text()); }
+  = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({construct_type: "assignment_expression", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
+  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
   / exp_cond
 
 op_comp_assn
@@ -573,10 +573,10 @@ exp_cast
 
 exp_unary
   = op:"++" ws sub:exp_unary {
-      return track({construct_type: "prefix_increment_expression", op:op, operand:sub}, location(), text());
+      return track({construct_type: "prefix_increment_expression", operator:op, operand:sub}, location(), text());
 }
   / op:"--" ws sub:exp_unary {
-      return track({construct_type: "prefix_decrement_expression", op:op, operand:sub}, location(), text());
+      return track({construct_type: "prefix_decrement_expression", operator:op, operand:sub}, location(), text());
 }
   / op:op_unary ws sub:exp_cast {
       return track(absorb({operand:sub}, op), location(), text());
@@ -591,14 +591,14 @@ exp_unary
   / exp_delete
 
 op_unary
-  = "*" {return {construct_type: "dereference_expression", op: "*"};}
-  / "&" {return {construct_type: "address_of_expression",   op: "&"};}
-  / "+" {return {construct_type: "unary_plus_expression", op: "+"};}
-  / "-" {return {construct_type: "unary_minus_expression", op: "-"};}
-  / "!" {return {construct_type: "logical_not_expression", op: "!"};}
-  / "not" !identifierChar {return {construct_type: "logical_not_expression", op: "!"};}
-  / "~" {return {construct_type: "bitwise_not_expression", op: "~"};}
-  / "compl" {return {construct_type: "bitwise_not_expression", op: "~"};}
+  = "*" {return {construct_type: "dereference_expression", operator: "*"};}
+  / "&" {return {construct_type: "address_of_expression",   operator: "&"};}
+  / "+" {return {construct_type: "unary_plus_expression", operator: "+"};}
+  / "-" {return {construct_type: "unary_minus_expression", operator: "-"};}
+  / "!" {return {construct_type: "logical_not_expression", operator: "!"};}
+  / "not" !identifierChar {return {construct_type: "logical_not_expression", operator: "!"};}
+  / "~" {return {construct_type: "bitwise_not_expression", operator: "~"};}
+  / "compl" {return {construct_type: "bitwise_not_expression", operator: "~"};}
 
 exp_new
   = "new" WS id:new_type_id ws init:new_initializer? {
@@ -670,7 +670,7 @@ exp_postfix
       { return ops.length > 0 ? track(postfixExp(ops, sub), location(), text()) : sub;}
 
 op_postfix
-  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", operand:sub}, location(), text()); }
+  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", arg:sub}, location(), text()); }
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
   / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
   / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }

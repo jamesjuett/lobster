@@ -309,7 +309,7 @@ var Matrix = Class.extend({
             numCols = leftMat.numCols();
         }
         else{
-            throw {message: "Mismatched dimensions for operator " + this.op + ". LHS is a " +
+            throw {message: "Mismatched dimensions for operator " + this.operator + ". LHS is a " +
             leftMat.numRows() + "x" + leftMat.numCols() + " and RHS is a " +
             rightMat.numRows() + "x" + rightMat.numCols() + "."};
         }
@@ -1309,7 +1309,7 @@ Expression.BinaryOp = Expression.extend({
 
     evaluate : function() {
         var src = this.src;
-        this.op = src.op;
+        this.operator = src.operator;
         this.left = Expression.createAndEvaluate(src.left);
         this.right = Expression.createAndEvaluate(src.right);
 
@@ -1341,7 +1341,7 @@ Expression.BinaryOp = Expression.extend({
         top.append(leftElem);
 
         var opElem = $("<div></div>");
-        opElem.html("&nbsp;" + this.op + "&nbsp;");
+        opElem.html("&nbsp;" + this.operator + "&nbsp;");
         top.append(opElem);
 
         var rightElem = $("<div></div>");
@@ -1404,7 +1404,7 @@ Expression.Mult = Expression.BinaryOp.extend({
     },
 
     evaluate : Class._ADDITIONALLY(function(){
-        if (this.op === "*" || this.op === "/" || this.op === "^"){
+        if (this.operator === "*" || this.operator === "/" || this.operator === "^"){
             var leftMat = this.left.value.matrixValue();
             var rightMat = this.right.value.matrixValue();
             if (!leftMat.isScalar() && !rightMat.isScalar()){
@@ -1498,7 +1498,7 @@ Expression.UnaryOp = Expression.extend({
 
     evaluate : function() {
         var src = this.src;
-        this.op = src.op;
+        this.operator = src.operator;
         this.sub = Expression.createAndEvaluate(src.sub);
 
         var subMat = this.sub.value.matrixValue();
@@ -1512,7 +1512,7 @@ Expression.UnaryOp = Expression.extend({
         wrapper.addClass("matlab-exp-unaryOp");
 
         var opElem = $("<div></div>");
-        opElem.html(this.op + "&nbsp;");
+        opElem.html(this.operator + "&nbsp;");
         wrapper.append(opElem);
 
         var subElem = $("<div></div>");

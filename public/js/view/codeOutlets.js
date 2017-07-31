@@ -1255,13 +1255,13 @@ Lobster.Outlets.CPP.CompoundAssignment = Outlets.CPP.Expression.extend({
         //this.addChild(createCodeOutlet(lhsElem, this.code.rhs.left, this.simOutlet));
         //this.exprElem.append(lhsElem);
         //
-        //this.exprElem.append(" " + htmlDecoratedOperator(this.code.op, "code-compoundAssignmentOp") + " ");
+        //this.exprElem.append(" " + htmlDecoratedOperator(this.code.operator, "code-compoundAssignmentOp") + " ");
 
         var rhsElem = $("<span></span>");
         var rhsOutlet = createCodeOutlet(rhsElem, this.code.rhs, this.simOutlet);
         this.addChild(rhsOutlet);
         this.exprElem.append(rhsElem);
-        rhsElem.find(".code-binaryOp").first().replaceWith(htmlDecoratedOperator(this.code.op, "code-compoundAssignmentOp"));
+        rhsElem.find(".code-binaryOp").first().replaceWith(htmlDecoratedOperator(this.code.operator, "code-compoundAssignmentOp"));
     }
 });
 
@@ -1391,8 +1391,8 @@ Lobster.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
     }, true)
 });
 
-Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.BinaryOp",
+Lobster.Outlets.CPP.BinaryOperator = Outlets.CPP.Expression.extend({
+    _name: "Outlets.CPP.BinaryOperator",
 
     init: function(element, code, simOutlet){
         this.initParent(element, code, simOutlet);
@@ -1408,7 +1408,7 @@ Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
                 var elem = $("<span></span>");
                 this.addChild(createCodeOutlet(elem, this.code.left, this.simOutlet));
                 this.exprElem.append(elem);
-                this.exprElem.append(" " + htmlDecoratedOperator(this.code.op, "code-binaryOp") + " ");
+                this.exprElem.append(" " + htmlDecoratedOperator(this.code.operator, "code-binaryOp") + " ");
             }
 
             var self = this;
@@ -1416,7 +1416,7 @@ Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
                 self.addChild(argOutlet);
                 self.exprElem.append(argOutlet.element);
                 if (i < arr.length - 1) {
-                    self.exprElem.append(" " + self.code.op + " ");
+                    self.exprElem.append(" " + self.code.operator + " ");
                 }
             });
         }
@@ -1425,7 +1425,7 @@ Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
             this.addChild(createCodeOutlet(elem, this.code.left, this.simOutlet));
             this.exprElem.append(elem);
 
-            this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.code.op + "<span class='highlight'></span></span> ");
+            this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.code.operator + "<span class='highlight'></span></span> ");
 
             var elem = $("<span></span>");
             this.addChild(createCodeOutlet(elem, this.code.right, this.simOutlet));
@@ -1444,12 +1444,12 @@ Lobster.Outlets.CPP.BinaryOp = Outlets.CPP.Expression.extend({
     },
 
     instanceSet : function(){
-        Outlets.CPP.BinaryOp._parent.instanceSet.apply(this, arguments);
+        Outlets.CPP.BinaryOperator._parent.instanceSet.apply(this, arguments);
         this.element.find(".code-binaryOp").first().removeClass("upNext");
     },
 
     instanceRemoved : function(){
-        Outlets.CPP.BinaryOp._parent.instanceRemoved.apply(this, arguments);
+        Outlets.CPP.BinaryOperator._parent.instanceRemoved.apply(this, arguments);
         this.element.find(".code-binaryOp").first().removeClass("upNext");
     }
 });
@@ -1460,7 +1460,7 @@ Lobster.Outlets.CPP.UnaryOp = Outlets.CPP.Expression.extend({
     init: function(element, code, simOutlet){
         this.initParent(element, code, simOutlet);
 
-        this.exprElem.append(htmlDecoratedOperator(this.code.op, "code-unaryOp"));
+        this.exprElem.append(htmlDecoratedOperator(this.code.operator, "code-unaryOp"));
         this.addSpace && this.exprElem.append(" ");
 
         if (this.code.sub.funcCall){
@@ -1591,7 +1591,7 @@ Lobster.Outlets.CPP.LogicalNot = Outlets.CPP.Expression.extend({
         this.initParent(element, code, simOutlet);
 
         this.element.addClass("code-logicalNot");
-        this.exprElem.append(htmlDecoratedOperator(this.code.op, "code-unaryOp"));
+        this.exprElem.append(htmlDecoratedOperator(this.code.operator, "code-unaryOp"));
         var operandElem = $("<span></span>");
         this.addChild(createCodeOutlet(operandElem, this.code.operand, this.simOutlet));
         this.exprElem.append(operandElem)
@@ -1605,7 +1605,7 @@ Lobster.Outlets.CPP.Prefix = Outlets.CPP.Expression.extend({
         this.initParent(element, code, simOutlet);
 
         this.element.addClass("code-prefix");
-        this.exprElem.append(htmlDecoratedOperator(this.code.op, "code-unaryOp"));
+        this.exprElem.append(htmlDecoratedOperator(this.code.operator, "code-unaryOp"));
         var operandElem = $("<span></span>");
         this.addChild(createCodeOutlet(operandElem, this.code.operand, this.simOutlet));
         this.exprElem.append(operandElem)
@@ -1879,8 +1879,8 @@ var createCodeOutlet = function(element, code, simOutlet){
     if (outletClass) {
         return outletClass.instance(element, code, simOutlet);
     }
-    else if(code.isA(Expressions.BinaryOp)){
-        return Outlets.CPP.BinaryOp.instance(element, code, simOutlet);
+    else if(code.isA(Expressions.BinaryOperator)){
+        return Outlets.CPP.BinaryOperator.instance(element, code, simOutlet);
     }
     else if(code.isA(Conversions.ImplicitConversion)){
         return Outlets.CPP.ImplicitConversion.instance(element, code, simOutlet);
@@ -1916,8 +1916,8 @@ DEFAULT_CODE_OUTLETS[ParameterInitializer] = Outlets.CPP.ParameterInitializer;
 DEFAULT_CODE_OUTLETS[ReturnInitializer] = Outlets.CPP.ReturnInitializer;
 DEFAULT_CODE_OUTLETS[InitializerList] = Outlets.CPP.InitializerList;
 DEFAULT_CODE_OUTLETS[Expressions.Expression] = Outlets.CPP.Expression;
-DEFAULT_CODE_OUTLETS[Expressions.BinaryOp] = Outlets.CPP.BinaryOp;
-//DEFAULT_CODE_OUTLETS[Expressions.BINARY_OPS["+"]] = Outlets.CPP.BinaryOp;
+DEFAULT_CODE_OUTLETS[Expressions.BinaryOperator] = Outlets.CPP.BinaryOperator;
+//DEFAULT_CODE_OUTLETS[Expressions.BINARY_OPS["+"]] = Outlets.CPP.BinaryOperator;
 DEFAULT_CODE_OUTLETS[Expressions.Assignment] = Outlets.CPP.Assignment;
 DEFAULT_CODE_OUTLETS[Expressions.Ternary] = Outlets.CPP.Ternary;
 DEFAULT_CODE_OUTLETS[Expressions.Comma] = Outlets.CPP.Comma;
