@@ -742,7 +742,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 if (isA(arg, EntityExpression)){
                     return arg;
                 }
-                return self.createAndCompileChildExpr(arg);
+                return self.i_createAndCompileChildExpr(arg);
             });
             var arg = this.args[0];
             if (isA(type, Types.Reference)) {
@@ -804,7 +804,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
             // Need to select constructor, so have to compile auxiliary arguments
             var auxArgs = args.map(function (arg) {
-                var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliaryLevel: self.i_auxiliaryLevel + 1});
+                var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliary: true});
                 auxArg.compile();
                 return auxArg;
             });
@@ -998,7 +998,7 @@ var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
         var list = code.args;
         //this.initializerList = [];
         for(var i = 0; i < list.length; ++i){
-            var initListElem = this.sub["arg"+i] = this.createAndCompileChildExpr(list[i], type.elemType);
+            var initListElem = this.sub["arg"+i] = this.i_createAndCompileChildExpr(list[i], type.elemType);
 
             if(!sameType(initListElem.type, type.elemType)){
                 this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));

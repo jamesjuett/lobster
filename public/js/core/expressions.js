@@ -37,34 +37,42 @@ var Value = Class.extend({
         return {message: this.valueString()};
     }
 });
-
+/**
+ * Standard compilation phase for expressions:
+ *   1. Compile children (with no special context - if this is needed, you'll need to override compile())
+ *   2. Perform any conversions specified in this.i_childrenToConvert. the lvalue-to-rvalue conversion is not suppressed
+ *   3. If any errors have been reported by children, abort. The rest of the sequence is skipped
+ *   4. Call the this.convert() hook. Put custom conversion code here.
+ *   5. Call the this.typeCheck() hook. Put custom typechecking here. After this function is called, the expression should
+ *      have this.type and this.valueCategory set correct, although this does not mean the function necessarily has to do
+ *      this (e.g. some expressions always have the same type or value category, so these properties may be set initially
+ *      at the class level).
+ *   6. Compile any temporary objects for whom this is the enclosing full expression.
+ *
+ */
 var Expression = Expressions.Expression = CPPConstruct.extend({
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
     instType : "expr",
     conversionLength: 0,
-    init: function(ast, context){
-        this.initParent(ast, context);
-        this.sub = {};
+
+    i_childrenToConvert : {},
+    i_childrenToExecute : [],
+
+    i_convertChildren: function() {
+        for (var childName in this.i_childrenToConvert) {
+            this[childName] = standardConversion(this[childName], this.i_childrenToConvert[childName]);
+        }
     },
+
     compile : function() {
 
-        // Create and compile all subexpressions
-        // Also attempt standard conversions specified in the i_subexpressionsToCompile
+        // Parent compile - will compile all children specified in i_childrenToCreate
+        CPPConstruct.compile.apply(this, arguments);
 
-        for (var subName in this.i_subexpressionsToCompile) {
-            var subMeta = this.i_subexpressionsToCompile[subName];
-            var sub = this[subName] = this.sub[subName] = Expressions.createExpressionFromASTSource(this.code[subMeta.parsedName || subName], {parent: this});
-            sub.compile();
-
-            if (subMeta.convertTo) {
-                sub = this[subName] = this.sub[subName] = standardConversion(sub, subMeta.convertTo);
-            }
-            else if (subMeta.rvalue) {
-                sub = this[subName] = this.sub[subName] = standardConversion1(sub);
-            }
-        }
+        // Apply any standard conversions specified in i_childrenToConvert
+        this.i_convertChildren();
 
         // If subexpressions have problems, just forget it :(
         if (this.hasErrors()) {
@@ -113,52 +121,48 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     typeCheck : function(){
 
     },
-//    compileSubexpressions : function(){
-//		this.subexpressionProblems = {};
-//		for (var key in this.subexpressions){
-//          this.subexpressions[key].compile()
-//			this.subexpressionProblems[key] = probs;
-//		}
-//	},
 
-//    typeCheck : Class._ABSTRACT,
-
-
-
-    processNonMemberOverload : function(args, op){
-        try{
-            var overloadedOp = this.contextualScope.requiredLookup("operator"+op, {
-                own:true, paramTypes:args.map(function(arg){return arg.type;})
-            });
-            this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
-            this.type = this.sub.funcCall.type;
-            this.valueCategory = this.sub.funcCall.valueCategory;
-            this.subSequence = this.overloadSubSequence;
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(CPPError.expr.overloadLookup(this, op));
-                this.addNote(e.annotation(this));
-                return;
-            }
-            else{
-                throw e;
-            }
-        }
-    },
+    // processNonMemberOverload : function(args, op){
+    //     try{
+    //         var overloadedOp = this.contextualScope.requiredLookup("operator"+op, {
+    //             own:true, paramTypes:args.map(function(arg){return arg.type;})
+    //         });
+    //         this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
+    //         this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
+    //         this.type = this.sub.funcCall.type;
+    //         this.valueCategory = this.sub.funcCall.valueCategory;
+    //         this.subSequence = this.i_childrenToExecuteForOverload;
+    //     }
+    //     catch(e){
+    //         if (isA(e, SemanticExceptions.BadLookup)){
+    //             this.addNote(CPPError.expr.overloadLookup(this, op));
+    //             this.addNote(e.annotation(this));
+    //             return;
+    //         }
+    //         else{
+    //             throw e;
+    //         }
+    //     }
+    // },
 
 
-    processMemberOverload : function(thisArg, args, op){
+    processMemberOverload : function(thisArg, argAsts, op){
+        var auxArgs = argAsts.map(function(argAst){
+            return CPPConstruct.create(argAst, {parent: this, auxiliary: true});
+        });
+
         try{
             var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
-                own:true, paramTypes:args.map(function(arg){return arg.type;})
+                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;})
             });
-            this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-            this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
-            this.type = this.sub.funcCall.type;
-            this.valueCategory = this.sub.funcCall.valueCategory;
-            this.subSequence = this.overloadSubSequence;
+
+            this.isOverload = true;
+            this.isMemberOverload = true;
+            this.funcCall = FunctionCall.instance(this.code, {parent:this});
+            this.funcCall.compile(overloadedOp, argAsts);
+            this.type = this.funcCall.type;
+            this.valueCategory = this.funcCall.valueCategory;
+            this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
@@ -174,34 +178,6 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 
 
 
-
-    upNext : function(sim, inst){
-        // Evaluate subexpressions
-        if (inst.index === "subexpressions"){
-            this.pushChildInstances(sim, inst);
-            inst.index = "operate";
-            inst.wait();
-            return true;
-        }
-
-        return CPPConstruct.upNext.apply(this, arguments);
-    },
-	
-	done : function(sim, inst){
-		sim.pop(inst);
-
-        // Take care of any temporary objects owned by this expression
-        // Push destructors after, because we want them to run first (its a stack)
-        if (this.tempDeallocator){
-            this.tempDeallocator.createAndPushInstance(sim, inst);
-        }
-        if(this.temporariesToDestruct){
-            this.temporariesToDestruct.forEach(function(tempObj){
-                tempObj.createAndPushInstance(sim, inst)
-            });
-        }
-
-	},
 
     isTailChild : function(child){
         return {isTail: false};
@@ -297,19 +273,42 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
         else{
             return {message: "the result of " + this.code.text};
         }
-    }
+    },
+
+
+
+
+
+
+    upNext : function(sim, inst){
+        // Evaluate subexpressions
+        if (inst.index === "subexpressions"){
+            this.pushChildInstances(sim, inst);
+            inst.index = "operate";
+            inst.wait();
+            return true;
+        }
+
+        return CPPConstruct.upNext.apply(this, arguments);
+    },
+	
+	done : function(sim, inst){
+		sim.pop(inst);
+
+        // Take care of any temporary objects owned by this expression
+        // Push destructors after, because we want them to run first (its a stack)
+        if (this.tempDeallocator){
+            this.tempDeallocator.createAndPushInstance(sim, inst);
+        }
+        if(this.temporariesToDestruct){
+            this.temporariesToDestruct.forEach(function(tempObj){
+                tempObj.createAndPushInstance(sim, inst)
+            });
+        }
+
+	}
 });
-//Object.defineProperty(Expression, "type", {
-//    get : function() { return this._type; },
-//    set : function(t) {
-//        if (isA(t, Types.Reference)){
-//            this._type = t.refTo;
-//        }
-//        else{
-//            this._type = t;
-//        }
-//    }
-//})
+
 
 Expressions.Unsupported = Expression.extend({
     _name: "Unsupported",
@@ -323,9 +322,7 @@ Expressions.Null = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
     createAndPushInstance : function(sim, inst){
-//        var inst =  CPPConstructInstance.instance(sim, this, "subexpressions", "expr", inst);
-//        sim.push(inst);
-//        return inst;
+        // Do nothing
     }
 });
 
@@ -335,14 +332,11 @@ Expressions.Null = Expression.extend({
 Expressions.Comma = Expression.extend({
     _name: "Comma",
     englishName: "comma",
-    i_subexpressionsToCompile : {
-        left: {},
-        right: {}
-    },
-    subSequence : ["left", "right"],
+    i_childrenToCreate : ["left", "right"],
+    i_childrenToExecute : ["left", "right"],
     typeCheck : function(){
-        this.type = this.sub.right.type;
-        this.valueCategory = this.sub.right.valueCategory;
+        this.type = this.right.type;
+        this.valueCategory = this.right.valueCategory;
     },
 
     stepForward : function(sim, inst){
@@ -355,7 +349,7 @@ Expressions.Comma = Expression.extend({
     },
 
     isTailChild : function(child){
-        if (child === this.sub.right){
+        if (child === this.right){
             return {isTail: true,
                 reason: "The recursive call is on the right side of the comma, so it is guaranteed to be evaluated last."
             };
@@ -363,7 +357,7 @@ Expressions.Comma = Expression.extend({
         else{
             return {isTail: false,
                 reason: "The expression on the right of the comma will be evaluated after the recursive call.",
-                others: [this.sub.right]
+                others: [this.right]
             };
         }
     }
@@ -373,39 +367,33 @@ Expressions.Comma = Expression.extend({
 Expressions.Ternary = Expression.extend({
     _name: "Ternary",
     englishName: "ternary",
-    i_subexpressionsToCompile : {
-        condition: {convertTo: Types.Bool.instance()},
-        then: {},
-        otherwise: {}
+    i_childrenToCreate : ["condition", "then", "otherwise"],
+    i_childrenToConvert : {
+        condition: Types.Bool.instance()
     },
     initIndex: "cond",
 
     convert : function(){
-        var sub = this.sub;
-
         // If one of the expressions is a prvalue, make the other one as well
-        if (sub.then.valueCategory === "prvalue" && sub.otherwise.valueCategory === "lvalue"){
-            this.otherwise = sub.otherwise = standardConversion1(sub.otherwise);
+        if (this.then.valueCategory === "prvalue" && this.otherwise.valueCategory === "lvalue"){
+            this.otherwise = standardConversion1(this.otherwise);
         }
-
-        if (sub.otherwise.valueCategory === "prvalue" && sub.then.valueCategory === "lvalue"){
-            this.then = sub.then = standardConversion1(sub.then);
+        else if (this.otherwise.valueCategory === "prvalue" && this.then.valueCategory === "lvalue"){
+            this.then = standardConversion1(this.then);
         }
     },
 
     typeCheck : function(){
-        var sub = this.sub;
-
-        if (!isA(sub.condition.type, Types.Bool)){
-            this.addNote(CPPError.expr.ternary.condition_bool(sub.condition, sub.condition.type));
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.expr.ternary.condition_bool(this.condition, this.condition.type));
         }
-        if (!sameType(sub.then.type, sub.otherwise.type)) {
+        if (!sameType(this.then.type, this.otherwise.type)) {
             this.addNote(CPPError.expr.ternary.sameType(this, this.then, this.otherwise));
         }
-        if (isA(sub.then.type, Types.Void) || isA(sub.otherwise.type, Types.Void)) {
+        if (isA(this.then.type, Types.Void) || isA(this.otherwise.type, Types.Void)) {
             this.addNote(CPPError.expr.ternary.noVoid(this, this.then, this.otherwise));
         }
-        if (sub.then.valueCategory !== sub.otherwise.valueCategory){
+        if (this.then.valueCategory !== this.otherwise.valueCategory){
             this.addNote(CPPError.expr.ternary.sameValueCategory(this));
         }
 
@@ -415,16 +403,16 @@ Expressions.Ternary = Expression.extend({
 
     upNext : function(sim, inst){
         if (inst.index === "cond"){
-            inst.condition = this.sub.condition.createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "checkCond";
             return true;
         }
         else if (inst.index === "checkCond"){
             if(inst.condition.evalValue.value){
-                inst.then = this.sub.then.createAndPushInstance(sim, inst);
+                inst.then = this.then.createAndPushInstance(sim, inst);
             }
             else{
-                inst.otherwise = this.sub.otherwise.createAndPushInstance(sim, inst);
+                inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
             }
             inst.index = "operate";
             return true;
@@ -441,10 +429,10 @@ Expressions.Ternary = Expression.extend({
     },
 
     isTailChild : function(child){
-        if (child === this.sub.condition){
+        if (child === this.condition){
             return {isTail: false,
                 reason: "One of the two subexpressions in the ternary operator will be evaluated after the function call.",
-                others: [this.sub.then, this.sub.otherwise]
+                others: [this.then, this.otherwise]
             };
         }
         else{
@@ -453,17 +441,34 @@ Expressions.Ternary = Expression.extend({
     }
 });
 
-
+/**
+ * @property {Expression} lhs
+ * @property {?Expression} rhs - only available after compilation. may be null, either if lhs has compilation errors
+ * and isn't well-typed, or if this is an overloaded assignment.
+ * @property {?FunctionCall} funcCall - only available after compilation. may be null, either if lhs has compilation
+ * errors and isn't well-typed, or if this is a regular, non-overloaded assignment
+ *
+ */
 var Assignment = Expressions.Assignment = Expression.extend({
     _name: "Assignment",
     valueCategory : "lvalue",
-    i_subexpressionsToCompile : {
-        lhs: {}
+    isOverload : false,
+    isMemberOverload : true,
+    i_childrenToCreate : ["lhs"],
+    i_childrenToExecute : ["lhs", "rhs"],
+    i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
+
+    i_createChildren : function(ast) {
+        // create lhs using parent version
+        Expression.i_createChildren.apply(this, arguments);
+
+        // preserve the rhs ast node. the actual rhs isn't created until compilation
+        this.i_astRhs = ast.rhs;
     },
-    subSequence : ["lhs", "rhs"],
-    overloadSubSequence : ["lhs", "funcCall"], // does not include rhs because function call does that
+
     convert : function(){
 
+        // If the lhs doesn't have a type, the rest of the analysis doesn't make much sense.
         if (!this.lhs.isWellTyped()){
             return;
         }
@@ -471,54 +476,64 @@ var Assignment = Expressions.Assignment = Expression.extend({
         // Check for overloaded assignment
         // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
         if (isA(this.lhs.type, Types.Class)){
-            //var assnOp = this.lhs.type.getMember(["operator="]);
-            var auxRhs = Expressions.createExpressionFromASTSource(this.code.rhs, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
+            // Class-type LHS means we check for an overloaded = operator
+
+            // Compile the RHS as an auxiliary expression so that we can figure out its type without impacting the construct tree
+            var auxRhs = CPPConstruct.create(this.i_astRhs, {parent: this, auxiliary: true});
             auxRhs.compile();
 
             try{
+                // Look for an overloaded = operator that we can use with an argument of the RHS type
+                // Note: "own" here means don't look in parent scope containing the class definition, but we still
+                // look in the scope of any base classes that exist due to the class scope performing member lookup
                 var assnOp = this.lhs.type.classScope.requiredLookup("operator=", {
                     own:true, paramTypes:[auxRhs.type]
                 });
+
+                // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
+                if (assnOp){
+                    this.isOverload = true;
+                    this.isMemberOverload = true;
+                    this.funcCall = FunctionCall.instance(this.code, {parent:this});
+                    this.funcCall.compile(assnOp, [this.code.rhs]);
+                    this.type = this.funcCall.type;
+                    this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
+                }
+                else{
+                    this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
+                }
             }
             catch(e){
                 if (isA(e, SemanticExceptions.BadLookup)){
                     this.addNote(CPPError.expr.overloadLookup(this, "="));
                     this.addNote(e.annotation(this));
-                    return;
                 }
                 else{
                     throw e;
                 }
             }
-
-            if (assnOp){
-                this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-                this.sub.funcCall.compile(assnOp, [this.code.rhs]);
-                this.type = this.sub.funcCall.type;
-                this.subSequence = this.overloadSubSequence;
-            }
-            else{
-                this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
-            }
         }
         else{
-            //Non-class type
-            // Attempt standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue
-            this.rhs = this.sub.rhs = this.createAndCompileChildExpr(this.code.rhs, this.lhs.type.cvUnqualified());
+            // Non-class type, so this is regular assignment. Create and compile the rhs, and then attempt
+            // standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue conversion
+            this.rhs = this.i_createAndCompileChildExpr(this.i_astRhs, this.lhs.type.cvUnqualified());
         }
     },
+
     typeCheck : function(){
 
+        // If the lhs doesn't have a type, we didn't make an rhs or a funcCall, so we can't type check anything
         if (!this.lhs.isWellTyped()){
             return;
         }
 
-        // All type checking is handled by the function call child it's overloaded.
+        // All type checking is handled by the function call child if it's overloaded.
         if (this.funcCall){
             return;
         }
 
-        // Type Check
+        // ----- Type checking below here is only applied for regular, non-overloaded assignment -----
+
         if (this.lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
@@ -527,37 +542,25 @@ var Assignment = Expressions.Assignment = Expression.extend({
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        // Checking for non overloaded cases where we have an rhs
-        if (this.rhs){
-
-            if (!this.rhs.isWellTyped()){
-                return;
-            }
-
-            //If non-class type, check against cv-unqualified version of lhs type
-            if (!isA(this.lhs.type, Types.Class)){
-                if (!sameType(this.rhs.type, this.lhs.type.cvUnqualified())) {
-                    this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
-                }
-            }
-            else{
-                // Checking is done by function call child :)
-            }
-
-            // Just for fun
-            if (isA(this.lhs, Identifier) && isA(this.rhs, Identifier) && this.lhs.entity === this.rhs.entity){
-                this.addNote(CPPError.expr.assignment.self(this, this.lhs.entity));
-            }
+        if (!this.rhs.isWellTyped()){
+            return;
         }
 
+        if (!sameType(this.rhs.type, this.lhs.type.cvUnqualified())) {
+            this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
+        }
 
+        // warning for self assignment
+        if (isA(this.lhs, Identifier) && isA(this.rhs, Identifier) && this.lhs.entity === this.rhs.entity){
+            this.addNote(CPPError.expr.assignment.self(this, this.lhs.entity));
+        }
 
         this.type = this.lhs.type;
     },
 
     upNext : Class.ADDITIONALLY(function(sim, inst){
-        if (this.sub.funcCall){
-            this.sub.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+        if (this.funcCall){
+            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
@@ -565,7 +568,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
         if (inst.index == "operate"){
 
-            if (this.sub.funcCall){
+            if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
                 // Just evaluate to returned value from assignment operator.
                 inst.setEvalValue(inst.childInstances.funcCall.evalValue);
@@ -607,41 +610,43 @@ var beneathConversions = function(expr){
     return expr;
 };
 
+// TODO: there might be a better way to implement this. currently it reuses code from BinaryOperator, but I feel
+// a little bit icky about how it does it and the way it treats the construct tree
 Expressions.CompoundAssignment = Expression.extend({
     _name: "CompoundAssignment",
     valueCategory : "lvalue",
-    i_subexpressionsToCompile : {
-//        left : {},
-//        right : {}
-    },
-    init: function(code, context){
-        this.initParent(code, context);
-        this.op = this.code.op;
-        var binCode = copyMixin(this.code, {
-            left: this.code.lhs,
-            right: this.code.rhs,
-            operator: this.op.substring(0, this.op.length-1)
+
+    i_createChildren: function(ast){
+
+        // Basically this uses a binary operator expression to do most of the work
+        // e.g. x += y should be equivalent (to a certain extent) to x = x + y
+
+        this.operator = ast.operator;
+        var binaryOp = this.operator.substring(0, this.operator.length-1); // remove the = from the operator e.g. += becomes +
+        var binAst = copyMixin(ast, {
+            left: ast.lhs,
+            right: ast.rhs,
+            operator: binaryOp
         });
-        var binaryOpClass = BINARY_OPS[this.op.substring(0, this.op.length-1)];
-        this.rhs = binaryOpClass.instance(binCode, {parent: this});
+        var binaryOpClass = BINARY_OPS[binaryOp];
+        this.i_binaryOp = binaryOpClass.instance(binAst, {parent: this});
     },
 
     compile : function() {
 
         //compiles left and right
-        this.rhs.compile();
+        this.i_binaryOp.compile();
 
         if(this.hasErrors()){
             return;
         }
 
-
         // left should be a standard conversion sequence
         // we want to extract the pre-conversion expression for lhs
-        this.lhs = beneathConversions(this.rhs.left);
+        this.lhs = beneathConversions(this.i_binaryOp.left);
 
         // Attempt to convert rhs (a binary operation) back to type of lhs
-        this.rhs = standardConversion(this.rhs, this.lhs.type);
+        this.rhs = standardConversion(this.i_binaryOp, this.lhs.type);
 
         // Type Check
         if (this.lhs.valueCategory !== "lvalue") {
@@ -655,20 +660,12 @@ Expressions.CompoundAssignment = Expression.extend({
         this.type = this.lhs.type;
 
         this.compileTemporarires();
-//        return Expression.compile.call(this);
     },
 
     upNext : function(sim, inst){
         // Evaluate subexpressions
         if (inst.index == "subexpressions") {
             inst.rhs = this.rhs.createAndPushInstance(sim, inst);
-            //inst.leftInst = CPPConstructInstance.instance(sim, this.rhs.left, "subexpressions", "expr", inst);
-            //inst.rightInst = CPPConstructInstance.instance(sim, this.rhs.right, "subexpressions", "expr", inst);
-            //
-            //// Push rhs
-            //sim.push(inst.leftInst);
-            //sim.push(inst.rightInst);
-
             inst.index = "operate";
             return true;
         }
@@ -705,83 +702,42 @@ Expressions.CompoundAssignment = Expression.extend({
     }
 });
 
-var usualArithmeticConversions = function(){
-    // Only do conversions if both are arithmetic
-    if (!this.left.type.isArithmeticType || !this.right.type.isArithmeticType){
-        return;
-    }
-
-    // TODO If either has scoped enumeration type, no conversions are performed
-
-    // TODO If either is long double, the other shall be converted to long double
-
-    // If either is double, the other shall be converted to double
-    if (isA(this.left.type, Types.Double)){
-        this.right = this.sub.right = standardConversion(this.right, Types.Double.instance(), {suppressLTR:true});
-        return;
-    }
-    if (isA(this.right.type, Types.Double)){
-        this.left = this.sub.left = standardConversion(this.left, Types.Double.instance(), {suppressLTR:true});
-        return;
-    }
-    // If either is float, the other shall be converted to float
-
-    if (isA(this.left.type, Types.Float)){
-        this.right = this.sub.right = standardConversion(this.right, Types.Float.instance(), {suppressLTR:true});
-        return;
-    }
-    if (isA(this.right.type, Types.Float)){
-        this.left = this.sub.left = standardConversion(this.left, Types.Float.instance(), {suppressLTR:true});
-        return;
-    }
-
-    // Otherwise, do integral promotions
-    this.left = this.sub.left = integralPromotion(this.left);
-    this.right = this.sub.right = integralPromotion(this.right);
-
-//    var operands = integralPromotions({left:this.left, right:this.right});
-//    this.left = this.sub.left = operands.left;
-//    this.right = this.sub.right = operands.right;
-
-    // If both operands have the same type, no further conversion is needed
-    if (sameType(this.left.type, this.right.type)){
-        return;
-    }
-
-    // Otherwise, if both operands have signed or both have unsigned types,
-    // operand with type of lesser integer conversion rank shall be converted
-    // to the type of the operand with greater rank
-};
-
-
-var BinaryOp = Expressions.BinaryOp = Expression.extend({
-    _name: "BinaryOp",
+var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
+    _name: "BinaryOperator",
     valueCategory : "prvalue",
-    i_subexpressionsToCompile : {
-        left: {},
-        right: {}
-    },
-    subSequence : ["left", "right"],
-    memberOverloadSubSequence : ["left", "funcCall"], // does not include rhs because function call does that
-    overloadSubSequence : ["funcCall"], // does not include rhs because function call does that
-    init: function(code, context){
-        this.initParent(code, context);
-        this.associativity = this.code.associativity;
-        this.op = this.code.operator;
-    },
+    isOverload : false,
+    i_childrenToExecute : ["left", "right"],
+    i_childrenToExecuteForMemberOverload : ["left", "funcCall"], // does not include rhs because function call does that
+    i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
+
     instance: function(code, context) {
-        if (this !== Expressions.BinaryOp){
-            return Expressions.BinaryOp._parent.instance.apply(this, arguments);
+
+        // ONLY if instance was called directly on Expressions.BinaryOperator, then we want
+        // to sneakily select the correct derived class and instantiate that instead :)
+        if (this === Expressions.BinaryOperator){
+            var desiredSubClass = BINARY_OPS[code.operator];
+            return desiredSubClass.instance(code, context);
         }
-        var desiredSubClass = BINARY_OPS[code.operator];
-        return desiredSubClass.instance(code, context);
+
+        // Otherwise (e.g. if called on a derived class this inherits this instance function), just use
+        // the regular instance function from the parent class.
+        return Expression.instance.apply(this, arguments);
+    },
+
+
+    i_createChildren: function(ast){
+        this.associativity = ast.associativity;
+        this.operator = ast.operator;
+
+        this.i_astLeft = ast.left;
+        this.i_astRight = ast.right;
     },
 
     compile : function(){
 
         // Compile left
-        var auxLeft = Expressions.createExpressionFromASTSource(this.code.left, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
-        var auxRight = Expressions.createExpressionFromASTSource(this.code.right, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
+        var auxLeft = CPPConstruct.create(this.i_astLeft, {parent: this, auxiliary: true});
+        var auxRight = CPPConstruct.create(this.i_astRight, {parent: this, auxiliary: true});
 
         auxLeft.compile();
         auxRight.compile();
@@ -789,7 +745,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
         // If either has problems that prevent us from determining type, nothing more can be done
         if (!auxLeft.isWellTyped() || !auxRight.isWellTyped()){
 
-            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
+            // Add the notes from the auxiliary arguments to explain what went wrong
+            // (they weren't added normally since they were auxiliary)
             var self = this;
             auxLeft.getNotes().forEach(function(note) {self.addNote(note);});
             auxRight.getNotes().forEach(function(note) {self.addNote(note);});
@@ -797,59 +754,117 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             return;
         }
 
+        // We have a type for both the left and right operands, so we next check whether we're looking for an
+        // operator overload. That's the case if either of the operands has class type.
         if (isA(auxLeft.type, Types.Class) || isA(auxRight.type, Types.Class)){
-            // If left one is of class type, we look for overloads
-            var overloadOp =
-                auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.op, {
-                    own:true, paramTypes:[auxRight.type]
-                }) ||
-                this.contextualScope.singleLookup("operator" + this.op, {
-                    paramTypes:[auxLeft.type, auxRight.type]
+            // Overload case
+
+            // First, look for a member overload in left class type.
+            var overloadOp = auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.operator, {
+                own:true, paramTypes:[auxRight.type]
+            });
+
+            // If we didn't find a member overload, next look for a non-member overload
+            if (!overloadOp) {
+                overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
+                    paramTypes: [auxLeft.type, auxRight.type]
                 });
-            this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
+            }
+
             if (overloadOp){
-                this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
+                this.isOverload = true;
+                this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
+
+                this.funcCall = FunctionCall.instance(this.code, {parent:this});
+
                 if (this.isMemberOverload){
-                    this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
-                    this.sub.funcCall.compile(overloadOp, [this.code.right]);
-                    this.subSequence = this.memberOverloadSubSequence;
+                    // Member overload means left operand is our direct child, right operand is argument to function call
+                    this.left = this.i_createAndCompileChildExpr(this.i_astLeft);
+                    this.funcCall.compile(overloadOp, [this.i_astRight]);
+                    this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
                 }
                 else{
-                    this.sub.funcCall.compile(overloadOp, [this.code.left, this.code.right]);
-                    this.subSequence = this.overloadSubSequence;
+                    // Non-member overload means both left and right are arguments of the function call
+                    this.funcCall.compile(overloadOp, [this.i_astLeft, this.i_astRight]);
+                    this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
                 }
-                this.type = this.sub.funcCall.type;
-                this.valueCategory = this.sub.funcCall.valueCategory;
+
+                this.type = this.funcCall.type;
+                this.valueCategory = this.funcCall.valueCategory;
             }
             else{
-                this.addNote(CPPError.expr.binary.overload_not_found(this, this.op, auxLeft.type, auxRight.type));
+                // TODO: add in notes from attempted lookup operations for the member and non-member overloads
+                this.addNote(CPPError.expr.binary.overload_not_found(this, this.operator, auxLeft.type, auxRight.type));
             }
         }
         else{
-            this.left = this.sub.left = this.createAndCompileChildExpr(this.code.left);
-            this.right = this.sub.right = this.createAndCompileChildExpr(this.code.right);
+            // Non-overload case
+
+            this.left = this.i_createAndCompileChildExpr(this.i_astLeft);
+            this.right = this.i_createAndCompileChildExpr(this.i_astRight);
 
             // If either has problems that prevent us from determining type, nothing more can be done
-            if (!this.left.isWellTyped() || !this.right.isWellTyped()){
+            if (!this.left.isWellTyped() || !this.right.isWellTyped()) {
                 return;
             }
 
             this.convert();
 
             this.typeCheck();
-            this.compileTemporarires();
         }
+
+        // TODO: this used to just be in the else case, but I think that was a mistake
+        this.compileTemporarires();
     },
 
     usualArithmeticConversions : function(){
+        // Only do conversions if both are arithmetic
+        if (!this.left.type.isArithmeticType || !this.right.type.isArithmeticType){
+            return;
+        }
 
-        return usualArithmeticConversions.apply(this);
+        // TODO If either has scoped enumeration type, no conversions are performed
+
+        // TODO If either is long double, the other shall be converted to long double
+
+        // If either is double, the other shall be converted to double
+        if (isA(this.left.type, Types.Double)){
+            this.right = standardConversion(this.right, Types.Double.instance(), {suppressLTR:true});
+            return;
+        }
+        if (isA(this.right.type, Types.Double)){
+            this.left = standardConversion(this.left, Types.Double.instance(), {suppressLTR:true});
+            return;
+        }
+        // If either is float, the other shall be converted to float
+
+        if (isA(this.left.type, Types.Float)){
+            this.right = standardConversion(this.right, Types.Float.instance(), {suppressLTR:true});
+            return;
+        }
+        if (isA(this.right.type, Types.Float)){
+            this.left = standardConversion(this.left, Types.Float.instance(), {suppressLTR:true});
+            return;
+        }
+
+        // Otherwise, do integral promotions
+        this.left = integralPromotion(this.left);
+        this.right = integralPromotion(this.right);
+
+        // If both operands have the same type, no further conversion is needed
+        if (sameType(this.left.type, this.right.type)){
+            return;
+        }
+
+        // Otherwise, if both operands have signed or both have unsigned types,
+        // operand with type of lesser integer conversion rank shall be converted
+        // to the type of the operand with greater rank
 
     },
 
     convert : function(){
-        this.left = this.sub.left = standardConversion1(this.left);
-        this.right = this.sub.right = standardConversion1(this.right);
+        this.left = standardConversion1(this.left);
+        this.right = standardConversion1(this.right);
 
         if (this.left.type.isArithmeticType && this.right.type.isArithmeticType) { // Regular arithmetic
             this.usualArithmeticConversions();
@@ -868,7 +883,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
             }
         }
 
-        this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+        this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         return false;
     },
 
@@ -877,8 +892,8 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
         var toReturn = Expression.upNext.apply(this, arguments);
 
         // If using an overloaded member operator, set receiver for function call instance
-        if (this.sub.funcCall && this.isMemberOverload){
-            this.sub.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.left.type, inst.childInstances.left));
+        if (this.funcCall && this.isMemberOverload){
+            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -886,7 +901,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
 
 	stepForward : function(sim, inst){
         if (inst.index === "operate"){
-            if (this.sub.funcCall){
+            if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
                 // Just evaluate to returned value from assignment operator.
                 inst.setEvalValue(inst.childInstances.funcCall.evalValue);
@@ -906,7 +921,7 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
 
     isTailChild : function(child){
         return {isTail: false,
-            reason: "The " + this.op + " operation will happen after the recursive call.",
+            reason: "The " + this.operator + " operation will happen after the recursive call.",
             others: [this]
         };
     }
@@ -914,37 +929,36 @@ var BinaryOp = Expressions.BinaryOp = Expression.extend({
 
 // TODO cv-combined types and composite pointer types
 
-Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
-    _name: "BinaryOpRelational",
+Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
+    _name: "BinaryOperatorRelational",
     type: Types.Bool.instance(),
 
     convert : function(){
-        Expressions.BinaryOp.convert.apply(this);
+        Expressions.BinaryOperator.convert.apply(this);
 
         if (isA(this.left.type, Types.Pointer) && isA(this.right, Literal) && isA(this.right.type, Types.Int) && this.right.value.rawValue() == 0){
-            this.right = this.sub.right = Conversions.NullPointerConversion.instance(this.right, this.left.type);
+            this.right = Conversions.NullPointerConversion.instance(this.right, this.left.type);
         }
         if (isA(this.right.type, Types.Pointer) && isA(this.left, Literal) && isA(this.left.type, Types.Int) && this.left.value.rawValue() == 0){
-            this.left = this.sub.left = Conversions.NullPointerConversion.instance(this.left, this.right.type);
+            this.left = Conversions.NullPointerConversion.instance(this.left, this.right.type);
         }
     },
 
     typeCheck : function(){
 
+        // Note: typeCheck is only called if it's not an overload
+
         if (isA(this.left.type, Types.Pointer)){
             if (!isA(this.right.type, Types.Pointer)){
                 // TODO this is a hack until I implement functions to determine cv-combined type and composite pointer types
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
                 return false;
             }
         }
-        else if (!Expressions.BinaryOp.typeCheck.apply(this)){
+        else if (!Expressions.BinaryOperator.typeCheck.apply(this)){
             return false;
         }
 
-        if (this.overloadOp){
-            return true;
-        }
         // after first if, we know left and right have same type
         else if(this.left.type.isArithmeticType){
             return true;
@@ -958,7 +972,7 @@ Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
             return true;
         }
         else{
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         }
     },
 
@@ -976,40 +990,40 @@ Expressions.BinaryOpRelational = Expressions.BinaryOp.extend({
 });
 
 
-Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
-    _name: "BinaryOpLogical",
+Expressions.BinaryOperatorLogical = Expressions.BinaryOperator.extend({
+    _name: "BinaryOperatorLogical",
     type: Types.Bool.instance(),
-    //i_subexpressionsToCompile: {
-    //    left: {convertTo : Types.Bool.instance()},
-    //    right: {convertTo : Types.Bool.instance()}
-    //},
 
     convert : function(){
         // Don't do binary operator custom conversions
-        this.left = this.sub.left = standardConversion(this.sub.left, Types.Bool.instance());
-        this.right = this.sub.right = standardConversion(this.sub.right, Types.Bool.instance());
+        this.left = standardConversion(this.left, Types.Bool.instance());
+        this.right = standardConversion(this.right, Types.Bool.instance());
     },
+
     typeCheck : function(){
-        if (!Expressions.BinaryOp.typeCheck.apply(this)){
+        if (!Expressions.BinaryOperator.typeCheck.apply(this)){
             return false;
         }
         else if(isA(this.left.type, Types.Bool)){
             return true;
         }
         else{
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         }
     },
+
     upNext : function(sim, inst){
         // Override this to prevent general pushSubexpressions
         // and ensure that short circuit is done correctly.
-        if (this.sub.funcCall){
-            return Expressions.BinaryOp.upNext.apply(this, arguments);
+
+        // Don't do special stuff if it's an overload
+        if (this.isOverload){
+            return Expressions.BinaryOperator.upNext.apply(this, arguments);
         }
 
         if (inst.index === "subexpressions") {
             inst.childInstances = {};
-            inst.childInstances.left = this.sub.left.createAndPushInstance(sim, inst);
+            inst.childInstances.left = this.left.createAndPushInstance(sim, inst);
             inst.send("wait", 1);
             inst.index = "subexpressions2";
             return true;
@@ -1020,7 +1034,7 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
                 return false;
             }
             else {
-                inst.childInstances.right = this.sub.right.createAndPushInstance(sim, inst);
+                inst.childInstances.right = this.right.createAndPushInstance(sim, inst);
                 inst.send("wait", 1);
                 inst.index = "operate";
                 return true;
@@ -1030,7 +1044,7 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
     },
     stepForward : function(sim, inst){
         if (inst.index == "operate") {
-            return Expressions.BinaryOp.stepForward.apply(this, arguments);
+            return Expressions.BinaryOperator.stepForward.apply(this, arguments);
         }
         else{ // "shortCirucit"
             inst.setEvalValue(inst.childInstances.left.evalValue);
@@ -1042,15 +1056,15 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
     },
 
     isTailChild : function(child){
-        if (child === this.sub.left){
+        if (child === this.left){
             return {isTail: false,
-                reason: "The right operand of the " + this.op + " operator may need to be checked if it does not short circuit.",
-                others: [this.sub.right]
+                reason: "The right operand of the " + this.operator + " operator may need to be checked if it does not short circuit.",
+                others: [this.right]
             };
         }
         else{
             return {isTail: true,
-                reason: "Because the " + this.op + " operator short circuits, the right operand is guaranteed to be evaluated last and its result is used directly (no combination with left side needed)."
+                reason: "Because the " + this.operator + " operator short circuits, the right operand is guaranteed to be evaluated last and its result is used directly (no combination with left side needed)."
             };
         }
     }
@@ -1061,33 +1075,33 @@ Expressions.BinaryOpLogical = Expressions.BinaryOp.extend({
 
 var BINARY_OPS = Expressions.BINARY_OPS = {
     "|" : Expressions.Unsupported.extend({
-        _name: "BinaryOp[|]",
+        _name: "BinaryOperator[|]",
         englishName: "bitwise or"
     }),
     "&" : Expressions.Unsupported.extend({
-        _name: "BinaryOp[&]",
+        _name: "BinaryOperator[&]",
         englishName: "bitwise and"
     }),
     "^" : Expressions.Unsupported.extend({
-        _name: "BinaryOp[^]",
+        _name: "BinaryOperator[^]",
         englishName: "bitwise xor"
     }),
-    "||": Expressions.BinaryOpLogical.extend({
-        _name: "BinaryOp[||]",
+    "||": Expressions.BinaryOperatorLogical.extend({
+        _name: "BinaryOperator[||]",
         shortCircuitValue: true,
         combine : function(left, right){
             return left || right;
         }
     }),
-    "&&": Expressions.BinaryOpLogical.extend({
-        _name: "BinaryOp[&&]",
+    "&&": Expressions.BinaryOperatorLogical.extend({
+        _name: "BinaryOperator[&&]",
         shortCircuitValue: false,
         combine : function(left, right){
             return left && right;
         }
     }),
-    "+": Expressions.BinaryOp.extend({
-        _name: "BinaryOp[+]",
+    "+": Expressions.BinaryOperator.extend({
+        _name: "BinaryOperator[+]",
 
         typeCheck : function(){
             // Check if it's pointer arithmetic
@@ -1097,9 +1111,6 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     var temp = this.left;
                     this.left = this.right;
                     this.right = temp;
-
-                    this.sub.left = this.left;
-                    this.sub.right = this.right;
                 }
 
                 if (this.right.type.isIntegralType || this.right.type.isEnum){
@@ -1109,7 +1120,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     return true;
                 }
             }
-//            else if(!Expressions.BinaryOp.typeCheck.apply(this)){
+//            else if(!Expressions.BinaryOperator.typeCheck.apply(this)){
 //                return false;
 //            }
             else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
@@ -1117,7 +1128,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         },
 
         operate : function(left, right, sim, inst){
@@ -1147,8 +1158,8 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
     }),
 
-    "-": Expressions.BinaryOp.extend({
-        _name: "BinaryOp[-]",
+    "-": Expressions.BinaryOperator.extend({
+        _name: "BinaryOperator[-]",
 
         typeCheck : function(){
 
@@ -1165,14 +1176,14 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 this.isPointerArithmetic = true;
                 return true;
             }
-            else if(!Expressions.BinaryOp.typeCheck.apply(this)){
+            else if(!Expressions.BinaryOperator.typeCheck.apply(this)){
                 return false;
             }
             else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
                 return true;
             }
 
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         },
 
         operate : function(left, right, sim, inst){
@@ -1220,8 +1231,8 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 
 
     }),
-    "*": Expressions.BinaryOp.extend({
-        _name: "BinaryOp[*]",
+    "*": Expressions.BinaryOperator.extend({
+        _name: "BinaryOperator[*]",
         requiresArithmeticOperands : true,
 
         operate : function(left, right, sim, inst){
@@ -1229,8 +1240,8 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "/": Expressions.BinaryOp.extend({
-        _name: "BinaryOp[/]",
+    "/": Expressions.BinaryOperator.extend({
+        _name: "BinaryOperator[/]",
         requiresArithmeticOperands : true,
 
         operate : function(left, right, sim, inst){
@@ -1244,19 +1255,19 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "%": Expressions.BinaryOp.extend({
-        _name: "BinaryOp[%]",
+    "%": Expressions.BinaryOperator.extend({
+        _name: "BinaryOperator[%]",
         requiresArithmeticOperands : true,
 
         typeCheck : function(){
-            if (!Expressions.BinaryOp.typeCheck.apply(this)){
+            if (!Expressions.BinaryOperator.typeCheck.apply(this)){
                 return false;
             }
             else if(this.left.type.isIntegralType && this.right.type.isIntegralType){
                 return true;
             }
             else{
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
             }
         },
 
@@ -1265,51 +1276,51 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "<": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[<]",
+    "<": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[<]",
         compare : function(left, right){
             return left < right;
         }
 
     }),
-    "==": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[==]",
+    "==": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[==]",
         allowDiffArrayPointers: true,
         compare : function(left, right){
             return left == right;
         }
 
     }),
-    "!=": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[!=]",
+    "!=": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[!=]",
         allowDiffArrayPointers: true,
         compare : function(left, right){
             return left != right;
         }
 
     }),
-    ">": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[>]",
+    ">": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[>]",
         compare : function(left, right){
             return left > right;
         }
 
     }),
-    "<=": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[<=]",
+    "<=": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[<=]",
         compare : function(left, right){
             return left <= right;
         }
 
     }),
-    ">=": Expressions.BinaryOpRelational.extend({
-        _name: "BinaryOp[>=]",
+    ">=": Expressions.BinaryOperatorRelational.extend({
+        _name: "BinaryOperator[>=]",
         compare : function(left, right){
             return left >= right;
         }
 
     }),
-    "<<": Expressions.BinaryOp.extend({
+    "<<": Expressions.BinaryOperator.extend({
 
         operate: function(left, right, sim, inst){
             if (isA(this.left.type, Types.OStream)) {
@@ -1319,7 +1330,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         },
         convert : function(){
             // only do lvalue to rvalue for right
-            this.right = this.sub.right = standardConversion1(this.right);
+            this.right = standardConversion1(this.right);
         },
         typeCheck : function(){
             if (isA(this.left.type, Types.OStream) && !isA(this.right.type, Types.Void)) {
@@ -1328,17 +1339,17 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         },
         stepForward : function(sim, inst){
-            Expressions.BinaryOp.stepForward.apply(this, arguments);
+            Expressions.BinaryOperator.stepForward.apply(this, arguments);
 
             // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
             var next = sim.peek();
             return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
         }
     }),
-    ">>": Expressions.BinaryOp.extend({
+    ">>": Expressions.BinaryOperator.extend({
 
         operate: function(left, right, sim, inst){
             if (isA(this.left.type, Types.IStream)) {
@@ -1357,7 +1368,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 return true;
             }
 
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.op, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
         }
     })
 };
@@ -1367,63 +1378,67 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 
 var UnaryOp = Expressions.UnaryOp = Expression.extend({
     _name: "UnaryOp",
-    //i_subexpressionsToCompile : {
-    //    operand : {}
-    //},
-    subSequence : ["operand"],
-    memberOverloadSubSequence : ["operand", "funcCall"], // does not include rhs because function call does that
-    overloadSubSequence : ["funcCall"], // does not include rhs because function call does that
-    init: function(code, context){
-        this.initParent(code, context);
-        this.op = this.code.op;
+    i_childrenToExecute : ["operand"],
+    i_childrenToExecuteForMemberOverload : ["operand", "funcCall"], // does not include rhs because function call does that
+    i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
+    i_createChildren : function(ast){
+        this.operator = ast.operator;
+        this.i_astOperand = ast.operand;
     },
 
     compile : function(){
-        var auxOperand = Expressions.createExpressionFromASTSource(this.code.sub, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
+
+        var auxOperand = CPPConstruct.create(this.i_astOperand, {parent: this, auxiliary: true});
         auxOperand.compile();
 
         if (isA(auxOperand.type, Types.Class)){
             // If it's of class type, we look for overloads
-            var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.op, {
-                    own:true, paramTypes:[]
-                }) ||
-                this.contextualScope.singleLookup("operator" + this.op, {
-                    paramTypes:[auxOperand.type]
+            var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.operator, {
+                own:true, paramTypes:[]
+            });
+            if (!overloadOp) {
+                overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
+                    paramTypes: [auxOperand.type]
                 });
+            }
 
-            this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
             if (overloadOp){
-                this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
+                this.isOverload = true;
+                this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
+
+                this.funcCall = FunctionCall.instance(this.code, {parent:this});
+
                 if (this.isMemberOverload){
-                    this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
-                    this.sub.funcCall.compile(overloadOp, []);
-                    this.subSequence = this.memberOverloadSubSequence;
+                    // Member overload means operand is our direct child, and no arguments to function call
+                    this.operand = this.i_createAndCompileChildExpr(this.i_astOperand);
+                    this.funcCall.compile(overloadOp, []);
+                    this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
                 }
                 else{
-                    this.sub.funcCall.compile(overloadOp, [this.code.sub]);
-                    this.subSequence = this.overloadSubSequence;
+                    // Non-member overload means operand is the argument to the function call
+                    this.funcCall.compile(overloadOp, [this.i_astOperand]);
+                    this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
                 }
-                this.type = this.sub.funcCall.type;
-                this.valueCategory = this.sub.funcCall.valueCategory;
+                this.type = this.funcCall.type;
+                this.valueCategory = this.funcCall.valueCategory;
             }
             else{
 
-                this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
-
+                // TODO: this appears to allow compilation to proceed for a class-type operand with
+                // no overloads found, but that's doomed to fail (I think?). Perhaps my thought was
+                // the error messages provided if you accidentally used a unary operator e.g. * with
+                // a class-type operand were more illustrative if they said something like "you can't use
+                // * with a non-pointer type rather than oops i can't find an overload for * with this class type
+                this.operand = this.i_createAndCompileChildExpr(this.i_astOperand);
                 this.convert();
-
                 this.typeCheck();
-
                 this.compileTemporarires();
             }
         }
         else{
-            this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.sub);
-
+            this.operand = this.i_createAndCompileChildExpr(this.i_astOperand);
             this.convert();
-
             this.typeCheck();
-
             this.compileTemporarires();
         }
     },
@@ -1433,8 +1448,8 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
         var toReturn = Expression.upNext.apply(this, arguments);
 
         // If using an assignment operator, set receiver for function call instance
-        if (this.sub.funcCall && this.isMemberOverload){
-            this.sub.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+        if (this.funcCall && this.isMemberOverload){
+            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
@@ -1442,7 +1457,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
     stepForward: function(sim, inst){
         if (inst.index === "operate"){
-            if (this.sub.funcCall){
+            if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
                 // Just evaluate to returned value from assignment operator.
                 inst.setEvalValue(inst.childInstances.funcCall.evalValue);
@@ -1460,7 +1475,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
     isTailChild : function(child){
         return {isTail: false,
-            reason: "The " + this.op + " operation will happen after the recursive call.",
+            reason: "The " + this.operator + " operation will happen after the recursive call.",
             others: [this]
         };
     }
@@ -1469,11 +1484,8 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 var Dereference = Expressions.Dereference = UnaryOp.extend({
     _name: "Dereference",
     valueCategory: "lvalue",
-    //i_subexpressionsToCompile : {
-    //    operand : {convertTo: Types.Pointer}
-    //},
     convert : function(){
-        this.operand = this.sub.operand = standardConversion(this.operand, Types.Pointer);
+        this.operand = this.operand = standardConversion(this.operand, Types.Pointer);
     },
     typeCheck : function(){
         // Type check
@@ -1589,9 +1601,9 @@ Expressions.UnaryPlus = UnaryOp.extend({
     valueCategory: "prvalue",
 
     convert : function(){
-        this.operand = this.sub.operand = standardConversion1(this.operand);
+        this.operand = this.operand = standardConversion1(this.operand);
         if (this.operand.type.isIntegralType){
-            this.operand = this.sub.operand = integralPromotion(this.operand);
+            this.operand = this.operand = integralPromotion(this.operand);
         }
     },
 
@@ -1617,9 +1629,9 @@ Expressions.UnaryMinus = UnaryOp.extend({
     valueCategory: "prvalue",
 
     convert : function(){
-        this.operand = this.sub.operand = standardConversion1(this.operand);
+        this.operand = this.operand = standardConversion1(this.operand);
         if (this.operand.type.isIntegralType){
-            this.operand = this.sub.operand = integralPromotion(this.operand);
+            this.operand = this.operand = integralPromotion(this.operand);
         }
     },
 
@@ -1644,11 +1656,9 @@ Expressions.LogicalNot = UnaryOp.extend({
     _name: "LogicalNot",
     valueCategory: "prvalue",
     type: Types.Bool.instance(),
-    i_subexpressionsToCompile : {
-        operand : {}
-    },
+
     convert : function(){
-        this.operand = this.sub.operand = standardConversion(this.operand, Types.Bool.instance());
+        this.operand = standardConversion(this.operand, Types.Bool.instance());
     },
 
     typeCheck : function(){
@@ -1671,27 +1681,24 @@ Expressions.BitwiseNot = Expressions.Unsupported.extend({
 var Prefix = Expressions.Prefix = UnaryOp.extend({
     _name: "Prefix",
     valueCategory: "lvalue",
-    i_subexpressionsToCompile : {
-        operand : {}
-    },
     typeCheck : function(){
         // Type check
         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
 
-            if (this.op == "--" && isA(this.operand.type, Types.Bool)){
-                this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            if (this.operator == "--" && isA(this.operand.type, Types.Bool)){
+                this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
             }
 
             else if (this.operand.valueCategory === "lvalue") {
                 return true;
             }
             else{
-                this.addNote(CPPError.expr.lvalue_operand(this, this.op));
+                this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
             }
         }
         else{
-            this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
         }
     },
     operate: function(sim, inst){
@@ -1699,7 +1706,7 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
         var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
 
         var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
-        var newRawValue = this.op === "++" ? oldValue.rawValue() + amount : oldValue.rawValue() - amount;
+        var newRawValue = this.operator === "++" ? oldValue.rawValue() + amount : oldValue.rawValue() - amount;
 
         if (isA(obj.type, Types.ArrayPointer)){
             // Check that we haven't run off the array
@@ -1721,17 +1728,20 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
 
     explain : function(sim, inst){
         var evdesc = this.operand.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
-        var incDec = this.op === "++" ? "incremented" : "decremented";
+        var incDec = this.operator === "++" ? "incremented" : "decremented";
         return {message: "First, the value of " + evdesc + " will be " + incDec + " by one. Then this expression as a whole will evaluate to the new value of " + evdesc + "."};
     }
 });
 
+
+// TODO: Consolidate postfix increment/decrement into one class.  consider also merging subscript
+// TODO: Allow overriding postfix increment/decrement
 Expressions.Increment = Expression.extend({
     _name: "Increment",
     valueCategory: "prvalue",
-    i_subexpressionsToCompile : {
-        operand : {}
-    },
+    i_childrenToCreate : ["operand"],
+    i_childrenToExecute : ["operand"],
+
     typeCheck : function(){
         // Type check
         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
@@ -1748,6 +1758,7 @@ Expressions.Increment = Expression.extend({
             this.addNote(CPPError.expr.invalid_operand(this, "++", this.operand));
         }
     },
+
     stepForward : function(sim, inst){
 
         // Evaluate subexpressions
@@ -1783,26 +1794,25 @@ Expressions.Increment = Expression.extend({
 Expressions.Decrement = Expression.extend({
     _name: "Decrement",
     valueCategory: "prvalue",
-    i_subexpressionsToCompile : {
-        operand : {}
-    },
+    i_childrenToCreate : ["operand"],
+    i_childrenToExecute : ["operand"],
     typeCheck : function(){
         // Type check
         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
             this.type = this.operand.type;
 
-            if (this.op = "--" && isA(this.operand.type, Types.Bool)){
-                this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            if (this.operator = "--" && isA(this.operand.type, Types.Bool)){
+                this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
             }
             else if (this.operand.valueCategory === "lvalue") {
                 return true;
             }
             else{
-                this.addNote(CPPError.expr.lvalue_operand(this, this.op));
+                this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
             }
         }
         else{
-            this.addNote(CPPError.expr.invalid_operand(this, this.op, this.operand));
+            this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
         }
     },
     stepForward : function(sim, inst){
@@ -1837,37 +1847,31 @@ Expressions.Decrement = Expression.extend({
 
 
 
-
+// TODO: Allow overloading Subscript with initializer list
 var Subscript = Expressions.Subscript = Expression.extend({
     _name: "Subscript",
     valueCategory: "lvalue",
-    subSequence : ["operand", "offset"],
-    overloadSubSequence : ["operand"], // does not include offset because function call does that
+    i_childrenToCreate : ["operand"],
+    i_childrenToExecute : ["operand", "offset"],
+    i_childrenToExecuteForMemberOverload : ["operand"], // does not include offset because function call does that
 
     compile : Class.BEFORE(function(){
 
-        this.operand = this.sub.operand = this.createAndCompileChildExpr(this.code.operand);
+        this.operand.compile();
 
         // Check for overload
         if (isA(this.operand.type, Types.Class)){
-            this.isOverloaded = true;
-
-            var auxOffset = Expressions.createExpressionFromASTSource(this.code.sub, {parent: this, auxiliaryLevel: this.i_auxiliaryLevel + 1});
-            auxOffset.compile();
-
-            this.processMemberOverload(this.operand, [auxOffset], "[]");
-
-
+            this.processMemberOverload(this.operand, [this.ast.arg], "[]");
             // add check for problems before adding anything here
         }
         else{
-            this.operand = this.sub.operand = standardConversion(this.operand, Types.Pointer);
-            this.offset = this.sub.offset = this.createAndCompileChildExpr(this.code.sub, Types.Int.instance());
+            this.operand = standardConversion(this.operand, Types.Pointer);
+            this.offset = this.i_createAndCompileChildExpr(this.code, Types.Int.instance());
         }
     }),
 
     typeCheck : function(){
-        if (this.isOverloaded){
+        if (this.isOverload){
             return;
         }
         if (!isA(this.operand.type, Types.Pointer)) {
@@ -1884,7 +1888,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
 
     upNext : function(sim, inst){
-        if (this.isOverloaded)
+        if (this.isOverload)
         {
             if (inst.index === "subexpressions"){
                 inst.childInstances = {};
@@ -2591,7 +2595,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
 
         // Need to select function, so have to compile auxiliary arguments
         var auxArgs = this.code.args.map(function(arg){
-            var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliaryLevel: self.i_auxiliaryLevel + 1});
+            var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliary: true});
             auxArg.tryCompile();
             return auxArg;
         });
@@ -2747,7 +2751,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         if (isA(this.heapType, Types.Array)){
             this.type = Types.Pointer.instance(this.heapType.elemType);
             if (this.declarator.dynamicLengthExpression){
-                this.dynamicLength = this.createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
+                this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
                 this.initIndex = "length";
             }
         }
