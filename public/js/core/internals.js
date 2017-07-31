@@ -108,6 +108,13 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     i_createChild : function(ast, context) {
         if (!ast) {return ast;}
+        if (Array.isArray(ast)){
+            var self = this;
+            return ast.map(function(a) {
+                return self.i_createChild(a, context);
+            });
+        }
+
         return CPPConstruct.create(ast, mixin({parent:this}, context || {}));
     },
 

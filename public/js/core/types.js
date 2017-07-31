@@ -1019,8 +1019,8 @@ Lobster.Types.Class = Type.extend({
 
         members && members.forEach(classType.addMember.bind(classType));
 
-        var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
-        classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
+        // var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
+        // classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
 
         return classType;
     },

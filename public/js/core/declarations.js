@@ -628,8 +628,10 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
                 return;
             }
 
-            this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this, receiver: this.entity});
-            this.funcCall.compile(this.myConstructor, args);
+            this.funcCall = this.sub.funcCall = FunctionCall.instance({args: args}, {parent:this});
+            this.funcCall.compile({
+                func: this.myConstructor,
+                receiver: this.entity});
             this.args = this.funcCall.args;
         }
         else if (isA(type, Types.Array)){
@@ -823,8 +825,10 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 return;
             }
 
-            this.funcCall = FunctionCall.instance(this.code, {parent: this, receiver: this.entity});
-            this.funcCall.compile(this.myConstructor, args);
+            this.funcCall = FunctionCall.instance({args: args}, {parent: this});
+            this.funcCall.compile({
+                func: this.myConstructor,
+                receiver: this.entity});
             this.args = this.funcCall.args;
         }
 
@@ -1199,8 +1203,10 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         this.autosToDestruct = this.autosToDestruct.map(function(obj){
             var dest = obj.type.destructor;
             if (dest){
-                var call = FunctionCall.instance(null, {parent: self, scope: self.bodyScope, receiver: obj});
-                call.compile(dest, []);
+                var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
+                call.compile({
+                    func: dest,
+                    receiver: obj});
                 return call;
             }
             else{
@@ -2225,8 +2231,10 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         }).map(function(obj){
             var dest = obj.type.destructor;
             if (dest){
-                var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                call.compile(dest, []);
+                var call = FunctionCall.instance({args: []}, {parent: self});
+                call.compile({
+                    func: dest,
+                    receiver: obj});
                 return call;
             }
             else{
@@ -2238,8 +2246,10 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         this.basesToDestruct = this.i_containingClass.baseClassSubobjectEntities.map(function(obj){
             var dest = obj.type.destructor;
             if (dest){
-                var call = FunctionCall.instance(null, {parent: self, receiver: obj});
-                call.compile(dest, []);
+                var call = FunctionCall.instance({args: []}, {parent: self});
+                call.compile({
+                    func: dest,
+                    receiver: obj});
                 return call;
             }
             else{
