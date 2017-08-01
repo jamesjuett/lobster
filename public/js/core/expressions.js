@@ -268,14 +268,12 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
             return inst.evalValue.describe();
         }
         else if (depth == 0){
-            return {message: "the result of " + this.code.text};
+            return {message: "the result of " + this.getSourceText()};
         }
         else{
-            return {message: "the result of " + this.code.text};
+            return {message: "the result of " + this.getSourceText()};
         }
     },
-
-
 
 
 
@@ -702,13 +700,13 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
     i_childrenToExecuteForMemberOverload : ["left", "funcCall"], // does not include rhs because function call does that
     i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
 
-    instance: function(code, context) {
+    instance: function(ast, context) {
 
         // ONLY if instance was called directly on Expressions.BinaryOperator, then we want
         // to sneakily select the correct derived class and instantiate that instead :)
         if (this === Expressions.BinaryOperator){
-            var desiredSubClass = BINARY_OPS[code.operator];
-            return desiredSubClass.instance(code, context);
+            var desiredSubClass = BINARY_OPS[ast.operator];
+            return desiredSubClass.instance(ast, context);
         }
 
         // Otherwise (e.g. if called on a derived class this inherits this instance function), just use
@@ -1551,7 +1549,7 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
             return inst.evalValue.describe();
         }
         else if (depth == 0){
-            return {message: "the result of " + this.code.text};
+            return {message: "the result of " + this.getSourceText()};
         }
         else{
             return {message: "the object at address " + this.operand.describeEvalValue(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
@@ -1857,7 +1855,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
         }
         else{
             this.operand = standardConversion(this.operand, Types.Pointer);
-            this.arg = this.i_createAndCompileChildExpr(this.code, Types.Int.instance());
+            this.arg = this.i_createAndCompileChildExpr(this.ast.arg, Types.Int.instance());
 
             this.convert();
             this.typeCheck();
@@ -2116,7 +2114,7 @@ var PREDEFINED_FUNCTIONS = {
     },
     "assert" : function(args, sim, inst){
         if(!args[0].evalValue.value){
-            sim.alert("Yikes! An assert failed! <br /><span class='code'>" + inst.model.code.text + "</span> on line " + inst.model.code.line + ".");
+            sim.alert("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
         }
         return Value.instance("", Types.Void.instance());
     },
@@ -2498,7 +2496,7 @@ var FunctionCallExpression = Expressions.FunctionCall = Expression.extend({
             return;
         }
 
-        var funcCall = this.funcCall = FunctionCall.instance({args: this.code.args}, {parent:this});
+        var funcCall = this.funcCall = FunctionCall.instance({args: this.ast.args}, {parent:this});
         funcCall.compile({func: this.boundFunction});
 
         this.type = funcCall.type;
@@ -2633,7 +2631,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         var entity = NewObjectEntity.instance(this.heapType);
 
-        var initCode = this.code.initializer || {args: []};
+        var initCode = this.ast.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity, initCode.args);
@@ -2907,23 +2905,23 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
     compile : function(){
 
         // Compile the type specifier
-        this.typeSpec = TypeSpecifier.instance([this.code.type], {parent:this});
+        this.typeSpec = TypeSpecifier.instance([this.ast.type], {parent:this});
         this.typeSpec.compile();
 
         this.type = this.typeSpec.type;
 
         // Compile declarator if it exists
-        if(this.code.declarator) {
-            this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
+        if(this.ast.declarator) {
+            this.declarator = Declarator.instance(this.ast.declarator, {parent: this}, this.heapType);
             this.declarator.compile();
             this.heapType = this.declarator.type;
         }
 
         this.entity = this.createTemporaryObject(this.type, "[temp " + this.type + "]");
 
-        if (isA(this.type, Types.Class) || this.code.args.length == 1){
-            this.initializer = DirectInitializer.instance(this.code, {parent: this});
-            this.initializer.compile(this.entity, this.code.args);
+        if (isA(this.type, Types.Class) || this.ast.args.length == 1){
+            this.initializer = DirectInitializer.instance(this.ast, {parent: this});
+            this.initializer.compile(this.entity, this.ast.args);
         }
         else{
             this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
@@ -3006,20 +3004,22 @@ var Identifier = Expressions.Identifier = Expression.extend({
         }
         return names.map(function(id){return id.identifier}).join("::")
     },
-    init: function(code, context){
-        this.initParent(code, context);
-        this.identifier = this.code.identifier;
+    init: function(ast, context){
+        this.initParent(ast, context);
+        this.identifier = this.ast.identifier;
         this.identifierText = identifierToText(this.identifier);
-        this.i_paramContext = {
-            params : context.params,
-            paramTypes : context.paramTypes
-        }
     },
+
+    compile : function(compilationContext) {
+        this.i_paramTypes = compilationContext.i_paramTypes;
+        Expressions.Identifier._parent.compile.apply(this, arguments);
+    },
+
     typeCheck : function(){
         checkIdentifier(this, this.identifier, this);
 
 		try{
-            this.entity = this.contextualScope.requiredLookup(this.identifier, copyMixin(this.i_paramContext, {isThisConst:this.containingFunction().type.isThisConst}));
+            this.entity = this.contextualScope.requiredLookup(this.identifier, {paramTypes: this.i_paramTypes, isThisConst:this.containingFunction().type.isThisConst});
 
             if(isA(this.entity, CPPEntity)) {
                 this.type = this.entity.type;
@@ -3090,8 +3090,8 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
 var EntityExpression = Expressions.EntityExpression = Expression.extend({
     _name: "EntityExpression",
     valueCategory: "lvalue",
-    init : function(entity, code, context){
-        this.initParent(code, context);
+    init : function(entity, ast, context){
+        this.initParent(ast, context);
         this.entity = entity;
         this.type = this.entity.type;
     },
@@ -3132,18 +3132,17 @@ var Literal = Expressions.Literal = Expression.extend({
     _name: "Literal",
     initIndex: false,
     compile : function(){
+
 		
-		var code = this.code;
+		var conv = literalJSParse[this.ast.type];
+		var val = (conv ? conv(this.ast.value) : this.ast.value);
 		
-		var conv = literalJSParse[code.type];
-		var val = (conv ? conv(code.value) : code.value);
-		
-		var typeClass = literalTypes[code.type];
+		var typeClass = literalTypes[this.ast.type];
         this.type = typeClass;
         this.valueCategory = "prvalue";
         this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
 
-//        if (code.type === "string"){
+//        if (this.ast.type === "string"){
 //            this.type = Types.Array.instance(Types.Char, val.length+1);
 //            this.valueCategory = "prvalue";
 //            val = val.split("");
