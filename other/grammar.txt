@@ -232,7 +232,7 @@ ctor_initializer
   = ":" ws first:mem_initializer rest:(ws "," ws m:mem_initializer {return m;})* {rest.unshift(first); return rest;}
 
 mem_initializer
-  = i:identifier ws "(" ws args:exp_list? ws ")" {return track({construct_type: "member_initializer", member: i, args:args}, location(), text()); }
+  = i:identifier ws "(" ws args:exp_list? ws ")" {return track({construct_type: "member_initializer", member: i, args:args || []}, location(), text()); }
 
 function_body
   = compound_statement

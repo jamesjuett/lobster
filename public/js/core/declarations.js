@@ -2,14 +2,6 @@ var Lobster = Lobster || {};
 
 var Declarations = Lobster.Declarations = {
 
-    create : function(decl, context){
-        return this[decl.declaration.toLowerCase()].instance(decl, context);
-    },
-
-    createFromASTSource : function(declAST, context) {
-        return this[declAST.declaration].createFromASTSource(arguments);
-    }
-
 };
 
 // A POD type
@@ -19,25 +11,25 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
 
 
         this.numSpecs = 0;
-        for(var i = 0; i < this.code.length; ++i){
-            if (this[this.code[i]]){
-                this.addNote(CPPError.declaration.storage.once(this, this.code[i]));
+        for(var i = 0; i < this.ast.length; ++i){
+            if (this[this.ast[i]]){
+                this.addNote(CPPError.declaration.storage.once(this, this.ast[i]));
             }
             else {
-                this[this.code[i]] = true;
+                this[this.ast[i]] = true;
                 ++this.numSpecs;
-                if (this.code[i] != "static"){
-                    this.addNote(CPPError.declaration.storage.unsupported(this, this.code[i]));
+                if (this.ast[i] != "static"){
+                    this.addNote(CPPError.declaration.storage.unsupported(this, this.ast[i]));
                 }
             }
 
         }
-        if (this.code.length < 2 ||
-            this.code.length == 2 && this.thread_local && (this.static || this.extern)){
+        if (this.ast.length < 2 ||
+            this.ast.length == 2 && this.thread_local && (this.static || this.extern)){
             //ok
         }
         else{
-            this.addNote(CPPError.declaration.storage.incompatible(this, this.code));
+            this.addNote(CPPError.declaration.storage.incompatible(this, this.ast));
         }
     }
 });
@@ -79,9 +71,8 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
-    init: function(code, context){
-        code.specs = code.specs || {typeSpecs:[], storageSpecs:[]}; // TODO NEW This should be taken care of in the grammar?
-        this.initParent(code, context);
+    init: function(ast, context){
+        this.initParent(ast, context);
         this.declarators = [];
         this.initializers = [];
         this.entities = [];
@@ -94,17 +85,17 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     },
 
     compileDeclaration : function() {
-        var code = this.code;
+        var ast = this.ast;
 
 
-        this.typeSpec = TypeSpecifier.instance(code.specs.typeSpecs, {parent: this});
+        this.typeSpec = TypeSpecifier.instance(ast.specs.typeSpecs, {parent: this});
         this.typeSpec.compile();
 
         if (this.hasErrors() > 0) {
             return;
         }
 
-        this.storageSpec = StorageSpecifier.instance(code.specs.storageSpecs, {parent:this});
+        this.storageSpec = StorageSpecifier.instance(ast.specs.storageSpecs, {parent:this});
         this.storageSpec.compile();
 
         // TODO, if storage is specified, declarators cannot be empty (classes and such)
@@ -112,21 +103,21 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
             return;
         }
 
-        this.typedef = !!code.specs.typedef;
-        this.friend = !!code.specs.friend;
-        this.virtual = !!code.specs.virtual;
+        this.typedef = !!ast.specs.typedef;
+        this.friend = !!ast.specs.friend;
+        this.virtual = !!ast.specs.virtual;
 
         if (this.storageSpec.numSpecs > 0 && this.typedef) {
-            this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.code))
+            this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
         }
 
         this.i_determineStorage();
 
 
         // Compile each declarator with respect to the type specifier
-        for (var i = 0; i < code.declarators.length; ++i) {
-            var decl = Declarator.instance(code.declarators[i], {parent: this}, this.typeSpec.type);
-            decl.compile();
+        for (var i = 0; i < ast.declarators.length; ++i) {
+            var decl = Declarator.instance(ast.declarators[i], {parent: this});
+            decl.compile({baseType: this.typeSpec.type});
 
             // If there are errors in the declarator, don't create an entity or anything.
             if (decl.hasErrors()){
@@ -160,7 +151,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
         for (var i = 0; i < this.entities.length; ++i) {
             var ent = this.entities[i];
             var decl = ent.decl;
-            var initCode = decl.code.initializer;
+            var initCode = decl.ast.initializer;
 
             // Compile initializer
             var init;
@@ -171,11 +162,11 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
                 }
                 else if (initCode.initializer === "direct"){
                     init = DirectInitializer.instance(initCode, {parent: this});
-                    init.compile(ent, initCode.args);
+                    init.compile(ent);
                 }
                 else if (initCode.initializer === "copy"){
                     init = CopyInitializer.instance(initCode, {parent: this});
-                    init.compile(ent, initCode.args);
+                    init.compile(ent);
                 }
                 else{
                     assert(false, "Corrupt initializer :(");
@@ -280,19 +271,14 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
 var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
     _name: "Parameter",
 
-    init: function(code, context) {
-        code.specs = code.specs || {typeSpecs: [], storageSpecs: []};
-        this.initParent(code, context);
-    },
-
     compile : function(){
         // Compile the type specifier
-        var typeSpec = this.typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
+        var typeSpec = this.typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
         typeSpec.compile();
 
         // Compile the declarator
-        var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this}, typeSpec.type);
-        decl.compile();
+        var decl = this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
+        decl.compile({baseType: typeSpec.type});
 
         this.name = decl.name;
         this.type = decl.type;
@@ -330,24 +316,23 @@ var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
 // TODO: take baseType as a parameter to compile rather than init
 var Declarator = Lobster.Declarator = CPPConstruct.extend({
     _name: "Declarator",
-    init: function(code, context, baseType){
-        this.initParent(code, context);
-        this.baseType = baseType;
-    },
-    compile : function(){
 
-        var code = this.code;
+    compile : function(compilationContext){
+
+        this.baseType = compilationContext.baseType;
+
+        var ast = this.ast;
 
 
         var type = this.baseType;
 
-        var decl = this.code;
+        var decl = this.ast;
 
         var first = true;
         var isParam = isA(this.parent, Declarations.Parameter);
         var isMember = isA(this.parent, Declarations.Member);
 
-        this.pureVirtual = !!code.pureVirtual;
+        this.pureVirtual = !!ast.pureVirtual;
 
         var prev = false;
         while (decl){
@@ -489,7 +474,7 @@ var Declarator = Lobster.Declarator = CPPConstruct.extend({
         if (isMember && isA(this.type, Types.reference)){
             this.addNote(CPPError.declaration.ref.memberNotSupported(this));
         }
-        if (!isParam && !isMember && isA(this.type, Types.reference) && !code.initializer) {
+        if (!isParam && !isMember && isA(this.type, Types.reference) && !ast.initializer) {
             this.addNote(CPPError.declaration.init.referenceBind(this));
         }
 
@@ -641,7 +626,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
             if (isA(type.elemType, Types.Class)){
                 this.sub.arrayElemInitializers = [];
                 for(var i = 0; i < type.length; ++i){
-                    var elemInit = DefaultInitializer.instance(this.code, {parent:this});
+                    var elemInit = DefaultInitializer.instance(this.ast, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
                     elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
                     if (elemInit.hasErrors()){
@@ -723,10 +708,10 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
 Lobster.DirectCopyInitializerBase = Initializer.extend({
     _name : "DirectCopyInitializerBase",
 
-    compile : function(entity, args) {
+    compile : function(entity) {
         var self = this;
         assert(isA(entity, CPPEntity));
-        args = args || [];
+        var args = this.ast.args;
         assert(Array.isArray(args));
         this.entity = entity;
 
@@ -771,10 +756,14 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
                 this.sub.arrayElemInitializers = [];
                 for(var i = 0; i < type.length; ++i){
-                    var elemInit = DirectInitializer.instance(this.code, {parent:this});
+                    // TODO: find a way to clean up these shenanagins for array initalization.
+                    // Or decide that this is an inherent quirk of the language and throw up my hands.
+                    // A slight improvement might be creating a fake AST node that just starts with the entity
+                    // and then when it compiles it actually does nothing. This would still be trickery, but wouldn't
+                    // require the check for EntityExpression and treating it differently elsewhere.
+                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]}, {parent:this});
                     this.sub.arrayElemInitializers.push(elemInit);
-                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i),
-                            [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]);
+                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
                     if(elemInit.hasErrors()) {
                         this.addNote(CPPError.declaration.init.array_direct_init(this));
                         break;
@@ -981,26 +970,26 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
 
 var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
     _name : "InitializerList",
-    init: function(code, context) {
+    init: function(ast, context) {
         this.i_entityToInitialize = context.entity;
         assert(context.entity, "Initializer context must specify entity to be initialized!");
-        this.initParent(code, context);
-        this.initializerListLength = code.args.length;
+        this.initParent(ast, context);
+        this.initializerListLength = ast.args.length;
     },
     compile : function(){
-        var code = this.code;
+        var ast = this.ast;
         var type = this.i_entityToInitialize.type;
 
         if (!isA(type, Types.Array)){
             this.addNote(CPPError.declaration.init.list_array(this));
         }
-        else if (type.length !== code.args.length){
+        else if (type.length !== ast.args.length){
             this.addNote(CPPError.declaration.init.list_length(this, type.length));
         }
 
         if (this.hasErrors()){ return; }
 
-        var list = code.args;
+        var list = ast.args;
         //this.initializerList = [];
         for(var i = 0; i < list.length; ++i){
             var initListElem = this.sub["arg"+i] = this.i_createAndCompileChildExpr(list[i], type.elemType);
@@ -1081,9 +1070,9 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     },
 
-    init : function(code, context){
-        code.specs = code.specs || {typeSpecs: [], storageSpecs: []};
-        this.initParent(code, copyMixin(context, {func: this}));
+    init : function(ast, context){
+        ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
+        this.initParent(ast, copyMixin(context, {func: this}));
         this.calls = [];
 
         // Check if it's a member function
@@ -1096,7 +1085,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         this.sub.memberInitializers = [];
         this.autosToDestruct = [];
 
-        this.body = this.sub.body = Statements.FunctionBodyBlock.instance(this.code.body, {func: this, parent: this});
+        this.body = this.sub.body = Statements.FunctionBodyBlock.instance(this.ast.body, {func: this, parent: this});
     },
 
     compile : function(){
@@ -1106,7 +1095,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     // EFFECTS: returns an array of errors
     compileDeclaration : function(){
-        var code = this.code;
+        var ast = this.ast;
 
 
         // This function's scope (actually scope used for its body block)
@@ -1155,17 +1144,17 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     // Responsible for setting the type, params, and paramTypes properties
     compileDeclarator : function(){
         // Compile the type specifier
-        var typeSpec = TypeSpecifier.instance(this.code.specs.typeSpecs, {parent: this});
+        var typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
         typeSpec.compile();
         if (this.hasErrors()){
             return;
         }
 
-        this.virtual = !!this.code.specs.virtual;
+        this.virtual = !!this.ast.specs.virtual;
 
         // Compile the declarator
-        var decl = this.declarator = Declarator.instance(this.code.declarator, {parent: this, scope: this.bodyScope}, typeSpec.type);
-        decl.compile();
+        var decl = this.declarator = Declarator.instance(this.ast.declarator, {parent: this, scope: this.bodyScope});
+        decl.compile({baseType: typeSpec.type});
         this.name = decl.name;
         this.isMain = this.name === "main";
         this.type = decl.type;
@@ -1230,7 +1219,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     },
 
     emptyBody : function(){
-        return this.code.body.statements.length === 0;
+        return this.ast.body.statements.length === 0;
     },
 
     callSearch : function(callback, options){
@@ -1563,34 +1552,34 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
     },
 
     compileDeclaration : function(){
-        var code = this.code;
+        var ast = this.ast;
 
 
-        this.key = code.head.key;
-        this.name = code.head.name.identifier;
+        this.key = ast.head.key;
+        this.name = ast.head.name.identifier;
         this.members = [];
 
 
         // Base classes
 
-        if (this.code.head.bases && this.code.head.bases.length > 0){
-            if (this.code.head.bases.length > 1){
+        if (this.ast.head.bases && this.ast.head.bases.length > 0){
+            if (this.ast.head.bases.length > 1){
                 this.addNote(CPPError.classDef.multiple_inheritance(this));
                 return;
             }
 
             try{
-                var baseCode = this.code.head.bases[0];
+                var baseCode = this.ast.head.bases[0];
 
                 // TODO NEW: Use an actual Identifier expression for this
                 this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
-                    this.addNote(CPPError.classDef.base_class_type({code:baseCode.name}, baseCode.name.identifier));
+                    this.addNote(CPPError.classDef.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
                 }
 
                 if (baseCode.virtual){
-                    this.addNote(CPPError.classDef.virtual_inheritance({code:baseCode.name}, baseCode.name.identifier));
+                    this.addNote(CPPError.classDef.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
                 }
             }
             catch(e){
@@ -1636,8 +1625,8 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 
 
         var memDecls = this.memDecls = [];
-        for(var i = 0; i < code.member_specs.length; ++i){
-            var spec = code.member_specs[i];
+        for(var i = 0; i < ast.member_specs.length; ++i){
+            var spec = ast.member_specs[i];
             var access = spec.access || "private";
             for(var j = 0; j < spec.members.length; ++j){
                 spec.members[j].access = access;
@@ -1687,7 +1676,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 
             }
             else{
-                this.addNote(CPPError.classDef.bigThree({code:code.head}, bigThreeYes, bigThreeNo));
+                this.addNote(CPPError.classDef.bigThree(this, bigThreeYes, bigThreeNo));
             }
         }
 
@@ -1904,11 +1893,11 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 
 var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
     _name: "MemberDeclaration",
-    init: function(code, context){
+    init: function(ast, context){
         assert(context);
         assert(isA(context.containingClass, Types.Class));
         assert(context.hasOwnProperty("access"));
-        this.initParent(code, context);
+        this.initParent(ast, context);
         this.access = context.access;
         this.i_containingClass = context.containingClass;
         this.declarators = [];
@@ -1976,21 +1965,17 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
 var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = FunctionDefinition.extend({
     _name: "ConstructorDefinition",
 
-    instance : function(code, context){
+    instance : function(ast, context){
         assert(context);
         assert(isA(context.containingClass, Types.Class));
         assert(context.hasOwnProperty("access"));
         // Make sure it's actually a constructor
-        if (code.name.identifier !== context.containingClass.className){
+        if (ast.name.identifier !== context.containingClass.className){
             // oops was actually a function with missing return type
-            return FunctionDefinition.instance(code, context);
+            return FunctionDefinition.instance(ast, context);
         }
 
         return ConstructorDefinition._parent.instance.apply(this, arguments);
-    },
-
-    init : function(code, context){
-        this.initParent(code, context);
     },
 
     compileDeclaration : function() {
@@ -2002,7 +1987,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
     },
 
     compileDeclarator : function(){
-        var code = this.code;
+        var ast = this.ast;
 
 
         // NOTE: a constructor doesn't have a "name", and so we don't need to add it to any scope.
@@ -2011,7 +1996,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         this.name = this.i_containingClass.className + "\0";
 
         // Compile the parameters
-        var args = this.code.args;
+        var args = this.ast.args;
         this.params = [];
         this.paramTypes = [];
         for (var j = 0; j < args.length; ++j) {
@@ -2038,9 +2023,9 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
     compileDefinition : function(){
         var self = this;
-        var code = this.code;
+        var ast = this.ast;
 
-        if (!code.body){
+        if (!ast.body){
             this.addNote(CPPError.classDef.ctor_def(this));
             return;
         }
@@ -2052,7 +2037,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
     },
 
     compileCtorInitializer : function(){
-        var memInits = this.code.initializer || [];
+        var memInits = this.ast.initializer || [];
 
         // First, check to see if this is a delegating constructor.
         var targetConstructor = null;
@@ -2069,7 +2054,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             // If it is a delegating constructor, there can be no other memInits
             if (memInits.length === 0){ // should be 0 since one removed
                 var mem = MemberInitializer.instance(targetConstructor, {parent: this, scope: this.bodyScope});
-                mem.compile(ReceiverEntity.instance(this.i_containingClass), targetConstructor.args || []);
+                mem.compile(ReceiverEntity.instance(this.i_containingClass));
                 this.sub.memberInitializers.push(mem);
             }
             else{
@@ -2096,11 +2081,11 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             }
             else if (baseInits.length === 1){
                 var mem = MemberInitializer.instance(baseInits[0], {parent: this, scope: this.bodyScope});
-                mem.compile(this.i_containingClass.baseClassSubobjectEntities[0], baseInits[0].args || []);
+                mem.compile(this.i_containingClass.baseClassSubobjectEntities[0]);
                 this.sub.memberInitializers.push(mem);
             }
             else{
-                var mem = DefaultMemberInitializer.instance(this.code, {parent: this, scope: this.bodyScope});
+                var mem = DefaultMemberInitializer.instance(this.ast, {parent: this, scope: this.bodyScope});
                 mem.compile(this.i_containingClass.baseClassSubobjectEntities[0]);
                 this.sub.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
@@ -2122,8 +2107,8 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
             // Make sure this type has a member of the given name
             var memberName = memInit.member.identifier;
             if (initMap.hasOwnProperty(memberName)) {
-                var mem = MemberInitializer.instance(this, {parent: this, scope: this.bodyScope});
-                mem.compile(initMap[memberName], memInit.args || []);
+                var mem = MemberInitializer.instance(memInit, {parent: this, scope: this.bodyScope});
+                mem.compile(initMap[memberName]);
                 initMap[memberName] = mem;
             }
             else{
@@ -2140,7 +2125,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
                 self.sub.memberInitializers.push(initMap[objMember.name]);
             }
             else if (isA(objMember.type, Types.Class) || isA(objMember.type, Types.Array)){
-                var mem = DefaultMemberInitializer.instance(self.code, {parent: self, scope: self.bodyScope});
+                var mem = DefaultMemberInitializer.instance(self.ast, {parent: self, scope: self.bodyScope});
                 mem.compile(objMember);
                 self.sub.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
@@ -2183,11 +2168,11 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionDefinition.extend({
     _name: "DestructorDefinition",
 
-    init : function(code, context){
+    init : function(ast, context){
         assert(context);
         assert(isA(context.containingClass, Types.Class));
         assert(context.hasOwnProperty("access"));
-        this.initParent(code, context);
+        this.initParent(ast, context);
         this.access = context.access;
         this.i_containingClass = context.containingClass;
     },
@@ -2198,13 +2183,13 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
     },
 
     compileDeclarator : function() {
-        var code = this.code;
+        var ast = this.ast;
 
 
         // Destructors do have names and can be found via name lookup
         this.name = "~" + this.i_containingClass.className;
 
-        this.virtual = this.code.virtual;
+        this.virtual = this.ast.virtual;
 
         // There are no parameters for a destructor
         this.params = [];
@@ -2216,10 +2201,10 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
 
     compileDefinition: function(){
         var self = this;
-        var code = this.code;
+        var ast = this.ast;
 
 
-        if (!code.body){
+        if (!ast.body){
             this.addNote(CPPError.classDef.dtor_def(this));
             return;
         }
