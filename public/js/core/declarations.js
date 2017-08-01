@@ -796,7 +796,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
             // Need to select constructor, so have to compile auxiliary arguments
             var auxArgs = args.map(function (arg) {
-                var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliary: true});
+                var auxArg = Expression.create(arg, {parent: self, auxiliary: true});
                 auxArg.compile();
                 return auxArg;
             });
@@ -1630,7 +1630,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
             var access = spec.access || "private";
             for(var j = 0; j < spec.members.length; ++j){
                 spec.members[j].access = access;
-                var memDecl = Declarations.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
+                var memDecl = Declaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
 
                 // Within member function definitions, class is considered as complete even though it isn't yet
                 if (isA(memDecl, FunctionDefinition)){

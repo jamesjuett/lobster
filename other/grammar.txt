@@ -44,7 +44,7 @@
       text : text,
       line : location.start.line,
       column : location.start.column,
-      end : obj.start + obj.text.length
+      end : obj.start + text.length
     };
     return obj;
   }
