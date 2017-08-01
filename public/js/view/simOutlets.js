@@ -1528,6 +1528,16 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
     i_onEdit : function() {
         var newText = this.getText();
 
+
+        // TODO NEW omg what a hack
+        //Use for building parser :p
+        // console.log(peg.generate(newText,{
+        //    cache: true,
+        //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
+        //    output: "source"
+        // }));
+        // return;
+
         if(this.i_onEditTimeout){
             clearTimeout(this.i_onEditTimeout);
         }

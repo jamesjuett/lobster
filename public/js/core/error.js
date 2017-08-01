@@ -148,9 +148,9 @@ var CompilerLinkerNoteBase = Note.extend({
             this.i_constructs = constructs;
         }
         else {
-            assert(isA(constructs, CPPConstruct));
             this.i_constructs = [];
             if (constructs) {
+                assert(isA(constructs, CPPConstruct));
                 this.i_constructs.push(constructs);
             }
         }

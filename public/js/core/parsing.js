@@ -138,7 +138,7 @@ Lobster.cPlusPlusParser = /*
 
             var peg$FAILED = {},
 
-                peg$startRuleFunctions = { start: peg$parsestart },
+                peg$startRuleFunctions = { start: peg$parsestart, function_body: peg$parsefunction_body, member_declaration: peg$parsemember_declaration, declaration: peg$parsedeclaration },
                 peg$startRuleFunction  = peg$parsestart,
 
                 peg$c0 = function(d) {return d},
@@ -830,7 +830,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsestart() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 0,
+                var key    = peg$currPos * 120 + 0,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -899,7 +899,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedecl_or_comment() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 1,
+                var key    = peg$currPos * 120 + 1,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -927,7 +927,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsecomment() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 2,
+                var key    = peg$currPos * 120 + 2,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1105,7 +1105,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsestatement() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 3,
+                var key    = peg$currPos * 120 + 3,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1130,7 +1130,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsestatement_tracked() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 4,
+                var key    = peg$currPos * 120 + 4,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1173,7 +1173,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parselabeled_statement() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 5,
+                var key    = peg$currPos * 120 + 5,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1339,7 +1339,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexpression_statement() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 6,
+                var key    = peg$currPos * 120 + 6,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1388,7 +1388,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsecompound_statement() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 7,
+                var key    = peg$currPos * 120 + 7,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1481,7 +1481,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseselection_statement() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13;
 
-                var key    = peg$currPos * 119 + 8,
+                var key    = peg$currPos * 120 + 8,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -1683,7 +1683,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseiteration_statement() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15;
 
-                var key    = peg$currPos * 119 + 9,
+                var key    = peg$currPos * 120 + 9,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2026,7 +2026,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsefor_init_statement() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 10,
+                var key    = peg$currPos * 120 + 10,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2054,7 +2054,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsejump_statement() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 11,
+                var key    = peg$currPos * 120 + 11,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2238,7 +2238,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclaration_statement() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 12,
+                var key    = peg$currPos * 120 + 12,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2263,7 +2263,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclaration() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 13,
+                var key    = peg$currPos * 120 + 13,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2288,7 +2288,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsesimple_declaration() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 14,
+                var key    = peg$currPos * 120 + 14,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2361,7 +2361,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 15,
+                var key    = peg$currPos * 120 + 15,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2466,7 +2466,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseclass_declaration() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 16,
+                var key    = peg$currPos * 120 + 16,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2512,7 +2512,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsefunction_definition() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 17,
+                var key    = peg$currPos * 120 + 17,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2579,7 +2579,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseconstructor_definition() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12;
 
-                var key    = peg$currPos * 119 + 18,
+                var key    = peg$currPos * 120 + 18,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2697,7 +2697,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedestructor_definition() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
 
-                var key    = peg$currPos * 119 + 19,
+                var key    = peg$currPos * 120 + 19,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -2905,7 +2905,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsector_initializer() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9;
 
-                var key    = peg$currPos * 119 + 20,
+                var key    = peg$currPos * 120 + 20,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3028,7 +3028,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsemem_initializer() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 21,
+                var key    = peg$currPos * 120 + 21,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3104,10 +3104,29 @@ Lobster.cPlusPlusParser = /*
                 return s0;
             }
 
+            function peg$parsefunction_body() {
+                var s0;
+
+                var key    = peg$currPos * 120 + 22,
+                    cached = peg$resultsCache[key];
+
+                if (cached) {
+                    peg$currPos = cached.nextPos;
+
+                    return cached.result;
+                }
+
+                s0 = peg$parsecompound_statement();
+
+                peg$resultsCache[key] = { nextPos: peg$currPos, result: s0 };
+
+                return s0;
+            }
+
             function peg$parsedecl_specifiers() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 22,
+                var key    = peg$currPos * 120 + 23,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3217,7 +3236,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedecl_specifier() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 23,
+                var key    = peg$currPos * 120 + 24,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3272,7 +3291,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsetype_specifiers() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 24,
+                var key    = peg$currPos * 120 + 25,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3382,7 +3401,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsetype_specifier() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 25,
+                var key    = peg$currPos * 120 + 26,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3419,7 +3438,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsestorage_class_specifier() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 26,
+                var key    = peg$currPos * 120 + 27,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3480,7 +3499,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsefunction_specifier() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 27,
+                var key    = peg$currPos * 120 + 28,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3523,7 +3542,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsesimple_type_name() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 28,
+                var key    = peg$currPos * 120 + 29,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3572,7 +3591,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parse_simple_type_name() {
                 var s0, s1, s2;
 
-                var key    = peg$currPos * 119 + 29,
+                var key    = peg$currPos * 120 + 30,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3711,7 +3730,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseenum_specifier() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12;
 
-                var key    = peg$currPos * 119 + 30,
+                var key    = peg$currPos * 120 + 31,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3879,7 +3898,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseenumerator() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 31,
+                var key    = peg$currPos * 120 + 32,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3946,7 +3965,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator_init() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 32,
+                var key    = peg$currPos * 120 + 33,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -3989,7 +4008,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseinitializer() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 33,
+                var key    = peg$currPos * 120 + 34,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4059,7 +4078,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsebrace_or_equal_initializer() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 34,
+                var key    = peg$currPos * 120 + 35,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4171,7 +4190,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseinitializer_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 35,
+                var key    = peg$currPos * 120 + 36,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4276,7 +4295,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 36,
+                var key    = peg$currPos * 120 + 37,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4301,7 +4320,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseabstract_declarator() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 37,
+                var key    = peg$currPos * 120 + 38,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4326,7 +4345,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parse_declarator() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 38,
+                var key    = peg$currPos * 120 + 39,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4453,7 +4472,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parse_abs_declarator() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 39,
+                var key    = peg$currPos * 120 + 40,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4580,7 +4599,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator_postfixes() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 40,
+                var key    = peg$currPos * 120 + 41,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4638,7 +4657,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator_postfix() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 41,
+                var key    = peg$currPos * 120 + 42,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4768,7 +4787,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsedeclarator_simple() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 42,
+                var key    = peg$currPos * 120 + 43,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4844,7 +4863,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseabs_declarator_simple() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 43,
+                var key    = peg$currPos * 120 + 44,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4920,7 +4939,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsetype_id() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 44,
+                var key    = peg$currPos * 120 + 45,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -4960,7 +4979,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsecv_qualifier() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 45,
+                var key    = peg$currPos * 120 + 46,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5078,7 +5097,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseargument_declaration_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 46,
+                var key    = peg$currPos * 120 + 47,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5192,7 +5211,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseargument_declaration() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 47,
+                var key    = peg$currPos * 120 + 48,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5364,7 +5383,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexpression() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 48,
+                var key    = peg$currPos * 120 + 49,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5472,7 +5491,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_assn() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 49,
+                var key    = peg$currPos * 120 + 50,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5569,7 +5588,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_comp_assn() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 50,
+                var key    = peg$currPos * 120 + 51,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5774,7 +5793,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_const() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 51,
+                var key    = peg$currPos * 120 + 52,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5799,7 +5818,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_cond() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9;
 
-                var key    = peg$currPos * 119 + 52,
+                var key    = peg$currPos * 120 + 53,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -5890,7 +5909,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_or() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 53,
+                var key    = peg$currPos * 120 + 54,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6059,7 +6078,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_and() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 54,
+                var key    = peg$currPos * 120 + 55,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6228,7 +6247,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_or_bit() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 55,
+                var key    = peg$currPos * 120 + 56,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6397,7 +6416,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_xor_bit() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 56,
+                var key    = peg$currPos * 120 + 57,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6520,7 +6539,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_and_bit() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 57,
+                var key    = peg$currPos * 120 + 58,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6747,7 +6766,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_eq() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 58,
+                var key    = peg$currPos * 120 + 59,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -6936,7 +6955,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_rel() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 59,
+                var key    = peg$currPos * 120 + 60,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7029,7 +7048,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_rel() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 60,
+                var key    = peg$currPos * 120 + 61,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7081,7 +7100,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_shift() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 61,
+                var key    = peg$currPos * 120 + 62,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7174,7 +7193,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_shift() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 62,
+                var key    = peg$currPos * 120 + 63,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7208,7 +7227,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_add() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 63,
+                var key    = peg$currPos * 120 + 64,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7301,7 +7320,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_add() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 64,
+                var key    = peg$currPos * 120 + 65,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7335,7 +7354,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_mult() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 65,
+                var key    = peg$currPos * 120 + 66,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7428,7 +7447,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_mult() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 66,
+                var key    = peg$currPos * 120 + 67,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7471,7 +7490,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_pm() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 67,
+                var key    = peg$currPos * 120 + 68,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7564,7 +7583,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_pm() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 68,
+                var key    = peg$currPos * 120 + 69,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7598,7 +7617,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_cast() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 69,
+                var key    = peg$currPos * 120 + 70,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7677,7 +7696,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_unary() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 70,
+                var key    = peg$currPos * 120 + 71,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -7879,7 +7898,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_unary() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 71,
+                var key    = peg$currPos * 120 + 72,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8033,7 +8052,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_new() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9;
 
-                var key    = peg$currPos * 119 + 72,
+                var key    = peg$currPos * 120 + 73,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8175,7 +8194,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenew_type_id() {
                 var s0, s1, s2, s3, s4;
 
-                var key    = peg$currPos * 119 + 73,
+                var key    = peg$currPos * 120 + 74,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8227,7 +8246,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenew_declarator() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 74,
+                var key    = peg$currPos * 120 + 75,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8252,7 +8271,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parse_new_declarator() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 75,
+                var key    = peg$currPos * 120 + 76,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8373,7 +8392,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenew_declarator_postfixes() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 76,
+                var key    = peg$currPos * 120 + 77,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8431,7 +8450,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenew_declarator_postfix() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 77,
+                var key    = peg$currPos * 120 + 78,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8498,7 +8517,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenew_initializer() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 78,
+                var key    = peg$currPos * 120 + 79,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8565,7 +8584,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_delete() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 79,
+                var key    = peg$currPos * 120 + 80,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -8680,7 +8699,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_postfix() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13;
 
-                var key    = peg$currPos * 119 + 80,
+                var key    = peg$currPos * 120 + 81,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9208,7 +9227,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseop_postfix() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 81,
+                var key    = peg$currPos * 120 + 82,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9413,7 +9432,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_construct() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 82,
+                var key    = peg$currPos * 120 + 83,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9492,7 +9511,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 83,
+                var key    = peg$currPos * 120 + 84,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9597,7 +9616,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_primary() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 84,
+                var key    = peg$currPos * 120 + 85,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9700,7 +9719,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseexp_id() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 85,
+                var key    = peg$currPos * 120 + 86,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9728,7 +9747,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsequalified_id() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 86,
+                var key    = peg$currPos * 120 + 87,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9768,7 +9787,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsenested_name_specifier() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 87,
+                var key    = peg$currPos * 120 + 88,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9892,7 +9911,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsetype_name_id() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 88,
+                var key    = peg$currPos * 120 + 89,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9917,7 +9936,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsename() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 89,
+                var key    = peg$currPos * 120 + 90,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9939,7 +9958,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseoperator_function_id() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 90,
+                var key    = peg$currPos * 120 + 91,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -9985,7 +10004,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseoverloadable_op() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 91,
+                var key    = peg$currPos * 120 + 92,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10379,7 +10398,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseunoverloadable_op() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 92,
+                var key    = peg$currPos * 120 + 93,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10431,7 +10450,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral() {
                 var s0, s1;
 
-                var key    = peg$currPos * 119 + 93,
+                var key    = peg$currPos * 120 + 94,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10492,7 +10511,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral_int() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 94,
+                var key    = peg$currPos * 120 + 95,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10556,7 +10575,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral_float() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 95,
+                var key    = peg$currPos * 120 + 96,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10632,7 +10651,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral_char() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 96,
+                var key    = peg$currPos * 120 + 97,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10693,7 +10712,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral_string() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 97,
+                var key    = peg$currPos * 120 + 98,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10768,7 +10787,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseliteral_boolean() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 98,
+                var key    = peg$currPos * 120 + 99,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10850,7 +10869,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseescape() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 99,
+                var key    = peg$currPos * 120 + 100,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10872,7 +10891,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsesimple_escape() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 100,
+                var key    = peg$currPos * 120 + 101,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -10996,7 +11015,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseoctal_escape() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 101,
+                var key    = peg$currPos * 120 + 102,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11091,7 +11110,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseidentifier() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 102,
+                var key    = peg$currPos * 120 + 103,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11136,7 +11155,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseidentifierChar() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 103,
+                var key    = peg$currPos * 120 + 104,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11161,7 +11180,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseidentifierFirstChar() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 104,
+                var key    = peg$currPos * 120 + 105,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11186,7 +11205,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsews() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 105,
+                var key    = peg$currPos * 120 + 106,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11268,7 +11287,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseWS() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 106,
+                var key    = peg$currPos * 120 + 107,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11375,7 +11394,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseclass_specifier() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 107,
+                var key    = peg$currPos * 120 + 108,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11468,7 +11487,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseclass_head() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 108,
+                var key    = peg$currPos * 120 + 109,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11532,7 +11551,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseclass_key() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 109,
+                var key    = peg$currPos * 120 + 110,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11575,7 +11594,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsemember_specification() {
                 var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
-                var key    = peg$currPos * 119 + 110,
+                var key    = peg$currPos * 120 + 111,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11716,7 +11735,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parseaccess_specifier() {
                 var s0;
 
-                var key    = peg$currPos * 119 + 111,
+                var key    = peg$currPos * 120 + 112,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11759,7 +11778,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsemember_declaration() {
                 var s0, s1, s2, s3, s4, s5, s6;
 
-                var key    = peg$currPos * 119 + 112,
+                var key    = peg$currPos * 120 + 113,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -11931,7 +11950,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsemember_declarator_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 113,
+                var key    = peg$currPos * 120 + 114,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12036,7 +12055,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsemember_declarator() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 114,
+                var key    = peg$currPos * 120 + 115,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12127,7 +12146,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsebase_clause() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 115,
+                var key    = peg$currPos * 120 + 116,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12173,7 +12192,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsebase_specifier_list() {
                 var s0, s1, s2, s3, s4, s5, s6, s7;
 
-                var key    = peg$currPos * 119 + 116,
+                var key    = peg$currPos * 120 + 117,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12278,7 +12297,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsebase_specifier() {
                 var s0, s1, s2, s3, s4, s5;
 
-                var key    = peg$currPos * 119 + 117,
+                var key    = peg$currPos * 120 + 118,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12429,7 +12448,7 @@ Lobster.cPlusPlusParser = /*
             function peg$parsequalified_class_name() {
                 var s0, s1, s2, s3;
 
-                var key    = peg$currPos * 119 + 118,
+                var key    = peg$currPos * 120 + 119,
                     cached = peg$resultsCache[key];
 
                 if (cached) {
@@ -12607,4 +12626,4 @@ Lobster.cPlusPlusParser = /*
             SyntaxError: peg$SyntaxError,
             parse:       peg$parse
         };
-    })();
+    })()

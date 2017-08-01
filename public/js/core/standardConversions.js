@@ -4,7 +4,7 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
     init: function(from, toType, valueCategory){
         assert(isA(toType, Type) && toType._isInstance);
-        this.initParent(from.code, {parent: from.parent});
+        this.initParent(from.ast, {parent: from.parent});
         this.from = this.sub.from = from;
         from.parent = this;
         this.type = toType;
@@ -108,7 +108,7 @@ Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
             return inst.evalValue.describe();
         }
         else if (depth == 0){
-            return {message: "the value of " + this.code.text};
+            return {message: "the value of " + this.getSourceText()};
         }
         else{
             return {message: "the value of " + this.from.describeEvalValue(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
