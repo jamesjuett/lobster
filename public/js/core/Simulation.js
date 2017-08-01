@@ -251,7 +251,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
     stepOver: function(options){
         var target = this.peek(function(inst){
-            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpr) || !isA(inst.model, Expressions.Expression);
+            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
         });
 
         if (target) {

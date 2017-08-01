@@ -46,7 +46,7 @@ var CONSTRUCT_CLASSES = {
     reinterpret_cast_expression : Expressions.ReinterpretCast,
     const_cast_expression : Expressions.ConstCast,
     subscript_expression : Expressions.Subscript,
-    function_call_expression : Expressions.FunctionCallExpr,
+    function_call_expression : Expressions.FunctionCallExpression,
     dot_expression : Expressions.Dot,
     arrow_expression : Expressions.Arrow,
     postfix_increment_expression : Expressions.Increment,

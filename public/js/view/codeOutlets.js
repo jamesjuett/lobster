@@ -1326,8 +1326,8 @@ Lobster.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
     }, true)
 });
 
-Lobster.Outlets.CPP.FunctionCallExpr = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.FunctionCallExpr",
+Lobster.Outlets.CPP.FunctionCallExpression = Outlets.CPP.Expression.extend({
+    _name: "Outlets.CPP.FunctionCallExpression",
 
     init: function (element, code, simOutlet) {
         var self = this;
@@ -1775,7 +1775,7 @@ Lobster.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
 
         this.exprElem.append("(");
         var elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.subExpr, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.subexpression, this.simOutlet));
         this.exprElem.append(elem);
         this.exprElem.append(")");
     }
@@ -1922,7 +1922,7 @@ DEFAULT_CODE_OUTLETS[Expressions.Assignment] = Outlets.CPP.Assignment;
 DEFAULT_CODE_OUTLETS[Expressions.Ternary] = Outlets.CPP.Ternary;
 DEFAULT_CODE_OUTLETS[Expressions.Comma] = Outlets.CPP.Comma;
 DEFAULT_CODE_OUTLETS[Expressions.CompoundAssignment] = Outlets.CPP.CompoundAssignment;
-DEFAULT_CODE_OUTLETS[Expressions.FunctionCall] = Outlets.CPP.FunctionCallExpr;
+DEFAULT_CODE_OUTLETS[Expressions.FunctionCall] = Outlets.CPP.FunctionCallExpression;
 DEFAULT_CODE_OUTLETS[Expressions.Subscript] = Outlets.CPP.Subscript;
 DEFAULT_CODE_OUTLETS[Expressions.Dot] = Outlets.CPP.Dot;
 DEFAULT_CODE_OUTLETS[Expressions.Arrow] = Outlets.CPP.Arrow;
