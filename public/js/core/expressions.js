@@ -2138,9 +2138,9 @@ var FunctionCall = Expression.extend({
     initIndex: "arguments",
     instType: "expr",
 
-    init : function(ast, context) {
-        assert(Array.isArray(ast.args));
-        this.initParent(ast, context);
+    init : function(argsAST, context) {
+        assert(Array.isArray(argsAST.args));
+        this.initParent(argsAST, context);
         if (context.isMainCall) {
             this.i_isMainCall = true;
         }
@@ -2452,19 +2452,21 @@ var FunctionCall = Expression.extend({
     }
 });
 
-// TODO change grammar to use "functionCallExpr"
-var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
-    _name: "FunctionCallExpr",
+var FunctionCallExpression = Expressions.FunctionCall = Expression.extend({
+    _name: "FunctionCallExpression",
     initIndex: "operand",
+
+    init : function(ast, context) {
+        this.initParent(ast, context);
+        this.operand = this.i_createChild(ast.operand);
+    },
 
     compile : function() {
         var self = this;
 
-        this.code.args = this.code.args || [];
-
         // Need to select function, so have to compile auxiliary arguments
-        var auxArgs = this.code.args.map(function(arg){
-            var auxArg = Expressions.createExpressionFromASTSource(arg, {parent: self, auxiliary: true});
+        var auxArgs = this.ast.args.map(function(arg){
+            var auxArg = CPPConstruct.create(arg, {parent: self, auxiliary: true});
             auxArg.tryCompile();
             return auxArg;
         });
@@ -2483,7 +2485,6 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         var argTypes = auxArgs.map(function(arg){
             return arg.type;
         });
-        this.operand = this.operand = Expressions.createExpressionFromASTSource(this.code.operand, {parent:this} );
 
         this.operand.compile({paramTypes: argTypes});
 
@@ -2510,6 +2511,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
         var self = this;
         if (isA(this.operand.type, Types.Class)){
             // Check for function call operator and if so, find function
+            // TODO: I think this breaks given multiple overloaded function call operators?
             var callOp = this.operand.type.getMember(["operator()"]);
             if (callOp){
                 this.callOp = callOp;
@@ -2521,7 +2523,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
                 return;
             }
         }
-        else if (isA(this.operand.entity, FunctionEntity)){
+        else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
             // If it's an identifier, dot, arrow, etc. that denote an entity - just bind that
             this.staticFunction = this.operand.entity;
             this.staticFunctionType = this.staticFunction.type;
@@ -2554,6 +2556,7 @@ var FunctionCallExpr = Expressions.FunctionCall = Expression.extend({
                 inst.pointedFunction = inst.operand.evalValue.rawValue();
             }
             // TODO: hack on next line has || inst.operand.evalValue
+            // TODO: remember why that's a hack and not just the right thing to do
             inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.receiver || isA(this.operand.type, Types.Class) && inst.operand.evalValue);
             inst.wait();
             inst.index = "done";
@@ -2605,14 +2608,14 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
     compile : function(){
 
         // Compile the type specifier
-        this.typeSpec = TypeSpecifier.instance(this.code.specs, {parent:this});
+        this.typeSpec = TypeSpecifier.instance(this.ast.specs, {parent:this});
         this.typeSpec.compile();
 
         this.heapType = this.typeSpec.type;
 
         // Compile declarator if it exists
-        if(this.code.declarator) {
-            this.declarator = Declarator.instance(this.code.declarator, {parent: this}, this.heapType);
+        if(this.ast.declarator) {
+            this.declarator = Declarator.instance(this.ast.declarator, {parent: this}, this.heapType);
             this.declarator.compile();
             this.heapType = this.declarator.type;
         }
@@ -2701,6 +2704,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
                 inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ArrayPointer.instance(inst.allocatedObject)));
             }
             else{
+                // RTTI for object pointer
                 inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
             }
             sim.i_pendingNews.pop();
@@ -2714,7 +2718,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         }
         else{
             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
-    }
+        }
     }
 });
 
@@ -2725,15 +2729,12 @@ var Delete = Expressions.Delete = Expression.extend({
     _name: "Delete",
     valueCategory: "prvalue",
     type: Types.Void.instance(),
-    i_subexpressionsToCompile : {
-        operand : {parsedName : "target", convertTo: Types.Pointer}
+    i_childrenToCreate : ["operand"],
+    i_childrenToConvert : {
+        "operand" : Types.Pointer.instance()
     },
-    convert : function(){
-        // If one of the expressions is a prvalue, make the other one as well
-        //if (isA(this.sub.operand.type, Types.Class)){
-        //    this.operand = this.sub.operand = standardConversion1(Types.Pointer);
-        //}
-    },
+    i_childrenToExecute : ["operand"],
+
     typeCheck : function(){
 
         if (isA(this.operand.type.ptrTo, Types.Class)){
@@ -3170,13 +3171,12 @@ var Literal = Expressions.Literal = Expression.extend({
 
 var Parentheses = Expressions.Parentheses = Expression.extend({
     _name: "Parentheses",
-    i_subexpressionsToCompile:{
-        subExpr: {parsedName: "subexpression"}
-    },
+    i_childrenToCreate : ["subexpression"],
+    i_childrenToExecute : ["subexpression"],
 
     typeCheck : function(){
-        this.type = this.subExpr.type;
-        this.valueCategory = this.subExpr.valueCategory;
+        this.type = this.subexpression.type;
+        this.valueCategory = this.subexpression.valueCategory;
 
     },
 
@@ -3187,7 +3187,7 @@ var Parentheses = Expressions.Parentheses = Expression.extend({
             return true;
         }
         else {
-            inst.setEvalValue(inst.childInstances.subExpr.evalValue);
+            inst.setEvalValue(inst.childInstances.subexpression.evalValue);
             this.done(sim, inst);
         }
         return true;
@@ -3198,7 +3198,7 @@ var Parentheses = Expressions.Parentheses = Expression.extend({
     }
 });
 
-// hack to make sure I don't mess up capitalization
-for (var key in Expressions){
-	Expressions[key.toLowerCase()] = Expressions[key];
-}
+// // hack to make sure I don't mess up capitalization
+// for (var key in Expressions){
+// 	Expressions[key.toLowerCase()] = Expressions[key];
+// }

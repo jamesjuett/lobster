@@ -649,10 +649,10 @@ new_initializer
 
 exp_delete
   = "delete" WS t:exp_cast {
-    return track({construct_type: "delete_expression", target: t}, location(), text());
+    return track({construct_type: "delete_expression", operand: t}, location(), text());
   }
   / "delete" ws "[" ws "]" WS t:exp_cast {
-    return track({construct_type: "delete_array_expression", target: t}, location(), text()); }
+    return track({construct_type: "delete_array_expression", operand: t}, location(), text()); }
   / exp_postfix
 
 

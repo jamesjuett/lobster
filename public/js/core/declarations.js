@@ -327,6 +327,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
     }
 });
 
+// TODO: take baseType as a parameter to compile rather than init
 var Declarator = Lobster.Declarator = CPPConstruct.extend({
     _name: "Declarator",
     init: function(code, context, baseType){
