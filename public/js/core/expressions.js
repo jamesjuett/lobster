@@ -2613,8 +2613,8 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         // Compile declarator if it exists
         if(this.ast.declarator) {
-            this.declarator = Declarator.instance(this.ast.declarator, {parent: this}, this.heapType);
-            this.declarator.compile();
+            this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
+            this.declarator.compile({baseType: this.heapType});
             this.heapType = this.declarator.type;
         }
 
@@ -2634,7 +2634,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         var initCode = this.ast.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
             this.initializer = DirectInitializer.instance(initCode, {parent: this});
-            this.initializer.compile(entity, initCode.args);
+            this.initializer.compile(entity);
         }
         else if (initCode.args.length == 0){
             this.initializer = DefaultInitializer.instance(initCode, {parent: this});
@@ -2912,8 +2912,8 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         // Compile declarator if it exists
         if(this.ast.declarator) {
-            this.declarator = Declarator.instance(this.ast.declarator, {parent: this}, this.heapType);
-            this.declarator.compile();
+            this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
+            this.declarator.compile({baseType: this.heapType});
             this.heapType = this.declarator.type;
         }
 
@@ -2921,7 +2921,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
         if (isA(this.type, Types.Class) || this.ast.args.length == 1){
             this.initializer = DirectInitializer.instance(this.ast, {parent: this});
-            this.initializer.compile(this.entity, this.ast.args);
+            this.initializer.compile(this.entity);
         }
         else{
             this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
