@@ -788,7 +788,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         // First, compile ALL the declarations
         for(var i = 0; i < code.length; ++i){
-            var decl = Declarations.create(code[i], {
+            var decl = Declaration.create(code[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,
