@@ -156,15 +156,15 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
             // Compile initializer
             var init;
             if (initCode){
-                if (initCode["construct_type"] === "initializer_list"){
+                if (initCode.construct_type === "initializer_list"){
                     init = InitializerList.instance(initCode, {parent: this, entity:ent});
                     init.compile();
                 }
-                else if (initCode.initializer === "direct"){
+                else if (initCode.construct_type === "direct_initializer"){
                     init = DirectInitializer.instance(initCode, {parent: this});
                     init.compile(ent);
                 }
-                else if (initCode.initializer === "copy"){
+                else if (initCode.construct_type === "copy_initializer"){
                     init = CopyInitializer.instance(initCode, {parent: this});
                     init.compile(ent);
                 }
@@ -1060,7 +1060,7 @@ var OVERLOADABLE_OPS = {};
 var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "FunctionDefinition",
     isDefinition: true,
-    subSequence: ["memberInitializers", "body"],
+    i_childrenToExecute: ["memberInitializers", "body"],
     instType: "call",
 
     createFromASTSource : function(ast, context) {

@@ -124,10 +124,14 @@ Statements.Return = Statement.extend({
 
         // If we have a return expression, create an initializer with that expression
         if (ast.expression) {
+
+            // Create a detatched expression to pass to the initializer. The initializer will then
+            // attach it at the right place in the construct tree, but this will allow us to hold on
+            // to a reference to it here. :)
+            this.expression = Expression.create(ast.expression, null); // the null context indicates detatched
             this.returnInitializer = ReturnInitializer.instance({
-                args: [ast.expression]
+                args: [this.expression]
             }, {parent: this});
-            this.expression = this.returnInitializer.expression;
         }
         else {
             this.expression = null;
@@ -147,7 +151,7 @@ Statements.Return = Statement.extend({
         // A return statement with no expression is only allowed in void functions.
         // At the moment, constructors/destructors are hacked to have void return type,
         // so this check is ok for return statements in a constructor.
-        if (!this.code.expression && !isA(returnType, Types.Void)){
+        if (!this.expression && !isA(returnType, Types.Void)){
             this.addNote(CPPError.stmt._return.empty(this))
         }
 
@@ -205,7 +209,7 @@ Statements.Block = Statements.Compound = Statement.extend({
 
         var self = this;
         this.statements = ast.statements.map(function(stmt){
-            self.i_createChild(stmt, {scope: self.blockScope});
+            return self.i_createChild(stmt, {scope: self.blockScope});
         });
 
         this.length = this.statements.length;

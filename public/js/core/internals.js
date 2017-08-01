@@ -58,8 +58,18 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     initIndex: "pushChildren",
 
     i_childrenToCreate : [],
+    i_childrenToConvert : {},
+    i_childrenToExecute : [],
 
     create : function(ast, context) {
+        // if ast is actually already a (detatched) construct, just attach it to the
+        // provided context rather than creating a new one.
+        if (isA(ast, CPPConstruct)) {
+            assert(!ast.isAttached());
+            ast.attach(context);
+            return ast;
+        }
+
         var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
         assert(constructClass, "Unrecognized construct_type.");
         return constructClass.instance(ast, context);
@@ -75,22 +85,33 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
     init: function (ast, context) {
-        assert(context.parent !== undefined || context.isMainCall);
+        assert(context || context === null);
+        assert(!context || context.parent !== undefined);
         this.id = CPPConstruct._nextId++;
         this.children = [];
         this.sub = {};
         this.i_notes = [];
         this.i_hasErrors = false;
-        this.i_isAttached = false;
-
-        this.i_setContext(context);
 
         this.ast = ast;
         if (ast.code) {
             this.code = ast.code;
         }
 
-        this.i_createChildren(ast);
+        this.i_isAttached = false;
+        if (context) {
+            this.attach(context);
+        }
+    },
+
+    attach : function(context) {
+        this.i_setContext(context);
+        this.i_createChildren(this.ast);
+        this.i_isAttached = true;
+    },
+
+    isAttached : function() {
+        return this.i_isAttached;
     },
 
     /**
@@ -134,6 +155,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         assert(!this.i_isAttached);
         this.i_isAttached = true;
         assert(context.parent !== undefined); // should be specified, even if null for root construct
+        assert(!context.parent || isA(context.parent, CPPConstruct));
         this.parent = context.parent;
 
         // Use containing function from context or inherit from parent
@@ -246,26 +268,20 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     pushChildInstances : function(sim, inst){
-        //If first time, start index at 0 and create an ordering
-        if (!this.subSequence){
-            this.subSequence = [];
-            for(var subName in this.sub){
-                this.subSequence.push(subName);
-            }
-        }
+
         inst.childInstances = inst.childInstances || {};
-        for(var i = this.subSequence.length-1; i >= 0; --i){
-            var subName = this.subSequence[i];
-            var child = this.sub[subName];
+        for(var i = this.i_childrenToExecute.length-1; i >= 0; --i){
+            var childName = this.i_childrenToExecute[i];
+            var child = this[childName];
             if (Array.isArray(child)){
                 // Note: no nested arrays, but that really seems unnecessary
-                var childArr = inst.childInstances[subName] = [];
+                var childArr = inst.childInstances[childName] = [];
                 for(var j = child.length-1; j >= 0; --j){
                     childArr.unshift(child[j].createAndPushInstance(sim, inst));
                 }
             }
             else{
-                inst.childInstances[subName] = child.createAndPushInstance(sim, inst);
+                inst.childInstances[childName] = child.createAndPushInstance(sim, inst);
             }
         }
         //inst.send("wait", this.sub.length);

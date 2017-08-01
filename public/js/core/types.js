@@ -12,7 +12,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
     _name: "TypeSpecifier",
 
     compile : function(){
-		
+
         var constCount = 0;
         var volatileCount = 0;
 

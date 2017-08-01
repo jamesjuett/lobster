@@ -699,14 +699,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
 
-            // TODO NEW omg what a hack
-            //Use for building parser :p
-            //console.log(PEG.buildParser(codeStr,{
-            //    cache: true,
-            //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
-            //    output: "source"
-            //}));
-            //return;
 
             this.clearNotes();
 

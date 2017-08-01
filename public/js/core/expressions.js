@@ -1975,7 +1975,7 @@ var Dot = Expressions.Dot = Expression.extend({
     },
 
     compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext.i_paramTypes;
+        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
         Expressions.Dot._parent.compile.apply(this, arguments);
     },
 
@@ -2054,7 +2054,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
     },
 
     compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext.i_paramTypes;
+        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
         Expressions.Dot._parent.compile.apply(this, arguments);
     },
 
@@ -2146,8 +2146,9 @@ var FunctionCall = Expression.extend({
 
     i_createChildren : function() {
         // Create initializers for the parameters, which will be given the arguments from our ast
+        var self = this;
         this.argInitializers = this.ast.args.map(function(argAst){
-            return ParameterInitializer.instance(argAst, {parent: self});
+            return ParameterInitializer.instance({args: [argAst]}, {parent: self});
         });
     },
 
@@ -2166,6 +2167,7 @@ var FunctionCall = Expression.extend({
         // Is the function statically bound?
         if (this.func.isStaticallyBound()){
             this.staticFunction = this.func;
+            // TODO: add error if main is called recursively
             this.isRecursive = !this.i_isMainCall && this.staticFunction === this.containingFunction().entity;
         }
 
@@ -2177,16 +2179,18 @@ var FunctionCall = Expression.extend({
             // Adjust to T from reference to T
             this.type = this.type.refTo;
         }
-        else{
-            this.returnByValue = true;
+        else {
             this.valueCategory = "prvalue";
+            if (!isA(this.type, Types.Void)){
+                this.returnByValue = true;
+            }
         }
 
 
         // Check that we have the right number of parameters
         // Note: at the moment, this is not already "checked" by name lookup / overload resolution
         // TODO: I'm pretty sure this comment no longer applies, but I guess I should check
-        if (args.length !== this.func.type.paramTypes.length){
+        if (this.argInitializers.length !== this.func.type.paramTypes.length){
             this.addNote(CPPError.expr.functionCall.numParams(this));
             return;
         }
@@ -2450,7 +2454,7 @@ var FunctionCall = Expression.extend({
     }
 });
 
-var FunctionCallExpression = Expressions.FunctionCall = Expression.extend({
+var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.extend({
     _name: "FunctionCallExpression",
     initIndex: "operand",
 
@@ -3011,7 +3015,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
     },
 
     compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext.i_paramTypes;
+        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
         Expressions.Identifier._parent.compile.apply(this, arguments);
     },
 
