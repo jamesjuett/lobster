@@ -173,18 +173,17 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         return this.i_translationUnit.getSourceReferenceForConstruct(this);
     },
 
-    hasASTSource : function() {
-        return !!this.i_astSource;
+    hasSourceCode : function() {
+        return !!this.code;
     },
 
-    getASTSource : function() {
-        return this.i_astSource;
+    getSourceCode : function() {
+        return this.code;
     },
 
-    i_setASTSource : function(ast) {
-        this.i_astSource = ast;
+    getSourceText : function() {
+        return this.code ? this.code.text : "an expression";
     },
-
 
     getTranslationUnit : function() {
         return this.i_translationUnit;
@@ -988,8 +987,8 @@ var DeclaredEntity = CPPEntity.extend({
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
         if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
             && entity1.type.className === entity2.type.className) {
-            if (entity1.decl.hasASTSource() && entity2.decl.hasASTSource() &&
-                entity1.decl.getASTSource().text.replace(/\s/g,'') === entity2.decl.getASTSource().text.replace(/\s/g,'')) {
+            if (entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
+                entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
 
                 // merge the types too, so that the type system recognizes them as the same
