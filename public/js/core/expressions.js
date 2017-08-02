@@ -3110,6 +3110,20 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
 
 
 
+var AuxiliaryExpression = Expressions.AuxiliaryExpression = Expression.extend({
+    _name: "AuxiliaryExpression",
+    valueCategory: "prvalue",
+    init : function(type){
+        this.initParent(null, null);
+        this.type = type
+    },
+    compile : function(){
+        // Do nothing
+    }
+});
+
+
+
 
 
 var parseCPPChar = function(litValue){
