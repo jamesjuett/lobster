@@ -121,6 +121,7 @@ Statements.Return = Statement.extend({
     _name: "Return",
 
     i_createFromAST : function(ast) {
+        Statements.Return._parent.i_createFromAST(this, arguments);
 
         // If we have a return expression, create an initializer with that expression
         if (ast.expression) {
@@ -204,6 +205,7 @@ Statements.Block = Statements.Compound = Statement.extend({
     initIndex: 0,
 
     i_createFromAST : function(ast){
+        Statements.Block._parent.i_createFromAST(this, arguments);
 
         this.blockScope = this.i_createBlockScope();
 
@@ -384,6 +386,7 @@ Statements.While = Statements.Iteration.extend({
     initIndex: "condition",
 
     i_createFromAST : function(ast) {
+        Statements.While._parent.i_createFromAST(this, arguments);
 
         this.body = this.i_createChild(ast.body);
 
