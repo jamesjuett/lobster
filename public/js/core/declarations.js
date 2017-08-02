@@ -1356,7 +1356,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
     },
 
     i_createFromAST : function(ast, context) {
-        MemberDeclaration._parent.i_createFromAST.apply.apply(this, arguments);
+        MemberDeclaration._parent.i_createFromAST.apply(this, arguments);
         this.access = context.access;
         this.i_containingClass = context.containingClass;
     },
