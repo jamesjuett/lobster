@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+    <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
+    <script src="js/lib/codemirror.js"></script>
+    <script src="js/lib/clike.js"></script>
+    <script src="js/lib/jquery-3.1.1.min.js"></script>
+    <script src="js/lib/jquery.mousewheel.min.js"></script>
+    <script src="js/lib/peg-0.10.0.min.js"></script>
+    <script src="js/lib/svg.min.js"></script>
+    <script src="js/lib/seedrandom.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+    Remove this if you use the .htaccess -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+    <title>Lobster</title>
+    <meta name="description" content="" />
+    <meta name="author" content="James" />
+    <meta name="google-signin-client_id" content="355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css">
+    <link rel="stylesheet" href="css/buttons.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/code.css">
+    <link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
+
+    <script src = "js/lib/diff_match_patch.js"></script>
+    <script src = "js/lib/underscore-min.js"></script>
+    <script src = "js/lib/math.min.js"></script>
+    <script src = "js/util/util.js"></script>
+    <script src = "js/util/entities.js"></script>
+    <script src = "js/util/outlet.js"></script>
+    <script src = "js/core/internals.js"></script>
+    <script src = "js/view/annotations.js"></script>
+    <script src = "js/core/error.js"></script>
+    <script src = "js/core/types.js"></script>
+    <script src = "js/core/expressions.js"></script>
+    <script src = "js/core/standardConversions.js"></script>
+    <script src = "js/core/declarations.js"></script>
+    <script src = "js/core/initializers.js"></script>
+    <script src = "js/core/statements.js"></script>
+    <script src = "js/core/constructsAfter.js"></script>
+    <script src = "js/core/Program.js"></script>
+    <script src = "js/core/Simulation.js"></script>
+    <script src = "js/view/actions.js"></script>
+    <script src = "js/view/simOutlets.js"></script>
+    <script src = "js/view/codeOutlets.js"></script>
+    <script src = "js/core/parsing.js"></script>
+    <script src = "js/core/parsing2.js"></script>
+    <script src = "js/core/analysis.js"></script>
+    <script src = "js/core/regression.js"></script>
+
+</head>
+
+<body>
+
+
+<div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
+    <div class="container-fluid">
+        <h4 style="display: inline-block; vertical-align: middle;">Lobster: Regression Tests</h4>
+        <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
+    </div>
+</div>
+
+<div id="regression_tests" class="container">
+
+</div>
+
+    <script>
+
+        var showTest = function(test) {
+            var programElem = $('<div class="col-xs-6"></div>');
+
+            programElem.append("Translation Units: <br />");
+            for(var name in test.program.getTranslationUnits()) {
+                programElem.append(name + "<br />");
+            }
+
+            programElem.append("Source Files: <br />");
+            for (var name in test.program.getSourceFiles()) {
+                var sourceFile = test.program.getSourceFiles()[name];
+                programElem.append(sourceFile.getName() + "<br />" + sourceFile.getText());
+            }
+
+
+            var resultsElem = $('<div class="col-xs-6"></div>');
+//            resultsElem.append(test.results.status);
+//            resultsElem.append("<br />");
+            resultsElem.append(test.results.message);
+
+            $("#regression_tests").append(programElem);
+            $("#regression_tests").append(resultsElem);
+        };
+
+        ProgramTest.setDefaultReporter(showTest);
+
+        // Empty program
+
+
+        // Empty main
+        SingleTranslationUnitTest.instance(
+            "int main() { }",
+            NoErrorsNoWarningsVerifier.instance()
+        );
+
+
+    </script>
+</body>
+</html>

@@ -4,146 +4,181 @@ var CPP = Lobster.CPP = Lobster.CPP || {};
 
 
 
-var SemanticProblems = Lobster.SemanticProblems = Class.extend({
-    _name: "SemanticProblems",
-    init: function() {
-        this.errors = [];
-        this.warnings = [];
-        this.widgets = [];
-    },
-
-    addWidget : function(widget){
-        this.widgets.push(widget);
-    },
-
-    push : function(elem){
-        if (elem._cssClass === "error"){
-            this.errors.push(elem);
-        }
-        else if (elem._cssClass === "warning"){
-            this.warnings.push(elem);
-        }
-        else{
-            this.warnings.push(elem); // TODO this is a hack
-        }
-    },
-    pushAll : function(elems){
-        if (Array.isArray(elems)){
-            for(var i = 0; i < elems.length; ++i){
-                this.push(elems[i]);
-            }
-        }
-        else{
-            // assuming elems is a SemanticProblems
-            this.errors.pushAll(elems.errors);
-            this.warnings.pushAll(elems.warnings);
-            this.widgets.pushAll(elems.widgets);
-        }
-    },
-    clear : function(){
-        this.errors.clear();
-        this.warnings.clear();
-        this.widgets.clear();
-    },
-    hasErrors : function(){
-        return this.errors.length > 0;
-    }
-});
-
-
-
 var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _name: "CPPConstruct",
     _nextId: 0,
     initIndex: "pushChildren",
 
-    // Default function for now just uses constructor. Will be gradually phased out.
-    createFromASTSource : function() {
-        var construct = this.instance.apply(this, arguments);
+    i_childrenToCreate : [],
+    i_childrenToConvert : {},
+    i_childrenToExecute : [],
+
+    create : function(ast, context) {
+        // if ast is actually already a (detatched) construct, just attach it to the
+        // provided context rather than creating a new one.
+        if (isA(ast, CPPConstruct)) {
+            assert(!ast.isAttached());
+            ast.attach(context);
+            return ast;
+        }
+
+        var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
+        assert(constructClass, "Unrecognized construct_type.");
+        return constructClass.instance(ast, context);
     },
+    //
+    // createWithChildren : function(children, context) {
+    //     var construct = this.instance(context);
+    //     this.i_createWithChildrenImpl(construct, children, context);
+    //
+    //     return construct;
+    // },
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    init: function (code, context) {
-        this.code = code;
-
-        assert(context.parent !== undefined || context.isMainCall);
+    init: function (ast, context) {
+        assert(ast || ast === null);
+        ast = ast || {};
+        assert(context || context === null);
         this.id = CPPConstruct._nextId++;
         this.children = [];
         this.sub = {};
         this.i_notes = [];
         this.i_hasErrors = false;
 
-        this.i_setContext(context);
+        this.ast = ast;
+        if (ast.code) {
+            this.code = ast.code;
+        }
+
+        this.i_isAttached = false;
+        if (context) {
+            this.attach(context);
+        }
     },
+
+    attach : function(context) {
+        this.i_setContext(context);
+        this.i_createFromAST(this.ast, context);
+        this.i_isAttached = true;
+    },
+
+    isAttached : function() {
+        return this.i_isAttached;
+    },
+
+    /**
+     * Default for derived classes, pulls children from i_childrenToCreate array.
+     * Derived classes may also provide an override if they need customization (e.g. providing
+     * a different scope in the context for children, getting extra properties from the AST, etc.)
+     * @param ast
+     */
+    i_createFromAST : function(ast, context) {
+        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+            var childName = this.i_childrenToCreate[i];
+            this[childName] = this.i_createChild(ast[childName]);
+        }
+    },
+
+    i_createChild : function(ast, context) {
+        if (!ast) {return ast;}
+        if (Array.isArray(ast)){
+            var self = this;
+            return ast.map(function(a) {
+                return self.i_createChild(a, context);
+            });
+        }
+
+        return CPPConstruct.create(ast, mixin({parent:this}, context || {}));
+    },
+
+    // i_createAndConnectChild : function(source, context) {
+    //     return this.i_connectChild(this.i_createChild(source, context));
+    // },
+
+    // i_connectChild : function(childConstruct) {
+    //     if(!childConstruct) {return childConstruct;}
+    //     childConstruct.i_context.parent = this;
+    //     childConstruct.i_setContext(childConstruct.i_context);
+    //     this.children.push(childConstruct);
+    //     return childConstruct;
+    // },
 
     i_setContext : function(context){
-
-        this.context = context;
-
-
-        // Find function context if none set
-        if (!this.context.func && this.context.parent){
-            this.context.func = this.context.parent.context.func;
-        }
-
-        if (this.context.parent && this.context.parent.context.implicit) {
-            this.context.implicit = true;
-        }
-
+        assert(!this.i_isAttached);
+        this.i_isAttached = true;
+        assert(context.hasOwnProperty("parent"));
+        assert(!context.parent || isA(context.parent, CPPConstruct));
+        assert(!context.parent || context.parent.isAttached());
         this.parent = context.parent;
 
-        // by default, auxiliary level inherited from parent.
-        // if no parent, base auxiliary level of 0
-        if (!this.context.auxiliary) {
-            if (this.parent){
-                this.context.auxiliary = this.parent.context.auxiliary;
+        // Use containing function from context or inherit from parent
+        this.i_containingFunction = context.func || (this.parent && this.parent.i_containingFunction);
+
+        // Use implicit from context or inherit from parent
+        this.i_isImplicit = context.implicit || (this.parent && this.parent.i_isImplicit);
+
+        // If auxiliary, increase auxiliary level over parent. If no parent, use default of 0
+        if (this.parent){
+            if (context.auxiliary) {
+                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel + 1;
             }
-            else{
-                this.context.auxiliary = 0;
+            else {
+                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel;
             }
+        }
+        else{
+            this.i_auxiliaryLevel = 0;
         }
 
-        // Inherit parent's scope, unless a different scope was specified
-        if(this.context.scope) {
-            this.contextualScope = this.context.scope;
-        }
-        else if (this.parent) {
-            this.contextualScope = this.parent.contextualScope;
-        }
+        // If a contextual scope was specified, use that. Otherwise inherit from parent
+        this.contextualScope = context.scope || (this.parent && this.parent.contextualScope);
 
-        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
+        // Use translation unit from context or inherit from parent
+        this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
+
+
+        // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
+        // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
+        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
             this.parent.children.push(this);
         }
-
-        // Inherit implicit property of parent's context
-        if (this.parent && this.parent.context.implicit) {
-            this.context.implicit = true;
-        }
-
-        // Inherit translation unit of parent
-        if (this.parent && this.parent.context.translationUnit) {
-            this.context.translationUnit = this.parent.context.translationUnit;
-        }
-    },
-
-    i_setASTSource : function(ast) {
-        this.i_astSource = ast;
     },
 
     getSourceReference : function() {
-        return this.context.translationUnit.getSourceReferenceForConstruct(this);
+        return this.i_translationUnit.getSourceReferenceForConstruct(this);
+    },
+
+    hasSourceCode : function() {
+        return !!this.code;
     },
 
     getSourceCode : function() {
         return this.code;
     },
 
-    getTranslationUnit : function() {
-        return this.context.translationUnit;
+    getSourceText : function() {
+        return this.code ? this.code.text : "an expression";
     },
 
-    compile: Class._ABSTRACT,
+    getTranslationUnit : function() {
+        return this.i_translationUnit;
+    },
+
+    /**
+     * Default for derived classes, simply compiles children from i_childrenToCreate array.
+     * Usually, derived classes will need to override (e.g. to do any typechecking at all)
+     */
+    compile: function() {
+        this.i_compileChildren();
+    },
+
+    i_compileChildren: function() {
+        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+            var childName = this.i_childrenToCreate[i];
+            this[childName].compile();
+        }
+    },
 
     tryCompile : function(){
         try{
@@ -154,7 +189,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
                 this.addNote(e.annotation(this));
             }
             else{
-                console.log(e.stack);
                 throw e;
             }
         }
@@ -178,8 +212,8 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         return inst;
     },
 
-    createAndCompileChildExpr : function(childCode, convertTo){
-        var child = Expressions.createExpr(childCode, {parent: this});
+    i_createAndCompileChildExpr : function(ast, convertTo){
+        var child = this.i_createChild(ast);
         child.tryCompile();
         if (convertTo){
             child = standardConversion(child, convertTo);
@@ -188,26 +222,20 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     pushChildInstances : function(sim, inst){
-        //If first time, start index at 0 and create an ordering
-        if (!this.subSequence){
-            this.subSequence = [];
-            for(var subName in this.sub){
-                this.subSequence.push(subName);
-            }
-        }
+
         inst.childInstances = inst.childInstances || {};
-        for(var i = this.subSequence.length-1; i >= 0; --i){
-            var subName = this.subSequence[i];
-            var child = this.sub[subName];
+        for(var i = this.i_childrenToExecute.length-1; i >= 0; --i){
+            var childName = this.i_childrenToExecute[i];
+            var child = this[childName];
             if (Array.isArray(child)){
                 // Note: no nested arrays, but that really seems unnecessary
-                var childArr = inst.childInstances[subName] = [];
+                var childArr = inst.childInstances[childName] = [];
                 for(var j = child.length-1; j >= 0; --j){
                     childArr.unshift(child[j].createAndPushInstance(sim, inst));
                 }
             }
             else{
-                inst.childInstances[subName] = child.createAndPushInstance(sim, inst);
+                inst.childInstances[childName] = child.createAndPushInstance(sim, inst);
             }
         }
         //inst.send("wait", this.sub.length);
@@ -255,7 +283,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         if (note.getType() === Note.TYPE_ERROR) {
             this.i_hasErrors = true;
         }
-        if (this.parent && this.context.auxiliary === this.parent.context.auxiliary) {
+        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
             this.parent.addNote(note);
         }
     },
@@ -269,7 +297,19 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     getSourceReference : function() {
-        return this.context.translationUnit.getSourceReferenceForConstruct(this);
+        return this.i_translationUnit.getSourceReferenceForConstruct(this);
+    },
+
+    isAuxiliary : function() {
+        return this.i_auxiliaryLevel > 0;
+    },
+
+    isImplicit : function() {
+        return this.i_isImplicit;
+    },
+
+    containingFunction : function() {
+        return this.i_containingFunction;
     }
 });
 
@@ -318,7 +358,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         this.subCalls = Entities.List.instance();
         this.parent = parent;
         this.pushedChildren = [];
-        assert(this.parent || this.model.context.isMainCall, "All code instances must have a parent.");
+        assert(this.parent || this.model.i_isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
 
@@ -334,7 +374,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
 
         }
 
-        if (this.model.context.isMainCall){
+        if (this.model.i_isMainCall){
             this.funcContext = this;
         }
 
@@ -917,7 +957,8 @@ var DeclaredEntity = CPPEntity.extend({
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
         if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
             && entity1.type.className === entity2.type.className) {
-            if (entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
+            if (entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
+                entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
 
                 // merge the types too, so that the type system recognizes them as the same
@@ -1993,9 +2034,9 @@ var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
 var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend({
     _name: "MemberFunctionEntity",
     isMemberFunction: true,
-    init: function(decl, memberOfClass, virtual){
+    init: function(decl, containingClass, virtual){
         this.initParent(decl);
-        this.memberOfClass = memberOfClass;
+        this.i_containingClass = containingClass;
         this.virtual = virtual;
         this.pureVirtual = decl.pureVirtual;
         // May be set to virtual if it's discovered to be an overrider
@@ -2004,7 +2045,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         this.checkForOverride();
     },
     checkForOverride : function(){
-        if (!this.memberOfClass.getBaseClass()){
+        if (!this.i_containingClass.getBaseClass()){
             return;
         }
 
@@ -2012,7 +2053,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.memberOfClass.getBaseClass().classScope.singleLookup(this.name, {
+        var overridden = this.i_containingClass.getBaseClass().classScope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
@@ -2122,6 +2163,128 @@ var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
         return this.name;
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Selects from candidates the function that is the best match
+// for the arguments in the args array. Also modifies args so
+// that each argument is amended with any implicit conversions
+// necessary for the match.
+// Options:
+//   problems - an array that will be filled with an entry for each candidate
+//              consisting of an array of any semantic problems that prevent it
+//              from being chosen.
+
+var convLen = function(args) {
+    var total = 0;
+    for (var i = 0; i < args.length; ++i) {
+        total += args[i].conversionLength;
+    }
+    return total;
+};
+
+var overloadResolution = function(candidates, args, isThisConst, options){
+    options = options || {};
+    // Find the constructor
+    var cand;
+    var tempArgs;
+    var viable = [];
+    for(var c = 0; c < candidates.length; ++c){
+        cand = candidates[c];
+        tempArgs = [];
+        var problems = [];
+        options.problems && options.problems.push(problems);
+
+        // Check argument types against parameter types
+        var paramTypes = cand.paramTypes || cand.type.paramTypes;
+        if (args.length !== paramTypes.length){
+            problems.push(CPPError.param.numParams(args[i]));
+        }
+        else if (isThisConst && cand.isMemberFunction && !cand.type.isThisConst){
+            problems.push(CPPError.param.thisConst(args[i]));
+        }
+        else{
+            for(var i = 0; i < args.length; ++i){
+                if (isA(paramTypes[i], Types.Reference)){
+                    tempArgs.push(args[i]);
+                    if(!referenceCompatible(args[i].type, paramTypes[i].refTo)){
+                        problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));
+                    }
+                    //else if (args[i].valueCategory !== "lvalue"){
+                    //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
+                    //}
+                }
+                else{
+                    tempArgs.push(standardConversion(args[i], paramTypes[i]));
+                    if(!sameType(tempArgs[i].type, paramTypes[i])){
+                        problems.push(CPPError.param.paramType(args[i], args[i].type, paramTypes[i]));
+                    }
+
+                }
+            }
+        }
+
+        if (problems.length == 0) {
+            viable.push({
+                cand: cand,
+                args: tempArgs.clone()
+            });
+        }
+    }
+
+    if (viable.length == 0){
+        return null;
+    }
+
+
+    var selected = viable[0];
+    var bestLen = convLen(selected.args);
+    for(var i = 1; i < viable.length; ++i){
+        var v = viable[i];
+        var vLen = convLen(v.args);
+        if (vLen < bestLen){
+            selected = v;
+            bestLen = vLen;
+        }
+    }
+
+    for(var i = 0; i < selected.args.length; ++i){
+        args[i] = selected.args[i];
+    }
+
+    return selected.cand;
+};
+
+// TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.
+// Probably would be best to just create an "AuxiliaryExpression" class for something like this.
+var fakeExpressionsFromTypes = function(types){
+    var exprs = [];
+    for (var i = 0; i < types.length; ++i){
+        exprs[i] = AuxiliaryExpression.instance(types[i]);
+        // exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
+    }
+    return exprs;
+};
+
+
+
+
+
+
+
 
 
 

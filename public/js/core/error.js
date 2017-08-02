@@ -148,9 +148,9 @@ var CompilerLinkerNoteBase = Note.extend({
             this.i_constructs = constructs;
         }
         else {
-            assert(isA(constructs, CPPConstruct));
             this.i_constructs = [];
             if (constructs) {
+                assert(isA(constructs, CPPConstruct));
                 this.i_constructs.push(constructs);
             }
         }
@@ -272,11 +272,11 @@ var CPPError = {
             no_destructor_auto : function(src, entity){
                 return makeError(src, false, "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
-            no_destructor_member : function(src, entity, memberOfClass){
-                return makeError(src, false, "The member variable " + entity.name + " needs to be destroyed as part of the " + memberOfClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            no_destructor_member : function(src, entity, containingClass){
+                return makeError(src, false, "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
-            no_destructor_base : function(src, entity, memberOfClass){
-                return makeError(src, false, "The base class " + entity.name + " needs to be destroyed as part of the " + memberOfClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            no_destructor_base : function(src, entity, containingClass){
+                return makeError(src, false, "The base class " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
             no_destructor_temporary : function(src, entity){
                 return makeError(src, false, "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
@@ -574,7 +574,7 @@ var CPPError = {
             }
         },
         ternary : {
-            cond_bool : function(src, type){
+            condition_bool : function(src, type){
                 return makeError(src, false, "Expression of type (" + type + ") cannot be converted to boolean condition.");
             },
             sameType : function(src) {
@@ -676,12 +676,12 @@ var CPPError = {
             return makeError(src, false, "Sorry, this kind of declaration (" + decl.describe().message + ") is not allowed here.");
         },
         selection : {
-            cond_bool : function(src, expr){
+            condition_bool : function(src, expr){
                 return makeError(expr, false, "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
         iteration: {
-            cond_bool : function(src, expr){
+            condition_bool : function(src, expr){
                 return makeError(expr, false, "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
@@ -758,7 +758,7 @@ var CPPError = {
     },
 };
 
-CPPError.stmt.iteration.cond_bool = CPPError.stmt.selection.cond_bool;
+CPPError.stmt.iteration.condition_bool = CPPError.stmt.selection.condition_bool;
 
 var CPPNote = {
     attributeEmptyTo: function (problems, code) {
