@@ -60,8 +60,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_leakCheckIndex = 0;
 
         // TODO NEW move compilation of mainCall to program?
-        var mainCall = FunctionCall.instance(null, {isMainCall:true, scope: this.i_program.getGlobalScope()});
-        mainCall.compile(this.i_program.getMainEntity(), []);
+        var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
+        mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
@@ -251,7 +251,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
     stepOver: function(options){
         var target = this.peek(function(inst){
-            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpr) || !isA(inst.model, Expressions.Expression);
+            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
         });
 
         if (target) {
