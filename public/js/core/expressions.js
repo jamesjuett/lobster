@@ -3029,7 +3029,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
             if(isA(this.entity, CPPEntity)) {
                 this.type = this.entity.type;
                 if(isA(this.type, Types.IStream)){
-                    this.addNote(makeError(this, "warning", "Sorry, <span class='code'>cin</span> is not supported yet :(."));
+                    this.addNote(CPPError.other.cin_not_supported(this));
                 }
             }
 
@@ -3082,7 +3082,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
             this.type = Types.Pointer.instance(func.receiverType);
         }
         else{
-            this.addNote(CPPError.expr.this_memberFunc(this));
+            this.addNote(CPPError.expr.thisExpr.memberFunc(this));
         }
     },
     stepForward : function(sim, inst){
