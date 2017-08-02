@@ -437,13 +437,13 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         });
 
         element.find(".stackFrames").on("mousedown", function(e){
-            element.find(".simPane").focus();
+            element.find("#simPane").focus();
             //alert("hi");
         });
 
-        element.find(".simPane").add(element.find(".stackFrames")).on("keydown", function(e){
+        $(document).on("keydown", function(e){
             //console.log(e.which);
-            if (element.find(".simPane").css("display") !== "none"){
+            if (element.find("#simPane").css("display") !== "none"){
                 if (e.which == 39 || e.which == 83){
                     self.stepForward();
                 }
@@ -456,13 +456,18 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 //else if (e.which == 38){
                 //    self.stepOut();
                 //}
+                e.preventDefault();
+                e.stopPropagation();
             }
-            e.preventDefault();
-            e.stopPropagation();
-        }).on("keypress", function(e){
-            e.preventDefault();
-            e.stopPropagation();
         });
+        // .on("keypress", "*", function(e) {
+        //     if (element.find("#simPane").css("display") !== "none") {
+        //         if (e.which == 39 || e.which == 83 || e.which == 37) {
+        //             e.preventDefault();
+        //             e.stopPropagation();
+        //         }
+        //     }
+        // });
 
 
 
@@ -1528,6 +1533,16 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
     i_onEdit : function() {
         var newText = this.getText();
 
+
+        // TODO NEW omg what a hack
+        //Use for building parser :p
+        // console.log(peg.generate(newText,{
+        //    cache: true,
+        //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
+        //    output: "source"
+        // }));
+        // return;
+
         if(this.i_onEditTimeout){
             clearTimeout(this.i_onEditTimeout);
         }
@@ -2495,7 +2510,7 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
      */
     _act : {
         framePushed: function(msg){
-            //if (msg.data.func.context.implicit){
+            //if (msg.data.func.isImplicit()){
             //    return;
             //}
             var frame = msg.data;
@@ -2512,7 +2527,7 @@ Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
             }
         },
         framePopped: function(msg){
-            //if (msg.data.func.context.implicit){
+            //if (msg.data.func.isImplicit()){
             //    return;
             //}
 //            if (this.frames.length == 1){
@@ -2687,7 +2702,7 @@ Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
     },
     pushed: function(codeInst){
         // main has no caller, so we have to handle creating the outlet here
-        if (codeInst.model.context.isMainCall) {
+        if (codeInst.model.i_isMainCall) {
             this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
         }
 
@@ -2780,7 +2795,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     },
 
     pushFunction : function(funcInst, callOutlet){
-        //if (funcInst.model.context.implicit){
+        //if (funcInst.model.isImplicit()){
         //    return;
         //}
 
@@ -2810,7 +2825,7 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
     },
 
     popFunction : function(funcInst){
-        //if (funcInst.model.context.implicit){
+        //if (funcInst.model.isImplicit()){
         //    return;
         //}
         var popped = this.frames.last();
