@@ -4,54 +4,6 @@ var CPP = Lobster.CPP = Lobster.CPP || {};
 
 
 
-var SemanticProblems = Lobster.SemanticProblems = Class.extend({
-    _name: "SemanticProblems",
-    init: function() {
-        this.errors = [];
-        this.warnings = [];
-        this.widgets = [];
-    },
-
-    addWidget : function(widget){
-        this.widgets.push(widget);
-    },
-
-    push : function(elem){
-        if (elem._cssClass === "error"){
-            this.errors.push(elem);
-        }
-        else if (elem._cssClass === "warning"){
-            this.warnings.push(elem);
-        }
-        else{
-            this.warnings.push(elem); // TODO this is a hack
-        }
-    },
-    pushAll : function(elems){
-        if (Array.isArray(elems)){
-            for(var i = 0; i < elems.length; ++i){
-                this.push(elems[i]);
-            }
-        }
-        else{
-            // assuming elems is a SemanticProblems
-            this.errors.pushAll(elems.errors);
-            this.warnings.pushAll(elems.warnings);
-            this.widgets.pushAll(elems.widgets);
-        }
-    },
-    clear : function(){
-        this.errors.clear();
-        this.warnings.clear();
-        this.widgets.clear();
-    },
-    hasErrors : function(){
-        return this.errors.length > 0;
-    }
-});
-
-
-
 var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     _name: "CPPConstruct",
     _nextId: 0,
