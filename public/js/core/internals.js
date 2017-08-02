@@ -85,6 +85,8 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
     init: function (ast, context) {
+        assert(ast || ast === null);
+        ast = ast || {};
         assert(context || context === null);
         assert(!context || context.parent !== undefined);
         this.id = CPPConstruct._nextId++;
@@ -2314,10 +2316,12 @@ var overloadResolution = function(candidates, args, isThisConst, options){
     return selected.cand;
 };
 
+// TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.
+// Probably would be best to just create an "AuxiliaryExpression" class for something like this.
 var fakeExpressionsFromTypes = function(types){
     var exprs = [];
     for (var i = 0; i < types.length; ++i){
-        exprs[i] = {type: types[i], valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
+        exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
     }
     return exprs;
 };
