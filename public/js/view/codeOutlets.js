@@ -1675,7 +1675,7 @@ Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
         }
         else{
             var offsetElem = $("<span></span>");
-            this.addChild(createCodeOutlet(offsetElem, this.code.offset, this.simOutlet));
+            this.addChild(createCodeOutlet(offsetElem, this.code.arg, this.simOutlet));
             this.exprElem.append(offsetElem);
         }
 
@@ -1874,6 +1874,7 @@ Lobster.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
 });
 
 var createCodeOutlet = function(element, code, simOutlet){
+    assert(code);
     assert(simOutlet);
     var outletClass = DEFAULT_CODE_OUTLETS[code._class];
     if (outletClass) {
