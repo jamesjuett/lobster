@@ -443,7 +443,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
         $(document).on("keydown", function(e){
             //console.log(e.which);
-            if (element.find(".simPane").css("display") !== "none"){
+            if (element.find("#simPane").css("display") !== "none"){
                 if (e.which == 39 || e.which == 83){
                     self.stepForward();
                 }
@@ -456,13 +456,18 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 //else if (e.which == 38){
                 //    self.stepOut();
                 //}
+                e.preventDefault();
+                e.stopPropagation();
             }
-            e.preventDefault();
-            e.stopPropagation();
-        }).on("keypress", "*", function(e){
-            e.preventDefault();
-            e.stopPropagation();
         });
+        // .on("keypress", "*", function(e) {
+        //     if (element.find("#simPane").css("display") !== "none") {
+        //         if (e.which == 39 || e.which == 83 || e.which == 37) {
+        //             e.preventDefault();
+        //             e.stopPropagation();
+        //         }
+        //     }
+        // });
 
 
 
