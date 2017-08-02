@@ -131,7 +131,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     //         this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
     //         this.type = this.sub.funcCall.type;
     //         this.valueCategory = this.sub.funcCall.valueCategory;
-    //         this.subSequence = this.i_childrenToExecuteForOverload;
+    //         this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
     //     }
     //     catch(e){
     //         if (isA(e, SemanticExceptions.BadLookup)){
@@ -606,7 +606,7 @@ Expressions.CompoundAssignment = Expression.extend({
     _name: "CompoundAssignment",
     valueCategory : "lvalue",
 
-    i_createChildren: function(ast){
+    i_createFromAST: function(ast){
 
         // Basically this uses a binary operator expression to do most of the work
         // e.g. x += y should be equivalent (to a certain extent) to x = x + y
@@ -2144,7 +2144,7 @@ var FunctionCall = Expression.extend({
         }
     },
 
-    i_createChildren : function() {
+    i_createFromAST : function() {
         // Create initializers for the parameters, which will be given the arguments from our ast
         var self = this;
         this.argInitializers = this.ast.args.map(function(argAst){
