@@ -2137,7 +2137,7 @@ var FunctionCall = Expression.extend({
     initIndex: "arguments",
     instType: "expr",
 
-    i_createFromAST : function(context) {
+    i_createFromAST : function(ast, context) {
         FunctionCall._parent.i_createFromAST.apply(this, arguments);
 
         assert(Array.isArray(this.ast.args));
