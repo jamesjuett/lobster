@@ -437,11 +437,11 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         });
 
         element.find(".stackFrames").on("mousedown", function(e){
-            element.find(".simPane").focus();
+            element.find("#simPane").focus();
             //alert("hi");
         });
 
-        element.find(".simPane").add(element.find(".stackFrames")).on("keydown", function(e){
+        $(document).on("keydown", function(e){
             //console.log(e.which);
             if (element.find(".simPane").css("display") !== "none"){
                 if (e.which == 39 || e.which == 83){
@@ -459,7 +459,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             }
             e.preventDefault();
             e.stopPropagation();
-        }).on("keypress", function(e){
+        }).on("keypress", "*", function(e){
             e.preventDefault();
             e.stopPropagation();
         });
