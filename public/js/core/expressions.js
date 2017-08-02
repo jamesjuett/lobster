@@ -602,11 +602,12 @@ var beneathConversions = function(expr){
 
 // TODO: there might be a better way to implement this. currently it reuses code from BinaryOperator, but I feel
 // a little bit icky about how it does it and the way it treats the construct tree
-Expressions.CompoundAssignment = Expression.extend({
+var CompoundAssignment = Expressions.CompoundAssignment = Expression.extend({
     _name: "CompoundAssignment",
     valueCategory : "lvalue",
 
     i_createFromAST: function(ast){
+        CompoundAssignment._parent.i_createFromAST(this, arguments);
 
         // Basically this uses a binary operator expression to do most of the work
         // e.g. x += y should be equivalent (to a certain extent) to x = x + y
@@ -715,8 +716,8 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
     },
 
 
-    init : function(ast, context){
-        this.initParent(ast, context);
+    i_createFromAST : function(ast, context){
+        BinaryOperator._parent.i_createFromAST(this, arguments);
         this.associativity = ast.associativity;
         this.operator = ast.operator;
     },
@@ -1371,8 +1372,8 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     i_childrenToExecuteForMemberOverload : ["operand", "funcCall"], // does not include rhs because function call does that
     i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
 
-    init : function(ast, context){
-        this.initParent(ast, context);
+    i_createFromAST : function(ast, context){
+        UnaryOp._parent.i_createFromAST(this, arguments);
         this.operator = ast.operator;
     },
 
@@ -1969,8 +1970,8 @@ var Dot = Expressions.Dot = Expression.extend({
     i_childrenToCreate : ["operand"],
     i_childrenToExecute : ["operand"],
 
-    init : function(ast, context) {
-        this.initParent(ast, context);
+    i_createFromAST : function(ast, context) {
+        Dot._parent.i_createFromAST(this, arguments);
         this.memberName = ast.member.identifier;
     },
 
@@ -2048,8 +2049,8 @@ var Arrow = Expressions.Arrow = Expression.extend({
     },
     i_childrenToExecute : ["operand"],
 
-    init : function(ast, context) {
-        this.initParent(ast, context);
+    i_createFromAST : function(ast, context) {
+        Arrow._parent.i_createFromAST(this, arguments);
         this.memberName = ast.member.identifier;
     },
 
@@ -2136,15 +2137,14 @@ var FunctionCall = Expression.extend({
     initIndex: "arguments",
     instType: "expr",
 
-    init : function(argsAST, context) {
-        assert(Array.isArray(argsAST.args));
-        this.initParent(argsAST, context);
+    i_createFromAST : function(context) {
+        FunctionCall._parent.i_createFromAST(this, arguments);
+
+        assert(Array.isArray(this.ast.args));
         if (context.isMainCall) {
             this.i_isMainCall = true;
         }
-    },
 
-    i_createFromAST : function() {
         // Create initializers for the parameters, which will be given the arguments from our ast
         var self = this;
         this.argInitializers = this.ast.args.map(function(argAst){
@@ -2458,8 +2458,8 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
     _name: "FunctionCallExpression",
     initIndex: "operand",
 
-    init : function(ast, context) {
-        this.initParent(ast, context);
+    i_createFromAST : function(ast, context) {
+        FunctionCallExpression._parent.i_createFromAST(this, arguments);
         this.operand = this.i_createChild(ast.operand);
     },
 
@@ -3008,8 +3008,9 @@ var Identifier = Expressions.Identifier = Expression.extend({
         }
         return names.map(function(id){return id.identifier}).join("::")
     },
-    init: function(ast, context){
-        this.initParent(ast, context);
+    i_createFromAST: function(ast, context){
+
+        Identifier._parent.i_createFromAST(this, arguments);
         this.identifier = this.ast.identifier;
         this.identifierText = identifierToText(this.identifier);
     },

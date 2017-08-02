@@ -157,6 +157,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         this.i_isAttached = true;
         assert(context.hasOwnProperty("parent"));
         assert(!context.parent || isA(context.parent, CPPConstruct));
+        assert(!context.parent || context.parent.isAttached());
         this.parent = context.parent;
 
         // Use containing function from context or inherit from parent
