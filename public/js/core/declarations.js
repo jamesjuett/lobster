@@ -221,8 +221,8 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
             return entity;
         }
         catch(e){
-            if (isA(e, SemanticException)){
-                this.addNote(e.annotation(this));
+            if (isA(e, Note)){
+                this.addNote(e);
             }
             else{
                 throw e;
@@ -373,10 +373,10 @@ var Declarator = Lobster.Declarator = CPPConstruct.extend({
                             if (!postfix.size){
                                 this.addNote(CPPError.declaration.array.length_required(this));
                             }
-                            else if (postfix.size.expression !== "literal" && !(innermost && isA(this.parent, Expressions.NewExpression))){
+                            else if (postfix.size.construct_type !== "literal" && !(innermost && isA(this.parent, Expressions.NewExpression))){
                                 this.addNote(CPPError.declaration.array.literal_length_only(this));
                             }
-                            else if (postfix.size.expression === "literal" && postfix.size.value == 0 && !(innermost && isA(this.parent, Expressions.NewExpression))){
+                            else if (postfix.size.construct_type === "literal" && postfix.size.value == 0 && !(innermost && isA(this.parent, Expressions.NewExpression))){
                                 this.addNote(CPPError.declaration.array.zero_length(this));
                             }
 
