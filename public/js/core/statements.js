@@ -158,7 +158,7 @@ Statements.Return = Statement.extend({
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
-        //if (this.code.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
+        //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
         //    this.addNote(CPPError.stmt._return.exprVoid(this));
         //    return;
         //}

@@ -382,7 +382,7 @@ var Declarator = Lobster.Declarator = CPPConstruct.extend({
 
                             prev = "array";
                             type = Types.Array.instance(type, (postfix.size ? postfix.size.value : undefined)); //Note: grammar doesn't allow const or volatile on array
-                            if(innermost && isA(this.parent, Expressions.NewExpression) && postfix.size/* && postfix.size.expression !== "literal"*/){
+                            if(innermost && isA(this.parent, Expressions.NewExpression) && postfix.size/* && postfix.size.construct_type !== "literal"*/){
                                 this.dynamicLengthExpression = postfix.size;
                             }
                         }
