@@ -57,29 +57,61 @@
     <script src = "js/core/parsing.js"></script>
     <script src = "js/core/parsing2.js"></script>
     <script src = "js/core/analysis.js"></script>
+    <script src = "js/core/regression.js"></script>
 
 </head>
 
 <body>
 
 
-<div class="page-header" style="text-align: center; margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
+<div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
     <div class="container-fluid">
         <h4 style="display: inline-block; vertical-align: middle;">Lobster: Regression Tests</h4>
         <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
 </div>
 
-Hi
+<div id="regression_tests" class="container">
+
+</div>
 
     <script>
 
-        var program = Program.instance();
-        var source = SourceFile.instance("test.cpp", "int main(){4 << 3 << endl;}");
-        program.addSourceFile(source);
-        program.createTranslationUnitForSourceFile("test.cpp");
-        program.fullCompile();
-        console.log(program.getNotes());
+        var showTest = function(test) {
+            var programElem = $('<div class="col-xs-6"></div>');
+
+            programElem.append("Translation Units: <br />");
+            for(var name in test.program.getTranslationUnits()) {
+                programElem.append(name + "<br />");
+            }
+
+            programElem.append("Source Files: <br />");
+            for (var name in test.program.getSourceFiles()) {
+                var sourceFile = test.program.getSourceFiles()[name];
+                programElem.append(sourceFile.getName() + "<br />" + sourceFile.getText());
+            }
+
+
+            var resultsElem = $('<div class="col-xs-6"></div>');
+//            resultsElem.append(test.results.status);
+//            resultsElem.append("<br />");
+            resultsElem.append(test.results.message);
+
+            $("#regression_tests").append(programElem);
+            $("#regression_tests").append(resultsElem);
+        };
+
+        ProgramTest.setDefaultReporter(showTest);
+
+        // Empty program
+
+
+        // Empty main
+        SingleTranslationUnitTest.instance(
+            "int main() { }",
+            NoErrorsNoWarningsVerifier.instance()
+        );
+
 
     </script>
 </body>
