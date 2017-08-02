@@ -607,7 +607,7 @@ var CompoundAssignment = Expressions.CompoundAssignment = Expression.extend({
     valueCategory : "lvalue",
 
     i_createFromAST: function(ast){
-        CompoundAssignment._parent.i_createFromAST(this, arguments);
+        CompoundAssignment._parent.i_createFromAST.apply(this, arguments);
 
         // Basically this uses a binary operator expression to do most of the work
         // e.g. x += y should be equivalent (to a certain extent) to x = x + y
@@ -717,7 +717,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
 
     i_createFromAST : function(ast, context){
-        BinaryOperator._parent.i_createFromAST(this, arguments);
+        BinaryOperator._parent.i_createFromAST.apply(this, arguments);
         this.associativity = ast.associativity;
         this.operator = ast.operator;
     },
@@ -1373,7 +1373,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
 
     i_createFromAST : function(ast, context){
-        UnaryOp._parent.i_createFromAST(this, arguments);
+        UnaryOp._parent.i_createFromAST.apply(this, arguments);
         this.operator = ast.operator;
     },
 
@@ -1971,7 +1971,7 @@ var Dot = Expressions.Dot = Expression.extend({
     i_childrenToExecute : ["operand"],
 
     i_createFromAST : function(ast, context) {
-        Dot._parent.i_createFromAST(this, arguments);
+        Dot._parent.i_createFromAST.apply(this, arguments);
         this.memberName = ast.member.identifier;
     },
 
@@ -2050,7 +2050,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
     i_childrenToExecute : ["operand"],
 
     i_createFromAST : function(ast, context) {
-        Arrow._parent.i_createFromAST(this, arguments);
+        Arrow._parent.i_createFromAST.apply(this, arguments);
         this.memberName = ast.member.identifier;
     },
 
@@ -2138,7 +2138,7 @@ var FunctionCall = Expression.extend({
     instType: "expr",
 
     i_createFromAST : function(context) {
-        FunctionCall._parent.i_createFromAST(this, arguments);
+        FunctionCall._parent.i_createFromAST.apply(this, arguments);
 
         assert(Array.isArray(this.ast.args));
         if (context.isMainCall) {
@@ -2459,7 +2459,7 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
     initIndex: "operand",
 
     i_createFromAST : function(ast, context) {
-        FunctionCallExpression._parent.i_createFromAST(this, arguments);
+        FunctionCallExpression._parent.i_createFromAST.apply(this, arguments);
         this.operand = this.i_createChild(ast.operand);
     },
 
@@ -3010,7 +3010,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
     },
     i_createFromAST: function(ast, context){
 
-        Identifier._parent.i_createFromAST(this, arguments);
+        Identifier._parent.i_createFromAST.apply(this, arguments);
         this.identifier = this.ast.identifier;
         this.identifierText = identifierToText(this.identifier);
     },

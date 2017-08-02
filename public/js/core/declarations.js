@@ -79,7 +79,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     },
 
     i_createFromAST : function () {
-        Declaration._parent.i_createFromAST(this, arguments);
+        Declaration._parent.i_createFromAST.apply(this, arguments);
         this.typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
         this.storageSpec = StorageSpecifier.instance(this.ast.specs.storageSpecs, {parent:this});
         var self = this;
@@ -266,7 +266,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
     _name: "Parameter",
 
     i_createFromAST : function() {
-        Parameter._parent.i_createFromAST(this, arguments);
+        Parameter._parent.i_createFromAST.apply(this, arguments);
         this.typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
         this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
     },
@@ -1356,7 +1356,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
     },
 
     i_createFromAST : function(ast, context) {
-        MemberDeclaration._parent.i_createFromAST.apply(this, arguments);
+        MemberDeclaration._parent.i_createFromAST.apply.apply(this, arguments);
         this.access = context.access;
         this.i_containingClass = context.containingClass;
     },
