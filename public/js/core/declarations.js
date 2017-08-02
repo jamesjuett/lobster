@@ -1019,7 +1019,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 
         if (this.ast.head.bases && this.ast.head.bases.length > 0){
             if (this.ast.head.bases.length > 1){
-                this.addNote(CPPError.classDef.multiple_inheritance(this));
+                this.addNote(CPPError.class_def.multiple_inheritance(this));
                 return;
             }
 
@@ -1030,11 +1030,11 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
                 this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
 
                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
-                    this.addNote(CPPError.classDef.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
+                    this.addNote(CPPError.class_def.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
                 }
 
                 if (baseCode.virtual){
-                    this.addNote(CPPError.classDef.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
+                    this.addNote(CPPError.class_def.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
                 }
             }
             catch(e){
@@ -1131,7 +1131,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 
             }
             else{
-                this.addNote(CPPError.classDef.bigThree(this, bigThreeYes, bigThreeNo));
+                this.addNote(CPPError.class_def.big_three(this, bigThreeYes, bigThreeNo));
             }
         }
 
@@ -1486,7 +1486,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         var ast = this.ast;
 
         if (!ast.body){
-            this.addNote(CPPError.classDef.ctor_def(this));
+            this.addNote(CPPError.class_def.ctor_def(this));
             return;
         }
 
@@ -1665,7 +1665,7 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
 
 
         if (!ast.body){
-            this.addNote(CPPError.classDef.dtor_def(this));
+            this.addNote(CPPError.class_def.dtor_def(this));
             return;
         }
 
