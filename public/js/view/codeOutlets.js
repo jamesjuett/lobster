@@ -216,7 +216,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
 
 
         // ctor-initializer
-        var memInits = this.code.sub.memberInitializers;
+        var memInits = this.code.memberInitializers;
         if (memInits && memInits.length > 0){
             this.element.append("\n : ");
             for(var i = 0; i < memInits.length; ++i){
@@ -601,9 +601,9 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
         this.element.append('<span class="code-keyword">return</span>');
 
         var exprElem = this.exprElem = $("<span></span>");
-        if (this.code.sub.returnInitializer) {
+        if (this.code.returnInitializer) {
             this.element.append(" ");
-            this.argOutlets.push(this.expr = this.addChild(createCodeOutlet(exprElem, this.code.sub.returnInitializer, this.simOutlet)));
+            this.argOutlets.push(this.expr = this.addChild(createCodeOutlet(exprElem, this.code.returnInitializer, this.simOutlet)));
         }
         this.element.append(exprElem);
 
@@ -782,7 +782,7 @@ Lobster.Outlets.CPP.Initializer = Outlets.CPP.Code.extend({
 
         var exprElem = $("<span></span>");
         this.element.append(exprElem);
-        this.addChild(createCodeOutlet(exprElem, this.code.sub.initExpr, this.simOutlet));
+        this.addChild(createCodeOutlet(exprElem, this.code.initExpr, this.simOutlet));
     },
     _act : copyMixin(Outlets.CPP.Code._act, {
         "idArgOutlet" : Observer._IDENTIFY
@@ -828,8 +828,8 @@ Lobster.Outlets.CPP.DefaultInitializer = Outlets.CPP.Code.extend({
         if (this.code.funcCall){
             this.addChild(Outlets.CPP.FunctionCall.instance(this.code.funcCall, this.simOutlet, this, this.argOutlets));
         }
-        if (this.code.sub.arrayElemInitializers){
-            this.code.sub.arrayElemInitializers.forEach(function(elemInit){
+        if (this.code.arrayElemInitializers){
+            this.code.arrayElemInitializers.forEach(function(elemInit){
                 self.addChild(Outlets.CPP.DefaultInitializer.instance(element, elemInit, simOutlet));
             });
         }
@@ -1148,13 +1148,13 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
 
         var self = this;
         var lhsElem = $("<span></span>");
-        this.addChild(createCodeOutlet(lhsElem, this.code.sub.lhs, this.simOutlet));
+        this.addChild(createCodeOutlet(lhsElem, this.code.lhs, this.simOutlet));
         this.exprElem.append(lhsElem);
 
         this.exprElem.append(" " + this.htmlOperator + " ");
 
-        if (this.code.sub.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.sub.funcCall, this.simOutlet, this);
+        if (this.code.funcCall){
+            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.funcCall, this.simOutlet, this);
             this.addChild(callOutlet);
 
             this.argOutlets = callOutlet.argOutlets;
@@ -1169,7 +1169,7 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
         else{
             var rhsElem = $("<span></span>");
             this.argOutlets = [];
-            this.argOutlets.push(this.addChild(createCodeOutlet(rhsElem, this.code.sub.rhs, this.simOutlet)));
+            this.argOutlets.push(this.addChild(createCodeOutlet(rhsElem, this.code.rhs, this.simOutlet)));
             this.exprElem.append(rhsElem);
         }
     },
@@ -1207,19 +1207,19 @@ Lobster.Outlets.CPP.Ternary = Outlets.CPP.Expression.extend({
         this.element.addClass("code-ternary");
 
         var elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub.condition, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.condition, this.simOutlet));
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + this.htmlOperator1 + " ");
 
         elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub.then, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.then, this.simOutlet));
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + this.htmlOperator2 + " ");
 
         elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub.otherwise, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.otherwise, this.simOutlet));
         this.exprElem.append(elem);
     }
 });
@@ -1233,13 +1233,13 @@ Lobster.Outlets.CPP.Comma = Outlets.CPP.Expression.extend({
         this.element.addClass("code-comma");
 
         var elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub.left, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.left, this.simOutlet));
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + this.htmlOperator + " ");
 
         elem = $("<span></span>");
-        this.addChild(createCodeOutlet(elem, this.code.sub.right, this.simOutlet));
+        this.addChild(createCodeOutlet(elem, this.code.right, this.simOutlet));
         this.exprElem.append(elem);
     }
 });
@@ -1397,8 +1397,8 @@ Lobster.Outlets.CPP.BinaryOperator = Outlets.CPP.Expression.extend({
     init: function(element, code, simOutlet){
         this.initParent(element, code, simOutlet);
 
-        if (this.code.sub.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.sub.funcCall, this.simOutlet, this);
+        if (this.code.funcCall){
+            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.funcCall, this.simOutlet, this);
             this.addChild(callOutlet);
 
             this.argOutlets = callOutlet.argOutlets;
@@ -1463,8 +1463,8 @@ Lobster.Outlets.CPP.UnaryOp = Outlets.CPP.Expression.extend({
         this.exprElem.append(htmlDecoratedOperator(this.code.operator, "code-unaryOp"));
         this.addSpace && this.exprElem.append(" ");
 
-        if (this.code.sub.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.sub.funcCall, this.simOutlet, this);
+        if (this.code.funcCall){
+            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.funcCall, this.simOutlet, this);
             this.addChild(callOutlet);
             this.argOutlets = callOutlet.argOutlets;
 
@@ -1665,8 +1665,8 @@ Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
         this.exprElem.append(htmlDecoratedOperator("[", "code-postfixOp"));
 
 
-        if (this.code.sub.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.sub.funcCall, this.simOutlet, this);
+        if (this.code.funcCall){
+            var callOutlet = Outlets.CPP.FunctionCall.instance(this.code.funcCall, this.simOutlet, this);
             this.addChild(callOutlet);
 
             this.argOutlets = callOutlet.argOutlets;

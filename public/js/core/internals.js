@@ -106,7 +106,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     attach : function(context) {
         this.i_setContext(context);
-        this.i_createChildren(this.ast);
+        this.i_createFromAST(this.ast);
         this.i_isAttached = true;
     },
 
@@ -117,10 +117,10 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     /**
      * Default for derived classes, pulls children from i_childrenToCreate array.
      * Derived classes may also provide an override if they need customization (e.g. providing
-     * a new scope in the context for children.)
+     * a different scope in the context for children, getting extra properties from the AST, etc.)
      * @param ast
      */
-    i_createChildren : function(ast) {
+    i_createFromAST : function(ast) {
         for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
             var childName = this.i_childrenToCreate[i];
             this[childName] = this.i_createChild(ast[childName]);
@@ -2209,6 +2209,125 @@ var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
         return this.name;
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Selects from candidates the function that is the best match
+// for the arguments in the args array. Also modifies args so
+// that each argument is amended with any implicit conversions
+// necessary for the match.
+// Options:
+//   problems - an array that will be filled with an entry for each candidate
+//              consisting of an array of any semantic problems that prevent it
+//              from being chosen.
+
+var convLen = function(args) {
+    var total = 0;
+    for (var i = 0; i < args.length; ++i) {
+        total += args[i].conversionLength;
+    }
+    return total;
+};
+
+var overloadResolution = function(candidates, args, isThisConst, options){
+    options = options || {};
+    // Find the constructor
+    var cand;
+    var tempArgs;
+    var viable = [];
+    for(var c = 0; c < candidates.length; ++c){
+        cand = candidates[c];
+        tempArgs = [];
+        var problems = [];
+        options.problems && options.problems.push(problems);
+
+        // Check argument types against parameter types
+        var paramTypes = cand.paramTypes || cand.type.paramTypes;
+        if (args.length !== paramTypes.length){
+            problems.push(CPPError.param.numParams(args[i]));
+        }
+        else if (isThisConst && cand.isMemberFunction && !cand.type.isThisConst){
+            problems.push(CPPError.param.thisConst(args[i]));
+        }
+        else{
+            for(var i = 0; i < args.length; ++i){
+                if (isA(paramTypes[i], Types.Reference)){
+                    tempArgs.push(args[i]);
+                    if(!referenceCompatible(args[i].type, paramTypes[i].refTo)){
+                        problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));
+                    }
+                    //else if (args[i].valueCategory !== "lvalue"){
+                    //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
+                    //}
+                }
+                else{
+                    tempArgs.push(standardConversion(args[i], paramTypes[i]));
+                    if(!sameType(tempArgs[i].type, paramTypes[i])){
+                        problems.push(CPPError.param.paramType(args[i], args[i].type, paramTypes[i]));
+                    }
+
+                }
+            }
+        }
+
+        if (problems.length == 0) {
+            viable.push({
+                cand: cand,
+                args: tempArgs.clone()
+            });
+        }
+    }
+
+    if (viable.length == 0){
+        return null;
+    }
+
+
+    var selected = viable[0];
+    var bestLen = convLen(selected.args);
+    for(var i = 1; i < viable.length; ++i){
+        var v = viable[i];
+        var vLen = convLen(v.args);
+        if (vLen < bestLen){
+            selected = v;
+            bestLen = vLen;
+        }
+    }
+
+    for(var i = 0; i < selected.args.length; ++i){
+        args[i] = selected.args[i];
+    }
+
+    return selected.cand;
+};
+
+var fakeExpressionsFromTypes = function(types){
+    var exprs = [];
+    for (var i = 0; i < types.length; ++i){
+        exprs[i] = {type: types[i], valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
+    }
+    return exprs;
+};
+
+
+
+
+
+
+
 
 
 

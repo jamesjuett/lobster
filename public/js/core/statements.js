@@ -120,7 +120,7 @@ Statements.Declaration = Statement.extend({
 Statements.Return = Statement.extend({
     _name: "Return",
 
-    i_createChildren : function(ast) {
+    i_createFromAST : function(ast) {
 
         // If we have a return expression, create an initializer with that expression
         if (ast.expression) {
@@ -132,6 +132,7 @@ Statements.Return = Statement.extend({
             this.returnInitializer = ReturnInitializer.instance({
                 args: [this.expression]
             }, {parent: this});
+            this.i_childrenToExecute = ["returnInitializer"];
         }
         else {
             this.expression = null;
@@ -145,7 +146,6 @@ Statements.Return = Statement.extend({
 
         if (this.expression){
             this.returnInitializer.compile(ReturnEntity.instance(returnType));
-            this.sub.returnInitializer = this.returnInitializer;
         }
 
         // A return statement with no expression is only allowed in void functions.
@@ -203,7 +203,7 @@ Statements.Block = Statements.Compound = Statement.extend({
     _name: "Block",
     initIndex: 0,
 
-    i_createChildren : function(ast){
+    i_createFromAST : function(ast){
 
         this.blockScope = this.i_createBlockScope();
 
@@ -383,7 +383,7 @@ Statements.While = Statements.Iteration.extend({
     _name: "While",
     initIndex: "condition",
 
-    i_createChildren : function(ast) {
+    i_createFromAST : function(ast) {
 
         this.body = this.i_createChild(ast.body);
 
@@ -529,7 +529,7 @@ Statements.Break = Statement.extend({
     _name: "Break",
 
     compile : function() {
-        // Theoretically this could be put into the i_createChildren function since it only uses
+        // Theoretically this could be put into the i_createFromAST function since it only uses
         // syntactic information to determine whether the break is inside an iteration statement,
         // but it would feel weird to add an error note before the compile function even runs... :/
 

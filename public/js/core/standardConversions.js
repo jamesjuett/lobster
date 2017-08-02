@@ -2,10 +2,11 @@ var Conversions = Lobster.Conversions = {};
 
 var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
+    i_childrenToExecute : ["from"],
     init: function(from, toType, valueCategory){
         assert(isA(toType, Type) && toType._isInstance);
         this.initParent(from.ast, {parent: from.parent});
-        this.from = this.sub.from = from;
+        this.from = from;
         from.parent = this;
         this.type = toType;
         this.valueCategory = valueCategory;
