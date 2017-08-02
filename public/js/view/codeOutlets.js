@@ -800,7 +800,7 @@ Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
 
         for (var i = 0; i < this.code.initializerListLength; ++i) {
             var argElem = $("<span></span>");
-            this.addChild(createCodeOutlet(argElem, this.code.sub["arg"+i], this.simOutlet));
+            this.addChild(createCodeOutlet(argElem, this.code["arg"+i], this.simOutlet));
             this.element.append(argElem);
             if (i < this.code.initializerListLength - 1) {
                 this.element.append(", ");

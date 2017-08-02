@@ -42,7 +42,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         assert(context || context === null);
         this.id = CPPConstruct._nextId++;
         this.children = [];
-        this.sub = {};
         this.i_notes = [];
         this.i_hasErrors = false;
 
