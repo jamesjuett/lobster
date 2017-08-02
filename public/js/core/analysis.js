@@ -99,7 +99,7 @@ var checkInterface = Lobster.checkInterface = function (program, projectEditor) 
         if (isDotOrArrow(construct)) {
 
             // If it's not implicitly defined (i.e. not in original source code), don't annotate it
-            if (!construct.context.implicit) {
+            if (!construct.isImplicit()) {
 
                 // Determine if broke Matrix or Image interface
                 return checkInterface(construct, "Matrix") || checkInterface(construct, "Image");

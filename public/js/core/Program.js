@@ -89,6 +89,7 @@ var NoteRecorder = NoteHandler.extend({
         this.i_allNotes = [];
         this.i_hasErrors = false;
         this.i_hasSyntaxErrors = false;
+        this.i_hasWarnings = false;
     },
 
     /**
@@ -102,6 +103,9 @@ var NoteRecorder = NoteHandler.extend({
             if (isA(note, SyntaxNote)) {
                 this.i_hasSyntaxErrors = true;
             }
+        }
+        else if (note.getType() === Note.TYPE_WARNING) {
+            this.i_hasWarnings = true;
         }
         // this.i_preprocessorNotes.push(note);
     },
@@ -146,6 +150,7 @@ var NoteRecorder = NoteHandler.extend({
         this.i_allNotes = [];
         this.i_hasErrors = false;
         this.i_hasSyntaxErrors = false;
+        this.i_hasWarnings = false;
         // this.i_preprocessorNotes = [];
         // this.i_compilerNotes = [];
         // this.i_linkerNotes = [];
@@ -155,6 +160,9 @@ var NoteRecorder = NoteHandler.extend({
     },
     hasSyntaxErrors : function() {
         return this.i_hasSyntaxErrors;
+    },
+    hasWarnings : function() {
+        return this.i_hasWarnings;
     }
 });
 
@@ -699,14 +707,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // codeStr += "\n"; // TODO NEW why was this needed?
 		try{
 
-            // TODO NEW omg what a hack
-            //Use for building parser :p
-            //console.log(PEG.buildParser(codeStr,{
-            //    cache: true,
-            //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
-            //    output: "source"
-            //}));
-            //return;
 
             this.clearNotes();
 
@@ -729,7 +729,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
-			    var note = SyntaxNote.instance(this.getSourceReference(err.line, err.column, err.offset, err.offset + 1), Note.TYPE_ERROR, err.message);
+			    var note = SyntaxNote.instance(this.getSourceReference(err.location.start.line, err.location.start.column, err.location.start.offset, err.location.start.offset + 1), Note.TYPE_ERROR, err.message);
 				this.addNote(note);
 			}
 			else{
@@ -788,7 +788,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         // First, compile ALL the declarations
         for(var i = 0; i < code.length; ++i){
-            var decl = Declarations.create(code[i], {
+            var decl = Declaration.create(code[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,
@@ -802,7 +802,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         // Linking
         // TODO Just get rid of this??
-        // var linkingProblems = SemanticProblems.instance();
         // this.i_calls.forEach(function(call){
         //     linkingProblems.pushAll(call.checkLinkingProblems());
         // });
