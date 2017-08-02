@@ -153,13 +153,13 @@ Statements.Return = Statement.extend({
         // At the moment, constructors/destructors are hacked to have void return type,
         // so this check is ok for return statements in a constructor.
         if (!this.expression && !isA(returnType, Types.Void)){
-            this.addNote(CPPError.stmt._return.empty(this))
+            this.addNote(CPPError.stmt.returnStatement.empty(this))
         }
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
         //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
-        //    this.addNote(CPPError.stmt._return.exprVoid(this));
+        //    this.addNote(CPPError.stmt.returnStatement.exprVoid(this));
         //    return;
         //}
 	},
@@ -545,7 +545,7 @@ Statements.Break = Statement.extend({
 
         // container should exist, otherwise this break is somewhere it shouldn't be
         if (!container || !isA(container, Statements.Iteration)){
-            this.addNote(CPPError.stmt._break.location(this, this.condition));
+            this.addNote(CPPError.stmt.breakStatement.location(this, this.condition));
         }
     },
 
