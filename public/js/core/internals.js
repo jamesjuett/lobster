@@ -88,7 +88,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         assert(ast || ast === null);
         ast = ast || {};
         assert(context || context === null);
-        assert(!context || context.parent !== undefined);
         this.id = CPPConstruct._nextId++;
         this.children = [];
         this.sub = {};
@@ -156,7 +155,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     i_setContext : function(context){
         assert(!this.i_isAttached);
         this.i_isAttached = true;
-        assert(context.parent !== undefined); // should be specified, even if null for root construct
+        assert(context.hasOwnProperty("parent"));
         assert(!context.parent || isA(context.parent, CPPConstruct));
         this.parent = context.parent;
 
@@ -2321,7 +2320,8 @@ var overloadResolution = function(candidates, args, isThisConst, options){
 var fakeExpressionsFromTypes = function(types){
     var exprs = [];
     for (var i = 0; i < types.length; ++i){
-        exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
+        exprs[i] = AuxiliaryExpression.instance(types[i]);
+        // exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
     }
     return exprs;
 };
