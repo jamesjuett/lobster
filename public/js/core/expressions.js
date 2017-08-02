@@ -110,7 +110,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
                 }
             }
 
-            this.tempDeallocator = Statements.TemporaryDeallocator.instance("", {parent: this});
+            this.tempDeallocator = Statements.TemporaryDeallocator.instance(null, {parent: this});
             this.tempDeallocator.compile(this.temporaryObjects);
         }
     },
@@ -1871,8 +1871,8 @@ var Subscript = Expressions.Subscript = Expression.extend({
             this.type = this.operand.type.ptrTo;
         }
 
-        if (!isA(this.offset.type, Types.Int)) {
-            this.addNote(CPPError.expr.array_offset(this, this.offset.type));
+        if (!isA(this.arg.type, Types.Int)) {
+            this.addNote(CPPError.expr.array_offset(this, this.arg.type));
         }
     },
 
