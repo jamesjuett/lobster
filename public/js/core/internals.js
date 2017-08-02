@@ -106,7 +106,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     attach : function(context) {
         this.i_setContext(context);
-        this.i_createFromAST(this.ast);
+        this.i_createFromAST(this.ast, context);
         this.i_isAttached = true;
     },
 
@@ -120,7 +120,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
      * a different scope in the context for children, getting extra properties from the AST, etc.)
      * @param ast
      */
-    i_createFromAST : function(ast) {
+    i_createFromAST : function(ast, context) {
         for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
             var childName = this.i_childrenToCreate[i];
             this[childName] = this.i_createChild(ast[childName]);

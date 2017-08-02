@@ -242,7 +242,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 func: this.myConstructor,
                 receiver: this.entity});
             this.args = this.funcCall.args;
-            this.i_childrenToExecute = ["funcCall"];
+            // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
         }
 
         return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);

@@ -721,7 +721,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		}
 		catch(err){
 			if (err.name == "SyntaxError"){
-			    var note = SyntaxNote.instance(this.getSourceReference(err.line, err.column, err.offset, err.offset + 1), Note.TYPE_ERROR, err.message);
+			    var note = SyntaxNote.instance(this.getSourceReference(err.location.start.line, err.location.start.column, err.location.start.offset, err.location.start.offset + 1), Note.TYPE_ERROR, err.message);
 				this.addNote(note);
 			}
 			else{

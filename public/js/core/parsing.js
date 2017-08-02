@@ -12534,7 +12534,7 @@ Lobster.cPlusPlusParser = /*
                     text : text,
                     line : location.start.line,
                     column : location.start.column,
-                    end : obj.start + text.length
+                    end : location.start.offset + text.length
                 };
                 return obj;
             }

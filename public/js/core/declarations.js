@@ -73,7 +73,6 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     initIndex: 0,
     init: function(ast, context){
         this.initParent(ast, context);
-        this.declarators = [];
         this.initializers = [];
         this.entities = [];
         return this;
@@ -84,7 +83,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
         this.storageSpec = StorageSpecifier.instance(this.ast.specs.storageSpecs, {parent:this});
         var self = this;
         this.declarators = this.ast.declarators.map(function(declAst){
-            return Declarator.instance(declAst, {parent: this});
+            return Declarator.instance(declAst, {parent: self});
         });
     },
 
@@ -997,7 +996,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
 
 
-
+// TODO: this should be called ClassDefinition
 var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
 
@@ -1352,10 +1351,12 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
         assert(isA(context.containingClass, Types.Class));
         assert(context.hasOwnProperty("access"));
         this.initParent(ast, context);
+    },
+
+    i_createFromAST : function(ast, context) {
+        MemberDeclaration._parent.i_createFromAST.apply(this, arguments);
         this.access = context.access;
         this.i_containingClass = context.containingClass;
-        this.declarators = [];
-        return this;
     },
 
     i_determineStorage : function(){
