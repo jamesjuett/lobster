@@ -185,7 +185,7 @@ jump_statement
   / "return" !identifierChar ws ret:expression? ws ";" { return {construct_type:"return_statement", expression:ret}; }
 
 declaration_statement
-  = d:declaration {return absorb({construct_type:"declaration_statement"}, d); }
+  = d:declaration {return {construct_type:"declaration_statement", declaration: d}; }
 
 
 
