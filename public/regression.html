@@ -82,18 +82,20 @@
         var numTestsSuccessful = 0;
 
         var showTest = function(test) {
-            var programElem = $('<pre class="col-xs-6"></pre>');
+            var programElem = $('<div class="col-xs-6"></div>');
 
-            programElem.append("Translation Units: \n");
+            programElem.append("Translation Units: <br />");
             for(var name in test.program.getTranslationUnits()) {
-                programElem.append(name + "\n");
+                programElem.append("<code>" + name + "</code><br />");
             }
 
-            programElem.append("Source Files: \n");
+            programElem.append("Source Files: <br />");
+            var filesElem = $("<pre></pre>");
             for (var name in test.program.getSourceFiles()) {
                 var sourceFile = test.program.getSourceFiles()[name];
-                programElem.append(sourceFile.getName() + "\n" + sourceFile.getText());
+                filesElem.append(sourceFile.getName() + "\n" + sourceFile.getText());
             }
+            programElem.append(filesElem);
 
 
             var resultsElem = $('<div class="col-xs-6"></div>');
@@ -103,7 +105,7 @@
             for(var i = 0; i < test.results.length; ++i) {
                 var result = test.results[i];
 
-                resultsElem.append(result.testName + " : " + result.status + "<br />");
+                resultsElem.append(result.verifierName + " : " + result.status + "<br />");
                 resultsElem.append(result.message + "<br />");
 
                 if (result.status !== "success") {
@@ -112,6 +114,7 @@
             }
 
             var testElem = $('<div class="container lobster-test-result"></div>');
+            testElem.append("<h2>" + test.name + "</h2>");
             testElem.append(programElem);
             testElem.append(resultsElem);
             $("#regression_tests").append(testElem);
@@ -130,6 +133,7 @@
 
         // Empty main
         SingleTranslationUnitTest.instance(
+            "Empty Main",
             "int main() { }",
             NoErrorsNoWarningsVerifier.instance()
         );
@@ -194,6 +198,7 @@
 
 }`;
         SingleTranslationUnitTest.instance(
+            "Basic Declaration Test",
             basicDeclarationTestCode,
             [
                 NoErrorsNoWarningsVerifier.instance(),
