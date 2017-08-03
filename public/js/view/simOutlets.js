@@ -1380,7 +1380,7 @@ var CompilationStatusOutlet = Class.extend(Observer, {
 
         var self = this;
         this.i_compileButtonText = "Compile";
-        this.i_compileButton = $('<button class="btn btn-primary-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
+        this.i_compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
             .click(function() {
                 self.i_compileButtonText = "Compiling";
                 self.i_compileButton.html('<span class = "glyphicon glyphicon-refresh spin"></span> ' + self.i_compileButtonText);
@@ -1438,13 +1438,13 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
-                this.i_compileButton.removeClass("btn-primary-muted");
+                this.i_compileButton.removeClass("btn-warning-muted");
                 this.i_compileButton.addClass("btn-success-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
             }
             else {
                 this.i_compileButton.removeClass("btn-success-muted");
-                this.i_compileButton.addClass("btn-primary-muted");
+                this.i_compileButton.addClass("btn-warning-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
             }
         }

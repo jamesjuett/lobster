@@ -299,6 +299,13 @@
     assert(blah + 1 == x);
   }
 
+  // Null statements
+  ;;;
+  {
+    ;
+    x + 1; ; y = 3;
+  }
+
 }`,
             [
                 NoErrorsNoWarningsVerifier.instance(),
