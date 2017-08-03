@@ -4,10 +4,10 @@ var TestVerifier = Class.extend({
     SUCCESS : {status: "success", message: "test successful"},
     verify : function() {
         try{
-            return mixin({testName: this.classString()}, this.i_verifyImpl.apply(this, arguments));
+            return mixin({verifierName: this.classString()}, this.i_verifyImpl.apply(this, arguments));
         }
         catch(e) {
-            return {testName: this.classString(), status: "exception", message: "The test crashed with an uncaught exception", exception: e};
+            return {verifierName: this.classString(), status: "exception", message: "The test crashed with an uncaught exception", exception: e};
         }
     }
 });
@@ -48,7 +48,8 @@ var ProgramTest = Class.extend({
         this.i_defaultReporter = reporter;
     },
 
-    init : function(sourceFiles, translationUnits, verifiers, reporter) {
+    init : function(name, sourceFiles, translationUnits, verifiers, reporter) {
+        this.name = name;
         if (!Array.isArray(verifiers)) { verifiers = [verifiers]; }
         reporter = reporter || this.i_defaultReporter;
         this.program = Program.instance();
@@ -68,7 +69,7 @@ var ProgramTest = Class.extend({
 var SingleTranslationUnitTest = ProgramTest.extend({
     _name: "SingleTranslationUnitTest",
 
-    init : function(sourceText, verifiers) {
-        this.initParent([SourceFile.instance("test.cpp", sourceText)], ["test.cpp"], verifiers);
+    init : function(name, sourceText, verifiers) {
+        this.initParent(name, [SourceFile.instance("test.cpp", sourceText)], ["test.cpp"], verifiers);
     }
 });
