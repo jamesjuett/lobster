@@ -571,7 +571,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 var lhs = inst.childInstances.lhs.evalValue;
                 var rhs = inst.childInstances.rhs.evalValue;
 
-                lhs.writeValue(rhs);
+                // lhs.writeValue(rhs);
 
                 inst.setEvalValue(lhs);
                 this.done(sim, inst);

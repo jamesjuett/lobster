@@ -105,7 +105,11 @@
             for(var i = 0; i < test.results.length; ++i) {
                 var result = test.results[i];
 
-                resultsElem.append(result.verifierName + " : " + result.status + "<br />");
+                var statusElem = $("<span class='label'>"+result.status+"</span>");
+                statusElem.addClass(result.status === "success" ? "label-success" : "label-danger");
+                resultsElem.append(statusElem);
+                resultsElem.append(" " + result.verifierName);
+                resultsElem.append("<br />");
                 resultsElem.append(result.message + "<br />");
 
                 if (result.status !== "success") {
