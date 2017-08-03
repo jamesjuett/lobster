@@ -92,6 +92,13 @@
 
             programElem.append("Source Files: <br />");
             var filesElem = $("<pre></pre>");
+            filesElem.hide();
+            var showFilesButton = $('<button class="btn btn-primary">Show</button>');
+            showFilesButton.click(function() {
+                showFilesButton.html(showFilesButton.html() === "Show" ? "Hide" : "Show");
+                filesElem.toggle();
+            });
+            programElem.append(showFilesButton);
             for (var name in test.program.getSourceFiles()) {
                 var sourceFile = test.program.getSourceFiles()[name];
                 filesElem.append(sourceFile.getName() + "\n" + sourceFile.getText());
