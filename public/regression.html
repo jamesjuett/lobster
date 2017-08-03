@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!--suppress ALL -->
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -139,7 +140,10 @@
         SingleTranslationUnitTest.instance(
             "Empty Main",
             "int main() { }",
-            NoErrorsNoWarningsVerifier.instance()
+            [
+                NoErrorsNoWarningsVerifier.instance(),
+                NoBadRuntimeEventsVerifier.instance()
+            ]
         );
 
 
@@ -201,14 +205,18 @@
   assert(arr2[3] == var);
 
 }`;
-        SingleTranslationUnitTest.instance(
-            "Basic Declaration Test",
-            basicDeclarationTestCode,
-            [
-                NoErrorsNoWarningsVerifier.instance(),
-                NoAssertionFailuresVerifier.instance()
-            ]
-        );
+        var fundamentalTypesToTest = ["int", "double", "char"];
+        fundamentalTypesToTest.map(function(t) {
+            SingleTranslationUnitTest.instance(
+                "Basic Declaration Test - " + t,
+                basicDeclarationTestCode.replace(/int/g, t),
+                [
+                    NoErrorsNoWarningsVerifier.instance(),
+                    NoBadRuntimeEventsVerifier.instance()
+                ]
+            );
+        });
+
 
     </script>
 </body>

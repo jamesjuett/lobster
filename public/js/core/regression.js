@@ -32,12 +32,56 @@ var NoAssertionFailuresVerifier = TestVerifier.extend({
         var sim = Simulation.instance(program);
         sim.start();
         sim.runToEnd();
-        if (!sim.hasAssertionFailureOccurred()) {
+        if (!sim.hasEventOccurred(Simulation.EVENT_ASSERTION_FAILURE)) {
             return TestVerifier.SUCCESS;
         }
         else {
             return {status: "failure", message: "An assertion in the program failed when run."};
         }
+    }
+});
+
+var NoCrashesVerifier = TestVerifier.extend({
+    _name: "NoAssertionFailureVerifier",
+    i_verifyImpl : function(program) {
+        var sim = Simulation.instance(program);
+        sim.start();
+        sim.runToEnd();
+        if (!sim.hasEventOccurred(Simulation.EVENT_CRASH)) {
+            return TestVerifier.SUCCESS;
+        }
+        else {
+            return {status: "failure", message: "An assertion in the program failed when run."};
+        }
+    }
+});
+
+/**
+ * Checks that no assertions fail and no crashes occur.
+ */
+var NoBadRuntimeEventsVerifier = TestVerifier.extend({
+    _name: "NoBadRuntimeEventsVerifier",
+    i_verifyImpl : function(program) {
+        var sim = Simulation.instance(program);
+        sim.start();
+        sim.runToEnd();
+
+        var eventsToCheck = [
+            Simulation.EVENT_UNDEFINED_BEHAVIOR,
+            Simulation.EVENT_UNSPECIFIED_BEHAVIOR,
+            Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR,
+            Simulation.EVENT_MEMORY_LEAK,
+            Simulation.EVENT_ASSERTION_FAILURE,
+            Simulation.EVENT_CRASH];
+
+        for(var i = 0; i < eventsToCheck.length; ++i) {
+            var event = eventsToCheck[i];
+            if (sim.hasEventOccurred(event)) {
+                return {status: "failure", message: "An unexpected runtime event (" + event + ") occurred."};
+            }
+        }
+
+        return TestVerifier.SUCCESS;
     }
 });
 

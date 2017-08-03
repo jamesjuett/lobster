@@ -571,7 +571,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 var lhs = inst.childInstances.lhs.evalValue;
                 var rhs = inst.childInstances.rhs.evalValue;
 
-                // lhs.writeValue(rhs);
+                lhs.writeValue(rhs);
 
                 inst.setEvalValue(lhs);
                 this.done(sim, inst);
@@ -969,7 +969,7 @@ Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
     operate : function(left, right, sim, inst){
         if (this.isPointerComparision) {
             if (!this.allowDiffArrayPointers && (!isA(left.type, Types.ArrayPointer) || !isA(right.type, Types.ArrayPointer) || left.type.arrObj !== right.type.arrObj)){
-                sim.alert("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
+                sim.unspecifiedBehavior("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
             }
             return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
         }
@@ -1138,7 +1138,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 }
                 else{
                     // If the RTTI works well enough, this should always be unsafe
-                    sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                    sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
                     return result;
                 }
             }
@@ -1192,7 +1192,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     }
                     else{
                         // If the RTTI works well enough, this should always be unsafe
-                        sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                        sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
                     }
                     return result;
                 }
@@ -1204,12 +1204,12 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     else if (isA(left.type, Types.ArrayPointer) && isA(right.type, Types.ArrayPointer)){
                         // Make sure they're both from the same array
                         if (left.type.arrObj !== right.type.arrObj){
-                            sim.alert("Egad! Those pointers are pointing into two different arrays! Why are you subtracting them?");
+                            sim.undefinedBehavior("Egad! Those pointers are pointing into two different arrays! Why are you subtracting them?");
                         }
                     }
                     else{
                         // If the RTTI works well enough, this should always be unsafe
-                        sim.alert("Hm, I can't verify both of these pointers are from the same array. You probably shouldn't be subtracting them.");
+                        sim.undefinedBehavior("Hm, I can't verify both of these pointers are from the same array. You probably shouldn't be subtracting them.");
                     }
                     return Value.instance((left.value - right.value) / this.left.type.ptrTo.size, Types.Int.instance());
                 }
@@ -1515,15 +1515,16 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
-                    sim.alert("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
-                    sim.alert("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
-                    sim.alert("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                    sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
 
@@ -1710,7 +1711,7 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
         }
         else if (isA(obj.type, Types.Pointer)){
             // If the RTTI works well enough, this should always be unsafe
-            sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+            sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
         }
 
         obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
@@ -1771,7 +1772,7 @@ Expressions.Increment = Expression.extend({
             }
             else if (isA(obj.type, Types.Pointer)){
                 // If the RTTI works well enough, this should always be unsafe
-                sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
             }
 
 
@@ -1826,7 +1827,7 @@ Expressions.Decrement = Expression.extend({
             }
             else if (isA(obj.type, Types.Pointer)){
                 // If the RTTI works well enough, this should always be unsafe
-                sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
             }
 
             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
@@ -1926,15 +1927,16 @@ var Subscript = Expressions.Subscript = Expression.extend({
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
-                    sim.alert("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
-                    sim.alert("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
-                    sim.alert("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                    sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
 
@@ -2115,8 +2117,7 @@ var PREDEFINED_FUNCTIONS = {
     },
     "assert" : function(args, sim, inst){
         if(!args[0].evalValue.value){
-            sim.alert("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
-            sim.assertionFailed();
+            sim.assertionFailure("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
         }
         return Value.instance("", Types.Void.instance());
     },
@@ -2681,7 +2682,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
                     len = 1;
                 }
                 else if (len < 0){
-                    sim.alert("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
+                    sim.undefinedBehavior("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
                     len = 1;
                 }
                 heapType = Types.Array.instance(this.heapType.elemType, len);
@@ -2788,17 +2789,17 @@ var Delete = Expressions.Delete = Expression.extend({
 
             if (!isA(obj, DynamicObjectEntity)) {
                 if (isA(obj, AutoObjectInstance)) {
-                    sim.alert("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
+                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
                 }
                 else {
-                    sim.alert("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
+                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
                 }
                 this.done(sim, inst);
                 return;
             }
 
             if (isA(obj.type, Types.Array)){
-                sim.alert("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
+                sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
                 this.done(sim, inst);
                 return;
             }
@@ -2863,17 +2864,17 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
         // Check to make sure we're deleting a valid heap object.
         if (!isA(obj, DynamicObjectEntity)) {
             if (isA(obj, AutoObjectInstance)) {
-                sim.alert("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
+                sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
             }
             else {
-                sim.alert("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
+                sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
             }
             this.done(sim, inst);
             return;
         }
 
         if (!isA(obj.type, Types.Array)) {
-            sim.alert("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
+            sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
             this.done(sim, inst);
             return;
         }

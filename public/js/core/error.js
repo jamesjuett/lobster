@@ -50,7 +50,7 @@ var DeadObjectMessage = RuntimeMessage.extend({
             text1 = "It was a local variable declared at the highlighted line, but it already has gone out of scope.";
         }
 
-        sim.alert(text0 + "\n\n" + text1);
+        sim.undefinedBehavior(text0 + "\n\n" + text1);
 
     }
 });
