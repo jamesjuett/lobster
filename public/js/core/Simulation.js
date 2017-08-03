@@ -48,6 +48,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 	start : function(){
         this.i_paused = true;
 		this.i_stepsTaken = 0;
+		this.i_assertionFailureOccurred = false;
+		this.i_crashOccurred = false;
         this.seedRandom("random seed");
 
         this.send("cleared");
@@ -249,6 +251,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.startRunThread(func);
     },
 
+    runToEnd : function() {
+        while (!this.i_atEnd) {
+            this.stepForward();
+        }
+    },
+
     stepOver: function(options){
         var target = this.peek(function(inst){
             return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
@@ -400,8 +408,18 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             this.send("alert", message);
         }
     },
+    assertionFailed : function() {
+        this.i_assertionFailureOccurred = true;
+    },
+    hasAssertionFailureOccurred : function() {
+        return this.i_assertionFailureOccurred;
+    },
     crash : function(message){
         this.alert(message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)");
+        this.i_crashOccurred = true;
+    },
+    hasCrashOccurred : function(message) {
+        return this.i_crashOccurred;
     },
     explain : function(exp){
         //alert(exp.ignore);

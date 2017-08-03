@@ -446,9 +446,13 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             if (element.find("#simPane").css("display") !== "none"){
                 if (e.which == 39 || e.which == 83){
                     self.stepForward();
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
                 else if (e.which == 37){
                     self.stepBackward();
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
                 //else if (e.which == 40){
                 //    self.stepOver();
@@ -456,8 +460,6 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 //else if (e.which == 38){
                 //    self.stepOut();
                 //}
-                e.preventDefault();
-                e.stopPropagation();
             }
         });
         // .on("keypress", "*", function(e) {

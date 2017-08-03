@@ -2116,6 +2116,7 @@ var PREDEFINED_FUNCTIONS = {
     "assert" : function(args, sim, inst){
         if(!args[0].evalValue.value){
             sim.alert("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
+            sim.assertionFailed();
         }
         return Value.instance("", Types.Void.instance());
     },
