@@ -1614,7 +1614,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
     _name: "ParameterEntity",
     storage: "automatic",
     init: function(func, num){
-        assert(isA(func, FunctionEntity));
+        assert(isA(func, FunctionEntity) || isA(func, PointedFunctionEntity));
         assert(num !== undefined);
 
         this.num = num;
@@ -1630,7 +1630,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
         return AutoObjectInstance.instance(this);
     },
     lookup: function (sim, inst) {
-        // In case function was polymorphic, look it up
+        // In case function was polymorphic or a function pointer, look it up
         var func = this.func.lookup(sim, inst.parent);
 
         // Now we can look up object entity associated with this parameter
@@ -2019,6 +2019,9 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     },
     isLinked : function() {
         return this.isDefined();
+    },
+    getPointerTo : function() {
+        return Value.instance(this, this.type);
     }
 });
 
@@ -2107,11 +2110,10 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
 });
 
 
-var PointedFunctionEntity = CPP.PointedFunctionEntity = CPP.FunctionEntity.extend({
+var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     _name: "FunctionEntity",
     init: function(type){
-        this.initParent(null);
-        this.name = "Unknown function of type " + type;
+        this.initParent("Unknown function of type " + type);
         this.type = type;
     },
     isStaticallyBound : function(){
@@ -2128,6 +2130,9 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPP.FunctionEntity.exten
     },
     isLinked : function(){
         return true;
+    },
+    isVirtual : function() {
+        return false;
     }
 });
 

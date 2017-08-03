@@ -314,6 +314,169 @@
         );
 
 
+
+
+
+
+
+
+        // ---------- Basic Expression Test ----------
+
+        SingleTranslationUnitTest.instance(
+            "Basic Expression Test",
+            `int plus2(int x) {
+  return x + 2;
+}
+
+int func(int x, int &y, int *z) {
+  x = 2;
+  y = 2;
+  *z = 2;
+  z = 0;
+  return 2;
+}
+
+class TestClass {
+public:
+  int mem1;
+  double mem2;
+};
+
+int main() {
+
+  // Literals
+  int a = 3;
+  double b = 4.5;
+  char c = 'x';
+  bool d = true;
+  string e = "test";
+  a = 4;
+  b = 83.4;
+  c = 'a';
+  d = false;
+  e = "blah";
+
+  // Identifiers implicitly tested in other tests
+
+  // Parentheses
+  int f = 5;
+  int g = 10;
+  assert(f + g * 2 == 25);
+  assert((f + g) * 2 == 30);
+  assert((f) + (((g)) + 2) * (2 == 25) == 5);
+
+  // Subscript
+  int arr_a[5] = {5, 6, 7, 8, 9};
+  assert(arr_a[0] == 5);
+  assert(arr_a[3] == 8);
+  assert(arr_a[4] == 9);
+  arr_a[0] = 10;
+  int *ptr_a = &arr_a[1];
+  assert(ptr_a[0] == 6);
+  assert(ptr_a[-1] == 10);
+  assert(ptr_a[2] == 8);
+  assert(ptr_a == arr_a + 1);
+
+  // Function call
+  int h = plus2(3);
+  assert(h == 5);
+  assert(plus2(5) == 7);
+  int i1 = 5;
+  int i2 = 5;
+  int i3 = 5;
+  int *i3_ptr = &i3;
+  int i4 = func(i1, i2, i3_ptr);
+  assert(i1 == 5);
+  assert(i2 == 2);
+  assert(i3 == 2);
+  assert(i4 == 2);
+  assert(i3_ptr == &i3);
+
+  // Function call with function pointer
+  int (*func_ptr)(int, int&, int*) = func;
+  int (*func_ptr2)(int, int&, int*) = &func;
+  int (*func_ptr3)(int, int&, int*) = *func;
+  i1 = i2 = i3 = 5;
+  func_ptr(i1, i2, i3_ptr);
+  assert(i1 == 5);
+  assert(i2 == 2);
+  assert(i3 == 2);
+  assert(i4 == 2);
+  assert(i3_ptr == &i3);
+  i1 = i2 = i3 = 5;
+  (*func_ptr)(i1, i2, i3_ptr);
+  assert(i1 == 5);
+  assert(i2 == 2);
+  assert(i3 == 2);
+  assert(i4 == 2);
+  assert(i3_ptr == &i3);
+
+  // Member access with . and ->
+  TestClass j;
+  j.mem1 = 5;
+  j.mem2 = 4.5;
+  assert(j.mem1 + 2 == 5 + 2);
+  assert(j.mem2 + 2.1 == 4.5 + 2.1);
+  TestClass *j_ptr = &j;
+  j_ptr->mem1 = 2;
+  j_ptr->mem2 = 3.14;
+  assert(j_ptr->mem1 + 1 == 2 + 1);
+  assert(j_ptr->mem2 + 0.99 == 3.14 + 0.99);
+
+  // Increment/decrement
+  int k = 5;
+  assert(++k == 6);
+  assert(k == 6);
+  assert(k++ == 6);
+  assert(k == 7);
+  ++k = 10;
+  assert(k == 10);
+
+  int l = 5;
+  assert(--l == 4);
+  assert(l == 4);
+  assert(l-- == 4);
+  assert(l == 3);
+  --l = 10;
+  assert(l == 10);
+
+  int m = 5;
+  assert((++m)-- == 6);
+  assert(m == 5);
+
+  // Unary operators
+  int n = 5;
+  int n1 = +n; assert(n1 == 5);
+  int n2 = +6; assert(n2 == 6);
+  int n3 = -n; assert(n3 == -5);
+  int n4 = -6; assert(n4 == -6);
+  bool o = true;
+  o = !o;
+  assert(o == false);
+  assert(!o);
+  assert(!!!o);
+  assert(!!true);
+
+  // Address of and dereference
+  int p = 5;
+  int *p_ptr = &p;
+  int &p_ref = p;
+  assert(*p_ptr == p);
+  assert(p_ptr == &p);
+  assert(**&p_ptr == p);
+  assert(*p_ptr = 10);
+  assert(p == 10);
+
+
+
+}`,
+            [
+                NoErrorsNoWarningsVerifier.instance(),
+                NoBadRuntimeEventsVerifier.instance()
+            ]
+        );
+
+
     </script>
 </body>
 </html>

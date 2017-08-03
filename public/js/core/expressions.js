@@ -1494,7 +1494,7 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
     operate: function(sim, inst){
         if (isA(this.operand.type.ptrTo, Types.Function)){
             //function pointer
-            inst.setEvalValue(inst.childInstances.operand.evalValue.value);
+            inst.setEvalValue(inst.childInstances.operand.evalValue);
         }
         else{
             var ptr = inst.childInstances.operand.evalValue;
@@ -1583,6 +1583,7 @@ var AddressOf = Expressions.AddressOf = UnaryOp.extend({
 
     operate: function(sim, inst){
         var obj = inst.childInstances.operand.evalValue;
+
         inst.setEvalValue(obj.getPointerTo());
     }
 });
@@ -2159,7 +2160,7 @@ var FunctionCall = Expression.extend({
         this.func = compilationContext.func;
 
         var self = this;
-        assert(isA(this.func, FunctionEntity));
+        assert(isA(this.func, FunctionEntity) || isA(this.func, PointedFunctionEntity));
 
         // TODO: what is this??
         if (this.func.isMain && !this.i_isMainCall){
@@ -2556,7 +2557,12 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
         }
         else if (inst.index === "call"){
             // If it's a function pointer, set info for evaluated operand function entity
-            if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
+            // TODO: 2nd part of OR is a hack to detect functions generated from function pointers
+            // This is here because I don't have the expression attempt to implicitly convert its operand
+            // to a function pointer. A cleaner implementation might be to include the conversion, but make
+            // it not animate in most cases (since that would be annoying)
+            if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function) ||
+                    !isA(this.operand.entity, FunctionEntity)){
                 inst.pointedFunction = inst.operand.evalValue.rawValue();
             }
             // TODO: hack on next line has || inst.operand.evalValue
