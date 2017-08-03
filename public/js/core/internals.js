@@ -1526,7 +1526,7 @@ var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
     leaked : function(sim){
         if (!this.hasBeenLeaked){
             this.hasBeenLeaked = true;
-            sim.alert("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
+            sim.memoryLeaked("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
             this.send("leaked");
         }
     },

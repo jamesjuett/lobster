@@ -74,7 +74,7 @@ var readValueWithAlert = function(evalValue, sim, expr, inst){
         if (evalValue.rawValue() == 0){
             msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
         }
-        sim.alert(msg);
+        sim.undefinedBehavior(msg);
     }
     return evalValue.readValue();
 };
