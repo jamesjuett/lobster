@@ -146,6 +146,7 @@
             ]
         );
 
+        // ---------- Basic Declaration Tests ----------
 
         var basicDeclarationTestCode =
             `int main() {
@@ -216,6 +217,87 @@
                 ]
             );
         });
+
+        // ---------- Basic Statement Test ----------
+
+        SingleTranslationUnitTest.instance(
+            "Basic Statement Test",
+            `int main() {
+  int x = 3;
+  int y = 4;
+
+  // Basic tests for all statements
+  if (x == 3) {
+    ++x;
+  }
+  assert(x == 4);
+
+  if (y == 10) {
+    assert(false);
+  }
+  else {
+    assert(true);
+  }
+
+  int count = 0;
+  while (y > 0) {
+    --y;
+    ++count;
+  }
+  assert(y == 0);
+  assert(count == 4);
+
+  for(int i = 0; i < 10; ++i) {
+    ++y;
+  }
+  assert(y == 10);
+
+  int z = 3;
+  do {
+    z++;
+  }
+  while(z == 4);
+  assert(z == 5);
+
+  int a = 5;
+  while (a > 0) {
+    --a;
+    if (a < 3) {
+      break;
+    }
+  }
+  assert(a == 2);
+
+  for(; a < 10; ++a) {
+    if (a > 3) {
+      if (a > 4) {
+        if (a == 5) {
+          break;
+        }
+      }
+    }
+  }
+  assert(a == 5);
+
+  // Expression statements
+  ++x;
+  x;
+  cout << x;
+
+  // Compound statement
+  {
+    int blah = x;
+    x + 1;
+    x = x + 1;
+    assert(blah + 1 == x);
+  }
+
+}`,
+            [
+                NoErrorsNoWarningsVerifier.instance(),
+                NoBadRuntimeEventsVerifier.instance()
+            ]
+        );
 
 
     </script>
