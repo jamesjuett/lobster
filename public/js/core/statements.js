@@ -60,9 +60,10 @@ Statements.Expression = Statement.extend({
     }
 });
 
-Statements.Null = Statements.Expression.extend({
+Statements.Null = Statement.extend({
     _name : "NullStatement",
-    initIndex : "done"
+    initIndex : "done",
+
 });
 
 /**
