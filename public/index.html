@@ -354,7 +354,9 @@
             data.lab2group = "2"; // hack to make everyone have Maize
             Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
 
-            var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"));
+            var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"), {
+                log : false
+            });
 
             var elem = $(".codeListAll");
             var codeList = CodeList.instance(elem, "api/", simOutlet.projectEditor, false);
