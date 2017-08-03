@@ -487,7 +487,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         if (isA(obj.type, Types.ArrayPointer)){
             return [obj.type.arrObj];
         }
-        else if (isA(obj.type, Types.Pointer)){
+        else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
             var pointsTo = this.memory.getObject(obj);
             if (pointsTo && !isA(pointsTo, AnonObject)){
                 return [pointsTo];
@@ -531,7 +531,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     leakCheckObj : function(query) {
         ++this.i_leakCheckIndex;
         var frontier = [];
-        var globalScope = this.getGlobalScope();
+        var globalScope = this.i_program.getGlobalScope();
         for (var key in globalScope.entities) {
             var ent = globalScope.entities[key];
             if (isA(ent, ObjectEntity)){

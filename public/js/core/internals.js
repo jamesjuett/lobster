@@ -2495,7 +2495,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
     // This may be an object which is no longer alive (has been deallocated).
     getObject: function(ptr, type){
         assert(isA(ptr, Value) || isA(ptr, ObjectEntity));
-        assert(ptr.type.ptrTo.isObjectType);
+        assert(ptr.type.isObjectPointer());
         type = type || ptr.type.ptrTo;
 
         var addr = ptr.rawValue();
