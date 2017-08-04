@@ -1540,7 +1540,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         //Use for building parser :p
         // console.log(peg.generate(newText,{
         //    cache: true,
-        //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration", "declarator"],
+        //    allowedStartRules: ["start", "function_body", "declaration", "declarator", "member_declaration", "argument_declaration_list"],
         //    output: "source"
         // }));
         // return;

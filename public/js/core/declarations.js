@@ -1126,7 +1126,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
         }
 
 
-        var hasUserDefinedAssignmentOperator = this.type.hasMember(["operator="], {paramTypes: [this.type], isThisConst:false});
+        var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
 
         // Rule of the Big Three
         var bigThreeYes = [];

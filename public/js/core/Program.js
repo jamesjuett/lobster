@@ -801,7 +801,9 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                 {
                     access : "public",
                     members : [
-                        Lobster.cPlusPlusParser.parse("int size;", {startRule : "member_declaration"}),
+                        Lobster.cPlusPlusParser.parse("int data;", {startRule : "member_declaration"}),
+
+                        // Default ctor
                         {
                             construct_type : "constructor_definition",
                             args : [],
@@ -809,10 +811,33 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    this.blockScope.requiredLookup("size").lookup(sim, inst).writeValue(0);
+                                    this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue("");
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    rec.secretStrangData = {
+                                        size: 0,
+                                        str: ""
+                                    };
                                 }
                             }, null)
                         },
+
+                        // Copy ctor
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const strang &other", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+                                    rec.secretStrangData = copyMixin(other.secretStrangData);
+                                    this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue(rec.secretStrangData.str);
+                                }
+                            }, null)
+                        },
+
+
                         {
                             construct_type : "function_definition",
                             declarator : Lobster.cPlusPlusParser.parse("test(int x, int y)", {startRule : "declarator"}),
@@ -821,10 +846,10 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                 effects : function(sim, inst) {
                                     var x = this.blockScope.requiredLookup("x").lookup(sim, inst).rawValue();
                                     var y = this.blockScope.requiredLookup("y").lookup(sim, inst).rawValue();
-
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
                                     var retType = this.containingFunction().type.returnType;
                                     var re = ReturnEntity.instance(retType);
-                                    re.lookup(sim, inst).writeValue(Value.instance(x + y, retType));
+                                    re.lookup(sim, inst).writeValue(Value.instance(x + y + rec.secretStrangData.test, retType));
                                     re.lookup(sim, inst).initialized();
                                 }
                             }, null)

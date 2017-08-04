@@ -138,7 +138,7 @@ Lobster.cPlusPlusParser = /*
 
             var peg$FAILED = {},
 
-                peg$startRuleFunctions = { start: peg$parsestart, function_body: peg$parsefunction_body, member_declaration: peg$parsemember_declaration, declaration: peg$parsedeclaration, declarator: peg$parsedeclarator },
+                peg$startRuleFunctions = { start: peg$parsestart, function_body: peg$parsefunction_body, declaration: peg$parsedeclaration, declarator: peg$parsedeclarator, member_declaration: peg$parsemember_declaration, argument_declaration_list: peg$parseargument_declaration_list },
                 peg$startRuleFunction  = peg$parsestart,
 
                 peg$c0 = function(d) {return d},
