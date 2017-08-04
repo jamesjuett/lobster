@@ -929,6 +929,7 @@ Lobster.Types.Class = Type.extend({
     _nextClassId: 0,
 
     createClassType : function(name, parentScope, base, members) {
+        assert(this == Types.Class); // shouldn't be called on instances
         var classType = this.extend({
             _name : name,
             i_classId : this._nextClassId++,
@@ -945,7 +946,6 @@ Lobster.Types.Class = Type.extend({
             copyConstructor : null,
             destructor : null,
 
-            i_memberMap : {},
             i_baseClass : base || null // TODO: change if we ever want multiple inheritance
 
 
@@ -979,25 +979,22 @@ Lobster.Types.Class = Type.extend({
         }
     },
 
-    /**
-     * Returns the member entity for the member with the given name.
-     * If no member with that name exists, returns null.
-     * @param {String} name
-     * @returns {?CPPEntity}
-     */
-    getMember : function(name) {
-        return this.i_memberMap[name] || null;
+    memberLookup : function(memberName, options) {
+        return this.classScope.memberLookup(memberName, options);
     },
 
-    containsMember : function(name){
-        return !!this.i_memberMap[name];
+    requiredMemberLookup : function(memberName, options) {
+        return this.classScope.requiredMemberLookup(memberName, options);
+    },
+
+    hasMember : function(memberName, options) {
+        return !!this.memberLookup(memberName, options);
     },
 
     addMember : function(mem){
         assert(this._isClass);
         this.classScope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
-        this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){
             if (this.i_reallyZeroSize){
                 this.size = 0;

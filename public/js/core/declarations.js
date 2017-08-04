@@ -1118,11 +1118,14 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
             }
         }
 
+
+        var hasUserDefinedAssignmentOperator = this.type.hasMember(["operator="], {paramTypes: [this.type], isThisConst:false});
+
         // Rule of the Big Three
         var bigThreeYes = [];
         var bigThreeNo = [];
         (this.type.copyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
-        (this.type.getMember(["operator="]) ? bigThreeYes : bigThreeNo).push("assignment operator");
+        (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
 
         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
@@ -1155,8 +1158,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
                 assert(!idd.hasErrors());
             }
         }
-
-        if (!this.type.getMember(["operator="])){
+        if (!hasUserDefinedAssignmentOperator){
 
             // Create implicit assignment operator
             var iao = this.createImplicitAssignmentOperator();
@@ -1401,7 +1403,13 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
 
         try {
             this.entities.push(entity);
-            if (isA(entity, MemberSubobjectEntity) && !this.i_containingClass.containsMember(entity.name)){
+            var options = {own: true};
+            if (isA(entity, MemberFunctionEntity)) {
+                options.paramTypes = entity.type.paramTypes;
+                options.exactMatch = true;
+                options.noBase = true;
+            }
+            if (isA(entity, MemberSubobjectEntity) && !this.i_containingClass.hasMember(entity.name, options)){
                 this.i_containingClass.addMember(entity); // this internally adds it to the class scope
             }
             return entity;

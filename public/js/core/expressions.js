@@ -476,9 +476,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 // Look for an overloaded = operator that we can use with an argument of the RHS type
                 // Note: "own" here means don't look in parent scope containing the class definition, but we still
                 // look in the scope of any base classes that exist due to the class scope performing member lookup
-                var assnOp = this.lhs.type.classScope.requiredLookup("operator=", {
-                    own:true, paramTypes:[auxRhs.type]
-                });
+                var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {paramTypes:[auxRhs.type]});
 
                 // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
                 if (assnOp){
@@ -1991,7 +1989,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
         // Find out what this identifies
         try {
-            this.entity = this.operand.type.classScope.requiredLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
+            this.entity = this.operand.type.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
             this.type = this.entity.type;
         }
         catch(e){
@@ -2070,7 +2068,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
 
         // Find out what this identifies
         try{
-            this.entity = this.operand.type.ptrTo.classScope.requiredLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
+            this.entity = this.operand.type.ptrTo.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
             this.type = this.entity.type;
         }
         catch(e){
@@ -2497,7 +2495,7 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
             return;
         }
 
-        this.bindFunction();
+        this.bindFunction(argTypes);
 
         if (this.hasErrors()){
             return;
@@ -2512,20 +2510,25 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
         return Expression.compile.apply(this, arguments);
     },
 
-    bindFunction : function(){
+    bindFunction : function(argTypes){
         var self = this;
         if (isA(this.operand.type, Types.Class)){
             // Check for function call operator and if so, find function
             // TODO: I think this breaks given multiple overloaded function call operators?
-            var callOp = this.operand.type.getMember(["operator()"]);
-            if (callOp){
-                this.callOp = callOp;
+
+            try{
+                this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
                 this.boundFunction = this.callOp;
-                this.type = noRef(callOp.type.returnType);
+                this.type = noRef(this.callOp.type.returnType);
             }
-            else{
-                this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type));
-                return;
+            catch(e){
+                if (isA(e, SemanticExceptions.BadLookup)){
+                    this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
+                    this.addNote(e.annotation(this));
+                }
+                else{
+                    throw e;
+                }
             }
         }
         else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
