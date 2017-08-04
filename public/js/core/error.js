@@ -741,15 +741,19 @@ var CPPError = {
         },
         no_match : function(src, name, paramTypes, isThisConst){
             name = Identifier.qualifiedNameString(name);
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with these parameter types (" +
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with parameter types (" +
             paramTypes.map(function(pt){
                 return pt.toString();
             }).join(", ") +
             ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : "."));
         },
-        hidden : function(src, name){
+        hidden : function(src, name, paramTypes, isThisConst){
             name = Identifier.qualifiedNameString(name);
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with these parameter types. (Actually, there is a match, but it is hidden by an entity of the same name in a nearer scope.)");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with parameter types(" +
+                paramTypes.map(function(pt){
+                    return pt.toString();
+                }).join(", ") +
+                ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : ".") + " (Actually, there is a match in a more distant scope, but it is hidden by an entity of the same name in a nearer scope.)");
         },
         not_found : function(src, name){
             name = Identifier.qualifiedNameString(name);
@@ -773,12 +777,14 @@ var SemanticException = Class.extend({
 
 SemanticExceptions.BadLookup = SemanticException.extend({
     _name: "BadLookup",
-    init : function(scope, name){
+    init : function(scope, name, paramTypes, isThisConst){
         this.scope = scope;
         this.name = name;
+        this.paramTypes = paramTypes;
+        this.isThisConst = isThisConst;
     },
     annotation : function(src){
-        return this.errorFunc(src, this.name);
+        return this.errorFunc(src, this.name, this.paramTypes, this.isThisConst);
     }
 
 });
@@ -790,18 +796,11 @@ SemanticExceptions.Ambiguity = SemanticExceptions.BadLookup.extend({
 
 SemanticExceptions.NoMatch = SemanticExceptions.BadLookup.extend({
     _name: "NoMatch",
-    errorFunc: CPPError.lookup.no_match,
-    init : function(scope, name, paramTypes, isThisConst){
-        this.initParent(scope, name);
-        this.paramTypes = paramTypes;
-        this.isThisConst = isThisConst;
-    },
-    annotation : function(src){
-        return this.errorFunc(src, this.name, this.paramTypes, this.isThisConst);
-    }
+    errorFunc: CPPError.lookup.no_match
 
 });
 
+// NOTE: Hidden here is really only when the entity doing the hiding was a function.
 SemanticExceptions.Hidden = SemanticExceptions.BadLookup.extend({
     _name: "Hidden",
     errorFunc: CPPError.lookup.hidden
