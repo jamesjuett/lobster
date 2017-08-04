@@ -595,9 +595,19 @@ var Scope = Lobster.Scope = Class.extend({
         }
     },
     requiredLookup : function(name, options){
-        var res = this.lookup(name, options);
+        return this.i_requiredLookupImpl(this.lookup(name, options), name, options);
+    },
+    i_requiredLookupImpl : function(res, name, options) {
         if (!res){
-            throw SemanticExceptions.NotFound.instance(this, name);
+            if (options.paramTypes || options.params){
+                throw SemanticExceptions.NoMatch.instance(this, name,
+                    options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
+                    options.isThisConst
+                );
+            }
+            else{
+                throw SemanticExceptions.NotFound.instance(this, name);
+            }
         }
         else if(Array.isArray(res)){
             if (res === Scope.HIDDEN){
@@ -866,14 +876,19 @@ var ClassScope = NamespaceScope.extend({
         return this.memberLookup(name, options) || Scope.lookup.apply(this, arguments);
     },
 
+    requiredMemberLookup : function(name, options){
+        return this.i_requiredLookupImpl(this.memberLookup(name, options), name, options);
+    },
     memberLookup : function(name, options){
         var own = Scope.lookup.call(this, name, copyMixin(options, {own:true}));
         if (!own){
-            return this.base && this.base.memberLookup(name, options);
+            return !options.noBase && this.base && this.base.memberLookup(name, options);
         }
         if (Array.isArray(own) && own.length === 0){
             // Check to see if we could have found it except for name hiding
-            if (this.base){
+            // (If we ever got an array, rather than just null, it means we found a match
+            // with the name for a set of overloaded functions, but none were viable)
+            if (!options.noBase && this.base){
                 var couldHave = this.base.memberLookup(name, options);
                 if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
                     if (options.noNameHiding){

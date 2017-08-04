@@ -615,8 +615,12 @@ var CPPError = {
             paramReferenceLvalue : function(src) {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Labster. (i.e. you have to bind a variable)");
             },
-            not_defined : function(src, type){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.not_defined", "A function call operator for the type " + type + " has not been defined.");
+            not_defined : function(src, type, paramTypes, message){
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.not_defined", "A function call operator with parameters of types (" +
+                    paramTypes.map(function(pt){
+                        return pt.toString();
+                    }).join(", ")
+                    + ") for the class type " + type + " has not been defined.");
             }
             //,
             //tail_recursive : function(src, reason){
@@ -741,7 +745,7 @@ var CPPError = {
             paramTypes.map(function(pt){
                 return pt.toString();
             }).join(", ") +
-            ")" + (isThisConst ? " made from const member function." : "."));
+            ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : "."));
         },
         hidden : function(src, name){
             name = Identifier.qualifiedNameString(name);
@@ -785,7 +789,7 @@ SemanticExceptions.Ambiguity = SemanticExceptions.BadLookup.extend({
 });
 
 SemanticExceptions.NoMatch = SemanticExceptions.BadLookup.extend({
-    _name: "Ambiguity",
+    _name: "NoMatch",
     errorFunc: CPPError.lookup.no_match,
     init : function(scope, name, paramTypes, isThisConst){
         this.initParent(scope, name);
