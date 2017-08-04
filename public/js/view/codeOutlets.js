@@ -5,6 +5,9 @@
 var Lobster = Lobster || {};
 Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
+var EVAL_FADE_DURATION = 500;
+var RESET_FADE_DURATION = 500;
+
 Lobster.Outlets.CPP.Code = WebOutlet.extend({
     _name: "Outlets.CPP.Code",
     init: function (element, code, simOutlet, parent) {
@@ -31,8 +34,8 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.element.addClass("codeInstance");
         this.element.append("<span class=\"highlight\"></span>");
-        this.menuElem = $('<span class="menu"></span>');
-        this.element.append(this.menuElem);
+        // this.menuElem = $('<span class="menu"></span>');
+        // this.element.append(this.menuElem);
 
         this.createElement();
 
@@ -800,7 +803,7 @@ Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
 
         for (var i = 0; i < this.code.initializerListLength; ++i) {
             var argElem = $("<span></span>");
-            this.addChild(createCodeOutlet(argElem, this.code.sub["arg"+i], this.simOutlet));
+            this.addChild(createCodeOutlet(argElem, this.code["arg"+i], this.simOutlet));
             this.element.append(argElem);
             if (i < this.code.initializerListLength - 1) {
                 this.element.append(", ");
@@ -978,7 +981,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         this.element.addClass("expression");
         if (this.code.isFullExpression()) {this.element.addClass("fullExpression");}
 
-        this.evalValueElem = $("<span class='lobster-hidden-expression'></span>"); // TODO fix this ugly hack
+        this.evalValueElem = $("<span class='lobster-hidden-expression' style='opacity:0'></span>"); // TODO fix this ugly hack
         this.wrapper = $("<span class='lobster-expression-wrapper'></span>");
         this.exprElem = $("<span class='expr'></span>"); // TODO fix this ugly hack
         this.wrapper.append(this.exprElem);
@@ -1056,8 +1059,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         //    this.exprElem.addClass("noTransitions").height();
         //}
 
-        this.evalValueElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
-        this.exprElem.addClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 0);
+        this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+        this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
         //if (suppressAnimation){
         //    this.evalValueElem.removeClass("noTransitions").height();
@@ -1081,8 +1084,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 //        }
         var self = this;
         //setTimeout(function() {
-            self.exprElem.removeClass("lobster-hidden-expression");//.fadeTo(RESET_FADE_DURATION, 1);
-            self.evalValueElem.addClass("lobster-hidden-expression");//.fadeTo(RESET_FADE_DURATION, 0);
+            self.exprElem.removeClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 1);
+            self.evalValueElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0);
 
             self.element.removeClass("rvalue");
             self.element.removeClass("lvalue");
@@ -1188,8 +1191,8 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
 //                });
 //            }
 
-            this.evalValueElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
-            this.exprElem.addClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 0);
+            this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+            this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
 //            console.log("expression evaluated to " + value.value);
         }
@@ -1675,7 +1678,7 @@ Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
         }
         else{
             var offsetElem = $("<span></span>");
-            this.addChild(createCodeOutlet(offsetElem, this.code.offset, this.simOutlet));
+            this.addChild(createCodeOutlet(offsetElem, this.code.arg, this.simOutlet));
             this.exprElem.append(offsetElem);
         }
 
@@ -1874,6 +1877,7 @@ Lobster.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
 });
 
 var createCodeOutlet = function(element, code, simOutlet){
+    assert(code);
     assert(simOutlet);
     var outletClass = DEFAULT_CODE_OUTLETS[code._class];
     if (outletClass) {
