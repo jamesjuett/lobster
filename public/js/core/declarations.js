@@ -871,7 +871,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     createInstance : function(args){
         var inst = CPPConstruct.createInstance.apply(this, arguments);
-        inst.returnValue = Value.instance("", Types.Void.instance()); // TODO lol hack
         inst.funcContext = inst; // Each function definition starts a new function context.
         inst.caller = inst.parent;
         return inst;
@@ -908,9 +907,10 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     done : function(sim, inst){
 
-        //TODO: if no return value and non-void, undefined behavior
-        if (!inst.returnValueSet){
-            this.flowOffEndReturn(sim, inst);
+        // If non-void return type, check that return object was initialized.
+        // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
+        if (!isA(this.type.returnType, Types.Void) && !inst.returnObject.isInitialized()){
+            this.flowOffNonVoid(sim, inst);
         }
 
         if (inst.receiver){
@@ -921,15 +921,11 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         sim.pop(inst);
     },
 
-    flowOffEndReturn : function(sim, inst){
+    flowOffNonVoid : function(sim, inst){
         if (this.isMain){
-            inst.returnValue = Value.instance(0, Types.Int.instance());
-        }
-        else if (isA(this.type.returnType, Types.Void)){
-            inst.returnValue = Value.instance("", Types.Void.instance());
+            inst.returnObject.setValue(Value.instance(0, Types.Int.instance()));
         }
         else{
-            inst.returnValue = Value.instance(0, this.type.returnType);
             sim.implementationDefinedBehavior("Yikes! Your function ended without returning anything! The C++ standard says this is technically implementation defined behavior, but that sounds scary! I'm working on getting smart enough to give you a compiler warning if this might happen.")
         }
     },
@@ -994,6 +990,23 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         exp.message = "a function definition";
         return exp;
     }
+});
+
+var OpaqueFunctionDefinition = FunctionDefinition.extend({
+    _name: "OpaqueFunctionDefinition",
+
+
+    upNext : function(sim, inst){
+        if (inst.index === "afterChildren") {
+            this.autosToDestruct.forEach(function (autoDest){
+                autoDest.createAndPushInstance(sim, inst);
+            });
+            inst.index = "afterDestructors";
+            return true;
+        }
+
+        return FunctionDefinition._parent.upNext.apply(this, arguments);
+    },
 });
 
 
@@ -1604,10 +1617,6 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         });
     },
 
-    flowOffEndReturn : function(sim, inst){
-        inst.returnValue = Value.instance("", Types.Void.instance());
-    },
-
     isTailChild : function(child){
         return {isTail: false};
     },
@@ -1711,10 +1720,6 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             }
 
         });
-    },
-
-    flowOffEndReturn : function(sim, inst){
-        inst.returnValue = Value.instance("", Types.Void.instance());
     },
 
     upNext : Class.BEFORE(function(sim, inst){

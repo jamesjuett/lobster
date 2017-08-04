@@ -354,7 +354,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
 
         this.stackType = stackType;
 
-        this.subCalls = Entities.List.instance();
+        this.subCalls = [];
         this.parent = parent;
         this.pushedChildren = [];
         assert(this.parent || this.model.i_isMainCall, "All code instances must have a parent.");
@@ -1501,6 +1501,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         this._initialized = true;
     },
     // TODO: doesn't work for class-type objects
+    // ^^^ why not? looks like it should work to me
     isInitialized : function(){
         return !!this._initialized;
     }

@@ -168,7 +168,6 @@ Statements.Return = Statement.extend({
 	stepForward : function(sim, inst){
 		if (inst.index === "afterChildren") {
             var func = inst.funcContext;
-            func.returnValueSet = true;
 
             inst.send("returned", {call: func.parent});
             inst.index = "returned";
