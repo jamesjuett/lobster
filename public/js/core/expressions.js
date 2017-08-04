@@ -1994,9 +1994,9 @@ var Dot = Expressions.Dot = Expression.extend({
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
+                // this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
                 // TODO: why is this commented?
-                // this.addNote(e.annotation(this));
+                this.addNote(e.annotation(this));
             }
             else{
                 throw e;

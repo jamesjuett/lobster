@@ -611,7 +611,9 @@ var Scope = Lobster.Scope = Class.extend({
         }
         else if(Array.isArray(res)){
             if (res === Scope.HIDDEN){
-                throw SemanticExceptions.Hidden.instance(this, name);
+                throw SemanticExceptions.Hidden.instance(this, name,
+                options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
+                    options.isThisConst);
             }
             if (res.length === 0){
                 throw SemanticExceptions.NoMatch.instance(this, name,
