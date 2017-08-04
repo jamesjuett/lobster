@@ -5,79 +5,18 @@ var isVowel = function(c){
 	return vowels.indexOf(c) != -1;
 };
 
-// REQUIRES: arr is an array
-//           map is a function or an object dictionary
-var arrayGroups = function(arr, map){
-	groups = {};
-	var isDict = !_.isFunction(map);
-	for(var i = 0; i < arr.length; ++i){
-		var elem = arr[i];
-		var key = (map
-			? (isDict ? map[elem] : map(elem))
-			: elem);
-		(groups[key] ? groups[key].push(elem) : groups[key] = [elem]);
-	}
-	
-	// Fill in empty groups if it's a dictionary.
-	if (isDict){
-		for(var key in map){
-			var group = map[key];
-			groups[group] = groups[group] || [];
-		}
-	}
-	
-	return groups;
-};
-
-var TYPE_SPECIFIERS_GROUP_MAP = {
-	"char" : "typeName",
-	"short" : "typeName",
-	"int" : "typeName",
-	"bool" : "typeName",
-	"long" : "typeName",
-	"float" : "typeName",
-	"double" : "typeName",
-	"void" : "typeName",
-	//"list_t" : "typeName",
-	//"tree_t" : "typeName",
-    "string" : "typeName",
-	
-	"signed" : "signed",
-	"unsigned" : "unsigned",
-	"const" : "const",
-	"volatile" : "volatile",
-
-    "register" : "storage",
-    "static" : "storage",
-    "thread_local" : "storage",
-    "extern" : "storage",
-    "mutable" : "storage"
-	
-};
-
-var TYPE_SPECIFIERS_GROUP_FN = function(elem){
-	if (elem.className){
-		return "typeName";
-	}
-	else{
-		return TYPE_SPECIFIERS_GROUP_MAP[elem];
-	}
-};
 
 
-var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
+
+var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
     _name: "TypeSpecifier",
 
-//    init : function(code, context){
-//        this.initParent(code, context);
-//    },
-    compile : function(scope){
-//		var groups = arrayGroups(this.code, TYPE_SPECIFIERS_GROUP_MAP);
-		
+    compile : function(){
+
         var constCount = 0;
         var volatileCount = 0;
 
-        var specs = this.code;
+        var specs = this.ast;
 
         for(var i = 0; i < specs.length; ++i){
             var spec = specs[i];
@@ -154,7 +93,7 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPCode.extend({
 		}
 
         var scopeType;
-        if (scopeType = scope.lookup(this.typeName)){
+        if (scopeType = this.contextualScope.lookup(this.typeName)){
             if (isA(scopeType, TypeEntity)){
                 this.type = scopeType.type.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
                 return;
@@ -997,7 +936,7 @@ Lobster.Types.Class = Type.extend({
             className : name,
             size : 1,
             i_reallyZeroSize : true,
-            scope : ClassScope.instance(name, parentScope, base && base.scope),
+            classScope : ClassScope.instance(name, parentScope, base && base.classScope),
             memberEntities : [],
             subobjectEntities : [],
             baseClassSubobjectEntities : [],
@@ -1019,8 +958,8 @@ Lobster.Types.Class = Type.extend({
 
         members && members.forEach(classType.addMember.bind(classType));
 
-        var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
-        classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
+        // var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
+        // classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
 
         return classType;
     },
@@ -1056,7 +995,7 @@ Lobster.Types.Class = Type.extend({
 
     addMember : function(mem){
         assert(this._isClass);
-        this.scope.addDeclaredEntity(mem);
+        this.classScope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
         this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){
@@ -1080,30 +1019,30 @@ Lobster.Types.Class = Type.extend({
     },
 
     getDefaultConstructor : function(){
-        return this.scope.singleLookup(this.className+"\0", {
+        return this.classScope.singleLookup(this.className+"\0", {
             own:true, noBase:true, exactMatch:true,
             paramTypes:[]});
     },
 
     getCopyConstructor : function(requireConst){
-        return this.scope.singleLookup(this.className+"\0", {
+        return this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
-            this.scope.singleLookup(this.className+"\0", {
+            this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]});
     },
 
     getAssignmentOperator : function(requireConst, isThisConst){
-        return this.scope.singleLookup("operator=", {
+        return this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[this.instance()]}) ||
-            this.scope.singleLookup("operator=", {
+            this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
             !requireConst &&
-            this.scope.singleLookup("operator=", {
+            this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
                 paramTypes:[Types.Reference.instance(this.instance(false))]})
 

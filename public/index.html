@@ -8,7 +8,7 @@
     <script src="js/lib/clike.js"></script>
     <script src="js/lib/jquery-3.1.1.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
-    <script src="js/lib/peg-0.8.0.min.js"></script>
+    <script src="js/lib/peg-0.10.0.min.js"></script>
     <script src="js/lib/svg.min.js"></script>
     <script src="js/lib/seedrandom.js"></script>
     <script src="https://apis.google.com/js/platform.js" async defer></script>
@@ -29,6 +29,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="stylesheet" href="/bootstrap/css/bootstrap.css">
     <link rel="stylesheet" href="css/buttons.css">
+    <link rel="stylesheet" href="font-awesome-4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="css/codemirror.css">
     <link rel="stylesheet" href="css/monokai.css">
     <link rel="stylesheet" href="css/lobster.css">
@@ -47,8 +48,11 @@
     <script src = "js/core/error.js"></script>
     <script src = "js/core/types.js"></script>
     <script src = "js/core/expressions.js"></script>
+    <script src = "js/core/standardConversions.js"></script>
     <script src = "js/core/declarations.js"></script>
+    <script src = "js/core/initializers.js"></script>
     <script src = "js/core/statements.js"></script>
+    <script src = "js/core/constructsAfter.js"></script>
     <script src = "js/core/Program.js"></script>
     <script src = "js/core/Simulation.js"></script>
     <script src = "js/view/actions.js"></script>
@@ -200,7 +204,7 @@
                                         <div class="console" style="min-height: 20px; resize: both; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(255,255,255,0.7);"></div>
                                     </div>
                                     <div style = "text-align: center">Memory</div>
-                                    <div style="overflow-y: auto; width: 200px; overflow-x: hidden;"><div class="memory readOnly"></div></div>
+                                    <div style="overflow-y: auto; overflow-x: hidden;"><div class="memory readOnly"></div></div>
 
                                 </div>
                             </td>
@@ -351,7 +355,9 @@
             data.lab2group = "2"; // hack to make everyone have Maize
             Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
 
-            var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"));
+            var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"), {
+                log : false
+            });
 
             var elem = $(".codeListAll");
             var codeList = CodeList.instance(elem, "api/", simOutlet.projectEditor, false);

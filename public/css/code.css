@@ -22,17 +22,18 @@
     opacity: 0;
     /*border-color: rgba(0,0,0,0);*/
     border-style: none;
-    transition: opacity 0.5s ease-in;
+    /*transition: opacity 0.5s ease-in;*/
 }
+
 
 .codeInstance.current > .highlight{
     background-color: rgb(90, 90, 90);
     opacity: 1;
 }
 
-.codeInstance.upNext > .highlight{
-    opacity: 1;
-}
+/*.codeInstance.upNext > .highlight{*/
+    /*opacity: 1;*/
+/*}*/
 
 .codeInstance .blockLine {
     position: relative;
@@ -49,7 +50,7 @@
     opacity: 0;
     /*border-color: rgba(0,0,0,0);*/
     background-color: rgba(255,255,255,0.5);
-    transition: opacity 0.2s ease-in;
+    /*transition: opacity 0.2s ease-in;*/
     visibility: hidden;
     font-weight: inherit;
     font-size: 12pt;
@@ -274,7 +275,7 @@
     /*cursor: default;*/
 /*}*/
 
-.codeInstance.expression .wrapper{
+.codeInstance.expression .lobster-expression-wrapper{
     display: inline-block;
     position: relative;
     /*max-width: 100px;*/
@@ -287,29 +288,29 @@
     /*overflow-y: hidden;*/
 }
 
-.codeInstance.expression .wrapper > *{
+.codeInstance.expression .lobster-expression-wrapper > *{
     display: block;
     margin-left: auto;
     margin-right: auto;
     position: static;
     visibility: visible;
-    transition: opacity 1s;
+    /*transition: opacity 1s;*/
     opacity: 1;
     text-align: center;
 }
 
-.codeInstance.expression .wrapper > .hidden{
+.codeInstance.expression .lobster-expression-wrapper > .lobster-hidden-expression{
     display: inline-block;
     position: absolute;
-    opacity: 0;
+    /*opacity: 0;*/
     /*width: 100%;*/
     /*left: 0px;*/
     /*top: 0px;*/
 }
 
-.codeInstance.expression .wrapper.collapsed{
+.codeInstance.expression .lobster-expression-wrapper.collapsed{
     overflow: hidden;
-    transition: width 2s;
+    /*transition: width 2s;*/
     max-width: 0px;
     max-height: 0px;
 }
@@ -829,7 +830,7 @@ position: relative;}
 
 .code-unaryOp.upNext > .highlight,
 .codeInstance.code-binaryOp.upNext > .highlight,
-.codeInstance.expression.upNext > .wrapper > .expr > .code-assignmentOp > .highlight{
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight{
     opacity: 1;
 }
 
