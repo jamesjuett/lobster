@@ -54,8 +54,8 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
                         break;
                     }
                 }
+                this.i_childrenToExecute = ["arrayElemInitializers"];
             }
-            this.i_childrenToExecute = ["arrayElemInitializers"];
         }
         else{
             // Do nothing

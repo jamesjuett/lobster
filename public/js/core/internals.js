@@ -42,7 +42,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         assert(context || context === null);
         this.id = CPPConstruct._nextId++;
         this.children = [];
-        this.sub = {};
         this.i_notes = [];
         this.i_hasErrors = false;
 
@@ -1527,7 +1526,7 @@ var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
     leaked : function(sim){
         if (!this.hasBeenLeaked){
             this.hasBeenLeaked = true;
-            sim.alert("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
+            sim.memoryLeaked("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
             this.send("leaked");
         }
     },
@@ -1615,7 +1614,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
     _name: "ParameterEntity",
     storage: "automatic",
     init: function(func, num){
-        assert(isA(func, FunctionEntity));
+        assert(isA(func, FunctionEntity) || isA(func, PointedFunctionEntity));
         assert(num !== undefined);
 
         this.num = num;
@@ -1631,7 +1630,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
         return AutoObjectInstance.instance(this);
     },
     lookup: function (sim, inst) {
-        // In case function was polymorphic, look it up
+        // In case function was polymorphic or a function pointer, look it up
         var func = this.func.lookup(sim, inst.parent);
 
         // Now we can look up object entity associated with this parameter
@@ -2020,6 +2019,9 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     },
     isLinked : function() {
         return this.isDefined();
+    },
+    getPointerTo : function() {
+        return Value.instance(this, this.type);
     }
 });
 
@@ -2108,11 +2110,10 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
 });
 
 
-var PointedFunctionEntity = CPP.PointedFunctionEntity = CPP.FunctionEntity.extend({
+var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     _name: "FunctionEntity",
     init: function(type){
-        this.initParent(null);
-        this.name = "Unknown function of type " + type;
+        this.initParent("Unknown function of type " + type);
         this.type = type;
     },
     isStaticallyBound : function(){
@@ -2129,6 +2130,9 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPP.FunctionEntity.exten
     },
     isLinked : function(){
         return true;
+    },
+    isVirtual : function() {
+        return false;
     }
 });
 
@@ -2491,7 +2495,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
     // This may be an object which is no longer alive (has been deallocated).
     getObject: function(ptr, type){
         assert(isA(ptr, Value) || isA(ptr, ObjectEntity));
-        assert(ptr.type.ptrTo.isObjectType);
+        assert(ptr.type.isObjectPointer());
         type = type || ptr.type.ptrTo;
 
         var addr = ptr.rawValue();

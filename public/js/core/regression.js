@@ -4,10 +4,10 @@ var TestVerifier = Class.extend({
     SUCCESS : {status: "success", message: "test successful"},
     verify : function() {
         try{
-            return this.i_verifyImpl.apply(this, arguments);
+            return mixin({verifierName: this.classString()}, this.i_verifyImpl.apply(this, arguments));
         }
         catch(e) {
-            return {status: "exception", message: "The test crashed with an uncaught exception", exception: e};
+            return {verifierName: this.classString(), status: "exception", message: "The test crashed with an uncaught exception", exception: e};
         }
     }
 });
@@ -26,6 +26,65 @@ var NoErrorsNoWarningsVerifier = TestVerifier.extend({
     }
 });
 
+var NoAssertionFailuresVerifier = TestVerifier.extend({
+    _name: "NoAssertionFailureVerifier",
+    i_verifyImpl : function(program) {
+        var sim = Simulation.instance(program);
+        sim.start();
+        sim.runToEnd();
+        if (!sim.hasEventOccurred(Simulation.EVENT_ASSERTION_FAILURE)) {
+            return TestVerifier.SUCCESS;
+        }
+        else {
+            return {status: "failure", message: "An assertion in the program failed when run."};
+        }
+    }
+});
+
+var NoCrashesVerifier = TestVerifier.extend({
+    _name: "NoAssertionFailureVerifier",
+    i_verifyImpl : function(program) {
+        var sim = Simulation.instance(program);
+        sim.start();
+        sim.runToEnd();
+        if (!sim.hasEventOccurred(Simulation.EVENT_CRASH)) {
+            return TestVerifier.SUCCESS;
+        }
+        else {
+            return {status: "failure", message: "An assertion in the program failed when run."};
+        }
+    }
+});
+
+/**
+ * Checks that no assertions fail and no crashes occur.
+ */
+var NoBadRuntimeEventsVerifier = TestVerifier.extend({
+    _name: "NoBadRuntimeEventsVerifier",
+    i_verifyImpl : function(program) {
+        var sim = Simulation.instance(program);
+        sim.start();
+        sim.runToEnd();
+
+        var eventsToCheck = [
+            Simulation.EVENT_UNDEFINED_BEHAVIOR,
+            Simulation.EVENT_UNSPECIFIED_BEHAVIOR,
+            Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR,
+            Simulation.EVENT_MEMORY_LEAK,
+            Simulation.EVENT_ASSERTION_FAILURE,
+            Simulation.EVENT_CRASH];
+
+        for(var i = 0; i < eventsToCheck.length; ++i) {
+            var event = eventsToCheck[i];
+            if (sim.hasEventOccurred(event)) {
+                return {status: "failure", message: "An unexpected runtime event (" + event + ") occurred."};
+            }
+        }
+
+        return TestVerifier.SUCCESS;
+    }
+});
+
 var ProgramTest = Class.extend({
     _name: "ProgramTest",
 
@@ -33,14 +92,19 @@ var ProgramTest = Class.extend({
         this.i_defaultReporter = reporter;
     },
 
-    init : function(sourceFiles, translationUnits, verifier, reporter) {
+    init : function(name, sourceFiles, translationUnits, verifiers, reporter) {
+        this.name = name;
+        if (!Array.isArray(verifiers)) { verifiers = [verifiers]; }
         reporter = reporter || this.i_defaultReporter;
         this.program = Program.instance();
         sourceFiles.forEach(this.program.addSourceFile.bind(this.program));
         translationUnits.forEach(this.program.createTranslationUnitForSourceFile.bind(this.program));
         this.program.fullCompile();
 
-        this.results = verifier.verify(this.program);
+        var self = this;
+        this.results = verifiers.map(function(verifier) {
+            return verifier.verify(self.program);
+        });
 
         reporter && reporter(this);
     }
@@ -49,7 +113,7 @@ var ProgramTest = Class.extend({
 var SingleTranslationUnitTest = ProgramTest.extend({
     _name: "SingleTranslationUnitTest",
 
-    init : function(sourceText, verify) {
-        this.initParent([SourceFile.instance("test.cpp", sourceText)], ["test.cpp"], verify);
+    init : function(name, sourceText, verifiers) {
+        this.initParent(name, [SourceFile.instance("test.cpp", sourceText)], ["test.cpp"], verifiers);
     }
 });

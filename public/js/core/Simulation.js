@@ -9,6 +9,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
+    EVENT_UNDEFINED_BEHAVIOR : "undefined_behavior",
+    EVENT_UNSPECIFIED_BEHAVIOR : "unspecified_behavior",
+    EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR : "implementation_defined_behavior",
+    EVENT_MEMORY_LEAK : "memory_leak",
+    EVENT_ASSERTION_FAILURE : "assertion_failure",
+    EVENT_CRASH : "crash",
 
     init: function(program){
         this.initParent();
@@ -48,6 +54,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 	start : function(){
         this.i_paused = true;
 		this.i_stepsTaken = 0;
+		this.i_eventsOccurred = {};
         this.seedRandom("random seed");
 
         this.send("cleared");
@@ -249,6 +256,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.startRunThread(func);
     },
 
+    runToEnd : function() {
+        while (!this.i_atEnd) {
+            this.stepForward();
+        }
+    },
+
     stepOver: function(options){
         var target = this.peek(function(inst){
             return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
@@ -395,13 +408,48 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     cin : function(object){
         object.value = 4;
     },
+    undefinedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
+
+    },
+    implementationDefinedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR, message, true);
+
+    },
+    unspecifiedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_UNSPECIFIED_BEHAVIOR, message, true);
+
+    },
+    memoryLeaked : function(message) {
+        this.eventOccurred(Simulation.EVENT_MEMORY_LEAK, message, true);
+    },
+    assertionFailure : function(message) {
+        this.eventOccurred(Simulation.EVENT_ASSERTION_FAILURE, message, true);
+    },
+    crash : function(message){
+        this.eventOccurred(Simulation.EVENT_CRASH, message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)", true);
+    },
+    eventOccurred : function(event, message, alertShown) {
+        if (this.i_eventsOccurred[event]) {
+            this.i_eventsOccurred[event].push(message);
+        }
+        else {
+            this.i_eventsOccurred[event] = [message];
+        }
+        if (alertShown) {
+            this.alert(message);
+        }
+    },
+    getEventsOccurred : function(event) {
+        return this.i_eventsOccurred[event] || [];
+    },
+    hasEventOccurred : function(event) {
+        return this.getEventsOccurred(event).length > 0;
+    },
     alert : function(message){
         if (!this.i_alertsOff){
             this.send("alert", message);
         }
-    },
-    crash : function(message){
-        this.alert(message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)");
     },
     explain : function(exp){
         //alert(exp.ignore);
@@ -439,7 +487,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         if (isA(obj.type, Types.ArrayPointer)){
             return [obj.type.arrObj];
         }
-        else if (isA(obj.type, Types.Pointer)){
+        else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
             var pointsTo = this.memory.getObject(obj);
             if (pointsTo && !isA(pointsTo, AnonObject)){
                 return [pointsTo];
@@ -483,7 +531,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     leakCheckObj : function(query) {
         ++this.i_leakCheckIndex;
         var frontier = [];
-        var globalScope = this.getGlobalScope();
+        var globalScope = this.i_program.getGlobalScope();
         for (var key in globalScope.entities) {
             var ent = globalScope.entities[key];
             if (isA(ent, ObjectEntity)){

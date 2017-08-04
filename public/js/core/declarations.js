@@ -930,7 +930,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         }
         else{
             inst.returnValue = Value.instance(0, this.type.returnType);
-            sim.alert("Yikes! Your function ended without returning anything! The C++ standard says this is technically implementation defined behavior, but that sounds scary! I'm working on getting smart enough to give you a compiler warning if this might happen.")
+            sim.implementationDefinedBehavior("Yikes! Your function ended without returning anything! The C++ standard says this is technically implementation defined behavior, but that sounds scary! I'm working on getting smart enough to give you a compiler warning if this might happen.")
         }
     },
 
