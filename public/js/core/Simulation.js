@@ -559,7 +559,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
         for(var i = 0; i < this.i_execStack.length; ++i){
             var inst = this.i_execStack[i];
-            var obj = inst.evalValue || (inst.func && inst.func.model.getReturnObject(this, inst.func).getValue());
+            var obj = inst.evalValue ||
+                (inst.func && !isA(inst.func.model.type.returnType, Types.Void) && inst.func.model.getReturnObject(this, inst.func).getValue());
             if (obj && isA(obj, ObjectEntity)){
                 obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);

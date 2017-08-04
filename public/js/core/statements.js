@@ -314,8 +314,9 @@ OpaqueFunctionBodyBlock = Statements.OpaqueFunctionBodyBlock = Statement.extend(
     stepForward : function(sim, inst){
         // No work to be done here? Should be enough to delegate to statements
         // via upNext.
-        this.effects(this, sim, inst);
+        this.effects(sim, inst);
         this.done(sim,inst);
+        return true;
     },
 
     isTailChild : function(){
