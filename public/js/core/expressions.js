@@ -2204,10 +2204,10 @@ var FunctionCall = Expression.extend({
 
         if (!isA(this.func.definition, MagicFunctionDefinition)){
             // If we are returning by value, then we need to create a temporary object to copy-initialize.
-            // If we are returning by reference, inst.returnObject will be bound to what we return.
+            // If we are returning by reference, the return object for inst.func will be bound to what we return.
             // Temporary references do not use extra space and won't be automatically destructed.
             if (!this.returnByReference && !isA(this.type, Types.Void)){
-                this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
+                this.returnObjectEntity = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
             if (!this.i_isMainCall && !this.isAuxiliary()){
@@ -2289,7 +2289,7 @@ var FunctionCall = Expression.extend({
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).definition;
+        var funcDecl = inst.funcDeclModel = this.func.lookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do
@@ -2314,21 +2314,22 @@ var FunctionCall = Expression.extend({
 
         if (this.canUseTCO) {
             // If we are using TCO, don't create a new return object. Just use the already existing one from the function.
-            inst.returnObject = inst.func.model.getReturnObject(sim, inst);
+            // NEW: since we just get it here, then assign it to our own inst.returnObject, I think this is unnecessary
+            // since in the rest of the code I'm getting rid of our own inst.returnObject and always just going to
+            // use funcDecl.getReturnObject(sim, inst.func)
+            // inst.returnObject = inst.func.model.getReturnObject(sim, inst.func);
         }
         else{
             // If we are NOT using TCO, we need to create the return object.
             if (this.returnByValue) {
                 // Return by value, create the instance of the returnObject and give it to the function we're calling.
-                inst.returnObject = this.returnObject.objectInstance(inst);
+                funcDecl.setReturnObject(sim, inst.func, this.returnObjectEntity.objectInstance(inst));
             }
             else if (this.returnByReference) {
                 // Return by reference, create the reference for the function to bind to its return value
-                inst.returnObject = ReferenceEntity.instance(null, this.func.type.returnType).autoInstance();
+                funcDecl.setReturnObject(sim, inst.func, ReferenceEntity.instance(null, this.func.type.returnType).autoInstance());
             }
-            // else it was void
-
-            inst.func.model.setReturnObject(sim, inst.func, inst.returnObject);
+            // else it was void, so no need to set a return object
         }
 
         return inst;
@@ -2346,7 +2347,7 @@ var FunctionCall = Expression.extend({
         if (inst.index === "arguments"){
 
             // If it's a magic function, just push expressions
-            if (isA(inst.funcDecl, MagicFunctionDefinition)){
+            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
                 inst.args = this.argInitializers.map(function(argInit){
                     return argInit.args[0].createAndPushInstance(sim, argInit.createInstance(sim, inst));
                 });
@@ -2363,22 +2364,17 @@ var FunctionCall = Expression.extend({
             return true;
         }
         else if (inst.index == "return"){
-            // Unless return type is void, we will have this.returnObject
+            // Unless return type is void, we will have a return object
             if (this.returnByReference) {
-                inst.setEvalValue(inst.returnObject.lookup(sim, inst)); // lookup here in case its a reference
+                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst)); // lookup here in case its a reference
             }
             else if (this.returnByValue){
                 if (isA(this.type, Types.Class)) {
-                    inst.setEvalValue(inst.returnObject.lookup(sim, inst));
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst));
                 }
                 else{
-                    inst.setEvalValue(inst.returnObject.lookup(sim, inst).getValue());
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst).getValue());
                 }
-                //}
-                //else{
-                //    // A hack of my own because I don't want to have to treat prvalues as possibly temporary objects
-                //    inst.setEvalValue(Value.instance(inst.returnObject.getValue(), inst.returnObject.type));
-                //}
             }
             else {
                 // nothing to do it must be void
@@ -2401,8 +2397,8 @@ var FunctionCall = Expression.extend({
         if (inst.index == "call"){
 
             // Handle magic functions as special case
-            if (isA(inst.funcDecl, MagicFunctionDefinition)){
-                var preFn = PREDEFINED_FUNCTIONS[inst.funcDecl.name];
+            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
+                var preFn = PREDEFINED_FUNCTIONS[inst.funcDeclModel.name];
                 assert(preFn, "Cannot find internal implementation of magic function.");
 
                 // Note: magic functions just want args, not initializers (because they're magic!)
@@ -2419,7 +2415,7 @@ var FunctionCall = Expression.extend({
 
 
             if (this.canUseTCO){
-                inst.funcDecl.tailCallReset(sim, inst.func, inst);
+                inst.funcDeclModel.tailCallReset(sim, inst.func, inst);
                 inst.send("tailCalled", inst.func);
             }
             else{
