@@ -22,7 +22,7 @@
     opacity: 0;
     /*border-color: rgba(0,0,0,0);*/
     border-style: none;
-    transition: opacity 0.5s ease-in;
+    /*transition: opacity 0.5s ease-in;*/
 }
 
 .codeInstance.current > .highlight{
@@ -49,7 +49,7 @@
     opacity: 0;
     /*border-color: rgba(0,0,0,0);*/
     background-color: rgba(255,255,255,0.5);
-    transition: opacity 0.2s ease-in;
+    /*transition: opacity 0.2s ease-in;*/
     visibility: hidden;
     font-weight: inherit;
     font-size: 12pt;
@@ -293,7 +293,7 @@
     margin-right: auto;
     position: static;
     visibility: visible;
-    transition: opacity 1s;
+    /*transition: opacity 1s;*/
     opacity: 1;
     text-align: center;
 }
@@ -309,7 +309,7 @@
 
 .codeInstance.expression .lobster-expression-wrapper.collapsed{
     overflow: hidden;
-    transition: width 2s;
+    /*transition: width 2s;*/
     max-width: 0px;
     max-height: 0px;
 }
