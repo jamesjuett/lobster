@@ -31,8 +31,8 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.element.addClass("codeInstance");
         this.element.append("<span class=\"highlight\"></span>");
-        this.menuElem = $('<span class="menu"></span>');
-        this.element.append(this.menuElem);
+        // this.menuElem = $('<span class="menu"></span>');
+        // this.element.append(this.menuElem);
 
         this.createElement();
 
