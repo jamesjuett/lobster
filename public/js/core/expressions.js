@@ -2382,7 +2382,7 @@ var FunctionCall = Expression.extend({
             }
             else {
                 // nothing to do it must be void
-                inst.setEvalValue(inst.func.returnValue);
+                inst.setEvalValue(Value.instance("", Types.Void.instance()));
             }
 
             this.done(sim, inst);
