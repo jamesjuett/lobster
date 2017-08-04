@@ -13,7 +13,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     i_childrenToConvert : {},
     i_childrenToExecute : [],
 
-    create : function(ast, context) {
+    create : function(ast, context, classToUse) {
         // if ast is actually already a (detatched) construct, just attach it to the
         // provided context rather than creating a new one.
         if (isA(ast, CPPConstruct)) {
@@ -22,7 +22,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
             return ast;
         }
 
-        var constructClass = CONSTRUCT_CLASSES[ast["construct_type"]];
+        var constructClass = classToUse || CONSTRUCT_CLASSES[ast["construct_type"]];
         assert(constructClass, "Unrecognized construct_type.");
         return constructClass.instance(ast, context);
     },

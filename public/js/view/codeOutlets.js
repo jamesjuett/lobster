@@ -235,7 +235,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
         }
 
         var bodyElem = $("<span></span>");
-        this.body = Outlets.CPP.Block.instance(bodyElem, this.code.body, this.simOutlet);
+        this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet);
         this.element.append(bodyElem);
         this.addChild(this.body);
 
@@ -407,6 +407,26 @@ Lobster.Outlets.CPP.Block = Outlets.CPP.Code.extend({
         }
 
     }, true)
+});
+
+
+Lobster.Outlets.CPP.OpaqueFunctionBodyBlock = Outlets.CPP.Code.extend({
+    _name: "Outlets.CPP.OpaqueFunctionBodyBlock",
+
+    createElement: function(){
+        this.element.removeClass("codeInstance");
+        this.element.addClass("braces");
+        this.element.append(curlyOpen);
+        this.element.append("<br />");
+        var inner = this.innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
+        inner.addClass("block");
+        this.element.append(inner);
+        var lineElem = $('<span class="blockLine">// Implementation not shown</span>');
+        inner.append(lineElem);
+        inner.append("<br />");
+        this.element.append("<br />");
+        this.element.append(curlyClose);
+    }
 });
 
 Lobster.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
@@ -1899,7 +1919,9 @@ var createCodeOutlet = function(element, code, simOutlet){
 };
 
 var DEFAULT_CODE_OUTLETS = {};
-DEFAULT_CODE_OUTLETS[Statements.Compound] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.Block] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.FunctionBodyBlock] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.OpaqueFunctionBodyBlock] = Outlets.CPP.OpaqueFunctionBodyBlock;
 DEFAULT_CODE_OUTLETS[Statements.Declaration] = Outlets.CPP.DeclarationStatement;
 DEFAULT_CODE_OUTLETS[Statements.Expression] = Outlets.CPP.ExpressionStatement;
 DEFAULT_CODE_OUTLETS[Statements.Selection] = Outlets.CPP.Selection;

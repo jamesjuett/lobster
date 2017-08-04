@@ -518,16 +518,28 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
     instType: "call",
 
-    createFromASTSource : function(ast, context) {
-        // HACK: should handle this when ast is created, I think
-        ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-
-
-    },
-
     init : function(ast, context){
         ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-        this.initParent(ast, copyMixin(context, {func: this}));
+        if (ast.declarator && ast.declarator.name && ast.declarator.name.identifier === "plus2") {
+            ast.body = Statements.OpaqueFunctionBodyBlock.instance({
+                effects : function(block, sim, inst) {
+                    console.log("hello fake block!");
+                    var retType = block.containingFunction().type.returnType;
+                    var re = ReturnEntity.instance(retType);
+                    re.lookup(sim, inst).writeValue(Value.instance(100, retType));
+                    re.lookup(sim, inst).initialized();
+                }
+            }, null);
+        }
+        this.initParent(ast, context);
+    },
+
+    attach : function(context) {
+        FunctionDefinition._parent.attach.call(this, copyMixin(context, {func: this}));
+    },
+
+    i_createFromAST : function(ast, context) {
+        FunctionDefinition._parent.i_createFromAST.apply(this, arguments);
         this.calls = [];
 
         // Check if it's a member function
@@ -540,7 +552,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         this.memberInitializers = [];
         this.autosToDestruct = [];
 
-        this.body = Statements.FunctionBodyBlock.instance(this.ast.body, {func: this, parent: this});
+        this.body = CPPConstruct.create(this.ast.body, {func: this, parent: this}, Statements.FunctionBodyBlock);
     },
 
     compile : function(){
@@ -991,24 +1003,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         return exp;
     }
 });
-
-var OpaqueFunctionDefinition = FunctionDefinition.extend({
-    _name: "OpaqueFunctionDefinition",
-
-
-    upNext : function(sim, inst){
-        if (inst.index === "afterChildren") {
-            this.autosToDestruct.forEach(function (autoDest){
-                autoDest.createAndPushInstance(sim, inst);
-            });
-            inst.index = "afterDestructors";
-            return true;
-        }
-
-        return FunctionDefinition._parent.upNext.apply(this, arguments);
-    },
-});
-
 
 
 // TODO: this should be called ClassDefinition
