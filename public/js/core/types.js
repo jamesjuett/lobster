@@ -112,7 +112,8 @@ var Types = Lobster.Types = {
     builtInTypes : {},
     defaultUserTypeNames : {
         ostream : true,
-        istream : true
+        istream : true,
+        strang : true
     }
 };
 

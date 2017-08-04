@@ -520,17 +520,17 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     init : function(ast, context){
         ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-        if (ast.declarator && ast.declarator.name && ast.declarator.name.identifier === "plus2") {
-            ast.body = Statements.OpaqueFunctionBodyBlock.instance({
-                effects : function(block, sim, inst) {
-                    console.log("hello fake block!");
-                    var retType = block.containingFunction().type.returnType;
-                    var re = ReturnEntity.instance(retType);
-                    re.lookup(sim, inst).writeValue(Value.instance(100, retType));
-                    re.lookup(sim, inst).initialized();
-                }
-            }, null);
-        }
+        // if (ast.declarator && ast.declarator.name && ast.declarator.name.identifier === "plus2") {
+        //     ast.body = Statements.OpaqueFunctionBodyBlock.instance({
+        //         effects : function(sim, inst) {
+        //             console.log("hello fake block!");
+        //             var retType = this.containingFunction().type.returnType;
+        //             var re = ReturnEntity.instance(retType);
+        //             re.lookup(sim, inst).writeValue(Value.instance(100, retType));
+        //             re.lookup(sim, inst).initialized();
+        //         }
+        //     }, null);
+        // }
         this.initParent(ast, context);
     },
 

@@ -765,7 +765,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         return this.i_preprocessedSource.getSourceReference(line, column, start, end);
     },
 
-	i_compile : function(code){
+	i_compile : function(ast){
 
         // Program.currentProgram = this;
 
@@ -786,9 +786,59 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // TODO NEW the globalFunctionContext thing seems a bit hacky. why was this needed? (i.e. why can't it be null?)
         var globalFunctionContext = MagicFunctionDefinition.instance("globalFuncContext", Types.Function.instance(Types.Void.instance(), []));
 
+        // Add in special includes
+        // For now, just add strang
+        var strangAst = {
+            construct_type : "class_declaration",
+            head : {
+                bases : null,
+                key : "class",
+                name : {
+                    identifier : "strang"
+                }
+            },
+            member_specs : [
+                {
+                    access : "public",
+                    members : [
+                        Lobster.cPlusPlusParser.parse("int size;", {startRule : "member_declaration"}),
+                        {
+                            construct_type : "constructor_definition",
+                            args : [],
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    this.blockScope.requiredLookup("size").lookup(sim, inst).writeValue(0);
+                                }
+                            }, null)
+                        },
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("test(int x, int y)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["int"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var x = this.blockScope.requiredLookup("x").lookup(sim, inst).rawValue();
+                                    var y = this.blockScope.requiredLookup("y").lookup(sim, inst).rawValue();
+
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).writeValue(Value.instance(x + y, retType));
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var modifiedAst = [strangAst].concat(ast);
+
         // First, compile ALL the declarations
-        for(var i = 0; i < code.length; ++i){
-            var decl = Declaration.create(code[i], {
+        for(var i = 0; i < modifiedAst.length; ++i){
+            var decl = Declaration.create(modifiedAst[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,
