@@ -3,6 +3,7 @@ var CONSTRUCT_CLASSES = {
     null_statement : Statements.Null,
     expression_statement : Statements.Expression,
     compound_statement : Statements.Block,
+    opaque_function_body_block : Statements.OpaqueFunctionBodyBlock,
     selection_statement : Statements.Selection,
     switch_statement : Statements.Switch,
     while_statement : Statements.While,
