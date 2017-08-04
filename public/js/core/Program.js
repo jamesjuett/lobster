@@ -847,6 +847,8 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                     var x = this.blockScope.requiredLookup("x").lookup(sim, inst).rawValue();
                                     var y = this.blockScope.requiredLookup("y").lookup(sim, inst).rawValue();
                                     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    rec.secretStrangData.str = "blah";
+                                    this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue(rec.secretStrangData.str);
                                     var retType = this.containingFunction().type.returnType;
                                     var re = ReturnEntity.instance(retType);
                                     re.lookup(sim, inst).writeValue(Value.instance(x + y + rec.secretStrangData.test, retType));
