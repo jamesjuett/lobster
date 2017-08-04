@@ -764,6 +764,16 @@ ul.stackFrames li{
 	vertical-align: text-top;
 }
 
+.btn > .fa {
+	vertical-align: text-top;
+}
+
+
+
+.nav-pills > li > a > .fa {
+	vertical-align: middle;
+}
+
 .btn > .loader-inline {
 	vertical-align: text-top;
 }

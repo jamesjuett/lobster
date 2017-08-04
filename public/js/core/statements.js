@@ -1,17 +1,9 @@
 var Lobster = Lobster || {};
 
-Lobster.Statements = {
-	
-	create : function(stmt, context){
-		var type = stmt.statement.toLowerCase();
-        var stmtClass = this[type] || Statements.Unsupported;
-        return stmtClass.instance(stmt, context);
-	}
-	
-};
+Lobster.Statements = {};
 var Statements = Lobster.Statements;
 
-var Statement = Statements.Statement = CPPCode.extend({
+var Statement = Statements.Statement = CPPConstruct.extend({
    _name: "Statement",
     instType: "stmt",
 
@@ -22,24 +14,34 @@ var Statement = Statements.Statement = CPPCode.extend({
 });
 
 Statements.Unsupported = Statement.extend({
-    _name: "Unsupported",
+    _name: "Statements.Unsupported",
     compile : function(){
         this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
     }
 });
 
 Statements.Labeled = Statements.Unsupported.extend({
-    _name: "Labeled",
+    _name: "Statements.Labeled",
     englishName: "labeled statement"
 });
 
+Statements.Switch = Statements.Unsupported.extend({
+    _name: "Statements.Switch",
+    englishName: "switch statement"
+});
+
+/**
+ * @property {Expression} expression
+ *
+ * The ast used to create an instance should have the following properties
+ *  - expression
+ *
+ */
 Statements.Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
-    compile : function(scope){
-		this.expression = this.createAndCompileChildExpr(this.code.expr, scope);
-	},
 
+    i_childrenToCreate : ["expression"],
 
 	upNext : function(sim, inst){
         if (inst.index === "expr"){
@@ -58,14 +60,27 @@ Statements.Expression = Statement.extend({
     }
 });
 
+Statements.Null = Statement.extend({
+    _name : "NullStatement",
+    initIndex : "done",
 
+});
 
+/**
+ * @property {Declaration} declaration
+ *
+ * * When creating an instance, specify these options
+ *  - declaration
+ *
+ */
 Statements.Declaration = Statement.extend({
     _name: "DeclarationStatement",
     initIndex: "decl",
-    compile : function(scope){
-		this.declaration = Declarations.create(this.code, {parent: this});
-		this.declaration.compile(scope);
+
+    i_childrenToCreate : ["declaration"],
+
+    compile : function(){
+		this.i_compileChildren();
 
         if (!isA(this.declaration, Declarations.Declaration)){
             this.addNote(CPPError.stmt.declaration(this, this.declaration));
@@ -94,30 +109,58 @@ Statements.Declaration = Statement.extend({
 
 
 
+/**
+ * @property {ReturnInitializer} returnInitializer
+ * @property {?Expression} expression
+ * @property {Type} returnType
+ *
+ * When creating an instance, specify these options
+ *  - expression (optional)
+ *
+ */
 Statements.Return = Statement.extend({
     _name: "Return",
-    compile : function(scope){
+
+    i_createFromAST : function(ast) {
+        Statements.Return._parent.i_createFromAST.apply(this, arguments);
+
+        // If we have a return expression, create an initializer with that expression
+        if (ast.expression) {
+
+            // Create a detatched expression to pass to the initializer. The initializer will then
+            // attach it at the right place in the construct tree, but this will allow us to hold on
+            // to a reference to it here. :)
+            this.expression = Expression.create(ast.expression, null); // the null context indicates detatched
+            this.returnInitializer = ReturnInitializer.instance({
+                args: [this.expression]
+            }, {parent: this});
+            this.i_childrenToExecute = ["returnInitializer"];
+        }
+        else {
+            this.expression = null;
+        }
+    },
+
+    compile : function() {
 
         // Find function to which this return corresponds
-        var func = this.context.func;
-        var returnType = this.returnType = func.type.returnType;
+        var returnType = this.returnType = this.containingFunction().type.returnType;
 
-        this.hasExpression = !!this.code.expr;
-        if (this.code.expr){
-            this.sub.returnInit = ReturnInitializer.instance(this.code, {parent: this});
-            this.sub.returnInit.compile(scope, ReturnEntity.instance(returnType), [this.code.expr]);
+        if (this.expression){
+            this.returnInitializer.compile(ReturnEntity.instance(returnType));
         }
 
         // A return statement with no expression is only allowed in void functions.
-        // At the moment, constructors/destructors are hacked to have void return type.
-        if (!this.code.expr && !isA(func.type.returnType, Types.Void)){
-            this.addNote(CPPError.stmt._return.empty(this))
+        // At the moment, constructors/destructors are hacked to have void return type,
+        // so this check is ok for return statements in a constructor.
+        if (!this.expression && !isA(returnType, Types.Void)){
+            this.addNote(CPPError.stmt.returnStatement.empty(this))
         }
 
         // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
         //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
-        //if (this.code.expr && !isA(this.expression.type, Types.Void) && isA(func.type.returnType, Types.Void)){
-        //    this.addNote(CPPError.stmt._return.exprVoid(this));
+        //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
+        //    this.addNote(CPPError.stmt.returnStatement.exprVoid(this));
         //    return;
         //}
 	},
@@ -149,35 +192,41 @@ Statements.Return = Statement.extend({
 });
 
 
-
-
-
+/**
+ * @property {BlockScope} blockScope
+ * @property {Number} length - The number of statements within the block
+ * @property {Statement[]} statements
+ *
+ * When creating an instance, specify these
+ *  - statements
+ *
+ */
 Statements.Block = Statements.Compound = Statement.extend({
     _name: "Block",
     initIndex: 0,
-    init: function(code, context){
-        this.initParent(code, context);
-        this.length = this.code.statements.length;
+
+    i_createFromAST : function(ast){
+        Statements.Block._parent.i_createFromAST.apply(this, arguments);
+
+        this.blockScope = this.i_createBlockScope();
+
+        var self = this;
+        this.statements = ast.statements.map(function(stmt){
+            return self.i_createChild(stmt, {scope: self.blockScope});
+        });
+
+        this.length = this.statements.length;
+
     },
-    compile : function(parentScope){
 
-        // if my parent is a function, just use scope from that
-        if (isA(this.parent, Declarations.FunctionDefinition)){
-            this.scope = this.parent.scope;
-        }
-        else if (this.context.scope){
-            this.scope = this.context.scope;
-        }
-        else {
-            this.scope = BlockScope.instance(parentScope);
-        }
+    i_createBlockScope : function() {
+        return BlockScope.instance(this.contextualScope);
+    },
 
-        // Compile all the statements
-        this.statements = [];
-        for(var i = 0; i < this.length; ++i){
-            var stmt = this.statements[i] = Statements.create(this.code.statements[i], {parent: this});
-            stmt.compile(this.scope);
-        }
+    compile : function(){
+        this.statements.forEach(function(stmt){
+            stmt.compile();
+        });
     },
 
     createInstance : function(){
@@ -233,46 +282,52 @@ Statements.Block = Statements.Compound = Statement.extend({
     }
 });
 
+Statements.FunctionBodyBlock = Statements.Block.extend({
+    _name: "FunctionBodyBlock",
+
+    i_createBlockScope : function() {
+        return FunctionBlockScope.instance(this.contextualScope);
+    }
+});
 
 
 
-
-//TODO: switch is disallowed for now (here and in grammar)
 Statements.Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
-    compile : function(scope){
-        this["if"] = Expressions.createExpr(this.code["if"], {parent: this});
-        this["if"].compile(scope);
-        this["if"] = standardConversion(this["if"], Types.Bool.instance());
-        if (!isA(this["if"].type, Types.Bool)){
-            this.addNote(CPPError.stmt.selection.cond_bool(this, this["if"]));
+
+    i_childrenToCreate : ["condition", "then", "otherwise"],
+
+    compile : function(){
+
+        // Compile condition, convert to bool if not already, error if can't convert
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
         }
 
-        this.then = Statements.create(this.code.then, {parent: this});
-        this.then.compile(scope);
+        this.then.compile();
 
-        if (this.code["else"]){
-            this["else"] = Statements.create(this.code["else"], {parent: this});
-            this["else"].compile(scope);
-        }
+        // else branch may not be specified, so only compile if it is
+        this.otherwise && this.otherwise.compile();
     },
 
     upNext : function(sim, inst){
         if(inst.index == "condition"){
-            inst["if"] = this["if"].createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "body";
             return true;
         }
         else if (inst.index == "body"){
-            if(inst["if"].evalValue.value){
+            if(inst.condition.evalValue.value){
                 inst.then = this.then.createAndPushInstance(sim, inst);
                 inst.index = "done";
                 return true;
             }
             else{
-                if (this["else"]) {
-                    inst["else"] = this["else"].createAndPushInstance(sim, inst);
+                if (this.otherwise) {
+                    inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
                 }
                 inst.index = "done";
                 return true;
@@ -289,14 +344,14 @@ Statements.Selection = Statement.extend({
     },
 
     isTailChild : function(child){
-        if (child === this["if"]){
+        if (child === this.condition){
             return {isTail: false,
                 reason: "After the function returns, one of the branches will run.",
-                others: [this.then, this["else"]]
+                others: [this.then, this.otherwise]
             }
         }
         else{
-            if (this["else"]){
+            if (this.otherwise){
                 //if (child === this.then){
                     return {isTail: true,
                         reason: "Only one branch in a selection structure (i.e. if/else) can ever execute, so don't worry about the code in the other branches."
@@ -330,20 +385,32 @@ Statements.Iteration = Statement.extend({
 Statements.While = Statements.Iteration.extend({
     _name: "While",
     initIndex: "condition",
-    compile : function(scope){
 
-        this.scope = BlockScope.instance(scope);
+    i_createFromAST : function(ast) {
+        Statements.While._parent.i_createFromAST.apply(this, arguments);
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent:this});
-        this.cond.compile(this.scope);
-        this.cond = standardConversion(this.cond, Types.Bool.instance());
+        this.body = this.i_createChild(ast.body);
 
-        if (!isA(this.cond.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+        // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
+        // This appears to be currently impossible in Lobster, but when implemented it will require
+        // special implementation of the scope of the body if it's not already a block.
+        // Or maybe we could just decide to parse it correctly (will still require some changes), but
+        // then simply say it's not supported since it's such a rare thing.
+        this.condition = this.i_createChild(ast.condition, {
+            scope : (isA(this.body, Statements.Block) ? this.body.blockScope : this.contextualScope)
+        });
+
+    },
+
+    compile : function(){
+
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
         }
 
-        this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.body.compile(this.scope);
+        this.body.compile();
     },
 
     upNext : function(sim, inst){
@@ -352,12 +419,12 @@ Statements.While = Statements.Iteration.extend({
         }
         else if(inst.index == "condition"){
             inst.send("reset");
-            inst.cond = this.cond.createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "checkCond";
             return true;
         }
         else if (inst.index == "checkCond"){
-            if(inst.cond.evalValue.value) {
+            if(inst.condition.evalValue.value) {
                 inst.index = "body";
             }
             else{
@@ -382,34 +449,43 @@ Statements.While = Statements.Iteration.extend({
 
 Statements.DoWhile = Statements.While.extend({
     _name: "DoWhile",
-    initIndex: "body",
+    initIndex: "body"
 });
 
 
 Statements.For = Statements.Iteration.extend({
     _name: "For",
     initIndex: "init",
-    compile : function(scope){
 
-        this.scope = BlockScope.instance(scope);
+    init : function(ast, context) {
+        this.initParent(ast, context);
+
+        this.body = this.i_createChild(ast.body);
+
+        // If the body is already a block, we can just use its scope. Otherwise, create one for the for loop.
+        this.bodyScope = (isA(this.body, Statements.Block) ? this.body.blockScope : BlockScope.instance(this.contextualScope));
 
         // Note: grammar ensures this will be an expression or declaration statement
-        this.forInit = Statements.create(this.code.init, {parent: this});
-        this.forInit.compile(this.scope);
+        this.initial = this.i_createChild(ast.initial, {scope: this.bodyScope});
 
-        this.cond = Expressions.createExpr(this.code.cond, {parent: this});
-        this.cond.compile(this.scope);
-        this.cond = standardConversion(this.cond, Types.Bool.instance());
+        this.condition = this.i_createChild(ast.condition, {scope : this.bodyScope});
 
-        if (!isA(this.cond.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.cond_bool(this.cond, this.cond))
+        this.post = this.i_createChild(ast.post, {scope : this.bodyScope});
+
+    },
+
+    compile : function(){
+        this.initial.compile();
+
+        this.condition.compile();
+        this.condition = standardConversion(this.condition, Types.Bool.instance());
+        if (!isA(this.condition.type, Types.Bool)){
+            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
         }
 
-        this.body = Statements.create(this.code.body, {parent: this, scope: this.scope});
-        this.body.compile(this.scope);
+        this.body.compile();
 
-        this.post = Expressions.createExpr(this.code.post, {parent: this});
-        this.post.compile(this.scope);
+        this.post.compile();
     },
 
 
@@ -418,18 +494,18 @@ Statements.For = Statements.Iteration.extend({
             return false;
         }
         else if (inst.index == "init"){
-            inst.forInit = this.forInit.createAndPushInstance(sim, inst);
+            inst.initial = this.initial.createAndPushInstance(sim, inst);
             inst.index = "condition";
             return true;
         }
         else if(inst.index == "condition"){
             inst.send("reset");
-            inst.cond = this.cond.createAndPushInstance(sim, inst);
+            inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "body";
             return true;
         }
         else if (inst.index == "body"){
-            if(inst.cond.evalValue.value){
+            if(inst.condition.evalValue.value){
                 inst.body = this.body.createAndPushInstance(sim, inst);
                 inst.index = "post";
                 return true;
@@ -455,7 +531,11 @@ Statements.For = Statements.Iteration.extend({
 
 Statements.Break = Statement.extend({
     _name: "Break",
-    compile : function(scope){
+
+    compile : function() {
+        // Theoretically this could be put into the i_createFromAST function since it only uses
+        // syntactic information to determine whether the break is inside an iteration statement,
+        // but it would feel weird to add an error note before the compile function even runs... :/
 
         var container = this.parent;
         while(container && !isA(container, Statements.Iteration)){
@@ -466,12 +546,12 @@ Statements.Break = Statement.extend({
 
         // container should exist, otherwise this break is somewhere it shouldn't be
         if (!container || !isA(container, Statements.Iteration)){
-            this.addNote(CPPError.stmt._break.location(this, this["if"]));
+            this.addNote(CPPError.stmt.breakStatement.location(this, this.condition));
         }
     },
 
     createAndPushInstance : function(sim, inst){
-        var inst = CPPCodeInstance.instance(sim, this, "break", "stmt", inst);
+        var inst = CPPConstructInstance.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },
@@ -486,16 +566,21 @@ Statements.Break = Statement.extend({
     }
 });
 
+
+Statements.Continue = Statements.Unsupported.extend({
+    _name: "Statements.Continue",
+    englishName: "continue statement"
+});
+
+
 Statements.TemporaryDeallocator = Statement.extend({
     _name: "TemporaryDeallocator",
 
-    init: function (code, context, temporaries) {
-        this.initParent(code, context);
+    compile : function(temporaries){
         this.temporaries = temporaries;
-    },
 
-    compile : function(scope){
-
+        // TODO: we could put a check for necessary destructors here...I think there's one somewhere else already,
+        // but it might be kind of elegant to put it here.
     },
 
     //stepForward : function(sim, inst){
@@ -517,10 +602,3 @@ Statements.TemporaryDeallocator = Statement.extend({
         return {isTail: true};
     }
 });
-
-
-
-// hack to make sure I don't mess up capitalization
-for (key in Statements){
-	Statements[key.toLowerCase()] = Statements[key];
-}
