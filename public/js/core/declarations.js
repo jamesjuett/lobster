@@ -520,17 +520,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     init : function(ast, context){
         ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-        // if (ast.declarator && ast.declarator.name && ast.declarator.name.identifier === "plus2") {
-        //     ast.body = Statements.OpaqueFunctionBodyBlock.instance({
-        //         effects : function(sim, inst) {
-        //             console.log("hello fake block!");
-        //             var retType = this.containingFunction().type.returnType;
-        //             var re = ReturnEntity.instance(retType);
-        //             re.lookup(sim, inst).writeValue(Value.instance(100, retType));
-        //             re.lookup(sim, inst).initialized();
-        //         }
-        //     }, null);
-        // }
         this.initParent(ast, context);
     },
 
@@ -1004,7 +993,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     }
 });
 
-
 // TODO: this should be called ClassDefinition
 var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
@@ -1417,7 +1405,9 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
                 options.exactMatch = true;
                 options.noBase = true;
             }
-            if (isA(entity, MemberSubobjectEntity) && !this.i_containingClass.hasMember(entity.name, options)){
+            if ((isA(entity, MemberSubobjectEntity) || isA(entity, MemberFunctionEntity))){
+                // We don't check if a conflicting member already exists here - that will be
+                // done inside addMember and an exception will be thrown if there is a conflict
                 this.i_containingClass.addMember(entity); // this internally adds it to the class scope
             }
             return entity;
