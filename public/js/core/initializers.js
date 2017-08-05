@@ -270,7 +270,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         var type = this.entity.type;
 
 
-        if (isA(obj, ReferenceEntity)){ // Proper reference
+        if (isA(obj, ReferenceEntity)){ // Proper reference // TODO: should this be ReferenceEntityInstance? or check this.entity instead?
             obj.bindTo(inst.childInstances.args[0].evalValue);
             obj.initialized();
             inst.send("initialized", obj);

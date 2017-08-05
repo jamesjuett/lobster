@@ -790,6 +790,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // For now, just add strang
         var strangAst = {
             construct_type : "class_declaration",
+            library_id : "strang",
             head : {
                 bases : null,
                 key : "class",
@@ -816,21 +817,6 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                     // var val = rec.getValue();
                                     // var raw = rec.rawValue();
                                     // rec.setObjectData("stringData", "");
-                                }
-                            }, null)
-                        },
-
-                        // temporary constructor for testing purposes
-                        {
-                            construct_type : "constructor_definition",
-                            args : Lobster.cPlusPlusParser.parse("const string &str", {startRule : "argument_declaration_list"}),
-                            initializer : null,
-                            name : { identifier : "strang"},
-                            body : Statements.OpaqueFunctionBodyBlock.instance({
-                                effects : function(sim, inst) {
-                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-                                    var str = this.blockScope.requiredLookup("str").lookup(sim, inst);
-                                    rec.writeValue([str.rawValue()]);
                                 }
                             }, null)
                         },
@@ -1006,10 +992,157 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
+                        // fill ctor
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("size_t n, char c", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst);
+                                    var c = this.blockScope.requiredLookup("c").lookup(sim, inst);
+
+                                    str.writeValue(String.fromCharCode(c.rawValue()).repeat(n.rawValue()));
+                                }
+                            }, null)
+                        },
+
+                        // destructor
+                        {
+                            construct_type : "destructor_definition",
+                            name : {identifier: "~strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+
+                                }
+                            }, null)
+                        },
+
+                        // Copy assignment operator
                         {
                             construct_type : "function_definition",
-                            declarator : Lobster.cPlusPlusParser.parse("test(int x, int y)", {startRule : "declarator"}),
-                            specs : {storageSpecs : [], typeSpecs : ["int"]},
+                            declarator : Lobster.cPlusPlusParser.parse("&operator=(const strang &rhs)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["strang"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var other = this.blockScope.requiredLookup("rhs").lookup(sim, inst);
+                                    rec.writeValue(other.getValue());
+
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).bindTo(rec);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
+                        // function size()
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("size()", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["size_t"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).writeValue(str.rawValue().length);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
+                        // function length()
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("length()", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["size_t"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).writeValue(str.rawValue().length);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
+                        // function max_size()
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("max_size()", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["size_t"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).writeValue(4294967291); // TODO: for now i just took this from the c++ reference example
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
+                        // function resize(size_t n, char c)
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("resize(size_t n, char c)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["void"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst);
+                                    var c = this.blockScope.requiredLookup("c").lookup(sim, inst);
+
+                                    var rawN = n.rawValue();
+                                    var rawStr = str.rawValue();
+                                    if (rawN < rawStr.length) {
+                                        // Reduce to only first n characters
+                                        str.writeValue(rawStr.substring(0,rawN));
+                                    }
+                                    else if (rawN > rawStr.length) {
+                                        // pad with c to get to n characters
+                                        str.writeValue(rawStr + String.fromCharCode(c.rawValue()).repeat(rawN-rawStr.length))
+                                    }
+                                    // else do nothing since it was the right length to start with
+                                }
+                            }, null)
+                        },
+
+
+                        // function resize(size_t n)
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("resize(size_t n)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["void"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst);
+
+                                    var rawN = n.rawValue();
+                                    var rawStr = str.rawValue();
+                                    if (rawN < rawStr.length) {
+                                        // Reduce to only first n characters
+                                        str.writeValue(rawStr.substring(0,rawN));
+                                    }
+                                    else if (rawN > rawStr.length) {
+                                        // pad with c to get to n characters
+                                        str.writeValue(rawStr + String.fromCharCode(0).repeat(rawN-rawStr.length))
+                                    }
+                                    // else do nothing since it was the right length to start with
+                                }
+                            }, null)
+                        },
+
+
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("size()", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["size_t"]},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
                                     var x = this.blockScope.requiredLookup("x").lookup(sim, inst).rawValue();
