@@ -801,7 +801,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                 {
                     access : "public",
                     members : [
-                        Lobster.cPlusPlusParser.parse("int data;", {startRule : "member_declaration"}),
+                        Lobster.cPlusPlusParser.parse("_universal_data data;", {startRule : "member_declaration"}),
 
                         // Default ctor
                         {
@@ -812,11 +812,25 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
                                     this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue("");
+                                    // var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    // var val = rec.getValue();
+                                    // var raw = rec.rawValue();
+                                    // rec.setObjectData("stringData", "");
+                                }
+                            }, null)
+                        },
+
+                        // temporary constructor for testing purposes
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const string &str", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
                                     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-                                    rec.secretStrangData = {
-                                        size: 0,
-                                        str: ""
-                                    };
+                                    var str = this.blockScope.requiredLookup("str").lookup(sim, inst);
+                                    rec.writeValue([str.rawValue()]);
                                 }
                             }, null)
                         },
@@ -831,8 +845,110 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                 effects : function(sim, inst) {
                                     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
                                     var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
-                                    rec.secretStrangData = copyMixin(other.secretStrangData);
-                                    this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue(rec.secretStrangData.str);
+                                    rec.writeValue(other.getValue());
+                                }
+                            }, null)
+                        },
+
+                        // Substring ctor (with 3rd argument provided)
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const strang &other, size_t pos, size_t len", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+                                    var len = this.blockScope.requiredLookup("len").lookup(sim, inst);
+                                    rec.setValue([other.rawValue()[0].substring(pos, pos + len)]);
+                                }
+                            }, null)
+                        },
+
+                        // Substring ctor (without 3rd argument, so use default)
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const strang &other, size_t pos", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+                                    var len = this.blockScope.requiredLookup("len").lookup(sim, inst);
+                                    rec.setValue([other.rawValue()[0].substring(pos)]);
+                                }
+                            }, null)
+                        },
+
+
+                        // ctor from cstring
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const char *cstr", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
+
+
+
+                                    var text = "";
+                                    var c = sim.memory.getObject(ptrValue).rawValue();
+                                    while (ptrValue.type.isValueDereferenceable(ptrValue.rawValue()) && !Types.Char.isNullChar(c)) {
+                                        text += Types.Char.valueToOstreamString(c);
+                                        ptrValue.setRawValue(ptrValue.rawValue() + ptrValue.type.ptrTo.size);
+                                        c = sim.memory.getObject(ptrValue).rawValue();
+                                    }
+
+                                    if (!ptrValue.type.isValueDereferenceable(ptrValue.rawValue())) {
+                                        // We stopped previously because the pointer was no longer safely dereferenceable, so
+                                        // now we'll go ahead and let the pointer keep going, but stop it after a while to prevent
+                                        // an infinite loop.
+                                        var count = 0;
+                                        var limit = 100;
+                                        while (count < limit && !Types.Char.isNullChar(c)) {
+                                            text += Types.Char.valueToOstreamString(c);
+                                            ptrValue.setRawValue(ptrValue.rawValue() + ptrValue.type.ptrTo.size);
+                                            c = sim.memory.getObject(ptrValue).rawValue();
+                                            ++count;
+                                        }
+
+                                        if (!isA(ptrValue.type, Types.ArrayPointer)) {
+                                            if (count === limit) {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
+                                            }
+                                            else if (count > 0) {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                                            }
+                                            else {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                                            }
+                                        }
+                                        else {
+                                            if (count === limit) {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
+                                            }
+                                            else if (count > 0) {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                                            }
+                                            else {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        if (!isA(ptrValue.type, Types.ArrayPointer)) {
+                                            sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array. That doesn't appear to be the case here, which can lead to undefined behavior.");
+                                        }
+                                    }
+
+                                    str.writeValue(text);
                                 }
                             }, null)
                         },
@@ -861,11 +977,23 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
             ]
         };
 
-        var modifiedAst = [strangAst].concat(ast);
+        var strangDefinition = ClassDeclaration.instance(strangAst, {
+            parent: null,
+            scope : this.i_globalScope,
+            translationUnit : this,
+            func: globalFunctionContext
+        });
+        strangDefinition.tryCompileDeclaration();
+        strangDefinition.tryCompileDefinition();
+        this.topLevelDeclarations.push(strangDefinition);
+        this.addNotes(strangDefinition.getNotes());
+        strangDefinition.classTypeClass.valueToString = function() {
+
+        }
 
         // First, compile ALL the declarations
-        for(var i = 0; i < modifiedAst.length; ++i){
-            var decl = Declaration.create(modifiedAst[i], {
+        for(var i = 0; i < ast.length; ++i){
+            var decl = Declaration.create(ast[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,

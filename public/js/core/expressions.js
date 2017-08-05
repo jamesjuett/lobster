@@ -30,6 +30,15 @@ var Value = Class.extend({
     rawValue : function(){
         return this.value;
     },
+    /**
+     * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
+     * that you're using locally and want to keep updating its raw value to something else before passing
+     * to something like memory.getObject(). For example, this is done when traversing through a cstring by
+     * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
+     */
+    setRawValue : function(value) {
+        this.value = value;
+    },
     isValueValid : function(){
         return !this._invalid && this.type.isValueValid(this.value);
     },

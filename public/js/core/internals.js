@@ -1227,12 +1227,14 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     },
     getSubobject : function(addr){
         if(this.isArray){
-            for(var i = 0; i < this.type.length; ++i){
-                var subObj = this.elemObjects[i];
-                if (subObj.address === addr){
-                    return subObj;
-                }
-            }
+            var offset = (addr - this.address) / this.type.elemType.size;
+            return this.elemObjects[offset];
+            // for(var i = 0; i < this.type.length; ++i){
+            //     var subObj = this.elemObjects[i];
+            //     if (subObj.address === addr){
+            //         return subObj;
+            //     }
+            // }
         }
         else if (this.isClass){
             for(var i = 0; i < this.subobjects.length; ++i){
@@ -1505,6 +1507,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     isInitialized : function(){
         return !!this._initialized;
     }
+
 });
 
 

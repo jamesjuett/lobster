@@ -88,14 +88,14 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
         }
 
         if (Types.builtInTypes[this.typeName]){
-			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
+			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
             return;
 		}
 
         var scopeType;
         if (scopeType = this.contextualScope.lookup(this.typeName)){
             if (isA(scopeType, TypeEntity)){
-                this.type = scopeType.type.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
+                this.type = scopeType.type.instance(this.isConst, this.isVolatile);
                 return;
             }
         }
@@ -111,8 +111,10 @@ var Types = Lobster.Types = {
     userTypeNames : {},
     builtInTypes : {},
     defaultUserTypeNames : {
+        _universal_data : true,
         ostream : true,
         istream : true,
+        size_t : true,
         strang : true
     }
 };
@@ -373,7 +375,7 @@ var Type = Lobster.Types.Type = Class.extend({
      * @returns {*}
      */
     bytesToValue : function(bytes){
-        //TODO: this is a hack for now.
+        // HACK: the whole value is stored in the first byte
         return bytes[0];
     },
 
@@ -385,6 +387,7 @@ var Type = Lobster.Types.Type = Class.extend({
      */
     valueToBytes : function(value){
         var bytes = [];
+        // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
         for(var i = 1; i < this.size-1; ++i){
             bytes.push(0);
@@ -527,15 +530,20 @@ Lobster.Types.Void = Types.SimpleType.extend({
     size: 0
 });
 
+Types.builtInTypes["_universal_data"] =
+Lobster.Types._Universal_data = Types.SimpleType.extend({
+    _name: "_Universal_data",
+    i_type: "_universal_data",
+    size: 16
+});
+
 Types.IntegralTypeBase = Types.SimpleType.extend({
     _name: "IntegralTypeBase",
     isIntegralType: true,
     isArithmeticType: true,
 
-    init: function(isConst, isVolatile, isUnsigned, isSigned) {
+    init: function(isConst, isVolatile) {
         this.initParent(isConst, isVolatile);
-        this.isUnsigned = isUnsigned;
-        this.isSigned = isSigned;
     }
 });
 
@@ -544,6 +552,10 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
     _name: "Char",
     i_type: "char",
     size: 1,
+
+    isNullChar : function(value) {
+        return value === 0;
+    },
 
     valueToString : function(value){
         return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
@@ -558,6 +570,13 @@ Lobster.Types.Int = Types.IntegralTypeBase.extend({
     _name: "Int",
     i_type: "int",
     size: 4
+});
+
+Types.builtInTypes["size_t"] =
+Lobster.Types.Int = Types.IntegralTypeBase.extend({
+    _name: "Size_t",
+    i_type: "size_t",
+    size: 8
 });
 
 Types.builtInTypes["bool"] =
@@ -749,6 +768,9 @@ Lobster.Types.Pointer = Type.extend({
     },
     isObjectPointer : function() {
         return this.ptrTo.isObjectType || isA(this.ptrTo, Types.Void);
+    },
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value);
     }
 });
 
@@ -778,6 +800,9 @@ Lobster.Types.ArrayPointer = Types.Pointer.extend({
         }
         var arrObj = this.arrObj;
         return arrObj.address <= value && value <= arrObj.address + arrObj.type.properSize;
+    },
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value) && value !== this.onePast();
     },
     toIndex : function(addr){
         return integerDivision(addr - this.arrObj.address, this.arrObj.type.elemType.size);
