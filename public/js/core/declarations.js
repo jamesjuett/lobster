@@ -1061,6 +1061,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
             this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
+            this.classTypeClass = this.type;
 
             this.classScope = this.type.classScope;
 
