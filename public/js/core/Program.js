@@ -1039,10 +1039,28 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
+                        // Iterator functions - unsupported
+                        mixin(Lobster.cPlusPlusParser.parse("void begin();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void end();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void rbegin();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void rend();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void cbegin() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void cend() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void crbegin() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void crend() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+
                         // function size()
                         {
                             construct_type : "function_definition",
-                            declarator : Lobster.cPlusPlusParser.parse("size()", {startRule : "declarator"}),
+                            declarator : Lobster.cPlusPlusParser.parse("size() const", {startRule : "declarator"}),
                             specs : {storageSpecs : [], typeSpecs : ["size_t"]},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
@@ -1058,7 +1076,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                         // function length()
                         {
                             construct_type : "function_definition",
-                            declarator : Lobster.cPlusPlusParser.parse("length()", {startRule : "declarator"}),
+                            declarator : Lobster.cPlusPlusParser.parse("length() const", {startRule : "declarator"}),
                             specs : {storageSpecs : [], typeSpecs : ["size_t"]},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
@@ -1071,20 +1089,9 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
-                        // function max_size()
-                        {
-                            construct_type : "function_definition",
-                            declarator : Lobster.cPlusPlusParser.parse("max_size()", {startRule : "declarator"}),
-                            specs : {storageSpecs : [], typeSpecs : ["size_t"]},
-                            body : Statements.OpaqueFunctionBodyBlock.instance({
-                                effects : function(sim, inst) {
-                                    var retType = this.containingFunction().type.returnType;
-                                    var re = ReturnEntity.instance(retType);
-                                    re.lookup(sim, inst).writeValue(4294967291); // TODO: for now i just took this from the c++ reference example
-                                    re.lookup(sim, inst).initialized();
-                                }
-                            }, null)
-                        },
+                        // function max_size() - unsupported
+                        mixin(Lobster.cPlusPlusParser.parse("size_t max_size() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
 
                         // function resize(size_t n, char c)
                         {
@@ -1138,6 +1145,44 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
+                        // function capacity() - unsupported
+                        mixin(Lobster.cPlusPlusParser.parse("size_t capacity() const;", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+
+                        // function capacity() - reserve
+                        mixin(Lobster.cPlusPlusParser.parse("void reserve();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+                        mixin(Lobster.cPlusPlusParser.parse("void reserve(size_t n);", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
+
+                        // function clear()
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("clear()", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["void"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    str.writeValue("");
+                                }
+                            }, null)
+                        },
+
+                        // function empty()
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("empty() const", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["bool"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var retType = this.containingFunction().type.returnType;
+                                    var re = ReturnEntity.instance(retType);
+                                    re.lookup(sim, inst).writeValue(str.rawValue().length === 0);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
 
                         {
                             construct_type : "function_definition",

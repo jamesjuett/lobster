@@ -714,6 +714,9 @@ var CPPError = {
         def_not_found : function(src, func){
             return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.def_not_found", "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
+        library_unsupported : function(src, func){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.library_unsupported", "I'm sorry, but this function (" + func + ") is a part of the standard library that isn't currently supported.");
+        },
         multiple_def : function(src, name){
             return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.multiple_def", "Multiple definitions found for " + name + ".");
         },

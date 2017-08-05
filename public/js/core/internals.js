@@ -52,6 +52,9 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         if (ast.library_id) {
             this.i_libraryId = ast.library_id;
         }
+        if (ast.library_unsupported) {
+            this.i_library_unsupported = true;
+        }
 
         this.i_isAttached = false;
         if (context) {
@@ -139,6 +142,10 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         // Use translation unit from context or inherit from parent
         this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
 
+        // If the parent is an usupported library construct, so are its children (including this one)
+        if (this.parent && this.parent.i_library_unsupported) {
+            this.i_library_unsupported = true;
+        }
 
         // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
         // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
@@ -169,6 +176,10 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     getLibraryId : function() {
         return this.i_libraryId;
+    },
+
+    isLibraryUnsupported : function () {
+        return this.i_library_unsupported;
     },
 
     getTranslationUnit : function() {
@@ -956,6 +967,12 @@ var CPPEntity = Class.extend(Observable, {
     },
     getInitializer : function() {
         return this.i_init;
+    },
+    isLibraryConstruct : function() {
+        return false
+    },
+    isLibraryUnsupported : function() {
+        return false;
     }
 });
 CPP.CPPEntity = CPPEntity;
@@ -1062,6 +1079,14 @@ var DeclaredEntity = CPPEntity.extend({
     // TODO: when namespaces are implemented, need to fix this function
     getFullyQualifiedName : function() {
         return "::" + this.name;
+    },
+
+    isLibraryConstruct : function() {
+        return this.decl.isLibraryConstruct();
+    },
+
+    isLibraryUnsupported : function() {
+        return this.decl.isLibraryUnsupported();
     }
 });
 CPP.DeclaredEntity = DeclaredEntity;

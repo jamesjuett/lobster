@@ -2233,7 +2233,12 @@ var FunctionCall = Expression.extend({
 
     checkLinkingProblems : function(){
         if (!this.func.isLinked()){
-            var note = CPPError.link.def_not_found(this, this.func);
+            if (this.func.isLibraryUnsupported()) {
+                var note = CPPError.link.library_unsupported(this, this.func);
+            }
+            else {
+                var note = CPPError.link.def_not_found(this, this.func);
+            }
             this.addNote(note);
             return note;
         }
