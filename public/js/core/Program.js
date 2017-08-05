@@ -858,11 +858,18 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
                                     var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
-                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
-                                    var len = this.blockScope.requiredLookup("len").lookup(sim, inst);
-                                    rec.setValue([other.rawValue()[0].substring(pos, pos + len)]);
+                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst).rawValue();
+                                    var len = this.blockScope.requiredLookup("len").lookup(sim, inst).rawValue();
+
+                                    if (pos > other.rawValue()[0].length) {
+                                        sim.exception("The start position you requested in this string constructor is greater than the length of the other string.");
+                                    }
+                                    else {
+                                        str.writeValue(other.rawValue()[0].substring(pos, pos + len));
+                                    }
+
                                 }
                             }, null)
                         },
@@ -875,11 +882,16 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
                                     var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
-                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
-                                    var len = this.blockScope.requiredLookup("len").lookup(sim, inst);
-                                    rec.setValue([other.rawValue()[0].substring(pos)]);
+                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst).rawValue();
+
+                                    if (pos > other.rawValue()[0].length) {
+                                        sim.exception("The start position you requested in this string constructor is greater than the length of the other string.");
+                                    }
+                                    else {
+                                        str.writeValue(other.rawValue()[0].substring(pos));
+                                    }
                                 }
                             }, null)
                         },
@@ -953,6 +965,46 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
+                        // ctor from cstring with n
+                        {
+                            construct_type : "constructor_definition",
+                            args : Lobster.cPlusPlusParser.parse("const char *cstr, size_t n", {startRule : "argument_declaration_list"}),
+                            initializer : null,
+                            name : { identifier : "strang"},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst).rawValue();
+
+
+
+                                    var text = "";
+                                    var c = sim.memory.getObject(ptrValue).rawValue();
+                                    var copiedInvalidChar = false;
+                                    while (n > 0) {
+                                        text += Types.Char.valueToOstreamString(c);
+                                        if (!copiedInvalidChar && !ptrValue.type.isValueDereferenceable(ptrValue.rawValue())) {
+                                            copiedInvalidChar = true;
+                                        }
+                                        ptrValue.setRawValue(ptrValue.rawValue() + ptrValue.type.ptrTo.size);
+                                        c = sim.memory.getObject(ptrValue).rawValue();
+                                        --n;
+                                    }
+
+                                    if (copiedInvalidChar) {
+                                        if (!isA(ptrValue.type, Types.ArrayPointer)) {
+                                            sim.undefinedBehavior("You passed a pointer to a single character (rather than an array) to this string constructor, but also asked for more than one char to be copied, which means some memory junk was used to initialize the string.");
+                                        }
+                                        else{
+                                            sim.undefinedBehavior("You asked for more characters to be copied than were in the original source array, which means some memory junk was used to initialize the string.");
+                                        }
+                                    }
+
+                                    str.writeValue(text);
+                                }
+                            }, null)
+                        },
 
                         {
                             construct_type : "function_definition",
