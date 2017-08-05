@@ -49,6 +49,9 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         if (ast.code) {
             this.code = ast.code;
         }
+        if (ast.library_id) {
+            this.i_libraryId = ast.library_id;
+        }
 
         this.i_isAttached = false;
         if (context) {
@@ -158,6 +161,14 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
 
     getSourceText : function() {
         return this.code ? this.code.text : "an expression";
+    },
+
+    isLibraryConstruct : function() {
+        return this.i_libraryId !== undefined;
+    },
+
+    getLibraryId : function() {
+        return this.i_libraryId;
     },
 
     getTranslationUnit : function() {
@@ -598,6 +609,7 @@ var Scope = Lobster.Scope = Class.extend({
         return this.i_requiredLookupImpl(this.lookup(name, options), name, options);
     },
     i_requiredLookupImpl : function(res, name, options) {
+        options = options || {};
         if (!res){
             if (options.paramTypes || options.params){
                 throw SemanticExceptions.NoMatch.instance(this, name,
@@ -973,8 +985,10 @@ var DeclaredEntity = CPPEntity.extend({
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
         if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
             && entity1.type.className === entity2.type.className) {
-            if (entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
-                entity1.decl.getSourceCode().text.replace(/\s/g,'') === entity2.decl.getSourceCode().text.replace(/\s/g,'')) {
+            if (entity1.decl.isLibraryConstruct() && entity2.decl.isLibraryConstruct() !== undefined
+                && entity1.decl.getLibraryId() === entity2.decl.getLibraryId() ||
+                entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
+                entity1.decl.getSourceText().replace(/\s/g,'') === entity2.decl.getSourceText().text.replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
 
                 // merge the types too, so that the type system recognizes them as the same

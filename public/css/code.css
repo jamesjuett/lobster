@@ -31,9 +31,9 @@
     opacity: 1;
 }
 
-/*.codeInstance.upNext > .highlight{*/
-    /*opacity: 1;*/
-/*}*/
+.codeInstance.upNext > .highlight{
+    opacity: 1;
+}
 
 .codeInstance .blockLine {
     position: relative;
