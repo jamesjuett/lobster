@@ -1039,6 +1039,99 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             }, null)
                         },
 
+                        // cstring assignment operator
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("&operator=(const char *cstr)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["strang"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    // TODO: this is almost all a duplicate of the cstring constructor code (except for the return at the end)
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
+
+
+
+                                    var text = "";
+                                    var c = sim.memory.getObject(ptrValue).rawValue();
+                                    while (ptrValue.type.isValueDereferenceable(ptrValue.rawValue()) && !Types.Char.isNullChar(c)) {
+                                        text += Types.Char.valueToOstreamString(c);
+                                        ptrValue.setRawValue(ptrValue.rawValue() + ptrValue.type.ptrTo.size);
+                                        c = sim.memory.getObject(ptrValue).rawValue();
+                                    }
+
+                                    if (!ptrValue.type.isValueDereferenceable(ptrValue.rawValue())) {
+                                        // We stopped previously because the pointer was no longer safely dereferenceable, so
+                                        // now we'll go ahead and let the pointer keep going, but stop it after a while to prevent
+                                        // an infinite loop.
+                                        var count = 0;
+                                        var limit = 100;
+                                        while (count < limit && !Types.Char.isNullChar(c)) {
+                                            text += Types.Char.valueToOstreamString(c);
+                                            ptrValue.setRawValue(ptrValue.rawValue() + ptrValue.type.ptrTo.size);
+                                            c = sim.memory.getObject(ptrValue).rawValue();
+                                            ++count;
+                                        }
+
+                                        if (!isA(ptrValue.type, Types.ArrayPointer)) {
+                                            if (count === limit) {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
+                                            }
+                                            else if (count > 0) {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                                            }
+                                            else {
+                                                sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                                            }
+                                        }
+                                        else {
+                                            if (count === limit) {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
+                                            }
+                                            else if (count > 0) {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                                            }
+                                            else {
+                                                sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        if (!isA(ptrValue.type, Types.ArrayPointer)) {
+                                            sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array. That doesn't appear to be the case here, which can lead to undefined behavior.");
+                                        }
+                                    }
+
+                                    str.writeValue(text);
+
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var re = ReturnEntity.instance(this.containingFunction().type.returnType);
+                                    re.lookup(sim, inst).bindTo(rec);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
+                        // single char assignment operator
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("&operator=(char c)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["strang"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
+                                    var c = this.blockScope.requiredLookup("c").lookup(sim, inst);
+
+                                    str.writeValue(String.fromCharCode(c.rawValue()));
+
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    var re = ReturnEntity.instance(this.containingFunction().type.returnType);
+                                    re.lookup(sim, inst).bindTo(rec);
+                                    re.lookup(sim, inst).initialized();
+                                }
+                            }, null)
+                        },
+
                         // Iterator functions - unsupported
                         mixin(Lobster.cPlusPlusParser.parse("void begin();", {startRule: "member_declaration"}),
                             {library_unsupported : true}),
@@ -1149,7 +1242,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                         mixin(Lobster.cPlusPlusParser.parse("size_t capacity() const;", {startRule: "member_declaration"}),
                             {library_unsupported : true}),
 
-                        // function capacity() - reserve
+                        // function reserve() - unsupported
                         mixin(Lobster.cPlusPlusParser.parse("void reserve();", {startRule: "member_declaration"}),
                             {library_unsupported : true}),
                         mixin(Lobster.cPlusPlusParser.parse("void reserve(size_t n);", {startRule: "member_declaration"}),
@@ -1183,6 +1276,10 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                 }
                             }, null)
                         },
+
+                        // function shrink_to_fit() - unsupported
+                        mixin(Lobster.cPlusPlusParser.parse("void shrink_to_fit();", {startRule: "member_declaration"}),
+                            {library_unsupported : true}),
 
                         {
                             construct_type : "function_definition",
