@@ -788,6 +788,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
         // Add in special includes
         // For now, just add strang
+        var initialStrangCapacity = 8;
         var strangAst = {
             construct_type : "class_declaration",
             library_id : "strang",
@@ -802,7 +803,9 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                 {
                     access : "public",
                     members : [
-                        Lobster.cPlusPlusParser.parse("_universal_data data;", {startRule : "member_declaration"}),
+                        Lobster.cPlusPlusParser.parse("size_t _size;", {startRule : "member_declaration"}),
+                        Lobster.cPlusPlusParser.parse("size_t _capacity;", {startRule : "member_declaration"}),
+                        Lobster.cPlusPlusParser.parse("char * data_ptr;", {startRule : "member_declaration"}),
 
                         // Default ctor
                         {
@@ -812,11 +815,16 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    this.blockScope.requiredLookup("data").lookup(sim, inst).writeValue("");
-                                    // var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-                                    // var val = rec.getValue();
-                                    // var raw = rec.rawValue();
-                                    // rec.setObjectData("stringData", "");
+                                    this.blockScope.requiredLookup("_capacity").lookup(sim, inst).writeValue(initialStrangCapacity);
+                                    this.blockScope.requiredLookup("_size").lookup(sim, inst).writeValue(0);
+
+
+                                    var arrType = Types.Array.instance(Types.Char.instance(), initialStrangCapacity);
+                                    var obj = DynamicObject.instance(arrType);
+                                    sim.memory.heap.allocateNewObject(obj);
+
+                                    var addr = Value.instance(obj.address, Types.ArrayPointer.instance(obj));
+                                    this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
                                 }
                             }, null)
                         },
@@ -1298,6 +1306,27 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                     re.lookup(sim, inst).initialized();
                                 }
                             }, null)
+                        },
+
+                        // function operator[]
+                        {
+                            construct_type : "function_definition",
+                            declarator : Lobster.cPlusPlusParser.parse("&operator[](size_t pos)", {startRule : "declarator"}),
+                            specs : {storageSpecs : [], typeSpecs : ["char"]},
+                            body : Statements.OpaqueFunctionBodyBlock.instance({
+                                effects : function(sim, inst) {
+                                    var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
+                                    var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+                                    ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
+                                    var obj = sim.memory.getObject(ptr);
+
+                                    var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+                                    returnRef.bindTo(obj);
+                                    returnRef.initialized();
+
+
+                                }
+                            }, null)
                         }
                     ]
                 }
@@ -1316,7 +1345,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         this.addNotes(strangDefinition.getNotes());
         strangDefinition.classTypeClass.valueToString = function() {
 
-        }
+        };
 
         // First, compile ALL the declarations
         for(var i = 0; i < ast.length; ++i){

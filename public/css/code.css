@@ -514,7 +514,7 @@
     margin-bottom: 2px;
     text-align: left;
     /*vertical-align: text-bottom;*/
-    /*white-space: nowrap;*/
+    white-space: nowrap;
     overflow: hidden;
 }
 .code-memoryObject.array{

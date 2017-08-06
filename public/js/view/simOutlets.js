@@ -2191,7 +2191,7 @@ Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
         this.length = this.object.elemObjects.length;
         this.element.addClass("code-memoryObjectArray");
 
-        this.addrElem = $("<div class='address' style='visibility: hidden;'>0x"+this.object.address+"</div>");
+        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
         this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
