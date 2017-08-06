@@ -1264,10 +1264,17 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         assert(this.address, "Must be allocated before you can get pointer to object.");
         return Value.instance(this.address, Types.ObjectPointer.instance(this));
     },
-    getSubobject : function(addr){
+    getSubobject : function(addr, memory){
         if(this.isArray){
             var offset = (addr - this.address) / this.type.elemType.size;
-            return this.elemObjects[offset];
+            if (0 <= offset && offset < this.elemObjects.length) {
+                return this.elemObjects[offset];
+            }
+            else {
+                var outOfBoundsObj = ArraySubobject.instance(this, offset);
+                outOfBoundsObj.allocated(memory, this.address + offset * this.type.elemType.size);
+                return outOfBoundsObj;
+            }
             // for(var i = 0; i < this.type.length; ++i){
             //     var subObj = this.elemObjects[i];
             //     if (subObj.address === addr){
@@ -1901,6 +1908,7 @@ var AnonObject = CPP.AnonObject = CPP.ObjectEntity.extend({
      }*/
 });
 
+
 var Subobject = CPP.Subobject = CPP.ObjectEntity.extend({
     _name: "Subobject",
     parentObject : Class._ABSTRACT,
@@ -1940,6 +1948,16 @@ var ArraySubobject = CPP.ArraySubobject = CPP.Subobject.extend({
             desc.name = arrDesc.name + "[" + this.index + "]";
         }
         return desc;
+    },
+    isAlive : function() {
+        return ArraySubobject._parent.isAlive.apply(this, arguments) && this.isInBounds();
+    },
+    isValueValid : function() {
+        return this.isInBounds();
+    },
+    isInBounds : function() {
+        var offset = (this.address - this.arrObj.address) / this.type.size;
+        return 0 <= offset && offset < this.arrObj.elemObjects.length;
     }
 });
 
@@ -2561,7 +2579,8 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
 
         // Handle special cases for pointers with RTTI
         if (isA(ptr.type, Types.ArrayPointer)){
-            return ptr.type.arrObj.getSubobject(addr) || createAnonObject(type, this, addr);
+            return ptr.type.arrObj.getSubobject(addr, this);
+
         }
         else if (isA(ptr.type, Types.ObjectPointer)  && ptr.type.isValueValid(addr)){
             return ptr.type.obj;

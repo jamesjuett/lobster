@@ -2064,23 +2064,26 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function (outlet) {
                 pointedOutlet = pointedOutlet || outlet;
             });
-            endOff = pointedOutlet.objElem.offset();
-            endOff.left += pointedOutlet.objElem.outerWidth()/2;
-            //endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        var startOff = this.objElem.offset();
-        startOff.left += this.objElem.outerWidth()/2;
+            if (pointedOutlet) {
+                endOff = pointedOutlet.objElem.offset();
+                endOff.left += pointedOutlet.objElem.outerWidth()/2;
+                //endOff.top += pointedOutlet.objElem.outerHeight();
 
-        // If start is below end (greater offset), we move top of end to bottom.
-        if (startOff.top > endOff.top && pointedOutlet) {
-            endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        else{
-            startOff.top += this.objElem.outerHeight();
-        }
+                var startOff = this.objElem.offset();
+                startOff.left += this.objElem.outerWidth()/2;
+
+                // If start is below end (greater offset), we move top of end to bottom.
+                if (startOff.top > endOff.top && pointedOutlet) {
+                    endOff.top += pointedOutlet.objElem.outerHeight();
+                }
+                else{
+                    startOff.top += this.objElem.outerHeight();
+                }
 
 
-        this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+                this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+            }
+        }
     },
     makeArrayPointerArrow : function(){
 
