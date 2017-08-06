@@ -156,8 +156,11 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 
 
     compileMemberOverload : function(thisArg, argAsts, op){
+        var self = this;
         var auxArgs = argAsts.map(function(argAst){
-            return CPPConstruct.create(argAst, {parent: this, auxiliary: true});
+            var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
+            auxArg.tryCompile();
+            return auxArg;
         });
 
         try{
@@ -1711,10 +1714,14 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
         if (isA(obj.type, Types.ArrayPointer)){
             // Check that we haven't run off the array
             if (newRawValue < obj.type.min()){
-                //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+                    sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+                }
             }
             else if (obj.type.onePast() < newRawValue){
-                //sim.alert("Oops. That pointer just wandered off the end of its array.");
+                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+                    sim.alert("Oops. That pointer just wandered off the end of its array.");
+                }
             }
         }
         else if (isA(obj.type, Types.Pointer)){
@@ -2644,6 +2651,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         }
 
         if (isA(this.heapType, Types.Array)){
+            // Note: this is Pointer, rather than ArrayPointer, since the latter should only be used in runtime contexts
             this.type = Types.Pointer.instance(this.heapType.elemType);
             if (this.declarator.dynamicLengthExpression){
                 this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
@@ -2707,9 +2715,9 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
                 heapType = Types.Array.instance(this.heapType.elemType, len);
             }
 
-            var entity = DynamicObject.instance(heapType, this);
+            var obj = DynamicObject.instance(heapType);
 
-            var obj = sim.memory.heap.allocateNewObject(entity);
+            sim.memory.heap.allocateNewObject(obj);
             sim.i_pendingNews.push(obj);
             inst.allocatedObject = obj;
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default

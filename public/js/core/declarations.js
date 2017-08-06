@@ -37,11 +37,14 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
 
 var BaseDeclarationMixin = {
     tryCompileDeclaration : function(){
-        try{
+        try {
             return this.compileDeclaration.apply(this, arguments);
         }
-        catch(e){
-            if (isA(e, SemanticException)){
+        catch(e) {
+            if (isA(e, Note)) {
+                this.addNote(e);
+            }
+            else if (isA(e, SemanticException)){
                 this.addNote(e.annotation(this));
             }
             else{
@@ -52,11 +55,14 @@ var BaseDeclarationMixin = {
     },
 
     tryCompileDefinition : function(){
-        try{
+        try {
             return this.compileDefinition.apply(this, arguments);
         }
-        catch(e){
-            if (isA(e, SemanticException)){
+        catch(e) {
+            if (isA(e, Note)) {
+                this.addNote(e);
+            }
+            else if (isA(e, SemanticException)){
                 this.addNote(e.annotation(this));
             }
             else{

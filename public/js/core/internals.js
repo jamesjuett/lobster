@@ -1576,9 +1576,8 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
 var DynamicObject = CPP.DynamicObject = CPP.ObjectEntity.extend({
     _name: "DynamicObject",
     storage: "dynamic",
-    init: function(type, expr, name){
+    init: function(type, name){
         this.initParent(name || null, type);
-        this.expr = expr;
     },
     instanceString : function(){
         return "Heap object at " + this.address + " (" + this.type + ")";
@@ -2681,8 +2680,6 @@ var MemoryHeap = Class.extend(Observable, {
         else if (obj.type.defaultValue !== undefined){
             obj.setValue(obj.type.defaultValue);
         }
-
-        return obj;
     },
 
     deleteObject: function(addr, inst){
