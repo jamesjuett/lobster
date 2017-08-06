@@ -1318,6 +1318,11 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                     var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
                                     var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
                                     ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
+
+                                    if (!ptr.isValueValid()) {
+                                        sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+                                    }
+
                                     var obj = sim.memory.getObject(ptr);
 
                                     var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
