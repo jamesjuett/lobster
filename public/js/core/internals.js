@@ -1573,8 +1573,8 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
 
 });
 
-var DynamicObjectEntity = CPP.DynamicObjectEntity = CPP.ObjectEntity.extend({
-    _name: "DynamicObjectEntity",
+var DynamicObject = CPP.DynamicObject = CPP.ObjectEntity.extend({
+    _name: "DynamicObject",
     storage: "dynamic",
     init: function(type, expr, name){
         this.initParent(name || null, type);
@@ -2668,7 +2668,7 @@ var MemoryHeap = Class.extend(Observable, {
     clear : function(){
         this.objects.length = 0;
     },
-    newObject: function(obj){
+    allocateNewObject: function(obj){
         this.bottom -= obj.type.size;
         this.memory.allocateObject(obj, this.bottom);
         this.objectMap[obj.address] = obj;

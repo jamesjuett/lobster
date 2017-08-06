@@ -2707,9 +2707,9 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
                 heapType = Types.Array.instance(this.heapType.elemType, len);
             }
 
-            var entity = DynamicObjectEntity.instance(heapType, this);
+            var entity = DynamicObject.instance(heapType, this);
 
-            var obj = sim.memory.heap.newObject(entity);
+            var obj = sim.memory.heap.allocateNewObject(entity);
             sim.i_pendingNews.push(obj);
             inst.allocatedObject = obj;
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
@@ -2806,7 +2806,7 @@ var Delete = Expressions.Delete = Expression.extend({
                 obj = sim.memory.getObject(ptr);
             }
 
-            if (!isA(obj, DynamicObjectEntity)) {
+            if (!isA(obj, DynamicObject)) {
                 if (isA(obj, AutoObjectInstance)) {
                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
                 }
@@ -2881,7 +2881,7 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
         }
 
         // Check to make sure we're deleting a valid heap object.
-        if (!isA(obj, DynamicObjectEntity)) {
+        if (!isA(obj, DynamicObject)) {
             if (isA(obj, AutoObjectInstance)) {
                 sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
             }

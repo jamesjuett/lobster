@@ -35,7 +35,7 @@ var DeadObjectMessage = RuntimeMessage.extend({
 
 
         var text1;
-        if (isA(this.deadObj, DynamicObjectEntity)){
+        if (isA(this.deadObj, DynamicObject)){
             var killer = this.deadObj.obituary().killer;
             if (killer){
                 var srcCode = findNearestTrackedConstruct(killer.model).code;

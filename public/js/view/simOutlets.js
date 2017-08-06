@@ -2320,7 +2320,7 @@ Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
 
         // Only show name and address for object if not a base class subobject
         if (!isA(this.object, BaseClassSubobject)){
-            if (isA(this.object, DynamicObjectEntity)){
+            if (isA(this.object, DynamicObject)){
                 this.addrElem = $("<td class='address'>0x"+this.object.address+"</td>");
                 this.classHeaderElem.append(this.addrElem);
             }
