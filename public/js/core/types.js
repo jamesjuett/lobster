@@ -407,6 +407,20 @@ var Type = Lobster.Types.Type = Class.extend({
     },
 
     /**
+     * Returns whether a given raw value for this type is dereferenceable. For most types, this function just returns
+     * false since dereferencing them doesn't even make sense. For pointer types, the given raw value is dereferenceable
+     * if the result of the dereference will be a live object. An example of the distinction between validity and
+     * dereferenceability for pointer types would be an array pointer. The pointer value (an address) is dereferenceable
+     * if it is within the bounds of the array. It is valid in those same locations plus also the location one space
+     * past the end (but not dereferenceable there). All other address values are invalid.
+     * @param value
+     * @returns {*|boolean}
+     */
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value);
+    },
+
+    /**
      * Returns whether or not the type is complete. Note a type may be incomplete at one point during compilation
      * and then completed later. e.g. a class type is incomplete until its definition is finished
      * @returns {boolean}
@@ -553,8 +567,10 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
     i_type: "char",
     size: 1,
 
+    NULL_CHAR : 0,
+
     isNullChar : function(value) {
-        return value === 0;
+        return value === this.NULL_CHAR;
     },
 
     valueToString : function(value){

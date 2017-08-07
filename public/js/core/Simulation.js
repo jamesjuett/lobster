@@ -409,6 +409,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         object.value = 4;
     },
     exception : function(message) {
+        // TODO: change to actually do exception stuff some day
         this.undefinedBehavior(message);
     },
     undefinedBehavior : function(message) {

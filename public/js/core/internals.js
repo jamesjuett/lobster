@@ -1163,7 +1163,6 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     storage: Class._ABSTRACT,
 
     init: function(name, type){
-        var self = this;
         this.initParent(name);
         this.type = type;
         this.size = type.size;
@@ -1190,19 +1189,40 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
 
 
             // TODO I think the 3 statements below can be replaced with:
+            var self = this;
             //this.subobjects = classType.subobjectEntities.map(function(mem){
             //    return mem.objectInstance(self);
             //});
-            this.baseSubobjects = classType.baseClassSubobjectEntities.map(function(mem){
-                return mem.objectInstance(self);
+            this.subobjects = [];
+            this.i_memberSubobjectMap = {};
+            classType.baseClassSubobjectEntities.forEach(function(baseEntity){
+                self.subobjects.push(baseEntity.objectInstance(self));
             });
-            this.memberSubobjects = classType.memberSubobjectEntities.map(function(mem){
-                return mem.objectInstance(self);
+            classType.memberSubobjectEntities.map(function(memEntity){
+                var subobj = memEntity.objectInstance(self);
+                self.subobjects.push(subobj);
+                self.i_memberSubobjectMap[memEntity.name] = subobj;
             });
-            this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
 
         }
     },
+
+    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
+    // Then this function should also only exist in the appropriate specialized classes
+    getMemberSubobject : function(name) {
+        return this.i_memberSubobjectMap && this.i_memberSubobjectMap[name];
+    },
+
+    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
+    // Then this function should also only exist in the appropriate specialized classes
+    memberSubobjectValueWritten : function() {
+        this.send("valueWritten");
+    },
+
+    arrayElemValueWritten : function() {
+        this.send("valueWritten");
+    },
+
     instanceString : function(){
         return "@"+ this.address;
     },
@@ -1310,7 +1330,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             var arr = [];
             for(var i = 0; i < this.nonRefType.length; ++i){
                 // use rawValue here to deeply remove Value object wrappers
-                arr.push(this.elemObjects[i].rawValue(read));
+                arr.push(this.elemObjects[i].getValue(read));
             }
             return arr;
         }
@@ -1540,6 +1560,9 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     },
     isValueValid : function(){
         return this._isValid && this.type.isValueValid(this.rawValue());
+    },
+    isValueDereferenceable : function() {
+        return this._isValid && this.type.isValueDereferenceable(this.rawValue());
     },
     describe : function(){
         var w1 = isA(this.decl, Declarations.Parameter) ? "parameter " : "object ";
@@ -1873,7 +1896,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
 
         assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
 
-        return memberOf.memberSubobjects[this.memberIndex].lookup(sim, inst);
+        return memberOf.getMemberSubobject(this.name).lookup(sim, inst); // I think the lookup here is in case of reference members?
     },
     objectInstance : function(parentObj){
         return MemberSubobject.instance(this.type, parentObj, this.name);
@@ -1953,11 +1976,15 @@ var ArraySubobject = CPP.ArraySubobject = CPP.Subobject.extend({
         return ArraySubobject._parent.isAlive.apply(this, arguments) && this.isInBounds();
     },
     isValueValid : function() {
-        return this.isInBounds();
+        return Lobster.CPP.ArraySubobject._parent.isValueValid.apply(this, arguments) && this.isInBounds();
     },
     isInBounds : function() {
         var offset = (this.address - this.arrObj.address) / this.type.size;
         return 0 <= offset && offset < this.arrObj.elemObjects.length;
+    },
+    setValue : function(newValue, write) {
+        ArraySubobject._parent.setValue.apply(this, arguments);
+        write && this.arrObj.arrayElemValueWritten(this);
     }
 });
 
@@ -2065,6 +2092,10 @@ var MemberSubobject = CPP.MemberSubobject = CPP.Subobject.extend({
         else{
             return {message: "the member " + this.name + " of " + parent.describe().message};
         }
+    },
+    setValue : function(newValue, write) {
+        MemberSubobject._parent.setValue.apply(this, arguments);
+        write && this.parent.memberSubobjectValueWritten(this);
     }
 });
 

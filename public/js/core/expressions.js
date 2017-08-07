@@ -8,27 +8,46 @@ var VALUE_ID = 0;
 var Value = Class.extend({
     _name: "Value",
     init: function(value, type, options){
+        // TODO: remove this.value in favor of using rawValue() function
         this.value = value;
+        this.i_rawValue = value;
         this.type = type;
 
         if(options && options.invalid){
             this._invalid = true;
         }
     },
+    clone : function(cloneValue) {
+        return Value.instance(cloneValue !== undefined ? cloneValue : this.i_rawValue, this.type, {
+            invalid : this._invalid
+        });
+    },
+    plus : function(toAdd) {
+        return this.clone(this.i_rawValue + toAdd);
+    },
+    minus : function(toSub) {
+        return this.clone(this.i_rawValue - toSub);
+    },
+    times : function(multiplyBy) {
+        return this.clone(this.i_rawValue * multiplyBy);
+    },
+    divide : function(divideBy) {
+        return this.clone(this.i_rawValue / divideBy);
+    },
     instanceString : function(){
         return this.valueString();
     },
     valueString : function(){
-        return this.type.valueToString(this.value);
+        return this.type.valueToString(this.i_rawValue);
     },
     valueToOstreamString : function(){
-        return this.type.valueToOstreamString(this.value);
+        return this.type.valueToOstreamString(this.i_rawValue);
     },
     getValue : function(){
         return this;
     },
     rawValue : function(){
-        return this.value;
+        return this.i_rawValue;
     },
     /**
      * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
@@ -37,10 +56,18 @@ var Value = Class.extend({
      * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
      */
     setRawValue : function(value) {
-        this.value = value;
+        this.i_rawValue = this.value = value;
     },
     isValueValid : function(){
-        return !this._invalid && this.type.isValueValid(this.value);
+        return !this._invalid && this.type.isValueValid(this.i_rawValue);
+    },
+    invalidate : function() {
+        var c = this.clone();
+        c._invalid = true;
+        return c;
+    },
+    isValueDereferenceable : function(){
+        return !this._invalid && this.type.isValueDereferenceable(this.i_rawValue);
     },
     describe : function(){
         return {message: this.valueString()};
