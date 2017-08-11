@@ -1156,7 +1156,8 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : {identifier: "~strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    deleteHeapArray(sim, inst, rec.getMemberSubobject("data_ptr"));
                                 }
                             }, null)
                         },
