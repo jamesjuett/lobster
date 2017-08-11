@@ -1195,8 +1195,11 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             //});
             this.subobjects = [];
             this.i_memberSubobjectMap = {};
+            this.i_baseSubobjects = [];
             classType.baseClassSubobjectEntities.forEach(function(baseEntity){
-                self.subobjects.push(baseEntity.objectInstance(self));
+                var baseSubobj = baseEntity.objectInstance(self);
+                self.subobjects.push(baseSubobj);
+                self.i_baseSubobjects.push(baseSubobj);
             });
             classType.memberSubobjectEntities.map(function(memEntity){
                 var subobj = memEntity.objectInstance(self);
@@ -1858,8 +1861,8 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     lookup: function (sim, inst) {
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
-        while(memberOf && !isA(memberOf.type, this.type)){
-            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
+        while(memberOf && !isA(memberOf.type, this.type)){ // TODO: this isA should probably be changed to a type function
+            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
         }
         assert(memberOf, "Internal lookup failed to find subobject in class or base classes.");
 
@@ -1891,7 +1894,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
-            memberOf = memberOf.type.getBaseClass() && memberOf.baseSubobjects[0];
+            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
         }
 
         assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
