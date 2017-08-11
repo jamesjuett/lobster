@@ -2894,61 +2894,69 @@ var Delete = Expressions.Delete = Expression.extend({
     }
 });
 
+/**
+ *
+ * @param sim
+ * @param inst
+ * @param {Value | ObjectEntity} ptr
+ * @returns {ObjectEntity?}
+ */
+var deleteHeapArray = function(sim, inst, ptr) {
+    if(Types.Pointer.isNull(ptr.rawValue())){
+        return;
+    }
+
+    // If it's an array pointer, just grab array object to delete from RTTI.
+    // Otherwise ask memory what object it's pointing to.
+    var obj;
+    if (isA(ptr.type, Types.ArrayPointer)){
+        obj = ptr.type.arrObj;
+        // if the address is not the same, it means we're deleting through an array pointer,
+        // but not one that is pointing to the beginning of the array. this causes undefined behavior
+        if (ptr.rawValue() !== obj.address) {
+            sim.undefinedBehavior("It looks like you used <span class='code'>delete[]</span> on a pointer to an array, but it wasn't pointing at the beginning of the array as is required for <span class='code'>delete[]</span>. This causes undefined behavior!");
+        }
+    }
+    else{
+        obj = sim.memory.getObject(ptr);
+    }
+
+    // Check to make sure we're deleting a valid heap object.
+    if (!isA(obj, DynamicObject)) {
+        if (isA(obj, AutoObjectInstance)) {
+            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
+        }
+        else {
+            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
+        }
+        return;
+    }
+
+    if (!isA(obj.type, Types.Array)) {
+        sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
+        return;
+    }
+
+    //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
+    //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
+    //    this.done(sim, inst);
+    //    return;
+    //}
+
+    if (!obj.isAlive()) {
+        DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
+        return;
+    }
+
+    return sim.memory.heap.deleteObject(ptr.rawValue(), inst);
+};
 
 var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
     _name: "DeleteArray",
 
     stepForward: function(sim, inst){
         var ptr = inst.childInstances.operand.evalValue;
-        if(Types.Pointer.isNull(ptr.rawValue())){
-            this.done(sim, inst);
-            return;
-        }
-
-        // If it's an array pointer, just grab array object to delete from RTTI.
-        // Otherwise ask memory what object it's pointing to.
-        // TODO: Shouldn't always be doing this. What if the pointer had been advanced?
-        //       In that case, we should get undefined behavior. Instead, I think it may
-        //       be better to just use getObject in all cases.
-        var obj;
-        if (isA(ptr.type, Types.ArrayPointer)){
-            obj = ptr.type.arrObj;
-        }
-        else{
-            obj = sim.memory.getObject(ptr);
-        }
-
-        // Check to make sure we're deleting a valid heap object.
-        if (!isA(obj, DynamicObject)) {
-            if (isA(obj, AutoObjectInstance)) {
-                sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
-            }
-            else {
-                sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
-            }
-            this.done(sim, inst);
-            return;
-        }
-
-        if (!isA(obj.type, Types.Array)) {
-            sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
-            this.done(sim, inst);
-            return;
-        }
-
-        //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
-        //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
-        //    this.done(sim, inst);
-        //    return;
-        //}
-
-        if (!obj.isAlive()) {
-            DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-            this.done(sim, inst);
-            return;
-        }
-
-        var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalValue.value, inst);
+        deleteHeapArray(sim, inst, ptr);
         this.done(sim, inst);
     },
 

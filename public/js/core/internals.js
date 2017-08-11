@@ -1883,6 +1883,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         this.initParent(decl);
         if (!this.type._isInstance){
             this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
+            assert(false); // TODO: I don't think this code actually gets used, so the above TODO could be resolved
         }
         this.memberOfType = memberOfType;
         this.access = decl.access;

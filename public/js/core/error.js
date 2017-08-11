@@ -21,7 +21,7 @@ var DeadObjectMessage = RuntimeMessage.extend({
     display : function(sim, inst){
         var text0;
         if (this.options.fromDereference){
-            text0 = "I followed that pointer, but the object I found was dead!";
+            text0 = "I followed that pointer, but I don't like what I found. There's no legitimate data here. Perhaps you dereferenced an invalid pointer/address, or maybe it was a dangling pointer to a dead object?";
         }
         else if (this.options.fromSubscript){
             text0 = "The object retrieved from that subscript operation doesn't exist. Either you indexed out of bounds, or possibly the underlying array itself was no longer around.";
