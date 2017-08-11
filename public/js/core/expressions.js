@@ -2907,6 +2907,9 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
 
         // If it's an array pointer, just grab array object to delete from RTTI.
         // Otherwise ask memory what object it's pointing to.
+        // TODO: Shouldn't always be doing this. What if the pointer had been advanced?
+        //       In that case, we should get undefined behavior. Instead, I think it may
+        //       be better to just use getObject in all cases.
         var obj;
         if (isA(ptr.type, Types.ArrayPointer)){
             obj = ptr.type.arrObj;

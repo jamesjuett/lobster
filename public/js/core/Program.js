@@ -950,7 +950,10 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                 effects : function(sim, inst) {
                                     var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
 
-
+                                    if (Types.Pointer.isNull(ptrValue.rawValue())) {
+                                        sim.undefinedBehavior("Oops, the char* you passed to the string constructor was null. This results in undefined behavior.");
+                                        return;
+                                    }
 
                                     var charValuesToCopy = [];
                                     var outOfBounds = false;
@@ -1050,26 +1053,43 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
                                     var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
-                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst).rawValue();
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
+                                    var numToCopy = n.rawValue();
 
-
-
-                                    var text = "";
-                                    var c = sim.memory.getObject(ptrValue).rawValue();
-                                    var copiedInvalidChar = false;
-                                    while (n > 0) {
-                                        text += Types.Char.valueToOstreamString(c);
-                                        if (!copiedInvalidChar && !ptrValue.type.isValueDereferenceable(ptrValue.rawValue())) {
-                                            copiedInvalidChar = true;
-                                        }
-                                        ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-                                        c = sim.memory.getObject(ptrValue).rawValue();
-                                        --n;
+                                    if (Types.Pointer.isNull(ptrValue.rawValue())) {
+                                        sim.undefinedBehavior("Oops, the char* you passed to the string constructor was null. This results in undefined behavior.");
+                                        return;
                                     }
 
-                                    if (copiedInvalidChar) {
+                                    var invalidSize = !n.isValueValid();
+
+                                    var charValuesToCopy = [];
+                                    var outOfBounds = false;
+
+                                    var c = sim.memory.getObject(ptrValue).getValue();
+                                    while (numToCopy > 0) {
+                                        if (!ptrValue.isValueDereferenceable()) {
+                                            outOfBounds = true;
+                                            break; // break and go to second loop that copies all chars as invalid
+                                        }
+                                        charValuesToCopy.push(c);
+                                        ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
+                                        c = sim.memory.getObject(ptrValue).getValue();
+                                        --numToCopy;
+                                    }
+
+                                    while (numToCopy > 0) {
+                                        charValuesToCopy.push(c.invalidate());
+                                        ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
+                                        c = sim.memory.getObject(ptrValue).getValue();
+                                        --numToCopy;
+                                    }
+
+                                    // add a null char
+                                    charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance()));
+
+                                    if (outOfBounds) {
                                         if (!isA(ptrValue.type, Types.ArrayPointer)) {
                                             sim.undefinedBehavior("You passed a pointer to a single character (rather than an array) to this string constructor, but also asked for more than one char to be copied, which means some memory junk was used to initialize the string.");
                                         }
@@ -1078,7 +1098,18 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                                         }
                                     }
 
-                                    str.writeValue(text);
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
+                                    rec.getMemberSubobject("_size").writeValue(n);
+
+                                    // deep copy the array
+                                    var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), charValuesToCopy.length));
+                                    sim.memory.heap.allocateNewObject(arrObj);
+                                    arrObj.writeValue(charValuesToCopy);
+
+                                    // store pointer to new array
+                                    var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
+                                    this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
                                 }
                             }, null)
                         },
@@ -1091,11 +1122,30 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
                             name : { identifier : "strang"},
                             body : Statements.OpaqueFunctionBodyBlock.instance({
                                 effects : function(sim, inst) {
-                                    var str = this.blockScope.requiredLookup("data").lookup(sim, inst);
-                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst);
-                                    var c = this.blockScope.requiredLookup("c").lookup(sim, inst);
+                                    var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
+                                    var c = this.blockScope.requiredLookup("c").lookup(sim, inst).getValue();
 
-                                    str.writeValue(String.fromCharCode(c.rawValue()).repeat(n.rawValue()));
+                                    var charValuesToCopy = [];
+                                    var rawN = n.rawValue();
+                                    for(var i = 0; i < rawN; ++i) {
+                                        charValuesToCopy.push(c);
+                                    }
+
+                                    // add a null char
+                                    charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance()));
+
+                                    var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+                                    rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
+                                    rec.getMemberSubobject("_size").writeValue(n);
+
+                                    // deep copy the array
+                                    var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), charValuesToCopy.length));
+                                    sim.memory.heap.allocateNewObject(arrObj);
+                                    arrObj.writeValue(charValuesToCopy);
+
+                                    // store pointer to new array
+                                    var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
+                                    this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
                                 }
                             }, null)
                         },
