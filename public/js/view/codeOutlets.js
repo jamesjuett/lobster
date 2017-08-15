@@ -59,8 +59,8 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         }
         //this.element.addClass("hasInst");
         this.instanceSet();
-        for(var i = 0; i < this.inst.pushedChildren.length; ++i){
-            this.childPushed(this.inst.pushedChildren[i]);
+        for(var id in this.inst.pushedChildren) {
+            this.childPushed(this.inst.pushedChildren[id]);
         }
 //        console.log("instance set for " + this._name);
     },
@@ -513,13 +513,13 @@ Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
         this.element.append(htmlDecoratedKeyword("while"));
         this.element.append("(");
 
-        var condElem = $("<span></span>")
+        var condElem = $("<span></span>");
         this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>")
+        var bodyElem = $("<span></span>");
         this.addChild(this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet));
         this.element.append(bodyElem);
 
@@ -581,25 +581,25 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
         this.element.append(htmlDecoratedKeyword("for"));
         this.element.append("(");
 
-        var initElem = $("<span></span>")
+        var initElem = $("<span></span>");
         this.addChild(this.initial = createCodeOutlet(initElem, this.code.initial, this.simOutlet));
         this.element.append(initElem);
 
         this.element.append(" ");
 
-        var condElem = $("<span></span>")
+        var condElem = $("<span></span>");
         this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append("; ");
 
-        var postElem = $("<span></span>")
+        var postElem = $("<span></span>");
         this.addChild(this.post = createCodeOutlet(postElem, this.code.post, this.simOutlet));
         this.element.append(postElem);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>")
+        var bodyElem = $("<span></span>");
         this.addChild(this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet));
         this.element.append(bodyElem);
 

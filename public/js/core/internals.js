@@ -378,7 +378,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
 
         this.subCalls = [];
         this.parent = parent;
-        this.pushedChildren = [];
+        this.pushedChildren = {};
         assert(this.parent || this.model.i_isMainCall, "All code instances must have a parent.");
         assert(this.parent !== this, "Code instance may not be its own parent");
         if (this.parent) {
@@ -442,7 +442,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         this.send("popped", this);
     },
     pushChild : function(child){
-        this.pushedChildren.push(child);
+        this.pushedChildren[child.model.id] = child;
         this.send("childPushed", child);
     },
     pushSubCall : function(subCall){
@@ -1218,6 +1218,19 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
 
     // HACK: I should split this class into subclasses/mixins for objects of class type or array type
     // Then this function should also only exist in the appropriate specialized classes
+    getArrayElemSubobject : function (index) {
+        if (0 <= index && index < this.elemObjects.length) {
+            return this.elemObjects[index];
+        }
+        else {
+            var outOfBoundsObj = ArraySubobject.instance(this, index);
+            outOfBoundsObj.allocated(this.memory, this.address + index * this.type.elemType.size);
+            return outOfBoundsObj;
+        }
+    },
+
+    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
+    // Then this function should also only exist in the appropriate specialized classes
     memberSubobjectValueWritten : function() {
         this.send("valueWritten");
     },
@@ -1287,7 +1300,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
         assert(this.address, "Must be allocated before you can get pointer to object.");
         return Value.instance(this.address, Types.ObjectPointer.instance(this));
     },
-    getSubobject : function(addr, memory){
+    getSubobject : function(addr){
         if(this.isArray){
             var offset = (addr - this.address) / this.type.elemType.size;
             if (0 <= offset && offset < this.elemObjects.length) {
@@ -1295,7 +1308,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             }
             else {
                 var outOfBoundsObj = ArraySubobject.instance(this, offset);
-                outOfBoundsObj.allocated(memory, this.address + offset * this.type.elemType.size);
+                outOfBoundsObj.allocated(this.memory, this.address + offset * this.type.elemType.size);
                 return outOfBoundsObj;
             }
             // for(var i = 0; i < this.type.length; ++i){
@@ -1384,6 +1397,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
             }
         }
         else if (this.isClass){
+            assert(newValue.length === this.subobjects.length);
             for(var i = 0; i < this.subobjects.length; ++i) {
                 this.subobjects[i].setValue(newValue[i], write);
             }
@@ -1576,6 +1590,9 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
     },
     // TODO: doesn't work for class-type objects
     // ^^^ why not? looks like it should work to me
+    // TODO: plot twist I should just remove this function. it's almost exclusively used to detect when
+    // a function finishes without its return object being initialized. However, I feel like there are much
+    // better ways to do this.
     isInitialized : function(){
         return !!this._initialized;
     }
@@ -2614,7 +2631,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
 
         // Handle special cases for pointers with RTTI
         if (isA(ptr.type, Types.ArrayPointer)){
-            return ptr.type.arrObj.getSubobject(addr, this);
+            return ptr.type.arrObj.getSubobject(addr);
 
         }
         else if (isA(ptr.type, Types.ObjectPointer)  && ptr.type.isValueValid(addr)){

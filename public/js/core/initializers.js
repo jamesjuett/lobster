@@ -293,10 +293,13 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             // Handle char[] initialization from string literal as special case
             if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0].type, Types.String)) {
                 var charArr = inst.childInstances.args[0].evalValue.value.split("");
-                for (var i = 0; i < charArr.length; ++i) {
+                var i = 0;
+                for (; i < charArr.length; ++i) {
                     charArr[i] = charArr[i].charCodeAt(0);
                 }
-                charArr.push(0);
+                for (; i < obj.type.length; ++i) {
+                    charArr.push(0);
+                }
                 obj.writeValue(charArr);
             }
             else if (isA(type, Types.Array)) {

@@ -34,6 +34,15 @@ var Value = Class.extend({
     divide : function(divideBy) {
         return this.clone(this.i_rawValue / divideBy);
     },
+    equals : function(otherValue) {
+        var certain = this.isValueValid() && (!otherValue.isValueValid || otherValue.isValueValid());
+        if (otherValue.rawValue) {
+            otherValue = otherValue.rawValue();
+        }
+        return Value.instance(this.rawValue() === otherValue, Types.Bool.instance(), {
+            invalid : !certain
+        });
+    },
     instanceString : function(){
         return this.valueString();
     },
@@ -182,7 +191,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     // },
 
 
-    compileMemberOverload : function(thisArg, argAsts, op){
+    compileMemberOverload : function(thisArg, argAsts, isThisConst, op){
         var self = this;
         var auxArgs = argAsts.map(function(argAst){
             var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
@@ -192,7 +201,8 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 
         try{
             var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
-                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;})
+                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;}),
+                isThisConst: isThisConst
             });
 
             this.isOverload = true;
@@ -515,7 +525,10 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 // Look for an overloaded = operator that we can use with an argument of the RHS type
                 // Note: "own" here means don't look in parent scope containing the class definition, but we still
                 // look in the scope of any base classes that exist due to the class scope performing member lookup
-                var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {paramTypes:[auxRhs.type]});
+                var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
+                    paramTypes:[auxRhs.type],
+                    isThisConst: this.lhs.type.isConst
+                });
 
                 // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
                 if (assnOp){
@@ -787,7 +800,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
             // First, look for a member overload in left class type.
             var overloadOp = auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.operator, {
-                own:true, paramTypes:[auxRight.type]
+                own:true, paramTypes:[auxRight.type], isThisConst : auxLeft.type.isConst
             });
 
             // If we didn't find a member overload, next look for a non-member overload
@@ -1422,7 +1435,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
         if (isA(auxOperand.type, Types.Class)){
             // If it's of class type, we look for overloads
             var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.operator, {
-                own:true, paramTypes:[]
+                own:true, paramTypes:[], isThisConst : auxOperand.type.isConst
             });
             if (!overloadOp) {
                 overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
@@ -1895,7 +1908,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
         // Check for overload
         if (isA(this.operand.type, Types.Class)){
-            this.compileMemberOverload(this.operand, [this.ast.arg], "[]");
+            this.compileMemberOverload(this.operand, [this.ast.arg], this.operand.type.isConst, "[]");
         }
         else{
             this.operand = standardConversion(this.operand, Types.Pointer);
