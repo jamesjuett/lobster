@@ -57,5 +57,6 @@ var CONSTRUCT_CLASSES = {
     this_expression : Expressions.ThisExpression,
     identifier_expression : Expressions.Identifier,
     literal : Expressions.Literal,
+    string_literal : Expressions.StringLiteral,
     member_declaration : Declarations.Member
 };

@@ -3238,8 +3238,16 @@ var Literal = Expressions.Literal = Expression.extend({
 		
 		var typeClass = literalTypes[this.ast.type];
         this.type = typeClass;
-        this.valueCategory = "prvalue";
-        this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
+
+        if (this.ast.type === "string") {
+            this.i_stringEntity = this.getTranslationUnit().addStringLiteral(val);
+            this.i_isStringLiteral = true;
+            this.valueCategory = "lvalue";
+        }
+        else {
+            this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
+            this.valueCategory = "prvalue";
+        }
 
 //        if (this.ast.type === "string"){
 //            this.type = Types.Array.instance(Types.Char, val.length+1);
@@ -3251,7 +3259,12 @@ var Literal = Expressions.Literal = Expression.extend({
 	},
 
     upNext : function(sim, inst){
-        inst.evalValue = this.value;
+        if (this.i_isStringLiteral) {
+            inst.evalValue = this.i_stringEntity.lookup(sim, inst);
+        }
+        else {
+            inst.evalValue = this.value;
+        }
         this.done(sim, inst);
         return true;
     },
@@ -3261,6 +3274,39 @@ var Literal = Expressions.Literal = Expression.extend({
         return {name: str, message: str};
     }
 	
+//	stepForward : function(sim, inst){
+//		this.done(sim, inst);
+//		return true;
+//	}
+});
+
+var StringLiteral = Expressions.StringLiteral = Expression.extend({
+    _name: "StringLiteral",
+    initIndex: false,
+    compile : function(){
+
+        var conv = literalJSParse[this.ast.type];
+        var val = (conv ? conv(this.ast.value) : this.ast.value);
+
+        this.i_stringEntity = StringLiteralEntity.instance(val);
+        this.getTranslationUnit().addStringLiteral(this.i_stringEntity);
+        this.i_isStringLiteral = true;
+        this.i_stringValue = val;
+        this.type = this.i_stringEntity.type;
+        this.valueCategory = "lvalue";
+
+    },
+
+    upNext : function(sim, inst){
+        inst.evalValue = this.i_stringEntity.lookup(sim, inst);
+        this.done(sim, inst);
+        return true;
+    },
+
+    describeEvalValue : function(depth, sim, inst){
+        return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
+    }
+
 //	stepForward : function(sim, inst){
 //		this.done(sim, inst);
 //		return true;
