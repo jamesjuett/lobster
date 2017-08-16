@@ -1392,6 +1392,7 @@ var ObjectEntity = CPP.ObjectEntity = CPP.CPPEntity.extend({
 
 
         if (this.isArray){
+            assert(newValue.length === this.nonRefType.length);
             for(var i = 0; i < this.nonRefType.length; ++i){
                 this.elemObjects[i].setValue(newValue[i], write);
             }

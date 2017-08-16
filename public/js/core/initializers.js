@@ -192,6 +192,15 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     this.i_childrenToExecute = ["arrayElemInitializers"];
                 }
             }
+            else if (isA(type, Types.Array) && isA(type.elemType, Types.Char)
+                && isA(arg, Expressions.StringLiteral)) {
+                //if we're initializing a character array from a string literal, check length
+                if (arg.type.length > type.length){
+                    this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, type.length));
+                }
+                this.i_childrenToExecute = ["args"];
+
+            }
             else{ // Scalar type
                 if (this.args.length > 1){
                     this.addNote(CPPError.declaration.init.scalar_args(this, type));
@@ -201,14 +210,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                 arg = this.args[0] = standardConversion(arg, type);
 
                 // Type check
-                if (isA(type, Types.Array) && isA(type.elemType, Types.Char)
-                    && isA(arg, Expressions.Literal) && isA(arg.type, Types.String)){
-                    //if we're initializing a character array from a string literal, check length
-                    if (arg.value.value.length + 1 > type.length){
-                        this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.value.value.length + 1, type.length));
-                    }
-                }
-                else if (!sameType(type, arg.type)) {
+                if (!sameType(type, arg.type)) {
                     this.addNote(CPPError.declaration.init.convert(this, arg.type, type));
                 }
                 this.i_childrenToExecute = ["args"];
@@ -291,16 +293,15 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
         else{
             // Handle char[] initialization from string literal as special case
-            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0].type, Types.String)) {
-                var charArr = inst.childInstances.args[0].evalValue.value.split("");
-                var i = 0;
-                for (; i < charArr.length; ++i) {
-                    charArr[i] = charArr[i].charCodeAt(0);
+            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0], Expressions.StringLiteral)) {
+                var charsToWrite = inst.childInstances.args[0].evalValue.rawValue();
+
+                // pad with zeros
+                while (charsToWrite.length < type.length) {
+                    charsToWrite.push(Types.Char.NULL_CHAR);
                 }
-                for (; i < obj.type.length; ++i) {
-                    charArr.push(0);
-                }
-                obj.writeValue(charArr);
+
+                obj.writeValue(charsToWrite);
             }
             else if (isA(type, Types.Array)) {
                 // Nothing to do, handled by child initializers

@@ -3239,32 +3239,12 @@ var Literal = Expressions.Literal = Expression.extend({
 		var typeClass = literalTypes[this.ast.type];
         this.type = typeClass;
 
-        if (this.ast.type === "string") {
-            this.i_stringEntity = this.getTranslationUnit().addStringLiteral(val);
-            this.i_isStringLiteral = true;
-            this.valueCategory = "lvalue";
-        }
-        else {
-            this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
-            this.valueCategory = "prvalue";
-        }
-
-//        if (this.ast.type === "string"){
-//            this.type = Types.Array.instance(Types.Char, val.length+1);
-//            this.valueCategory = "prvalue";
-//            val = val.split("");
-//            val.push(0);
-//            this.value = Value.instance(val, this.type);
-//        }
+        this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
+        this.valueCategory = "prvalue";
 	},
 
     upNext : function(sim, inst){
-        if (this.i_isStringLiteral) {
-            inst.evalValue = this.i_stringEntity.lookup(sim, inst);
-        }
-        else {
-            inst.evalValue = this.value;
-        }
+        inst.evalValue = this.value;
         this.done(sim, inst);
         return true;
     },
