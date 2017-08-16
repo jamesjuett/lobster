@@ -71,6 +71,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
+        this.i_allocateStringLiterals();
+
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
             this.memory.allocateStatic(this.i_program.staticEntities[i]);
         }
@@ -106,6 +108,16 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_stepsTaken = 0;
 
 	},
+
+    i_allocateStringLiterals : function() {
+        var self = this;
+        var tus = this.i_program.getTranslationUnits();
+        for(var tuName in tus) {
+            tus[tuName].stringLiterals.forEach(function (lit) {
+                self.memory.allocateStringLiteral(lit);
+            });
+        };
+    },
 	
 	push : function(codeInstance){
 		this.i_execStack.push(codeInstance);

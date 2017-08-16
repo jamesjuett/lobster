@@ -1620,7 +1620,44 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     lookup : function(sim, inst) {
         return sim.memory.staticLookup(this).lookup(sim, inst);
     }
+});
 
+var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
+    _name: "StringLiteralEntity",
+    storage: "static",
+    init: function(str){
+        this.initParent(null);
+        this.type = Types.Array.instance(Types.Char.instance(true), str.length + 1); // + 1 for null char
+        this.i_str = str;
+    },
+    objectInstance : function() {
+        return StringLiteralObject.instance(this.type);
+    },
+    instanceString : function(){
+        return "string literal \"" + unescapeString(this.i_str) + "\"";
+    },
+    getLiteralString : function() {
+        return this.i_str;
+    },
+    lookup : function(sim, inst) {
+        return sim.memory.getStringLiteral(this.i_str);
+    }
+});
+
+
+
+var StringLiteralObject = CPP.StringLiteralObject = CPP.ObjectEntity.extend({
+    _name: "StringLiteralObject",
+    storage: "static",
+    init: function (type) {
+        this.initParent(null, type);
+    },
+    instanceString: function () {
+        return "string literal at 0x" + this.address;
+    },
+    describe: function () {
+        return {message: "string literal at 0x" + this.address};
+    }
 });
 
 var DynamicObject = CPP.DynamicObject = CPP.ObjectEntity.extend({
@@ -2462,6 +2499,7 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         }
 
         this.objects = {};
+        this.i_stringLiteralMap = {};
         this.staticTop = this.staticStart+4;
         this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
@@ -2494,6 +2532,30 @@ var Memory = Lobster.Memory = Class.extend(Observable, {
         // I'm just leaving the dead objects here for now, that way we can provide better messages if a dead object is looked up
         //delete this.objects[addr];
     },
+
+    allocateStringLiteral : function(stringLiteralEntity) {
+        var str = stringLiteralEntity.getLiteralString();
+        if (!this.i_stringLiteralMap[str]) {
+            // only need to allocate a string literal object if we didn't already have an identical one
+            var object = stringLiteralEntity.objectInstance();
+            this.allocateObject(object, this.staticTop);
+
+            // record the string literal in case we see more that are the same in the future
+            this.i_stringLiteralMap[str] = object;
+
+            // write value of string literal into the object
+            object.writeValue(Types.Char.jsStringToNullTerminatedCharArray(str));
+
+            // adjust location for next static object
+            this.staticTop += object.size;
+        }
+
+    },
+
+    getStringLiteral : function(str) {
+        return this.i_stringLiteralMap[str];
+    },
+
     allocateStatic : function(staticEntity){
         var object = staticEntity.objectInstance();
         this.allocateObject(object, this.staticTop);

@@ -1536,7 +1536,7 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         var newText = this.getText();
 
 
-        // TODO NEW omg what a hack
+        // TODO omg what a hack
         //Use for building parser :p
         // console.log(peg.generate(newText,{
         //    cache: true,
@@ -2097,6 +2097,7 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function(outlet){ arrayOutlet = arrayOutlet || outlet; });
             if (!arrayOutlet){
                 // do nothing
+                return;
             }
             else if (value < type.min()) {
                 var first = arrayOutlet.elemOutlets[0].objElem;

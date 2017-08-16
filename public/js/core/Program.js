@@ -205,7 +205,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
 
         this.i_sourceFiles = {};
 
-        this.staticEntities.length = 0;
+        this.staticEntities.clear();
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.i_functionCalls = [];
 
@@ -282,8 +282,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
         return this.i_translationUnits;
     },
 
-    addStaticEntity : function(obj){
-        this.staticEntities.push(obj);
+    addStaticEntity : function(ent){
+        this.staticEntities.push(ent);
     },
 
     /**
@@ -686,6 +686,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
+        this.stringLiterals = [];
         this.i_functionCalls = [];
 
         this.i_main = false;
@@ -700,6 +701,10 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
     addStaticEntity : function(obj){
         this.staticEntities.push(obj);
+    },
+
+    addStringLiteral : function(lit) {
+        this.stringLiterals.push(lit);
     },
 
     fullCompile : function() {
@@ -774,6 +779,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		this.topLevelDeclarations.clear();
 		this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
+        this.stringLiterals.clear();
         this.i_functionCalls = [];
 
         // TODO NEW change

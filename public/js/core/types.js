@@ -573,6 +573,14 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
         return value === this.NULL_CHAR;
     },
 
+    jsStringToNullTerminatedCharArray : function(str) {
+        var chars = str.split("").map(function(c){
+            return c.charCodeAt(0);
+        });
+        chars.push(Types.Char.NULL_CHAR);
+        return chars;
+    },
+
     valueToString : function(value){
         return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
     },
