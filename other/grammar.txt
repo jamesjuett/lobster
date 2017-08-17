@@ -316,7 +316,6 @@ _simple_type_name
   / "short"
   / "int"
   / "bool"
-  / "string"
   / "long"
   / "signed"
   / "unsigned"

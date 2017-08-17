@@ -328,7 +328,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
         else {
             // Handle char[] initialization from string literal as special case
-            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0].type, Types.String)) {
+            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0], Expressions.StringLiteral)) {
                 exp.message = obj.describe().message + " (a character array) will be initialized from a string literal. Remember that a null character is automatically appended!";
             }
             else if (isA(type, Types.Array)) {

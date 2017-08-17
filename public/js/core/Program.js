@@ -348,6 +348,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
             });
         }
 
+        this.i_defineIntrinsics();
+
         // Make sure all function calls have a definition
         var calls = this.getFunctionCalls();
         for(var i = 0; i < calls.length; ++i) {
@@ -378,6 +380,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
         //     this.semanticProblems.push(CPPError.declaration.prev_main(this, decl.name, otherFunc.decl));
         //     return null;
         // }
+    },
+
+    i_defineIntrinsics : function() {
+
     },
 
     getMainEntity : function() {
@@ -826,12 +832,14 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 	},
 
     i_createBuiltInGlobals : function() {
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+	    if (Types.userTypeNames["ostream"]) {
+            this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
+            this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+        }
 
         // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
-        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.String.instance()});
-        this.endlEntity.defaultValue = "\\n";
+        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
+        this.endlEntity.defaultValue = 10; // 10 is ascii code for \n
         this.i_globalScope.addEntity(this.endlEntity);
 
 
