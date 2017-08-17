@@ -436,7 +436,7 @@ var CPPEntity = Class.extend(Observable, {
 
     type: Class._ABSTRACT, // TODO NEW this should really just be part of the constructor for CPPEntity
 
-    init: function(name){
+    init: function(type, name){
         this.initParent();
         this.entityId = CPPEntity._nextEntityId++;
         this.name = name;
