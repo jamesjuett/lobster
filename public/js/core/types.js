@@ -111,11 +111,9 @@ var Types = Lobster.Types = {
     userTypeNames : {},
     builtInTypes : {},
     defaultUserTypeNames : {
-        _universal_data : true,
         ostream : true,
         istream : true,
-        size_t : true,
-        strang : true
+        size_t : true
     }
 };
 
@@ -691,51 +689,51 @@ Types.builtInTypes["double"] =
 
 
 
-Types.builtInTypes["string"] =
-    Lobster.Types.String = Types.SimpleType.extend({
-    _name: "String",
-    i_type: "string",
-    size: 4,
-    defaultValue: "",
-
-    valueToString : function(value){
-        value = value.replace(/\n/g,"\\n");
-        return '"' + value + '"';
-    },
-    valueToOstreamString : function(value){
-        return value;
-    },
-    bytesToValue : function(bytes){
-        return ""+bytes[0];
-    }
-});
-
-
+// Types.builtInTypes["string"] =
+//     Lobster.Types.String = Types.SimpleType.extend({
+//     _name: "String",
+//     i_type: "string",
+//     size: 4,
+//     defaultValue: "",
+//
+//     valueToString : function(value){
+//         value = value.replace(/\n/g,"\\n");
+//         return '"' + value + '"';
+//     },
+//     valueToOstreamString : function(value){
+//         return value;
+//     },
+//     bytesToValue : function(bytes){
+//         return ""+bytes[0];
+//     }
+// });
 
 
 
 
 
-Types.builtInTypes["ostream"] =
-Lobster.Types.OStream = Types.SimpleType.extend({
-    _name: "OStream",
-    i_type: "ostream",
-    size: 4,
 
-    valueToString : function(value){
-        return JSON.stringify(value);
-    }
-});
 
-Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
-    _name: "IStream",
-    i_type: "istream",
-    size: 4,
-
-    valueToString : function(value){
-        return JSON.stringify(value);
-    }
-});
+// Types.builtInTypes["ostream"] =
+// Lobster.Types.OStream = Types.SimpleType.extend({
+//     _name: "OStream",
+//     i_type: "ostream",
+//     size: 4,
+//
+//     valueToString : function(value){
+//         return JSON.stringify(value);
+//     }
+// });
+//
+// Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+//     _name: "IStream",
+//     i_type: "istream",
+//     size: 4,
+//
+//     valueToString : function(value){
+//         return JSON.stringify(value);
+//     }
+// });
 
 
 
@@ -1297,5 +1295,4 @@ Lobster.Types.Function = Type.extend({
 // TODO wtf were you thinking please remove this
 for (var key in Types){
     Types[key.toLowerCase()] = Types[key];
-    delete Types["string"];
 }

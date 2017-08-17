@@ -1003,10 +1003,6 @@ Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
         else if(this.left.type.isArithmeticType){
             return true;
         }
-        else if (isA(this.left.type, Types.String)){
-            this.isStringComparison = true;
-            return true;
-        }
         else if(isA(this.left.type, Types.Pointer)){
             this.isPointerComparision = true;
             return true;
@@ -1316,6 +1312,44 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
+    "<<": Expressions.BinaryOperator.extend({
+
+        operate: function(left, right, sim, inst){
+
+        },
+        convert : function(){
+
+        },
+        typeCheck : function(){
+            this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+        },
+        stepForward : function(sim, inst){
+            Expressions.BinaryOperator.stepForward.apply(this, arguments);
+
+            // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
+            // var next = sim.peek();
+            // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
+        }
+    }),
+    ">>": Expressions.BinaryOperator.extend({
+
+        operate: function(left, right, sim, inst){
+
+        },
+        convert : function(){
+
+        },
+        typeCheck : function(){
+            this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+        },
+        stepForward : function(sim, inst){
+            Expressions.BinaryOperator.stepForward.apply(this, arguments);
+
+            // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
+            // var next = sim.peek();
+            // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
+        }
+    }),
     "<": Expressions.BinaryOperatorRelational.extend({
         _name: "BinaryOperator[<]",
         compare : function(left, right){
@@ -1359,57 +1393,6 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             return left >= right;
         }
 
-    }),
-    "<<": Expressions.BinaryOperator.extend({
-
-        operate: function(left, right, sim, inst){
-            if (isA(this.left.type, Types.OStream)) {
-                sim.cout(right);
-            }
-            return left;
-        },
-        convert : function(){
-            // only do lvalue to rvalue for right
-            this.right = standardConversion1(this.right);
-        },
-        typeCheck : function(){
-            if (isA(this.left.type, Types.OStream) && !isA(this.right.type, Types.Void)) {
-                this.type = this.left.type;
-                this.valueCategory = this.left.valueCategory;
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        },
-        stepForward : function(sim, inst){
-            Expressions.BinaryOperator.stepForward.apply(this, arguments);
-
-            // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
-            var next = sim.peek();
-            return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
-        }
-    }),
-    ">>": Expressions.BinaryOperator.extend({
-
-        operate: function(left, right, sim, inst){
-            if (isA(this.left.type, Types.IStream)) {
-                sim.cin(right);
-            }
-            return left;
-        },
-        convert : function(){
-            // do nothing
-            // (no lvalue to rvalue)
-        },
-        typeCheck : function(){
-            if (isA(this.left.type, Types.IStream) && this.right.valueCategory == "lvalue") {
-                this.type = this.left.type;
-                this.valueCategory = this.left.valueCategory;
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        }
     })
 };
 
@@ -3223,8 +3206,7 @@ var literalTypes = {
 	"float": Types.Double.instance(),
 	"double": Types.Double.instance(),
     "bool": Types.Bool.instance(),
-    "char" : Types.Char.instance(),
-    "string": Types.String.instance()
+    "char" : Types.Char.instance()
 };
 
 var Literal = Expressions.Literal = Expression.extend({
