@@ -71,6 +71,8 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
 
+        this.i_allocateStringLiterals();
+
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
             this.memory.allocateStatic(this.i_program.staticEntities[i]);
         }
@@ -106,6 +108,16 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_stepsTaken = 0;
 
 	},
+
+    i_allocateStringLiterals : function() {
+        var self = this;
+        var tus = this.i_program.getTranslationUnits();
+        for(var tuName in tus) {
+            tus[tuName].stringLiterals.forEach(function (lit) {
+                self.memory.allocateStringLiteral(lit);
+            });
+        };
+    },
 	
 	push : function(codeInstance){
 		this.i_execStack.push(codeInstance);
@@ -408,6 +420,10 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     cin : function(object){
         object.value = 4;
     },
+    exception : function(message) {
+        // TODO: change to actually do exception stuff some day
+        this.undefinedBehavior(message);
+    },
     undefinedBehavior : function(message) {
         this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
 
@@ -559,7 +575,18 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
         for(var i = 0; i < this.i_execStack.length; ++i){
             var inst = this.i_execStack[i];
-            var obj = inst.evalValue || (inst.func && inst.func.returnValue);
+            if (inst.evalValue) {
+                obj = inst.evalValue;
+            }
+            else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
+                if (isA(inst.func.model.type.returnType, Types.Reference)) {
+                    obj = inst.func.model.getReturnObject(this, inst.func).lookup(this, inst.func);
+                }
+                else {
+                    obj = inst.func.model.getReturnObject(this, inst.func).getValue();
+                }
+            }
+
             if (obj && isA(obj, ObjectEntity)){
                 obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);

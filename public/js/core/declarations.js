@@ -37,11 +37,14 @@ var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
 
 var BaseDeclarationMixin = {
     tryCompileDeclaration : function(){
-        try{
+        try {
             return this.compileDeclaration.apply(this, arguments);
         }
-        catch(e){
-            if (isA(e, SemanticException)){
+        catch(e) {
+            if (isA(e, Note)) {
+                this.addNote(e);
+            }
+            else if (isA(e, SemanticException)){
                 this.addNote(e.annotation(this));
             }
             else{
@@ -52,11 +55,14 @@ var BaseDeclarationMixin = {
     },
 
     tryCompileDefinition : function(){
-        try{
+        try {
             return this.compileDefinition.apply(this, arguments);
         }
-        catch(e){
-            if (isA(e, SemanticException)){
+        catch(e) {
+            if (isA(e, Note)) {
+                this.addNote(e);
+            }
+            else if (isA(e, SemanticException)){
                 this.addNote(e.annotation(this));
             }
             else{
@@ -518,16 +524,17 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
     instType: "call",
 
-    createFromASTSource : function(ast, context) {
-        // HACK: should handle this when ast is created, I think
-        ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-
-
-    },
-
     init : function(ast, context){
         ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
-        this.initParent(ast, copyMixin(context, {func: this}));
+        this.initParent(ast, context);
+    },
+
+    attach : function(context) {
+        FunctionDefinition._parent.attach.call(this, copyMixin(context, {func: this}));
+    },
+
+    i_createFromAST : function(ast, context) {
+        FunctionDefinition._parent.i_createFromAST.apply(this, arguments);
         this.calls = [];
 
         // Check if it's a member function
@@ -540,7 +547,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         this.memberInitializers = [];
         this.autosToDestruct = [];
 
-        this.body = Statements.FunctionBodyBlock.instance(this.ast.body, {func: this, parent: this});
+        this.body = CPPConstruct.create(this.ast.body, {func: this, parent: this}, Statements.FunctionBodyBlock);
     },
 
     compile : function(){
@@ -871,7 +878,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     createInstance : function(args){
         var inst = CPPConstruct.createInstance.apply(this, arguments);
-        inst.returnValue = Value.instance("", Types.Void.instance()); // TODO lol hack
         inst.funcContext = inst; // Each function definition starts a new function context.
         inst.caller = inst.parent;
         return inst;
@@ -882,11 +888,11 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     },
 
     setReturnObject : function(sim, inst, returnObject){
-        inst.returnObject = returnObject;
+        inst.i_returnObject = returnObject;
     },
 
     getReturnObject : function(sim, inst){
-        return inst.returnObject;
+        return inst.i_returnObject;
     },
 
     tailCallReset : function(sim, inst, caller) {
@@ -908,9 +914,10 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
     done : function(sim, inst){
 
-        //TODO: if no return value and non-void, undefined behavior
-        if (!inst.returnValueSet){
-            this.flowOffEndReturn(sim, inst);
+        // If non-void return type, check that return object was initialized.
+        // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
+        if (!isA(this.type.returnType, Types.Void) && !inst.i_returnObject.isInitialized()){
+            this.flowOffNonVoid(sim, inst);
         }
 
         if (inst.receiver){
@@ -921,15 +928,11 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         sim.pop(inst);
     },
 
-    flowOffEndReturn : function(sim, inst){
+    flowOffNonVoid : function(sim, inst){
         if (this.isMain){
-            inst.returnValue = Value.instance(0, Types.Int.instance());
-        }
-        else if (isA(this.type.returnType, Types.Void)){
-            inst.returnValue = Value.instance("", Types.Void.instance());
+            inst.i_returnObject.setValue(Value.instance(0, Types.Int.instance()));
         }
         else{
-            inst.returnValue = Value.instance(0, this.type.returnType);
             sim.implementationDefinedBehavior("Yikes! Your function ended without returning anything! The C++ standard says this is technically implementation defined behavior, but that sounds scary! I'm working on getting smart enough to give you a compiler warning if this might happen.")
         }
     },
@@ -996,8 +999,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     }
 });
 
-
-
 // TODO: this should be called ClassDefinition
 var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
@@ -1054,6 +1055,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
 //            console.log("addingEntity " + this.name);
             // class type. will be incomplete initially, but made complete at end of class declaration
             this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
+            this.classTypeClass = this.type;
 
             this.classScope = this.type.classScope;
 
@@ -1118,11 +1120,14 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
             }
         }
 
+
+        var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
+
         // Rule of the Big Three
         var bigThreeYes = [];
         var bigThreeNo = [];
         (this.type.copyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
-        (this.type.getMember(["operator="]) ? bigThreeYes : bigThreeNo).push("assignment operator");
+        (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
 
         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
@@ -1155,8 +1160,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
                 assert(!idd.hasErrors());
             }
         }
-
-        if (!this.type.getMember(["operator="])){
+        if (!hasUserDefinedAssignmentOperator){
 
             // Create implicit assignment operator
             var iao = this.createImplicitAssignmentOperator();
@@ -1401,7 +1405,15 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
 
         try {
             this.entities.push(entity);
-            if (isA(entity, MemberSubobjectEntity) && !this.i_containingClass.containsMember(entity.name)){
+            var options = {own: true};
+            if (isA(entity, MemberFunctionEntity)) {
+                options.paramTypes = entity.type.paramTypes;
+                options.exactMatch = true;
+                options.noBase = true;
+            }
+            if ((isA(entity, MemberSubobjectEntity) || isA(entity, MemberFunctionEntity))){
+                // We don't check if a conflicting member already exists here - that will be
+                // done inside addMember and an exception will be thrown if there is a conflict
                 this.i_containingClass.addMember(entity); // this internally adds it to the class scope
             }
             return entity;
@@ -1596,10 +1608,6 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         });
     },
 
-    flowOffEndReturn : function(sim, inst){
-        inst.returnValue = Value.instance("", Types.Void.instance());
-    },
-
     isTailChild : function(child){
         return {isTail: false};
     },
@@ -1703,10 +1711,6 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
             }
 
         });
-    },
-
-    flowOffEndReturn : function(sim, inst){
-        inst.returnValue = Value.instance("", Types.Void.instance());
     },
 
     upNext : Class.BEFORE(function(sim, inst){

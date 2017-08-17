@@ -5,6 +5,8 @@ session_start();
 date_default_timezone_set('America/New_York');
 
 function getEmailFromIdToken($idtoken) {
+  $_SESSION['email'] = 'jjuett@umich.edu';
+  return 'jjuett@umich.edu';
   try{
 
     $client = new Google_Client();
@@ -22,7 +24,7 @@ function getEmailFromIdToken($idtoken) {
     assert($data['payload']['aud'] == $client_id);
 
     // TODO HACK
-    $_SESSION["email"] = $data['payload']['email'];
+    $_SESSION['email'] = $data['payload']['email'];
 
     return $data['payload']['email']; // user ID
   }

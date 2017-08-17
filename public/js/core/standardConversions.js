@@ -289,22 +289,23 @@ Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
 });
 
 
-Conversions.StringToCStringConversion = ImplicitConversion.extend({
-    _name: "StringToCStringConversion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        assert(isA(from.type, Types.String));
-        assert(isA(toType, Types.Array) && isA(toType.elemType, Types.Char));
-        this.initParent(from, toType, "prvalue");
-    },
-
-    operate : function(sim, inst){
-        // I think only thing I really need here is to handle booleans gracefully
-        // Adding 0.0 should do the trick.
-        var cstr = inst.childInstances.from.evalValue.value;
-        inst.setEvalValue(Value.instance(cstr.split(""), Types.String));
-    }
-});
+// TODO: remove this. no longer needed now that we have real strings
+// Conversions.StringToCStringConversion = ImplicitConversion.extend({
+//     _name: "StringToCStringConversion",
+//     init: function(from, toType){
+//         assert(from.valueCategory === "prvalue");
+//         assert(isA(from.type, Types.String));
+//         assert(isA(toType, Types.Array) && isA(toType.elemType, Types.Char));
+//         this.initParent(from, toType, "prvalue");
+//     },
+//
+//     operate : function(sim, inst){
+//         // I think only thing I really need here is to handle booleans gracefully
+//         // Adding 0.0 should do the trick.
+//         var cstr = inst.childInstances.from.evalValue.value;
+//         inst.setEvalValue(Value.instance(cstr.split(""), Types.String));
+//     }
+// });
 
 //var IntegralPromotion = Conversions.IntegralPromotion = ImplicitConversion.extend({
 //    _name: "IntegralPromotion",
@@ -416,17 +417,6 @@ var standardConversion2 = function(from, toType, options){
             return Conversions.FloatingIntegralConversion.instance(from, toType);
         }
     }
-
-
-//    if (isA(from.type, Types.String) && isA(toType, Types.Array) && isA(toType.elemType, Types.Char)){
-//        var originalFrom = from;
-//        while (originalFrom.from){
-//            originalFrom = originalFrom.from;
-//        }
-//        if(isA(originalFrom, Expressions.Literal)) {
-//            return Conversions.StringToCStringConversion.instance(from, toType);
-//        }
-//    }
 
     return from;
 };

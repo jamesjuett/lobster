@@ -38,7 +38,7 @@
     <script src = "/underscore-min.js"></script>
     <script src = "/math.min.js"></script>
     <script src = "/util.js"></script>
-    <script src = "/entities.js"></script>
+    <script src = "/utilEntities.js"></script>
     <script src = "/outlet.js"></script>
     <script src = "/internals.js"></script>
     <script src = "/annotations.js"></script>
