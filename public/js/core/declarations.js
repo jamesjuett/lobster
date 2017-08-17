@@ -241,7 +241,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     },
 
     upNext : function(sim, inst){
-        if (inst.index < this.initializers.length/* && (this.storageDuration !== "static" || !this.entities[inst.index].lookup(sim, inst).isInitialized())*/){
+        if (inst.index < this.initializers.length/* && (this.storageDuration !== "static" || !this.entities[inst.index].runtimeLookup(sim, inst).isInitialized())*/){
             var init = this.initializers[inst.index];
             if(init){
                 inst.send("initializing", inst.index);

@@ -2064,7 +2064,7 @@ var Dot = Expressions.Dot = Expression.extend({
             var operand = inst.childInstances.operand.evalValue;
             inst.memberOf = operand;
             inst.receiver = operand;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
             this.done(sim, inst);
             return true;
         }
@@ -2131,7 +2131,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
             var obj = sim.memory.getObject(addr, this.operand.type.ptrTo);
             inst.memberOf = obj;
             inst.receiver = obj;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
             return true;
@@ -2325,7 +2325,7 @@ var FunctionCall = Expression.extend({
         if (!inst.receiver && this.receiver){
             // Used for constructors. Make sure to look up in context of parent instance
             // or else you'll be looking at the wrong thing for parameter entities.
-            inst.receiver = this.receiver.lookup(sim, parent);
+            inst.receiver = this.receiver.runtimeLookup(sim, parent);
         }
 
         // For function pointers. It's a hack!
@@ -2333,7 +2333,7 @@ var FunctionCall = Expression.extend({
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDeclModel = this.func.lookup(sim, inst).definition;
+        var funcDecl = inst.funcDeclModel = this.func.runtimeLookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do
@@ -2410,14 +2410,14 @@ var FunctionCall = Expression.extend({
         else if (inst.index == "return"){
             // Unless return type is void, we will have a return object
             if (this.returnByReference) {
-                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst)); // lookup here in case its a reference
+                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
             }
             else if (this.returnByValue){
                 if (isA(this.type, Types.Class)) {
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst));
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
                 }
                 else{
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst).getValue());
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
                 }
             }
             else {
@@ -2452,7 +2452,7 @@ var FunctionCall = Expression.extend({
             }
 
             if (inst.receiver) {
-                inst.func.receiver = inst.receiver = inst.receiver.lookup(sim, inst);
+                inst.func.receiver = inst.receiver = inst.receiver.runtimeLookup(sim, inst);
                 inst.receiver.callReceived();
             }
 
@@ -3112,7 +3112,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
 	},
 
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
         this.done(sim, inst);
         return true;
@@ -3167,7 +3167,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
 
     },
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
         this.done(sim, inst);
     }
 });
@@ -3260,7 +3260,7 @@ var StringLiteral = Expressions.StringLiteral = Expression.extend({
     },
 
     upNext : function(sim, inst){
-        inst.evalValue = this.i_stringEntity.lookup(sim, inst);
+        inst.evalValue = this.i_stringEntity.runtimeLookup(sim, inst);
         this.done(sim, inst);
         return true;
     },
