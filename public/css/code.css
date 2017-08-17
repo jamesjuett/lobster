@@ -31,9 +31,9 @@
     opacity: 1;
 }
 
-/*.codeInstance.upNext > .highlight{*/
-    /*opacity: 1;*/
-/*}*/
+.codeInstance.upNext > .highlight{
+    opacity: 1;
+}
 
 .codeInstance .blockLine {
     position: relative;
@@ -445,7 +445,7 @@
     padding: 2px;
     font-family: monospace;
     text-align: right;
-    width: 100%;
+    width: 300px;
 }
 
 .code-memoryStack{
@@ -514,7 +514,7 @@
     margin-bottom: 2px;
     text-align: left;
     /*vertical-align: text-bottom;*/
-    /*white-space: nowrap;*/
+    white-space: nowrap;
     overflow: hidden;
 }
 .code-memoryObject.array{

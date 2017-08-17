@@ -224,9 +224,9 @@ constructor_definition
 
 destructor_definition
   = "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({construct_type: "destructor_definition", name:"~"+name, body:body}, location(), text()); }
+    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body}, location(), text()); }
   / "virtual" WS "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({construct_type: "destructor_definition", name:"~"+name, body:body, virtual:true}, location(), text()); }
+    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body, virtual:true}, location(), text()); }
 
 ctor_initializer
   = ":" ws first:mem_initializer rest:(ws "," ws m:mem_initializer {return m;})* {rest.unshift(first); return rest;}
@@ -290,7 +290,7 @@ type_specifiers
 
 type_specifier
   //= simple_type_name
-  // / class_specifier
+  //= class_key WS identifier
   = enum_specifier
   / "const"
   / "volatile"
@@ -316,7 +316,6 @@ _simple_type_name
   / "short"
   / "int"
   / "bool"
-  / "string"
   / "long"
   / "signed"
   / "unsigned"
@@ -337,7 +336,8 @@ enumerator
 //Declarators
 
 declarator_init
-  = d:declarator ws i:initializer? {return track(absorb(d, {initializer: i}), location(), text());}
+  = d:declarator ws "=" ws "@library_unsupported@" {return track(absorb(d, {library_unsupported: true}), location(), text());}
+  / d:declarator ws i:initializer? {return track(absorb(d, {initializer: i}), location(), text());}
 
 initializer
   = brace_or_equal_initializer
@@ -750,7 +750,7 @@ literal
   / lit:literal_char
     {return track({construct_type: "literal", type:"char", value:lit}, location(), text());}
   / lit:literal_string
-    {return track({construct_type: "literal", type:"string", value:lit}, location(), text());}
+    {return track({construct_type: "string_literal", type:"string", value:lit}, location(), text());}
   / lit:literal_boolean
     {return track({construct_type: "literal", type:"bool", value:lit}, location(), text());}
 
@@ -863,6 +863,7 @@ member_declarator_list
 
 member_declarator
   = d:declarator ws "=" ws "0" {d.pureVirtual = true; return d;}
+  / d:declarator ws "=" ws "@library_unsupported@" {d.library_unsupported = true; return d;}
   / d:declarator ws i:brace_or_equal_initializer {d.init = i; return d;}
   / d:declarator
 

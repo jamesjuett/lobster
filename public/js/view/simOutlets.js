@@ -1536,11 +1536,11 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         var newText = this.getText();
 
 
-        // TODO NEW omg what a hack
+        // TODO omg what a hack
         //Use for building parser :p
         // console.log(peg.generate(newText,{
         //    cache: true,
-        //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
+        //    allowedStartRules: ["start", "function_body", "declaration", "declarator", "member_declaration", "argument_declaration_list"],
         //    output: "source"
         // }));
         // return;
@@ -2064,23 +2064,26 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function (outlet) {
                 pointedOutlet = pointedOutlet || outlet;
             });
-            endOff = pointedOutlet.objElem.offset();
-            endOff.left += pointedOutlet.objElem.outerWidth()/2;
-            //endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        var startOff = this.objElem.offset();
-        startOff.left += this.objElem.outerWidth()/2;
+            if (pointedOutlet) {
+                endOff = pointedOutlet.objElem.offset();
+                endOff.left += pointedOutlet.objElem.outerWidth()/2;
+                //endOff.top += pointedOutlet.objElem.outerHeight();
 
-        // If start is below end (greater offset), we move top of end to bottom.
-        if (startOff.top > endOff.top && pointedOutlet) {
-            endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        else{
-            startOff.top += this.objElem.outerHeight();
-        }
+                var startOff = this.objElem.offset();
+                startOff.left += this.objElem.outerWidth()/2;
+
+                // If start is below end (greater offset), we move top of end to bottom.
+                if (startOff.top > endOff.top && pointedOutlet) {
+                    endOff.top += pointedOutlet.objElem.outerHeight();
+                }
+                else{
+                    startOff.top += this.objElem.outerHeight();
+                }
 
 
-        this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+                this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+            }
+        }
     },
     makeArrayPointerArrow : function(){
 
@@ -2094,6 +2097,7 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function(outlet){ arrayOutlet = arrayOutlet || outlet; });
             if (!arrayOutlet){
                 // do nothing
+                return;
             }
             else if (value < type.min()) {
                 var first = arrayOutlet.elemOutlets[0].objElem;
@@ -2191,7 +2195,7 @@ Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
         this.length = this.object.elemObjects.length;
         this.element.addClass("code-memoryObjectArray");
 
-        this.addrElem = $("<div class='address' style='visibility: hidden;'>0x"+this.object.address+"</div>");
+        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
         this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
@@ -2320,7 +2324,7 @@ Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
 
         // Only show name and address for object if not a base class subobject
         if (!isA(this.object, BaseClassSubobject)){
-            if (isA(this.object, DynamicObjectEntity)){
+            if (isA(this.object, DynamicObject)){
                 this.addrElem = $("<td class='address'>0x"+this.object.address+"</td>");
                 this.classHeaderElem.append(this.addrElem);
             }

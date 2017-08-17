@@ -88,14 +88,14 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
         }
 
         if (Types.builtInTypes[this.typeName]){
-			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
+			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
             return;
 		}
 
         var scopeType;
         if (scopeType = this.contextualScope.lookup(this.typeName)){
             if (isA(scopeType, TypeEntity)){
-                this.type = scopeType.type.instance(this.isConst, this.isVolatile, this.isUnsigned, this.isSigned);
+                this.type = scopeType.type.instance(this.isConst, this.isVolatile);
                 return;
             }
         }
@@ -112,7 +112,8 @@ var Types = Lobster.Types = {
     builtInTypes : {},
     defaultUserTypeNames : {
         ostream : true,
-        istream : true
+        istream : true,
+        size_t : true
     }
 };
 
@@ -372,7 +373,7 @@ var Type = Lobster.Types.Type = Class.extend({
      * @returns {*}
      */
     bytesToValue : function(bytes){
-        //TODO: this is a hack for now.
+        // HACK: the whole value is stored in the first byte
         return bytes[0];
     },
 
@@ -384,6 +385,7 @@ var Type = Lobster.Types.Type = Class.extend({
      */
     valueToBytes : function(value){
         var bytes = [];
+        // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
         for(var i = 1; i < this.size-1; ++i){
             bytes.push(0);
@@ -400,6 +402,20 @@ var Type = Lobster.Types.Type = Class.extend({
      */
     isValueValid : function(value){
         return true;
+    },
+
+    /**
+     * Returns whether a given raw value for this type is dereferenceable. For most types, this function just returns
+     * false since dereferencing them doesn't even make sense. For pointer types, the given raw value is dereferenceable
+     * if the result of the dereference will be a live object. An example of the distinction between validity and
+     * dereferenceability for pointer types would be an array pointer. The pointer value (an address) is dereferenceable
+     * if it is within the bounds of the array. It is valid in those same locations plus also the location one space
+     * past the end (but not dereferenceable there). All other address values are invalid.
+     * @param value
+     * @returns {*|boolean}
+     */
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value);
     },
 
     /**
@@ -526,15 +542,20 @@ Lobster.Types.Void = Types.SimpleType.extend({
     size: 0
 });
 
+Types.builtInTypes["_universal_data"] =
+Lobster.Types._Universal_data = Types.SimpleType.extend({
+    _name: "_Universal_data",
+    i_type: "_universal_data",
+    size: 16
+});
+
 Types.IntegralTypeBase = Types.SimpleType.extend({
     _name: "IntegralTypeBase",
     isIntegralType: true,
     isArithmeticType: true,
 
-    init: function(isConst, isVolatile, isUnsigned, isSigned) {
+    init: function(isConst, isVolatile) {
         this.initParent(isConst, isVolatile);
-        this.isUnsigned = isUnsigned;
-        this.isSigned = isSigned;
     }
 });
 
@@ -543,6 +564,20 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
     _name: "Char",
     i_type: "char",
     size: 1,
+
+    NULL_CHAR : 0,
+
+    isNullChar : function(value) {
+        return value === this.NULL_CHAR;
+    },
+
+    jsStringToNullTerminatedCharArray : function(str) {
+        var chars = str.split("").map(function(c){
+            return c.charCodeAt(0);
+        });
+        chars.push(Types.Char.NULL_CHAR);
+        return chars;
+    },
 
     valueToString : function(value){
         return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
@@ -557,6 +592,13 @@ Lobster.Types.Int = Types.IntegralTypeBase.extend({
     _name: "Int",
     i_type: "int",
     size: 4
+});
+
+Types.builtInTypes["size_t"] =
+Lobster.Types.Int = Types.IntegralTypeBase.extend({
+    _name: "Size_t",
+    i_type: "size_t",
+    size: 8
 });
 
 Types.builtInTypes["bool"] =
@@ -647,51 +689,51 @@ Types.builtInTypes["double"] =
 
 
 
-Types.builtInTypes["string"] =
-    Lobster.Types.String = Types.SimpleType.extend({
-    _name: "String",
-    i_type: "string",
-    size: 4,
-    defaultValue: "",
-
-    valueToString : function(value){
-        value = value.replace(/\n/g,"\\n");
-        return '"' + value + '"';
-    },
-    valueToOstreamString : function(value){
-        return value;
-    },
-    bytesToValue : function(bytes){
-        return ""+bytes[0];
-    }
-});
-
-
+// Types.builtInTypes["string"] =
+//     Lobster.Types.String = Types.SimpleType.extend({
+//     _name: "String",
+//     i_type: "string",
+//     size: 4,
+//     defaultValue: "",
+//
+//     valueToString : function(value){
+//         value = value.replace(/\n/g,"\\n");
+//         return '"' + value + '"';
+//     },
+//     valueToOstreamString : function(value){
+//         return value;
+//     },
+//     bytesToValue : function(bytes){
+//         return ""+bytes[0];
+//     }
+// });
 
 
 
 
 
-Types.builtInTypes["ostream"] =
-Lobster.Types.OStream = Types.SimpleType.extend({
-    _name: "OStream",
-    i_type: "ostream",
-    size: 4,
 
-    valueToString : function(value){
-        return JSON.stringify(value);
-    }
-});
 
-Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
-    _name: "IStream",
-    i_type: "istream",
-    size: 4,
-
-    valueToString : function(value){
-        return JSON.stringify(value);
-    }
-});
+// Types.builtInTypes["ostream"] =
+// Lobster.Types.OStream = Types.SimpleType.extend({
+//     _name: "OStream",
+//     i_type: "ostream",
+//     size: 4,
+//
+//     valueToString : function(value){
+//         return JSON.stringify(value);
+//     }
+// });
+//
+// Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+//     _name: "IStream",
+//     i_type: "istream",
+//     size: 4,
+//
+//     valueToString : function(value){
+//         return JSON.stringify(value);
+//     }
+// });
 
 
 
@@ -748,6 +790,9 @@ Lobster.Types.Pointer = Type.extend({
     },
     isObjectPointer : function() {
         return this.ptrTo.isObjectType || isA(this.ptrTo, Types.Void);
+    },
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value);
     }
 });
 
@@ -777,6 +822,9 @@ Lobster.Types.ArrayPointer = Types.Pointer.extend({
         }
         var arrObj = this.arrObj;
         return arrObj.address <= value && value <= arrObj.address + arrObj.type.properSize;
+    },
+    isValueDereferenceable : function(value) {
+        return this.isValueValid(value) && value !== this.onePast();
     },
     toIndex : function(addr){
         return integerDivision(addr - this.arrObj.address, this.arrObj.type.elemType.size);
@@ -929,6 +977,7 @@ Lobster.Types.Class = Type.extend({
     _nextClassId: 0,
 
     createClassType : function(name, parentScope, base, members) {
+        assert(this == Types.Class); // shouldn't be called on instances
         var classType = this.extend({
             _name : name,
             i_classId : this._nextClassId++,
@@ -945,7 +994,6 @@ Lobster.Types.Class = Type.extend({
             copyConstructor : null,
             destructor : null,
 
-            i_memberMap : {},
             i_baseClass : base || null // TODO: change if we ever want multiple inheritance
 
 
@@ -979,25 +1027,22 @@ Lobster.Types.Class = Type.extend({
         }
     },
 
-    /**
-     * Returns the member entity for the member with the given name.
-     * If no member with that name exists, returns null.
-     * @param {String} name
-     * @returns {?CPPEntity}
-     */
-    getMember : function(name) {
-        return this.i_memberMap[name] || null;
+    memberLookup : function(memberName, options) {
+        return this.classScope.memberLookup(memberName, options);
     },
 
-    containsMember : function(name){
-        return !!this.i_memberMap[name];
+    requiredMemberLookup : function(memberName, options) {
+        return this.classScope.requiredMemberLookup(memberName, options);
+    },
+
+    hasMember : function(memberName, options) {
+        return !!this.memberLookup(memberName, options);
     },
 
     addMember : function(mem){
         assert(this._isClass);
         this.classScope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
-        this.i_memberMap[mem.name] = mem;
         if(mem.type.isObjectType){
             if (this.i_reallyZeroSize){
                 this.size = 0;
@@ -1250,5 +1295,4 @@ Lobster.Types.Function = Type.extend({
 // TODO wtf were you thinking please remove this
 for (var key in Types){
     Types[key.toLowerCase()] = Types[key];
-    delete Types["string"];
 }

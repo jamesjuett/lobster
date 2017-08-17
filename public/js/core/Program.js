@@ -205,7 +205,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
 
         this.i_sourceFiles = {};
 
-        this.staticEntities.length = 0;
+        this.staticEntities.clear();
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.i_functionCalls = [];
 
@@ -282,8 +282,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
         return this.i_translationUnits;
     },
 
-    addStaticEntity : function(obj){
-        this.staticEntities.push(obj);
+    addStaticEntity : function(ent){
+        this.staticEntities.push(ent);
     },
 
     /**
@@ -348,6 +348,8 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
             });
         }
 
+        this.i_defineIntrinsics();
+
         // Make sure all function calls have a definition
         var calls = this.getFunctionCalls();
         for(var i = 0; i < calls.length; ++i) {
@@ -378,6 +380,10 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
         //     this.semanticProblems.push(CPPError.declaration.prev_main(this, decl.name, otherFunc.decl));
         //     return null;
         // }
+    },
+
+    i_defineIntrinsics : function() {
+
     },
 
     getMainEntity : function() {
@@ -686,6 +692,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         this.i_globalScope = NamespaceScope.instance("", null, this);
         this.topLevelDeclarations = [];
         this.staticEntities = [];
+        this.stringLiterals = [];
         this.i_functionCalls = [];
 
         this.i_main = false;
@@ -700,6 +707,10 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 
     addStaticEntity : function(obj){
         this.staticEntities.push(obj);
+    },
+
+    addStringLiteral : function(lit) {
+        this.stringLiterals.push(lit);
     },
 
     fullCompile : function() {
@@ -765,7 +776,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         return this.i_preprocessedSource.getSourceReference(line, column, start, end);
     },
 
-	i_compile : function(code){
+	i_compile : function(ast){
 
         // Program.currentProgram = this;
 
@@ -774,6 +785,7 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 		this.topLevelDeclarations.clear();
 		this.i_globalScope = NamespaceScope.instance("", null, this);
         this.staticEntities.clear();
+        this.stringLiterals.clear();
         this.i_functionCalls = [];
 
         // TODO NEW change
@@ -786,9 +798,11 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
         // TODO NEW the globalFunctionContext thing seems a bit hacky. why was this needed? (i.e. why can't it be null?)
         var globalFunctionContext = MagicFunctionDefinition.instance("globalFuncContext", Types.Function.instance(Types.Void.instance(), []));
 
+
+
         // First, compile ALL the declarations
-        for(var i = 0; i < code.length; ++i){
-            var decl = Declaration.create(code[i], {
+        for(var i = 0; i < ast.length; ++i){
+            var decl = Declaration.create(ast[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,
@@ -818,12 +832,14 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 	},
 
     i_createBuiltInGlobals : function() {
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
-        this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+	    if (Types.userTypeNames["ostream"]) {
+            this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
+            this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+        }
 
         // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
-        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.String.instance()});
-        this.endlEntity.defaultValue = "\\n";
+        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
+        this.endlEntity.defaultValue = 10; // 10 is ascii code for \n
         this.i_globalScope.addEntity(this.endlEntity);
 
 
