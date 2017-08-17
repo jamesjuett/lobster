@@ -550,7 +550,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         var globalScope = this.i_program.getGlobalScope();
         for (var key in globalScope.entities) {
             var ent = globalScope.entities[key];
-            if (isA(ent, ObjectEntity)){
+            if (isA(ent, CPPObject)){
                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);
             }
@@ -560,7 +560,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             var frameObjs = this.memory.stack.frames[i].objects;
             for (var key in frameObjs) {
                 var ent = frameObjs[key];
-                if (isA(ent, ObjectEntity)){
+                if (isA(ent, CPPObject)){
                     ent.i_leakCheckIndex = this.i_leakCheckIndex;
                     frontier.push(ent);
                 }
@@ -587,7 +587,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
                 }
             }
 
-            if (obj && isA(obj, ObjectEntity)){
+            if (obj && isA(obj, CPPObject)){
                 obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);
             }
