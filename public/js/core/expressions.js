@@ -2894,8 +2894,8 @@ var Delete = Expressions.Delete = Expression.extend({
  *
  * @param sim
  * @param inst
- * @param {Value | ObjectEntity} ptr
- * @returns {ObjectEntity?}
+ * @param {Value | CPPObject} ptr
+ * @returns {CPPObject?}
  */
 var deleteHeapArray = function(sim, inst, ptr) {
     if(Types.Pointer.isNull(ptr.rawValue())){

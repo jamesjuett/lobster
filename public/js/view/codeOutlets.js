@@ -1044,7 +1044,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
             return;
         }
 
-        if (value.isA(ObjectEntity) || value.isA(FunctionEntity)){
+        if (value.isA(CPPObject) || value.isA(FunctionEntity)){
             this.evalValueElem.html(value.nameString());
             this.evalValueElem.addClass("lvalue");
         }

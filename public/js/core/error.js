@@ -6,7 +6,7 @@ var RuntimeMessage = Class.extend({
 var DeadObjectMessage = RuntimeMessage.extend({
     _name: "DeadObjectMessage",
     init : function(deadObj, options){
-        assert(isA(deadObj, ObjectEntity));
+        assert(isA(deadObj, CPPObject));
         this.deadObj = deadObj;
 
         // If we're working with a subobject, its lifetime is tied to that of its parent object

@@ -597,7 +597,7 @@ var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     },
     allocated : function(){},
     bindTo : function(refersTo){
-        assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
+        assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
 
         // If the thing we refer to is a reference, look it up first so we refer to the source.
         // This eliminates chains of references, which for now is what I want.
@@ -634,7 +634,7 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.
     },
     // TODO: I think this should be removed
     // bindTo : function(refersTo){
-    //     assert(isA(refersTo, ObjectEntity) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
+    //     assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
     //
     //     // If the thing we refer to is a reference, look it up first so we refer to the source.
     //     // This eliminates chains of references, which for now is what I want.
@@ -654,3 +654,608 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.
     }
 
 });
+
+var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
+    _name: "StaticEntity",
+    storage: "static",
+    init: function(decl){
+        this.initParent(decl);
+    },
+    objectInstance: function(){
+        return StaticObjectInstance.instance(this);
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    lookup : function(sim, inst) {
+        return sim.memory.staticLookup(this).lookup(sim, inst);
+    }
+});
+
+var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
+    _name: "StringLiteralEntity",
+    storage: "static",
+    init: function(str){
+        this.initParent(null);
+        this.type = Types.Array.instance(Types.Char.instance(true), str.length + 1); // + 1 for null char
+        this.i_str = str;
+    },
+    objectInstance : function() {
+        return StringLiteralObject.instance(this.type);
+    },
+    instanceString : function(){
+        return "string literal \"" + unescapeString(this.i_str) + "\"";
+    },
+    getLiteralString : function() {
+        return this.i_str;
+    },
+    lookup : function(sim, inst) {
+        return sim.memory.getStringLiteral(this.i_str);
+    }
+});
+
+
+var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
+    _name: "AutoEntity",
+    storage: "automatic",
+    init: function(decl){
+        this.initParent(decl);
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    objectInstance: function(){
+        return AutoObjectInstance.instance(this);
+    },
+    lookup: function (sim, inst) {
+        // We lookup first on the current stack frame and then call
+        // lookup again in case it's a reference or something.
+        return inst.funcContext.frame.lookup(this).lookup(sim, inst);
+    },
+    describe : function(){
+        if (isA(this.decl, Declarations.Parameter)){
+            return {message: "the parameter " + this.name};
+        }
+        else{
+            return {message: "the local variable " + this.name};
+        }
+    }
+});
+
+//var TemporaryReferenceEntity = CPP.TemporaryReferenceEntity = CPP.CPPEntity.extend({
+//    _name: "TemporaryReferenceEntity",
+//    storage: "automatic",
+//    init: function(refersTo){
+//        assert(isA(refersTo, CPPObject));
+//        this.initParent(refersTo.name);
+//        this.type = decl.type;
+//        this.decl = decl;
+//    },
+//    instanceString : function(){
+//        return this.name + " (" + this.type + ")";
+//    },
+//    lookup: function (sim, inst) {
+//        return inst.funcContext.frame.lookup(this);
+//    }
+//});
+
+var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
+    _name: "ParameterEntity",
+    storage: "automatic",
+    init: function(func, num){
+        assert(isA(func, FunctionEntity) || isA(func, PointedFunctionEntity));
+        assert(num !== undefined);
+
+        this.num = num;
+        this.func = func;
+
+        this.initParent("Parameter "+num+" of "+func.name);
+        this.type = func.type.paramTypes[num];
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    objectInstance: function(){
+        return AutoObjectInstance.instance(this);
+    },
+    lookup: function (sim, inst) {
+        // In case function was polymorphic or a function pointer, look it up
+        var func = this.func.lookup(sim, inst.parent);
+
+        // Now we can look up object entity associated with this parameter
+        var objEntity = func.definition.params[this.num].entity;
+
+        return objEntity.lookup(sim, inst.calledFunction);
+    },
+    describe : function(){
+        return {message: "parameter " + this.num + " of " + this.func.describe().message};
+    }
+
+});
+
+var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
+    _name: "ReturnEntity",
+    storage: "automatic",
+    init: function(type){
+        this.initParent("return value");
+        this.type = type;
+    },
+    instanceString : function(){
+        return "return value (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        return inst.funcContext.model.getReturnObject(sim, inst.funcContext).lookup(sim, inst);
+    }
+});
+
+var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
+    _name: "ReceiverEntity",
+    storage: "automatic",
+    init: function(type){
+        assert(isA(type, Types.Class));
+        this.initParent(type.className);
+        this.type = type;
+    },
+    instanceString : function(){
+        return "function receiver (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        var rec = inst.memberOf || inst.funcContext.receiver;
+        return rec.lookup(sim, inst);
+    },
+    describe : function(sim, inst){
+        if (inst){
+            return {message: "the receiver of this call to " + inst.funcContext.describe(sim, inst.funcContext).message + " (i.e. *this) "};
+        }
+        else {
+            return {message: "the receiver of this call (i.e. *this)"};
+        }
+    }
+});
+
+
+
+var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
+    _name: "NewObjectEntity",
+    storage: "automatic",
+    init: function(type){
+        this.initParent(null);
+        this.type = type;
+    },
+    instanceString : function(){
+        return "object (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        return inst.allocatedObject.lookup(sim, inst);
+    },
+    describe : function(){
+        return {message: "the object ("+this.type+") created by new"};
+    }
+
+});
+
+var ArraySubobjectEntity = CPP.ArraySubobjectEntity = CPP.CPPEntity.extend({
+    _name: "ArraySubobjectEntity",
+    storage: "none",
+    init: function(arrayEntity, index){
+        assert(isA(arrayEntity.type, Types.Array));
+        this.initParent(arrayEntity.name + "[" + index + "]");
+        this.arrayEntity = arrayEntity;
+        this.type = arrayEntity.type.elemType;
+        this.index = index;
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        return this.arrayEntity.lookup(sim, inst).elemObjects[this.index].lookup(sim, inst);
+    },
+    objectInstance : function(arrObj){
+        return ArraySubobject.instance(arrObj, this.index);
+    },
+    describe : function(){
+        var desc = {};
+        var arrDesc = this.arrayEntity.describe();
+        desc.message = "element " + this.index + " of " + arrDesc.message;
+        if (arrDesc.name){
+            desc.name = arrDesc.name + "[" + this.index + "]";
+        }
+        return desc;
+    }
+});
+
+var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.extend({
+    _name: "BaseClassSubobjectEntity",
+    storage: "none",
+    init: function(type, memberOfType, access){
+        assert(isA(type, Types.Class));
+        this.initParent(type.className);
+        this.type = type;
+        if (!this.type._isInstance){
+            this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
+        }
+        this.memberOfType = memberOfType;
+        this.access = access;
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        var memberOf = inst.memberOf || inst.funcContext.receiver;
+
+        while(memberOf && !isA(memberOf.type, this.type)){ // TODO: this isA should probably be changed to a type function
+            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
+        }
+        assert(memberOf, "Internal lookup failed to find subobject in class or base classes.");
+
+        return memberOf.lookup(sim, inst);
+    },
+    objectInstance : function(parentObj){
+        return BaseClassSubobject.instance(this.type, parentObj);
+    },
+    describe : function(){
+        return {message: "the " + this.name + " base object of " + this.memberOfType.className};
+    }
+});
+
+var MemberSubobjectEntity = DeclaredEntity.extend({
+    _name: "MemberSubobjectEntity",
+    storage: "none",
+    init: function(decl, memberOfType){
+        this.initParent(decl);
+        if (!this.type._isInstance){
+            this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
+            assert(false); // TODO: I don't think this code actually gets used, so the above TODO could be resolved
+        }
+        this.memberOfType = memberOfType;
+        this.access = decl.access;
+    },
+    instanceString : function(){
+        return this.name + " (" + this.type + ")";
+    },
+    lookup: function (sim, inst) {
+        var memberOf = inst.memberOf || inst.funcContext.receiver;
+
+        while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
+            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
+        }
+
+        assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
+
+        return memberOf.getMemberSubobject(this.name).lookup(sim, inst); // I think the lookup here is in case of reference members?
+    },
+    objectInstance : function(parentObj){
+        return MemberSubobject.instance(this.type, parentObj, this.name);
+    },
+    describe : function(sim, inst){
+        if (inst){
+            var memberOf = inst.memberOf || inst.funcContext.receiver;
+            if (memberOf.name){
+                return {message: this.memberOf.name + "." + this.name};
+            }
+            else{
+                return {message: "the member " + this.name + " of " + memberOf.describe(sim, inst).message};
+            }
+        }
+        else{
+            return {message: "the " + this.name + " member of the " + this.memberOfType.className + " class"};
+        }
+    }
+});
+
+var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
+    _name: "TemporaryObjectEntity",
+    storage: "temp",
+    init: function(type, creator, owner, name){
+        this.initParent(name || null);
+        this.type = type;
+        this.creator = creator;
+        this.setOwner(owner);
+    },
+    setOwner : function(newOwner){
+        if (newOwner === this.owner)
+            if (this.owner){
+                this.owner.removeTemporaryObject(this);
+            }
+        this.owner = newOwner;
+        this.owner.addTemporaryObject(this);
+    },
+    updateOwner : function(){
+        var newOwner = this.creator.findFullExpression();
+        if (newOwner === this.owner){ return; }
+        if (this.owner){
+            this.owner.removeTemporaryObject(this);
+        }
+        this.owner = newOwner;
+        this.owner.addTemporaryObject(this);
+    },
+    objectInstance: function(creatorInst){
+        var obj = creatorInst.sim.memory.allocateTemporaryObject(this);
+
+        var inst = creatorInst;
+        while (inst.model !== this.owner){
+            inst = inst.parent;
+        }
+
+        inst.temporaryObjects = inst.temporaryObjects || {};
+        inst.temporaryObjects[obj.entityId] = obj;
+        return obj;
+    },
+    lookup: function (sim, inst) {
+        var ownerInst = inst;
+        while (ownerInst.model !== this.owner){
+            ownerInst = ownerInst.parent;
+        }
+        var tempObjInst = ownerInst.temporaryObjects[this.entityId];
+        return tempObjInst && tempObjInst.lookup(sim, inst);
+    }
+});
+
+var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
+    _name: "FunctionEntity",
+    init: function(decl){
+        this.initParent(decl);
+    },
+    isStaticallyBound : function(){
+        return true;
+    },
+    isVirtual : function(){
+        return false;
+    },
+    instanceString : function() {
+        return this.name;
+    },
+    nameString : function(){
+        return this.name;
+    },
+    describe : function(sim, inst){
+        return this.decl.describe(sim, inst);
+    },
+    isLinked : function() {
+        return this.isDefined();
+    },
+    getPointerTo : function() {
+        return Value.instance(this, this.type);
+    }
+});
+
+var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
+    init : function(decl) {
+        this.initParent(decl);
+        this.setDefinition(decl);
+    }
+});
+
+
+var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend({
+    _name: "MemberFunctionEntity",
+    isMemberFunction: true,
+    init: function(decl, containingClass, virtual){
+        this.initParent(decl);
+        this.i_containingClass = containingClass;
+        this.virtual = virtual;
+        this.pureVirtual = decl.pureVirtual;
+        // May be set to virtual if it's discovered to be an overrider
+        // for a virtual function in a base class
+
+        this.checkForOverride();
+    },
+    checkForOverride : function(){
+        if (!this.i_containingClass.getBaseClass()){
+            return;
+        }
+
+        // Find the nearest overrider of a hypothetical virtual function.
+        // If any are virtual, this one would have already been set to be
+        // also virtual by this same procedure, so checking this one is sufficient.
+        // If we override any virtual function, this one is too.
+        var overridden = this.i_containingClass.getBaseClass().classScope.singleLookup(this.name, {
+            paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+            exactMatch:true, own:true, noNameHiding:true});
+
+        if (overridden && isA(overridden, FunctionEntity) && overridden.virtual){
+            this.virtual = true;
+            // Check to make sure that the return types are covariant
+            if (!covariantType(this.type.returnType, overridden.type.returnType)){
+                throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
+            }
+        }
+    },
+    isStaticallyBound : function(){
+        return !this.virtual;
+    },
+    isVirtual : function(){
+        return this.virtual;
+    },
+    isLinked : function(){
+        return this.virtual && this.pureVirtual || this.isDefined();
+    },
+    lookup : function(sim, inst){
+        if (this.virtual){
+            // If it's a virtual function start from the class scope of the dynamic type
+            var receiver = inst.nearestReceiver().lookup(sim, inst);
+            assert(receiver, "dynamic function lookup requires receiver");
+            var dynamicType = receiver.type;
+
+            // Sorry this is hacky :(
+            // If it's a destructor, we look instead for the destructor of the dynamic type
+            var func;
+            if (isA(this.definition, DestructorDefinition)) {
+                func = dynamicType.destructor;
+            }
+            else{
+                func = dynamicType.classScope.singleLookup(this.name, {
+                    paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+                    exactMatch:true, own:true, noNameHiding:true});
+            }
+            assert(func, "Failed to find virtual function implementation during lookup.");
+            return func;
+        }
+        else{
+            return this;
+        }
+    },
+    suppressedVirtualProxy : function(){
+        return this.proxy({
+            virtual: false
+        });
+    }
+
+});
+
+
+var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
+    _name: "FunctionEntity",
+    init: function(type){
+        this.initParent("Unknown function of type " + type);
+        this.type = type;
+    },
+    isStaticallyBound : function(){
+        return true;
+    },
+    instanceString : function() {
+        return this.name;
+    },
+    nameString : function(){
+        return this.name;
+    },
+    lookup : function(sim, inst){
+        return inst.pointedFunction.lookup(sim,inst);
+    },
+    isLinked : function(){
+        return true;
+    },
+    isVirtual : function() {
+        return false;
+    }
+});
+
+
+
+var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
+    _name: "TypeEntity",
+    init: function(decl){
+        this.initParent(decl);
+    },
+    instanceString : function() {
+        return "TypeEntity: " + this.type.instanceString();
+    },
+    nameString : function(){
+        return this.name;
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Selects from candidates the function that is the best match
+// for the arguments in the args array. Also modifies args so
+// that each argument is amended with any implicit conversions
+// necessary for the match.
+// Options:
+//   problems - an array that will be filled with an entry for each candidate
+//              consisting of an array of any semantic problems that prevent it
+//              from being chosen.
+
+var convLen = function(args) {
+    var total = 0;
+    for (var i = 0; i < args.length; ++i) {
+        total += args[i].conversionLength;
+    }
+    return total;
+};
+
+var overloadResolution = function(candidates, args, isThisConst, options){
+    options = options || {};
+    // Find the constructor
+    var cand;
+    var tempArgs;
+    var viable = [];
+    for(var c = 0; c < candidates.length; ++c){
+        cand = candidates[c];
+        tempArgs = [];
+        var problems = [];
+        options.problems && options.problems.push(problems);
+
+        // Check argument types against parameter types
+        var paramTypes = cand.paramTypes || cand.type.paramTypes;
+        if (args.length !== paramTypes.length){
+            problems.push(CPPError.param.numParams(args[i]));
+        }
+        else if (isThisConst && cand.isMemberFunction && !cand.type.isThisConst){
+            problems.push(CPPError.param.thisConst(args[i]));
+        }
+        else{
+            for(var i = 0; i < args.length; ++i){
+                if (isA(paramTypes[i], Types.Reference)){
+                    tempArgs.push(args[i]);
+                    if(!referenceCompatible(args[i].type, paramTypes[i].refTo)){
+                        problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));
+                    }
+                    //else if (args[i].valueCategory !== "lvalue"){
+                    //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
+                    //}
+                }
+                else{
+                    tempArgs.push(standardConversion(args[i], paramTypes[i]));
+                    if(!sameType(tempArgs[i].type, paramTypes[i])){
+                        problems.push(CPPError.param.paramType(args[i], args[i].type, paramTypes[i]));
+                    }
+
+                }
+            }
+        }
+
+        if (problems.length == 0) {
+            viable.push({
+                cand: cand,
+                args: tempArgs.clone()
+            });
+        }
+    }
+
+    if (viable.length == 0){
+        return null;
+    }
+
+
+    var selected = viable[0];
+    var bestLen = convLen(selected.args);
+    for(var i = 1; i < viable.length; ++i){
+        var v = viable[i];
+        var vLen = convLen(v.args);
+        if (vLen < bestLen){
+            selected = v;
+            bestLen = vLen;
+        }
+    }
+
+    for(var i = 0; i < selected.args.length; ++i){
+        args[i] = selected.args[i];
+    }
+
+    return selected.cand;
+};
+
+// TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.
+// Probably would be best to just create an "AuxiliaryExpression" class for something like this.
+var fakeExpressionsFromTypes = function(types){
+    var exprs = [];
+    for (var i = 0; i < types.length; ++i){
+        exprs[i] = AuxiliaryExpression.instance(types[i]);
+        // exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
+    }
+    return exprs;
+};
