@@ -166,6 +166,8 @@ Statements.Return = Statement.extend({
 	},
 
 	stepForward : function(sim, inst){
+        inst.funcContext.returnStatementEncountered = true;
+
 		if (inst.index === "afterChildren") {
             var func = inst.funcContext;
 

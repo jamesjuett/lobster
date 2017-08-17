@@ -74,7 +74,6 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
             if (isA(this.entity.type, Types.Class) || isA(this.entity.type, Types.Array)) {
                 // Nothing to do, handled by child initializers for each element
                 var ent = this.entity.runtimeLookup(sim, inst);
-                ent && ent.initialized();
                 this.done(sim, inst);
                 return true;
             }
@@ -94,7 +93,6 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
         assert(obj, "Tried to look up entity to initialize but object was null.");
         // No initialization. Object has junk value.
         // Object should be invalidated by default and nobody has written to it.
-        obj.initialized();
         inst.send("initialized", obj);
         this.done(sim, inst);
     },
@@ -254,7 +252,6 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         //sim.explain(this.explain(sim, inst));
         if (inst.index === "done"){
             var ent = this.entity.runtimeLookup(sim, inst);
-            ent && ent.initialized();
         }
         return Lobster.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
     },
@@ -274,16 +271,8 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
         if (isA(obj, ReferenceEntity)){ // Proper reference // TODO: should this be ReferenceEntityInstance? or check this.entity instead?
             obj.bindTo(inst.childInstances.args[0].evalValue);
-            obj.initialized();
             inst.send("initialized", obj);
             this.done(sim, inst);
-        }
-        else if (isA(type, Types.Reference)) { // Old reference, TODO remove
-            assert(false, "Should never be using old reference mechanism.");
-            // obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
-            // obj.initialized();
-            // inst.send("initialized", obj);
-            // this.done(sim, inst);
         }
         else if (isA(type, Types.Class)) {
             // Nothing to do, handled by function call child
@@ -309,7 +298,6 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             else {
                 obj.writeValue(inst.childInstances.args[0].evalValue);
             }
-            obj.initialized();
             inst.send("initialized", obj);
             this.done(sim, inst);
         }
@@ -382,7 +370,7 @@ var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitialize
 });
 
 var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.extend({
-    _name : "ReturnInitializer"
+    _name : "ReturnInitializer",
 });
 
 var MemberInitializer = Lobster.MemberInitializer = Lobster.DirectInitializer.extend({

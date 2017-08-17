@@ -1,12 +1,12 @@
 var Lobster = Lobster || {};
 var CPP = Lobster.CPP = Lobster.CPP || {};
 
-var CPPObject = CPP.CPPObject = CPP.CPPEntity.extend({
+var CPPObject = CPP.CPPObject = Class.extend({
     _name: "CPPObject",
     storage: Class._ABSTRACT,
 
     init: function(name, type){
-        this.initParent(name);
+        this.name = name;
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
@@ -51,6 +51,12 @@ var CPPObject = CPP.CPPObject = CPP.CPPEntity.extend({
             });
 
         }
+    },
+
+    // TODO: Ultimately, I don't think this is needed, but I think I use it occassionally.
+    // Remove and fix places after we have more thorough regression testing (or typescript)
+    runtimeLookup :  function(sim, inst){
+        return this;
     },
 
     // HACK: I should split this class into subclasses/mixins for objects of class type or array type
@@ -428,17 +434,6 @@ var CPPObject = CPP.CPPObject = CPP.CPPEntity.extend({
     describe : function(){
         var w1 = isA(this.decl, Declarations.Parameter) ? "parameter " : "object ";
         return {name: this.name, message: "the " + w1 + (this.name || ("at 0x" + this.address))};
-    },
-    initialized : function(){
-        this._initialized = true;
-    },
-    // TODO: doesn't work for class-type objects
-    // ^^^ why not? looks like it should work to me
-    // TODO: plot twist I should just remove this function. it's almost exclusively used to detect when
-    // a function finishes without its return object being initialized. However, I feel like there are much
-    // better ways to do this.
-    isInitialized : function(){
-        return !!this._initialized;
     }
 
 });
@@ -532,7 +527,7 @@ var RuntimeEntity = CPP.RuntimeEntity = CPP.CPPObject.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         return this.inst.evalValue.runtimeLookup(sim, inst);
     }
 });

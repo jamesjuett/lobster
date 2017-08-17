@@ -149,6 +149,8 @@ var Scope = Lobster.Scope = Class.extend({
 
         return res;
     },
+
+    // TODO: this should be a member function of the Program class
     qualifiedLookup : function(names, options){
         assert(Array.isArray(names) && names.length > 0);
         var scope = this.sim.getGlobalScope();
@@ -176,6 +178,8 @@ var Scope = Lobster.Scope = Class.extend({
     lookup : function(name, options){
         options = options || {};
 
+        // TODO: remove this. it seems much cleaner to force elsewhere to explicitly
+        // user either regular (i.e. unqualified) or qualified lookup
         // Handle qualified lookup specially
         if (Array.isArray(name)){
             return this.qualifiedLookup(name, options);
@@ -432,37 +436,36 @@ var CPPEntity = Class.extend(Observable, {
     _name: "CPPEntity",
     _nextEntityId: 0,
 
-    type: Class._ABSTRACT, // TODO NEW this should really just be part of the constructor for CPPEntity
-
-    init: function(){
+    /**
+     * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
+     * the type will be null.
+     * @param {Type?} type
+     */
+    init: function(type){
         this.entityId = CPPEntity._nextEntityId++;
+        this.type = type;
     },
+
+    /**
+     * Default behavior - no runtime object associated with this entity. Just return ourselves.
+     * @param sim
+     * @param inst
+     * @returns {CPPEntity}
+     */
     runtimeLookup :  function(sim, inst){
         return this;
     },
-    nameString : Class._ABSTRACT,
 
     describe : Class._ABSTRACT,
 
-    initialized : function(){
-        // default impl, do nothing
-    },
-    isInitialized : function(){
-        // default impl, do nothing
-        return true;
-    },
-    setInitializer : function (init) {
-        this.i_init = init;
-    },
-    getInitializer : function() {
-        return this.i_init;
-    },
     isLibraryConstruct : function() {
         return false
     },
     isLibraryUnsupported : function() {
         return false;
     }
+
+    //TODO: function for isOdrUsed()?
 });
 CPP.CPPEntity = CPPEntity;
 
@@ -471,13 +474,13 @@ var NamedEntity = CPPEntity.extend({
 
     linkage: "none", // TODO NEW make this abstract
 
-    init : function(name) {
-        this.initParent();
+    /**
+     * All NamedEntitys will have a name, but in some cases this might be null. e.g. an unnamed namespace.
+     * @param name
+     */
+    init : function(type, name) {
+        this.initParent(type);
         this.name = name;
-    },
-
-    nameString : function(){
-        return this.name;
     }
 
 
@@ -679,6 +682,17 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     },
     runtimeLookup :  function(sim, inst) {
         return sim.memory.staticLookup(this).runtimeLookup(sim, inst);
+    },
+
+    // TODO: these can be removed if declaration/definition classes are reworked such that
+    //       the initializer can be easily retrieved from the definition. e.g. if multiple definitions
+    //       from several declarators on a single line are actually treated as several definitions (as they
+    //       really should be)
+    setInitializer : function (init) {
+        this.i_init = init;
+    },
+    getInitializer : function() {
+        return this.i_init;
     }
 });
 
@@ -1015,6 +1029,7 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     instanceString : function() {
         return this.name;
     },
+
     nameString : function(){
         return this.name;
     },
@@ -1126,9 +1141,6 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     instanceString : function() {
         return this.name;
     },
-    nameString : function(){
-        return this.name;
-    },
     runtimeLookup :  function(sim, inst){
         return inst.pointedFunction.runtimeLookup(sim,inst);
     },
@@ -1149,9 +1161,6 @@ var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
     },
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
-    },
-    nameString : function(){
-        return this.name;
     }
 });
 
