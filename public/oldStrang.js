@@ -483,7 +483,6 @@
 //                                 var retType = this.containingFunction().type.returnType;
 //                                 var re = ReturnEntity.instance(retType);
 //                                 re.runtimeLookup(sim, inst).bindTo(rec);
-//                                 re.runtimeLookup(sim, inst).initialized();
 //                                 return;
 //                             }
 //
@@ -510,7 +509,6 @@
 //
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
 //                             re.runtimeLookup(sim, inst).bindTo(rec);
-//                             re.runtimeLookup(sim, inst).initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -533,7 +531,6 @@
 //
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
 //                             re.runtimeLookup(sim, inst).bindTo(rec);
-//                             re.runtimeLookup(sim, inst).initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -551,7 +548,6 @@
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
 //                             re.runtimeLookup(sim, inst).bindTo(rec);
-//                             re.runtimeLookup(sim, inst).initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -584,7 +580,6 @@
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -599,7 +594,6 @@
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -646,7 +640,6 @@
 //                             var size = this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -679,7 +672,6 @@
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).getValue();
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
 //                             returnObject.writeValue(size.equals(0));
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -707,7 +699,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -733,7 +724,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -759,7 +749,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -785,7 +774,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -809,7 +797,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -835,7 +822,6 @@
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }

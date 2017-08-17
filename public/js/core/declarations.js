@@ -241,7 +241,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
     },
 
     upNext : function(sim, inst){
-        if (inst.index < this.initializers.length/* && (this.storageDuration !== "static" || !this.entities[inst.index].runtimeLookup(sim, inst).isInitialized())*/){
+        if (inst.index < this.initializers.length){
             var init = this.initializers[inst.index];
             if(init){
                 inst.send("initializing", inst.index);
@@ -916,7 +916,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
         // If non-void return type, check that return object was initialized.
         // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
-        if (!isA(this.type.returnType, Types.Void) && !inst.i_returnObject.isInitialized()){
+        if (!isA(this.type.returnType, Types.Void) && !inst.returnStatementEncountered){
             this.flowOffNonVoid(sim, inst);
         }
 
@@ -933,7 +933,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
             inst.i_returnObject.setValue(Value.instance(0, Types.Int.instance()));
         }
         else{
-            sim.implementationDefinedBehavior("Yikes! Your function ended without returning anything! The C++ standard says this is technically implementation defined behavior, but that sounds scary! I'm working on getting smart enough to give you a compiler warning if this might happen.")
+            sim.implementationDefinedBehavior("Yikes! This is a non-void function (i.e. it's supposed to return something), but it ended without hitting a return statement");
         }
     },
 

@@ -769,7 +769,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
     },
 
     _act: copyMixin(Outlets.CPP.Code._act, {
-        initialized: function(msg){
+        initialized : function(msg){
             var obj = msg.data;
             var val;
             if (isA(obj, ReferenceEntity)){
