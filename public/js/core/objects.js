@@ -533,7 +533,7 @@ var RuntimeEntity = CPP.RuntimeEntity = CPP.CPPObject.extend({
         return this.name + " (" + this.type + ")";
     },
     lookup: function (sim, inst) {
-        return this.inst.evalValue.lookup(sim, inst);
+        return this.inst.evalValue.runtimeLookup(sim, inst);
     }
 });
 

@@ -448,13 +448,13 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
         return str;
     },
 
-    lookup : function(entity){
+    getObjectForEntity : function(entity){
         // Extra lookup will do nothing for auto objects, but will find actual
         // object for references.
-        return this.objects[entity.entityId].lookup();
+        return this.objects[entity.entityId].runtimeLookup();
     },
     referenceLookup : function(entity){
-        return this.references[entity.entityId].lookup();
+        return this.references[entity.entityId].runtimeLookup();
     },
     setUpReferenceInstances : function(){
         var self = this;

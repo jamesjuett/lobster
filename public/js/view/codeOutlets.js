@@ -747,7 +747,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
 
         if(this.inst){
             // If it's associated with an instance of an initializer
-            var obj = this.code.entity.lookup(this.simOutlet.simOutlet.sim, this.inst);
+            var obj = this.code.entity.runtimeLookup(this.simOutlet.simOutlet.sim, this.inst);
             this.element.append(obj.type.typeString(false, htmlDecoratedName(obj.name, obj.type), true));
         }
         else{

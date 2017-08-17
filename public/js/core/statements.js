@@ -623,7 +623,7 @@ Statements.TemporaryDeallocator = Statement.extend({
 
     upNext : function(sim, inst){
         for (var key in this.temporaries){
-            var tempObjInst = this.temporaries[key].lookup(sim, inst.parent);
+            var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
             if (tempObjInst) {
                 sim.memory.deallocateTemporaryObject(tempObjInst, inst);
             }

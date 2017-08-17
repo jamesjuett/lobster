@@ -73,7 +73,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
         if (inst.index === "operate"){
             if (isA(this.entity.type, Types.Class) || isA(this.entity.type, Types.Array)) {
                 // Nothing to do, handled by child initializers for each element
-                var ent = this.entity.lookup(sim, inst);
+                var ent = this.entity.runtimeLookup(sim, inst);
                 ent && ent.initialized();
                 this.done(sim, inst);
                 return true;
@@ -90,7 +90,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     stepForward : function(sim, inst){
         // Will only get to here if it's a non-class, non-array type.
 
-        var obj = this.entity.lookup(sim, inst);
+        var obj = this.entity.runtimeLookup(sim, inst);
         assert(obj, "Tried to look up entity to initialize but object was null.");
         // No initialization. Object has junk value.
         // Object should be invalidated by default and nobody has written to it.
@@ -102,7 +102,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     explain : function(sim, inst){
         var exp = {message:""};
         var type = this.entity.type;
-        var obj = inst && this.entity.lookup(sim, inst) || this.entity;
+        var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
         var desc = obj.describe();
 
         if (isA(type, Types.Class)) {
@@ -253,7 +253,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
     upNext : function(sim, inst){
         //sim.explain(this.explain(sim, inst));
         if (inst.index === "done"){
-            var ent = this.entity.lookup(sim, inst);
+            var ent = this.entity.runtimeLookup(sim, inst);
             ent && ent.initialized();
         }
         return Lobster.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
@@ -267,7 +267,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
 
         //sim.explain(this.explain(sim, inst));
-        var obj = this.entity.lookup(sim, inst);
+        var obj = this.entity.runtimeLookup(sim, inst);
         assert(obj, "Tried to look up entity to initialize but object was null.");
         var type = this.entity.type;
 
@@ -318,7 +318,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
     explain : function(sim, inst){
         var exp = {message:""};
         var type = this.entity.type;
-        var obj = inst && this.entity.lookup(sim, inst) || this.entity;
+        var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
         if (isA(obj, ReferenceEntity)){ // Proper reference
             var rhs = this.args[0].describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.args[0]).message;
             exp.message = obj.describe().message + " will be bound to " + rhs + ".";
@@ -440,7 +440,7 @@ var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
         if (inst.index !== "afterChildren"){
             return;
         }
-        var obj = this.i_entityToInitialize.lookup(sim, inst);
+        var obj = this.i_entityToInitialize.runtimeLookup(sim, inst);
 
         var arr = [];
         for(var i = 0; i < this.initializerListLength; ++i){
