@@ -437,7 +437,7 @@ var CPPEntity = Class.extend(Observable, {
     init: function(){
         this.entityId = CPPEntity._nextEntityId++;
     },
-    lookup : function(sim, inst){
+    runtimeLookup :  function(sim, inst){
         return this;
     },
     nameString : Class._ABSTRACT,
@@ -620,7 +620,7 @@ var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
         this.send("bound");
     },
 
-    lookup : function(sim, inst){
+    runtimeLookup :  function(sim, inst){
         return inst.funcContext.frame.referenceLookup(this).runtimeLookup(sim, inst);
     },
     autoInstance : function(){
@@ -657,7 +657,7 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.
     //     this.send("bound");
     // },
 
-    lookup : function(){
+    runtimeLookup :  function(){
         // It's possible someone will be looking up the reference in order to bind it (e.g. auxiliary reference used
         // in function return), so if we aren't bound to anything return ourselves.
         return this.refersTo || this;
@@ -677,7 +677,7 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    lookup : function(sim, inst) {
+    runtimeLookup :  function(sim, inst) {
         return sim.memory.staticLookup(this).runtimeLookup(sim, inst);
     }
 });
@@ -699,7 +699,7 @@ var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
     getLiteralString : function() {
         return this.i_str;
     },
-    lookup : function(sim, inst) {
+    runtimeLookup :  function(sim, inst) {
         return sim.memory.getStringLiteral(this.i_str);
     }
 });
@@ -717,7 +717,7 @@ var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
     objectInstance: function(){
         return AutoObjectInstance.instance(this);
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         // We lookup first on the current stack frame and then call
         // lookup again in case it's a reference or something.
         return inst.funcContext.frame.getObjectForEntity(this).runtimeLookup(sim, inst);
@@ -744,7 +744,7 @@ var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
 //    instanceString : function(){
 //        return this.name + " (" + this.type + ")";
 //    },
-//    lookup: function (sim, inst) {
+//    runtimeLookup :  function (sim, inst) {
 //        return inst.funcContext.frame.runtimeLookup(this);
 //    }
 //});
@@ -768,7 +768,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
     objectInstance: function(){
         return AutoObjectInstance.instance(this);
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         // In case function was polymorphic or a function pointer, look it up
         var func = this.func.runtimeLookup(sim, inst.parent);
 
@@ -793,7 +793,7 @@ var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
     instanceString : function(){
         return "return value (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         return inst.funcContext.model.getReturnObject(sim, inst.funcContext).runtimeLookup(sim, inst);
     }
 });
@@ -809,7 +809,7 @@ var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
     instanceString : function(){
         return "function receiver (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         var rec = inst.memberOf || inst.funcContext.receiver;
         return rec.runtimeLookup(sim, inst);
     },
@@ -835,7 +835,7 @@ var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
     instanceString : function(){
         return "object (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         return inst.allocatedObject.runtimeLookup(sim, inst);
     },
     describe : function(){
@@ -857,7 +857,7 @@ var ArraySubobjectEntity = CPP.ArraySubobjectEntity = CPP.CPPEntity.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         return this.arrayEntity.runtimeLookup(sim, inst).elemObjects[this.index].runtimeLookup(sim, inst);
     },
     objectInstance : function(arrObj){
@@ -890,7 +890,7 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !isA(memberOf.type, this.type)){ // TODO: this isA should probably be changed to a type function
@@ -923,7 +923,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         var memberOf = inst.memberOf || inst.funcContext.receiver;
 
         while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
@@ -991,7 +991,7 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
         inst.temporaryObjects[obj.entityId] = obj;
         return obj;
     },
-    lookup: function (sim, inst) {
+    runtimeLookup :  function (sim, inst) {
         var ownerInst = inst;
         while (ownerInst.model !== this.owner){
             ownerInst = ownerInst.parent;
@@ -1080,7 +1080,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
     isLinked : function(){
         return this.virtual && this.pureVirtual || this.isDefined();
     },
-    lookup : function(sim, inst){
+    runtimeLookup :  function(sim, inst){
         if (this.virtual){
             // If it's a virtual function start from the class scope of the dynamic type
             var receiver = inst.nearestReceiver().runtimeLookup(sim, inst);
@@ -1129,7 +1129,7 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     nameString : function(){
         return this.name;
     },
-    lookup : function(sim, inst){
+    runtimeLookup :  function(sim, inst){
         return inst.pointedFunction.runtimeLookup(sim,inst);
     },
     isLinked : function(){
