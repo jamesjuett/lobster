@@ -484,6 +484,16 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         return this.model.executionContext(this.sim, this);
     },
 
+    // HACK: Fix by moving to a derived class eventually
+    setReturnObject : function(returnObject){
+        this.i_returnObject = returnObject;
+    },
+
+    // HACK: Fix by moving to a derived class eventually
+    getReturnObject : function(){
+        return this.i_returnObject;
+    },
+
     explain : function(){
         return this.model.explain(this.sim, this);
     },

@@ -772,7 +772,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
         initialized : function(msg){
             var obj = msg.data;
             var val;
-            if (isA(obj, ReferenceEntity)){
+            if (isA(obj, ReferenceEntityInstance)){
                 val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
             }
             else{
