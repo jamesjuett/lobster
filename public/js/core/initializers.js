@@ -248,14 +248,6 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
     },
 
-    upNext : function(sim, inst){
-        //sim.explain(this.explain(sim, inst));
-        if (inst.index === "done"){
-            var ent = this.entity.runtimeLookup(sim, inst);
-        }
-        return Lobster.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
-    },
-
     stepForward : function(sim, inst){
 
         if (isA(this.entity.type, Types.Void)){
@@ -269,7 +261,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         var type = this.entity.type;
 
 
-        if (isA(obj, ReferenceEntity)){ // Proper reference // TODO: should this be ReferenceEntityInstance? or check this.entity instead?
+        if (isA(type, Types.Reference)) {
             obj.bindTo(inst.childInstances.args[0].evalValue);
             inst.send("initialized", obj);
             this.done(sim, inst);
@@ -307,7 +299,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         var exp = {message:""};
         var type = this.entity.type;
         var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
-        if (isA(obj, ReferenceEntity)){ // Proper reference
+        if (isA(type, Types.Reference)) {
             var rhs = this.args[0].describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.args[0]).message;
             exp.message = obj.describe().message + " will be bound to " + rhs + ".";
         }
@@ -371,6 +363,21 @@ var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitialize
 
 var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.extend({
     _name : "ReturnInitializer",
+
+    stepForward : function(sim, inst) {
+
+        // Need to handle return-by-reference differently, since there is no actual reference that
+        // gets bound. (The runtimeLookup for the return entity would yield null). Instead, we just
+        // set the return object for the enclosing function to the evaluated argument (which should
+        // have yielded an object).
+        if (isA(this.entity.type, Types.Reference)) {
+            inst.funcContext.setReturnValue(inst.childInstances.args[0].evalValue);
+            this.done(sim, inst);
+            return;
+        }
+
+        return ReturnInitializer._parent.stepForward.apply(this, arguments);
+    }
 });
 
 var MemberInitializer = Lobster.MemberInitializer = Lobster.DirectInitializer.extend({

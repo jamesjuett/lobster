@@ -580,7 +580,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             }
             else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
                 if (isA(inst.func.model.type.returnType, Types.Reference)) {
-                    obj = inst.func.model.getReturnObject(this, inst.func).runtimeLookup(this, inst.func);
+                    obj = inst.func.model.getReturnObject(this, inst.func);
                 }
                 else {
                     obj = inst.func.model.getReturnObject(this, inst.func).getValue();

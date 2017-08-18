@@ -459,7 +459,7 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
     setUpReferenceInstances : function(){
         var self = this;
         this.scope.referenceObjects.forEach(function(ref){
-            self.references[ref.entityId] = ref.autoInstance();
+            self.references[ref.entityId] = ref.runtimeInstance();
             //self.memory.allocateObject(ref, addr);
             //addr += ref.type.size;
         });

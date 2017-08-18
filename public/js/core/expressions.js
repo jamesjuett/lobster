@@ -2370,8 +2370,8 @@ var FunctionCall = Expression.extend({
                 funcDecl.setReturnObject(sim, inst.func, this.returnObjectEntity.objectInstance(inst));
             }
             else if (this.returnByReference) {
-                // Return by reference, create the reference for the function to bind to its return value
-                funcDecl.setReturnObject(sim, inst.func, ReferenceEntity.instance(null, this.func.type.returnType).autoInstance());
+                // UPDATE: Return by reference doesn't use a faked reference entity anymore. Instead, there is simply
+                // no return object initially and then when the ReturnInitializer does its thing, it sets the return object.
             }
             // else it was void, so no need to set a return object
         }

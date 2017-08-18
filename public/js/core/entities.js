@@ -476,7 +476,8 @@ var NamedEntity = CPPEntity.extend({
 
     /**
      * All NamedEntitys will have a name, but in some cases this might be null. e.g. an unnamed namespace.
-     * @param name
+     * @param {Type} type
+     * @param {string} name
      */
     init : function(type, name) {
         this.initParent(type);
@@ -487,7 +488,7 @@ var NamedEntity = CPPEntity.extend({
 });
 CPP.NamedEntity = NamedEntity;
 
-var DeclaredEntity = CPPEntity.extend({
+var DeclaredEntity = NamedEntity.extend({
     _name : "DeclaredEntity",
 
     /**
@@ -573,9 +574,8 @@ var DeclaredEntity = CPPEntity.extend({
     },
 
     init : function(decl) {
-        this.initParent(decl.name, decl.type);
+        this.initParent(decl.type, decl.name);
         this.decl = decl;
-        this.type = decl.type;
     },
 
     setDefinition : function(definition) {
@@ -601,32 +601,14 @@ var DeclaredEntity = CPPEntity.extend({
 });
 CPP.DeclaredEntity = DeclaredEntity;
 
-// TODO: create a separate class for runtime references that doesn't extend DeclaredEntity
 var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     _name: "ReferenceEntity",
-    storage: "automatic", // TODO: is this correct?
-    init: function (decl, type) {
-        this.initParent(decl || {name: null, type: type});
-    },
-    allocated : function(){},
-    bindTo : function(refersTo){
-        assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
-
-        // If the thing we refer to is a reference, look it up first so we refer to the source.
-        // This eliminates chains of references, which for now is what I want.
-        if (isA(refersTo, ReferenceEntity)) {
-            this.refersTo = refersTo.runtimeLookup();
-        }
-        else{
-            this.refersTo = refersTo;
-        }
-        this.send("bound");
-    },
+    storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     runtimeLookup :  function(sim, inst){
         return inst.funcContext.frame.referenceLookup(this).runtimeLookup(sim, inst);
     },
-    autoInstance : function(){
+    runtimeInstance : function(){
         return ReferenceEntityInstance.instance(this);
     },
     describe : function(){
@@ -639,33 +621,41 @@ var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     }
 });
 
-
-var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.ReferenceEntity.extend({
+// TODO: determine what should actually be the base class here
+var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.DeclaredEntity.extend({
     _name: "ReferenceEntityInstance",
     init: function (entity) {
-        this.initParent(entity.decl, entity.type);
+        this.initParent(entity.decl);
     },
-    // TODO: I think this should be removed
-    // bindTo : function(refersTo){
-    //     assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntity)); // Must refer to a concrete thingy
-    //
-    //     // If the thing we refer to is a reference, look it up first so we refer to the source.
-    //     // This eliminates chains of references, which for now is what I want.
-    //     if (isA(refersTo, ReferenceEntity)) {
-    //         this.refersTo = refersTo.runtimeLookup();
-    //     }
-    //     else{
-    //         this.refersTo = refersTo;
-    //     }
-    //     this.send("bound");
-    // },
+    allocated : function(){},
 
     runtimeLookup :  function(){
         // It's possible someone will be looking up the reference in order to bind it (e.g. auxiliary reference used
         // in function return), so if we aren't bound to anything return ourselves.
-        return this.refersTo || this;
-    }
+        return this.refersTo || this; // Don't need chained lookup here since this.refersTo should never be another reference
+    },
+    bindTo : function(refersTo){
+        assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntityInstance)); // Must refer to a concrete thingy
 
+        // If the thing we refer to is a reference, look it up first so we refer to the source.
+        // This eliminates chains of references, which for now is what I want.
+        if (isA(refersTo, ReferenceEntityInstance)) {
+            this.refersTo = refersTo.runtimeLookup();
+        }
+        else{
+            this.refersTo = refersTo;
+        }
+        this.send("bound");
+    },
+
+    describe : function(){
+        if (this.refersTo) {
+            return {message: "the reference " + this.name + " (which is bound to " + this.refersTo.describe().message + ")"};
+        }
+        else {
+            return {message: "the reference " + this.name + " (which has not yet been bound to an object)"};
+        }
+    }
 });
 
 var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
@@ -800,15 +790,29 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
 var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
     _name: "ReturnEntity",
     storage: "automatic",
-    init: function(type){
+    init: function(type) {
         this.initParent("return value");
         this.type = type;
     },
-    instanceString : function(){
+    instanceString : function() {
         return "return value (" + this.type + ")";
     },
+    /**
+     * If this is return-by-value (i.e. non-reference type), returns the temporary return object for the currently
+     * executing function. If it is return-by-reference, there is only a return object if the return has already been
+     * processed and the return object has been set. If so, this function returns that object, otherwise null.
+     * If the return type is void, this function will return null.
+     * @param sim
+     * @param inst
+     * @returns {CPPObject?}
+     */
     runtimeLookup :  function (sim, inst) {
-        return inst.funcContext.model.getReturnObject(sim, inst.funcContext).runtimeLookup(sim, inst);
+        if (isA(type, Types.Void)) {
+            return null;
+        }
+        else {
+            return inst.funcContext.model.getReturnObject(sim, inst.funcContext);
+        }
     }
 });
 
