@@ -66,7 +66,10 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_pendingNews = [];
         this.i_leakCheckIndex = 0;
 
-        // TODO NEW move compilation of mainCall to program?
+        // TODO change this to just call runtime library functions in order to create the runtime construct for
+        // the main function definition, initialize arguments (i.e. argc and argv) if present, etc.
+        // This will avoid the awkwardness of some of the runtime constructs like the call to main having no
+        // containing function.
         var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
@@ -293,7 +296,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     },
 
     stepOut: function(options){
-        var target = this.i_execStack.last().executionContext();
+        var target = this.i_execStack.last().containingFunction();
 
         if (target) {
             this.autoRun(copyMixin(options, {

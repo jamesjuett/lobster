@@ -2766,7 +2766,6 @@ Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
         var last = this.sim.i_execStack.last();
         if (last) {
             last.send("upNext");
-            last.funcContext.send("currentFunction");
         }
     },
     _act : {

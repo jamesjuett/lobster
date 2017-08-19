@@ -263,10 +263,6 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         return inst && inst.childInstances && inst.childInstances[name];
     },
 
-    executionContext : function(sim, inst){
-        return inst.funcContext;
-    },
-
     upNext : function(sim, inst){
         // Evaluate subexpressions
         if (inst.index === "pushChildren"){
@@ -387,18 +383,24 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
                 this.parent.pushSubCall(this);
             }
 
-            // Will be replaced later in call instance subclass with self
-            this.funcContext = this.parent.funcContext;
+            // Inherit the containing function from parent. Derived classes (e.g. RuntimeFunction) may
+            // overwrite this as needed (e.g. RuntimeFunction is its own containing function)
+            this.i_containingRuntimeFunction = this.parent.i_containingRuntimeFunction;
 
-        }
-
-        if (this.model.i_isMainCall){
-            this.funcContext = this;
         }
 
         this.stepsTaken = sim.stepsTaken();
         this.pauses = {};
     },
+
+    /**
+     * Returns the RuntimeFunction containing this runtime construct.
+     * @returns {RuntimeFunction}
+     */
+    containingRuntimeFunction : function() {
+        return this.i_containingRuntimeFunction;
+    },
+
     instanceString : function(){
         return "instance of " + this._name + " (" + this.model._name + ")";
     },
@@ -417,7 +419,6 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
             }
         }
         this.send("upNext");
-        this.funcContext.send("currentFunction");
         return this.model.upNext(this.sim, this);
     },
     setPauseWhenUpNext : function(){
@@ -446,10 +447,6 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         this.subCalls.push(subCall);
         this.send("subCallPushed", subCall);
     },
-    setFrame : function(frame){
-        this.frame = frame;
-//		this.update({frameSet: this.frame});
-    },
     findParent : function(stackType){
         if (stackType){
             var parent = this.parent;
@@ -472,26 +469,12 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         return parent;
     },
     nearestReceiver : function(){
-        return this.receiver || this.funcContext.receiver || this.parent && this.parent.nearestReceiver();
+        return this.receiver || this.containingRuntimeFunction().receiver || this.parent && this.parent.nearestReceiver();
     },
 
     setEvalValue: function(value){
         this.evalValue = value;
         this.send("evaluated", this.evalValue);
-    },
-
-    executionContext : function(){
-        return this.model.executionContext(this.sim, this);
-    },
-
-    // HACK: Fix by moving to a derived class eventually
-    setReturnObject : function(returnObject){
-        this.i_returnObject = returnObject;
-    },
-
-    // HACK: Fix by moving to a derived class eventually
-    getReturnObject : function(){
-        return this.i_returnObject;
     },
 
     explain : function(){
@@ -500,5 +483,66 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
     describe : function(){
         return this.model.describe(this.sim, this);
     }
+});
+
+RuntimeFunction = CPPConstructInstance.extend({
+    _name : "RuntimeFunction",
+
+    init : function() {
+        RuntimeFunction._parent.init.apply(this, arguments);
+        this.i_containingRuntimeFunction = this;
+        this.i_caller = this.parent;
+    },
+
+    setReturnObject : function(returnObject){
+        this.i_returnObject = returnObject;
+    },
+
+    getReturnObject : function(){
+        return this.i_returnObject;
+    },
+
+    setReceiver : function(receiver) {
+        this.i_receiver = receiver;
+    },
+
+    getReceiver : function() {
+        return this.i_receiver;
+    },
+
+    setCaller : function(caller) {
+        this.i_caller = caller;
+    },
+
+    getCaller : function() {
+        return this.i_caller;
+    },
+
+    pushStackFrame : function() {
+        this.stackFrame = sim.memory.stack.pushFrame(this);
+    },
+
+    gainControl : function() {
+        this.i_hasControl = true;
+        this.send("gainControl");
+    },
+
+    loseControl : function() {
+        delete this.i_hasControl;
+        this.send("loseControl");
+    },
+
+    hasControl : function() {
+        return this.i_hasControl;
+    },
+
+    encounterReturnStatement : function() {
+        this.i_returnStatementEncountered = true;
+    },
+
+    returnStatementEncountered : function() {
+        return this.i_returnStatementEncountered;
+    }
+
 });
 

@@ -166,17 +166,15 @@ Statements.Return = Statement.extend({
 	},
 
 	stepForward : function(sim, inst){
-        inst.funcContext.returnStatementEncountered = true;
+        var func = inst.containingRuntimeFunction();
+        func.encounterReturnStatement();
 
 		if (inst.index === "afterChildren") {
-            var func = inst.funcContext;
-
             inst.send("returned", {call: func.parent});
             inst.index = "returned";
             return true; // go again to returned
         }
         else if (inst.index === "returned"){
-            var func = inst.funcContext;
             sim.popUntil(func);
 			//func.done(sim);
 			// return true;

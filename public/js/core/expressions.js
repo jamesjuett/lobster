@@ -2340,7 +2340,7 @@ var FunctionCall = Expression.extend({
         }
 
         if (this.canUseTCO){
-            inst.func = inst.funcContext;
+            inst.func = inst.containingRuntimeFunction();
             //funcDecl.tailCallReset(sim, inst.func); // TODO why was this ever here?
             //inst.send("tailCalled", inst.func);
         }
@@ -2386,7 +2386,7 @@ var FunctionCall = Expression.extend({
     upNext : function(sim, inst){
         var self = this;
         if (!inst.receiver){
-            inst.receiver = inst.funcContext.receiver;
+            inst.receiver = inst.containingRuntimeFunction().receiver;
         }
         if (inst.index === "arguments"){
 
@@ -2424,6 +2424,8 @@ var FunctionCall = Expression.extend({
                 // nothing to do it must be void
                 inst.setEvalValue(Value.instance("", Types.Void.instance()));
             }
+            inst.func.loseControl();
+            inst.containingRuntimeFunction().gainControl();
 
             this.done(sim, inst);
             return true;
@@ -2464,10 +2466,12 @@ var FunctionCall = Expression.extend({
             }
             else{
                 // Push the stack frame
-                var frame = sim.memory.stack.pushFrame(inst);
-                inst.func.setFrame(frame);
+                inst.func.pushStackFrame();
 
                 sim.push(inst.func);
+
+                inst.containingRuntimeFunction().loseControl();
+                inst.func.gainControl();
                 inst.send("called", inst.func);
                 inst.hasBeenCalled = true;
             }
@@ -3150,7 +3154,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     },
     stepForward : function(sim, inst){
         // Set this pointer with RTTI to point to receiver
-        inst.setEvalValue(Value.instance(inst.funcContext.receiver.address, Types.ObjectPointer.instance(inst.funcContext.receiver)));
+        inst.setEvalValue(Value.instance(inst.containingRuntimeFunction().receiver.address, Types.ObjectPointer.instance(inst.containingRuntimeFunction().receiver)));
         this.done(sim, inst);
     }
 });
