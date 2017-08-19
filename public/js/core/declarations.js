@@ -876,11 +876,8 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         return entity;
     },
 
-    createInstance : function(args){
-        var inst = CPPConstruct.createInstance.apply(this, arguments);
-        inst.funcContext = inst; // Each function definition starts a new function context.
-        inst.caller = inst.parent;
-        return inst;
+    createInstance : function(sim, parent){
+        return RuntimeFunction.instance(sim, this, this.initIndex, this.instType, parent);
     },
 
     setArguments : function(sim, inst, args){
@@ -902,10 +899,10 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         // intended to be able to reseat references and parameter initializers will instead
         // think they're supposed to pass into the things that the references on the existing
         // stack frame were referring to.
-        inst.frame.setUpReferenceInstances();
+        inst.stackFrame.setUpReferenceInstances();
 
         inst.reusedFrame = true;
-        inst.caller = caller;
+        inst.setCaller(caller);
         inst.index = this.initIndex;
         sim.popUntil(inst);
         //inst.send("reset"); // don't need i think
@@ -916,7 +913,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 
         // If non-void return type, check that return object was initialized.
         // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
-        if (!isA(this.type.returnType, Types.Void) && !inst.returnStatementEncountered){
+        if (!isA(this.type.returnType, Types.Void) && !inst.returnStatementEncountered()){
             this.flowOffNonVoid(sim, inst);
         }
 
@@ -1242,9 +1239,9 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
             src += "\n : ";
         }
         src += this.type.baseClassSubobjectEntities.map(function(subObj){
-            return subObj.name + "(other)";
+            return subObj.type.className + "(other)";
         }).concat(this.type.memberSubobjectEntities.map(function(subObj){
-            return subObj.name + "(other." + subObj.name + ")";
+            return subObj.type.className + "(other." + subObj.name + ")";
         })).join(", ");
 
         src += " {}";
@@ -1464,7 +1461,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
         // NOTE: a constructor doesn't have a "name", and so we don't need to add it to any scope.
         // However, to make lookup easier, we give all constructors their class name plus the null character. LOL
-        // TODO: this is silly. remote it pls :)
+        // TODO: this is silly. remove it pls :)
         this.name = this.i_containingClass.className + "\0";
 
         // Compile the parameters
@@ -1512,6 +1509,8 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
         var memInits = this.ast.initializer || [];
 
         // First, check to see if this is a delegating constructor.
+        // TODO: check on whether someone could techinically declare a member variable with the same name
+        // as the class and how that affects the logic here.
         var targetConstructor = null;
         for(var i = 0; i < memInits.length; ++i){
             if (memInits[i].member.identifier == this.i_containingClass.className){

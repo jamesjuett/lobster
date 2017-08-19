@@ -350,10 +350,6 @@ var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitialize
         return inst;
     },
 
-    executionContext : function(sim, inst){
-        return inst.calledFunction;
-    },
-
     explain : function(sim, inst){
         var exp = ParameterInitializer._parent.explain.apply(this, arguments);
         exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
@@ -371,7 +367,7 @@ var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.exte
         // set the return object for the enclosing function to the evaluated argument (which should
         // have yielded an object).
         if (isA(this.entity.type, Types.Reference)) {
-            inst.funcContext.setReturnValue(inst.childInstances.args[0].evalValue);
+            inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalValue);
             this.done(sim, inst);
             return;
         }

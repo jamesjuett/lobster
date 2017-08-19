@@ -256,10 +256,14 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
             });
         }
 
+        if (this.code.hasControl()) {
+            this.element.addClass("hasControl");
+        }
+
     },
 
     setUpParams : function(){
-        var paramCodes = this.inst ? this.inst.caller.argInits : this.code.params;
+        var paramCodes = this.inst ? this.inst.getCaller().argInits : this.code.params;
         this.paramsElem.empty();
         this.paramsElem.append("(");
         //var paramElems = [];
@@ -299,9 +303,11 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
                 this.setInstance(inst);
             }
         },
-        currentFunction : function(){
-            this.simOutlet.element.find(".currentFunction").removeClass("currentFunction");
-            this.element.addClass("currentFunction");
+        gainControl : function() {
+            this.element.addClass("hasControl");
+        },
+        loseControl : function() {
+            this.element.removeClass("hasControl");
         }
 
     }, true)
@@ -643,7 +649,7 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
             }
 
             if (this.expr) {
-                this.inst.funcContext.parent.send("returned", this.argOutlets[0]);
+                this.inst.containingRuntimeFunction().parent.send("returned", this.argOutlets[0]);
             }
 
         }

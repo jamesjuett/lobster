@@ -606,7 +606,7 @@ var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
     storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     runtimeLookup :  function(sim, inst){
-        return inst.funcContext.frame.referenceLookup(this).runtimeLookup(sim, inst);
+        return inst.containingRuntimeFunction().stackFrame.referenceLookup(this).runtimeLookup(sim, inst);
     },
     runtimeInstance : function(){
         return ReferenceEntityInstance.instance(this);
@@ -690,8 +690,7 @@ var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
     _name: "StringLiteralEntity",
     storage: "static",
     init: function(str){
-        this.initParent(null);
-        this.type = Types.Array.instance(Types.Char.instance(true), str.length + 1); // + 1 for null char
+        this.initParent(Types.Array.instance(Types.Char.instance(true), str.length + 1)); // + 1 for null char
         this.i_str = str;
     },
     objectInstance : function() {
@@ -724,7 +723,7 @@ var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
     runtimeLookup :  function (sim, inst) {
         // We lookup first on the current stack frame and then call
         // lookup again in case it's a reference or something.
-        return inst.funcContext.frame.getObjectForEntity(this).runtimeLookup(sim, inst);
+        return inst.containingRuntimeFunction().stackFrame.getObjectForEntity(this).runtimeLookup(sim, inst);
     },
     describe : function(){
         if (isA(this.decl, Declarations.Parameter)){
@@ -735,23 +734,6 @@ var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
         }
     }
 });
-
-//var TemporaryReferenceEntity = CPP.TemporaryReferenceEntity = CPP.CPPEntity.extend({
-//    _name: "TemporaryReferenceEntity",
-//    storage: "automatic",
-//    init: function(refersTo){
-//        assert(isA(refersTo, CPPObject));
-//        this.initParent(refersTo.name);
-//        this.type = decl.type;
-//        this.decl = decl;
-//    },
-//    instanceString : function(){
-//        return this.name + " (" + this.type + ")";
-//    },
-//    runtimeLookup :  function (sim, inst) {
-//        return inst.funcContext.frame.runtimeLookup(this);
-//    }
-//});
 
 var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
     _name: "ParameterEntity",
@@ -790,10 +772,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
 var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
     _name: "ReturnEntity",
     storage: "automatic",
-    init: function(type) {
-        this.initParent("return value");
-        this.type = type;
-    },
+
     instanceString : function() {
         return "return value (" + this.type + ")";
     },
@@ -811,7 +790,7 @@ var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
             return null;
         }
         else {
-            return inst.funcContext.model.getReturnObject(sim, inst.funcContext);
+            return inst.containingRuntimeFunction().getReturnObject();
         }
     }
 });
@@ -821,19 +800,18 @@ var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
     storage: "automatic",
     init: function(type){
         assert(isA(type, Types.Class));
-        this.initParent(type.className);
-        this.type = type;
+        this.initParent(type);
     },
     instanceString : function(){
         return "function receiver (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var rec = inst.memberOf || inst.funcContext.receiver;
+        var rec = inst.memberOf || inst.containingRuntimeFunction().receiver;
         return rec.runtimeLookup(sim, inst);
     },
     describe : function(sim, inst){
         if (inst){
-            return {message: "the receiver of this call to " + inst.funcContext.describe(sim, inst.funcContext).message + " (i.e. *this) "};
+            return {message: "the receiver of this call to " + inst.containingRuntimeFunction().describe().message + " (i.e. *this) "};
         }
         else {
             return {message: "the receiver of this call (i.e. *this)"};
@@ -847,14 +825,14 @@ var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
     _name: "NewObjectEntity",
     storage: "automatic",
     init: function(type){
-        this.initParent(null);
-        this.type = type;
+        this.initParent(type);
     },
     instanceString : function(){
         return "object (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        return inst.allocatedObject.runtimeLookup(sim, inst);
+        // no additional runtimeLookup() needed on the object since it will never be a reference
+        return inst.allocatedObject;
     },
     describe : function(){
         return {message: "the object ("+this.type+") created by new"};
@@ -867,26 +845,23 @@ var ArraySubobjectEntity = CPP.ArraySubobjectEntity = CPP.CPPEntity.extend({
     storage: "none",
     init: function(arrayEntity, index){
         assert(isA(arrayEntity.type, Types.Array));
-        this.initParent(arrayEntity.name + "[" + index + "]");
-        this.arrayEntity = arrayEntity;
-        this.type = arrayEntity.type.elemType;
-        this.index = index;
+        this.initParent(arrayEntity.type.elemType);
+        this.i_arrayEntity = arrayEntity;
+        this.i_index = index;
     },
-    instanceString : function(){
-        return this.name + " (" + this.type + ")";
-    },
+
     runtimeLookup :  function (sim, inst) {
-        return this.arrayEntity.runtimeLookup(sim, inst).elemObjects[this.index].runtimeLookup(sim, inst);
+        return this.i_arrayEntity.runtimeLookup(sim, inst).elemObjects[this.i_index].runtimeLookup(sim, inst);
     },
     objectInstance : function(arrObj){
-        return ArraySubobject.instance(arrObj, this.index);
+        return ArraySubobject.instance(arrObj, this.i_index);
     },
     describe : function(){
         var desc = {};
-        var arrDesc = this.arrayEntity.describe();
-        desc.message = "element " + this.index + " of " + arrDesc.message;
+        var arrDesc = this.i_arrayEntity.describe();
+        desc.message = "element " + this.i_index + " of " + arrDesc.message;
         if (arrDesc.name){
-            desc.name = arrDesc.name + "[" + this.index + "]";
+            desc.name = arrDesc.name + "[" + this.i_index + "]";
         }
         return desc;
     }
@@ -897,8 +872,8 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     storage: "none",
     init: function(type, memberOfType, access){
         assert(isA(type, Types.Class));
-        this.initParent(type.className);
-        this.type = type;
+        assert(isA(memberOfType, Types.Class));
+        this.initParent(type);
         if (!this.type._isInstance){
             this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
         }
@@ -909,7 +884,7 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
         return this.name + " (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var memberOf = inst.memberOf || inst.funcContext.receiver;
+        var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
 
         while(memberOf && !isA(memberOf.type, this.type)){ // TODO: this isA should probably be changed to a type function
             memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
@@ -942,7 +917,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         return this.name + " (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var memberOf = inst.memberOf || inst.funcContext.receiver;
+        var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
 
         while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
             memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
@@ -957,7 +932,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
     },
     describe : function(sim, inst){
         if (inst){
-            var memberOf = inst.memberOf || inst.funcContext.receiver;
+            var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
             if (memberOf.name){
                 return {message: this.memberOf.name + "." + this.name};
             }

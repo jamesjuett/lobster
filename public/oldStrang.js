@@ -578,7 +578,7 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
 //                         }
 //                     }, null)
@@ -592,7 +592,7 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
 //                         }
 //                     }, null)
@@ -638,7 +638,7 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //                             var size = this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
 //                         }
 //                     }, null)
@@ -670,7 +670,7 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).getValue();
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size.equals(0));
 //                         }
 //                     }, null)
