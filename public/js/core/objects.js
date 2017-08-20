@@ -517,8 +517,8 @@ var StaticObjectInstance = CPP.StaticObjectInstance = CPP.CPPObject.extend({
 
 
 
-var RuntimeEntity = CPP.RuntimeEntity = CPP.CPPObject.extend({
-    _name: "RuntimeEntity",
+var EvaluationResultRuntimeEntity = CPP.EvaluationResultRuntimeEntity = CPP.CPPObject.extend({
+    _name: "EvaluationResultRuntimeEntity",
     storage: "automatic",
     init: function(type, inst){
         this.initParent(null, type);

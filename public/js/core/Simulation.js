@@ -206,6 +206,19 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 		return results;
 	},
 
+
+    topFunction : function() {
+        for (var i = this.i_execStack.length - 1; i >= 0; --i){
+            var runtimeConstruct = this.i_execStack[i];
+            if (isA(runtimeConstruct, RuntimeFunction)) {
+                return runtimeConstruct;
+            }
+        }
+
+        // If there were no functions or the execution stack is empty
+        return null;
+    },
+
     clearRunThread: function(){
         if (this.runThread){
             this.runThreadClearedFlag = true;

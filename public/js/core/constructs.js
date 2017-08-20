@@ -221,7 +221,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     createInstance : function(sim, parent){
-        return CPPConstructInstance.instance(sim, this, this.initIndex, this.instType, parent);
+        return (this.i_runtimeConstructClass || CPPConstructInstance).instance(sim, this, this.initIndex, this.instType, parent);
     },
 
     createAndPushInstance : function(sim, parent){
@@ -468,8 +468,8 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
         }
         return parent;
     },
-    nearestReceiver : function(){
-        return this.receiver || this.containingRuntimeFunction().receiver || this.parent && this.parent.nearestReceiver();
+    contextualReceiver : function(){
+        return this.containingRuntimeFunction().getReceiver();
     },
 
     setEvalValue: function(value){
@@ -543,6 +543,24 @@ RuntimeFunction = CPPConstructInstance.extend({
     returnStatementEncountered : function() {
         return this.i_returnStatementEncountered;
     }
+});
 
+/**
+ * Represents either a dot or arrow operator at runtime.
+ * Provides a context that may change how entities are looked up based
+ * on the object the member is being accessed from. e.g. A virtual member
+ * function lookup depends on the actual (i.e. dynamic) type of the object
+ * on which it was called.
+ */
+RuntimeMemberAccess = RuntimeMemberAccess.extend({
+    _name : "RuntimeMemberAccess",
+
+    setObjectAccessedFrom : function(obj) {
+        this.i_objectAccessedFrom = obj;
+    },
+
+    contextualReceiver : function(){
+        return this.i_objectAccessedFrom;
+    }
 });
 
