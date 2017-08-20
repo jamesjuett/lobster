@@ -600,7 +600,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
     upNext : Class.ADDITIONALLY(function(sim, inst){
         if (this.funcCall){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
@@ -933,7 +933,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
         // If using an overloaded member operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.left.type, inst.childInstances.left));
+            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -1473,7 +1473,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
         // If using an assignment operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
@@ -2007,6 +2007,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
 var Dot = Expressions.Dot = Expression.extend({
     _name: "Dot",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     i_childrenToCreate : ["operand"],
     i_childrenToExecute : ["operand"],
 
@@ -2061,9 +2062,7 @@ var Dot = Expressions.Dot = Expression.extend({
         else{
             // entity may be MemberSubobjectEntity but should never be an AutoEntity
             assert(!isA(this.entity, AutoEntity));
-            var operand = inst.childInstances.operand.evalValue;
-            inst.memberOf = operand;
-            inst.receiver = operand;
+            inst.setObjectAccessedFrom(inst.childInstances.operand.evalValue);
             inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
             this.done(sim, inst);
             return true;
@@ -2082,6 +2081,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
 var Arrow = Expressions.Arrow = Expression.extend({
     _name: "Arrow",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     valueCategory: "lvalue",
     i_childrenToCreate : ["operand"],
     i_childrenToConvert : {
@@ -2128,9 +2128,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
             if (Types.Pointer.isNull(addr.rawValue())){
                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
             }
-            var obj = sim.memory.getObject(addr, this.operand.type.ptrTo);
-            inst.memberOf = obj;
-            inst.receiver = obj;
+            inst.setObjectAccessedFrom(sim.memory.getObject(addr, this.operand.type.ptrTo));
             inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
@@ -2192,6 +2190,23 @@ var FunctionCall = Expression.extend({
         });
     },
 
+    /**
+     * A FunctionEntity must be provided to specify which function is being called.
+     *
+     * A receiver entity may be provided here, and if it is, the function call guarantees it will
+     * be looked up in a runtime context BEFORE the function has been "called" (i.e. before a new
+     * stack frame has been pushed and control has been given over to the called function). This in
+     * particular is important for e.g. a ParameterEntity used as the receiver of a constructor call
+     * when a class-type parameter is passed by value to some function. If it were looked up instead
+     * after the call, it would try to find a parameter of the constructor rather than of the function,
+     * which isn't right.
+     *
+     * If a receiver entity is not provided here, a receiver object must be specified at runtime when
+     * a runtime construct for this function call is created.
+     *
+     * @param {FunctionEntity} compilationContext.func
+     * @param {CPPEntity?} compilationContext.receiver
+     */
     compile : function(compilationContext) {
         this.receiver = compilationContext.receiver || null;
         this.func = compilationContext.func;
@@ -2320,13 +2335,6 @@ var FunctionCall = Expression.extend({
 
     createInstance : function(sim, parent, receiver){
         var inst = Expression.createInstance.apply(this, arguments);
-        inst.receiver = receiver;
-
-        if (!inst.receiver && this.receiver){
-            // Used for constructors. Make sure to look up in context of parent instance
-            // or else you'll be looking at the wrong thing for parameter entities.
-            inst.receiver = this.receiver.runtimeLookup(sim, parent);
-        }
 
         // For function pointers. It's a hack!
         if (parent && parent.pointedFunction) {
@@ -2348,6 +2356,17 @@ var FunctionCall = Expression.extend({
             inst.func = funcDecl.createInstance(sim, inst);
             //inst.send("called", inst.func);
         }
+
+        // Receiver should not be specified both at compile time and at runtime.
+        // (Note it may not be specified at all yet)
+        assert(!(receiver && this.receiver));
+        if (receiver) {
+            inst.func.setReceiver(receiver.runtimeLookup(sim, inst)); // TODO: remove the runtimeLookup when overloads are fixed so that they set the receiver as an object, not a runtime entity thing
+        }
+        else if (this.receiver) {
+            inst.func.setReceiver(this.receiver.runtimeLookup(sim, inst));
+        }
+        // else there is no receiver i.e. a non-member function
 
         // Create argument initializer instances
         inst.argInits = this.argInitializers.map(function(argInit){
@@ -2379,15 +2398,8 @@ var FunctionCall = Expression.extend({
         return inst;
     },
 
-    setReceiver : function(sim, inst, receiver){
-        inst.receiver = receiver;
-    },
-
     upNext : function(sim, inst){
         var self = this;
-        if (!inst.receiver){
-            inst.receiver = inst.containingRuntimeFunction().receiver;
-        }
         if (inst.index === "arguments"){
 
             // If it's a magic function, just push expressions
@@ -2453,9 +2465,8 @@ var FunctionCall = Expression.extend({
                 return false;
             }
 
-            if (inst.receiver) {
-                inst.func.receiver = inst.receiver = inst.receiver.runtimeLookup(sim, inst);
-                inst.receiver.callReceived();
+            if (inst.func.getReceiver()) {
+                inst.func.getReceiver().callReceived();
             }
 
 
@@ -2614,7 +2625,17 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
             }
             // TODO: hack on next line has || inst.operand.evalValue
             // TODO: remember why that's a hack and not just the right thing to do
-            inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.receiver || isA(this.operand.type, Types.Class) && inst.operand.evalValue);
+            if (isA(this.boundFunction, MemberFunctionEntity)) {
+                if (isA(this.operand.type, Types.Class)) {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalValue);
+                }
+                else {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.contextualReceiver());
+                }
+            }
+            else {
+                inst.funcCall = this.funcCall.createAndPushInstance(sim, inst);
+            }
             inst.wait();
             inst.index = "done";
             return true;
@@ -3001,7 +3022,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
         this.compileTemporarires();
     },
 
-    createInstance : function(sim, parent, receiver){
+    createInstance : function(sim, parent){
         var inst = Expression.createInstance.apply(this, arguments);
         inst.tempObject = this.entity.objectInstance(inst);
         return inst;
@@ -3154,7 +3175,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     },
     stepForward : function(sim, inst){
         // Set this pointer with RTTI to point to receiver
-        inst.setEvalValue(Value.instance(inst.containingRuntimeFunction().receiver.address, Types.ObjectPointer.instance(inst.containingRuntimeFunction().receiver)));
+        inst.setEvalValue(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
         this.done(sim, inst);
     }
 });

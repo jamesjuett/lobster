@@ -448,6 +448,13 @@ var CPPEntity = Class.extend(Observable, {
 
     /**
      * Default behavior - no runtime object associated with this entity. Just return ourselves.
+     * Derived classes may override and return either a more specific entity (e.g. a dynamically
+     * bound derived class version of a virtual function) or an object that exists at runtime (e.g.
+     * getting the object named by a variable in some context).
+     *
+     * The context for the lookup is provided by two parameters. The first is the Simulation object,
+     * which can be used e.g. to query memory for an object. The second is a RuntimeConstruct instance
+     * relevant to the lookup.
      * @param sim
      * @param inst
      * @returns {CPPEntity}
@@ -756,12 +763,14 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
     },
     runtimeLookup :  function (sim, inst) {
         // In case function was polymorphic or a function pointer, look it up
+        // TODO: not sure whether parent is appropriate here
         var func = this.func.runtimeLookup(sim, inst.parent);
 
         // Now we can look up object entity associated with this parameter
         var objEntity = func.definition.params[this.num].entity;
 
-        return objEntity.runtimeLookup(sim, inst.calledFunction);
+        // Look it up in the context of the top function on the stack.
+        return objEntity.runtimeLookup(sim, sim.topFunction());
     },
     describe : function(){
         return {message: "parameter " + this.num + " of " + this.func.describe().message};
@@ -806,8 +815,7 @@ var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
         return "function receiver (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var rec = inst.memberOf || inst.containingRuntimeFunction().receiver;
-        return rec.runtimeLookup(sim, inst);
+        return inst.contextualReceiver();
     },
     describe : function(sim, inst){
         if (inst){
@@ -884,14 +892,14 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
         return this.name + " (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
+        var recObj = inst.contextualReceiver();
 
-        while(memberOf && !isA(memberOf.type, this.type)){ // TODO: this isA should probably be changed to a type function
-            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
+        while(recObj && !isA(recObj.type, this.type)){ // TODO: this isA should probably be changed to a type function
+            recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
         }
-        assert(memberOf, "Internal lookup failed to find subobject in class or base classes.");
+        assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
 
-        return memberOf.runtimeLookup(sim, inst);
+        return recObj.runtimeLookup(sim, inst);
     },
     objectInstance : function(parentObj){
         return BaseClassSubobject.instance(this.type, parentObj);
@@ -917,27 +925,27 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
         return this.name + " (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
-        var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
+        var recObj = inst.contextualReceiver();
 
-        while(memberOf && !memberOf.type.isInstanceOf(this.memberOfType)){
-            memberOf = memberOf.type.getBaseClass() && memberOf.i_baseSubobjects[0];
+        while(recObj && !recObj.type.isInstanceOf(this.memberOfType)){
+            recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
         }
 
-        assert(memberOf, "Internal lookup failed to find subobject in class or base classses.");
+        assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
 
-        return memberOf.getMemberSubobject(this.name).runtimeLookup(sim, inst); // I think the lookup here is in case of reference members?
+        return recObj.getMemberSubobject(this.name).runtimeLookup(sim, inst); // I think the lookup here is in case of reference members?
     },
     objectInstance : function(parentObj){
         return MemberSubobject.instance(this.type, parentObj, this.name);
     },
     describe : function(sim, inst){
         if (inst){
-            var memberOf = inst.memberOf || inst.containingRuntimeFunction().receiver;
-            if (memberOf.name){
-                return {message: this.memberOf.name + "." + this.name};
+            var recObj = inst.contextualReceiver();
+            if (recObj.name){
+                return {message: recObj.name + "." + this.name};
             }
             else{
-                return {message: "the member " + this.name + " of " + memberOf.describe(sim, inst).message};
+                return {message: "the member " + this.name + " of " + recObj.describe(sim, inst).message};
             }
         }
         else{
@@ -1077,7 +1085,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
     runtimeLookup :  function(sim, inst){
         if (this.virtual){
             // If it's a virtual function start from the class scope of the dynamic type
-            var receiver = inst.nearestReceiver().runtimeLookup(sim, inst);
+            var receiver = inst.contextualReceiver();
             assert(receiver, "dynamic function lookup requires receiver");
             var dynamicType = receiver.type;
 

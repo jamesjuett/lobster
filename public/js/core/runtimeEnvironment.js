@@ -395,11 +395,11 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
         var addr = this.start;
 
         if(this.func.isMemberFunction){
-            var obj = ThisObject.instance("this", Types.ObjectPointer.instance(funcInst.receiver));
+            var obj = ThisObject.instance("this", Types.ObjectPointer.instance(funcInst.getReceiver()));
 
             // Allocate object
             this.memory.allocateObject(obj, addr);
-            obj.setValue(funcInst.receiver.getPointerTo());
+            obj.setValue(funcInst.getReceiver().getPointerTo());
             addr += obj.size;
 
             this.objects[obj.entityId] = obj;

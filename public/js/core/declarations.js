@@ -523,6 +523,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
     instType: "call",
+    i_runtimeConstructClass : RuntimeFunction,
 
     init : function(ast, context){
         ast.specs = ast.specs || {typeSpecs: [], storageSpecs: []};
@@ -652,17 +653,17 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
           }
         });
 
-        this.autosToDestruct = this.autosToDestruct.map(function(obj){
-            var dest = obj.type.destructor;
+        this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
+            var dest = entityToDestruct.type.destructor;
             if (dest){
                 var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
                 call.compile({
                     func: dest,
-                    receiver: obj});
+                    receiver: entityToDestruct});
                 return call;
             }
             else{
-                self.addNote(CPPError.declaration.dtor.no_destructor_auto(obj.decl, obj));
+                self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
             }
 
         });
@@ -876,10 +877,6 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
         return entity;
     },
 
-    createInstance : function(sim, parent){
-        return RuntimeFunction.instance(sim, this, this.initIndex, this.instType, parent);
-    },
-
     setArguments : function(sim, inst, args){
         inst.argInitializers = args;
     },
@@ -917,8 +914,8 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
             this.flowOffNonVoid(sim, inst);
         }
 
-        if (inst.receiver){
-            inst.receiver.callEnded();
+        if (inst.getReceiver()){
+            inst.getReceiver().callEnded();
         }
 
         sim.memory.stack.popFrame(inst);
@@ -1679,34 +1676,34 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         // Call parent class version. Will handle body, automatic object destruction, etc.
         FunctionDefinition.compileDefinition.apply(this, arguments);
 
-        this.membersToDestruct = this.i_containingClass.memberSubobjectEntities.filter(function(obj){
-            return isA(obj.type, Types.Class);
-        }).map(function(obj){
-            var dest = obj.type.destructor;
+        this.membersToDestruct = this.i_containingClass.memberSubobjectEntities.filter(function(entity){
+            return isA(entity.type, Types.Class);
+        }).map(function(entityToDestruct){
+            var dest = entityToDestruct.type.destructor;
             if (dest){
                 var call = FunctionCall.instance({args: []}, {parent: self});
                 call.compile({
                     func: dest,
-                    receiver: obj});
+                    receiver: entityToDestruct});
                 return call;
             }
             else{
-                self.addNote(CPPError.declaration.dtor.no_destructor_member(obj.decl, obj, self.i_containingClass));
+                self.addNote(CPPError.declaration.dtor.no_destructor_member(entityToDestruct.decl, entityToDestruct, self.i_containingClass));
             }
 
         });
 
-        this.basesToDestruct = this.i_containingClass.baseClassSubobjectEntities.map(function(obj){
-            var dest = obj.type.destructor;
+        this.basesToDestruct = this.i_containingClass.baseClassSubobjectEntities.map(function(entityToDestruct){
+            var dest = entityToDestruct.type.destructor;
             if (dest){
                 var call = FunctionCall.instance({args: []}, {parent: self});
                 call.compile({
                     func: dest,
-                    receiver: obj});
+                    receiver: entityToDestruct});
                 return call;
             }
             else{
-                self.addNote(CPPError.declaration.dtor.no_destructor_base(obj.decl, obj, self.i_containingClass));
+                self.addNote(CPPError.declaration.dtor.no_destructor_base(entityToDestruct.decl, entityToDestruct, self.i_containingClass));
             }
 
         });

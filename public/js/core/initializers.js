@@ -267,7 +267,13 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             this.done(sim, inst);
         }
         else if (isA(type, Types.Class)) {
-            // Nothing to do, handled by function call child
+
+            // Look up the receiver in this context and set it at runtime for the constructor.
+            // This is important because for parameter initializers, which use parameter entities,
+            // the context of the constructor would yield a parameter of that constructor rather
+            // that the parameter of the functions (which is being initialized via the constructor and
+            // should be the receiver),
+
             this.funcCall.createAndPushInstance(sim, inst);
             inst.index = "done";
             return true;
