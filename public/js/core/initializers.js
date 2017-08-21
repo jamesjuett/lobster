@@ -350,12 +350,6 @@ var CopyInitializer = Lobster.CopyInitializer = Lobster.DirectCopyInitializerBas
 var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitializer.extend({
     _name : "ParameterInitializer",
 
-    createInstance : function(sim, parent, calledFunction){
-        var inst = ParameterInitializer._parent.createInstance.apply(this, arguments);
-        inst.calledFunction = calledFunction;
-        return inst;
-    },
-
     explain : function(sim, inst){
         var exp = ParameterInitializer._parent.explain.apply(this, arguments);
         exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
@@ -391,6 +385,26 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
     _name : "DefaultMemberInitializer",
     isMemberInitializer: true
 });
+
+var NewInitializerMixin = {
+    setAllocatedObject : function(obj) {
+        this.i_allocatedObject = obj;
+    },
+    getAllocatedObject : function() {
+        return this.i_allocatedObject;
+    }
+};
+
+var NewDirectInitializer = Lobster.NewDirectInitializer = Lobster.DirectInitializer.extend(NewInitializerMixin, {
+    _name : "NewDirectInitializer"
+});
+
+
+var NewDefaultInitializer = Lobster.NewDefaultInitializer = Lobster.DefaultInitializer.extend(NewInitializerMixin, {
+    _name : "NewDefaultInitializer"
+});
+
+
 
 var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
     _name : "InitializerList",

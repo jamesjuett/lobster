@@ -1332,7 +1332,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
     },
 
     createInstance : function(sim, inst){
-        return CPPConstructInstance.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
+        return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
     },
 
     upNext : function(sim, inst){
