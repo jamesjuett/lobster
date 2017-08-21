@@ -489,7 +489,7 @@ RuntimeFunction = RuntimeConstruct.extend({
     _name : "RuntimeFunction",
 
     init : function() {
-        RuntimeFunction._parent.init.apply(this, arguments);
+        this.initParent.apply(this, arguments);
         this.i_containingRuntimeFunction = this;
         this.i_caller = this.parent;
     },
@@ -519,7 +519,7 @@ RuntimeFunction = RuntimeConstruct.extend({
     },
 
     pushStackFrame : function() {
-        this.stackFrame = sim.memory.stack.pushFrame(this);
+        this.stackFrame = this.sim.memory.stack.pushFrame(this);
     },
 
     gainControl : function() {
@@ -561,6 +561,17 @@ RuntimeMemberAccess = RuntimeConstruct.extend({
 
     contextualReceiver : function(){
         return this.i_objectAccessedFrom;
+    }
+});
+
+RuntimeNewInitializer = RuntimeConstruct.extend({
+    _name : "RuntimeNewInitializer",
+
+    setAllocatedObject : function(obj) {
+        this.i_allocatedObject = obj;
+    },
+    getAllocatedObject : function() {
+        return this.i_allocatedObject;
     }
 });
 

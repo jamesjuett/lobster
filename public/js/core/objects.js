@@ -1,7 +1,7 @@
 var Lobster = Lobster || {};
 var CPP = Lobster.CPP = Lobster.CPP || {};
 
-var CPPObject = CPP.CPPObject = Class.extend({
+var CPPObject = CPP.CPPObject = Class.extend(Observable, {
     _name: "CPPObject",
     storage: Class._ABSTRACT,
 

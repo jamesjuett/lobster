@@ -1238,7 +1238,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
         src += this.type.baseClassSubobjectEntities.map(function(subObj){
             return subObj.type.className + "(other)";
         }).concat(this.type.memberSubobjectEntities.map(function(subObj){
-            return subObj.type.className + "(other." + subObj.name + ")";
+            return subObj.name + "(other." + subObj.name + ")";
         })).join(", ");
 
         src += " {}";

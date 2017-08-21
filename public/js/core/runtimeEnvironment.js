@@ -299,7 +299,7 @@ var MemoryStack = Class.extend(Observable, {
         return this.frames.last();
     },
     pushFrame : function(func){
-        var frame = MemoryFrame.instance(func.funcDeclModel.bodyScope, this.memory, this.top, func);
+        var frame = MemoryFrame.instance(func.model.bodyScope, this.memory, this.top, func);
         this.top += frame.size;
         this.frames.push(frame);
 
@@ -383,7 +383,7 @@ var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
         this.scope = scope;
         this.memory = memory;
         this.start = start;
-        this.func = func.funcDeclModel;
+        this.func = func.model;
         var funcInst = func;
 
         this.initParent();
