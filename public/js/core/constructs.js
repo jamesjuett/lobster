@@ -221,7 +221,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     },
 
     createInstance : function(sim, parent){
-        return (this.i_runtimeConstructClass || CPPConstructInstance).instance(sim, this, this.initIndex, this.instType, parent);
+        return (this.i_runtimeConstructClass || RuntimeConstruct).instance(sim, this, this.initIndex, this.instType, parent);
     },
 
     createAndPushInstance : function(sim, parent){
@@ -358,8 +358,8 @@ var FakeDeclaration = FakeConstruct.extend({
 });
 
 
-var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observable,{
-    _name: "CPPConstructInstance",
+var RuntimeConstruct = Lobster.RuntimeConstruct = Class.extend(Observable,{
+    _name: "RuntimeConstruct",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
         this.initParent();
@@ -485,7 +485,7 @@ var CPPConstructInstance = Lobster.CPPConstructInstance = Class.extend(Observabl
     }
 });
 
-RuntimeFunction = CPPConstructInstance.extend({
+RuntimeFunction = RuntimeConstruct.extend({
     _name : "RuntimeFunction",
 
     init : function() {
@@ -552,7 +552,7 @@ RuntimeFunction = CPPConstructInstance.extend({
  * function lookup depends on the actual (i.e. dynamic) type of the object
  * on which it was called.
  */
-RuntimeMemberAccess = RuntimeMemberAccess.extend({
+RuntimeMemberAccess = RuntimeConstruct.extend({
     _name : "RuntimeMemberAccess",
 
     setObjectAccessedFrom : function(obj) {

@@ -2370,7 +2370,7 @@ var FunctionCall = Expression.extend({
 
         // Create argument initializer instances
         inst.argInits = this.argInitializers.map(function(argInit){
-            argInit = argInit.createInstance(sim, inst, inst.func);
+            argInit = argInit.createInstance(sim, inst);
             return argInit;
         });
         inst.func.model.setArguments(sim, inst.func, inst.argInits);
@@ -2714,11 +2714,11 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         var initCode = this.ast.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
-            this.initializer = DirectInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else if (initCode.args.length == 0){
-            this.initializer = DefaultInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else{
@@ -2728,6 +2728,13 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         this.compileTemporarires();
     },
 
+
+    createInstance : function(sim, parent){
+        var inst = Expression.createInstance.apply(this, arguments);
+        inst.initializer = this.initializer.createInstance(sim, inst);
+        return inst;
+    },
+
     upNext : function(sim, inst){
         if (inst.index === "length"){
             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
@@ -2735,8 +2742,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
             return true;
         }
         else if (inst.index === "init"){
-            var initInst = this.initializer.createAndPushInstance(sim, inst);
-            initInst.allocatedObject = inst.allocatedObject;
+            sim.push(inst.initializer);
             inst.index = "operate";
             return true;
         }
@@ -2767,7 +2773,8 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
             sim.memory.heap.allocateNewObject(obj);
             sim.i_pendingNews.push(obj);
-            inst.allocatedObject = obj;
+            inst.i_allocatedObject = obj;
+            inst.initializer.setAllocatedObject(obj);
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
             //if (this.initializer){
             //    inst.index = "init";
@@ -2780,20 +2787,20 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         else if (inst.index === "operate") {
             if (isA(this.heapType, Types.Array)){
                 // RTTI for array pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ArrayPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
             }
             else{
                 // RTTI for object pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
             }
             sim.i_pendingNews.pop();
             this.done(sim, inst);
         }
 
     },
-    explain : function(){
+    explain : function(sim, inst){
         if (this.initializer){
-            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
+            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
         }
         else{
             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};

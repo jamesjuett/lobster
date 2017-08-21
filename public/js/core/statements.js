@@ -585,7 +585,7 @@ Statements.Break = Statement.extend({
     },
 
     createAndPushInstance : function(sim, inst){
-        var inst = CPPConstructInstance.instance(sim, this, "break", "stmt", inst);
+        var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },

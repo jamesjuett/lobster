@@ -762,15 +762,14 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
         return AutoObjectInstance.instance(this);
     },
     runtimeLookup :  function (sim, inst) {
-        // In case function was polymorphic or a function pointer, look it up
-        // TODO: not sure whether parent is appropriate here
-        var func = this.func.runtimeLookup(sim, inst.parent);
+        // Getting the function at runtime already takes care of polymorphism for virtual functions
+        var func = sim.topFunction();
 
         // Now we can look up object entity associated with this parameter
-        var objEntity = func.definition.params[this.num].entity;
+        var objEntity = func.model.params[this.num].entity;
 
         // Look it up in the context of the top function on the stack.
-        return objEntity.runtimeLookup(sim, sim.topFunction());
+        return objEntity.runtimeLookup(sim, func);
     },
     describe : function(){
         return {message: "parameter " + this.num + " of " + this.func.describe().message};
@@ -788,8 +787,8 @@ var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
     /**
      * If this is return-by-value (i.e. non-reference type), returns the temporary return object for the currently
      * executing function. If it is return-by-reference, there is only a return object if the return has already been
-     * processed and the return object has been set. If so, this function returns that object, otherwise null.
-     * If the return type is void, this function will return null.
+     * processed and the returned object has been set. If so, this function returns that object, otherwise null.
+     * If the return type is void, returns null.
      * @param sim
      * @param inst
      * @returns {CPPObject?}
@@ -832,18 +831,15 @@ var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
 var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
     _name: "NewObjectEntity",
     storage: "automatic",
-    init: function(type){
-        this.initParent(type);
-    },
     instanceString : function(){
         return "object (" + this.type + ")";
     },
     runtimeLookup :  function (sim, inst) {
         // no additional runtimeLookup() needed on the object since it will never be a reference
-        return inst.allocatedObject;
+        return inst.getAllocatedObject();
     },
     describe : function(){
-        return {message: "the object ("+this.type+") created by new"};
+        return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
     }
 
 });
@@ -914,10 +910,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
     storage: "none",
     init: function(decl, memberOfType){
         this.initParent(decl);
-        if (!this.type._isInstance){
-            this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
-            assert(false); // TODO: I don't think this code actually gets used, so the above TODO could be resolved
-        }
+        assert(this.type._isInstance); // TODO: remove once I can confirm the type is always instantiated
         this.memberOfType = memberOfType;
         this.access = decl.access;
     },
@@ -958,10 +951,10 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
     _name: "TemporaryObjectEntity",
     storage: "temp",
     init: function(type, creator, owner, name){
-        this.initParent(name || null);
-        this.type = type;
+        this.initParent(type);
         this.creator = creator;
         this.setOwner(owner);
+        this.name = name; // TODO: change when I check over usages of .name and replace with description or something
     },
     setOwner : function(newOwner){
         if (newOwner === this.owner)
@@ -1004,9 +997,6 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
 
 var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     _name: "FunctionEntity",
-    init: function(decl){
-        this.initParent(decl);
-    },
     isStaticallyBound : function(){
         return true;
     },
@@ -1119,8 +1109,8 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
 var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     _name: "FunctionEntity",
     init: function(type){
-        this.initParent("Unknown function of type " + type);
-        this.type = type;
+        this.initParent(type);
+        this.name = "Unknown function of type " + type;
     },
     isStaticallyBound : function(){
         return true;
@@ -1143,9 +1133,6 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
 
 var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
     _name: "TypeEntity",
-    init: function(decl){
-        this.initParent(decl);
-    },
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
     }
