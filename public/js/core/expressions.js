@@ -2436,8 +2436,13 @@ var FunctionCall = Expression.extend({
                 // nothing to do it must be void
                 inst.setEvalValue(Value.instance("", Types.Void.instance()));
             }
+
             inst.func.loseControl();
-            inst.containingRuntimeFunction().gainControl();
+            // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+            // That will eventually be changed, and then this won't be necessary anymore
+            if (inst.containingRuntimeFunction()) {
+                inst.containingRuntimeFunction().gainControl();
+            }
 
             this.done(sim, inst);
             return true;
@@ -2481,7 +2486,11 @@ var FunctionCall = Expression.extend({
 
                 sim.push(inst.func);
 
-                inst.containingRuntimeFunction().loseControl();
+                // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+                // That will eventually be changed, and then this won't be necessary anymore
+                if (inst.containingRuntimeFunction()) {
+                    inst.containingRuntimeFunction().loseControl();
+                }
                 inst.func.gainControl();
                 inst.send("called", inst.func);
                 inst.hasBeenCalled = true;

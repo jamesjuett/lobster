@@ -490,8 +490,6 @@ var NamedEntity = CPPEntity.extend({
         this.initParent(type);
         this.name = name;
     }
-
-
 });
 CPP.NamedEntity = NamedEntity;
 
@@ -604,6 +602,17 @@ var DeclaredEntity = NamedEntity.extend({
 
     isLibraryUnsupported : function() {
         return this.decl.isLibraryUnsupported();
+    },
+
+    // TODO: these can be removed if declaration/definition classes are reworked such that
+    //       the initializer can be easily retrieved from the definition. e.g. if multiple definitions
+    //       from several declarators on a single line are actually treated as several definitions (as they
+    //       really should be)
+    setInitializer : function (init) {
+        this.i_init = init;
+    },
+    getInitializer : function() {
+        return this.i_init;
     }
 });
 CPP.DeclaredEntity = DeclaredEntity;
@@ -680,16 +689,8 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     runtimeLookup :  function(sim, inst) {
         return sim.memory.staticLookup(this).runtimeLookup(sim, inst);
     },
-
-    // TODO: these can be removed if declaration/definition classes are reworked such that
-    //       the initializer can be easily retrieved from the definition. e.g. if multiple definitions
-    //       from several declarators on a single line are actually treated as several definitions (as they
-    //       really should be)
-    setInitializer : function (init) {
-        this.i_init = init;
-    },
-    getInitializer : function() {
-        return this.i_init;
+    describe : function(){
+        return {name: this.name, message: "the variable " + this.name};
     }
 });
 
@@ -711,6 +712,9 @@ var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
     },
     runtimeLookup :  function(sim, inst) {
         return sim.memory.getStringLiteral(this.i_str);
+    },
+    describe : function(){
+        return {message: "the string literal \"" + unescapeString(this.i_str) + "\""};
     }
 });
 
@@ -794,12 +798,16 @@ var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
      * @returns {CPPObject?}
      */
     runtimeLookup :  function (sim, inst) {
-        if (isA(type, Types.Void)) {
+        if (isA(this.type, Types.Void)) {
             return null;
         }
         else {
             return inst.containingRuntimeFunction().getReturnObject();
         }
+    },
+    describe : function(){
+        // TODO: add info about which function? would need to be specified when the return value is created
+        return {message: "the return value"};
     }
 });
 
@@ -942,7 +950,10 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
             }
         }
         else{
-            return {message: "the " + this.name + " member of the " + this.memberOfType.className + " class"};
+            return {
+                name: this.memberOfType.className + "." + this.name,
+                message: "the " + this.name + " member of the " + this.memberOfType.className + " class"
+            };
         }
     }
 });
@@ -992,7 +1003,11 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
         }
         var tempObjInst = ownerInst.temporaryObjects[this.entityId];
         return tempObjInst && tempObjInst.runtimeLookup(sim, inst);
+    },
+    describe : function(){
+        return {message: this.name}; // TOOD: eventually change implementation when I remove name
     }
+
 });
 
 var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
@@ -1010,14 +1025,14 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     nameString : function(){
         return this.name;
     },
-    describe : function(sim, inst){
-        return this.decl.describe(sim, inst);
-    },
     isLinked : function() {
         return this.isDefined();
     },
     getPointerTo : function() {
         return Value.instance(this, this.type);
+    },
+    describe : function(sim, inst){
+        return this.decl.describe(sim, inst);
     }
 });
 
@@ -1025,6 +1040,9 @@ var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
     init : function(decl) {
         this.initParent(decl);
         this.setDefinition(decl);
+    },
+    describe : function(){
+        return {message: "no description available"};
     }
 });
 
@@ -1126,6 +1144,9 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
     },
     isVirtual : function() {
         return false;
+    },
+    describe : function(){
+        return {message: "no description available"};
     }
 });
 
@@ -1135,6 +1156,9 @@ var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
     _name: "TypeEntity",
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
+    },
+    describe : function(sim, inst){
+        return this.type.describe(sim, inst);
     }
 });
 

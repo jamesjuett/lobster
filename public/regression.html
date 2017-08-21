@@ -295,7 +295,7 @@
   // Expression statements
   ++x;
   x;
-  cout << x;
+  x == x;
 
   // Compound statement
   {
@@ -355,12 +355,10 @@ int main() {
   double b = 4.5;
   char c = 'x';
   bool d = true;
-  string e = "test";
   a = 4;
   b = 83.4;
   c = 'a';
   d = false;
-  e = "blah";
 
   // Identifiers implicitly tested in other tests
 
@@ -473,8 +471,14 @@ int main() {
   assert(*p_ptr = 10);
   assert(p == 10);
 
+  // new/delete/delete[]
+  int *q1 = new int(3);
+  double *q2 = new double(4.5);
+  double **q3 = new (double*)(q2);
 
-
+  delete q1;
+  delete *q3;
+  delete q3;
 }`,
             [
                 NoErrorsNoWarningsVerifier.instance(),
@@ -535,8 +539,8 @@ private:
 };
 int main() {
   strang s1;
-  char cstr[1000] = "hello";
-  for(int i = 0; i < 1000-1; ++i) {
+  char cstr[10] = "hello";
+  for(int i = 0; i < 10-1; ++i) {
     cstr[i] = 'x';
   }
   strang s2(cstr);

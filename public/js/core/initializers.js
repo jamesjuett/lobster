@@ -180,7 +180,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     // A slight improvement might be creating a fake AST node that just starts with the entity
                     // and then when it compiles it actually does nothing. This would still be trickery, but wouldn't
                     // require the check for EntityExpression and treating it differently elsewhere.
-                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]}, {parent:this});
+                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, null)]}, {parent:this});
                     this.arrayElemInitializers.push(elemInit);
                     elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
                     if(elemInit.hasErrors()) {
@@ -386,22 +386,15 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
     isMemberInitializer: true
 });
 
-var NewInitializerMixin = {
-    setAllocatedObject : function(obj) {
-        this.i_allocatedObject = obj;
-    },
-    getAllocatedObject : function() {
-        return this.i_allocatedObject;
-    }
-};
-
-var NewDirectInitializer = Lobster.NewDirectInitializer = Lobster.DirectInitializer.extend(NewInitializerMixin, {
-    _name : "NewDirectInitializer"
+var NewDirectInitializer = Lobster.NewDirectInitializer = Lobster.DirectInitializer.extend({
+    _name : "NewDirectInitializer",
+    i_runtimeConstructClass : RuntimeNewInitializer
 });
 
 
-var NewDefaultInitializer = Lobster.NewDefaultInitializer = Lobster.DefaultInitializer.extend(NewInitializerMixin, {
-    _name : "NewDefaultInitializer"
+var NewDefaultInitializer = Lobster.NewDefaultInitializer = Lobster.DefaultInitializer.extend({
+    _name : "NewDefaultInitializer",
+    i_runtimeConstructClass : RuntimeNewInitializer
 });
 
 

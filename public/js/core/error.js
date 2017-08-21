@@ -378,7 +378,8 @@ var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.matching_constructor", "Trying to initialize " + (desc.name || desc.message) + ", but unable to find a matching constructor definition for the " + entity.type.className + " class using the given arguments (" + argTypes.join(", ") + ").");
             },
             no_default_constructor : function(src, entity){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + entity.name + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
+                var desc = entity.describe();
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referenceLvalue : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referenceLvalue", "For now, references cannot be bound to prvalues of non-class type in Labster.");
