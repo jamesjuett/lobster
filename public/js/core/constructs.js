@@ -15,7 +15,14 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
         // provided context rather than creating a new one.
         if (isA(ast, CPPConstruct)) {
             assert(!ast.isAttached());
-            ast.attach(context);
+            if (context) {
+                if (context.auxiliary) {
+                    return this.create(ast.ast, context, classToUse);
+                }
+                else {
+                    ast.attach(context);
+                }
+            }
             return ast;
         }
 
