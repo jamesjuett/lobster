@@ -600,7 +600,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
     upNext : Class.ADDITIONALLY(function(sim, inst){
         if (this.funcCall){
-            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
@@ -933,7 +933,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
         // If using an overloaded member operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -1473,7 +1473,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
         // If using an assignment operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            inst.childInstances.funcCall.setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
@@ -2172,6 +2172,7 @@ var PREDEFINED_FUNCTIONS = {
 
 var FunctionCall = Expression.extend({
     _name: "FunctionCall",
+    i_runtimeConstructClass : RuntimeFunctionCall,
     initIndex: "arguments",
     instType: "expr",
 

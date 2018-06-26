@@ -180,6 +180,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     // A slight improvement might be creating a fake AST node that just starts with the entity
                     // and then when it compiles it actually does nothing. This would still be trickery, but wouldn't
                     // require the check for EntityExpression and treating it differently elsewhere.
+                    // TODO: Fix this by having a special initializer class for array subobjects?
                     var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, null)]}, {parent:this});
                     this.arrayElemInitializers.push(elemInit);
                     elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));

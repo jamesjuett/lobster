@@ -552,6 +552,14 @@ RuntimeFunction = RuntimeConstruct.extend({
     }
 });
 
+RuntimeFunctionCall = RuntimeConstruct.extend({
+    _name: "RuntimeFunctionCall",
+
+    getRuntimeFunction : function() {
+        return this.func;
+    }
+});
+
 /**
  * Represents either a dot or arrow operator at runtime.
  * Provides a context that may change how entities are looked up based
