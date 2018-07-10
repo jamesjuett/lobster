@@ -600,7 +600,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
     upNext : Class.ADDITIONALLY(function(sim, inst){
         if (this.funcCall){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
@@ -933,7 +933,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
         // If using an overloaded member operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.left.type, inst.childInstances.left));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -1473,7 +1473,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
         // If using an assignment operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
@@ -2007,6 +2007,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
 var Dot = Expressions.Dot = Expression.extend({
     _name: "Dot",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     i_childrenToCreate : ["operand"],
     i_childrenToExecute : ["operand"],
 
@@ -2061,10 +2062,8 @@ var Dot = Expressions.Dot = Expression.extend({
         else{
             // entity may be MemberSubobjectEntity but should never be an AutoEntity
             assert(!isA(this.entity, AutoEntity));
-            var operand = inst.childInstances.operand.evalValue;
-            inst.memberOf = operand;
-            inst.receiver = operand;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setObjectAccessedFrom(inst.childInstances.operand.evalValue);
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
             this.done(sim, inst);
             return true;
         }
@@ -2082,6 +2081,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
 var Arrow = Expressions.Arrow = Expression.extend({
     _name: "Arrow",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     valueCategory: "lvalue",
     i_childrenToCreate : ["operand"],
     i_childrenToConvert : {
@@ -2128,10 +2128,8 @@ var Arrow = Expressions.Arrow = Expression.extend({
             if (Types.Pointer.isNull(addr.rawValue())){
                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
             }
-            var obj = sim.memory.getObject(addr, this.operand.type.ptrTo);
-            inst.memberOf = obj;
-            inst.receiver = obj;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setObjectAccessedFrom(sim.memory.getObject(addr, this.operand.type.ptrTo));
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
             return true;
@@ -2174,6 +2172,7 @@ var PREDEFINED_FUNCTIONS = {
 
 var FunctionCall = Expression.extend({
     _name: "FunctionCall",
+    i_runtimeConstructClass : RuntimeFunctionCall,
     initIndex: "arguments",
     instType: "expr",
 
@@ -2192,6 +2191,23 @@ var FunctionCall = Expression.extend({
         });
     },
 
+    /**
+     * A FunctionEntity must be provided to specify which function is being called.
+     *
+     * A receiver entity may be provided here, and if it is, the function call guarantees it will
+     * be looked up in a runtime context BEFORE the function has been "called" (i.e. before a new
+     * stack frame has been pushed and control has been given over to the called function). This in
+     * particular is important for e.g. a ParameterEntity used as the receiver of a constructor call
+     * when a class-type parameter is passed by value to some function. If it were looked up instead
+     * after the call, it would try to find a parameter of the constructor rather than of the function,
+     * which isn't right.
+     *
+     * If a receiver entity is not provided here, a receiver object must be specified at runtime when
+     * a runtime construct for this function call is created.
+     *
+     * @param {FunctionEntity} compilationContext.func
+     * @param {CPPEntity?} compilationContext.receiver
+     */
     compile : function(compilationContext) {
         this.receiver = compilationContext.receiver || null;
         this.func = compilationContext.func;
@@ -2320,27 +2336,20 @@ var FunctionCall = Expression.extend({
 
     createInstance : function(sim, parent, receiver){
         var inst = Expression.createInstance.apply(this, arguments);
-        inst.receiver = receiver;
-
-        if (!inst.receiver && this.receiver){
-            // Used for constructors. Make sure to look up in context of parent instance
-            // or else you'll be looking at the wrong thing for parameter entities.
-            inst.receiver = this.receiver.lookup(sim, parent);
-        }
 
         // For function pointers. It's a hack!
         if (parent && parent.pointedFunction) {
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDeclModel = this.func.lookup(sim, inst).definition;
+        var funcDecl = inst.funcDeclModel = this.func.runtimeLookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do
         }
 
         if (this.canUseTCO){
-            inst.func = inst.funcContext;
+            inst.func = inst.containingRuntimeFunction();
             //funcDecl.tailCallReset(sim, inst.func); // TODO why was this ever here?
             //inst.send("tailCalled", inst.func);
         }
@@ -2349,9 +2358,20 @@ var FunctionCall = Expression.extend({
             //inst.send("called", inst.func);
         }
 
+        // Receiver should not be specified both at compile time and at runtime.
+        // (Note it may not be specified at all yet)
+        assert(!(receiver && this.receiver));
+        if (receiver) {
+            inst.func.setReceiver(receiver.runtimeLookup(sim, inst)); // TODO: remove the runtimeLookup when overloads are fixed so that they set the receiver as an object, not a runtime entity thing
+        }
+        else if (this.receiver) {
+            inst.func.setReceiver(this.receiver.runtimeLookup(sim, inst));
+        }
+        // else there is no receiver i.e. a non-member function
+
         // Create argument initializer instances
         inst.argInits = this.argInitializers.map(function(argInit){
-            argInit = argInit.createInstance(sim, inst, inst.func);
+            argInit = argInit.createInstance(sim, inst);
             return argInit;
         });
         inst.func.model.setArguments(sim, inst.func, inst.argInits);
@@ -2370,8 +2390,8 @@ var FunctionCall = Expression.extend({
                 funcDecl.setReturnObject(sim, inst.func, this.returnObjectEntity.objectInstance(inst));
             }
             else if (this.returnByReference) {
-                // Return by reference, create the reference for the function to bind to its return value
-                funcDecl.setReturnObject(sim, inst.func, ReferenceEntity.instance(null, this.func.type.returnType).autoInstance());
+                // UPDATE: Return by reference doesn't use a faked reference entity anymore. Instead, there is simply
+                // no return object initially and then when the ReturnInitializer does its thing, it sets the return object.
             }
             // else it was void, so no need to set a return object
         }
@@ -2379,15 +2399,8 @@ var FunctionCall = Expression.extend({
         return inst;
     },
 
-    setReceiver : function(sim, inst, receiver){
-        inst.receiver = receiver;
-    },
-
     upNext : function(sim, inst){
         var self = this;
-        if (!inst.receiver){
-            inst.receiver = inst.funcContext.receiver;
-        }
         if (inst.index === "arguments"){
 
             // If it's a magic function, just push expressions
@@ -2410,19 +2423,26 @@ var FunctionCall = Expression.extend({
         else if (inst.index == "return"){
             // Unless return type is void, we will have a return object
             if (this.returnByReference) {
-                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst)); // lookup here in case its a reference
+                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
             }
             else if (this.returnByValue){
                 if (isA(this.type, Types.Class)) {
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst));
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
                 }
                 else{
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).lookup(sim, inst).getValue());
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
                 }
             }
             else {
                 // nothing to do it must be void
                 inst.setEvalValue(Value.instance("", Types.Void.instance()));
+            }
+
+            inst.func.loseControl();
+            // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+            // That will eventually be changed, and then this won't be necessary anymore
+            if (inst.containingRuntimeFunction()) {
+                inst.containingRuntimeFunction().gainControl();
             }
 
             this.done(sim, inst);
@@ -2451,9 +2471,8 @@ var FunctionCall = Expression.extend({
                 return false;
             }
 
-            if (inst.receiver) {
-                inst.func.receiver = inst.receiver = inst.receiver.lookup(sim, inst);
-                inst.receiver.callReceived();
+            if (inst.func.getReceiver()) {
+                inst.func.getReceiver().callReceived();
             }
 
 
@@ -2464,10 +2483,16 @@ var FunctionCall = Expression.extend({
             }
             else{
                 // Push the stack frame
-                var frame = sim.memory.stack.pushFrame(inst);
-                inst.func.setFrame(frame);
+                inst.func.pushStackFrame();
 
                 sim.push(inst.func);
+
+                // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+                // That will eventually be changed, and then this won't be necessary anymore
+                if (inst.containingRuntimeFunction()) {
+                    inst.containingRuntimeFunction().loseControl();
+                }
+                inst.func.gainControl();
                 inst.send("called", inst.func);
                 inst.hasBeenCalled = true;
             }
@@ -2610,7 +2635,17 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
             }
             // TODO: hack on next line has || inst.operand.evalValue
             // TODO: remember why that's a hack and not just the right thing to do
-            inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.receiver || isA(this.operand.type, Types.Class) && inst.operand.evalValue);
+            if (isA(this.boundFunction, MemberFunctionEntity)) {
+                if (isA(this.operand.type, Types.Class)) {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalValue);
+                }
+                else {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.contextualReceiver());
+                }
+            }
+            else {
+                inst.funcCall = this.funcCall.createAndPushInstance(sim, inst);
+            }
             inst.wait();
             inst.index = "done";
             return true;
@@ -2689,11 +2724,11 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         var initCode = this.ast.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
-            this.initializer = DirectInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else if (initCode.args.length == 0){
-            this.initializer = DefaultInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else{
@@ -2703,6 +2738,13 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         this.compileTemporarires();
     },
 
+
+    createInstance : function(sim, parent){
+        var inst = Expression.createInstance.apply(this, arguments);
+        inst.initializer = this.initializer.createInstance(sim, inst);
+        return inst;
+    },
+
     upNext : function(sim, inst){
         if (inst.index === "length"){
             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
@@ -2710,8 +2752,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
             return true;
         }
         else if (inst.index === "init"){
-            var initInst = this.initializer.createAndPushInstance(sim, inst);
-            initInst.allocatedObject = inst.allocatedObject;
+            sim.push(inst.initializer);
             inst.index = "operate";
             return true;
         }
@@ -2742,7 +2783,8 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
             sim.memory.heap.allocateNewObject(obj);
             sim.i_pendingNews.push(obj);
-            inst.allocatedObject = obj;
+            inst.i_allocatedObject = obj;
+            inst.initializer.setAllocatedObject(obj);
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
             //if (this.initializer){
             //    inst.index = "init";
@@ -2755,20 +2797,20 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         else if (inst.index === "operate") {
             if (isA(this.heapType, Types.Array)){
                 // RTTI for array pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ArrayPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
             }
             else{
                 // RTTI for object pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
             }
             sim.i_pendingNews.pop();
             this.done(sim, inst);
         }
 
     },
-    explain : function(){
+    explain : function(sim, inst){
         if (this.initializer){
-            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
+            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
         }
         else{
             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
@@ -2894,8 +2936,8 @@ var Delete = Expressions.Delete = Expression.extend({
  *
  * @param sim
  * @param inst
- * @param {Value | ObjectEntity} ptr
- * @returns {ObjectEntity?}
+ * @param {Value | CPPObject} ptr
+ * @returns {CPPObject?}
  */
 var deleteHeapArray = function(sim, inst, ptr) {
     if(Types.Pointer.isNull(ptr.rawValue())){
@@ -2997,7 +3039,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
         this.compileTemporarires();
     },
 
-    createInstance : function(sim, parent, receiver){
+    createInstance : function(sim, parent){
         var inst = Expression.createInstance.apply(this, arguments);
         inst.tempObject = this.entity.objectInstance(inst);
         return inst;
@@ -3112,7 +3154,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
 	},
 
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
         this.done(sim, inst);
         return true;
@@ -3150,7 +3192,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     },
     stepForward : function(sim, inst){
         // Set this pointer with RTTI to point to receiver
-        inst.setEvalValue(Value.instance(inst.funcContext.receiver.address, Types.ObjectPointer.instance(inst.funcContext.receiver)));
+        inst.setEvalValue(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
         this.done(sim, inst);
     }
 });
@@ -3167,7 +3209,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
 
     },
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
         this.done(sim, inst);
     }
 });
@@ -3260,7 +3302,7 @@ var StringLiteral = Expressions.StringLiteral = Expression.extend({
     },
 
     upNext : function(sim, inst){
-        inst.evalValue = this.i_stringEntity.lookup(sim, inst);
+        inst.evalValue = this.i_stringEntity.runtimeLookup(sim, inst);
         this.done(sim, inst);
         return true;
     },

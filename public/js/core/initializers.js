@@ -73,8 +73,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
         if (inst.index === "operate"){
             if (isA(this.entity.type, Types.Class) || isA(this.entity.type, Types.Array)) {
                 // Nothing to do, handled by child initializers for each element
-                var ent = this.entity.lookup(sim, inst);
-                ent && ent.initialized();
+                var ent = this.entity.runtimeLookup(sim, inst);
                 this.done(sim, inst);
                 return true;
             }
@@ -90,11 +89,10 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     stepForward : function(sim, inst){
         // Will only get to here if it's a non-class, non-array type.
 
-        var obj = this.entity.lookup(sim, inst);
+        var obj = this.entity.runtimeLookup(sim, inst);
         assert(obj, "Tried to look up entity to initialize but object was null.");
         // No initialization. Object has junk value.
         // Object should be invalidated by default and nobody has written to it.
-        obj.initialized();
         inst.send("initialized", obj);
         this.done(sim, inst);
     },
@@ -102,7 +100,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     explain : function(sim, inst){
         var exp = {message:""};
         var type = this.entity.type;
-        var obj = inst && this.entity.lookup(sim, inst) || this.entity;
+        var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
         var desc = obj.describe();
 
         if (isA(type, Types.Class)) {
@@ -182,7 +180,8 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
                     // A slight improvement might be creating a fake AST node that just starts with the entity
                     // and then when it compiles it actually does nothing. This would still be trickery, but wouldn't
                     // require the check for EntityExpression and treating it differently elsewhere.
-                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, {parent:this})]}, {parent:this});
+                    // TODO: Fix this by having a special initializer class for array subobjects?
+                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, null)]}, {parent:this});
                     this.arrayElemInitializers.push(elemInit);
                     elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
                     if(elemInit.hasErrors()) {
@@ -220,6 +219,9 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
 
             // Need to select constructor, so have to compile auxiliary arguments
             var auxArgs = args.map(function (arg) {
+                if (isA(arg, EntityExpression)){
+                    return arg;
+                }
                 var auxArg = Expression.create(arg, {parent: self, auxiliary: true});
                 auxArg.compile();
                 return auxArg;
@@ -250,15 +252,6 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
     },
 
-    upNext : function(sim, inst){
-        //sim.explain(this.explain(sim, inst));
-        if (inst.index === "done"){
-            var ent = this.entity.lookup(sim, inst);
-            ent && ent.initialized();
-        }
-        return Lobster.DirectCopyInitializerBase._parent.upNext.apply(this, arguments);
-    },
-
     stepForward : function(sim, inst){
 
         if (isA(this.entity.type, Types.Void)){
@@ -267,26 +260,24 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
         }
 
         //sim.explain(this.explain(sim, inst));
-        var obj = this.entity.lookup(sim, inst);
+        var obj = this.entity.runtimeLookup(sim, inst);
         assert(obj, "Tried to look up entity to initialize but object was null.");
         var type = this.entity.type;
 
 
-        if (isA(obj, ReferenceEntity)){ // Proper reference // TODO: should this be ReferenceEntityInstance? or check this.entity instead?
+        if (isA(type, Types.Reference)) {
             obj.bindTo(inst.childInstances.args[0].evalValue);
-            obj.initialized();
             inst.send("initialized", obj);
             this.done(sim, inst);
         }
-        else if (isA(type, Types.Reference)) { // Old reference, TODO remove
-            assert(false, "Should never be using old reference mechanism.");
-            // obj.allocated(sim.memory, inst.childInstances.args[0].evalValue.address);
-            // obj.initialized();
-            // inst.send("initialized", obj);
-            // this.done(sim, inst);
-        }
         else if (isA(type, Types.Class)) {
-            // Nothing to do, handled by function call child
+
+            // Look up the receiver in this context and set it at runtime for the constructor.
+            // This is important because for parameter initializers, which use parameter entities,
+            // the context of the constructor would yield a parameter of that constructor rather
+            // that the parameter of the functions (which is being initialized via the constructor and
+            // should be the receiver),
+
             this.funcCall.createAndPushInstance(sim, inst);
             inst.index = "done";
             return true;
@@ -309,7 +300,6 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
             else {
                 obj.writeValue(inst.childInstances.args[0].evalValue);
             }
-            obj.initialized();
             inst.send("initialized", obj);
             this.done(sim, inst);
         }
@@ -318,8 +308,8 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
     explain : function(sim, inst){
         var exp = {message:""};
         var type = this.entity.type;
-        var obj = inst && this.entity.lookup(sim, inst) || this.entity;
-        if (isA(obj, ReferenceEntity)){ // Proper reference
+        var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
+        if (isA(type, Types.Reference)) {
             var rhs = this.args[0].describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.args[0]).message;
             exp.message = obj.describe().message + " will be bound to " + rhs + ".";
         }
@@ -364,16 +354,6 @@ var CopyInitializer = Lobster.CopyInitializer = Lobster.DirectCopyInitializerBas
 var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitializer.extend({
     _name : "ParameterInitializer",
 
-    createInstance : function(sim, parent, calledFunction){
-        var inst = ParameterInitializer._parent.createInstance.apply(this, arguments);
-        inst.calledFunction = calledFunction;
-        return inst;
-    },
-
-    executionContext : function(sim, inst){
-        return inst.calledFunction;
-    },
-
     explain : function(sim, inst){
         var exp = ParameterInitializer._parent.explain.apply(this, arguments);
         exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
@@ -382,7 +362,22 @@ var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitialize
 });
 
 var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.extend({
-    _name : "ReturnInitializer"
+    _name : "ReturnInitializer",
+
+    stepForward : function(sim, inst) {
+
+        // Need to handle return-by-reference differently, since there is no actual reference that
+        // gets bound. (The runtimeLookup for the return entity would yield null). Instead, we just
+        // set the return object for the enclosing function to the evaluated argument (which should
+        // have yielded an object).
+        if (isA(this.entity.type, Types.Reference)) {
+            inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalValue);
+            this.done(sim, inst);
+            return;
+        }
+
+        return ReturnInitializer._parent.stepForward.apply(this, arguments);
+    }
 });
 
 var MemberInitializer = Lobster.MemberInitializer = Lobster.DirectInitializer.extend({
@@ -394,6 +389,19 @@ var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.Defaul
     _name : "DefaultMemberInitializer",
     isMemberInitializer: true
 });
+
+var NewDirectInitializer = Lobster.NewDirectInitializer = Lobster.DirectInitializer.extend({
+    _name : "NewDirectInitializer",
+    i_runtimeConstructClass : RuntimeNewInitializer
+});
+
+
+var NewDefaultInitializer = Lobster.NewDefaultInitializer = Lobster.DefaultInitializer.extend({
+    _name : "NewDefaultInitializer",
+    i_runtimeConstructClass : RuntimeNewInitializer
+});
+
+
 
 var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
     _name : "InitializerList",
@@ -440,7 +448,7 @@ var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
         if (inst.index !== "afterChildren"){
             return;
         }
-        var obj = this.i_entityToInitialize.lookup(sim, inst);
+        var obj = this.i_entityToInitialize.runtimeLookup(sim, inst);
 
         var arr = [];
         for(var i = 0; i < this.initializerListLength; ++i){

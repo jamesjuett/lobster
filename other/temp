@@ -25,24 +25,24 @@ char *strncpy(char *dst, const char *src, size_t num) {
   return dst_orig;
 }
 
-class strang {
+class string {
   public:
 
     // CONSTRUCTORS
 
-    strang()
+    string()
 : _size(0), _buffer_size(0), _data(new char[1]) {
   _data[0] = '\0';
 }
 
-strang(const strang &other)
+string(const string &other)
 : _size(other._size), _buffer_size(other._size + 1),
   _data(new char[_buffer_size]) {
 
   strcpy(_data, other._data);
 }
 
-strang(const strang &other, size_t pos, size_t len) {
+string(const string &other, size_t pos, size_t len) {
 
   size_t possibleLen = strlen(other._data) - pos;
   if (possibleLen < len) {
@@ -61,7 +61,7 @@ strang(const strang &other, size_t pos, size_t len) {
 
 }
 
-strang(const char *cstr)
+string(const char *cstr)
 : _size(0) {
 
   _size = strlen(cstr);
@@ -72,7 +72,7 @@ strang(const char *cstr)
   strcpy(_data, cstr);
 }
 
-strang(const char *cstr, size_t n)
+string(const char *cstr, size_t n)
 : _size(n), _buffer_size(n + 1),
   _data(new char[_buffer_size]) {
 
@@ -82,7 +82,7 @@ strang(const char *cstr, size_t n)
   _data[_size] = '\0';
 }
 
-strang(size_t n, char c)
+string(size_t n, char c)
 : _size(n), _buffer_size(n + 1),
   _data(new char[_buffer_size]) {
 
@@ -95,27 +95,27 @@ strang(size_t n, char c)
 
 // ASSIGNMENT OPERATORS
 
-strang &operator=(const strang &rhs) {
+string &operator=(const string &rhs) {
   // copy swap
-  strang copy(rhs);
+  string copy(rhs);
   swap(copy);
 }
 
-strang &operator=(const char *cstr) {
+string &operator=(const char *cstr) {
   // construct swap
-  strang copy(cstr);
+  string copy(cstr);
   swap(copy);
 }
 
-strang &operator=(char c) {
+string &operator=(char c) {
   // construct swap
-  strang copy(1,c);
+  string copy(1,c);
   swap(copy);
 }
 
 
 // DESTRUCTOR
-~strang() {
+~string() {
   delete[] _data;
 }
 
@@ -148,25 +148,36 @@ size_t capacity() const {
 }
 
 void resize(size_t n) {
-  resize(n, '/0');
+  resize(n, '\0');
 }
 
 void resize(size_t n, char c) {
   if (n < _size) {
   	// shorten string to only n
+    _size = n;
+    _data[_size] = '\0';
   }
   else {
-		  // we have enough space, so just pad string with char c
+    // grow if we don't have enough space
+    if (capacity() < n) {
+      grow(n);
+    }
+    
+    // pad with c until we get to n chars, then write null char
+    while (_size < n) {
+      _data[_size++] = c;
+    }
+    _data[_size] = '\0';
   }
-  else {
+}
 
 
-  private:
-    size_t _size;
+private:
+  size_t _size;
   size_t _buffer_size;
   char * _data;
 
-  void swap(strang &other) {
+  void swap(string &other) {
     size_t temp_size = _size;
     _size = other._size;
     other._size = temp_size;
@@ -178,5 +189,26 @@ void resize(size_t n, char c) {
     char * temp_data = _data;
     _data = other._data;
     other._data = temp_data;
+  }
+  
+  // Allocates a new, larger buffer with size 2 * desiredSize + 1
+  // Note that desiredSize is a "size", i.e. # of actual chars the string will hold.
+  // (Note: the string does not have to currently hold desiredSize chars)
+  void grow(size_t desiredSize) {
+    
+    // allocate new larger buffer
+    size_t newBufferSize = 2 * desiredSize + 1;
+    char *newData = new char[newBufferSize];
+    
+    // copy over contents
+    for(int i = 0; i < _size; ++i) {
+      newData[i] = _data[i];
+    }
+    newData[_size] = '\0';
+    
+    // get rid of old buffer, use new buffer
+    delete[] _data;
+    _data = newData;
+    _buffer_size = newBufferSize;
   }
 };

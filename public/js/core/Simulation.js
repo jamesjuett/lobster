@@ -66,7 +66,10 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_pendingNews = [];
         this.i_leakCheckIndex = 0;
 
-        // TODO NEW move compilation of mainCall to program?
+        // TODO change this to just call runtime library functions in order to create the runtime construct for
+        // the main function definition, initialize arguments (i.e. argc and argv) if present, etc.
+        // This will avoid the awkwardness of some of the runtime constructs like the call to main having no
+        // containing function.
         var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
@@ -203,6 +206,19 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 		return results;
 	},
 
+
+    topFunction : function() {
+        for (var i = this.i_execStack.length - 1; i >= 0; --i){
+            var runtimeConstruct = this.i_execStack[i];
+            if (isA(runtimeConstruct, RuntimeFunction)) {
+                return runtimeConstruct;
+            }
+        }
+
+        // If there were no functions or the execution stack is empty
+        return null;
+    },
+
     clearRunThread: function(){
         if (this.runThread){
             this.runThreadClearedFlag = true;
@@ -293,7 +309,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     },
 
     stepOut: function(options){
-        var target = this.i_execStack.last().executionContext();
+        var target = this.i_execStack.last().containingFunction();
 
         if (target) {
             this.autoRun(copyMixin(options, {
@@ -356,7 +372,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_alertsOff = true;
         this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //CPPConstructInstance.silent = true;
+        //RuntimeConstruct.silent = true;
 		if (this.i_stepsTaken > 0){
 			this.clear();
 			var steps = this.i_stepsTaken-n;
@@ -365,7 +381,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
                 this.stepForward();
 			}
 		}
-        //CPPConstructInstance.silent = false;
+        //RuntimeConstruct.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
         this.i_alertsOff = false;
         this.i_explainOff = false;
@@ -550,7 +566,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         var globalScope = this.i_program.getGlobalScope();
         for (var key in globalScope.entities) {
             var ent = globalScope.entities[key];
-            if (isA(ent, ObjectEntity)){
+            if (isA(ent, CPPObject)){
                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);
             }
@@ -560,7 +576,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             var frameObjs = this.memory.stack.frames[i].objects;
             for (var key in frameObjs) {
                 var ent = frameObjs[key];
-                if (isA(ent, ObjectEntity)){
+                if (isA(ent, CPPObject)){
                     ent.i_leakCheckIndex = this.i_leakCheckIndex;
                     frontier.push(ent);
                 }
@@ -580,14 +596,14 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             }
             else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
                 if (isA(inst.func.model.type.returnType, Types.Reference)) {
-                    obj = inst.func.model.getReturnObject(this, inst.func).lookup(this, inst.func);
+                    obj = inst.func.model.getReturnObject(this, inst.func);
                 }
                 else {
                     obj = inst.func.model.getReturnObject(this, inst.func).getValue();
                 }
             }
 
-            if (obj && isA(obj, ObjectEntity)){
+            if (obj && isA(obj, CPPObject)){
                 obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);
             }
