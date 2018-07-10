@@ -75,7 +75,7 @@
 //         charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance(), {invalid: true}));
 //     }
 //
-//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //     rec.getMemberSubobject("_capacity").writeValue(charValuesToCopy.length);
 //     rec.getMemberSubobject("_size").writeValue(charValuesToCopy.length-1);
 //
@@ -92,11 +92,11 @@
 //
 //     // store pointer to new array
 //     var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//     this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//     this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 // };
 //
 // var resizeStrang = function(sim, inst, n, c) {
-//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //     var rawSize = rec.getMemberSubobject("_size").rawValue();
 //     var rawCapacity = rec.getMemberSubobject("_capacity").rawValue();
 //
@@ -139,7 +139,7 @@
 //         // add a null char
 //         charsToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance()));
 //
-//         var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//         var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //         rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
 //
 //         // deep copy the array
@@ -152,7 +152,7 @@
 //
 //         // store pointer to new array
 //         var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//         this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//         this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //
 //
 //     }
@@ -164,7 +164,7 @@
 //
 // var replaceStrangArrayWith = function(sim, inst, contents) {
 //
-//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //
 //     // delete old array
 //     deleteHeapArray(sim, inst, rec.getMemberSubobject("data_ptr"));
@@ -211,8 +211,8 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             this.blockScope.requiredLookup("_capacity").lookup(sim, inst).writeValue(initialStrangCapacity);
-//                             this.blockScope.requiredLookup("_size").lookup(sim, inst).writeValue(0);
+//                             this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst).writeValue(initialStrangCapacity);
+//                             this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).writeValue(0);
 //
 //
 //                             var arrType = Types.Array.instance(Types.Char.instance(), initialStrangCapacity);
@@ -220,7 +220,7 @@
 //                             sim.memory.heap.allocateNewObject(arrObj);
 //
 //                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                         }
 //                     }, null)
 //                 },
@@ -233,8 +233,8 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-//                             var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
+//                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
 //
 //                             var newSize = other.getMemberSubobject("_size").getValue();
 //                             var newCapacity = newSize.plus(1);
@@ -252,7 +252,7 @@
 //
 //                             // store pointer to new array
 //                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                         }
 //                     }, null)
 //                 },
@@ -266,11 +266,11 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-//                             var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
+//                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
 //
-//                             var len = this.blockScope.requiredLookup("len").lookup(sim, inst).getValue();
-//                             var rawPos = this.blockScope.requiredLookup("pos").lookup(sim, inst).rawValue();
+//                             var len = this.blockScope.requiredLookup("len").runtimeLookup(sim, inst).getValue();
+//                             var rawPos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst).rawValue();
 //
 //                             var newCapacity = len.plus(1);
 //                             var otherArrValue = other.getMemberSubobject("data_ptr").type.arrObj.getValue();
@@ -291,7 +291,7 @@
 //
 //                                 // store pointer to new array
 //                                 var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                                 this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                                 this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                             }
 //                         }
 //                     }, null)
@@ -305,10 +305,10 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-//                             var other = this.blockScope.requiredLookup("other").lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
+//                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
 //
-//                             var rawPos = this.blockScope.requiredLookup("pos").lookup(sim, inst).rawValue();
+//                             var rawPos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst).rawValue();
 //
 //                             var newCapacity = other.getMemberSubobject("_capacity").getValue().minus(rawPos);
 //                             var otherArrValue = other.getMemberSubobject("data_ptr").type.arrObj.getValue();
@@ -329,7 +329,7 @@
 //
 //                                 // store pointer to new array
 //                                 var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                                 this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                                 this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                             }
 //                         }
 //                     }, null)
@@ -344,7 +344,7 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
+//                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
 //                             copyFromCString.call(this, sim, inst, ptrValue);
 //
 //                         }
@@ -359,8 +359,8 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
-//                             var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
+//                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
+//                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             var numToCopy = n.rawValue();
 //
 //                             if (Types.Pointer.isNull(ptrValue.rawValue())) {
@@ -404,7 +404,7 @@
 //                                 }
 //                             }
 //
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
 //                             rec.getMemberSubobject("_size").writeValue(n);
 //
@@ -415,7 +415,7 @@
 //
 //                             // store pointer to new array
 //                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                         }
 //                     }, null)
 //                 },
@@ -428,8 +428,8 @@
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
-//                             var c = this.blockScope.requiredLookup("c").lookup(sim, inst).getValue();
+//                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
+//                             var c = this.blockScope.requiredLookup("c").runtimeLookup(sim, inst).getValue();
 //
 //                             var charValuesToCopy = [];
 //                             var rawN = n.rawValue();
@@ -440,7 +440,7 @@
 //                             // add a null char
 //                             charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance()));
 //
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
 //                             rec.getMemberSubobject("_size").writeValue(n);
 //
@@ -451,7 +451,7 @@
 //
 //                             // store pointer to new array
 //                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //                         }
 //                     }, null)
 //                 },
@@ -462,7 +462,7 @@
 //                     name : {identifier: "~strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             deleteHeapArray(sim, inst, rec.getMemberSubobject("data_ptr"));
 //                         }
 //                     }, null)
@@ -475,15 +475,14 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["strang"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
-//                             var rhs = this.blockScope.requiredLookup("rhs").lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
+//                             var rhs = this.blockScope.requiredLookup("rhs").runtimeLookup(sim, inst);
 //
 //                             // check for self-assignment, where we just do nothing
 //                             if (rec.address == rhs.address) {
 //                                 var retType = this.containingFunction().type.returnType;
 //                                 var re = ReturnEntity.instance(retType);
-//                                 re.lookup(sim, inst).bindTo(rec);
-//                                 re.lookup(sim, inst).initialized();
+//                                 re.runtimeLookup(sim, inst).bindTo(rec);
 //                                 return;
 //                             }
 //
@@ -506,11 +505,10 @@
 //
 //                             // store pointer to new array
 //                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).writeValue(addr);
+//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 //
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
-//                             re.lookup(sim, inst).bindTo(rec);
-//                             re.lookup(sim, inst).initialized();
+//                             re.runtimeLookup(sim, inst).bindTo(rec);
 //                         }
 //                     }, null)
 //                 },
@@ -523,17 +521,16 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //
 //                             // delete old array
 //                             deleteHeapArray(sim, inst, rec.getMemberSubobject("data_ptr"));
 //
-//                             var ptrValue = this.blockScope.requiredLookup("cstr").lookup(sim, inst).getValue();
+//                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
 //                             copyFromCString.call(this, sim, inst, ptrValue);
 //
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
-//                             re.lookup(sim, inst).bindTo(rec);
-//                             re.lookup(sim, inst).initialized();
+//                             re.runtimeLookup(sim, inst).bindTo(rec);
 //                         }
 //                     }, null)
 //                 },
@@ -546,12 +543,11 @@
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
 //
-//                             replaceStrangArrayWith.call(this, sim, inst, [this.blockScope.requiredLookup("c").lookup(sim, inst).getValue()]);
+//                             replaceStrangArrayWith.call(this, sim, inst, [this.blockScope.requiredLookup("c").runtimeLookup(sim, inst).getValue()]);
 //
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).lookup(sim, inst);
+//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var re = ReturnEntity.instance(this.containingFunction().type.returnType);
-//                             re.lookup(sim, inst).bindTo(rec);
-//                             re.lookup(sim, inst).initialized();
+//                             re.runtimeLookup(sim, inst).bindTo(rec);
 //                         }
 //                     }, null)
 //                 },
@@ -581,10 +577,9 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var size = this.blockScope.requiredLookup("_size").lookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -596,10 +591,9 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var size = this.blockScope.requiredLookup("_size").lookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -615,8 +609,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["void"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
-//                             var c = this.blockScope.requiredLookup("c").lookup(sim, inst);
+//                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
+//                             var c = this.blockScope.requiredLookup("c").runtimeLookup(sim, inst);
 //                             resizeStrang.call(this, sim, inst, n, c);
 //                         }
 //                     }, null)
@@ -630,7 +624,7 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["void"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var n = this.blockScope.requiredLookup("n").lookup(sim, inst).getValue();
+//                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             resizeStrang.call(this, sim, inst, n, Types.Char.NULL_CHAR);
 //                         }
 //                     }, null)
@@ -643,10 +637,9 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var size = this.blockScope.requiredLookup("_capacity").lookup(sim, inst);
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var size = this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst);
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -676,10 +669,9 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["bool"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var size = this.blockScope.requiredLookup("_size").lookup(sim, inst).getValue();
-//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.funcContext);
+//                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).getValue();
+//                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size.equals(0));
-//                             returnObject.initialized();
 //                         }
 //                     }, null)
 //                 },
@@ -695,8 +687,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
-//                             var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
+//                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
 //
 //                             if (!ptr.isValueValid()) {
@@ -705,9 +697,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -721,8 +712,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
-//                             var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
+//                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
 //
 //                             if (!ptr.isValueValid()) {
@@ -731,9 +722,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -747,8 +737,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
-//                             var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
+//                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
 //
 //                             if (!ptr.isValueValid()) {
@@ -757,9 +747,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -773,8 +762,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
-//                             var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
+//                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
 //
 //                             if (!ptr.isValueValid()) {
@@ -783,9 +772,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -799,7 +787,7 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //
 //                             if (!ptr.isValueValid()) {
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
@@ -807,9 +795,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }
@@ -823,8 +810,8 @@
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
 //                         effects : function(sim, inst) {
-//                             var ptr = this.blockScope.requiredLookup("data_ptr").lookup(sim, inst).getValue();
-//                             var pos = this.blockScope.requiredLookup("pos").lookup(sim, inst);
+//                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
+//                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
 //
 //                             if (!ptr.isValueValid()) {
@@ -833,9 +820,8 @@
 //
 //                             var obj = sim.memory.getObject(ptr);
 //
-//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).lookup(sim, inst);
+//                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
-//                             returnRef.initialized();
 //
 //
 //                         }

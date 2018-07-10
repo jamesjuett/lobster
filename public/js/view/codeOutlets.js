@@ -18,7 +18,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         if (code.isA(CPPConstruct)){
             this.code = code;
         }
-        else if (code.isA(CPPConstructInstance)){
+        else if (code.isA(RuntimeConstruct)){
             this.code = code.model;
         }
         else{
@@ -39,7 +39,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.createElement();
 
-        if (code.isA(CPPConstructInstance)){
+        if (code.isA(RuntimeConstruct)){
             this.setInstance(code);
         }
     },
@@ -193,7 +193,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Function",
 
     init: function(element, codeOrInst, simOutlet, parent){
-        //assert(isA(callInst, CPPConstructInstance) && isA(callInst.model, FunctionCall));
+        //assert(isA(callInst, RuntimeConstruct) && isA(callInst.model, FunctionCall));
         this.initParent(element, codeOrInst, simOutlet, parent);
 
 
@@ -259,7 +259,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     },
 
     setUpParams : function(){
-        var paramCodes = this.inst ? this.inst.caller.argInits : this.code.params;
+        var paramCodes = this.inst ? this.inst.getCaller().argInits : this.code.params;
         this.paramsElem.empty();
         this.paramsElem.append("(");
         //var paramElems = [];
@@ -279,6 +279,10 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     instanceSet : function(){
         Outlets.CPP.Function._parent.instanceSet.apply(this, arguments);
         this.setUpParams();
+
+        if (this.inst.hasControl()) {
+            this.element.addClass("hasControl");
+        }
     },
 
     _act: mixin({}, Outlets.CPP.Code._act, {
@@ -299,9 +303,11 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
                 this.setInstance(inst);
             }
         },
-        currentFunction : function(){
-            this.simOutlet.element.find(".currentFunction").removeClass("currentFunction");
-            this.element.addClass("currentFunction");
+        gainControl : function() {
+            this.element.addClass("hasControl");
+        },
+        loseControl : function() {
+            this.element.removeClass("hasControl");
         }
 
     }, true)
@@ -643,7 +649,7 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
             }
 
             if (this.expr) {
-                this.inst.funcContext.parent.send("returned", this.argOutlets[0]);
+                this.inst.containingRuntimeFunction().parent.send("returned", this.argOutlets[0]);
             }
 
         }
@@ -747,7 +753,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
 
         if(this.inst){
             // If it's associated with an instance of an initializer
-            var obj = this.code.entity.lookup(this.simOutlet.simOutlet.sim, this.inst);
+            var obj = this.code.entity.runtimeLookup(this.simOutlet.simOutlet.sim, this.inst);
             this.element.append(obj.type.typeString(false, htmlDecoratedName(obj.name, obj.type), true));
         }
         else{
@@ -769,10 +775,10 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
     },
 
     _act: copyMixin(Outlets.CPP.Code._act, {
-        initialized: function(msg){
+        initialized : function(msg){
             var obj = msg.data;
             var val;
-            if (isA(obj, ReferenceEntity)){
+            if (isA(obj, ReferenceEntityInstance)){
                 val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
             }
             else{
@@ -1044,7 +1050,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
             return;
         }
 
-        if (value.isA(ObjectEntity) || value.isA(FunctionEntity)){
+        if (value.isA(CPPObject) || value.isA(FunctionEntity)){
             this.evalValueElem.html(value.nameString());
             this.evalValueElem.addClass("lvalue");
         }

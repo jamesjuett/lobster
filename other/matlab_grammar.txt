@@ -30,8 +30,8 @@
 
 
 start
-  = AssignmentStatement
-  / Exp
+  = a:AssignmentStatement _ ";"? {return a;}
+  / e:Exp _ ";"? {return e;}
 
 
 AssignmentStatement
@@ -88,32 +88,38 @@ RangeExp
   / OrExp
 
 OrExp
-  = head:AndExp tail:(_ op:"|" _ e:AndExp {return [op,e];})* {
+  = AndExp
+  / head:AndExp tail:(_ op:"|" _ e:AndExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "or_exp");
   }
 
 AndExp
-  = head:EqExp tail:(_ op:"&" _ e:EqExp {return [op,e];})* {
+  = EqExp
+  / head:EqExp tail:(_ op:"&" _ e:EqExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "and_exp");
   }
 
 EqExp
-  = head:RelExp tail:(_ op:("=="/"~=") _ e:RelExp {return [op,e];})* {
+  = RelExp
+  / head:RelExp tail:(_ op:("=="/"~=") _ e:RelExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "eq_exp");
   }
 
 RelExp
-  = head:AddExp tail:(_ op:("<="/"<"/">="/">") _ e:AddExp {return [op,e];})* {
+  = AddExp
+  / head:AddExp tail:(_ op:("<="/"<"/">="/">") _ e:AddExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "rel_exp");
   }
 
 AddExp
-  = head:MultExp tail:(_ op:("+"/"-") _ e:MultExp {return [op,e];})* {
+  = MultExp
+  / head:MultExp tail:(_ op:("+"/"-") _ e:MultExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "add_exp");
   }
 
 MultExp
-  = head:UnaryExp tail:(_ op:("*" / "/" / "^" / ".*" / "./" / ".^") _ e:UnaryExp {return [op,e];})* {
+  = UnaryExp
+  / head:UnaryExp tail:(_ op:("*" / "/" / "^" / ".*" / "./" / ".^") _ e:UnaryExp {return [op,e];})* {
     return composeBinaryOp(head, tail, "left", "mult_exp");
   }
 

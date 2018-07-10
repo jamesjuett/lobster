@@ -5,14 +5,12 @@ session_start();
 date_default_timezone_set('America/New_York');
 
 function getEmailFromIdToken($idtoken) {
-  $_SESSION['email'] = 'jjuett@umich.edu';
-  return 'jjuett@umich.edu';
   try{
 
     $client = new Google_Client();
-    $client_id = '355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com';
-    $client_secret = '-yiX6z6rrdhLRbZjVW4LzcDI';
-    $client->setApplicationName('lobster');
+    $client_id = $GLOBALS['config']['client_id'];
+    $client_secret = $GLOBALS['config']['client_id'];
+    $client->setApplicationName($GLOBALS['config']['application_name']);
     $client->setClientId($client_id);
     $client->setClientSecret($client_secret);
     $client->setScopes('email');

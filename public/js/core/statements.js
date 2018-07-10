@@ -166,15 +166,15 @@ Statements.Return = Statement.extend({
 	},
 
 	stepForward : function(sim, inst){
-		if (inst.index === "afterChildren") {
-            var func = inst.funcContext;
+        var func = inst.containingRuntimeFunction();
+        func.encounterReturnStatement();
 
+		if (inst.index === "afterChildren") {
             inst.send("returned", {call: func.parent});
             inst.index = "returned";
             return true; // go again to returned
         }
         else if (inst.index === "returned"){
-            var func = inst.funcContext;
             sim.popUntil(func);
 			//func.done(sim);
 			// return true;
@@ -585,7 +585,7 @@ Statements.Break = Statement.extend({
     },
 
     createAndPushInstance : function(sim, inst){
-        var inst = CPPConstructInstance.instance(sim, this, "break", "stmt", inst);
+        var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },
@@ -623,7 +623,7 @@ Statements.TemporaryDeallocator = Statement.extend({
 
     upNext : function(sim, inst){
         for (var key in this.temporaries){
-            var tempObjInst = this.temporaries[key].lookup(sim, inst.parent);
+            var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
             if (tempObjInst) {
                 sim.memory.deallocateTemporaryObject(tempObjInst, inst);
             }

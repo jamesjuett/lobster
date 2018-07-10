@@ -714,26 +714,26 @@ Types.builtInTypes["double"] =
 
 
 
-// Types.builtInTypes["ostream"] =
-// Lobster.Types.OStream = Types.SimpleType.extend({
-//     _name: "OStream",
-//     i_type: "ostream",
-//     size: 4,
-//
-//     valueToString : function(value){
-//         return JSON.stringify(value);
-//     }
-// });
-//
-// Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
-//     _name: "IStream",
-//     i_type: "istream",
-//     size: 4,
-//
-//     valueToString : function(value){
-//         return JSON.stringify(value);
-//     }
-// });
+Types.builtInTypes["ostream"] =
+Lobster.Types.OStream = Types.SimpleType.extend({
+    _name: "OStream",
+    i_type: "ostream",
+    size: 4,
+
+    valueToString : function(value){
+        return JSON.stringify(value);
+    }
+});
+
+Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+    _name: "IStream",
+    i_type: "istream",
+    size: 4,
+
+    valueToString : function(value){
+        return JSON.stringify(value);
+    }
+});
 
 
 
