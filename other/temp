@@ -1,59 +1,214 @@
-CONSTRUCT_CLASSES = {
-	labeled_statement : Statements.Labeled,
-	null_statement : Statements.Null,
-	expression_statement : Statements.Expression,
-	compound_statement : Statements.Block,
-	selection_statement : Statements.Selection,
-	switch_statement : Statements.Switch,
-	while_statement : Statements.While,
-	dowhile_statement : Statements.DoWhile,
-	for_statement : Statements.For,
-	break_statement : Statements.Break,
-	continue_statement : Statements.Continue,
-	return_statement : Statements.Return,
-	declaration_statement : Statements.Declaration,
-	simple_declaration : Declarations.Declaration,
-	class_declaration : Declarations.ClassDeclaration,
-	function_definition : Declarations.FunctionDefinition,
-	constructor_definition : Declarations.ConstructorDefinition,
-	destructor_definition : Declarations.DestructorDefinition,
-	member_initializer : Lobster.MemberInitializer,
-	direct_initializer : Lobster.DirectInitializer,
-	copy_initializer : Lobster.CopyInitializer,
-	initializer_list : Lobster.InitializerList,
-	declarator : Lobster.Declarator,
-	parameter_declaration : Declarations.Parameter,
-	assignment_expression : Expressions.Assignment,
-	compound_assignment : Expressions.CompoundAssignment,
-	ternary_expression : Expressions.Ternary,
-	cast_expression : Expressions.Cast,
-	prefix_increment_expression : Expressions.Prefix,
-	prefix_decrement_expression : Expressions.Prefix,
-	sizeof_expression : Expressions.Unsupported,
-	sizeof_type_expression : Expressions.Unsupported,
-	dereference_expression : Expressions.Dereference,
-	address_of_expression : Expressions.AddressOf,
-	unary_plus_expression : Expressions.UnaryPlus,
-	unary_minus_expression : Expressions.UnaryMinus,
-	logical_not_expression : Expressions.LogicalNot,
-	bitwise_not_expression : Expressions.BitwiseNot,
-	new_expression : Expressions.NewExpression,
-	delete_expression : Expressions.Delete,
-	delete_array_expression : Expressions.DeleteArray,
-	static_cast_expression : Expressions.StaticCast,
-	dynamic_cast_expression : Expressions.DynamicCast,
-	reinterpret_cast_expression : Expressions.ReinterpretCast,
-	const_cast_expression : Expressions.ConstCast,
-	subscript_expression : Expressions.Subscript,
-	function_call_expression : Expressions.FunctionCall,
-	dot_expression : Expressions.Dot,
-	arrow_expression : Expressions.Arrow,
-	postfix_increment_expression : Expressions.Increment,
-	postfix_decrement_expression : Expressions.Decrement,
-	construct_expression : Expressions.Construct,
-	parentheses_expression : Expressions.Parentheses,
-	this_expression : Expressions.ThisExpression,
-	identifier_expression : Expressions.Identifier,
-	literal : Expressions.Literal,
-	member_declaration : Declarations.Member,
+size_t strlen(const char *str) {
+  const char *ptr = str;
+  while (*ptr) {
+    ++ptr;
+  }
+  return ptr - str;
+}
+
+char * strcpy(char *dst, const char *src) {
+  char *dst_orig = dst;
+  while(*dst++ = *src++);
+  return dst_orig;
+}
+
+char *strncpy(char *dst, const char *src, size_t num) {
+  char *dst_orig = dst;
+  while (num > 0 && *src) {
+  *dst++ = *src++;
+    --num;
+  }
+  while(num > 0) {
+  *dst++ = '\0';
+    --num;
+  }
+  return dst_orig;
+}
+
+class string {
+  public:
+
+    // CONSTRUCTORS
+
+    string()
+: _size(0), _buffer_size(0), _data(new char[1]) {
+  _data[0] = '\0';
+}
+
+string(const string &other)
+: _size(other._size), _buffer_size(other._size + 1),
+  _data(new char[_buffer_size]) {
+
+  strcpy(_data, other._data);
+}
+
+string(const string &other, size_t pos, size_t len) {
+
+  size_t possibleLen = strlen(other._data) - pos;
+  if (possibleLen < len) {
+    len = possibleLen;
+  }
+
+  _size = len;
+  _buffer_size = len + 1;
+  _data = new char[_buffer_size];
+
+  const char *cstr = other._data + pos;
+  for(size_t i = 0; i < len; ++i) {
+    _data[i] = *cstr++;
+  }
+  _data[len] = '\0';
+
+}
+
+string(const char *cstr)
+: _size(0) {
+
+  _size = strlen(cstr);
+
+  // copy chars
+  _buffer_size = _size + 1;
+  _data = new char[_buffer_size];
+  strcpy(_data, cstr);
+}
+
+string(const char *cstr, size_t n)
+: _size(n), _buffer_size(n + 1),
+  _data(new char[_buffer_size]) {
+
+  for(int i = 0; i < _size; ++i) {
+    _data[i] = cstr[i];
+  }
+  _data[_size] = '\0';
+}
+
+string(size_t n, char c)
+: _size(n), _buffer_size(n + 1),
+  _data(new char[_buffer_size]) {
+
+  for(int i = 0; i < _buffer_size; ++i) {
+    _data[i] = c;
+  }
+  _data[_size] = '\0';
+}
+
+
+// ASSIGNMENT OPERATORS
+
+string &operator=(const string &rhs) {
+  // copy swap
+  string copy(rhs);
+  swap(copy);
+}
+
+string &operator=(const char *cstr) {
+  // construct swap
+  string copy(cstr);
+  swap(copy);
+}
+
+string &operator=(char c) {
+  // construct swap
+  string copy(1,c);
+  swap(copy);
+}
+
+
+// DESTRUCTOR
+~string() {
+  delete[] _data;
+}
+
+// ITERATOR MEMBER FUNCTIONS
+int begin() = @library_unsupported@;
+void end() = @library_unsupported@;
+void rbegin() = @library_unsupported@;
+void rend() = @library_unsupported@;
+void cbegin() = @library_unsupported@;
+void cend() = @library_unsupported@;
+void crbegin() = @library_unsupported@;
+void crend() = @library_unsupported@;
+
+
+// CAPACITY MEMBER FUNCTIONS
+size_t size() const {
+  return _size;
+}
+
+size_t length() const {
+  return _size;
+}
+
+size_t max_size() const = @library_unsupported@;
+
+size_t capacity() const {
+  // _buffer_size is buffer capacity, but this counts the null char,
+  // so the capacity to hold meaningful chars is one less
+  return _buffer_size - 1;
+}
+
+void resize(size_t n) {
+  resize(n, '\0');
+}
+
+void resize(size_t n, char c) {
+  if (n < _size) {
+  	// shorten string to only n
+    _size = n;
+    _data[_size] = '\0';
+  }
+  else {
+    // grow if we don't have enough space
+    if (capacity() < n) {
+      grow(n);
+    }
+    
+    // pad with c until we get to n chars, then write null char
+    while (_size < n) {
+      _data[_size++] = c;
+    }
+    _data[_size] = '\0';
+  }
+}
+
+
+private:
+  size_t _size;
+  size_t _buffer_size;
+  char * _data;
+
+  void swap(string &other) {
+    size_t temp_size = _size;
+    _size = other._size;
+    other._size = temp_size;
+
+    size_t temp_buffer_size = _buffer_size;
+    _buffer_size = other._buffer_size;
+    other._buffer_size = temp_buffer_size;
+
+    char * temp_data = _data;
+    _data = other._data;
+    other._data = temp_data;
+  }
+  
+  // Allocates a new, larger buffer with size 2 * desiredSize + 1
+  // Note that desiredSize is a "size", i.e. # of actual chars the string will hold.
+  // (Note: the string does not have to currently hold desiredSize chars)
+  void grow(size_t desiredSize) {
+    
+    // allocate new larger buffer
+    size_t newBufferSize = 2 * desiredSize + 1;
+    char *newData = new char[newBufferSize];
+    
+    // copy over contents
+    for(int i = 0; i < _size; ++i) {
+      newData[i] = _data[i];
+    }
+    newData[_size] = '\0';
+    
+    // get rid of old buffer, use new buffer
+    delete[] _data;
+    _data = newData;
+    _buffer_size = newBufferSize;
+  }
 };

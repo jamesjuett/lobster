@@ -446,9 +446,13 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             if (element.find("#simPane").css("display") !== "none"){
                 if (e.which == 39 || e.which == 83){
                     self.stepForward();
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
                 else if (e.which == 37){
                     self.stepBackward();
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
                 //else if (e.which == 40){
                 //    self.stepOver();
@@ -456,8 +460,6 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
                 //else if (e.which == 38){
                 //    self.stepOut();
                 //}
-                e.preventDefault();
-                e.stopPropagation();
             }
         });
         // .on("keypress", "*", function(e) {
@@ -530,7 +532,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     stepOver : function(){
         this.runningProgress.css("visibility", "visible");
 
-        CPPConstructInstance.silent = true;
+        RuntimeConstruct.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
@@ -538,7 +540,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
         this.sim.stepOver({
             after : function(){
-                CPPConstructInstance.silent = false;
+                RuntimeConstruct.silent = false;
                 self.stackFrames.refresh();
                 setTimeout(function(){self.setAnimationsOn(true);}, 10);
                 self.runningProgress.css("visibility", "hidden");
@@ -553,7 +555,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     stepOut : function(){
         this.runningProgress.css("visibility", "visible");
 
-        CPPConstructInstance.silent = true;
+        RuntimeConstruct.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
@@ -561,7 +563,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
         this.sim.stepOut({
             after : function(){
-                CPPConstructInstance.silent = false;
+                RuntimeConstruct.silent = false;
                 self.stackFrames.refresh();
                 setTimeout(function(){self.setAnimationsOn(true);}, 10);
                 self.runningProgress.css("visibility", "hidden");
@@ -585,14 +587,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     runToEnd : function(){
         this.runningProgress.css("visibility", "visible");
 
-        //CPPConstructInstance.silent = true;
+        //RuntimeConstruct.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
         var self = this;
         this.sim.speed = 1;
         this.sim.autoRun({after: function(){
-            //CPPConstructInstance.silent = false;
+            //RuntimeConstruct.silent = false;
             //self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             //self.setEnabledButtons({
@@ -606,14 +608,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     skipToEnd : function(){
         this.runningProgress.css("visibility", "visible");
 
-        CPPConstructInstance.silent = true;
+        RuntimeConstruct.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
         var self = this;
         this.sim.speed = Simulation.MAX_SPEED;
         this.sim.autoRun({after: function(){
-            CPPConstructInstance.silent = false;
+            RuntimeConstruct.silent = false;
             self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             //self.setEnabledButtons({
@@ -638,12 +640,12 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.runningProgress.css("visibility", "visible");
         var self = this;
 
-        CPPConstructInstance.silent = true;
+        RuntimeConstruct.silent = true;
         this.setAnimationsOn(false);
         this.ignoreStepBackward = true;
         setTimeout(function(){
             self.sim.stepBackward(n);
-            CPPConstructInstance.silent = false;
+            RuntimeConstruct.silent = false;
             self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             self.setEnabledButtons({
@@ -661,7 +663,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     setAnimationsOn : function(animOn){
         if (animOn){
-            //CPPConstructInstance.silent = false;
+            //RuntimeConstruct.silent = false;
 //        this.silent = false;
             Outlets.CPP.CPP_ANIMATIONS = true;
             $.fx.off = false;
@@ -673,7 +675,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             $.fx.off = true;
             Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
 //        this.silent = true;
-//            CPPConstructInstance.silent = true;
+//            RuntimeConstruct.silent = true;
         }
     },
 
@@ -1378,7 +1380,7 @@ var CompilationStatusOutlet = Class.extend(Observer, {
 
         var self = this;
         this.i_compileButtonText = "Compile";
-        this.i_compileButton = $('<button class="btn btn-primary-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
+        this.i_compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
             .click(function() {
                 self.i_compileButtonText = "Compiling";
                 self.i_compileButton.html('<span class = "glyphicon glyphicon-refresh spin"></span> ' + self.i_compileButtonText);
@@ -1436,13 +1438,13 @@ var CompilationStatusOutlet = Class.extend(Observer, {
         },
         isCompilationUpToDate : function (msg) {
             if (msg.data) {
-                this.i_compileButton.removeClass("btn-primary-muted");
+                this.i_compileButton.removeClass("btn-warning-muted");
                 this.i_compileButton.addClass("btn-success-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
             }
             else {
                 this.i_compileButton.removeClass("btn-success-muted");
-                this.i_compileButton.addClass("btn-primary-muted");
+                this.i_compileButton.addClass("btn-warning-muted");
                 this.i_compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
             }
         }
@@ -1534,11 +1536,11 @@ var FileEditor = Lobster.Outlets.CPP.FileEditor = Class.extend(Observable, Obser
         var newText = this.getText();
 
 
-        // TODO NEW omg what a hack
+        // TODO omg what a hack
         //Use for building parser :p
         // console.log(peg.generate(newText,{
         //    cache: true,
-        //    allowedStartRules: ["start", "function_body", "member_declaration", "declaration"],
+        //    allowedStartRules: ["start", "function_body", "declaration", "declarator", "member_declaration", "argument_declaration_list"],
         //    output: "source"
         // }));
         // return;
@@ -2062,23 +2064,26 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function (outlet) {
                 pointedOutlet = pointedOutlet || outlet;
             });
-            endOff = pointedOutlet.objElem.offset();
-            endOff.left += pointedOutlet.objElem.outerWidth()/2;
-            //endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        var startOff = this.objElem.offset();
-        startOff.left += this.objElem.outerWidth()/2;
+            if (pointedOutlet) {
+                endOff = pointedOutlet.objElem.offset();
+                endOff.left += pointedOutlet.objElem.outerWidth()/2;
+                //endOff.top += pointedOutlet.objElem.outerHeight();
 
-        // If start is below end (greater offset), we move top of end to bottom.
-        if (startOff.top > endOff.top && pointedOutlet) {
-            endOff.top += pointedOutlet.objElem.outerHeight();
-        }
-        else{
-            startOff.top += this.objElem.outerHeight();
-        }
+                var startOff = this.objElem.offset();
+                startOff.left += this.objElem.outerWidth()/2;
+
+                // If start is below end (greater offset), we move top of end to bottom.
+                if (startOff.top > endOff.top && pointedOutlet) {
+                    endOff.top += pointedOutlet.objElem.outerHeight();
+                }
+                else{
+                    startOff.top += this.objElem.outerHeight();
+                }
 
 
-        this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+                this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
+            }
+        }
     },
     makeArrayPointerArrow : function(){
 
@@ -2092,6 +2097,7 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
             this.pointedObject.send("findOutlet", function(outlet){ arrayOutlet = arrayOutlet || outlet; });
             if (!arrayOutlet){
                 // do nothing
+                return;
             }
             else if (value < type.min()) {
                 var first = arrayOutlet.elemOutlets[0].objElem;
@@ -2189,7 +2195,7 @@ Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
         this.length = this.object.elemObjects.length;
         this.element.addClass("code-memoryObjectArray");
 
-        this.addrElem = $("<div class='address' style='visibility: hidden;'>0x"+this.object.address+"</div>");
+        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
         this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
@@ -2318,7 +2324,7 @@ Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
 
         // Only show name and address for object if not a base class subobject
         if (!isA(this.object, BaseClassSubobject)){
-            if (isA(this.object, DynamicObjectEntity)){
+            if (isA(this.object, DynamicObject)){
                 this.addrElem = $("<td class='address'>0x"+this.object.address+"</td>");
                 this.classHeaderElem.append(this.addrElem);
             }
@@ -2760,7 +2766,6 @@ Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
         var last = this.sim.i_execStack.last();
         if (last) {
             last.send("upNext");
-            last.funcContext.send("currentFunction");
         }
     },
     _act : {

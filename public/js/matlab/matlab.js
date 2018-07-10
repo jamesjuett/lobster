@@ -963,10 +963,10 @@ var Environment = Class.extend({
         varData.value.history.visualize_html(holder);
     },
     setVar : function(identifier, value) {
-        if (this.vars.hasOwnProperty(identifier)){
-            this.vars[identifier].setValue(value);
-        }
-        else{
+        // if (this.vars.hasOwnProperty(identifier)){
+        //     this.vars[identifier].setValue(value);
+        // }
+        // else{
             var v = Variable.instance(identifier, value);
             if (identifier !== "ans"){
                 this.varArea().append(v.htmlElem());
@@ -975,7 +975,7 @@ var Environment = Class.extend({
                 this.varArea().prepend(v.htmlElem());
             }
             this.vars[identifier] = v;
-        }
+        // }
 //            $(".matlab-table").each(function(){
 //                $(this).css("background-color", random_color());
 //            });

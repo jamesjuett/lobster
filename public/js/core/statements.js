@@ -60,9 +60,10 @@ Statements.Expression = Statement.extend({
     }
 });
 
-Statements.Null = Statements.Expression.extend({
+Statements.Null = Statement.extend({
     _name : "NullStatement",
-    initIndex : "done"
+    initIndex : "done",
+
 });
 
 /**
@@ -165,16 +166,15 @@ Statements.Return = Statement.extend({
 	},
 
 	stepForward : function(sim, inst){
-		if (inst.index === "afterChildren") {
-            var func = inst.funcContext;
-            func.returnValueSet = true;
+        var func = inst.containingRuntimeFunction();
+        func.encounterReturnStatement();
 
+		if (inst.index === "afterChildren") {
             inst.send("returned", {call: func.parent});
             inst.index = "returned";
             return true; // go again to returned
         }
         else if (inst.index === "returned"){
-            var func = inst.funcContext;
             sim.popUntil(func);
 			//func.done(sim);
 			// return true;
@@ -286,6 +286,41 @@ Statements.FunctionBodyBlock = Statements.Block.extend({
 
     i_createBlockScope : function() {
         return FunctionBlockScope.instance(this.contextualScope);
+    }
+});
+
+OpaqueFunctionBodyBlock = Statements.OpaqueFunctionBodyBlock = Statement.extend({
+    _name: "OpaqueFunctionBodyBlock",
+
+    i_createFromAST : function(ast){
+        Statements.OpaqueFunctionBodyBlock._parent.i_createFromAST.apply(this, arguments);
+
+        this.blockScope = FunctionBlockScope.instance(this.contextualScope);
+        this.effects = ast.effects;
+    },
+
+    // upNext : function(sim, inst){
+    //     if (inst.index >= this.statements.length){
+    //         this.done(sim, inst);
+    //     }
+    //     else{
+    //         inst.send("index", inst.index);
+    //         var nextStmt = this.statements[inst.index++];
+    //         inst.childInstances.statements.push(nextStmt.createAndPushInstance(sim, inst));
+    //     }
+    //     return true;
+    // },
+
+    stepForward : function(sim, inst){
+        // No work to be done here? Should be enough to delegate to statements
+        // via upNext.
+        this.effects(sim, inst);
+        this.done(sim,inst);
+        return true;
+    },
+
+    isTailChild : function(){
+        return {isTail: true};
     }
 });
 
@@ -550,7 +585,7 @@ Statements.Break = Statement.extend({
     },
 
     createAndPushInstance : function(sim, inst){
-        var inst = CPPConstructInstance.instance(sim, this, "break", "stmt", inst);
+        var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },
@@ -588,7 +623,7 @@ Statements.TemporaryDeallocator = Statement.extend({
 
     upNext : function(sim, inst){
         for (var key in this.temporaries){
-            var tempObjInst = this.temporaries[key].lookup(sim, inst.parent);
+            var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
             if (tempObjInst) {
                 sim.memory.deallocateTemporaryObject(tempObjInst, inst);
             }

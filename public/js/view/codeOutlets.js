@@ -5,6 +5,9 @@
 var Lobster = Lobster || {};
 Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
 
+var EVAL_FADE_DURATION = 500;
+var RESET_FADE_DURATION = 500;
+
 Lobster.Outlets.CPP.Code = WebOutlet.extend({
     _name: "Outlets.CPP.Code",
     init: function (element, code, simOutlet, parent) {
@@ -15,7 +18,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         if (code.isA(CPPConstruct)){
             this.code = code;
         }
-        else if (code.isA(CPPConstructInstance)){
+        else if (code.isA(RuntimeConstruct)){
             this.code = code.model;
         }
         else{
@@ -31,12 +34,12 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
 
         this.element.addClass("codeInstance");
         this.element.append("<span class=\"highlight\"></span>");
-        this.menuElem = $('<span class="menu"></span>');
-        this.element.append(this.menuElem);
+        // this.menuElem = $('<span class="menu"></span>');
+        // this.element.append(this.menuElem);
 
         this.createElement();
 
-        if (code.isA(CPPConstructInstance)){
+        if (code.isA(RuntimeConstruct)){
             this.setInstance(code);
         }
     },
@@ -56,8 +59,8 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
         }
         //this.element.addClass("hasInst");
         this.instanceSet();
-        for(var i = 0; i < this.inst.pushedChildren.length; ++i){
-            this.childPushed(this.inst.pushedChildren[i]);
+        for(var id in this.inst.pushedChildren) {
+            this.childPushed(this.inst.pushedChildren[id]);
         }
 //        console.log("instance set for " + this._name);
     },
@@ -190,7 +193,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Function",
 
     init: function(element, codeOrInst, simOutlet, parent){
-        //assert(isA(callInst, CPPConstructInstance) && isA(callInst.model, FunctionCall));
+        //assert(isA(callInst, RuntimeConstruct) && isA(callInst.model, FunctionCall));
         this.initParent(element, codeOrInst, simOutlet, parent);
 
 
@@ -232,7 +235,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
         }
 
         var bodyElem = $("<span></span>");
-        this.body = Outlets.CPP.Block.instance(bodyElem, this.code.body, this.simOutlet);
+        this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet);
         this.element.append(bodyElem);
         this.addChild(this.body);
 
@@ -256,7 +259,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     },
 
     setUpParams : function(){
-        var paramCodes = this.inst ? this.inst.caller.argInits : this.code.params;
+        var paramCodes = this.inst ? this.inst.getCaller().argInits : this.code.params;
         this.paramsElem.empty();
         this.paramsElem.append("(");
         //var paramElems = [];
@@ -276,6 +279,10 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     instanceSet : function(){
         Outlets.CPP.Function._parent.instanceSet.apply(this, arguments);
         this.setUpParams();
+
+        if (this.inst.hasControl()) {
+            this.element.addClass("hasControl");
+        }
     },
 
     _act: mixin({}, Outlets.CPP.Code._act, {
@@ -296,9 +303,11 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
                 this.setInstance(inst);
             }
         },
-        currentFunction : function(){
-            this.simOutlet.element.find(".currentFunction").removeClass("currentFunction");
-            this.element.addClass("currentFunction");
+        gainControl : function() {
+            this.element.addClass("hasControl");
+        },
+        loseControl : function() {
+            this.element.removeClass("hasControl");
         }
 
     }, true)
@@ -406,6 +415,26 @@ Lobster.Outlets.CPP.Block = Outlets.CPP.Code.extend({
     }, true)
 });
 
+
+Lobster.Outlets.CPP.OpaqueFunctionBodyBlock = Outlets.CPP.Code.extend({
+    _name: "Outlets.CPP.OpaqueFunctionBodyBlock",
+
+    createElement: function(){
+        this.element.removeClass("codeInstance");
+        this.element.addClass("braces");
+        this.element.append(curlyOpen);
+        this.element.append("<br />");
+        var inner = this.innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
+        inner.addClass("block");
+        this.element.append(inner);
+        var lineElem = $('<span class="blockLine">// Implementation not shown</span>');
+        inner.append(lineElem);
+        inner.append("<br />");
+        this.element.append("<br />");
+        this.element.append(curlyClose);
+    }
+});
+
 Lobster.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Statement",
 
@@ -490,13 +519,13 @@ Lobster.Outlets.CPP.While = Outlets.CPP.Statement.extend({
         this.element.append(htmlDecoratedKeyword("while"));
         this.element.append("(");
 
-        var condElem = $("<span></span>")
+        var condElem = $("<span></span>");
         this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>")
+        var bodyElem = $("<span></span>");
         this.addChild(this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet));
         this.element.append(bodyElem);
 
@@ -558,25 +587,25 @@ Lobster.Outlets.CPP.For = Outlets.CPP.Statement.extend({
         this.element.append(htmlDecoratedKeyword("for"));
         this.element.append("(");
 
-        var initElem = $("<span></span>")
+        var initElem = $("<span></span>");
         this.addChild(this.initial = createCodeOutlet(initElem, this.code.initial, this.simOutlet));
         this.element.append(initElem);
 
         this.element.append(" ");
 
-        var condElem = $("<span></span>")
+        var condElem = $("<span></span>");
         this.addChild(this.condition = createCodeOutlet(condElem, this.code.condition, this.simOutlet));
         this.element.append(condElem);
 
         this.element.append("; ");
 
-        var postElem = $("<span></span>")
+        var postElem = $("<span></span>");
         this.addChild(this.post = createCodeOutlet(postElem, this.code.post, this.simOutlet));
         this.element.append(postElem);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>")
+        var bodyElem = $("<span></span>");
         this.addChild(this.body = createCodeOutlet(bodyElem, this.code.body, this.simOutlet));
         this.element.append(bodyElem);
 
@@ -620,7 +649,7 @@ Lobster.Outlets.CPP.Return = Outlets.CPP.Statement.extend({
             }
 
             if (this.expr) {
-                this.inst.funcContext.parent.send("returned", this.argOutlets[0]);
+                this.inst.containingRuntimeFunction().parent.send("returned", this.argOutlets[0]);
             }
 
         }
@@ -724,7 +753,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
 
         if(this.inst){
             // If it's associated with an instance of an initializer
-            var obj = this.code.entity.lookup(this.simOutlet.simOutlet.sim, this.inst);
+            var obj = this.code.entity.runtimeLookup(this.simOutlet.simOutlet.sim, this.inst);
             this.element.append(obj.type.typeString(false, htmlDecoratedName(obj.name, obj.type), true));
         }
         else{
@@ -746,10 +775,10 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
     },
 
     _act: copyMixin(Outlets.CPP.Code._act, {
-        initialized: function(msg){
+        initialized : function(msg){
             var obj = msg.data;
             var val;
-            if (isA(obj, ReferenceEntity)){
+            if (isA(obj, ReferenceEntityInstance)){
                 val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
             }
             else{
@@ -800,7 +829,7 @@ Lobster.Outlets.CPP.InitializerList = Outlets.CPP.Code.extend({
 
         for (var i = 0; i < this.code.initializerListLength; ++i) {
             var argElem = $("<span></span>");
-            this.addChild(createCodeOutlet(argElem, this.code.sub["arg"+i], this.simOutlet));
+            this.addChild(createCodeOutlet(argElem, this.code["arg"+i], this.simOutlet));
             this.element.append(argElem);
             if (i < this.code.initializerListLength - 1) {
                 this.element.append(", ");
@@ -978,7 +1007,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         this.element.addClass("expression");
         if (this.code.isFullExpression()) {this.element.addClass("fullExpression");}
 
-        this.evalValueElem = $("<span class='lobster-hidden-expression'></span>"); // TODO fix this ugly hack
+        this.evalValueElem = $("<span class='lobster-hidden-expression' style='opacity:0'></span>"); // TODO fix this ugly hack
         this.wrapper = $("<span class='lobster-expression-wrapper'></span>");
         this.exprElem = $("<span class='expr'></span>"); // TODO fix this ugly hack
         this.wrapper.append(this.exprElem);
@@ -1021,7 +1050,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
             return;
         }
 
-        if (value.isA(ObjectEntity) || value.isA(FunctionEntity)){
+        if (value.isA(CPPObject) || value.isA(FunctionEntity)){
             this.evalValueElem.html(value.nameString());
             this.evalValueElem.addClass("lvalue");
         }
@@ -1056,8 +1085,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         //    this.exprElem.addClass("noTransitions").height();
         //}
 
-        this.evalValueElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
-        this.exprElem.addClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 0);
+        this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+        this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
         //if (suppressAnimation){
         //    this.evalValueElem.removeClass("noTransitions").height();
@@ -1081,8 +1110,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 //        }
         var self = this;
         //setTimeout(function() {
-            self.exprElem.removeClass("lobster-hidden-expression");//.fadeTo(RESET_FADE_DURATION, 1);
-            self.evalValueElem.addClass("lobster-hidden-expression");//.fadeTo(RESET_FADE_DURATION, 0);
+            self.exprElem.removeClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 1);
+            self.evalValueElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0);
 
             self.element.removeClass("rvalue");
             self.element.removeClass("lvalue");
@@ -1188,8 +1217,8 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
 //                });
 //            }
 
-            this.evalValueElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
-            this.exprElem.addClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 0);
+            this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+            this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
 //            console.log("expression evaluated to " + value.value);
         }
@@ -1675,7 +1704,7 @@ Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
         }
         else{
             var offsetElem = $("<span></span>");
-            this.addChild(createCodeOutlet(offsetElem, this.code.offset, this.simOutlet));
+            this.addChild(createCodeOutlet(offsetElem, this.code.arg, this.simOutlet));
             this.exprElem.append(offsetElem);
         }
 
@@ -1874,6 +1903,7 @@ Lobster.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
 });
 
 var createCodeOutlet = function(element, code, simOutlet){
+    assert(code);
     assert(simOutlet);
     var outletClass = DEFAULT_CODE_OUTLETS[code._class];
     if (outletClass) {
@@ -1895,7 +1925,9 @@ var createCodeOutlet = function(element, code, simOutlet){
 };
 
 var DEFAULT_CODE_OUTLETS = {};
-DEFAULT_CODE_OUTLETS[Statements.Compound] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.Block] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.FunctionBodyBlock] = Outlets.CPP.Block;
+DEFAULT_CODE_OUTLETS[Statements.OpaqueFunctionBodyBlock] = Outlets.CPP.OpaqueFunctionBodyBlock;
 DEFAULT_CODE_OUTLETS[Statements.Declaration] = Outlets.CPP.DeclarationStatement;
 DEFAULT_CODE_OUTLETS[Statements.Expression] = Outlets.CPP.ExpressionStatement;
 DEFAULT_CODE_OUTLETS[Statements.Selection] = Outlets.CPP.Selection;
