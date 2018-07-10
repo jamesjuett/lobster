@@ -521,7 +521,7 @@ var DeclaredEntity = NamedEntity.extend({
             if (entity1.decl.isLibraryConstruct() && entity2.decl.isLibraryConstruct() !== undefined
                 && entity1.decl.getLibraryId() === entity2.decl.getLibraryId() ||
                 entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
-                entity1.decl.getSourceText().replace(/\s/g,'') === entity2.decl.getSourceText().text.replace(/\s/g,'')) {
+                entity1.decl.getSourceText().replace(/\s/g,'') === entity2.decl.getSourceText().replace(/\s/g,'')) {
                 // exactly same tokens, so it's fine
 
                 // merge the types too, so that the type system recognizes them as the same
