@@ -6,9 +6,10 @@
 
 
 require_once 'vendor/autoload.php';
-require_once '../php/auth.php';
 
 $GLOBALS["config"] = parse_ini_file("../php/php.config");
+
+require_once '../php/auth.php';
 
 function dbConnect() {
     $db = new PDO('mysql:host=127.0.0.1;dbname=lobster', $GLOBALS["config"]["db_username"], $GLOBALS["config"]["db_password"]);

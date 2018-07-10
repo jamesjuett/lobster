@@ -8,30 +8,75 @@ var VALUE_ID = 0;
 var Value = Class.extend({
     _name: "Value",
     init: function(value, type, options){
+        // TODO: remove this.value in favor of using rawValue() function
         this.value = value;
+        this.i_rawValue = value;
         this.type = type;
 
         if(options && options.invalid){
             this._invalid = true;
         }
     },
+    clone : function(cloneValue) {
+        return Value.instance(cloneValue !== undefined ? cloneValue : this.i_rawValue, this.type, {
+            invalid : this._invalid
+        });
+    },
+    plus : function(toAdd) {
+        return this.clone(this.i_rawValue + toAdd);
+    },
+    minus : function(toSub) {
+        return this.clone(this.i_rawValue - toSub);
+    },
+    times : function(multiplyBy) {
+        return this.clone(this.i_rawValue * multiplyBy);
+    },
+    divide : function(divideBy) {
+        return this.clone(this.i_rawValue / divideBy);
+    },
+    equals : function(otherValue) {
+        var certain = this.isValueValid() && (!otherValue.isValueValid || otherValue.isValueValid());
+        if (otherValue.rawValue) {
+            otherValue = otherValue.rawValue();
+        }
+        return Value.instance(this.rawValue() === otherValue, Types.Bool.instance(), {
+            invalid : !certain
+        });
+    },
     instanceString : function(){
         return this.valueString();
     },
     valueString : function(){
-        return this.type.valueToString(this.value);
+        return this.type.valueToString(this.i_rawValue);
     },
     valueToOstreamString : function(){
-        return this.type.valueToOstreamString(this.value);
+        return this.type.valueToOstreamString(this.i_rawValue);
     },
     getValue : function(){
         return this;
     },
     rawValue : function(){
-        return this.value;
+        return this.i_rawValue;
+    },
+    /**
+     * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
+     * that you're using locally and want to keep updating its raw value to something else before passing
+     * to something like memory.getObject(). For example, this is done when traversing through a cstring by
+     * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
+     */
+    setRawValue : function(value) {
+        this.i_rawValue = this.value = value;
     },
     isValueValid : function(){
-        return !this._invalid && this.type.isValueValid(this.value);
+        return !this._invalid && this.type.isValueValid(this.i_rawValue);
+    },
+    invalidate : function() {
+        var c = this.clone();
+        c._invalid = true;
+        return c;
+    },
+    isValueDereferenceable : function(){
+        return !this._invalid && this.type.isValueDereferenceable(this.i_rawValue);
     },
     describe : function(){
         return {message: this.valueString()};
@@ -146,14 +191,18 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
     // },
 
 
-    compileMemberOverload : function(thisArg, argAsts, op){
+    compileMemberOverload : function(thisArg, argAsts, isThisConst, op){
+        var self = this;
         var auxArgs = argAsts.map(function(argAst){
-            return CPPConstruct.create(argAst, {parent: this, auxiliary: true});
+            var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
+            auxArg.tryCompile();
+            return auxArg;
         });
 
         try{
             var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
-                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;})
+                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;}),
+                isThisConst: isThisConst
             });
 
             this.isOverload = true;
@@ -476,8 +525,9 @@ var Assignment = Expressions.Assignment = Expression.extend({
                 // Look for an overloaded = operator that we can use with an argument of the RHS type
                 // Note: "own" here means don't look in parent scope containing the class definition, but we still
                 // look in the scope of any base classes that exist due to the class scope performing member lookup
-                var assnOp = this.lhs.type.classScope.requiredLookup("operator=", {
-                    own:true, paramTypes:[auxRhs.type]
+                var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
+                    paramTypes:[auxRhs.type],
+                    isThisConst: this.lhs.type.isConst
                 });
 
                 // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
@@ -550,7 +600,7 @@ var Assignment = Expressions.Assignment = Expression.extend({
 
     upNext : Class.ADDITIONALLY(function(sim, inst){
         if (this.funcCall){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
@@ -750,7 +800,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
             // First, look for a member overload in left class type.
             var overloadOp = auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.operator, {
-                own:true, paramTypes:[auxRight.type]
+                own:true, paramTypes:[auxRight.type], isThisConst : auxLeft.type.isConst
             });
 
             // If we didn't find a member overload, next look for a non-member overload
@@ -883,7 +933,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
         // If using an overloaded member operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.left.type, inst.childInstances.left));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -953,10 +1003,6 @@ Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
         else if(this.left.type.isArithmeticType){
             return true;
         }
-        else if (isA(this.left.type, Types.String)){
-            this.isStringComparison = true;
-            return true;
-        }
         else if(isA(this.left.type, Types.Pointer)){
             this.isPointerComparision = true;
             return true;
@@ -969,7 +1015,7 @@ Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
     operate : function(left, right, sim, inst){
         if (this.isPointerComparision) {
             if (!this.allowDiffArrayPointers && (!isA(left.type, Types.ArrayPointer) || !isA(right.type, Types.ArrayPointer) || left.type.arrObj !== right.type.arrObj)){
-                sim.alert("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
+                sim.unspecifiedBehavior("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
             }
             return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
         }
@@ -1138,7 +1184,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                 }
                 else{
                     // If the RTTI works well enough, this should always be unsafe
-                    sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                    sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
                     return result;
                 }
             }
@@ -1192,7 +1238,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     }
                     else{
                         // If the RTTI works well enough, this should always be unsafe
-                        sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                        sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
                     }
                     return result;
                 }
@@ -1204,12 +1250,12 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
                     else if (isA(left.type, Types.ArrayPointer) && isA(right.type, Types.ArrayPointer)){
                         // Make sure they're both from the same array
                         if (left.type.arrObj !== right.type.arrObj){
-                            sim.alert("Egad! Those pointers are pointing into two different arrays! Why are you subtracting them?");
+                            sim.undefinedBehavior("Egad! Those pointers are pointing into two different arrays! Why are you subtracting them?");
                         }
                     }
                     else{
                         // If the RTTI works well enough, this should always be unsafe
-                        sim.alert("Hm, I can't verify both of these pointers are from the same array. You probably shouldn't be subtracting them.");
+                        sim.undefinedBehavior("Hm, I can't verify both of these pointers are from the same array. You probably shouldn't be subtracting them.");
                     }
                     return Value.instance((left.value - right.value) / this.left.type.ptrTo.size, Types.Int.instance());
                 }
@@ -1266,6 +1312,44 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
+    "<<": Expressions.BinaryOperator.extend({
+
+        operate: function(left, right, sim, inst){
+
+        },
+        convert : function(){
+
+        },
+        typeCheck : function(){
+            this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+        },
+        stepForward : function(sim, inst){
+            Expressions.BinaryOperator.stepForward.apply(this, arguments);
+
+            // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
+            // var next = sim.peek();
+            // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
+        }
+    }),
+    ">>": Expressions.BinaryOperator.extend({
+
+        operate: function(left, right, sim, inst){
+
+        },
+        convert : function(){
+
+        },
+        typeCheck : function(){
+            this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+        },
+        stepForward : function(sim, inst){
+            Expressions.BinaryOperator.stepForward.apply(this, arguments);
+
+            // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
+            // var next = sim.peek();
+            // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
+        }
+    }),
     "<": Expressions.BinaryOperatorRelational.extend({
         _name: "BinaryOperator[<]",
         compare : function(left, right){
@@ -1309,57 +1393,6 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             return left >= right;
         }
 
-    }),
-    "<<": Expressions.BinaryOperator.extend({
-
-        operate: function(left, right, sim, inst){
-            if (isA(this.left.type, Types.OStream)) {
-                sim.cout(right);
-            }
-            return left;
-        },
-        convert : function(){
-            // only do lvalue to rvalue for right
-            this.right = standardConversion1(this.right);
-        },
-        typeCheck : function(){
-            if (isA(this.left.type, Types.OStream) && !isA(this.right.type, Types.Void)) {
-                this.type = this.left.type;
-                this.valueCategory = this.left.valueCategory;
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        },
-        stepForward : function(sim, inst){
-            Expressions.BinaryOperator.stepForward.apply(this, arguments);
-
-            // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
-            var next = sim.peek();
-            return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
-        }
-    }),
-    ">>": Expressions.BinaryOperator.extend({
-
-        operate: function(left, right, sim, inst){
-            if (isA(this.left.type, Types.IStream)) {
-                sim.cin(right);
-            }
-            return left;
-        },
-        convert : function(){
-            // do nothing
-            // (no lvalue to rvalue)
-        },
-        typeCheck : function(){
-            if (isA(this.left.type, Types.IStream) && this.right.valueCategory == "lvalue") {
-                this.type = this.left.type;
-                this.valueCategory = this.left.valueCategory;
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        }
     })
 };
 
@@ -1385,7 +1418,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
         if (isA(auxOperand.type, Types.Class)){
             // If it's of class type, we look for overloads
             var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.operator, {
-                own:true, paramTypes:[]
+                own:true, paramTypes:[], isThisConst : auxOperand.type.isConst
             });
             if (!overloadOp) {
                 overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
@@ -1440,7 +1473,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
 
         // If using an assignment operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            this.funcCall.setReceiver(sim, inst.childInstances.funcCall, RuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
@@ -1494,7 +1527,7 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
     operate: function(sim, inst){
         if (isA(this.operand.type.ptrTo, Types.Function)){
             //function pointer
-            inst.setEvalValue(inst.childInstances.operand.evalValue.value);
+            inst.setEvalValue(inst.childInstances.operand.evalValue);
         }
         else{
             var ptr = inst.childInstances.operand.evalValue;
@@ -1515,15 +1548,16 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
-                    sim.alert("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
-                    sim.alert("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
-                    sim.alert("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                    sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
 
@@ -1582,6 +1616,7 @@ var AddressOf = Expressions.AddressOf = UnaryOp.extend({
 
     operate: function(sim, inst){
         var obj = inst.childInstances.operand.evalValue;
+
         inst.setEvalValue(obj.getPointerTo());
     }
 });
@@ -1702,15 +1737,19 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
         if (isA(obj.type, Types.ArrayPointer)){
             // Check that we haven't run off the array
             if (newRawValue < obj.type.min()){
-                //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+                    sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+                }
             }
             else if (obj.type.onePast() < newRawValue){
-                //sim.alert("Oops. That pointer just wandered off the end of its array.");
+                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+                    sim.alert("Oops. That pointer just wandered off the end of its array.");
+                }
             }
         }
         else if (isA(obj.type, Types.Pointer)){
             // If the RTTI works well enough, this should always be unsafe
-            sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+            sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
         }
 
         obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
@@ -1771,7 +1810,7 @@ Expressions.Increment = Expression.extend({
             }
             else if (isA(obj.type, Types.Pointer)){
                 // If the RTTI works well enough, this should always be unsafe
-                sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
             }
 
 
@@ -1826,7 +1865,7 @@ Expressions.Decrement = Expression.extend({
             }
             else if (isA(obj.type, Types.Pointer)){
                 // If the RTTI works well enough, this should always be unsafe
-                sim.alert("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
             }
 
             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
@@ -1852,7 +1891,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
         // Check for overload
         if (isA(this.operand.type, Types.Class)){
-            this.compileMemberOverload(this.operand, [this.ast.arg], "[]");
+            this.compileMemberOverload(this.operand, [this.ast.arg], this.operand.type.isConst, "[]");
         }
         else{
             this.operand = standardConversion(this.operand, Types.Pointer);
@@ -1926,15 +1965,16 @@ var Subscript = Expressions.Subscript = Expression.extend({
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
-                    sim.alert("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
-                    sim.alert("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
-                    sim.alert("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                    sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
                     invalidated = true;
                 }
 
@@ -1967,6 +2007,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
 
 var Dot = Expressions.Dot = Expression.extend({
     _name: "Dot",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     i_childrenToCreate : ["operand"],
     i_childrenToExecute : ["operand"],
 
@@ -1988,14 +2029,14 @@ var Dot = Expressions.Dot = Expression.extend({
 
         // Find out what this identifies
         try {
-            this.entity = this.operand.type.classScope.requiredLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
+            this.entity = this.operand.type.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
             this.type = this.entity.type;
         }
         catch(e){
             if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
+                // this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
                 // TODO: why is this commented?
-                // this.addNote(e.annotation(this));
+                this.addNote(e.annotation(this));
             }
             else{
                 throw e;
@@ -2021,10 +2062,8 @@ var Dot = Expressions.Dot = Expression.extend({
         else{
             // entity may be MemberSubobjectEntity but should never be an AutoEntity
             assert(!isA(this.entity, AutoEntity));
-            var operand = inst.childInstances.operand.evalValue;
-            inst.memberOf = operand;
-            inst.receiver = operand;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setObjectAccessedFrom(inst.childInstances.operand.evalValue);
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
             this.done(sim, inst);
             return true;
         }
@@ -2042,6 +2081,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
 var Arrow = Expressions.Arrow = Expression.extend({
     _name: "Arrow",
+    i_runtimeConstructClass : RuntimeMemberAccess,
     valueCategory: "lvalue",
     i_childrenToCreate : ["operand"],
     i_childrenToConvert : {
@@ -2067,7 +2107,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
 
         // Find out what this identifies
         try{
-            this.entity = this.operand.type.ptrTo.classScope.requiredLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
+            this.entity = this.operand.type.ptrTo.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
             this.type = this.entity.type;
         }
         catch(e){
@@ -2088,10 +2128,8 @@ var Arrow = Expressions.Arrow = Expression.extend({
             if (Types.Pointer.isNull(addr.rawValue())){
                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
             }
-            var obj = sim.memory.getObject(addr, this.operand.type.ptrTo);
-            inst.memberOf = obj;
-            inst.receiver = obj;
-            inst.setEvalValue(this.entity.lookup(sim, inst));
+            inst.setObjectAccessedFrom(sim.memory.getObject(addr, this.operand.type.ptrTo));
+            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
             return true;
@@ -2115,7 +2153,7 @@ var PREDEFINED_FUNCTIONS = {
     },
     "assert" : function(args, sim, inst){
         if(!args[0].evalValue.value){
-            sim.alert("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
+            sim.assertionFailure("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
         }
         return Value.instance("", Types.Void.instance());
     },
@@ -2134,6 +2172,7 @@ var PREDEFINED_FUNCTIONS = {
 
 var FunctionCall = Expression.extend({
     _name: "FunctionCall",
+    i_runtimeConstructClass : RuntimeFunctionCall,
     initIndex: "arguments",
     instType: "expr",
 
@@ -2152,12 +2191,29 @@ var FunctionCall = Expression.extend({
         });
     },
 
+    /**
+     * A FunctionEntity must be provided to specify which function is being called.
+     *
+     * A receiver entity may be provided here, and if it is, the function call guarantees it will
+     * be looked up in a runtime context BEFORE the function has been "called" (i.e. before a new
+     * stack frame has been pushed and control has been given over to the called function). This in
+     * particular is important for e.g. a ParameterEntity used as the receiver of a constructor call
+     * when a class-type parameter is passed by value to some function. If it were looked up instead
+     * after the call, it would try to find a parameter of the constructor rather than of the function,
+     * which isn't right.
+     *
+     * If a receiver entity is not provided here, a receiver object must be specified at runtime when
+     * a runtime construct for this function call is created.
+     *
+     * @param {FunctionEntity} compilationContext.func
+     * @param {CPPEntity?} compilationContext.receiver
+     */
     compile : function(compilationContext) {
         this.receiver = compilationContext.receiver || null;
         this.func = compilationContext.func;
 
         var self = this;
-        assert(isA(this.func, FunctionEntity));
+        assert(isA(this.func, FunctionEntity) || isA(this.func, PointedFunctionEntity));
 
         // TODO: what is this??
         if (this.func.isMain && !this.i_isMainCall){
@@ -2203,10 +2259,10 @@ var FunctionCall = Expression.extend({
 
         if (!isA(this.func.definition, MagicFunctionDefinition)){
             // If we are returning by value, then we need to create a temporary object to copy-initialize.
-            // If we are returning by reference, inst.returnObject will be bound to what we return.
+            // If we are returning by reference, the return object for inst.func will be bound to what we return.
             // Temporary references do not use extra space and won't be automatically destructed.
             if (!this.returnByReference && !isA(this.type, Types.Void)){
-                this.returnObject = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
+                this.returnObjectEntity = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
             }
 
             if (!this.i_isMainCall && !this.isAuxiliary()){
@@ -2223,7 +2279,12 @@ var FunctionCall = Expression.extend({
 
     checkLinkingProblems : function(){
         if (!this.func.isLinked()){
-            var note = CPPError.link.def_not_found(this, this.func);
+            if (this.func.isLibraryUnsupported()) {
+                var note = CPPError.link.library_unsupported(this, this.func);
+            }
+            else {
+                var note = CPPError.link.def_not_found(this, this.func);
+            }
             this.addNote(note);
             return note;
         }
@@ -2275,27 +2336,20 @@ var FunctionCall = Expression.extend({
 
     createInstance : function(sim, parent, receiver){
         var inst = Expression.createInstance.apply(this, arguments);
-        inst.receiver = receiver;
-
-        if (!inst.receiver && this.receiver){
-            // Used for constructors. Make sure to look up in context of parent instance
-            // or else you'll be looking at the wrong thing for parameter entities.
-            inst.receiver = this.receiver.lookup(sim, parent);
-        }
 
         // For function pointers. It's a hack!
         if (parent && parent.pointedFunction) {
             inst.pointedFunction = parent.pointedFunction;
         }
 
-        var funcDecl = inst.funcDecl = this.func.lookup(sim, inst).definition;
+        var funcDecl = inst.funcDeclModel = this.func.runtimeLookup(sim, inst).definition;
 
         if (isA(funcDecl, MagicFunctionDefinition)){
             return inst; //nothing more to do
         }
 
         if (this.canUseTCO){
-            inst.func = inst.funcContext;
+            inst.func = inst.containingRuntimeFunction();
             //funcDecl.tailCallReset(sim, inst.func); // TODO why was this ever here?
             //inst.send("tailCalled", inst.func);
         }
@@ -2304,48 +2358,53 @@ var FunctionCall = Expression.extend({
             //inst.send("called", inst.func);
         }
 
+        // Receiver should not be specified both at compile time and at runtime.
+        // (Note it may not be specified at all yet)
+        assert(!(receiver && this.receiver));
+        if (receiver) {
+            inst.func.setReceiver(receiver.runtimeLookup(sim, inst)); // TODO: remove the runtimeLookup when overloads are fixed so that they set the receiver as an object, not a runtime entity thing
+        }
+        else if (this.receiver) {
+            inst.func.setReceiver(this.receiver.runtimeLookup(sim, inst));
+        }
+        // else there is no receiver i.e. a non-member function
+
         // Create argument initializer instances
         inst.argInits = this.argInitializers.map(function(argInit){
-            argInit = argInit.createInstance(sim, inst, inst.func);
+            argInit = argInit.createInstance(sim, inst);
             return argInit;
         });
         inst.func.model.setArguments(sim, inst.func, inst.argInits);
 
         if (this.canUseTCO) {
             // If we are using TCO, don't create a new return object. Just use the already existing one from the function.
-            inst.returnObject = inst.func.model.getReturnObject(sim, inst);
+            // NEW: since we just get it here, then assign it to our own inst.returnObject, I think this is unnecessary
+            // since in the rest of the code I'm getting rid of our own inst.returnObject and always just going to
+            // use funcDecl.getReturnObject(sim, inst.func)
+            // inst.returnObject = inst.func.model.getReturnObject(sim, inst.func);
         }
         else{
             // If we are NOT using TCO, we need to create the return object.
             if (this.returnByValue) {
                 // Return by value, create the instance of the returnObject and give it to the function we're calling.
-                inst.returnObject = this.returnObject.objectInstance(inst);
+                funcDecl.setReturnObject(sim, inst.func, this.returnObjectEntity.objectInstance(inst));
             }
             else if (this.returnByReference) {
-                // Return by reference, create the reference for the function to bind to its return value
-                inst.returnObject = ReferenceEntity.instance(null, this.func.type.returnType).autoInstance();
+                // UPDATE: Return by reference doesn't use a faked reference entity anymore. Instead, there is simply
+                // no return object initially and then when the ReturnInitializer does its thing, it sets the return object.
             }
-            // else it was void
-
-            inst.func.model.setReturnObject(sim, inst.func, inst.returnObject);
+            // else it was void, so no need to set a return object
         }
 
         return inst;
     },
 
-    setReceiver : function(sim, inst, receiver){
-        inst.receiver = receiver;
-    },
-
     upNext : function(sim, inst){
         var self = this;
-        if (!inst.receiver){
-            inst.receiver = inst.funcContext.receiver;
-        }
         if (inst.index === "arguments"){
 
             // If it's a magic function, just push expressions
-            if (isA(inst.funcDecl, MagicFunctionDefinition)){
+            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
                 inst.args = this.argInitializers.map(function(argInit){
                     return argInit.args[0].createAndPushInstance(sim, argInit.createInstance(sim, inst));
                 });
@@ -2362,26 +2421,28 @@ var FunctionCall = Expression.extend({
             return true;
         }
         else if (inst.index == "return"){
-            // Unless return type is void, we will have this.returnObject
+            // Unless return type is void, we will have a return object
             if (this.returnByReference) {
-                inst.setEvalValue(inst.returnObject.lookup(sim, inst)); // lookup here in case its a reference
+                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
             }
             else if (this.returnByValue){
                 if (isA(this.type, Types.Class)) {
-                    inst.setEvalValue(inst.returnObject.lookup(sim, inst));
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
                 }
                 else{
-                    inst.setEvalValue(inst.returnObject.lookup(sim, inst).getValue());
+                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
                 }
-                //}
-                //else{
-                //    // A hack of my own because I don't want to have to treat prvalues as possibly temporary objects
-                //    inst.setEvalValue(Value.instance(inst.returnObject.getValue(), inst.returnObject.type));
-                //}
             }
             else {
                 // nothing to do it must be void
-                inst.setEvalValue(inst.func.returnValue);
+                inst.setEvalValue(Value.instance("", Types.Void.instance()));
+            }
+
+            inst.func.loseControl();
+            // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+            // That will eventually be changed, and then this won't be necessary anymore
+            if (inst.containingRuntimeFunction()) {
+                inst.containingRuntimeFunction().gainControl();
             }
 
             this.done(sim, inst);
@@ -2400,8 +2461,8 @@ var FunctionCall = Expression.extend({
         if (inst.index == "call"){
 
             // Handle magic functions as special case
-            if (isA(inst.funcDecl, MagicFunctionDefinition)){
-                var preFn = PREDEFINED_FUNCTIONS[inst.funcDecl.name];
+            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
+                var preFn = PREDEFINED_FUNCTIONS[inst.funcDeclModel.name];
                 assert(preFn, "Cannot find internal implementation of magic function.");
 
                 // Note: magic functions just want args, not initializers (because they're magic!)
@@ -2410,23 +2471,28 @@ var FunctionCall = Expression.extend({
                 return false;
             }
 
-            if (inst.receiver) {
-                inst.func.receiver = inst.receiver = inst.receiver.lookup(sim, inst);
-                inst.receiver.callReceived();
+            if (inst.func.getReceiver()) {
+                inst.func.getReceiver().callReceived();
             }
 
 
 
             if (this.canUseTCO){
-                inst.funcDecl.tailCallReset(sim, inst.func, inst);
+                inst.funcDeclModel.tailCallReset(sim, inst.func, inst);
                 inst.send("tailCalled", inst.func);
             }
             else{
                 // Push the stack frame
-                var frame = sim.memory.stack.pushFrame(inst);
-                inst.func.setFrame(frame);
+                inst.func.pushStackFrame();
 
                 sim.push(inst.func);
+
+                // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
+                // That will eventually be changed, and then this won't be necessary anymore
+                if (inst.containingRuntimeFunction()) {
+                    inst.containingRuntimeFunction().loseControl();
+                }
+                inst.func.gainControl();
                 inst.send("called", inst.func);
                 inst.hasBeenCalled = true;
             }
@@ -2494,7 +2560,7 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
             return;
         }
 
-        this.bindFunction();
+        this.bindFunction(argTypes);
 
         if (this.hasErrors()){
             return;
@@ -2509,20 +2575,25 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
         return Expression.compile.apply(this, arguments);
     },
 
-    bindFunction : function(){
+    bindFunction : function(argTypes){
         var self = this;
         if (isA(this.operand.type, Types.Class)){
             // Check for function call operator and if so, find function
             // TODO: I think this breaks given multiple overloaded function call operators?
-            var callOp = this.operand.type.getMember(["operator()"]);
-            if (callOp){
-                this.callOp = callOp;
+
+            try{
+                this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
                 this.boundFunction = this.callOp;
-                this.type = noRef(callOp.type.returnType);
+                this.type = noRef(this.callOp.type.returnType);
             }
-            else{
-                this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type));
-                return;
+            catch(e){
+                if (isA(e, SemanticExceptions.BadLookup)){
+                    this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
+                    this.addNote(e.annotation(this));
+                }
+                else{
+                    throw e;
+                }
             }
         }
         else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
@@ -2554,12 +2625,27 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
         }
         else if (inst.index === "call"){
             // If it's a function pointer, set info for evaluated operand function entity
-            if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
+            // TODO: 2nd part of OR is a hack to detect functions generated from function pointers
+            // This is here because I don't have the expression attempt to implicitly convert its operand
+            // to a function pointer. A cleaner implementation might be to include the conversion, but make
+            // it not animate in most cases (since that would be annoying)
+            if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function) ||
+                    !isA(this.operand.entity, FunctionEntity)){
                 inst.pointedFunction = inst.operand.evalValue.rawValue();
             }
             // TODO: hack on next line has || inst.operand.evalValue
             // TODO: remember why that's a hack and not just the right thing to do
-            inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.receiver || isA(this.operand.type, Types.Class) && inst.operand.evalValue);
+            if (isA(this.boundFunction, MemberFunctionEntity)) {
+                if (isA(this.operand.type, Types.Class)) {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalValue);
+                }
+                else {
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.contextualReceiver());
+                }
+            }
+            else {
+                inst.funcCall = this.funcCall.createAndPushInstance(sim, inst);
+            }
             inst.wait();
             inst.index = "done";
             return true;
@@ -2623,6 +2709,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         }
 
         if (isA(this.heapType, Types.Array)){
+            // Note: this is Pointer, rather than ArrayPointer, since the latter should only be used in runtime contexts
             this.type = Types.Pointer.instance(this.heapType.elemType);
             if (this.declarator.dynamicLengthExpression){
                 this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
@@ -2637,11 +2724,11 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
         var initCode = this.ast.initializer || {args: []};
         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
-            this.initializer = DirectInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else if (initCode.args.length == 0){
-            this.initializer = DefaultInitializer.instance(initCode, {parent: this});
+            this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
             this.initializer.compile(entity);
         }
         else{
@@ -2651,6 +2738,13 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         this.compileTemporarires();
     },
 
+
+    createInstance : function(sim, parent){
+        var inst = Expression.createInstance.apply(this, arguments);
+        inst.initializer = this.initializer.createInstance(sim, inst);
+        return inst;
+    },
+
     upNext : function(sim, inst){
         if (inst.index === "length"){
             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
@@ -2658,8 +2752,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
             return true;
         }
         else if (inst.index === "init"){
-            var initInst = this.initializer.createAndPushInstance(sim, inst);
-            initInst.allocatedObject = inst.allocatedObject;
+            sim.push(inst.initializer);
             inst.index = "operate";
             return true;
         }
@@ -2680,17 +2773,18 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
                     len = 1;
                 }
                 else if (len < 0){
-                    sim.alert("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
+                    sim.undefinedBehavior("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
                     len = 1;
                 }
                 heapType = Types.Array.instance(this.heapType.elemType, len);
             }
 
-            var entity = DynamicObjectEntity.instance(heapType, this);
+            var obj = DynamicObject.instance(heapType);
 
-            var obj = sim.memory.heap.newObject(entity);
+            sim.memory.heap.allocateNewObject(obj);
             sim.i_pendingNews.push(obj);
-            inst.allocatedObject = obj;
+            inst.i_allocatedObject = obj;
+            inst.initializer.setAllocatedObject(obj);
             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
             //if (this.initializer){
             //    inst.index = "init";
@@ -2703,20 +2797,20 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
         else if (inst.index === "operate") {
             if (isA(this.heapType, Types.Array)){
                 // RTTI for array pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ArrayPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
             }
             else{
                 // RTTI for object pointer
-                inst.setEvalValue(Value.instance(inst.allocatedObject.address, Types.ObjectPointer.instance(inst.allocatedObject)));
+                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
             }
             sim.i_pendingNews.pop();
             this.done(sim, inst);
         }
 
     },
-    explain : function(){
+    explain : function(sim, inst){
         if (this.initializer){
-            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
+            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
         }
         else{
             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
@@ -2785,19 +2879,19 @@ var Delete = Expressions.Delete = Expression.extend({
                 obj = sim.memory.getObject(ptr);
             }
 
-            if (!isA(obj, DynamicObjectEntity)) {
+            if (!isA(obj, DynamicObject)) {
                 if (isA(obj, AutoObjectInstance)) {
-                    sim.alert("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
+                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
                 }
                 else {
-                    sim.alert("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
+                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
                 }
                 this.done(sim, inst);
                 return;
             }
 
             if (isA(obj.type, Types.Array)){
-                sim.alert("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
+                sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
                 this.done(sim, inst);
                 return;
             }
@@ -2838,58 +2932,69 @@ var Delete = Expressions.Delete = Expression.extend({
     }
 });
 
+/**
+ *
+ * @param sim
+ * @param inst
+ * @param {Value | CPPObject} ptr
+ * @returns {CPPObject?}
+ */
+var deleteHeapArray = function(sim, inst, ptr) {
+    if(Types.Pointer.isNull(ptr.rawValue())){
+        return;
+    }
+
+    // If it's an array pointer, just grab array object to delete from RTTI.
+    // Otherwise ask memory what object it's pointing to.
+    var obj;
+    if (isA(ptr.type, Types.ArrayPointer)){
+        obj = ptr.type.arrObj;
+        // if the address is not the same, it means we're deleting through an array pointer,
+        // but not one that is pointing to the beginning of the array. this causes undefined behavior
+        if (ptr.rawValue() !== obj.address) {
+            sim.undefinedBehavior("It looks like you used <span class='code'>delete[]</span> on a pointer to an array, but it wasn't pointing at the beginning of the array as is required for <span class='code'>delete[]</span>. This causes undefined behavior!");
+        }
+    }
+    else{
+        obj = sim.memory.getObject(ptr);
+    }
+
+    // Check to make sure we're deleting a valid heap object.
+    if (!isA(obj, DynamicObject)) {
+        if (isA(obj, AutoObjectInstance)) {
+            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
+        }
+        else {
+            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
+        }
+        return;
+    }
+
+    if (!isA(obj.type, Types.Array)) {
+        sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
+        return;
+    }
+
+    //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
+    //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
+    //    this.done(sim, inst);
+    //    return;
+    //}
+
+    if (!obj.isAlive()) {
+        DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
+        return;
+    }
+
+    return sim.memory.heap.deleteObject(ptr.rawValue(), inst);
+};
 
 var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
     _name: "DeleteArray",
 
     stepForward: function(sim, inst){
         var ptr = inst.childInstances.operand.evalValue;
-        if(Types.Pointer.isNull(ptr.rawValue())){
-            this.done(sim, inst);
-            return;
-        }
-
-        // If it's an array pointer, just grab array object to delete from RTTI.
-        // Otherwise ask memory what object it's pointing to.
-        var obj;
-        if (isA(ptr.type, Types.ArrayPointer)){
-            obj = ptr.type.arrObj;
-        }
-        else{
-            obj = sim.memory.getObject(ptr);
-        }
-
-        // Check to make sure we're deleting a valid heap object.
-        if (!isA(obj, DynamicObjectEntity)) {
-            if (isA(obj, AutoObjectInstance)) {
-                sim.alert("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
-            }
-            else {
-                sim.alert("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
-            }
-            this.done(sim, inst);
-            return;
-        }
-
-        if (!isA(obj.type, Types.Array)) {
-            sim.alert("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
-            this.done(sim, inst);
-            return;
-        }
-
-        //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
-        //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
-        //    this.done(sim, inst);
-        //    return;
-        //}
-
-        if (!obj.isAlive()) {
-            DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-            this.done(sim, inst);
-            return;
-        }
-
-        var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalValue.value, inst);
+        deleteHeapArray(sim, inst, ptr);
         this.done(sim, inst);
     },
 
@@ -2934,7 +3039,7 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
         this.compileTemporarires();
     },
 
-    createInstance : function(sim, parent, receiver){
+    createInstance : function(sim, parent){
         var inst = Expression.createInstance.apply(this, arguments);
         inst.tempObject = this.entity.objectInstance(inst);
         return inst;
@@ -3049,7 +3154,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
 	},
 
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
         this.done(sim, inst);
         return true;
@@ -3087,7 +3192,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     },
     stepForward : function(sim, inst){
         // Set this pointer with RTTI to point to receiver
-        inst.setEvalValue(Value.instance(inst.funcContext.receiver.address, Types.ObjectPointer.instance(inst.funcContext.receiver)));
+        inst.setEvalValue(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
         this.done(sim, inst);
     }
 });
@@ -3104,7 +3209,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
 
     },
     upNext : function(sim, inst){
-        inst.setEvalValue(this.entity.lookup(sim, inst));
+        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
         this.done(sim, inst);
     }
 });
@@ -3143,8 +3248,7 @@ var literalTypes = {
 	"float": Types.Double.instance(),
 	"double": Types.Double.instance(),
     "bool": Types.Bool.instance(),
-    "char" : Types.Char.instance(),
-    "string": Types.String.instance()
+    "char" : Types.Char.instance()
 };
 
 var Literal = Expressions.Literal = Expression.extend({
@@ -3158,16 +3262,9 @@ var Literal = Expressions.Literal = Expression.extend({
 		
 		var typeClass = literalTypes[this.ast.type];
         this.type = typeClass;
-        this.valueCategory = "prvalue";
-        this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
 
-//        if (this.ast.type === "string"){
-//            this.type = Types.Array.instance(Types.Char, val.length+1);
-//            this.valueCategory = "prvalue";
-//            val = val.split("");
-//            val.push(0);
-//            this.value = Value.instance(val, this.type);
-//        }
+        this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
+        this.valueCategory = "prvalue";
 	},
 
     upNext : function(sim, inst){
@@ -3181,6 +3278,39 @@ var Literal = Expressions.Literal = Expression.extend({
         return {name: str, message: str};
     }
 	
+//	stepForward : function(sim, inst){
+//		this.done(sim, inst);
+//		return true;
+//	}
+});
+
+var StringLiteral = Expressions.StringLiteral = Expression.extend({
+    _name: "StringLiteral",
+    initIndex: false,
+    compile : function(){
+
+        var conv = literalJSParse[this.ast.type];
+        var val = (conv ? conv(this.ast.value) : this.ast.value);
+
+        this.i_stringEntity = StringLiteralEntity.instance(val);
+        this.getTranslationUnit().addStringLiteral(this.i_stringEntity);
+        this.i_isStringLiteral = true;
+        this.i_stringValue = val;
+        this.type = this.i_stringEntity.type;
+        this.valueCategory = "lvalue";
+
+    },
+
+    upNext : function(sim, inst){
+        inst.evalValue = this.i_stringEntity.runtimeLookup(sim, inst);
+        this.done(sim, inst);
+        return true;
+    },
+
+    describeEvalValue : function(depth, sim, inst){
+        return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
+    }
+
 //	stepForward : function(sim, inst){
 //		this.done(sim, inst);
 //		return true;

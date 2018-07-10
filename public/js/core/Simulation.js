@@ -9,6 +9,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
+    EVENT_UNDEFINED_BEHAVIOR : "undefined_behavior",
+    EVENT_UNSPECIFIED_BEHAVIOR : "unspecified_behavior",
+    EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR : "implementation_defined_behavior",
+    EVENT_MEMORY_LEAK : "memory_leak",
+    EVENT_ASSERTION_FAILURE : "assertion_failure",
+    EVENT_CRASH : "crash",
 
     init: function(program){
         this.initParent();
@@ -48,6 +54,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 	start : function(){
         this.i_paused = true;
 		this.i_stepsTaken = 0;
+		this.i_eventsOccurred = {};
         this.seedRandom("random seed");
 
         this.send("cleared");
@@ -59,10 +66,15 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_pendingNews = [];
         this.i_leakCheckIndex = 0;
 
-        // TODO NEW move compilation of mainCall to program?
+        // TODO change this to just call runtime library functions in order to create the runtime construct for
+        // the main function definition, initialize arguments (i.e. argc and argv) if present, etc.
+        // This will avoid the awkwardness of some of the runtime constructs like the call to main having no
+        // containing function.
         var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
+
+        this.i_allocateStringLiterals();
 
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
             this.memory.allocateStatic(this.i_program.staticEntities[i]);
@@ -99,6 +111,16 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_stepsTaken = 0;
 
 	},
+
+    i_allocateStringLiterals : function() {
+        var self = this;
+        var tus = this.i_program.getTranslationUnits();
+        for(var tuName in tus) {
+            tus[tuName].stringLiterals.forEach(function (lit) {
+                self.memory.allocateStringLiteral(lit);
+            });
+        };
+    },
 	
 	push : function(codeInstance){
 		this.i_execStack.push(codeInstance);
@@ -184,6 +206,19 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 		return results;
 	},
 
+
+    topFunction : function() {
+        for (var i = this.i_execStack.length - 1; i >= 0; --i){
+            var runtimeConstruct = this.i_execStack[i];
+            if (isA(runtimeConstruct, RuntimeFunction)) {
+                return runtimeConstruct;
+            }
+        }
+
+        // If there were no functions or the execution stack is empty
+        return null;
+    },
+
     clearRunThread: function(){
         if (this.runThread){
             this.runThreadClearedFlag = true;
@@ -249,6 +284,12 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.startRunThread(func);
     },
 
+    runToEnd : function() {
+        while (!this.i_atEnd) {
+            this.stepForward();
+        }
+    },
+
     stepOver: function(options){
         var target = this.peek(function(inst){
             return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
@@ -268,7 +309,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     },
 
     stepOut: function(options){
-        var target = this.i_execStack.last().executionContext();
+        var target = this.i_execStack.last().containingFunction();
 
         if (target) {
             this.autoRun(copyMixin(options, {
@@ -331,7 +372,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         this.i_alertsOff = true;
         this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //CPPConstructInstance.silent = true;
+        //RuntimeConstruct.silent = true;
 		if (this.i_stepsTaken > 0){
 			this.clear();
 			var steps = this.i_stepsTaken-n;
@@ -340,7 +381,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
                 this.stepForward();
 			}
 		}
-        //CPPConstructInstance.silent = false;
+        //RuntimeConstruct.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
         this.i_alertsOff = false;
         this.i_explainOff = false;
@@ -395,13 +436,52 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     cin : function(object){
         object.value = 4;
     },
+    exception : function(message) {
+        // TODO: change to actually do exception stuff some day
+        this.undefinedBehavior(message);
+    },
+    undefinedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
+
+    },
+    implementationDefinedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR, message, true);
+
+    },
+    unspecifiedBehavior : function(message) {
+        this.eventOccurred(Simulation.EVENT_UNSPECIFIED_BEHAVIOR, message, true);
+
+    },
+    memoryLeaked : function(message) {
+        this.eventOccurred(Simulation.EVENT_MEMORY_LEAK, message, true);
+    },
+    assertionFailure : function(message) {
+        this.eventOccurred(Simulation.EVENT_ASSERTION_FAILURE, message, true);
+    },
+    crash : function(message){
+        this.eventOccurred(Simulation.EVENT_CRASH, message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)", true);
+    },
+    eventOccurred : function(event, message, alertShown) {
+        if (this.i_eventsOccurred[event]) {
+            this.i_eventsOccurred[event].push(message);
+        }
+        else {
+            this.i_eventsOccurred[event] = [message];
+        }
+        if (alertShown) {
+            this.alert(message);
+        }
+    },
+    getEventsOccurred : function(event) {
+        return this.i_eventsOccurred[event] || [];
+    },
+    hasEventOccurred : function(event) {
+        return this.getEventsOccurred(event).length > 0;
+    },
     alert : function(message){
         if (!this.i_alertsOff){
             this.send("alert", message);
         }
-    },
-    crash : function(message){
-        this.alert(message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)");
     },
     explain : function(exp){
         //alert(exp.ignore);
@@ -439,7 +519,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
         if (isA(obj.type, Types.ArrayPointer)){
             return [obj.type.arrObj];
         }
-        else if (isA(obj.type, Types.Pointer)){
+        else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
             var pointsTo = this.memory.getObject(obj);
             if (pointsTo && !isA(pointsTo, AnonObject)){
                 return [pointsTo];
@@ -483,10 +563,10 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
     leakCheckObj : function(query) {
         ++this.i_leakCheckIndex;
         var frontier = [];
-        var globalScope = this.getGlobalScope();
+        var globalScope = this.i_program.getGlobalScope();
         for (var key in globalScope.entities) {
             var ent = globalScope.entities[key];
-            if (isA(ent, ObjectEntity)){
+            if (isA(ent, CPPObject)){
                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(ent);
             }
@@ -496,7 +576,7 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
             var frameObjs = this.memory.stack.frames[i].objects;
             for (var key in frameObjs) {
                 var ent = frameObjs[key];
-                if (isA(ent, ObjectEntity)){
+                if (isA(ent, CPPObject)){
                     ent.i_leakCheckIndex = this.i_leakCheckIndex;
                     frontier.push(ent);
                 }
@@ -511,8 +591,19 @@ var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
 
         for(var i = 0; i < this.i_execStack.length; ++i){
             var inst = this.i_execStack[i];
-            var obj = inst.evalValue || (inst.func && inst.func.returnValue);
-            if (obj && isA(obj, ObjectEntity)){
+            if (inst.evalValue) {
+                obj = inst.evalValue;
+            }
+            else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
+                if (isA(inst.func.model.type.returnType, Types.Reference)) {
+                    obj = inst.func.model.getReturnObject(this, inst.func);
+                }
+                else {
+                    obj = inst.func.model.getReturnObject(this, inst.func).getValue();
+                }
+            }
+
+            if (obj && isA(obj, CPPObject)){
                 obj.i_leakCheckIndex = this.i_leakCheckIndex;
                 frontier.push(obj);
             }

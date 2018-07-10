@@ -8,9 +8,9 @@ function getEmailFromIdToken($idtoken) {
   try{
 
     $client = new Google_Client();
-    $client_id = '355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com';
-    $client_secret = '-yiX6z6rrdhLRbZjVW4LzcDI';
-    $client->setApplicationName('lobster');
+    $client_id = $GLOBALS['config']['client_id'];
+    $client_secret = $GLOBALS['config']['client_id'];
+    $client->setApplicationName($GLOBALS['config']['application_name']);
     $client->setClientId($client_id);
     $client->setClientSecret($client_secret);
     $client->setScopes('email');
@@ -22,7 +22,7 @@ function getEmailFromIdToken($idtoken) {
     assert($data['payload']['aud'] == $client_id);
 
     // TODO HACK
-    $_SESSION["email"] = $data['payload']['email'];
+    $_SESSION['email'] = $data['payload']['email'];
 
     return $data['payload']['email']; // user ID
   }

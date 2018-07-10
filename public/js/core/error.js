@@ -6,13 +6,13 @@ var RuntimeMessage = Class.extend({
 var DeadObjectMessage = RuntimeMessage.extend({
     _name: "DeadObjectMessage",
     init : function(deadObj, options){
-        assert(isA(deadObj, ObjectEntity));
+        assert(isA(deadObj, CPPObject));
         this.deadObj = deadObj;
 
         // If we're working with a subobject, its lifetime is tied to that of its parent object
-        while(isA(this.deadObj, Subobject)){
-            this.deadObj = this.deadObj.parentObject();
-        }
+        // while(isA(this.deadObj, Subobject)){
+        //     this.deadObj = this.deadObj.parentObject();
+        // }
 
         this.options = options || {};
     },
@@ -21,10 +21,10 @@ var DeadObjectMessage = RuntimeMessage.extend({
     display : function(sim, inst){
         var text0;
         if (this.options.fromDereference){
-            text0 = "I followed that pointer, but the object I found was dead!";
+            text0 = "I followed that pointer, but I don't like what I found. There's no legitimate data here. Perhaps you dereferenced an invalid pointer/address, or maybe it was a dangling pointer to a dead object?";
         }
         else if (this.options.fromSubscript){
-            text0 = "The array you're trying to index into is dead.";
+            text0 = "The object retrieved from that subscript operation doesn't exist. Either you indexed out of bounds, or possibly the underlying array itself was no longer around.";
         }
         else if (this.options.fromDelete){
             text0 = "Uh...the object you're trying to delete is already dead...";
@@ -34,23 +34,23 @@ var DeadObjectMessage = RuntimeMessage.extend({
         }
 
 
-        var text1;
-        if (isA(this.deadObj, DynamicObjectEntity)){
+        var text1 = "";
+        if (isA(this.deadObj, DynamicObject)){
+            text1 = "\n\nIt was dynamically allocated on the heap, but has since been been deleted.";
             var killer = this.deadObj.obituary().killer;
             if (killer){
                 var srcCode = findNearestTrackedConstruct(killer.model).code;
-                killer.send("current");
-                text1 = "It was dynamically allocated on the heap, but has since been deleted by line " + srcCode.line + ":\n<span class='code'>" + srcCode.text + "</span>";
-            }
-            else{
-                text1 = "It was dynamically allocated on the heap, but has since been been deleted.";
+                if(srcCode) {
+                    killer.send("current");
+                    text1 = "\n\nIt was dynamically allocated on the heap, but has since been deleted by line " + srcCode.line + ":\n<span class='code'>" + srcCode.text + "</span>";
+                }
             }
         }
         else if (isA(this.deadObj, AutoObjectInstance)){
-            text1 = "It was a local variable declared at the highlighted line, but it already has gone out of scope.";
+            text1 = "\n\nIt was a local variable declared at the highlighted line, but it already has gone out of scope.";
         }
 
-        sim.alert(text0 + "\n\n" + text1);
+        sim.undefinedBehavior(text0 + text1);
 
     }
 });
@@ -378,7 +378,8 @@ var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.matching_constructor", "Trying to initialize " + (desc.name || desc.message) + ", but unable to find a matching constructor definition for the " + entity.type.className + " class using the given arguments (" + argTypes.join(", ") + ").");
             },
             no_default_constructor : function(src, entity){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + entity.name + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
+                var desc = entity.describe();
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referenceLvalue : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referenceLvalue", "For now, references cannot be bound to prvalues of non-class type in Labster.");
@@ -615,8 +616,12 @@ var CPPError = {
             paramReferenceLvalue : function(src) {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Labster. (i.e. you have to bind a variable)");
             },
-            not_defined : function(src, type){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.not_defined", "A function call operator for the type " + type + " has not been defined.");
+            not_defined : function(src, type, paramTypes, message){
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.not_defined", "A function call operator with parameters of types (" +
+                    paramTypes.map(function(pt){
+                        return pt.toString();
+                    }).join(", ")
+                    + ") for the class type " + type + " has not been defined.");
             }
             //,
             //tail_recursive : function(src, reason){
@@ -710,6 +715,9 @@ var CPPError = {
         def_not_found : function(src, func){
             return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.def_not_found", "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
+        library_unsupported : function(src, func){
+            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.library_unsupported", "I'm sorry, but this function (" + func + ") is a part of the standard library that isn't currently supported.");
+        },
         multiple_def : function(src, name){
             return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.multiple_def", "Multiple definitions found for " + name + ".");
         },
@@ -737,15 +745,19 @@ var CPPError = {
         },
         no_match : function(src, name, paramTypes, isThisConst){
             name = Identifier.qualifiedNameString(name);
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with these parameter types (" +
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with parameter types (" +
             paramTypes.map(function(pt){
                 return pt.toString();
             }).join(", ") +
-            ")" + (isThisConst ? " made from const member function." : "."));
+            ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : "."));
         },
-        hidden : function(src, name){
+        hidden : function(src, name, paramTypes, isThisConst){
             name = Identifier.qualifiedNameString(name);
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with these parameter types. (Actually, there is a match, but it is hidden by an entity of the same name in a nearer scope.)");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with parameter types(" +
+                paramTypes.map(function(pt){
+                    return pt.toString();
+                }).join(", ") +
+                ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : ".") + " (Actually, there is a match in a more distant scope, but it is hidden by an entity of the same name in a nearer scope.)");
         },
         not_found : function(src, name){
             name = Identifier.qualifiedNameString(name);
@@ -769,12 +781,14 @@ var SemanticException = Class.extend({
 
 SemanticExceptions.BadLookup = SemanticException.extend({
     _name: "BadLookup",
-    init : function(scope, name){
+    init : function(scope, name, paramTypes, isThisConst){
         this.scope = scope;
         this.name = name;
+        this.paramTypes = paramTypes;
+        this.isThisConst = isThisConst;
     },
     annotation : function(src){
-        return this.errorFunc(src, this.name);
+        return this.errorFunc(src, this.name, this.paramTypes, this.isThisConst);
     }
 
 });
@@ -785,19 +799,12 @@ SemanticExceptions.Ambiguity = SemanticExceptions.BadLookup.extend({
 });
 
 SemanticExceptions.NoMatch = SemanticExceptions.BadLookup.extend({
-    _name: "Ambiguity",
-    errorFunc: CPPError.lookup.no_match,
-    init : function(scope, name, paramTypes, isThisConst){
-        this.initParent(scope, name);
-        this.paramTypes = paramTypes;
-        this.isThisConst = isThisConst;
-    },
-    annotation : function(src){
-        return this.errorFunc(src, this.name, this.paramTypes, this.isThisConst);
-    }
+    _name: "NoMatch",
+    errorFunc: CPPError.lookup.no_match
 
 });
 
+// NOTE: Hidden here is really only when the entity doing the hiding was a function.
 SemanticExceptions.Hidden = SemanticExceptions.BadLookup.extend({
     _name: "Hidden",
     errorFunc: CPPError.lookup.hidden
