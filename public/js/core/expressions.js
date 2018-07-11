@@ -1,6 +1,17 @@
 import {checkIdentifier} from "lexical";
 import {CPPConstruct} from "constructs";
 
+export var readValueWithAlert = function(evalValue, sim, expr, inst){
+    if(!evalValue.isValueValid()){
+        var msg = "The value you just got out of " + expr.describeEvalValue(0, sim, inst).message + " isn't valid. It might be uninitialized or it could have come from a dead object.";
+        if (evalValue.rawValue() == 0){
+            msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
+        }
+        sim.undefinedBehavior(msg);
+    }
+    return evalValue.readValue();
+};
+
 /**
  * Standard compilation phase for expressions:
  *   1. Compile children (with no special context - if this is needed, you'll need to override compile())

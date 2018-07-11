@@ -1,6 +1,7 @@
 
+import {createAnonObject} from "objects";
 
-var Value = Class.extend({
+export var Value = Class.extend({
     _name: "Value",
     init: function(value, type, options){
         // TODO: remove this.value in favor of using rawValue() function
@@ -79,7 +80,7 @@ var Value = Class.extend({
 });
 
 
-var Memory = Lobster.Memory = Class.extend(Observable, {
+export var Memory = Class.extend(Observable, {
     _name: "Memory",
     init: function(capacity, staticCapacity, stackCapacity){
         this.initParent();
@@ -450,7 +451,7 @@ var MemoryHeap = Class.extend(Observable, {
 
 //TODO search for StackFrame, .stack, .heap, .objects
 
-var MemoryFrame = Lobster.CPP.MemoryFrame = Class.extend(Observable, {
+var MemoryFrame = Class.extend(Observable, {
     _name: "MemoryFrame",
 
     init: function(scope, memory, start, func){

@@ -1,6 +1,7 @@
-var Conversions = Lobster.Conversions = {};
+import {readValueWithAlert} from "expressions";
 
-var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
+
+export var ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
     i_childrenToExecute : ["from"],
     init: function(from, toType, valueCategory){
@@ -11,7 +12,7 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
         this.type = toType;
         this.valueCategory = valueCategory;
 
-        if (isA(from, Conversions.ImplicitConversion)){
+        if (isA(from, ImplicitConversion)){
             this.conversionLength = from.conversionLength+1;
         }
         else{
@@ -52,7 +53,7 @@ var ImplicitConversion = Conversions.ImplicitConversion = Expression.extend({
 });
 
 
-Conversions.DoNothing = ImplicitConversion.extend({
+var DoNothing = ImplicitConversion.extend({
     _name: "DoNothing",
     init: function(from, to, valueCategory){
         this.initParent(from, to, valueCategory);
@@ -68,18 +69,8 @@ Conversions.DoNothing = ImplicitConversion.extend({
 // Type 1 Conversions
 // LValueToRValue, ArrayToPointer, FunctionToPointer
 
-var readValueWithAlert = function(evalValue, sim, expr, inst){
-    if(!evalValue.isValueValid()){
-        var msg = "The value you just got out of " + expr.describeEvalValue(0, sim, inst).message + " isn't valid. It might be uninitialized or it could have come from a dead object.";
-        if (evalValue.rawValue() == 0){
-            msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
-        }
-        sim.undefinedBehavior(msg);
-    }
-    return evalValue.readValue();
-};
 
-Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
+export var LValueToRValue = ImplicitConversion.extend({
     _name: "LValueToRValue",
     init: function(from){
         assert(from.valueCategory === "lvalue" || from.valueCategory === "xvalue");
@@ -100,7 +91,7 @@ Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
             return true;
         }
         else{
-            return Conversions.LValueToRValue._parent.upNext.apply(this, arguments);
+            return LValueToRValue._parent.upNext.apply(this, arguments);
         }
     },
 
@@ -122,7 +113,7 @@ Conversions.LValueToRValue = Conversions.ImplicitConversion.extend({
 
 });
 
-var ArrayToPointer = Conversions.ArrayToPointer = ImplicitConversion.extend({
+export var ArrayToPointer = ImplicitConversion.extend({
     _name: "ArrayToPointer",
     init: function(from){
         assert(isA(from.type, Types.Array));
@@ -141,7 +132,7 @@ var ArrayToPointer = Conversions.ArrayToPointer = ImplicitConversion.extend({
 
 
 
-var FunctionToPointer = Conversions.FunctionToPointer = ImplicitConversion.extend({
+export var FunctionToPointer = ImplicitConversion.extend({
     _name: "FunctionToPointer",
     init: function(from){
         assert(isA(from.type, Types.Function));
@@ -161,7 +152,7 @@ var FunctionToPointer = Conversions.FunctionToPointer = ImplicitConversion.exten
 // Type 2 Conversions
 // Qualification conversions
 
-Conversions.QualificationConversion = Conversions.ImplicitConversion.extend({
+export var QualificationConversion = ImplicitConversion.extend({
     _name: "QualificationConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
@@ -174,7 +165,7 @@ Conversions.QualificationConversion = Conversions.ImplicitConversion.extend({
     }
 });
 
-Conversions.NullPointerConversion = Conversions.DoNothing.extend({
+export var NullPointerConversion = DoNothing.extend({
     _name: "NullPointerConversion",
     init : function(from, to){
         assert(isA(from, Expressions.Literal));
@@ -188,7 +179,7 @@ Conversions.NullPointerConversion = Conversions.DoNothing.extend({
     }
 });
 
-Conversions.PointerConversion = Conversions.DoNothing.extend({
+export var PointerConversion = DoNothing.extend({
     _name: "PointerConversion",
     init : function(from, to){
         assert(from.valueCategory === "prvalue");
@@ -196,7 +187,7 @@ Conversions.PointerConversion = Conversions.DoNothing.extend({
     }
 });
 
-Conversions.PointerToBooleanConversion = ImplicitConversion.extend({
+export var PointerToBooleanConversion = ImplicitConversion.extend({
     _name: "PointerToBooleanConversion",
     init: function(from){
         assert(from.valueCategory === "prvalue");
@@ -211,7 +202,7 @@ Conversions.PointerToBooleanConversion = ImplicitConversion.extend({
     }
 });
 
-Conversions.FloatingPointPromotion = Conversions.DoNothing.extend({
+export var FloatingPointPromotion = DoNothing.extend({
     _name: "FloatingPointPromotion",
     init : function(from){
         assert(isA(from.type, Types.Float));
@@ -220,7 +211,7 @@ Conversions.FloatingPointPromotion = Conversions.DoNothing.extend({
     }
 });
 
-Conversions.IntegralConversion = ImplicitConversion.extend({
+export var IntegralConversion = ImplicitConversion.extend({
     _name: "IntegralConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
@@ -246,7 +237,7 @@ Conversions.IntegralConversion = ImplicitConversion.extend({
 });
 
 
-Conversions.IntegralFloatingConversion = ImplicitConversion.extend({
+export var IntegralFloatingConversion = ImplicitConversion.extend({
     _name: "IntegralFloatingConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
@@ -268,7 +259,7 @@ Conversions.IntegralFloatingConversion = ImplicitConversion.extend({
     }
 });
 
-Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
+export var FloatingIntegralConversion = ImplicitConversion.extend({
     _name: "FloatingIntegralConversion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
@@ -290,7 +281,7 @@ Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
 
 
 // TODO: remove this. no longer needed now that we have real strings
-// Conversions.StringToCStringConversion = ImplicitConversion.extend({
+// StringToCStringConversion = ImplicitConversion.extend({
 //     _name: "StringToCStringConversion",
 //     init: function(from, toType){
 //         assert(from.valueCategory === "prvalue");
@@ -307,7 +298,7 @@ Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
 //     }
 // });
 
-//var IntegralPromotion = Conversions.IntegralPromotion = ImplicitConversion.extend({
+//var IntegralPromotion = IntegralPromotion = ImplicitConversion.extend({
 //    _name: "IntegralPromotion",
 //    init: function(from){
 //        // A prvalue of an integer type other than bool, char16_t, char32_t, or wchar_t
@@ -324,7 +315,7 @@ Conversions.FloatingIntegralConversion = ImplicitConversion.extend({
 
 
 
-Conversions.IntegralPromotion = ImplicitConversion.extend({
+export var IntegralPromotion = ImplicitConversion.extend({
     _name: "IntegralPromotion",
     init: function(from, toType){
         assert(from.valueCategory === "prvalue");
@@ -348,7 +339,8 @@ Conversions.IntegralPromotion = ImplicitConversion.extend({
     }
 });
 
-var standardConversion1 = function(from){
+// TODO: replace external uses of this function with a wrapper function that has a more meaningful name
+export var standardConversion1 = function(from){
 
     // TODO function to pointer conversion
 
@@ -359,16 +351,16 @@ var standardConversion1 = function(from){
 
     // array to pointer conversion
     if (isA(from.type, Types.Array)) {
-        return Conversions.ArrayToPointer.instance(from);
+        return ArrayToPointer.instance(from);
     }
 
     if (isA(from.type, Types.Function)){
-        return Conversions.FunctionToPointer.instance(from);
+        return FunctionToPointer.instance(from);
     }
 
     // lvalue to rvalue conversion
     if (from.valueCategory === "lvalue" || from.valueCategory === "xvalue"){
-        return Conversions.LValueToRValue.instance(from);
+        return LValueToRValue.instance(from);
     }
 
     return from;
@@ -381,40 +373,40 @@ var standardConversion2 = function(from, toType, options){
     }
 
     if (isA(toType, Types.Pointer) && isA(from, Literal) && isA(from.type, Types.Int) && from.value.rawValue() == 0){
-        return Conversions.NullPointerConversion.instance(from, toType);
+        return NullPointerConversion.instance(from, toType);
     }
 
     if (isA(toType, Types.Pointer) && toType._isInstance){
         if (isA(from.type, Types.Pointer) && subType(from.type.ptrTo, toType.ptrTo)){
             toType = Types.Pointer.instance(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
-            return Conversions.PointerConversion.instance(from, toType);
+            return PointerConversion.instance(from, toType);
         }
     }
 
     if (isA(toType, Types.Double)){
         if (isA(from.type, Types.Float)){
-            return Conversions.FloatingPointPromotion.instance(from);
+            return FloatingPointPromotion.instance(from);
         }
     }
 
     if (isA(toType, Types.Bool)){
         if (isA(from.type, Types.Pointer)){
-            return Conversions.PointerToBooleanConversion.instance(from);
+            return PointerToBooleanConversion.instance(from);
         }
     }
 
     if (toType.isFloatingPointType){
         if (from.type.isIntegralType){
-            return Conversions.IntegralFloatingConversion.instance(from, toType);
+            return IntegralFloatingConversion.instance(from, toType);
         }
     }
 
     if (toType.isIntegralType){
         if (from.type.isIntegralType){
-            return Conversions.IntegralConversion.instance(from, toType);
+            return IntegralConversion.instance(from, toType);
         }
         if (from.type.isFloatingPointType){
-            return Conversions.FloatingIntegralConversion.instance(from, toType);
+            return FloatingIntegralConversion.instance(from, toType);
         }
     }
 
@@ -428,13 +420,13 @@ var standardConversion3 = function(from, toType){
     }
 
     if (from.valueCategory === "prvalue" && isCvConvertible(from.type, toType)){
-        return Conversions.QualificationConversion.instance(from, toType);
+        return QualificationConversion.instance(from, toType);
     }
 
     return from;
 };
 
-var standardConversion = function(from, toType, options){
+export var standardConversion = function(from, toType, options){
     options = options || {};
 
     if (!options.suppressLTR){
@@ -445,9 +437,9 @@ var standardConversion = function(from, toType, options){
     return from;
 };
 
-var integralPromotion = function(expr){
+export var integralPromotion = function(expr){
     if (expr.type.isIntegralType && !isA(expr.type, Types.Int)) {
-        return Conversions.IntegralPromotion.instance(expr, Types.Int.instance());
+        return IntegralPromotion.instance(expr, Types.Int.instance());
     }
     else{
         return expr;

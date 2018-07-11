@@ -179,7 +179,7 @@ var NoteRecorder = NoteHandler.extend({
  *  linkingStarted
  *  linkingFinished
  */
-var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecorder, {
+export var Program = Class.extend(Observable, Observer, NoteRecorder, {
     _name : "Program",
 
     init : function () {
@@ -415,7 +415,7 @@ var Program = Lobster.CPP.Program = Class.extend(Observable, Observer, NoteRecor
     }
 });
 
-var SourceFile = Class.extend(Observable, {
+export var SourceFile = Class.extend(Observable, {
 
     init : function(name, text) {
         this.i_name = name;
@@ -437,7 +437,7 @@ var SourceFile = Class.extend(Observable, {
 
 });
 
-var SourceReference = Class.extend({
+export var SourceReference = Class.extend({
 
     _name : "SourceReference",
 
@@ -503,7 +503,7 @@ var SourceReference = Class.extend({
  *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
  *   "compilationFinished": after compilation is finished
  */
-var TranslationUnit = Class.extend(Observable, NoteRecorder, {
+export var TranslationUnit = Class.extend(Observable, NoteRecorder, {
     _name: "TranslationUnit",
 
     /**
@@ -945,4 +945,3 @@ var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 	    this.i_program.registerFunctionCall(call);
     }
 });
-Lobster.CPP.TranslationUnit = TranslationUnit;

@@ -1,7 +1,6 @@
-var Lobster = Lobster || {};
-var CPP = Lobster.CPP = Lobster.CPP || {};
+import * as Types from "types";
 
-var CPPObject = CPP.CPPObject = Class.extend(Observable, {
+export var CPPObject = Class.extend(Observable, {
     _name: "CPPObject",
     storage: Class._ABSTRACT,
 
@@ -439,7 +438,7 @@ var CPPObject = CPP.CPPObject = Class.extend(Observable, {
 });
 
 
-var ThisObject = CPP.ThisObject = CPPObject.extend({
+export var ThisObject = CPPObject.extend({
     _name: "ThisObject",
     storage: "automatic"
 });
@@ -447,7 +446,7 @@ var ThisObject = CPP.ThisObject = CPPObject.extend({
 
 
 
-var StringLiteralObject = CPP.StringLiteralObject = CPP.CPPObject.extend({
+export var StringLiteralObject = CPPObject.extend({
     _name: "StringLiteralObject",
     storage: "static",
     init: function (type) {
@@ -461,7 +460,7 @@ var StringLiteralObject = CPP.StringLiteralObject = CPP.CPPObject.extend({
     }
 });
 
-var DynamicObject = CPP.DynamicObject = CPP.CPPObject.extend({
+export var DynamicObject = CPPObject.extend({
     _name: "DynamicObject",
     storage: "dynamic",
     init: function(type, name){
@@ -487,7 +486,7 @@ var DynamicObject = CPP.DynamicObject = CPP.CPPObject.extend({
 
 
 
-var AutoObjectInstance = CPP.AutoObjectInstance = CPP.CPPObject.extend({
+export var AutoObjectInstance = CPPObject.extend({
     _name: "AutoObjectInstance",
     storage: "automatic",
     init: function(autoObj){
@@ -500,7 +499,7 @@ var AutoObjectInstance = CPP.AutoObjectInstance = CPP.CPPObject.extend({
     }
 });
 
-var StaticObjectInstance = CPP.StaticObjectInstance = CPP.CPPObject.extend({
+export var StaticObjectInstance = CPP.CPPObject.extend({
     _name: "StaticObjectInstance",
     storage: "static",
     init: function(staticEnt){
@@ -516,8 +515,8 @@ var StaticObjectInstance = CPP.StaticObjectInstance = CPP.CPPObject.extend({
 
 
 
-
-var EvaluationResultRuntimeEntity = CPP.EvaluationResultRuntimeEntity = CPP.CPPObject.extend({
+// TODO: rename?
+export var EvaluationResultRuntimeEntity = CPPObject.extend({
     _name: "EvaluationResultRuntimeEntity",
     storage: "automatic",
     init: function(type, inst){
@@ -534,7 +533,7 @@ var EvaluationResultRuntimeEntity = CPP.EvaluationResultRuntimeEntity = CPP.CPPO
 
 
 
-var AnonObject = CPP.AnonObject = CPP.CPPObject.extend({
+export var AnonObject = CPPObject.extend({
     _name: "AnonObject",
     storage: "temp",
     init: function(type, name){
@@ -549,7 +548,7 @@ var AnonObject = CPP.AnonObject = CPP.CPPObject.extend({
 });
 
 
-var Subobject = CPP.Subobject = CPP.CPPObject.extend({
+export var Subobject = CPPObject.extend({
     _name: "Subobject",
     parentObject : Class._ABSTRACT,
     isAlive : function(){
@@ -562,7 +561,7 @@ var Subobject = CPP.Subobject = CPP.CPPObject.extend({
 
 
 
-var ArraySubobject = CPP.ArraySubobject = CPP.Subobject.extend({
+export var ArraySubobject = Subobject.extend({
     _name: "ArraySubobject",
     storage: "temp",
     init: function(arrObj, index){
@@ -609,7 +608,7 @@ var ArraySubobject = CPP.ArraySubobject = CPP.Subobject.extend({
 
 
 
-var TemporaryObjectInstance = CPP.TemporaryObjectInstance = CPP.CPPObject.extend({
+export var TemporaryObjectInstance = CPPObject.extend({
     _name: "TemporaryObject",
     storage: "temp",
     init: function(tempObjEntity){
@@ -621,7 +620,7 @@ var TemporaryObjectInstance = CPP.TemporaryObjectInstance = CPP.CPPObject.extend
     }
 });
 
-var BaseClassSubobject = CPP.BaseClassSubobject = CPP.Subobject.extend({
+export var BaseClassSubobject = Subobject.extend({
     _name: "BaseClassSubobject",
     storage: "none",
     init: function(type, parent){
@@ -641,7 +640,7 @@ var BaseClassSubobject = CPP.BaseClassSubobject = CPP.Subobject.extend({
     }
 });
 
-var MemberSubobject = CPP.MemberSubobject = CPP.Subobject.extend({
+export var MemberSubobject = Subobject.extend({
     _name: "MemberSubobject",
     storage: "none",
     init: function(type, parent, name){
@@ -670,7 +669,7 @@ var MemberSubobject = CPP.MemberSubobject = CPP.Subobject.extend({
     }
 });
 
-var createAnonObject = function(type, memory, address){
+export var createAnonObject = function(type, memory, address){
     var obj = AnonObject.instance(type);
     obj.allocated(memory, address);
     return obj;

@@ -1,5 +1,7 @@
 
-var TestVerifier = Class.extend({
+import {Program} from "program";
+
+export var TestVerifier = Class.extend({
     _name : "TestVerifier",
     SUCCESS : {status: "success", message: "test successful"},
     verify : function() {
@@ -14,7 +16,7 @@ var TestVerifier = Class.extend({
 
 
 
-var NoErrorsNoWarningsVerifier = TestVerifier.extend({
+export var NoErrorsNoWarningsVerifier = TestVerifier.extend({
     _name: "NoErrorsNoWarningsVerifier",
     i_verifyImpl : function(program) {
         if (!program.hasErrors() && !program.hasWarnings()) {
@@ -26,7 +28,7 @@ var NoErrorsNoWarningsVerifier = TestVerifier.extend({
     }
 });
 
-var NoAssertionFailuresVerifier = TestVerifier.extend({
+export var NoAssertionFailuresVerifier = TestVerifier.extend({
     _name: "NoAssertionFailureVerifier",
     i_verifyImpl : function(program) {
         var sim = Simulation.instance(program);
@@ -41,7 +43,7 @@ var NoAssertionFailuresVerifier = TestVerifier.extend({
     }
 });
 
-var NoCrashesVerifier = TestVerifier.extend({
+export var NoCrashesVerifier = TestVerifier.extend({
     _name: "NoAssertionFailureVerifier",
     i_verifyImpl : function(program) {
         var sim = Simulation.instance(program);
@@ -59,7 +61,7 @@ var NoCrashesVerifier = TestVerifier.extend({
 /**
  * Checks that no assertions fail and no crashes occur.
  */
-var NoBadRuntimeEventsVerifier = TestVerifier.extend({
+export var NoBadRuntimeEventsVerifier = TestVerifier.extend({
     _name: "NoBadRuntimeEventsVerifier",
     i_verifyImpl : function(program) {
         var sim = Simulation.instance(program);
@@ -85,7 +87,7 @@ var NoBadRuntimeEventsVerifier = TestVerifier.extend({
     }
 });
 
-var ProgramTest = Class.extend({
+export var ProgramTest = Class.extend({
     _name: "ProgramTest",
 
     setDefaultReporter : function(reporter) {
@@ -110,7 +112,7 @@ var ProgramTest = Class.extend({
     }
 });
 
-var SingleTranslationUnitTest = ProgramTest.extend({
+export var SingleTranslationUnitTest = ProgramTest.extend({
     _name: "SingleTranslationUnitTest",
 
     init : function(name, sourceText, verifiers) {

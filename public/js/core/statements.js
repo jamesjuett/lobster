@@ -1,9 +1,7 @@
-var Lobster = Lobster || {};
 
-Lobster.Statements = {};
-var Statements = Lobster.Statements;
+import {CPPConstruct} from "constructs";
 
-var Statement = Statements.Statement = CPPConstruct.extend({
+export var Statement = CPPConstruct.extend({
    _name: "Statement",
     instType: "stmt",
 
@@ -13,19 +11,19 @@ var Statement = Statements.Statement = CPPConstruct.extend({
     }
 });
 
-Statements.Unsupported = Statement.extend({
+export var Unsupported = Statement.extend({
     _name: "Statements.Unsupported",
     compile : function(){
         this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
     }
 });
 
-Statements.Labeled = Statements.Unsupported.extend({
+export var Labeled = Statements.Unsupported.extend({
     _name: "Statements.Labeled",
     englishName: "labeled statement"
 });
 
-Statements.Switch = Statements.Unsupported.extend({
+export var Switch = Statements.Unsupported.extend({
     _name: "Statements.Switch",
     englishName: "switch statement"
 });
@@ -37,7 +35,7 @@ Statements.Switch = Statements.Unsupported.extend({
  *  - expression
  *
  */
-Statements.Expression = Statement.extend({
+export var Expression = Statement.extend({
     _name: "ExpressionStatement",
     initIndex: "expr",
 
@@ -60,7 +58,7 @@ Statements.Expression = Statement.extend({
     }
 });
 
-Statements.Null = Statement.extend({
+export var Null = Statement.extend({
     _name : "NullStatement",
     initIndex : "done",
 
@@ -73,7 +71,7 @@ Statements.Null = Statement.extend({
  *  - declaration
  *
  */
-Statements.Declaration = Statement.extend({
+export var Declaration = Statement.extend({
     _name: "DeclarationStatement",
     initIndex: "decl",
 
@@ -118,7 +116,7 @@ Statements.Declaration = Statement.extend({
  *  - expression (optional)
  *
  */
-Statements.Return = Statement.extend({
+export var Return = Statement.extend({
     _name: "Return",
 
     i_createFromAST : function(ast) {
@@ -200,7 +198,7 @@ Statements.Return = Statement.extend({
  *  - statements
  *
  */
-Statements.Block = Statements.Compound = Statement.extend({
+export var Block = Statement.extend({
     _name: "Block",
     initIndex: 0,
 
@@ -280,8 +278,9 @@ Statements.Block = Statements.Compound = Statement.extend({
         }
     }
 });
+export {Block as Compound};
 
-Statements.FunctionBodyBlock = Statements.Block.extend({
+export var FunctionBodyBlock = Statements.Block.extend({
     _name: "FunctionBodyBlock",
 
     i_createBlockScope : function() {
@@ -289,7 +288,7 @@ Statements.FunctionBodyBlock = Statements.Block.extend({
     }
 });
 
-OpaqueFunctionBodyBlock = Statements.OpaqueFunctionBodyBlock = Statement.extend({
+export var OpaqueFunctionBodyBlock = Statement.extend({
     _name: "OpaqueFunctionBodyBlock",
 
     i_createFromAST : function(ast){
@@ -326,7 +325,7 @@ OpaqueFunctionBodyBlock = Statements.OpaqueFunctionBodyBlock = Statement.extend(
 
 
 
-Statements.Selection = Statement.extend({
+export var Selection = Statement.extend({
     _name: "Selection",
     initIndex: "condition",
 
@@ -406,7 +405,7 @@ Statements.Selection = Statement.extend({
 });
 
 
-Statements.Iteration = Statement.extend({
+export var Iteration = Statement.extend({
     isTailChild : function(child){
         return {
             isTail: false,
@@ -416,7 +415,7 @@ Statements.Iteration = Statement.extend({
     }
 });
 
-Statements.While = Statements.Iteration.extend({
+export var While = Iteration.extend({
     _name: "While",
     initIndex: "condition",
 
@@ -481,13 +480,13 @@ Statements.While = Statements.Iteration.extend({
 });
 
 
-Statements.DoWhile = Statements.While.extend({
+export var DoWhile = While.extend({
     _name: "DoWhile",
     initIndex: "body"
 });
 
 
-Statements.For = Statements.Iteration.extend({
+export var For = Iteration.extend({
     _name: "For",
     initIndex: "init",
 
@@ -563,7 +562,7 @@ Statements.For = Statements.Iteration.extend({
 
 
 
-Statements.Break = Statement.extend({
+export var Break = Statement.extend({
     _name: "Break",
 
     compile : function() {
@@ -601,13 +600,13 @@ Statements.Break = Statement.extend({
 });
 
 
-Statements.Continue = Statements.Unsupported.extend({
+export var Continue = Unsupported.extend({
     _name: "Statements.Continue",
     englishName: "continue statement"
 });
 
 
-Statements.TemporaryDeallocator = Statement.extend({
+export var TemporaryDeallocator = Statement.extend({
     _name: "TemporaryDeallocator",
 
     compile : function(temporaries){
