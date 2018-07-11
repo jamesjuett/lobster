@@ -1,4 +1,5 @@
-
+import CPPConstruct from "constructs"
+import CPPError from "error";
 				
 var vowels = ["a", "e", "i", "o", "u"];
 var isVowel = function(c){
@@ -8,7 +9,7 @@ var isVowel = function(c){
 
 
 
-var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
+export var TypeSpecifier = CPPConstruct.extend({
     _name: "TypeSpecifier",
 
     compile : function(){
@@ -87,8 +88,8 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
             }
         }
 
-        if (Types.builtInTypes[this.typeName]){
-			this.type = Types.builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
+        if (builtInTypes[this.typeName]){
+			this.type = builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
             return;
 		}
 
@@ -100,48 +101,45 @@ var TypeSpecifier = Lobster.TypeSpecifier = CPPConstruct.extend({
             }
         }
 
-        this.type = Types.Unknown.instance();
+        this.type = Unknown.instance();
         this.addNote(CPPError.type.typeNotFound(this, this.typeName));
 	}
 });
 
+export var userTypeNames = {};
+export var builtInTypes = {};
 
-
-var Types = Lobster.Types = {
-    userTypeNames : {},
-    builtInTypes : {},
-    defaultUserTypeNames : {
-        ostream : true,
-        istream : true,
-        size_t : true
-    }
+export var defaultUserTypeNames = {
+    ostream : true,
+    istream : true,
+    size_t : true
 };
 
-var sameType = function(type1, type2){
+export var sameType = function(type1, type2){
     return type1 && type2 && type1.sameType(type2);
 };
 
-var similarType = function(type1, type2){
+export var similarType = function(type1, type2){
     return type1 && type2 && type1.similarType(type2);
 };
 
 // TODO subType function is dangerous :(
-var subType = function(type1, type2){
-    return isA(type1, Types.Class) && isA(type2, Types.Class) && type1.isDerivedFrom(type2);
+export var subType = function(type1, type2){
+    return isA(type1, ClassType) && isA(type2, ClassType) && type1.isDerivedFrom(type2);
 };
 
-var covariantType = function(derived, base){
+export var covariantType = function(derived, base){
     if (sameType(derived, base)){
         return true;
     }
 
     var dc;
     var bc;
-    if (isA(derived, Types.Pointer) && isA(base, Types.Pointer)){
+    if (isA(derived, Pointer) && isA(base, Pointer)){
         dc = derived.ptrTo;
         bc = base.ptrTo;
     }
-    else if (isA(derived, Types.Reference) && isA(base, Types.Reference)){
+    else if (isA(derived, Reference) && isA(base, Reference)){
         dc = derived.refTo;
         bc = base.refTo;
     }
@@ -150,7 +148,7 @@ var covariantType = function(derived, base){
     }
 
     // Must be pointers or references to class type
-    if (!isA(dc, Types.Class) || !isA(bc, Types.Class)){
+    if (!isA(dc, ClassType) || !isA(bc, ClassType)){
         return false;
     }
 
@@ -173,12 +171,12 @@ var covariantType = function(derived, base){
     return true;
 };
 
-var referenceCompatible = function(type1, type2){
+export var referenceCompatible = function(type1, type2){
     return type1 && type2 && type1.isReferenceCompatible(type2);
 };
 
-var noRef = function(type){
-    if(isA(type, Types.Reference)){
+export var noRef = function(type){
+    if(isA(type, Reference)){
         return type.refTo;
     }
     else{
@@ -186,7 +184,7 @@ var noRef = function(type){
     }
 };
 
-var isCvConvertible = function(t1, t2){
+export var isCvConvertible = function(t1, t2){
 
     // t1 and t2 must be similar
     if (!similarType(t1,t2)){ return false; }
@@ -218,7 +216,7 @@ var isCvConvertible = function(t1, t2){
     return true;
 };
 
-var Type = Lobster.Types.Type = Class.extend({
+export var Type = Class.extend({
     _name: "Type",
     size: Class._ABSTRACT,
     isObjectType : true,
@@ -481,7 +479,7 @@ var Type = Lobster.Types.Type = Class.extend({
     }
 });
 
-Lobster.Types.SimpleType = Type.extend({
+export var SimpleType = Type.extend({
     _name: "SimpleType",
     i_precedence: 0,
     _isComplete: true,
@@ -493,13 +491,13 @@ Lobster.Types.SimpleType = Type.extend({
     i_type: Class._ABSTRACT,
 
     sameType : function(other){
-        return other && other.isA(Types.SimpleType)
+        return other && other.isA(SimpleType)
             && other.i_type === this.i_type
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
-        return other && other.isA(Types.SimpleType)
+        return other && other.isA(SimpleType)
             && other.i_type === this.i_type;
     },
 
@@ -525,31 +523,31 @@ Lobster.Types.SimpleType = Type.extend({
 /**
  * Used when a compilation error causes an unknown type.
  */
-Types.builtInTypes["unknown"] =
-Lobster.Types.Unknown = Types.SimpleType.extend({
+export var Unknown = SimpleType.extend({
     _name: "UnknownType",
     i_type: "unknown",
     isObjectType: false,
     size: 4
 });
+builtInTypes["unknown"] = Unknown;
 
-Types.builtInTypes["void"] =
-Lobster.Types.Void = Types.SimpleType.extend({
+export var Void = SimpleType.extend({
     _name: "Void",
     i_type: "void",
     isObjectType: false,
     isComplete: false,
     size: 0
 });
+builtInTypes["void"] = Void;
 
-Types.builtInTypes["_universal_data"] =
-Lobster.Types._Universal_data = Types.SimpleType.extend({
+var _Universal_data = SimpleType.extend({
     _name: "_Universal_data",
     i_type: "_universal_data",
     size: 16
 });
+builtInTypes["_universal_data"] = _Universal_data;
 
-Types.IntegralTypeBase = Types.SimpleType.extend({
+var IntegralTypeBase = SimpleType.extend({
     _name: "IntegralTypeBase",
     isIntegralType: true,
     isArithmeticType: true,
@@ -559,8 +557,8 @@ Types.IntegralTypeBase = Types.SimpleType.extend({
     }
 });
 
-Types.builtInTypes["char"] =
-Lobster.Types.Char = Types.IntegralTypeBase.extend({
+
+export var Char = IntegralTypeBase.extend({
     _name: "Char",
     i_type: "char",
     size: 1,
@@ -575,7 +573,7 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
         var chars = str.split("").map(function(c){
             return c.charCodeAt(0);
         });
-        chars.push(Types.Char.NULL_CHAR);
+        chars.push(Char.NULL_CHAR);
         return chars;
     },
 
@@ -586,23 +584,23 @@ Lobster.Types.Char = Types.IntegralTypeBase.extend({
         return String.fromCharCode(value);
     }
 });
+builtInTypes["char"] = Char;
 
-Types.builtInTypes["int"] =
-Lobster.Types.Int = Types.IntegralTypeBase.extend({
+export var Int = IntegralTypeBase.extend({
     _name: "Int",
     i_type: "int",
     size: 4
 });
+builtInTypes["int"] = Int;
 
-Types.builtInTypes["size_t"] =
-Lobster.Types.Int = Types.IntegralTypeBase.extend({
+export var Size_t = IntegralTypeBase.extend({
     _name: "Size_t",
     i_type: "size_t",
     size: 8
 });
+builtInTypes["size_t"] = Size_t;
 
-Types.builtInTypes["bool"] =
-Lobster.Types.Bool = Types.IntegralTypeBase.extend({
+export var Bool = IntegralTypeBase.extend({
     _name: "Bool",
     i_type: "bool",
     size: 1,
@@ -618,13 +616,14 @@ Lobster.Types.Bool = Types.IntegralTypeBase.extend({
     //    return value ? "T" : "F";
     //}
 });
+builtInTypes["bool"] = Bool;
 
-Lobster.Types.Enum = Types.IntegralTypeBase.extend({
+export var Enum = IntegralTypeBase.extend({
     _name: "Enum",
     size: 4,
     extend: function(){
 
-        var sub = Types.SimpleType.extend.apply(this, arguments);
+        var sub = SimpleType.extend.apply(this, arguments);
         assert(sub.values);
         sub.valueMap = {};
         for(var i = 0; i < sub.values.length; ++i) {
@@ -638,26 +637,9 @@ Lobster.Types.Enum = Types.IntegralTypeBase.extend({
     }
 });
 
-Types.builtInTypes["rank"] =
-Lobster.Types.Rank = Types.Enum.extend({
-    i_type: "Rank",
-    values: ["TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "JACK", "QUEEN", "KING", "ACE"]
-});
-
-Types.builtInTypes["suit"] =
-Lobster.Types.Suit = Types.Enum.extend({
-    i_type: "Suit",
-    values: ["SPADES", "HEARTS", "CLUBS", "DIAMONDS"]
-});
 
 
-
-
-
-
-
-
-Types.FloatingPointBase = Types.SimpleType.extend({
+var FloatingPointBase = SimpleType.extend({
     _name: "FloatingPointBase",
     isFloatingPointType: true,
     isArithmeticType: true,
@@ -669,19 +651,19 @@ Types.FloatingPointBase = Types.SimpleType.extend({
 
 });
 
-Types.builtInTypes["float"] =
-    Lobster.Types.Float = Types.FloatingPointBase.extend({
+export var Float = FloatingPointBase.extend({
     _name: "Float",
     i_type: "float",
     size: 4
 });
+builtInTypes["float"] = Float;
 
-Types.builtInTypes["double"] =
-    Lobster.Types.Double = Types.FloatingPointBase.extend({
+export var Double = FloatingPointBase.extend({
     _name: "Double",
     i_type: "double",
     size: 8
 });
+builtInTypes["double"] = Double;
 
 
 
@@ -689,8 +671,8 @@ Types.builtInTypes["double"] =
 
 
 
-// Types.builtInTypes["string"] =
-//     Lobster.Types.String = Types.SimpleType.extend({
+// builtInTypes["string"] =
+//     StringType = SimpleType.extend({
 //     _name: "String",
 //     i_type: "string",
 //     size: 4,
@@ -714,8 +696,7 @@ Types.builtInTypes["double"] =
 
 
 
-Types.builtInTypes["ostream"] =
-Lobster.Types.OStream = Types.SimpleType.extend({
+export var OStream = SimpleType.extend({
     _name: "OStream",
     i_type: "ostream",
     size: 4,
@@ -724,8 +705,9 @@ Lobster.Types.OStream = Types.SimpleType.extend({
         return JSON.stringify(value);
     }
 });
+builtInTypes["ostream"] = OStream;
 
-Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend({
+export var IStream = SimpleType.extend({
     _name: "IStream",
     i_type: "istream",
     size: 4,
@@ -734,6 +716,7 @@ Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend(
         return JSON.stringify(value);
     }
 });
+builtInTypes["istream"] = IStream;
 
 
 
@@ -742,7 +725,7 @@ Types.builtInTypes["istream"] = Lobster.Types.IStream = Types.SimpleType.extend(
 
 
 // REQUIRES: ptrTo must be a type
-Lobster.Types.Pointer = Type.extend({
+export var Pointer = Type.extend({
     _name: "Pointer",
     size: 8,
     i_precedence: 1,
@@ -758,20 +741,20 @@ Lobster.Types.Pointer = Type.extend({
     init: function(ptrTo, isConst, isVolatile){
         this.initParent(isConst, isVolatile);
         this.ptrTo = ptrTo;
-        this.funcPtr = isA(this.ptrTo, Types.Function);
+        this.funcPtr = isA(this.ptrTo, FunctionType);
         return this;
     },
     getCompoundNext : function() {
         return this.ptrTo;
     },
     sameType : function(other){
-        return other && other.isA(Types.Pointer)
+        return other && other.isA(Pointer)
             && this.ptrTo.sameType(other.ptrTo)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
     similarType : function(other){
-        return other && other.isA(Types.Pointer)
+        return other && other.isA(Pointer)
             && this.ptrTo.similarType(other.ptrTo);
     },
     typeString : function(excludeBase, varname, decorated){
@@ -781,7 +764,7 @@ Lobster.Types.Pointer = Type.extend({
         return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
     },
     valueToString : function(value){
-        if (isA(this.ptrTo, Types.Function) && value) {
+        if (isA(this.ptrTo, FunctionType) && value) {
             return value.name;
         }
         else{
@@ -789,14 +772,14 @@ Lobster.Types.Pointer = Type.extend({
         }
     },
     isObjectPointer : function() {
-        return this.ptrTo.isObjectType || isA(this.ptrTo, Types.Void);
+        return this.ptrTo.isObjectType || isA(this.ptrTo, Void);
     },
     isValueDereferenceable : function(value) {
         return this.isValueValid(value);
     }
 });
 
-Lobster.Types.ArrayPointer = Types.Pointer.extend({
+export var ArrayPointer = Pointer.extend({
     _name: "ArrayPointer",
     size: 8,
 
@@ -832,7 +815,7 @@ Lobster.Types.ArrayPointer = Types.Pointer.extend({
 
 });
 
-Lobster.Types.ObjectPointer = Types.Pointer.extend({
+export var ObjectPointer = Pointer.extend({
     _name: "ObjectPointer",
 
     init: function(obj, isConst, isVolatile){
@@ -858,7 +841,7 @@ Lobster.Types.ObjectPointer = Types.Pointer.extend({
 
 
 // REQUIRES: refTo must be a type
-Lobster.Types.Reference = Type.extend({
+export var Reference = Type.extend({
     _name: "Reference",
     isObjectType: false,
     i_precedence: 1,
@@ -877,11 +860,11 @@ Lobster.Types.Reference = Type.extend({
     },
 
     sameType : function(other){
-        return other && other.isA(Types.Reference) && this.refTo.sameType(other.refTo);
+        return other && other.isA(Reference) && this.refTo.sameType(other.refTo);
     },
     //Note: I don't think similar types even make sense with references. See spec 4.4
     similarType : function(other){
-        return other && other.isA(Types.Reference) && this.refTo.similarType(other.refTo);
+        return other && other.isA(Reference) && this.refTo.similarType(other.refTo);
     },
     typeString : function(excludeBase, varname, decorated){
 		return this.refTo.typeString(excludeBase, this.i_parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
@@ -896,7 +879,7 @@ Lobster.Types.Reference = Type.extend({
 
 
 // REQUIRES: elemType must be a type
-Lobster.Types.Array = Type.extend({
+var ArrayType = Type.extend({
     _name: "Array",
     i_precedence: 2,
     _isComplete: true, // Assume complete. If length is unknown, individual Array types will set to false
@@ -929,10 +912,10 @@ Lobster.Types.Array = Type.extend({
         }
     },
     sameType : function(other){
-        return other && other.isA(Types.Array) && this.elemType.sameType(other.elemType) && this.length === other.length;
+        return other && other.isA(ArrayType) && this.elemType.sameType(other.elemType) && this.length === other.length;
     },
     similarType : function(other){
-        return other && other.isA(Types.Array) && this.elemType.similarType(other.elemType) && this.length === other.length;
+        return other && other.isA(ArrayType) && this.elemType.similarType(other.elemType) && this.length === other.length;
     },
     typeString : function(excludeBase, varname, decorated){
 		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]", decorated);
@@ -959,6 +942,7 @@ Lobster.Types.Array = Type.extend({
         return bytes;
     }
 });
+export {ArrayType as Array};
 
 
 /**
@@ -970,14 +954,14 @@ Lobster.Types.Array = Type.extend({
  * copyConstructor - the copy constructor entity for this class. might be null if doesn't have a copy constructor
  * destructor - the destructor entity for this class. might be null if doesn't have a destructor
  */
-Lobster.Types.Class = Type.extend({
+var ClassType = Type.extend({
     _name: "Class",
     i_precedence: 0,
     className: Class._ABSTRACT,
     _nextClassId: 0,
 
     createClassType : function(name, parentScope, base, members) {
-        assert(this == Types.Class); // shouldn't be called on instances
+        assert(this == ClassType); // shouldn't be called on instances
         var classType = this.extend({
             _name : name,
             i_classId : this._nextClassId++,
@@ -1006,7 +990,7 @@ Lobster.Types.Class = Type.extend({
 
         members && members.forEach(classType.addMember.bind(classType));
 
-        // var fakeDecl = FakeDeclaration.instance("numDucklings", Types.Int.instance());
+        // var fakeDecl = FakeDeclaration.instance("numDucklings", Int.instance());
         // classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
 
         return classType;
@@ -1072,11 +1056,11 @@ Lobster.Types.Class = Type.extend({
     getCopyConstructor : function(requireConst){
         return this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+                paramTypes:[Reference.instance(this.instance(true))]}) ||
             !requireConst &&
             this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(false))]});
+                paramTypes:[Reference.instance(this.instance(false))]});
     },
 
     getAssignmentOperator : function(requireConst, isThisConst){
@@ -1085,11 +1069,11 @@ Lobster.Types.Class = Type.extend({
                 paramTypes:[this.instance()]}) ||
             this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(true))]}) ||
+                paramTypes:[Reference.instance(this.instance(true))]}) ||
             !requireConst &&
             this.classScope.singleLookup("operator=", {
                 own:true, noBase:true, exactMatch:true,
-                paramTypes:[Types.Reference.instance(this.instance(false))]})
+                paramTypes:[Reference.instance(this.instance(false))]})
 
     },
 
@@ -1146,7 +1130,7 @@ Lobster.Types.Class = Type.extend({
 
     similarType : function(other){
         //alert(other && other.isA(this._class));
-        return other && other.isA(Types.Class) && other.i_classId === this.i_classId;
+        return other && other.isA(ClassType) && other.i_classId === this.i_classId;
     },
     typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {
@@ -1184,12 +1168,13 @@ Lobster.Types.Class = Type.extend({
     }
 
 });
+export {ClassType as Class};
 
 
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-Lobster.Types.Function = Type.extend({
+var FunctionType = Type.extend({
     _name: "Function",
     isObjectType: false,
     i_precedence: 2,
@@ -1203,7 +1188,7 @@ Lobster.Types.Function = Type.extend({
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
         // TODO not for poitners/refrences
-        if(!(isA(returnType, Types.Class) || isA(returnType, Types.Pointer) || isA(returnType, Types.Reference))){
+        if(!(isA(returnType, ClassType) || isA(returnType, Pointer) || isA(returnType, Reference))){
             this.returnType = returnType.cvUnqualified();
         }
         else{
@@ -1211,7 +1196,7 @@ Lobster.Types.Function = Type.extend({
         }
 
         this.paramTypes = paramTypes.map(function(ptype){
-            return isA(ptype, Types.Class) ? ptype : ptype.cvUnqualified();
+            return isA(ptype, ClassType) ? ptype : ptype.cvUnqualified();
         });
         // Top-level const on parameter types is ignored for non-class types
 
@@ -1236,7 +1221,7 @@ Lobster.Types.Function = Type.extend({
         if (!other){
             return false;
         }
-        if (!other.isA(Types.Function)){
+        if (!other.isA(FunctionType)){
             return false;
         }
         if (!this.sameReturnType(other)){
@@ -1251,7 +1236,7 @@ Lobster.Types.Function = Type.extend({
         return this.sameType(other);
     },
     sameParamTypes : function(other){
-        if (isA(other, Types.Function)){
+        if (isA(other, FunctionType)){
             return this.sameParamTypes(other.paramTypes);
         }
         if (this.paramTypes.length !== other.length){
@@ -1282,17 +1267,4 @@ Lobster.Types.Function = Type.extend({
 		return ""+value;
 	}
 });
-
-
-
-
-
-
-
-
-
-// hack to make sure I don't mess up capitalization
-// TODO wtf were you thinking please remove this
-for (var key in Types){
-    Types[key.toLowerCase()] = Types[key];
-}
+export {FunctionType as Function};

@@ -1,7 +1,4 @@
-var Lobster = Lobster || {};
-var CPP = Lobster.CPP = Lobster.CPP || {};
-
-var CPPConstruct = Lobster.CPPConstruct = Class.extend({
+export var CPPConstruct = Class.extend({
     _name: "CPPConstruct",
     _nextId: 0,
     initIndex: "pushChildren",
@@ -334,6 +331,7 @@ var CPPConstruct = Lobster.CPPConstruct = Class.extend({
     }
 });
 
+// TODO: FakeConstruct and FakeDeclaration are never used
 var FakeConstruct = Class.extend({
     _name : "FakeConstruct",
 
@@ -365,7 +363,7 @@ var FakeDeclaration = FakeConstruct.extend({
 });
 
 
-var RuntimeConstruct = Lobster.RuntimeConstruct = Class.extend(Observable,{
+export var RuntimeConstruct = Class.extend(Observable,{
     _name: "RuntimeConstruct",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -567,7 +565,7 @@ RuntimeFunctionCall = RuntimeConstruct.extend({
  * function lookup depends on the actual (i.e. dynamic) type of the object
  * on which it was called.
  */
-RuntimeMemberAccess = RuntimeConstruct.extend({
+export var RuntimeMemberAccess = RuntimeConstruct.extend({
     _name : "RuntimeMemberAccess",
 
     setObjectAccessedFrom : function(obj) {
@@ -579,7 +577,7 @@ RuntimeMemberAccess = RuntimeConstruct.extend({
     }
 });
 
-RuntimeNewInitializer = RuntimeConstruct.extend({
+export var RuntimeNewInitializer = RuntimeConstruct.extend({
     _name : "RuntimeNewInitializer",
 
     setAllocatedObject : function(obj) {
