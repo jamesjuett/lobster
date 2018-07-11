@@ -2,10 +2,7 @@
  * @author James
  */
 
-var Lobster = Lobster || {};
-Lobster.CPP = Lobster.CPP || {};
-
-var Simulation = Lobster.CPP.Simulation = Class.extend(Observable, Observer, {
+export var Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
