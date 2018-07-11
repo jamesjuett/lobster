@@ -1,3 +1,5 @@
+
+
 var CONSTRUCT_CLASSES = {
     labeled_statement : Statements.Labeled,
     null_statement : Statements.Null,

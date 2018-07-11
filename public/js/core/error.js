@@ -1,9 +1,9 @@
-var RuntimeMessage = Class.extend({
+export var RuntimeMessage = Class.extend({
     _name: "RuntimeMessage",
     text : Class._ABSTRACT
 });
 
-var DeadObjectMessage = RuntimeMessage.extend({
+export var DeadObjectMessage = RuntimeMessage.extend({
     _name: "DeadObjectMessage",
     init : function(deadObj, options){
         assert(isA(deadObj, CPPObject));
@@ -55,7 +55,7 @@ var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
-var Note = Class.extend({
+export var Note = Class.extend({
     _name: "Note",
 
     TYPE_ERROR: "error",
@@ -130,11 +130,11 @@ var BasicNoteBase = Note.extend({
     }
 });
 
-var PreprocessorNote = BasicNoteBase.extend({
+export var PreprocessorNote = BasicNoteBase.extend({
     _name: "PreprocessorNote"
 });
 
-var SyntaxNote = BasicNoteBase.extend({
+export var SyntaxNote = BasicNoteBase.extend({
     _name: "SyntaxNote"
 });
 
@@ -191,15 +191,15 @@ var CompilerLinkerNoteBase = Note.extend({
 
 });
 
-var CompilerNote = CompilerLinkerNoteBase.extend({
+export var CompilerNote = CompilerLinkerNoteBase.extend({
     _name: "CompilerNote"
 });
 
-var LinkerNote = CompilerLinkerNoteBase.extend({
+export var LinkerNote = CompilerLinkerNoteBase.extend({
     _name: "LinkerNote"
 });
 
-var CPPError = {
+export var CPPError = {
 	attributeEmptyTo : function(problems, code){
 		for(var key in problems){
 			var prob = problems[key];
@@ -771,10 +771,9 @@ var CPPError = {
     }
 };
 
-
 var SemanticExceptions = {};
 
-var SemanticException = Class.extend({
+export var SemanticException = Class.extend({
     _name: "SemanticException",
     annotation : Class._ABSTRACT
 });
@@ -850,7 +849,7 @@ SemanticExceptions.Wrapper = SemanticException.extend({
 });
 
 
-var checkIdentifier = function(src, iden, noteHandler){
+export var checkIdentifier = function(src, iden, noteHandler){
     if (Array.isArray(iden)){
         iden.forEach(function(elem){
             checkIdentifier(src, elem.identifier, noteHandler);

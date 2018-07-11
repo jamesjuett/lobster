@@ -1,7 +1,82 @@
-var Lobster = Lobster || {};
-var CPP = Lobster.CPP = Lobster.CPP || {};
 
 
+var Value = Class.extend({
+    _name: "Value",
+    init: function(value, type, options){
+        // TODO: remove this.value in favor of using rawValue() function
+        this.value = value;
+        this.i_rawValue = value;
+        this.type = type;
+
+        if(options && options.invalid){
+            this._invalid = true;
+        }
+    },
+    clone : function(cloneValue) {
+        return Value.instance(cloneValue !== undefined ? cloneValue : this.i_rawValue, this.type, {
+            invalid : this._invalid
+        });
+    },
+    plus : function(toAdd) {
+        return this.clone(this.i_rawValue + toAdd);
+    },
+    minus : function(toSub) {
+        return this.clone(this.i_rawValue - toSub);
+    },
+    times : function(multiplyBy) {
+        return this.clone(this.i_rawValue * multiplyBy);
+    },
+    divide : function(divideBy) {
+        return this.clone(this.i_rawValue / divideBy);
+    },
+    equals : function(otherValue) {
+        var certain = this.isValueValid() && (!otherValue.isValueValid || otherValue.isValueValid());
+        if (otherValue.rawValue) {
+            otherValue = otherValue.rawValue();
+        }
+        return Value.instance(this.rawValue() === otherValue, Types.Bool.instance(), {
+            invalid : !certain
+        });
+    },
+    instanceString : function(){
+        return this.valueString();
+    },
+    valueString : function(){
+        return this.type.valueToString(this.i_rawValue);
+    },
+    valueToOstreamString : function(){
+        return this.type.valueToOstreamString(this.i_rawValue);
+    },
+    getValue : function(){
+        return this;
+    },
+    rawValue : function(){
+        return this.i_rawValue;
+    },
+    /**
+     * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
+     * that you're using locally and want to keep updating its raw value to something else before passing
+     * to something like memory.getObject(). For example, this is done when traversing through a cstring by
+     * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
+     */
+    setRawValue : function(value) {
+        this.i_rawValue = this.value = value;
+    },
+    isValueValid : function(){
+        return !this._invalid && this.type.isValueValid(this.i_rawValue);
+    },
+    invalidate : function() {
+        var c = this.clone();
+        c._invalid = true;
+        return c;
+    },
+    isValueDereferenceable : function(){
+        return !this._invalid && this.type.isValueDereferenceable(this.i_rawValue);
+    },
+    describe : function(){
+        return {message: this.valueString()};
+    }
+});
 
 
 var Memory = Lobster.Memory = Class.extend(Observable, {

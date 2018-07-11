@@ -1,9 +1,4 @@
-/**
- * @author James
- */
-
-var Lobster = Lobster || {};
-Lobster.CPP = Lobster.CPP || {};
+import {Note} from "error";
 
 var NoteHandler = Class.extend({
     _name : "NoteHandler",

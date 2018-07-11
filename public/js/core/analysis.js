@@ -2,12 +2,9 @@
  * @author Alexbro
  */
 
-var Lobster = Lobster || {};
-
-Lobster.Analysis = {};
 
 // Checks if Matrix or Image interfaces were violated
-var checkInterface = Lobster.checkInterface = function (program, projectEditor) {
+export var checkInterface = function (program, projectEditor) {
 
     console.log("Checking interface...");
 
@@ -117,7 +114,7 @@ var checkInterface = Lobster.checkInterface = function (program, projectEditor) 
 
 
 // Checks if Matrix Init was called in all Image_init functions
-var checkMatrixInit = Lobster.checkMatrixInit = function(program, codeEditor) {
+export var checkMatrixInit = function(program, codeEditor) {
 
     // Looking if forgetting to initialize Matrix channels in Image_init functions
     var bfsCalls = function(queue, func) {
