@@ -1,6 +1,10 @@
 
+import * as Statements from "./statements";
+import * as Declarations from "./declartions";
+import * as Initializers from "./initializers";
+import * as Expressions from "./expressions";
 
-var CONSTRUCT_CLASSES = {
+export const CONSTRUCT_CLASSES = {
     labeled_statement : Statements.Labeled,
     null_statement : Statements.Null,
     expression_statement : Statements.Expression,
@@ -20,11 +24,11 @@ var CONSTRUCT_CLASSES = {
     function_definition : Declarations.FunctionDefinition,
     constructor_definition : Declarations.ConstructorDefinition,
     destructor_definition : Declarations.DestructorDefinition,
-    member_initializer : Lobster.MemberInitializer,
-    direct_initializer : Lobster.DirectInitializer,
-    copy_initializer : Lobster.CopyInitializer,
-    initializer_list : Lobster.InitializerList,
-    declarator : Lobster.Declarator,
+    member_initializer : Initializers.MemberInitializer,
+    direct_initializer : Initializers.DirectInitializer,
+    copy_initializer : Initializers.CopyInitializer,
+    initializer_list : Initializers.InitializerList,
+    declarator : Declarations.Declarator,
     parameter_declaration : Declarations.Parameter,
     assignment_expression : Expressions.Assignment,
     compound_assignment : Expressions.CompoundAssignment,

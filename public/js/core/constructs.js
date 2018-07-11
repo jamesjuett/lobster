@@ -332,35 +332,35 @@ export var CPPConstruct = Class.extend({
 });
 
 // TODO: FakeConstruct and FakeDeclaration are never used
-var FakeConstruct = Class.extend({
-    _name : "FakeConstruct",
+// var FakeConstruct = Class.extend({
+//     _name : "FakeConstruct",
 
-    init: function () {
+//     init: function () {
 
-        this.id = CPPConstruct._nextId++;
-        this.children = [];
+//         this.id = CPPConstruct._nextId++;
+//         this.children = [];
 
-        // this.i_notes = [];
-        // this.i_hasErrors = false;
+//         // this.i_notes = [];
+//         // this.i_hasErrors = false;
 
-        // this.i_setContext(context);
-    },
+//         // this.i_setContext(context);
+//     },
 
 
-    getSourceReference : function() {
-        return null;
-    }
-});
+//     getSourceReference : function() {
+//         return null;
+//     }
+// });
 
-var FakeDeclaration = FakeConstruct.extend({
-    _name : FakeDeclaration,
+// var FakeDeclaration = FakeConstruct.extend({
+//     _name : FakeDeclaration,
 
-    init : function(name, type) {
-        this.initParent();
-        this.name = name;
-        this.type = type;
-    }
-});
+//     init : function(name, type) {
+//         this.initParent();
+//         this.name = name;
+//         this.type = type;
+//     }
+// });
 
 
 export var RuntimeConstruct = Class.extend(Observable,{
@@ -490,7 +490,7 @@ export var RuntimeConstruct = Class.extend(Observable,{
     }
 });
 
-RuntimeFunction = RuntimeConstruct.extend({
+export var RuntimeFunction = RuntimeConstruct.extend({
     _name : "RuntimeFunction",
 
     init : function() {
@@ -550,7 +550,7 @@ RuntimeFunction = RuntimeConstruct.extend({
     }
 });
 
-RuntimeFunctionCall = RuntimeConstruct.extend({
+export var RuntimeFunctionCall = RuntimeConstruct.extend({
     _name: "RuntimeFunctionCall",
 
     getRuntimeFunction : function() {

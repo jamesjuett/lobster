@@ -1,3 +1,6 @@
+import {checkIdentifier} from "lexical";
+import {CPPConstruct} from "constructs";
+
 /**
  * Standard compilation phase for expressions:
  *   1. Compile children (with no special context - if this is needed, you'll need to override compile())
@@ -11,7 +14,7 @@
  *   6. Compile any temporary objects for whom this is the enclosing full expression.
  *
  */
-var Expression = Expressions.Expression = CPPConstruct.extend({
+export var Expression = CPPConstruct.extend({
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
@@ -273,7 +276,7 @@ var Expression = Expressions.Expression = CPPConstruct.extend({
 });
 
 
-Expressions.Unsupported = Expression.extend({
+export var Unsupported = Expression.extend({
     _name: "Unsupported",
     valueCategory: "prvalue",
     typeCheck : function(){
@@ -281,7 +284,7 @@ Expressions.Unsupported = Expression.extend({
     }
 });
 
-Expressions.Null = Expression.extend({
+export var Null = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
     createAndPushInstance : function(sim, inst){
@@ -292,7 +295,7 @@ Expressions.Null = Expression.extend({
 
 
 
-Expressions.Comma = Expression.extend({
+export var Comma = Expression.extend({
     _name: "Comma",
     englishName: "comma",
     i_childrenToCreate : ["left", "right"],
@@ -327,7 +330,7 @@ Expressions.Comma = Expression.extend({
 });
 
 
-Expressions.Ternary = Expression.extend({
+export var Ternary  = Expression.extend({
     _name: "Ternary",
     englishName: "ternary",
     i_childrenToCreate : ["condition", "then", "otherwise"],
@@ -412,7 +415,7 @@ Expressions.Ternary = Expression.extend({
  * errors and isn't well-typed, or if this is a regular, non-overloaded assignment
  *
  */
-var Assignment = Expressions.Assignment = Expression.extend({
+export var Assignment  = Expression.extend({
     _name: "Assignment",
     valueCategory : "lvalue",
     isOverload : false,
@@ -568,7 +571,7 @@ var beneathConversions = function(expr){
 
 // TODO: there might be a better way to implement this. currently it reuses code from BinaryOperator, but I feel
 // a little bit icky about how it does it and the way it treats the construct tree
-var CompoundAssignment = Expressions.CompoundAssignment = Expression.extend({
+export var CompoundAssignment  = Expression.extend({
     _name: "CompoundAssignment",
     valueCategory : "lvalue",
 
@@ -659,7 +662,7 @@ var CompoundAssignment = Expressions.CompoundAssignment = Expression.extend({
     }
 });
 
-var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
+export var BinaryOperator  = Expression.extend({
     _name: "BinaryOperator",
     valueCategory : "prvalue",
     isOverload : false,
@@ -885,7 +888,7 @@ var BinaryOperator = Expressions.BinaryOperator = Expression.extend({
 
 // TODO cv-combined types and composite pointer types
 
-Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
+export var BinaryOperatorRelational = BinaryOperator.extend({
     _name: "BinaryOperatorRelational",
     type: Types.Bool.instance(),
 
@@ -942,7 +945,7 @@ Expressions.BinaryOperatorRelational = Expressions.BinaryOperator.extend({
 });
 
 
-Expressions.BinaryOperatorLogical = Expressions.BinaryOperator.extend({
+export var BinaryOperatorLogical = BinaryOperator.extend({
     _name: "BinaryOperatorLogical",
     type: Types.Bool.instance(),
 
@@ -1025,34 +1028,34 @@ Expressions.BinaryOperatorLogical = Expressions.BinaryOperator.extend({
 });
 
 
-var BINARY_OPS = Expressions.BINARY_OPS = {
-    "|" : Expressions.Unsupported.extend({
+export var BINARY_OPS = Expressions.BINARY_OPS = {
+    "|" : Unsupported.extend({
         _name: "BinaryOperator[|]",
         englishName: "bitwise or"
     }),
-    "&" : Expressions.Unsupported.extend({
+    "&" : Unsupported.extend({
         _name: "BinaryOperator[&]",
         englishName: "bitwise and"
     }),
-    "^" : Expressions.Unsupported.extend({
+    "^" : Unsupported.extend({
         _name: "BinaryOperator[^]",
         englishName: "bitwise xor"
     }),
-    "||": Expressions.BinaryOperatorLogical.extend({
+    "||": BinaryOperatorLogical.extend({
         _name: "BinaryOperator[||]",
         shortCircuitValue: true,
         combine : function(left, right){
             return left || right;
         }
     }),
-    "&&": Expressions.BinaryOperatorLogical.extend({
+    "&&": BinaryOperatorLogical.extend({
         _name: "BinaryOperator[&&]",
         shortCircuitValue: false,
         combine : function(left, right){
             return left && right;
         }
     }),
-    "+": Expressions.BinaryOperator.extend({
+    "+": BinaryOperator.extend({
         _name: "BinaryOperator[+]",
 
         typeCheck : function(){
@@ -1110,7 +1113,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
     }),
 
-    "-": Expressions.BinaryOperator.extend({
+    "-": BinaryOperator.extend({
         _name: "BinaryOperator[-]",
 
         typeCheck : function(){
@@ -1183,7 +1186,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 
 
     }),
-    "*": Expressions.BinaryOperator.extend({
+    "*": BinaryOperator.extend({
         _name: "BinaryOperator[*]",
         requiresArithmeticOperands : true,
 
@@ -1192,7 +1195,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "/": Expressions.BinaryOperator.extend({
+    "/": BinaryOperator.extend({
         _name: "BinaryOperator[/]",
         requiresArithmeticOperands : true,
 
@@ -1207,7 +1210,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "%": Expressions.BinaryOperator.extend({
+    "%": BinaryOperator.extend({
         _name: "BinaryOperator[%]",
         requiresArithmeticOperands : true,
 
@@ -1228,7 +1231,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "<<": Expressions.BinaryOperator.extend({
+    "<<": BinaryOperator.extend({
 
         operate: function(left, right, sim, inst){
 
@@ -1247,7 +1250,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
         }
     }),
-    ">>": Expressions.BinaryOperator.extend({
+    ">>": BinaryOperator.extend({
 
         operate: function(left, right, sim, inst){
 
@@ -1266,14 +1269,14 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
             // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
         }
     }),
-    "<": Expressions.BinaryOperatorRelational.extend({
+    "<": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[<]",
         compare : function(left, right){
             return left < right;
         }
 
     }),
-    "==": Expressions.BinaryOperatorRelational.extend({
+    "==": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[==]",
         allowDiffArrayPointers: true,
         compare : function(left, right){
@@ -1281,7 +1284,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    "!=": Expressions.BinaryOperatorRelational.extend({
+    "!=": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[!=]",
         allowDiffArrayPointers: true,
         compare : function(left, right){
@@ -1289,21 +1292,21 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
         }
 
     }),
-    ">": Expressions.BinaryOperatorRelational.extend({
+    ">": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[>]",
         compare : function(left, right){
             return left > right;
         }
 
     }),
-    "<=": Expressions.BinaryOperatorRelational.extend({
+    "<=": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[<=]",
         compare : function(left, right){
             return left <= right;
         }
 
     }),
-    ">=": Expressions.BinaryOperatorRelational.extend({
+    ">=": BinaryOperatorRelational.extend({
         _name: "BinaryOperator[>=]",
         compare : function(left, right){
             return left >= right;
@@ -1315,7 +1318,7 @@ var BINARY_OPS = Expressions.BINARY_OPS = {
 
 
 
-var UnaryOp = Expressions.UnaryOp = Expression.extend({
+export var UnaryOp  = Expression.extend({
     _name: "UnaryOp",
     i_childrenToExecute : ["operand"],
     i_childrenToExecuteForMemberOverload : ["operand", "funcCall"], // does not include rhs because function call does that
@@ -1421,7 +1424,7 @@ var UnaryOp = Expressions.UnaryOp = Expression.extend({
     }
 });
 
-var Dereference = Expressions.Dereference = UnaryOp.extend({
+export var Dereference = UnaryOp.extend({
     _name: "Dereference",
     valueCategory: "lvalue",
     convert : function(){
@@ -1517,7 +1520,7 @@ var Dereference = Expressions.Dereference = UnaryOp.extend({
     }
 });
 
-var AddressOf = Expressions.AddressOf = UnaryOp.extend({
+export var AddressOf = UnaryOp.extend({
     _name: "AddressOf",
     valueCategory: "prvalue",
 
@@ -1538,7 +1541,7 @@ var AddressOf = Expressions.AddressOf = UnaryOp.extend({
 });
 
 
-Expressions.UnaryPlus = UnaryOp.extend({
+export var UnaryPlus = UnaryOp.extend({
     _name: "UnaryPlus",
     valueCategory: "prvalue",
 
@@ -1566,7 +1569,7 @@ Expressions.UnaryPlus = UnaryOp.extend({
     }
 });
 
-Expressions.UnaryMinus = UnaryOp.extend({
+export var UnaryMinus = UnaryOp.extend({
     _name: "UnaryMinus",
     valueCategory: "prvalue",
 
@@ -1594,7 +1597,7 @@ Expressions.UnaryMinus = UnaryOp.extend({
     }
 });
 
-Expressions.LogicalNot = UnaryOp.extend({
+export var LogicalNot = UnaryOp.extend({
     _name: "LogicalNot",
     valueCategory: "prvalue",
     type: Types.Bool.instance(),
@@ -1615,12 +1618,12 @@ Expressions.LogicalNot = UnaryOp.extend({
     }
 });
 
-Expressions.BitwiseNot = Expressions.Unsupported.extend({
+export var BitwiseNot = Unsupported.extend({
     _name: "BitwiseNot",
     englishName: "bitwise not"
 });
 
-var Prefix = Expressions.Prefix = UnaryOp.extend({
+export var Prefix = UnaryOp.extend({
     _name: "Prefix",
     valueCategory: "lvalue",
     typeCheck : function(){
@@ -1682,7 +1685,7 @@ var Prefix = Expressions.Prefix = UnaryOp.extend({
 
 // TODO: Consolidate postfix increment/decrement into one class.  consider also merging subscript
 // TODO: Allow overriding postfix increment/decrement
-Expressions.Increment = Expression.extend({
+export var Increment  = Expression.extend({
     _name: "Increment",
     valueCategory: "prvalue",
     i_childrenToCreate : ["operand"],
@@ -1737,7 +1740,7 @@ Expressions.Increment = Expression.extend({
     }
 });
 
-Expressions.Decrement = Expression.extend({
+export var Decrement  = Expression.extend({
     _name: "Decrement",
     valueCategory: "prvalue",
     i_childrenToCreate : ["operand"],
@@ -1794,7 +1797,7 @@ Expressions.Decrement = Expression.extend({
 
 
 // TODO: Allow overloading Subscript with initializer list
-var Subscript = Expressions.Subscript = Expression.extend({
+export var Subscript  = Expression.extend({
     _name: "Subscript",
     valueCategory: "lvalue",
     i_childrenToCreate : ["operand"],
@@ -1921,7 +1924,7 @@ var Subscript = Expressions.Subscript = Expression.extend({
     }
 });
 
-var Dot = Expressions.Dot = Expression.extend({
+export var Dot  = Expression.extend({
     _name: "Dot",
     i_runtimeConstructClass : RuntimeMemberAccess,
     i_childrenToCreate : ["operand"],
@@ -1995,7 +1998,7 @@ var Dot = Expressions.Dot = Expression.extend({
 
 
 
-var Arrow = Expressions.Arrow = Expression.extend({
+export var Arrow  = Expression.extend({
     _name: "Arrow",
     i_runtimeConstructClass : RuntimeMemberAccess,
     valueCategory: "lvalue",
@@ -2063,7 +2066,7 @@ var Arrow = Expressions.Arrow = Expression.extend({
 
 
 
-var PREDEFINED_FUNCTIONS = {
+export var PREDEFINED_FUNCTIONS = {
     rand : function(args, sim, inst){
         return Value.instance(Math.floor(sim.nextRandom() * 32767), Types.Int.instance());
     },
@@ -2086,7 +2089,8 @@ var PREDEFINED_FUNCTIONS = {
 };
 
 
-var FunctionCall = Expression.extend({
+// TODO: move FunctionCall to its own module
+export var FunctionCall = Expression.extend({
     _name: "FunctionCall",
     i_runtimeConstructClass : RuntimeFunctionCall,
     initIndex: "arguments",
@@ -2436,7 +2440,7 @@ var FunctionCall = Expression.extend({
     }
 });
 
-var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.extend({
+export var FunctionCallExpression  = Expression.extend({
     _name: "FunctionCallExpression",
     initIndex: "operand",
 
@@ -2580,23 +2584,23 @@ var FunctionCallExpression = Expressions.FunctionCallExpression = Expression.ext
 });
 
 
-Expressions.StaticCast = Expressions.Unsupported.extend({
+export var StaticCast = Unsupported.extend({
     _name: "StaticCast",
     englishName: "static_cast"
 });
-Expressions.DynamicCast = Expressions.Unsupported.extend({
+export var DynamicCast = Unsupported.extend({
     _name: "DynamicCast",
     englishName: "dynamic_cast"
 });
-Expressions.ReinterpretCast = Expressions.Unsupported.extend({
+export var ReinterpretCast = Unsupported.extend({
     _name: "ReinterpretCast",
     englishName: "reinterpret_cast"
 });
-Expressions.ConstCast = Expressions.Unsupported.extend({
+export var ConstCast = Unsupported.extend({
     _name: "ConstCast",
     englishName: "const_cast"
 });
-Expressions.Cast = Expressions.Unsupported.extend({
+export var Cast = Unsupported.extend({
     _name: "Cast",
     englishName: "C-Style Cast"
 });
@@ -2605,7 +2609,7 @@ Expressions.Cast = Expressions.Unsupported.extend({
 
 
 
-var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.extend({
+export var NewExpression = Expression.extend({
     _name: "NewExpression",
     valueCategory: "prvalue",
     initIndex: "allocate",
@@ -2737,7 +2741,7 @@ var NewExpression = Lobster.Expressions.NewExpression = Expressions.Expression.e
 
 
 
-var Delete = Expressions.Delete = Expression.extend({
+export var Delete  = Expression.extend({
     _name: "Delete",
     valueCategory: "prvalue",
     type: Types.Void.instance(),
@@ -2848,6 +2852,7 @@ var Delete = Expressions.Delete = Expression.extend({
     }
 });
 
+//TODO: move to runtimeEnvironment or memory js modules?
 /**
  *
  * @param sim
@@ -2905,7 +2910,8 @@ var deleteHeapArray = function(sim, inst, ptr) {
     return sim.memory.heap.deleteObject(ptr.rawValue(), inst);
 };
 
-var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
+// TODO: liskov suggests this shouldn't be a subtype. Use has-a instead?
+export var DeleteArray = Delete.extend({
     _name: "DeleteArray",
 
     stepForward: function(sim, inst){
@@ -2923,7 +2929,7 @@ var DeleteArray = Expressions.DeleteArray = Expressions.Delete.extend({
 });
 
 // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
-var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression.extend({
+export var ConstructExpression = Expression.extend({
     _name: "ConstructExpression",
     valueCategory: "prvalue",
     initIndex: "init",
@@ -2983,31 +2989,6 @@ var ConstructExpression = Lobster.Expressions.Construct = Expressions.Expression
 
 
 
-
-
-var KEYWORDS = [
-    "alignas", "continue", "friend", "register", "true",
-    "alignof", "decltype", "goto", "reinterpret_cast", "try",
-    "asm", "default", "if", "return", "typedef",
-    "auto", "delete", "inline", "short", "typeid",
-    "bool", "do", "int", "signed", "typename",
-    "break", "double", "long", "sizeof", "union",
-    "case", "dynamic_cast", "mutable", "static", "unsigned",
-    "catch", "else", "namespace", "static_assert", "using",
-    "char", "enum", "new", "static_cast", "virtual",
-    "char16_t", "explicit", "noexcept", "struct", "void",
-    "char32_t", "export", "nullptr", "switch", "volatile",
-    "class", "extern", "operator", "template", "wchar_t",
-    "const", "false", "private", "this", "while",
-    "constexpr", "float", "protected", "thread_local",
-    "const_cast", "for", "public", "throw"
-];
-
-var ALT_OPS = [
-    "and", "and_eq", "bitand", "bitor", "compl", "not",
-    "not_eq", "or", "or_eq", "xor", "xor_eq"
-];
-
 var identifierToText = function(qualId){
     if (Array.isArray(qualId)){ // If it's actually a qualified id
         return qualId.reduce(function(str,id,i){
@@ -3019,7 +3000,7 @@ var identifierToText = function(qualId){
     }
 };
 
-var Identifier = Expressions.Identifier = Expression.extend({
+export var Identifier  = Expression.extend({
     _name: "Identifier",
     valueCategory: "lvalue",
     initIndex: false,
@@ -3094,7 +3075,7 @@ var Identifier = Expressions.Identifier = Expression.extend({
 
 
 
-var ThisExpression = Expressions.ThisExpression = Expression.extend({
+export var ThisExpression  = Expression.extend({
     _name: "ThisExpression",
     valueCategory: "prvalue",
     compile : function(){
@@ -3113,7 +3094,7 @@ var ThisExpression = Expressions.ThisExpression = Expression.extend({
     }
 });
 
-var EntityExpression = Expressions.EntityExpression = Expression.extend({
+export var EntityExpression  = Expression.extend({
     _name: "EntityExpression",
     valueCategory: "lvalue",
     init : function(entity, ast, context){
@@ -3132,7 +3113,7 @@ var EntityExpression = Expressions.EntityExpression = Expression.extend({
 
 
 
-var AuxiliaryExpression = Expressions.AuxiliaryExpression = Expression.extend({
+export var AuxiliaryExpression  = Expression.extend({
     _name: "AuxiliaryExpression",
     valueCategory: "prvalue",
     init : function(type){
@@ -3167,7 +3148,7 @@ var literalTypes = {
     "char" : Types.Char.instance()
 };
 
-var Literal = Expressions.Literal = Expression.extend({
+export var Literal  = Expression.extend({
     _name: "Literal",
     initIndex: false,
     compile : function(){
@@ -3200,7 +3181,7 @@ var Literal = Expressions.Literal = Expression.extend({
 //	}
 });
 
-var StringLiteral = Expressions.StringLiteral = Expression.extend({
+export var StringLiteral  = Expression.extend({
     _name: "StringLiteral",
     initIndex: false,
     compile : function(){
@@ -3233,7 +3214,7 @@ var StringLiteral = Expressions.StringLiteral = Expression.extend({
 //	}
 });
 
-var Parentheses = Expressions.Parentheses = Expression.extend({
+export var Parentheses  = Expression.extend({
     _name: "Parentheses",
     i_childrenToCreate : ["subexpression"],
     i_childrenToExecute : ["subexpression"],
