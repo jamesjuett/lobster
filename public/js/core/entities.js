@@ -1,7 +1,7 @@
-var Lobster = Lobster || {};
-var CPP = Lobster.CPP = Lobster.CPP || {};
+import {CPPError} from "errors";
+import * as SemanticExceptions from "SemanticExceptions"
 
-var Scope = Lobster.Scope = Class.extend({
+export var Scope = Class.extend({
     _name: "Scope",
     _nextPrefix: 0,
     HIDDEN: [],
@@ -280,7 +280,7 @@ var Scope = Lobster.Scope = Class.extend({
 
 });
 
-var BlockScope = Scope.extend({
+export var BlockScope = Scope.extend({
     _name: "BlockScope",
     addAutomaticEntity : function(obj){
         assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
@@ -301,7 +301,7 @@ var BlockScope = Scope.extend({
 
 });
 
-var FunctionBlockScope = BlockScope.extend({
+export var FunctionBlockScope = BlockScope.extend({
     _name: "FunctionBlockScope",
     init: function(parent, sim){
         this.initParent(parent, sim);
@@ -319,7 +319,7 @@ var FunctionBlockScope = BlockScope.extend({
     }
 });
 
-var NamespaceScope = Scope.extend({
+export var NamespaceScope = Scope.extend({
 
     init: function(name, parent, sim){
         assert(!parent || isA(parent, NamespaceScope));
@@ -381,7 +381,7 @@ var NamespaceScope = Scope.extend({
 });
 
 
-var ClassScope = NamespaceScope.extend({
+export var ClassScope = NamespaceScope.extend({
     _name: "ClassScope",
 
     init: function(name, parent, base, sim){
@@ -432,7 +432,7 @@ var ClassScope = NamespaceScope.extend({
 });
 
 
-var CPPEntity = Class.extend(Observable, {
+export var CPPEntity = Class.extend(Observable, {
     _name: "CPPEntity",
     _nextEntityId: 0,
 
@@ -474,9 +474,8 @@ var CPPEntity = Class.extend(Observable, {
 
     //TODO: function for isOdrUsed()?
 });
-CPP.CPPEntity = CPPEntity;
 
-var NamedEntity = CPPEntity.extend({
+export var NamedEntity = CPPEntity.extend({
     _name : "NamedEntity",
 
     linkage: "none", // TODO NEW make this abstract
@@ -491,9 +490,8 @@ var NamedEntity = CPPEntity.extend({
         this.name = name;
     }
 });
-CPP.NamedEntity = NamedEntity;
 
-var DeclaredEntity = NamedEntity.extend({
+export var DeclaredEntity = NamedEntity.extend({
     _name : "DeclaredEntity",
 
     /**
@@ -615,9 +613,8 @@ var DeclaredEntity = NamedEntity.extend({
         return this.i_init;
     }
 });
-CPP.DeclaredEntity = DeclaredEntity;
 
-var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
+export var ReferenceEntity = DeclaredEntity.extend({
     _name: "ReferenceEntity",
     storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
@@ -638,7 +635,7 @@ var ReferenceEntity = CPP.ReferenceEntity = CPP.DeclaredEntity.extend({
 });
 
 // TODO: determine what should actually be the base class here
-var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.DeclaredEntity.extend({
+export var ReferenceEntityInstance = DeclaredEntity.extend({
     _name: "ReferenceEntityInstance",
     init: function (entity) {
         this.initParent(entity.decl);
@@ -674,7 +671,7 @@ var ReferenceEntityInstance = CPP.ReferenceEntityInstance = CPP.DeclaredEntity.e
     }
 });
 
-var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
+export var StaticEntity = DeclaredEntity.extend({
     _name: "StaticEntity",
     storage: "static",
     init: function(decl){
@@ -694,7 +691,7 @@ var StaticEntity = CPP.StaticEntity = CPP.DeclaredEntity.extend({
     }
 });
 
-var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
+export var StringLiteralEntity = CPPEntity.extend({
     _name: "StringLiteralEntity",
     storage: "static",
     init: function(str){
@@ -719,7 +716,7 @@ var StringLiteralEntity = CPP.StringLiteralEntity = CPPEntity.extend({
 });
 
 
-var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
+export var AutoEntity = DeclaredEntity.extend({
     _name: "AutoEntity",
     storage: "automatic",
     init: function(decl){
@@ -746,7 +743,7 @@ var AutoEntity = CPP.AutoEntity = CPP.DeclaredEntity.extend({
     }
 });
 
-var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
+export var ParameterEntity = CPPEntity.extend({
     _name: "ParameterEntity",
     storage: "automatic",
     init: function(func, num){
@@ -781,7 +778,7 @@ var ParameterEntity = CPP.ParameterEntity = CPP.CPPEntity.extend({
 
 });
 
-var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
+export var ReturnEntity = CPPEntity.extend({
     _name: "ReturnEntity",
     storage: "automatic",
 
@@ -811,7 +808,7 @@ var ReturnEntity = CPP.ReturnEntity = CPP.CPPEntity.extend({
     }
 });
 
-var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
+export var ReceiverEntity = CPPEntity.extend({
     _name: "ReceiverEntity",
     storage: "automatic",
     init: function(type){
@@ -836,7 +833,7 @@ var ReceiverEntity = CPP.ReceiverEntity = CPP.CPPEntity.extend({
 
 
 
-var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
+export var NewObjectEntity = CPPEntity.extend({
     _name: "NewObjectEntity",
     storage: "automatic",
     instanceString : function(){
@@ -852,7 +849,7 @@ var NewObjectEntity = CPP.NewObjectEntity = CPP.CPPEntity.extend({
 
 });
 
-var ArraySubobjectEntity = CPP.ArraySubobjectEntity = CPP.CPPEntity.extend({
+export var ArraySubobjectEntity = CPPEntity.extend({
     _name: "ArraySubobjectEntity",
     storage: "none",
     init: function(arrayEntity, index){
@@ -879,7 +876,7 @@ var ArraySubobjectEntity = CPP.ArraySubobjectEntity = CPP.CPPEntity.extend({
     }
 });
 
-var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.extend({
+export var BaseClassSubobjectEntity = CPP.CPPEntity.extend({
     _name: "BaseClassSubobjectEntity",
     storage: "none",
     init: function(type, memberOfType, access){
@@ -913,7 +910,7 @@ var BaseClassSubobjectEntity = CPP.BaseClassSubobjectEntity = CPP.CPPEntity.exte
     }
 });
 
-var MemberSubobjectEntity = DeclaredEntity.extend({
+export var MemberSubobjectEntity = DeclaredEntity.extend({
     _name: "MemberSubobjectEntity",
     storage: "none",
     init: function(decl, memberOfType){
@@ -958,7 +955,7 @@ var MemberSubobjectEntity = DeclaredEntity.extend({
     }
 });
 
-var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
+export var TemporaryObjectEntity = CPPEntity.extend({
     _name: "TemporaryObjectEntity",
     storage: "temp",
     init: function(type, creator, owner, name){
@@ -1010,7 +1007,7 @@ var TemporaryObjectEntity = CPP.TemporaryObjectEntity = CPP.CPPEntity.extend({
 
 });
 
-var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
+export var FunctionEntity = DeclaredEntity.extend({
     _name: "FunctionEntity",
     isStaticallyBound : function(){
         return true;
@@ -1036,7 +1033,7 @@ var FunctionEntity = CPP.FunctionEntity = CPP.DeclaredEntity.extend({
     }
 });
 
-var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
+export var MagicFunctionEntity = FunctionEntity.extend({
     init : function(decl) {
         this.initParent(decl);
         this.setDefinition(decl);
@@ -1047,7 +1044,7 @@ var MagicFunctionEntity = CPP.MagicFunctionEntity = CPP.FunctionEntity.extend({
 });
 
 
-var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend({
+export var MemberFunctionEntity = FunctionEntity.extend({
     _name: "MemberFunctionEntity",
     isMemberFunction: true,
     init: function(decl, containingClass, virtual){
@@ -1124,7 +1121,7 @@ var MemberFunctionEntity = CPP.MemberFunctionEntity = CPP.FunctionEntity.extend(
 });
 
 
-var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
+export var PointedFunctionEntity = CPPEntity.extend({
     _name: "FunctionEntity",
     init: function(type){
         this.initParent(type);
@@ -1152,7 +1149,7 @@ var PointedFunctionEntity = CPP.PointedFunctionEntity = CPPEntity.extend({
 
 
 
-var TypeEntity = CPP.TypeEntity = CPP.DeclaredEntity.extend({
+export var TypeEntity = DeclaredEntity.extend({
     _name: "TypeEntity",
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
@@ -1194,7 +1191,7 @@ var convLen = function(args) {
     return total;
 };
 
-var overloadResolution = function(candidates, args, isThisConst, options){
+export var overloadResolution = function(candidates, args, isThisConst, options){
     options = options || {};
     // Find the constructor
     var cand;

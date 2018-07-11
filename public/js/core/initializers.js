@@ -1,4 +1,4 @@
-var Initializer = Lobster.Initializer = Expression.extend({
+export var Initializer = Expression.extend({
     _name: "Initializer",
     isTailChild : function(child){
         return {isTail: true};
@@ -6,7 +6,7 @@ var Initializer = Lobster.Initializer = Expression.extend({
 });
 
 
-var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
+export var DefaultInitializer = Initializer.extend({
     _name : "DefaultInitializer",
     //initIndex: "explain",
 
@@ -124,7 +124,7 @@ var DefaultInitializer = Lobster.DefaultInitializer = Initializer.extend({
     }
 });
 
-Lobster.DirectCopyInitializerBase = Initializer.extend({
+var DirectCopyInitializerBase = Initializer.extend({
     _name : "DirectCopyInitializerBase",
 
     compile : function(entity) {
@@ -333,7 +333,7 @@ Lobster.DirectCopyInitializerBase = Initializer.extend({
     }
 });
 
-var DirectInitializer = Lobster.DirectInitializer = Lobster.DirectCopyInitializerBase.extend({
+export var DirectInitializer = DirectCopyInitializerBase.extend({
     _name : "DirectInitializer"
 
     //upNext : function(sim, inst){
@@ -342,7 +342,7 @@ var DirectInitializer = Lobster.DirectInitializer = Lobster.DirectCopyInitialize
     //}
 });
 
-var CopyInitializer = Lobster.CopyInitializer = Lobster.DirectCopyInitializerBase.extend({
+export var CopyInitializer = DirectCopyInitializerBase.extend({
     _name : "CopyInitializer"
 
     //upNext : function(sim, inst){
@@ -351,7 +351,7 @@ var CopyInitializer = Lobster.CopyInitializer = Lobster.DirectCopyInitializerBas
     //}
 });
 
-var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitializer.extend({
+export var ParameterInitializer = CopyInitializer.extend({
     _name : "ParameterInitializer",
 
     explain : function(sim, inst){
@@ -361,7 +361,7 @@ var ParameterInitializer = Lobster.ParameterInitializer = Lobster.CopyInitialize
     }
 });
 
-var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.extend({
+export var ReturnInitializer = CopyInitializer.extend({
     _name : "ReturnInitializer",
 
     stepForward : function(sim, inst) {
@@ -380,30 +380,30 @@ var ReturnInitializer = Lobster.ReturnInitializer = Lobster.CopyInitializer.exte
     }
 });
 
-var MemberInitializer = Lobster.MemberInitializer = Lobster.DirectInitializer.extend({
+export var MemberInitializer = DirectInitializer.extend({
     _name : "MemberInitializer",
     isMemberInitializer: true
 });
 
-var DefaultMemberInitializer = Lobster.DefaultMemberInitializer = Lobster.DefaultInitializer.extend({
+export var DefaultMemberInitializer = DefaultInitializer.extend({
     _name : "DefaultMemberInitializer",
     isMemberInitializer: true
 });
 
-var NewDirectInitializer = Lobster.NewDirectInitializer = Lobster.DirectInitializer.extend({
+export var NewDirectInitializer = DirectInitializer.extend({
     _name : "NewDirectInitializer",
     i_runtimeConstructClass : RuntimeNewInitializer
 });
 
 
-var NewDefaultInitializer = Lobster.NewDefaultInitializer = Lobster.DefaultInitializer.extend({
+export var NewDefaultInitializer = DefaultInitializer.extend({
     _name : "NewDefaultInitializer",
     i_runtimeConstructClass : RuntimeNewInitializer
 });
 
 
 
-var InitializerList = Lobster.InitializerList = CPPConstruct.extend({
+export var InitializerList = CPPConstruct.extend({
     _name : "InitializerList",
     init: function(ast, context) {
         this.initParent(ast, context);

@@ -1,11 +1,7 @@
-var Lobster = Lobster || {};
-
-var Declarations = Lobster.Declarations = {
-
-};
+import {checkIdentifier} from "lexical";
 
 // A POD type
-var StorageSpecifier = Lobster.StorageSpecifier = CPPConstruct.extend({
+export var StorageSpecifier = CPPConstruct.extend({
     _name: "StorageSpecifier",
     compile : function(){
 
@@ -73,7 +69,7 @@ var BaseDeclarationMixin = {
     }
 };
 
-var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
+export var Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -268,7 +264,7 @@ var Declaration = Lobster.Declarations.Declaration = CPPConstruct.extend(BaseDec
 });
 
 
-var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
+export var Parameter = CPPConstruct.extend({
     _name: "Parameter",
 
     i_createFromAST : function() {
@@ -320,7 +316,7 @@ var Parameter = Lobster.Declarations.Parameter = CPPConstruct.extend({
 });
 
 // TODO: take baseType as a parameter to compile rather than init
-var Declarator = Lobster.Declarator = CPPConstruct.extend({
+export var Declarator = CPPConstruct.extend({
     _name: "Declarator",
 
     compile : function(compilationContext){
@@ -486,7 +482,7 @@ var Declarator = Lobster.Declarator = CPPConstruct.extend({
 
 
 // NOTE: Any MagicFunctionDefinitions will be exempt from the ODR during linking
-var MagicFunctionDefinition = Declarations.MagicFunctionDefinition = Class.extend({
+export var MagicFunctionDefinition = Class.extend({
     _name: "MagicFunctionDefinition",
     isDefinition: true,
     init : function(name, type){
@@ -518,7 +514,7 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
+export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "FunctionDefinition",
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
@@ -994,7 +990,7 @@ var FunctionDefinition = Lobster.Declarations.FunctionDefinition = CPPConstruct.
 });
 
 // TODO: this should be called ClassDefinition
-var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
+export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     _name: "ClassDeclaration",
 
     compile : function(){
@@ -1344,7 +1340,7 @@ var ClassDeclaration = Lobster.Declarations.ClassDeclaration = CPPConstruct.exte
     }
 });
 
-var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
+export var MemberDeclaration = Declaration.extend({
     _name: "MemberDeclaration",
     init: function(ast, context){
         assert(context);
@@ -1425,7 +1421,7 @@ var MemberDeclaration = Lobster.Declarations.Member = Declaration.extend({
 });
 
 
-var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = FunctionDefinition.extend({
+export var ConstructorDefinition = FunctionDefinition.extend({
     _name: "ConstructorDefinition",
 
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
@@ -1629,7 +1625,7 @@ var ConstructorDefinition = Lobster.Declarations.ConstructorDefinition = Functio
 
 
 
-var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionDefinition.extend({
+export var DestructorDefinition = FunctionDefinition.extend({
     _name: "DestructorDefinition",
 
     init : function(ast, context){
@@ -1734,14 +1730,4 @@ var DestructorDefinition = Lobster.Declarations.DestructorDefinition = FunctionD
         return {isTail: false};
     }
 });
-
-
-
-
-
-// hack to make sure I don't mess up capitalization
-Declarations["class"] = Declarations.ClassDeclaration;
-for (var key in Declarations){
-    Declarations[key.toLowerCase()] = Declarations[key];
-}
 
