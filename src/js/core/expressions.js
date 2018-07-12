@@ -1,5 +1,6 @@
 import {checkIdentifier} from "lexical";
 import {CPPConstruct} from "constructs";
+import * as Util from "util/util";
 
 export var readValueWithAlert = function(evalValue, sim, expr, inst){
     if(!evalValue.isValueValid()){
@@ -1212,10 +1213,10 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
 
         operate : function(left, right, sim, inst){
             if (this.left.type.isIntegralType){
-                return Value.instance(integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
+                return Value.instance(Util.integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
             }
             else{
-                return Value.instance(floatingDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
+                return Value.instance(Util.floatingDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
             }
 
         }
@@ -3141,7 +3142,7 @@ export var AuxiliaryExpression  = Expression.extend({
 
 
 var parseCPPChar = function(litValue){
-    return escapeString(litValue).charCodeAt(0);
+    return Util.escapeString(litValue).charCodeAt(0);
 };
 
 var literalJSParse = {
@@ -3149,7 +3150,7 @@ var literalJSParse = {
 	"float": parseFloat,
 	"double": parseFloat,
     "char": parseCPPChar,
-    "string": escapeString
+    "string": Util.escapeString
 };
 var literalTypes = {
 	"int": Types.Int.instance(),

@@ -9,6 +9,21 @@ var Outlets = Lobster.Outlets = {};
 	// }
 // }
 
+
+function makeEventHandler(element, obj, eventName, preventDefault, stopPropagation){
+	element.addEventListener(Array.isArray(eventName) ? eventName[0] : eventName,
+		function(ev){
+			obj[Array.isArray(eventName) ? eventName[1] : eventName].apply(obj, [ev, this]);
+			if (preventDefault){
+				ev.preventDefault();
+			}
+			if (stopPropagation){
+				ev.stopPropagation();
+			}
+			// alert(eventName);
+		}, false);
+}
+
 function createDefaultOutlets(){
 	$("._outlet").each(function(){
 		$(this).removeClass("_outlet");
