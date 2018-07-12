@@ -483,7 +483,6 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             self.hideAnnotationMessage();
         });
         this.afterAnnotation = [];
-//        makeEventHandler(element.find("#simPane")[0], this, "mousewheel", true);
     },
 
     getProgram : function() {

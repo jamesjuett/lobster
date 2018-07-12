@@ -1,4 +1,5 @@
-import CPPConstruct from "constructs"
+import * as Util from "util/util";
+import CPPConstruct from "constructs";
 import CPPError from "error";
 				
 var vowels = ["a", "e", "i", "o", "u"];
@@ -506,7 +507,7 @@ export var SimpleType = Type.extend({
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? htmlDecoratedType(this.i_type) : this.i_type) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.i_type) : this.i_type) + (varname ? " " + varname : "");
         }
 	},
 	englishString : function(plural){
@@ -578,7 +579,7 @@ export var Char = IntegralTypeBase.extend({
     },
 
     valueToString : function(value){
-        return "'" + unescapeString(String.fromCharCode(value)) + "'";//""+value;
+        return "'" + Util.unescapeString(String.fromCharCode(value)) + "'";//""+value;
     },
     valueToOstreamString : function(value){
         return String.fromCharCode(value);
@@ -810,7 +811,7 @@ export var ArrayPointer = Pointer.extend({
         return this.isValueValid(value) && value !== this.onePast();
     },
     toIndex : function(addr){
-        return integerDivision(addr - this.arrObj.address, this.arrObj.type.elemType.size);
+        return Util.integerDivision(addr - this.arrObj.address, this.arrObj.type.elemType.size);
     }
 
 });
@@ -1137,7 +1138,7 @@ var ClassType = Type.extend({
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
         }
     },
     englishString : function(plural){

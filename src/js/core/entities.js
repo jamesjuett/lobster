@@ -1,5 +1,6 @@
+import * as Util from "util/util";
 import {CPPError} from "errors";
-import * as SemanticExceptions from "SemanticExceptions"
+import * as SemanticExceptions from "SemanticExceptions";
 
 export var Scope = Class.extend({
     _name: "Scope",
@@ -702,7 +703,7 @@ export var StringLiteralEntity = CPPEntity.extend({
         return StringLiteralObject.instance(this.type);
     },
     instanceString : function(){
-        return "string literal \"" + unescapeString(this.i_str) + "\"";
+        return "string literal \"" + Util.unescapeString(this.i_str) + "\"";
     },
     getLiteralString : function() {
         return this.i_str;
@@ -711,7 +712,7 @@ export var StringLiteralEntity = CPPEntity.extend({
         return sim.memory.getStringLiteral(this.i_str);
     },
     describe : function(){
-        return {message: "the string literal \"" + unescapeString(this.i_str) + "\""};
+        return {message: "the string literal \"" + Util.unescapeString(this.i_str) + "\""};
     }
 });
 

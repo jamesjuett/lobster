@@ -1,6 +1,4 @@
-/**
- * @author James
- */
+import * as Util from "util/util";
 
 export var Simulation = Class.extend(Observable, Observer, {
     _name: "Simulation",
@@ -426,7 +424,7 @@ export var Simulation = Class.extend(Observable, Observer, {
             }
         }
         else{
-            var text = escapeString(value.valueToOstreamString());
+            var text = Util.escapeString(value.valueToOstreamString());
         }
         this.console.setValue(this.console.value() + text);
     },
