@@ -669,9 +669,3 @@ export var MemberSubobject = Subobject.extend({
     }
 });
 
-export var createAnonObject = function(type, memory, address){
-    var obj = AnonObject.instance(type);
-    obj.allocated(memory, address);
-    return obj;
-};
-

@@ -1,3 +1,5 @@
+import {SimulationOutlet, CodeList, ProjectList} from "view/outlets";
+
 var ID_TOKEN = "";
 
 var firstTime = true;
@@ -7,9 +9,9 @@ var handleWhoAmI = function (data) {
     }
     firstTime = false;
     data.lab2group = "2"; // hack to make everyone have Maize
-    Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
+    SimulationOutlet.useSourceSimulation = false;
 
-    var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"), {
+    var simOutlet = SimulationOutlet.instance($("#lobster1"), {
         log: false
     });
 
