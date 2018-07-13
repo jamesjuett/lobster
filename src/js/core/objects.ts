@@ -1,8 +1,10 @@
 import * as Types from "types";
 
-export var CPPObject = Class.extend(Observable, {
+export class CPPObject {
     _name: "CPPObject",
     storage: Class._ABSTRACT,
+
+    // ADD OBSERVABLE
 
     init: function(name, type){
         this.name = name;
@@ -435,7 +437,7 @@ export var CPPObject = Class.extend(Observable, {
         return {name: this.name, message: "the " + w1 + (this.name || ("at 0x" + this.address))};
     }
 
-});
+};
 
 
 export var ThisObject = CPPObject.extend({

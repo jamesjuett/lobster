@@ -1,7 +1,8 @@
-import {assert} from "../util/util";
-import {Observable} from "../util/observe";
-import {CPPObject} from "./objects";
-import {Type, Bool} from "./types";
+import { assert } from "../util/util";
+import { Observable } from "../util/observe";
+import { CPPObject } from "./objects";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer } from "./types";
+import last from "lodash/last";
 
 type RawValueType = number | string | boolean;
 
@@ -15,7 +16,7 @@ export class Value {
 
 
     // TODO: ts: change any type for value to match type expected for CPP type of value
-    constructor(rawValue: RawValueType, type: Type, isValid: boolean = true){
+    constructor(rawValue: RawValueType, type: Type, isValid: boolean = true) {
         // TODO: remove this.value in favor of using rawValue() function
         this.rawValue = rawValue;
         this.type = type;
@@ -26,17 +27,17 @@ export class Value {
         return new Value(valueToClone, this.type, this.isValid);
     }
 
-    public equals(otherValue : Value) {
+    public equals(otherValue: Value) {
         return new Value(
             this.rawValue === otherValue.rawValue,
             Bool.instance(),
             this.isValid && otherValue.isValid);
     }
-    
-    public rawEquals(otherRawValue : any) {
+
+    public rawEquals(otherRawValue: any) {
         return this.rawValue === otherRawValue;
     }
-    
+
     public toString() {
         return this.valueString();
     }
@@ -53,7 +54,7 @@ export class Value {
     /**
      * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
      * that you're using locally and want to keep updating its raw value to something else before passing
-     * to something like memory.getObject(). For example, this is done when traversing through a cstring by
+     * to something like memory.dereference(). For example, this is done when traversing through a cstring by
      * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
      */
     public setRawValue(rawValue: RawValueType) {
@@ -62,20 +63,20 @@ export class Value {
     }
 
     public describe() {
-        return {message: this.valueString()};
+        return { message: this.valueString() };
     }
 }
 
 
 
-var createAnonymousObject = function(type: Type, memory: Memory, address: number) {
+var createAnonymousObject = function (type: Type, memory: Memory, address: number) {
     var obj = new AnonObject(type);
     obj.allocated(memory, address);
     return obj;
 };
 
 export class Memory {
-    private static _name: "Memory";
+    private static _name = "Memory";
 
     public readonly observable = new Observable(this);
 
@@ -100,17 +101,17 @@ export class Memory {
     // Definite assignment assertions with ! are for properties initialized in the reset function called
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
-    private objects!: {[index:number]: CPPObject};
-    private stringLiteralMap!: {[index:string]: StringLiteralObject};
-    private staticObjects!: {[index:string]: CPPObject};
-    private temporaryObjects!: {[index:number]: TemporaryObject}; 
+    private objects!: { [index: number]: CPPObject };
+    private stringLiteralMap!: { [index: string]: StringLiteralObject };
+    private staticObjects!: { [index: string]: CPPObject };
+    private temporaryObjects!: { [index: number]: TemporaryObject };
     private stack!: MemoryStack;
     private heap!: MemoryHeap;
 
     private staticTop!: number;
     private temporaryBottom!: number;
 
-    constructor(capacity: number, staticCapacity: number, stackCapacity: number){
+    constructor(capacity: number, staticCapacity: number, stackCapacity: number) {
         this.capacity = capacity || 10000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
         this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);
@@ -139,13 +140,13 @@ export class Memory {
 
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
-        for(var i = 0; i < this.capacity + this.temporaryCapacity; ++i){
+        for (var i = 0; i < this.capacity + this.temporaryCapacity; ++i) {
             this.bytes[i] = Math.floor(Math.random() * 100);
         }
 
         this.objects = {};
         this.stringLiteralMap = {};
-        this.staticTop = this.staticStart+4;
+        this.staticTop = this.staticStart + 4;
         this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
 
@@ -155,74 +156,11 @@ export class Memory {
         this.observable.send("reset");
     }
 
-//    clear : function(){
-//        for(var i = 0; i < this.capacity; ++i){
-//            this.bytes[i] = 0;
-//        }
-//        this.stack = null;
-//        this.heap = null;
-//        this.objects = {};
-//        this.send("cleared");
-//    },
-    allocateObject : function(object, addr){
-        this.objects[addr] = object;
-        object.allocated(this, addr);
-    },
-    deallocateObject : function(addr, inst){
-        assert(addr !== undefined);
-        var obj = this.objects[addr];
-        if (obj){
-            obj.deallocated(inst);
-        }
-        // I'm just leaving the dead objects here for now, that way we can provide better messages if a dead object is looked up
-        //delete this.objects[addr];
-    },
-
-    allocateStringLiteral : function(stringLiteralEntity) {
-        var str = stringLiteralEntity.getLiteralString();
-        if (!this.i_stringLiteralMap[str]) {
-            // only need to allocate a string literal object if we didn't already have an identical one
-            var object = stringLiteralEntity.objectInstance();
-            this.allocateObject(object, this.staticTop);
-
-            // record the string literal in case we see more that are the same in the future
-            this.i_stringLiteralMap[str] = object;
-
-            // write value of string literal into the object
-            object.writeValue(Types.Char.jsStringToNullTerminatedCharArray(str));
-
-            // adjust location for next static object
-            this.staticTop += object.size;
-        }
-
-    },
-
-    getStringLiteral : function(str) {
-        return this.i_stringLiteralMap[str];
-    },
-
-    allocateStatic : function(staticEntity){
-        var object = staticEntity.objectInstance();
-        this.allocateObject(object, this.staticTop);
-        this.staticTop += object.size;
-        this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
-
-        if(staticEntity.defaultValue !== undefined){
-            object.setValue(staticEntity.defaultValue);
-        }
-        else if (staticEntity.type.defaultValue !== undefined){
-            object.setValue(staticEntity.type.defaultValue);
-        }
-    },
-
-    staticLookup : function(staticEntity) {
-        return this.staticObjects[staticEntity.getFullyQualifiedName()];
-    },
-
-    getByte : function(addr){
+    public getByte(addr: number) {
         return this.bytes[addr];
-    },
-    readByte : function(ad, fromObj){
+    }
+
+    public readByte(addr: number, fromObj: CPPObject) {
 
         // Notify any other object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
@@ -233,13 +171,15 @@ export class Memory {
         //        obj.byteRead(ad);
         //    }
         //}
-        return this.bytes[ad];
-    },
-    getBytes : function(addr, num){
+        return this.bytes[addr];
+    }
+
+    public getBytes(addr: number, num: number) {
         return this.bytes.slice(addr, addr + num);
-    },
-    readBytes : function(ad, num, fromObj){
-        var end = ad + num;
+    }
+
+    public readBytes(addr: number, num: number, fromObj: CPPObject) {
+        var end = addr + num;
 
         // Notify any other object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
@@ -251,10 +191,11 @@ export class Memory {
         //    }
         //}
 
-        return this.bytes.slice(ad, end);
-    },
-    setByte : function(ad, value){
-        this.bytes[ad] = value;
+        return this.bytes.slice(addr, end);
+    }
+
+    public setByte(addr: number, value: RawValueType) {
+        this.bytes[addr] = value;
 
         // Notify any object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
@@ -264,9 +205,10 @@ export class Memory {
         //        obj.byteSet(ad, value);//.send("byteSet", {addr: ad, value: value});
         //    }
         //}
-    },
-    writeByte : function(ad, value, fromObj){
-        this.bytes[ad] = value;
+    }
+
+    public writeByte(addr: number, value: RawValueType, fromObj: CPPObject) {
+        this.bytes[addr] = value;
 
         // Notify any other object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
@@ -277,11 +219,12 @@ export class Memory {
         //        obj.byteWritten(ad, value);//.send("byteWritten", {addr: ad, value: value});
         //    }
         //}
-    },
-    setBytes : function(ad, values){
+    }
 
-        for(var i = 0; i < values.length; ++i){
-            this.bytes[ad+i] = values[i];
+    public setBytes(addr: number, values: RawValueType[]) {
+
+        for (var i = 0; i < values.length; ++i) {
+            this.bytes[addr + i] = values[i];
         }
 
         // Notify any other object that is interested in that byte
@@ -292,8 +235,9 @@ export class Memory {
         //        obj.bytesSet(ad, values);//.send("byteSet", {addr: ad, values: values});
         //    }
         //}
-    },
-    writeBytes : function(ad, values, fromObj){
+    }
+
+    public writeBytes(addr: number, values: RawValueType[], fromObj: CPPObject) {
 
         //TODO remove this commented code
         //if (isA(fromObj, TemporaryObject)){
@@ -308,8 +252,8 @@ export class Memory {
         //    return;
         //}
 
-        for(var i = 0; i < values.length; ++i){
-            this.bytes[ad+i] = values[i];
+        for (var i = 0; i < values.length; ++i) {
+            this.bytes[addr + i] = values[i];
         }
 
         // Notify any other object that is interested in that byte
@@ -321,163 +265,240 @@ export class Memory {
         //        obj.bytesWritten(ad, values);//.send("bytesWritten", {addr: ad, values: values});
         //    }
         //}
-    },
+    }
 
-//    makeObject : function(entity, addr){
-//        return this.objects[addr] = CPPObject.instance(entity, this, addr);
-//    },
-    // Takes in a Value or CPPObject of pointer type. Must point to an object type
+    // Attempts to dereference a pointer and retreive the object it points to.
+    // Takes in a Value or CPPObject of pointer type. Must point to an object type.
     // Returns the most recently allocated object at the given address.
     // This may be an object which is no longer alive (has been deallocated).
-    getObject: function(ptr, type){
-        assert(isA(ptr, Value) || isA(ptr, CPPObject));
+    // If no object is found, or an object of a type that does not match the pointed-to type is found,
+    // returns an anonymous object representing the given address interpreted as the requested type.
+    // (In C++, reading/writing to this object will cause undefined behavior.)
+    dereference(ptr: Value | CPPObject) {
         assert(ptr.type.isObjectPointer());
-        type = type || ptr.type.ptrTo;
 
         var addr = ptr.rawValue();
 
         // Handle special cases for pointers with RTTI
-        if (isA(ptr.type, Types.ArrayPointer)){
+        if (ptr.type instanceof ArrayPointer) {
             return ptr.type.arrObj.getSubobject(addr);
 
         }
-        else if (isA(ptr.type, Types.ObjectPointer)  && ptr.type.isValueValid(addr)){
+        if (ptr.type instanceof ObjectPointer && ptr.type.isValueValid(addr)) {
             return ptr.type.obj;
         }
 
         // Grab object from memory
         var obj = this.objects[addr];
 
-        if (obj && (similarType(obj.type. type) || subType(obj.type, type))){
+        if (obj && (similarType(obj.type, type) || subType(obj.type, type))) {
             return obj;
         }
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
         return createAnonymousObject(type, this, addr);
-    },
-    allocateTemporaryObject: function(tempEntity){
-        var obj = TemporaryObjectInstance.instance(tempEntity);
+    }
+    
+
+    public allocateObject(object: CPPObject, addr: number) {
+        this.objects[addr] = object;
+        object.allocated(this, addr);
+    }
+
+    /**
+     * Deallocates an object at the given address. The object actually remains in memory, but is marked as dead.
+     * If no object exists at the given address, does nothing. If the object is already dead, does nothing.
+     * @param addr 
+     * @param killer The runtime construct that killed the object
+     */
+    public deallocateObject(addr: number, killer?: RuntimeConstruct) {
+        var obj = this.objects[addr];
+        if (obj && obj.isAlive) {
+            obj.deallocated(killer);
+        }
+    }
+
+    public allocateStringLiteral(stringLiteralEntity: StringLiteralEntity) {
+        var str = stringLiteralEntity.getLiteralString();
+        if (!this.stringLiteralMap[str]) {
+            // only need to allocate a string literal object if we didn't already have an identical one
+            var object = stringLiteralEntity.objectInstance();
+            this.allocateObject(object, this.staticTop);
+
+            // record the string literal in case we see more that are the same in the future
+            this.stringLiteralMap[str] = object;
+
+            // write value of string literal into the object
+            object.writeValue(Char.jsStringToNullTerminatedCharArray(str));
+
+            // adjust location for next static object
+            this.staticTop += object.size;
+        }
+
+    }
+
+    public getStringLiteral(str: string) {
+        return this.stringLiteralMap[str];
+    }
+
+    public allocateStatic(staticEntity: StaticEntity) {
+        var object = staticEntity.objectInstance();
+        this.allocateObject(object, this.staticTop);
+        this.staticTop += object.size;
+        this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
+
+        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
+        if (staticEntity.defaultValue !== undefined) {
+            object.setValue(staticEntity.defaultValue);
+        }
+        else if (staticEntity.type.defaultValue !== undefined) {
+            object.setValue(staticEntity.type.defaultValue);
+        }
+    }
+
+    
+
+    public staticLookup(staticEntity: StaticEntity) {
+        return this.staticObjects[staticEntity.getFullyQualifiedName()];
+    }
+
+    public allocateTemporaryObject(tempEntity: TemporaryObjectEntity) {
+        var obj = new TemporaryObjectInstance(tempEntity);
         this.allocateObject(obj, this.temporaryBottom);
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
-        this.send("temporaryObjectAllocated", obj);
+        this.observable.send("temporaryObjectAllocated", obj);
 
-        if(tempEntity.defaultValue !== undefined){
+        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
+        if (tempEntity.defaultValue !== undefined) {
             obj.setValue(tempEntity.defaultValue);
         }
-        else if (tempEntity.type.defaultValue !== undefined){
+        else if (tempEntity.type.defaultValue !== undefined) {
             obj.setValue(tempEntity.type.defaultValue);
         }
 
         return obj;
-    },
-    deallocateTemporaryObject: function(obj, inst){
-        this.deallocateObject(obj, inst);
+    }
+
+
+    // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
+    public deallocateTemporaryObject(obj: TemporaryObjectInstance, killer?: RuntimeConstruct) {
+        this.deallocateObject(obj, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj];
-        this.send("temporaryObjectDeallocated", obj);
+        this.observable.send("temporaryObjectDeallocated", obj);
     }
-});
+};
 
-var MemoryStack = Class.extend(Observable, {
-    _name: "MemoryStack",
-    init: function(memory, start){
-        this.initParent();
+class MemoryStack {
+    private static readonly _name =  "MemoryStack";
+    
+    public readonly observable = new Observable(this);
 
+    private top: number;
+    private readonly start: number;
+    private readonly memory: Memory;
+    private readonly frames: MemoryFrame[];
+
+    constructor(memory: Memory, start: number) {
         this.memory = memory;
         this.start = start;
         this.top = start;
         this.frames = [];
-    },
-    clear : function(){
-        this.frames.length = 0;
-        this.top = this.start;
-    },
-    topFrame : function(){
-        return this.frames.last();
-    },
-    pushFrame : function(func){
-        var frame = MemoryFrame.instance(func.model.bodyScope, this.memory, this.top, func);
+    }
+
+    // public clear() {
+    //     this.frames.length = 0;
+    //     this.top = this.start;
+    // }
+
+    public topFrame() {
+        return last(this.frames);
+    }
+
+    public pushFrame(rtFunc: RuntimeFunction) {
+        var frame = MemoryFrame.instance(rtFunc.model.bodyScope, this.memory, this.top, rtFunc);
         this.top += frame.size;
         this.frames.push(frame);
-
-        // Take care of reference parameters
-
-
-        this.memory.send("framePushed", frame);
+        this.memory.observable.send("framePushed", frame);
         return frame;
-    },
-    popFrame : function(inst){
+    }
+
+    public popFrame(rtConstruct: RuntimeConstruct) {
         var frame = this.frames.pop();
-        for (var key in frame.objects){
+        for (var key in frame.objects) {
             var obj = frame.objects[key];
-            this.memory.deallocateObject(obj.address, inst)
+            this.memory.deallocateObject(obj.address, rtConstruct)
         }
         this.top -= frame.size;
-        this.memory.send("framePopped", frame);
-    },
-    instanceString : function(){
+        this.memory.observable.send("framePopped", frame);
+    }
+
+    public toString() {
         var str = "<ul class=\"stackFrames\">";
-        for(var i = 0; i < this.frames.length; ++i){
+        for (var i = 0; i < this.frames.length; ++i) {
             var frame = this.frames[i];
             str += "<li>" + frame.toString() + "</li>";
         }
         str += "</ul>";
         return str;
     }
-});
+}
 
-var MemoryHeap = Class.extend(Observable, {
-    _name: "MemoryHeap",
-    props : {
-        memory: {type: Memory},
-        bottom: {type: "number"}
-    },
-    init: function(memory, end){
+class MemoryHeap {
+    private static readonly _name = "MemoryHeap";
+
+    public readonly observable = new Observable(this);
+
+    private bottom: number;
+    private readonly end: number;
+    private readonly memory: Memory;
+    private readonly objectMap: {[index:number]: DynamicObject};
+
+    public constructor(memory: Memory, end: number) {
         this.memory = memory;
         this.end = end;
         this.bottom = end;
         this.objectMap = {};
+    }
 
-        this.initParent();
-    },
-    clear : function(){
-        this.objects.length = 0;
-    },
-    allocateNewObject: function(obj){
+    // public clear() {
+    //     this.objectMap = {};
+    // }
+
+    public allocateNewObject(obj: DynamicObject) {
         this.bottom -= obj.type.size;
         this.memory.allocateObject(obj, this.bottom);
         this.objectMap[obj.address] = obj;
-        this.memory.send("heapObjectAllocated", obj);
+        this.memory.observable.send("heapObjectAllocated", obj);
 
-
-        if(obj.defaultValue !== undefined){
+        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
+        if (obj.defaultValue !== undefined) {
             obj.setValue(obj.defaultValue);
         }
-        else if (obj.type.defaultValue !== undefined){
+        else if (obj.type.defaultValue !== undefined) {
             obj.setValue(obj.type.defaultValue);
         }
-    },
+    }
 
-    deleteObject: function(addr, inst){
+    public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
         var obj = this.objectMap[addr];
         if (obj) {
             delete this.objectMap[addr];
-            this.memory.deallocateObject(addr, inst);
-            this.memory.send("heapObjectDeleted", obj);
+            this.memory.deallocateObject(addr, rtConstruct);
+            this.memory.observable.send("heapObjectDeleted", obj);
             // Note: responsibility for running destructor lies elsewhere
         }
         return obj;
     }
-});
+}
 
-//TODO search for StackFrame, .stack, .heap, .objects
 
 var MemoryFrame = Class.extend(Observable, {
     _name: "MemoryFrame",
 
-    init: function(scope, memory, start, func){
+    public init(scope, memory, start, func) {
         var self = this;
         this.scope = scope;
         this.memory = memory;
@@ -493,7 +514,7 @@ var MemoryFrame = Class.extend(Observable, {
 
         var addr = this.start;
 
-        if(this.func.isMemberFunction){
+        if (this.func.isMemberFunction) {
             var obj = ThisObject.instance("this", Types.ObjectPointer.instance(funcInst.getReceiver()));
 
             // Allocate object
@@ -522,40 +543,40 @@ var MemoryFrame = Class.extend(Observable, {
             this.objects[obj.entityId] = obj;
             this.size += obj.size;
 
-            if(objEntity.defaultValue !== undefined){
+            if (objEntity.defaultValue !== undefined) {
                 obj.setValue(objEntity.defaultValue);
             }
-            else if (objEntity.type.defaultValue !== undefined){
+            else if (objEntity.type.defaultValue !== undefined) {
                 obj.setValue(objEntity.type.defaultValue);
             }
-//                console.log("----" + key);
+            //                console.log("----" + key);
         }
 
 
         this.end = this.start + this.size;
     },
 
-    instanceString : function(){
+    public instanceString() {
         var str = "";
-        for(var key in this.objects){
+        for (var key in this.objects) {
             var obj = this.objects[key];
-//			if (!obj.type){
+            //			if (!obj.type){
             // str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
             str += "<span>" + obj + "</span>\n";
-//			}
+            //			}
         }
         return str;
     },
 
-    getObjectForEntity : function(entity){
+    public getObjectForEntity(entity) {
         return this.objects[entity.entityId];
     },
-    referenceLookup : function(entity){
+    public referenceLookup(entity) {
         return this.references[entity.entityId].runtimeLookup();
     },
-    setUpReferenceInstances : function(){
+    public setUpReferenceInstances() {
         var self = this;
-        this.scope.referenceObjects.forEach(function(ref){
+        this.scope.referenceObjects.forEach(function (ref) {
             self.references[ref.entityId] = ref.runtimeInstance();
             //self.memory.allocateObject(ref, addr);
             //addr += ref.type.size;
