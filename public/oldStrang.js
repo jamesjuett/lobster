@@ -11,7 +11,7 @@
 //     var outOfBounds = false;
 //     var seenInvalidChar = false;
 //
-//     var c = sim.memory.getObject(ptrValue).getValue();
+//     var c = sim.memory.dereference(ptrValue).getValue();
 //     // Copy in-bounds characters until null char
 //     while (ptrValue.isValueDereferenceable() && !Types.Char.isNullChar(c.rawValue())) {
 //         if (!c.isValueValid()) {
@@ -19,7 +19,7 @@
 //         }
 //         charValuesToCopy.push(seenInvalidChar ? c.invalidate() : c);
 //         ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//         c = sim.memory.getObject(ptrValue).getValue();
+//         c = sim.memory.dereference(ptrValue).getValue();
 //     }
 //
 //     if (!ptrValue.isValueDereferenceable()) {
@@ -34,7 +34,7 @@
 //             // value is a coincidence because we were off the end of an arary in no man's land
 //             charValuesToCopy.push(c.invalidate());
 //             ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//             c = sim.memory.getObject(ptrValue).getValue();
+//             c = sim.memory.dereference(ptrValue).getValue();
 //             ++count;
 //         }
 //
@@ -114,7 +114,7 @@
 //     }
 //     else if (rawN < rawCapacity) {
 //         // We want more, and we have enough capacity (for n chars plus null char)
-//         var arrObj = sim.memory.getObject(rec.getMemberSubobject("data_ptr")).arrObj;
+//         var arrObj = sim.memory.dereference(rec.getMemberSubobject("data_ptr")).arrObj;
 //         for(var i = rawSize; i < rawN; ++i) {
 //             arrObj.getArrayElemSubobject(i).writeValue(c);
 //         }
@@ -125,7 +125,7 @@
 //     }
 //     else {
 //         // We want more, but don't have enough capacity. make new array
-//         var arrObj = sim.memory.getObject(rec.getMemberSubobject("data_ptr")).arrObj;
+//         var arrObj = sim.memory.dereference(rec.getMemberSubobject("data_ptr")).arrObj;
 //
 //         var charsToCopy = [];
 //         var i = 0;
@@ -373,7 +373,7 @@
 //                             var charValuesToCopy = [];
 //                             var outOfBounds = false;
 //
-//                             var c = sim.memory.getObject(ptrValue).getValue();
+//                             var c = sim.memory.dereference(ptrValue).getValue();
 //                             while (numToCopy > 0) {
 //                                 if (!ptrValue.isValueDereferenceable()) {
 //                                     outOfBounds = true;
@@ -381,14 +381,14 @@
 //                                 }
 //                                 charValuesToCopy.push(c);
 //                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.getObject(ptrValue).getValue();
+//                                 c = sim.memory.dereference(ptrValue).getValue();
 //                                 --numToCopy;
 //                             }
 //
 //                             while (numToCopy > 0) {
 //                                 charValuesToCopy.push(c.invalidate());
 //                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.getObject(ptrValue).getValue();
+//                                 c = sim.memory.dereference(ptrValue).getValue();
 //                                 --numToCopy;
 //                             }
 //
@@ -695,7 +695,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -720,7 +720,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -745,7 +745,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -770,7 +770,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -793,7 +793,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -818,7 +818,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);

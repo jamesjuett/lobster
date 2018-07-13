@@ -515,7 +515,7 @@ export var Simulation = Class.extend(Observable, Observer, {
             return [obj.type.arrObj];
         }
         else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
-            var pointsTo = this.memory.getObject(obj);
+            var pointsTo = this.memory.dereference(obj);
             if (pointsTo && !isA(pointsTo, AnonObject)){
                 return [pointsTo];
             }
