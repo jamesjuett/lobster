@@ -3,3 +3,6 @@
 .idea
 
 /public/vendor
+
+/public/queue/js/
+/node_modules/

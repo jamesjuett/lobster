@@ -11,9 +11,9 @@ export function debug(message, category){
     }
 }
 
-export function assert(condition, message) {
+export function assert(condition: boolean, message: string = "") {
     if (!condition)
-        throw Error("Assert failed" + (typeof message !== "undefined" ? ": " + message : "."));
+        throw Error("Assert failed: " + message);
 };
 
 var MagicMap = Class.extend({

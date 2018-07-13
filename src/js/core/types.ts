@@ -217,7 +217,7 @@ export var isCvConvertible = function(t1, t2){
     return true;
 };
 
-export var Type = Class.extend({
+export class Type {
     _name: "Type",
     size: Class._ABSTRACT,
     isObjectType : true,
@@ -478,7 +478,7 @@ export var Type = Class.extend({
             }, false);
         }
     }
-});
+};
 
 export var SimpleType = Type.extend({
     _name: "SimpleType",

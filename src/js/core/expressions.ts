@@ -1,6 +1,6 @@
-import {checkIdentifier} from "lexical";
-import {CPPConstruct} from "constructs";
-import * as Util from "util/util";
+import {checkIdentifier} from "./lexical";
+import {CPPConstruct} from "./constructs";
+import * as Util from "../util/util";
 
 export var readValueWithAlert = function(evalValue, sim, expr, inst){
     if(!evalValue.isValueValid()){

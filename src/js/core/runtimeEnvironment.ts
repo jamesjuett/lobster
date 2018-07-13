@@ -1,100 +1,123 @@
+import {assert} from "../util/util";
+import {Observable} from "../util/observe";
+import {CPPObject} from "./objects";
+import {Type, Bool} from "./types";
 
-import {createAnonObject} from "objects";
+type RawValueType = number | string | boolean;
 
-export var Value = Class.extend({
-    _name: "Value",
-    init: function(value, type, options){
+export class Value {
+    private static _name = "Value";
+
+    public readonly type: Type;
+    public readonly isValid: boolean;
+
+    public readonly rawValue: RawValueType;
+
+
+    // TODO: ts: change any type for value to match type expected for CPP type of value
+    constructor(rawValue: RawValueType, type: Type, isValid: boolean = true){
         // TODO: remove this.value in favor of using rawValue() function
-        this.value = value;
-        this.i_rawValue = value;
+        this.rawValue = rawValue;
         this.type = type;
+        this.isValid = isValid && this.type.isValueValid(this.rawValue);
+    };
 
-        if(options && options.invalid){
-            this._invalid = true;
-        }
-    },
-    clone : function(cloneValue) {
-        return Value.instance(cloneValue !== undefined ? cloneValue : this.i_rawValue, this.type, {
-            invalid : this._invalid
-        });
-    },
-    plus : function(toAdd) {
-        return this.clone(this.i_rawValue + toAdd);
-    },
-    minus : function(toSub) {
-        return this.clone(this.i_rawValue - toSub);
-    },
-    times : function(multiplyBy) {
-        return this.clone(this.i_rawValue * multiplyBy);
-    },
-    divide : function(divideBy) {
-        return this.clone(this.i_rawValue / divideBy);
-    },
-    equals : function(otherValue) {
-        var certain = this.isValueValid() && (!otherValue.isValueValid || otherValue.isValueValid());
-        if (otherValue.rawValue) {
-            otherValue = otherValue.rawValue();
-        }
-        return Value.instance(this.rawValue() === otherValue, Types.Bool.instance(), {
-            invalid : !certain
-        });
-    },
-    instanceString : function(){
+    public clone(valueToClone: RawValueType = this.rawValue) {
+        return new Value(valueToClone, this.type, this.isValid);
+    }
+
+    public equals(otherValue : Value) {
+        return new Value(
+            this.rawValue === otherValue.rawValue,
+            Bool.instance(),
+            this.isValid && otherValue.isValid);
+    }
+    
+    public rawEquals(otherRawValue : any) {
+        return this.rawValue === otherRawValue;
+    }
+    
+    public toString() {
         return this.valueString();
-    },
-    valueString : function(){
-        return this.type.valueToString(this.i_rawValue);
-    },
-    valueToOstreamString : function(){
-        return this.type.valueToOstreamString(this.i_rawValue);
-    },
-    getValue : function(){
-        return this;
-    },
-    rawValue : function(){
-        return this.i_rawValue;
-    },
+    }
+
+    public valueString() {
+        return this.type.valueToString(this.rawValue);
+    }
+
+    // TODO: perhaps this should be moved to the ostream class
+    public valueToOstreamString() {
+        return this.type.valueToOstreamString(this.rawValue);
+    }
+
     /**
      * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
      * that you're using locally and want to keep updating its raw value to something else before passing
      * to something like memory.getObject(). For example, this is done when traversing through a cstring by
      * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
      */
-    setRawValue : function(value) {
-        this.i_rawValue = this.value = value;
-    },
-    isValueValid : function(){
-        return !this._invalid && this.type.isValueValid(this.i_rawValue);
-    },
-    invalidate : function() {
-        var c = this.clone();
-        c._invalid = true;
-        return c;
-    },
-    isValueDereferenceable : function(){
-        return !this._invalid && this.type.isValueDereferenceable(this.i_rawValue);
-    },
-    describe : function(){
+    public setRawValue(rawValue: RawValueType) {
+        (<RawValueType>this.rawValue) = rawValue;
+        (<boolean>this.isValid) = this.isValid && this.type.isValueValid(this.rawValue);
+    }
+
+    public describe() {
         return {message: this.valueString()};
     }
-});
+}
 
 
-export var Memory = Class.extend(Observable, {
-    _name: "Memory",
-    init: function(capacity, staticCapacity, stackCapacity){
-        this.initParent();
 
+var createAnonymousObject = function(type: Type, memory: Memory, address: number) {
+    var obj = new AnonObject(type);
+    obj.allocated(memory, address);
+    return obj;
+};
+
+export class Memory {
+    private static _name: "Memory";
+
+    public readonly observable = new Observable(this);
+
+    public readonly capacity: number;
+    public readonly staticCapacity: number;
+    public readonly stackCapacity: number;
+    public readonly heapCapacity: number;
+
+    public readonly staticStart: number;
+    public readonly staticEnd: number;
+
+    public readonly stackStart: number;
+    public readonly stackEnd: number;
+
+    public readonly heapStart: number;
+    public readonly heapEnd: number;
+
+    public readonly temporaryStart: number;
+    public readonly temporaryCapacity: number;
+    public readonly temporaryEnd: number;
+
+    // Definite assignment assertions with ! are for properties initialized in the reset function called
+    // at the end of the constructor.
+    private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
+    private objects!: {[index:number]: CPPObject};
+    private stringLiteralMap!: {[index:string]: StringLiteralObject};
+    private staticObjects!: {[index:string]: CPPObject};
+    private temporaryObjects!: {[index:number]: TemporaryObject}; 
+    private stack!: MemoryStack;
+    private heap!: MemoryHeap;
+
+    private staticTop!: number;
+    private temporaryBottom!: number;
+
+    constructor(capacity: number, staticCapacity: number, stackCapacity: number){
         this.capacity = capacity || 10000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
         this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);
         this.heapCapacity = this.capacity - this.staticCapacity - this.stackCapacity;
 
-        this.bubble = true;
         this.staticStart = 0;
-        this.staticTop = this.staticStart + 4;
         this.staticEnd = this.staticStart + this.staticCapacity;
-        this.staticObjects = {};
 
         this.stackStart = this.staticEnd;
         this.stackEnd = this.stackStart + this.stackCapacity;
@@ -103,16 +126,16 @@ export var Memory = Class.extend(Observable, {
         this.heapEnd = this.heapStart + this.heapCapacity;
 
         this.temporaryStart = this.heapEnd + 100;
-        this.temporaryBottom = this.temporaryStart;
         this.temporaryCapacity = 10000;
         this.temporaryEnd = this.temporaryStart + this.temporaryCapacity;
 
         assert(this.staticCapacity < this.capacity && this.stackCapacity < this.capacity && this.heapCapacity < this.capacity);
         assert(this.heapEnd == this.capacity);
 
-    },
+        this.reset();
+    }
 
-    reset : function(){
+    public reset() {
 
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
@@ -121,7 +144,7 @@ export var Memory = Class.extend(Observable, {
         }
 
         this.objects = {};
-        this.i_stringLiteralMap = {};
+        this.stringLiteralMap = {};
         this.staticTop = this.staticStart+4;
         this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
@@ -129,8 +152,8 @@ export var Memory = Class.extend(Observable, {
         this.stack = MemoryStack.instance(this, this.staticEnd);
         this.heap = MemoryHeap.instance(this, this.heapEnd);
         this.temporaryObjects = {};
-        this.send("reset");
-    },
+        this.observable.send("reset");
+    }
 
 //    clear : function(){
 //        for(var i = 0; i < this.capacity; ++i){
@@ -331,7 +354,7 @@ export var Memory = Class.extend(Observable, {
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
-        return createAnonObject(type, this, addr);
+        return createAnonymousObject(type, this, addr);
     },
     allocateTemporaryObject: function(tempEntity){
         var obj = TemporaryObjectInstance.instance(tempEntity);
