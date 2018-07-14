@@ -727,7 +727,7 @@ export var AutoEntity = DeclaredEntity.extend({
         return this.name + " (" + this.type + ")";
     },
     objectInstance: function(){
-        return AutoObjectInstance.instance(this);
+        return AutoObject.instance(this);
     },
     runtimeLookup :  function (sim, inst) {
         // We lookup first on the current stack frame and then call
@@ -761,7 +761,7 @@ export var ParameterEntity = CPPEntity.extend({
         return this.name + " (" + this.type + ")";
     },
     objectInstance: function(){
-        return AutoObjectInstance.instance(this);
+        return AutoObject.instance(this);
     },
     runtimeLookup :  function (sim, inst) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions

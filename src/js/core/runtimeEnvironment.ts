@@ -495,34 +495,44 @@ class MemoryHeap {
 }
 
 
-var MemoryFrame = Class.extend(Observable, {
-    _name: "MemoryFrame",
+class MemoryFrame {
+    private static readonly _name = "MemoryFrame";
+    
+    public readonly observable = new Observable(this);
 
-    public init(scope, memory, start, func) {
+    public readonly scope: Scope;
+    private readonly start: number;
+    private readonly end: number;
+    private readonly memory: Memory;
+    private readonly func: RuntimeFunction;
+
+    private size: number;
+    private readonly localObjectsByEntityId: {[index:number]: AutoObject};
+    private readonly localReferencesByEntityId: {[index:number]: ReferenceEntityInstance};
+    
+
+    public constructor(scope: Scope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
         var self = this;
         this.scope = scope;
         this.memory = memory;
         this.start = start;
-        this.func = func.model;
-        var funcInst = func;
-
-        this.initParent();
+        this.func = rtFunc;
 
         this.size = 0;
-        this.objects = {};
-        this.references = {};
+        this.localObjectsByEntityId = {};
+        this.localReferencesByEntityId = {};
 
         var addr = this.start;
 
-        if (this.func.isMemberFunction) {
-            var obj = ThisObject.instance("this", Types.ObjectPointer.instance(funcInst.getReceiver()));
+        if (this.func.model.isMemberFunction) {
+            var obj = new ThisObject("this", Types.ObjectPointer.instance(rtFunc.getReceiver()));
 
             // Allocate object
             this.memory.allocateObject(obj, addr);
-            obj.setValue(funcInst.getReceiver().getPointerTo());
+            obj.setValue(rtFunc.getReceiver().getPointerTo());
             addr += obj.size;
 
-            this.objects[obj.entityId] = obj;
+            this.localObjectsByEntityId[obj.entityId] = obj;
             this.size += obj.size;
         }
 
@@ -540,7 +550,7 @@ var MemoryFrame = Class.extend(Observable, {
             this.memory.allocateObject(obj, addr);
             addr += obj.size;
 
-            this.objects[obj.entityId] = obj;
+            this.localObjectsByEntityId[obj.entityId] = obj;
             this.size += obj.size;
 
             if (objEntity.defaultValue !== undefined) {
@@ -554,33 +564,33 @@ var MemoryFrame = Class.extend(Observable, {
 
 
         this.end = this.start + this.size;
-    },
+    }
 
-    public instanceString() {
+    public toString() {
         var str = "";
-        for (var key in this.objects) {
-            var obj = this.objects[key];
+        for (var key in this.localObjectsByEntityId) {
+            var obj = this.localObjectsByEntityId[key];
             //			if (!obj.type){
             // str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
             str += "<span>" + obj + "</span>\n";
             //			}
         }
         return str;
-    },
+    }
 
-    public getObjectForEntity(entity) {
-        return this.objects[entity.entityId];
-    },
-    public referenceLookup(entity) {
-        return this.references[entity.entityId].runtimeLookup();
-    },
+    public getObjectForEntity(entity: AutoEntity) {
+        return this.localObjectsByEntityId[entity.entityId];
+    }
+    public referenceLookup(entity: AutoEntity) {
+        return this.localReferencesByEntityId[entity.entityId].runtimeLookup();
+    }
     public setUpReferenceInstances() {
         var self = this;
-        this.scope.referenceObjects.forEach(function (ref) {
-            self.references[ref.entityId] = ref.runtimeInstance();
+        this.scope.referenceObjects.forEach(function (ref: ReferenceEntity) {
+            self.localReferencesByEntityId[ref.entityId] = ref.runtimeInstance();
             //self.memory.allocateObject(ref, addr);
             //addr += ref.type.size;
         });
     }
 
-});
+};
