@@ -488,8 +488,8 @@ export var DynamicObject = CPPObject.extend({
 
 
 
-export var AutoObjectInstance = CPPObject.extend({
-    _name: "AutoObjectInstance",
+export var AutoObject = CPPObject.extend({
+    _name: "AutoObject",
     storage: "automatic",
     init: function(autoObj){
         this.initParent(autoObj.name, autoObj.type);

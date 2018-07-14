@@ -46,7 +46,7 @@ export var DeadObjectMessage = RuntimeMessage.extend({
                 }
             }
         }
-        else if (isA(this.deadObj, AutoObjectInstance)){
+        else if (isA(this.deadObj, AutoObject)){
             text1 = "\n\nIt was a local variable declared at the highlighted line, but it already has gone out of scope.";
         }
 

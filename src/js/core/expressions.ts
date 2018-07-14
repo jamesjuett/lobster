@@ -1494,7 +1494,7 @@ export var Dereference = UnaryOp.extend({
 
             }
 
-            var obj = sim.memory.getObject(ptr);
+            var obj = sim.memory.dereference(ptr);
 
             // Note: dead object is not necessarily invalid. Invalid has to do with the value
             // while dead/alive has to do with the object itself. Reading from dead object does
@@ -1911,7 +1911,7 @@ export var Subscript  = Expression.extend({
 
             }
 
-            var obj = sim.memory.getObject(ptr);
+            var obj = sim.memory.dereference(ptr);
 
             // Note: dead object is not necessarily invalid. Invalid has to do with the value
             // while dead/alive has to do with the object itself. Reading from dead object does
@@ -2059,7 +2059,7 @@ export var Arrow  = Expression.extend({
             if (Types.Pointer.isNull(addr.rawValue())){
                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
             }
-            inst.setObjectAccessedFrom(sim.memory.getObject(addr, this.operand.type.ptrTo));
+            inst.setObjectAccessedFrom(sim.memory.dereference(addr, this.operand.type.ptrTo));
             inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
@@ -2808,11 +2808,11 @@ export var Delete  = Expression.extend({
                 obj = ptr.type.arrObj;
             }
             else{
-                obj = sim.memory.getObject(ptr);
+                obj = sim.memory.dereference(ptr);
             }
 
             if (!isA(obj, DynamicObject)) {
-                if (isA(obj, AutoObjectInstance)) {
+                if (isA(obj, AutoObject)) {
                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
                 }
                 else {
@@ -2889,12 +2889,12 @@ var deleteHeapArray = function(sim, inst, ptr) {
         }
     }
     else{
-        obj = sim.memory.getObject(ptr);
+        obj = sim.memory.dereference(ptr);
     }
 
     // Check to make sure we're deleting a valid heap object.
     if (!isA(obj, DynamicObject)) {
-        if (isA(obj, AutoObjectInstance)) {
+        if (isA(obj, AutoObject)) {
             sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
         }
         else {
