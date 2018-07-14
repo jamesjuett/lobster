@@ -220,7 +220,7 @@ export var CPPConstruct = Class.extend({
         return {isTail: false};
     },
 
-    done : function(sim, inst){
+    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         sim.pop(inst);
     },
 
@@ -243,7 +243,7 @@ export var CPPConstruct = Class.extend({
         return child;
     },
 
-    pushChildInstances : function(sim, inst){
+    pushChildInstances : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         inst.childInstances = inst.childInstances || {};
         for(var i = this.i_childrenToExecute.length-1; i >= 0; --i){
@@ -263,11 +263,11 @@ export var CPPConstruct = Class.extend({
         //inst.send("wait", this.sub.length);
     },
 
-    childInstance : function(sim, inst, name){
+    childInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct, name){
         return inst && inst.childInstances && inst.childInstances[name];
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Evaluate subexpressions
         if (inst.index === "pushChildren"){
             this.pushChildInstances(sim, inst);
@@ -282,14 +282,14 @@ export var CPPConstruct = Class.extend({
         return false;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return {message: "[No explanation available.]", ignore: true};
     },
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return {message: "[No description available.]", ignore: false};
     },
     /**

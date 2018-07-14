@@ -5,7 +5,7 @@ export var Statement = CPPConstruct.extend({
    _name: "Statement",
     instType: "stmt",
 
-    done : function(sim, inst){
+    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         sim.pop(inst);
         inst.send("reset");
     }
@@ -41,7 +41,7 @@ export var Expression = Statement.extend({
 
     i_childrenToCreate : ["expression"],
 
-	upNext : function(sim, inst){
+	upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "expr"){
             this.expression.createAndPushInstance(sim, inst);
             inst.index = "done";
@@ -49,7 +49,7 @@ export var Expression = Statement.extend({
 		return true;
 	},
 	
-	stepForward : function(sim, inst){
+	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         this.done(sim, inst);
 	},
 
@@ -85,7 +85,7 @@ export var Declaration = Statement.extend({
         }
 	},
 	
-	upNext : function(sim, inst){
+	upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "decl"){
             this.declaration.createAndPushInstance(sim, inst);
             inst.index = "done";
@@ -96,7 +96,7 @@ export var Declaration = Statement.extend({
 		return true;
 	},
 	
-	stepForward : function(sim, inst){
+	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 		// nothing to do
 	},
 
@@ -163,7 +163,7 @@ export var Return = Statement.extend({
         //}
 	},
 
-	stepForward : function(sim, inst){
+	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var func = inst.containingRuntimeFunction();
         func.encounterReturnStatement();
 
@@ -233,7 +233,7 @@ export var Block = Statement.extend({
         return inst;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index >= this.statements.length){
             this.done(sim, inst);
         }
@@ -245,7 +245,7 @@ export var Block = Statement.extend({
         return true;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // No work to be done here? Should be enough to delegate to statements
         // via upNext.
     },
@@ -298,7 +298,7 @@ export var OpaqueFunctionBodyBlock = Statement.extend({
         this.effects = ast.effects;
     },
 
-    // upNext : function(sim, inst){
+    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //     if (inst.index >= this.statements.length){
     //         this.done(sim, inst);
     //     }
@@ -310,7 +310,7 @@ export var OpaqueFunctionBodyBlock = Statement.extend({
     //     return true;
     // },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // No work to be done here? Should be enough to delegate to statements
         // via upNext.
         this.effects(sim, inst);
@@ -346,7 +346,7 @@ export var Selection = Statement.extend({
         this.otherwise && this.otherwise.compile();
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if(inst.index == "condition"){
             inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "body";
@@ -372,7 +372,7 @@ export var Selection = Statement.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     },
 
@@ -446,7 +446,7 @@ export var While = Iteration.extend({
         this.body.compile();
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index == "wait"){
             return false;
         }
@@ -472,7 +472,7 @@ export var While = Iteration.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index == "wait") {
             inst.index = "condition"; // remove the wait index on iterations after the first
         }
@@ -522,7 +522,7 @@ export var For = Iteration.extend({
     },
 
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index == "wait"){
             return false;
         }
@@ -555,7 +555,7 @@ export var For = Iteration.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.index = "condition"; // remove the wait index on iterations after the first
     }
 });
@@ -583,13 +583,13 @@ export var Break = Statement.extend({
         }
     },
 
-    createAndPushInstance : function(sim, inst){
+    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
         sim.push(inst);
         return inst;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index == "break"){
             var containerInst = inst.findParentByModel(this.container);
 //            inst.send("returned", {call: func.parent});
@@ -616,11 +616,11 @@ export var TemporaryDeallocator = Statement.extend({
         // but it might be kind of elegant to put it here.
     },
 
-    //stepForward : function(sim, inst){
+    //stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //
     //},
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         for (var key in this.temporaries){
             var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
             if (tempObjInst) {

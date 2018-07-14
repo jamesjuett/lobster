@@ -1,16 +1,6 @@
-import {Note} from "error";
-
-var NoteHandler = Class.extend({
-    _name : "NoteHandler",
-
-    /**
-     *
-     * @param {Note} note
-     */
-    addNote : function() {}
+import {Note, NoteHandler} from "error";
 
 
-});
 
 //TODO: Remove this once I'm confident I don't need it
 // var CompoundNoteHandler = NoteHandler.extend({

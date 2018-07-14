@@ -26,7 +26,7 @@ export var readValueWithAlert = function(evalValue, sim, expr, inst){
  *   6. Compile any temporary objects for whom this is the enclosing full expression.
  *
  */
-export var Expression = CPPConstruct.extend({
+export class Expression extends CPPConstruct {
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
@@ -258,7 +258,7 @@ export var Expression = CPPConstruct.extend({
 
 
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Evaluate subexpressions
         if (inst.index === "subexpressions"){
             this.pushChildInstances(sim, inst);
@@ -270,7 +270,7 @@ export var Expression = CPPConstruct.extend({
         return CPPConstruct.upNext.apply(this, arguments);
     },
 	
-	done : function(sim, inst){
+	done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 		sim.pop(inst);
 
         // Take care of any temporary objects owned by this expression
@@ -285,7 +285,7 @@ export var Expression = CPPConstruct.extend({
         }
 
 	}
-});
+}
 
 
 export var Unsupported = Expression.extend({
@@ -299,7 +299,7 @@ export var Unsupported = Expression.extend({
 export var Null = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
-    createAndPushInstance : function(sim, inst){
+    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Do nothing
     }
 });
@@ -317,7 +317,7 @@ export var Comma = Expression.extend({
         this.valueCategory = this.right.valueCategory;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Evaluate subexpressions
         if (inst.index === "operate"){
@@ -379,7 +379,7 @@ export var Ternary  = Expression.extend({
         this.valueCategory = this.then.valueCategory;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "cond"){
             inst.condition = this.condition.createAndPushInstance(sim, inst);
             inst.index = "checkCond";
@@ -397,7 +397,7 @@ export var Ternary  = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Evaluate subexpressions
         if (inst.index === "operate"){
@@ -529,13 +529,13 @@ export var Assignment  = Expression.extend({
         this.type = this.lhs.type;
     },
 
-    upNext : Class.ADDITIONALLY(function(sim, inst){
+    upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (this.funcCall){
             inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
         }
     }),
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (inst.index == "operate"){
 
@@ -567,7 +567,7 @@ export var Assignment  = Expression.extend({
         };
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var lhs = this.lhs.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.lhs);
         var rhs = this.rhs.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.rhs);
         return {message: (rhs.name || rhs.message) + " will be assigned to " + (lhs.name || lhs.message) + "."};
@@ -634,7 +634,7 @@ export var CompoundAssignment  = Expression.extend({
         this.compileTemporarires();
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Evaluate subexpressions
         if (inst.index == "subexpressions") {
             inst.rhs = this.rhs.createAndPushInstance(sim, inst);
@@ -643,7 +643,7 @@ export var CompoundAssignment  = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "operate"){
             // extract lvalue on lhs that may be underneath a standard conversion sequence
             // note: this is only applicable in compound assignment. in regular lhs will never be converted
@@ -858,7 +858,7 @@ export var BinaryOperator  = Expression.extend({
         return false;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Push lhs, rhs, and function call (if lhs class type)
         var toReturn = Expression.upNext.apply(this, arguments);
 
@@ -870,7 +870,7 @@ export var BinaryOperator  = Expression.extend({
         return toReturn;
     },
 
-	stepForward : function(sim, inst){
+	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "operate"){
             if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
@@ -979,7 +979,7 @@ export var BinaryOperatorLogical = BinaryOperator.extend({
         }
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Override this to prevent general pushSubexpressions
         // and ensure that short circuit is done correctly.
 
@@ -1009,7 +1009,7 @@ export var BinaryOperatorLogical = BinaryOperator.extend({
         }
         return false;
     },
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index == "operate") {
             return Expressions.BinaryOperator.stepForward.apply(this, arguments);
         }
@@ -1254,7 +1254,7 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
         typeCheck : function(){
             this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
         },
-        stepForward : function(sim, inst){
+        stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
             Expressions.BinaryOperator.stepForward.apply(this, arguments);
 
             // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
@@ -1273,7 +1273,7 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
         typeCheck : function(){
             this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
         },
-        stepForward : function(sim, inst){
+        stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
             Expressions.BinaryOperator.stepForward.apply(this, arguments);
 
             // // Peek at next expression. If it is also << operator or a literal or endl, then go ahead
@@ -1398,7 +1398,7 @@ export var UnaryOp  = Expression.extend({
         }
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Push lhs, rhs, and function call (if lhs class type)
         var toReturn = Expression.upNext.apply(this, arguments);
 
@@ -1410,7 +1410,7 @@ export var UnaryOp  = Expression.extend({
         return toReturn;
     },
 
-    stepForward: function(sim, inst){
+    stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "operate"){
             if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
@@ -1455,7 +1455,7 @@ export var Dereference = UnaryOp.extend({
         }
     },
 
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (isA(this.operand.type.ptrTo, Types.Function)){
             //function pointer
             inst.setEvalValue(inst.childInstances.operand.evalValue);
@@ -1522,7 +1522,7 @@ export var Dereference = UnaryOp.extend({
         }
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalValue){
             return {message: "We will find the object at address " + inst.childInstances.operand.evalValue.describe().message}
         }
@@ -1545,7 +1545,7 @@ export var AddressOf = UnaryOp.extend({
         this.type = Types.Pointer.instance(this.operand.type);
     },
 
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var obj = inst.childInstances.operand.evalValue;
 
         inst.setEvalValue(obj.getPointerTo());
@@ -1575,7 +1575,7 @@ export var UnaryPlus = UnaryOp.extend({
         }
     },
 
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var val = inst.childInstances.operand.evalValue.value;
         inst.setEvalValue(Value.instance(val, this.type));
     }
@@ -1603,7 +1603,7 @@ export var UnaryMinus = UnaryOp.extend({
         }
     },
 
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var val = inst.childInstances.operand.evalValue.value;
         inst.setEvalValue(Value.instance(-val, this.type));
     }
@@ -1625,7 +1625,7 @@ export var LogicalNot = UnaryOp.extend({
         }
     },
 
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.setEvalValue(Value.instance(!inst.childInstances.operand.evalValue.value, this.type));
     }
 });
@@ -1658,7 +1658,7 @@ export var Prefix = UnaryOp.extend({
             this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
         }
     },
-    operate: function(sim, inst){
+    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var obj = inst.childInstances.operand.evalValue;
         var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
 
@@ -1687,7 +1687,7 @@ export var Prefix = UnaryOp.extend({
         inst.setEvalValue(obj);
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var evdesc = this.operand.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
         var incDec = this.operator === "++" ? "incremented" : "decremented";
         return {message: "First, the value of " + evdesc + " will be " + incDec + " by one. Then this expression as a whole will evaluate to the new value of " + evdesc + "."};
@@ -1720,7 +1720,7 @@ export var Increment  = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Evaluate subexpressions
         if (inst.index == "operate"){
@@ -1776,7 +1776,7 @@ export var Decrement  = Expression.extend({
             this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
         }
     },
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Evaluate subexpressions
         if (inst.index == "operate"){
@@ -1848,7 +1848,7 @@ export var Subscript  = Expression.extend({
     },
 
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (this.isOverload)
         {
             if (inst.index === "subexpressions"){
@@ -1873,7 +1873,7 @@ export var Subscript  = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Evaluate subexpressions
         if (inst.index === "operate"){
@@ -1986,7 +1986,7 @@ export var Dot  = Expression.extend({
         }
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "subexpressions"){
             return Expression.upNext.apply(this, arguments);
         }
@@ -2052,7 +2052,7 @@ export var Arrow  = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (inst.index == "operate"){
             var addr = inst.childInstances.operand.evalValue;
@@ -2331,7 +2331,7 @@ export var FunctionCall = Expression.extend({
         return inst;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var self = this;
         if (inst.index === "arguments"){
 
@@ -2382,7 +2382,7 @@ export var FunctionCall = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         //if (this.func && this.func.decl && this.func.decl.isImplicit()){
         //    setTimeout(function(){
         //        while (!inst.hasBeenPopped){
@@ -2445,7 +2445,7 @@ export var FunctionCall = Expression.extend({
         };
     },
 
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var desc = {};
         desc.message = "a call to " + this.func.describe(sim).message;
         return desc;
@@ -2549,7 +2549,7 @@ export var FunctionCallExpression  = Expression.extend({
 
     },
 
-    upNext : function(sim, inst) {
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         if (inst.index === "operand") {
             inst.operand = this.operand.createAndPushInstance(sim, inst);
             inst.index = "call";
@@ -2677,7 +2677,7 @@ export var NewExpression = Expression.extend({
         return inst;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "length"){
             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
             inst.index = "allocate";
@@ -2690,7 +2690,7 @@ export var NewExpression = Expression.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // Dynamic memory - doesn't get added to any scope, but we create on the heap
 
@@ -2740,7 +2740,7 @@ export var NewExpression = Expression.extend({
         }
 
     },
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (this.initializer){
             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
         }
@@ -2792,7 +2792,7 @@ export var Delete  = Expression.extend({
             this.addNote(CPPError.expr.delete.pointerToObjectType(this, this.operand.type));
         }
     },
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (!inst.alreadyDestructed){
             var ptr = inst.childInstances.operand.evalValue;
@@ -2872,7 +2872,7 @@ export var Delete  = Expression.extend({
  * @param {Value | CPPObject} ptr
  * @returns {CPPObject?}
  */
-var deleteHeapArray = function(sim, inst, ptr) {
+var deleteHeapArray = function(sim: Simulation, rtConstruct: RuntimeConstruct, ptr) {
     if(Types.Pointer.isNull(ptr.rawValue())){
         return;
     }
@@ -2926,7 +2926,7 @@ var deleteHeapArray = function(sim, inst, ptr) {
 export var DeleteArray = Delete.extend({
     _name: "DeleteArray",
 
-    stepForward: function(sim, inst){
+    stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var ptr = inst.childInstances.operand.evalValue;
         deleteHeapArray(sim, inst, ptr);
         this.done(sim, inst);
@@ -2979,7 +2979,7 @@ export var ConstructExpression = Expression.extend({
         return inst;
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "init"){
             var initInst = this.initializer.createAndPushInstance(sim, inst);
             inst.index = "done";
@@ -3062,7 +3062,7 @@ export var Identifier  = Expression.extend({
 
 	},
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
 
         this.done(sim, inst);
@@ -3079,7 +3079,7 @@ export var Identifier  = Expression.extend({
         }
     },
 
-    explain : function(sim, inst) {
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: this.entity.name};
     }
 });
@@ -3099,7 +3099,7 @@ export var ThisExpression  = Expression.extend({
             this.addNote(CPPError.expr.thisExpr.memberFunc(this));
         }
     },
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Set this pointer with RTTI to point to receiver
         inst.setEvalValue(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
         this.done(sim, inst);
@@ -3117,7 +3117,7 @@ export var EntityExpression  = Expression.extend({
     compile : function(){
 
     },
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
         this.done(sim, inst);
     }
@@ -3176,7 +3176,7 @@ export var Literal  = Expression.extend({
         this.valueCategory = "prvalue";
 	},
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.evalValue = this.value;
         this.done(sim, inst);
         return true;
@@ -3187,7 +3187,7 @@ export var Literal  = Expression.extend({
         return {name: str, message: str};
     }
 	
-//	stepForward : function(sim, inst){
+//	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //		this.done(sim, inst);
 //		return true;
 //	}
@@ -3210,7 +3210,7 @@ export var StringLiteral  = Expression.extend({
 
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.evalValue = this.i_stringEntity.runtimeLookup(sim, inst);
         this.done(sim, inst);
         return true;
@@ -3220,7 +3220,7 @@ export var StringLiteral  = Expression.extend({
         return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
     }
 
-//	stepForward : function(sim, inst){
+//	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //		this.done(sim, inst);
 //		return true;
 //	}
@@ -3237,7 +3237,7 @@ export var Parentheses  = Expression.extend({
 
     },
 
-    upNext : function(sim, inst) {
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         if (inst.index == "subexpressions") {
             this.pushChildInstances(sim, inst);
             inst.index = "done";

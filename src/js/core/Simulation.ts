@@ -77,7 +77,7 @@ export var Simulation = Class.extend(Observable, Observer, {
         var anyStaticInits = false;
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
 
-            var init = this.i_program.staticEntities[i].getInitializer();
+            var init = this.i_program.staticEntities[i].initializer;
             if(init) {
                 init.createAndPushInstance(this, this.i_mainCallInst);
                 anyStaticInits = true;

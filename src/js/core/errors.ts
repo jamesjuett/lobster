@@ -1,3 +1,8 @@
+interface Description {
+    name: string;
+    message: string;
+}
+
 export var RuntimeMessage = Class.extend({
     _name: "RuntimeMessage",
     text : Class._ABSTRACT
@@ -18,7 +23,7 @@ export var DeadObjectMessage = RuntimeMessage.extend({
     },
     text : function(){
     },
-    display : function(sim, inst){
+    display : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var text0;
         if (this.options.fromDereference){
             text0 = "I followed that pointer, but I don't like what I found. There's no legitimate data here. Perhaps you dereferenced an invalid pointer/address, or maybe it was a dangling pointer to a dead object?";
@@ -770,3 +775,15 @@ export var CPPError = {
         }
     }
 };
+
+var NoteHandler = Class.extend({
+    _name : "NoteHandler",
+
+    /**
+     *
+     * @param {Note} note
+     */
+    addNote : function() {}
+
+
+});
