@@ -56,7 +56,7 @@ export class CPPObject {
 
     // TODO: Ultimately, I don't think this is needed, but I think I use it occassionally.
     // Remove and fix places after we have more thorough regression testing (or typescript)
-    runtimeLookup :  function(sim, inst){
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return this;
     },
 
@@ -528,7 +528,7 @@ export var EvaluationResultRuntimeEntity = CPPObject.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    runtimeLookup :  function (sim, inst) {
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return this.inst.evalValue.runtimeLookup(sim, inst);
     }
 });

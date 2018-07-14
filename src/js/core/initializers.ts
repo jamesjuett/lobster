@@ -1,9 +1,11 @@
-export var Initializer = Expression.extend({
+import {Expression} from "./expressions";
+
+export class Initializer extends Expression {
     _name: "Initializer",
     isTailChild : function(child){
         return {isTail: true};
     }
-});
+};
 
 
 export var DefaultInitializer = Initializer.extend({
@@ -69,7 +71,7 @@ export var DefaultInitializer = Initializer.extend({
         return DefaultInitializer._parent.compile.apply(this, arguments);
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "operate"){
             if (isA(this.entity.type, Types.Class) || isA(this.entity.type, Types.Array)) {
                 // Nothing to do, handled by child initializers for each element
@@ -86,7 +88,7 @@ export var DefaultInitializer = Initializer.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Will only get to here if it's a non-class, non-array type.
 
         var obj = this.entity.runtimeLookup(sim, inst);
@@ -97,7 +99,7 @@ export var DefaultInitializer = Initializer.extend({
         this.done(sim, inst);
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var exp = {message:""};
         var type = this.entity.type;
         var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
@@ -252,7 +254,7 @@ var DirectCopyInitializerBase = Initializer.extend({
         return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (isA(this.entity.type, Types.Void)){
             this.done(sim, inst);
@@ -305,7 +307,7 @@ var DirectCopyInitializerBase = Initializer.extend({
         }
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var exp = {message:""};
         var type = this.entity.type;
         var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
@@ -336,7 +338,7 @@ var DirectCopyInitializerBase = Initializer.extend({
 export var DirectInitializer = DirectCopyInitializerBase.extend({
     _name : "DirectInitializer"
 
-    //upNext : function(sim, inst){
+    //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //    sim.explain("Direct initializer up next!");
     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
     //}
@@ -345,7 +347,7 @@ export var DirectInitializer = DirectCopyInitializerBase.extend({
 export var CopyInitializer = DirectCopyInitializerBase.extend({
     _name : "CopyInitializer"
 
-    //upNext : function(sim, inst){
+    //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //    sim.explain("Copy initializer up next!");
     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
     //}
@@ -354,7 +356,7 @@ export var CopyInitializer = DirectCopyInitializerBase.extend({
 export var ParameterInitializer = CopyInitializer.extend({
     _name : "ParameterInitializer",
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var exp = ParameterInitializer._parent.explain.apply(this, arguments);
         exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
         return exp;
@@ -364,7 +366,7 @@ export var ParameterInitializer = CopyInitializer.extend({
 export var ReturnInitializer = CopyInitializer.extend({
     _name : "ReturnInitializer",
 
-    stepForward : function(sim, inst) {
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 
         // Need to handle return-by-reference differently, since there is no actual reference that
         // gets bound. (The runtimeLookup for the return entity would yield null). Instead, we just
@@ -444,7 +446,7 @@ export var InitializerList = CPPConstruct.extend({
         return;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index !== "afterChildren"){
             return;
         }

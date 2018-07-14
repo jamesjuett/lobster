@@ -320,7 +320,7 @@ export class Memory {
     }
 
     public allocateStringLiteral(stringLiteralEntity: StringLiteralEntity) {
-        var str = stringLiteralEntity.getLiteralString();
+        var str = stringLiteralEntity.str;
         if (!this.stringLiteralMap[str]) {
             // only need to allocate a string literal object if we didn't already have an identical one
             var object = stringLiteralEntity.objectInstance();

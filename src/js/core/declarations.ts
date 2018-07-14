@@ -69,7 +69,7 @@ var BaseDeclarationMixin = {
     }
 };
 
-export var Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
+export class Declaration extends BaseDeclarationMixin {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -236,7 +236,7 @@ export var Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
         return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index < this.initializers.length){
             var init = this.initializers[inst.index];
             if(init){
@@ -253,15 +253,15 @@ export var Declaration = CPPConstruct.extend(BaseDeclarationMixin, {
         }
     },
 
-    done : function(sim, inst){
+    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         sim.pop(inst);
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Don't have to do anything unless there's an initializer, right?
 
     }
-});
+};
 
 
 export var Parameter = CPPConstruct.extend({
@@ -309,7 +309,7 @@ export var Parameter = CPPConstruct.extend({
         }
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         assert(false, "Do I ever use this?");
         this.done(sim, inst);
     }
@@ -873,19 +873,19 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         return entity;
     },
 
-    setArguments : function(sim, inst, args){
+    setArguments : function(sim: Simulation, rtConstruct: RuntimeConstruct, args){
         inst.argInitializers = args;
     },
 
-    setReturnObject : function(sim, inst, returnObject){
+    setReturnObject : function(sim: Simulation, rtConstruct: RuntimeConstruct, returnObject){
         inst.i_returnObject = returnObject;
     },
 
-    getReturnObject : function(sim, inst){
+    getReturnObject : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return inst.i_returnObject;
     },
 
-    tailCallReset : function(sim, inst, caller) {
+    tailCallReset : function(sim: Simulation, rtConstruct: RuntimeConstruct, caller) {
 
         // Need to unseat all reference that were on the stack frame for the function.
         // Otherwise, lookup weirdness can occur because the reference lookup code wasn't
@@ -902,7 +902,7 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         return inst;
     },
 
-    done : function(sim, inst){
+    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         // If non-void return type, check that return object was initialized.
         // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
@@ -918,7 +918,7 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         sim.pop(inst);
     },
 
-    flowOffNonVoid : function(sim, inst){
+    flowOffNonVoid : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (this.isMain){
             inst.i_returnObject.setValue(Value.instance(0, Types.Int.instance()));
         }
@@ -927,7 +927,7 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         }
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "afterChildren") {
             this.autosToDestruct.forEach(function (autoDest){
                 autoDest.createAndPushInstance(sim, inst);
@@ -939,7 +939,7 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         return FunctionDefinition._parent.upNext.apply(this, arguments);
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "afterDestructors"){
             this.done(sim, inst);
         }
@@ -1327,15 +1327,15 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
     },
 
-    createInstance : function(sim, inst){
+    createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     }
 });
@@ -1604,7 +1604,7 @@ export var ConstructorDefinition = FunctionDefinition.extend({
         return {isTail: false};
     },
 
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var desc = {};
         if (this.isDefaultConstructor){
             desc.message = "the default constructor for the " + this.i_containingClass.className + " class";
@@ -1705,7 +1705,7 @@ export var DestructorDefinition = FunctionDefinition.extend({
         });
     },
 
-    upNext : Class.BEFORE(function(sim, inst){
+    upNext : Class.BEFORE(function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "afterChildren") {
             // These are pushed on a stack and so end up happening
             // in reverse order of the order they are pushed here.
@@ -1720,7 +1720,7 @@ export var DestructorDefinition = FunctionDefinition.extend({
         }
     }),
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst.index === "afterDestructors"){
             inst.index = "done";
         }

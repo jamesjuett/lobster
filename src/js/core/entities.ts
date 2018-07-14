@@ -1,41 +1,48 @@
-import * as Util from "util/util";
-import {CPPError} from "errors";
-import * as SemanticExceptions from "SemanticExceptions";
+import * as Util from "../util/util";
+import {CPPError} from "./errors";
+import * as SemanticExceptions from "./semanticExceptions";
+import { Observable } from "../util/observe";
+import {Type} from "./types";
+import {Declaration} from "./declarations";
+import {Initializer} from "./initializers";
+import {Description} from "./errors";
+import { CPPObject } from "./objects";
 
-export var Scope = Class.extend({
-    _name: "Scope",
-    _nextPrefix: 0,
-    HIDDEN: [],
-    NO_MATCH: [],
-    init: function(parent, sim){
-        this.prefix = this._nextPrefix++;
+export class Scope {
+    private static _name = "Scope";
+    private static HIDDEN = Symbol("HIDDEN");
+    private static NO_MATCH = Symbol("NO_MATCH");
+
+    private readonly entities: {[index:string]: CPPEntity | CPPEntity[]};
+    private parent: Scope?;
+
+    constructor(parent: Scope | null) {
         this.entities = {};
         this.parent = parent;
-        this.sim = sim; // TODO rename sim to translationUnit
-        if (!this.sim && this.parent) {
-            this.sim = this.parent.sim;
-        }
-    },
-    instanceString : function(){
+    }
+
+    public toString() {
         var str = "";
         for(var key in this.entities){
             str += this.entities[key] + "\n";
         }
         return str;
-    },
-    addEntity : function(ent){
-        if (isA(ent, StaticEntity)){
+    }
+
+    // TODO: refactor so that you always call one of the more specific functions?
+    private addEntity(ent: DeclaredEntity) {
+        if (ent instanceof StaticEntity) {
             this.addStaticEntity(ent);
         }
-        else if (isA(ent, AutoEntity)){
+        else if (ent instanceof AutoEntity) {
             this.addAutomaticEntity(ent);
         }
-        else if (isA(ent, ReferenceEntity)){
+        else if (ent instanceof ReferenceEntity){
             this.addReferenceEntity(ent);
         }
 
-        if (isA(ent, FunctionEntity)){
-            if (!this.entities[ent.name]){
+        if (ent instanceof FunctionEntity){
+            if (!this.entities[ent.name]) {
                 this.entities[ent.name] = [];
             }
             this.entities[ent.name].push(ent);
@@ -43,9 +50,9 @@ export var Scope = Class.extend({
         else{
             this.entities[ent.name] = ent;
         }
-    },
+    }
 
-    allEntities : function() {
+    public allEntities() {
         var ents = [];
         for(var name in this.entities) {
             if (Array.isArray(this.entities[name])) {
@@ -170,7 +177,7 @@ export var Scope = Class.extend({
         // just looked up a MemberFunctionEntity, we create a proxy to do that.
         if (Array.isArray(result)){
             result = result.map(function(elem){
-                return isA(elem, MemberFunctionEntity) ? elem.suppressedVirtualProxy() : elem;
+                return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
             });
         }
         return result;
@@ -323,7 +330,7 @@ export var FunctionBlockScope = BlockScope.extend({
 export var NamespaceScope = Scope.extend({
 
     init: function(name, parent, sim){
-        assert(!parent || isA(parent, NamespaceScope));
+        assert(!parent || parent instanceof NamespaceScope);
         this.initParent(parent, sim);
         this.name = name;
         this.children = {};
@@ -388,7 +395,7 @@ export var ClassScope = NamespaceScope.extend({
     init: function(name, parent, base, sim){
         this.initParent(name, parent, sim);
         if(base){
-            assert(isA(base, ClassScope));
+            assert(base instanceof ClassScope);
             this.base = base;
         }
     },
@@ -433,20 +440,26 @@ export var ClassScope = NamespaceScope.extend({
 });
 
 
-export var CPPEntity = Class.extend(Observable, {
-    _name: "CPPEntity",
-    _nextEntityId: 0,
+export abstract class CPPEntity {
+    protected static _name = "CPPEntity";
+    private static _nextEntityId = 0;
+
+    public readonly observable = new Observable(this);
+
+    public readonly entityId: number;
+    public readonly type: type;
 
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
      * the type will be null.
      * @param {Type?} type
      */
-    init: function(type){
+    public constructor(type: Type) {
         this.entityId = CPPEntity._nextEntityId++;
         this.type = type;
-    },
+    }
 
+    // TODO: typescript - commenting this out and seeing how much chaos it creates
     /**
      * Default behavior - no runtime object associated with this entity. Just return ourselves.
      * Derived classes may override and return either a more specific entity (e.g. a dynamically
@@ -458,42 +471,44 @@ export var CPPEntity = Class.extend(Observable, {
      * relevant to the lookup.
      * @param sim
      * @param inst
-     * @returns {CPPEntity}
      */
-    runtimeLookup :  function(sim, inst){
-        return this;
-    },
+    // runtimeLookup : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    //     return this;
+    // }
 
-    describe : Class._ABSTRACT,
+    public abstract describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description;
 
-    isLibraryConstruct : function() {
+    // TODO: does this belong here?
+    public isLibraryConstruct() {
         return false
-    },
-    isLibraryUnsupported : function() {
+    }
+
+    // TODO: does this belong here?
+    public isLibraryUnsupported() {
         return false;
     }
 
     //TODO: function for isOdrUsed()?
-});
+};
 
-export var NamedEntity = CPPEntity.extend({
-    _name : "NamedEntity",
+export abstract class NamedEntity extends CPPEntity {
+    protected static _name = "NamedEntity";
 
-    linkage: "none", // TODO NEW make this abstract
+    // public static linkage: "none", // TODO NEW make this abstract
+
+    public readonly name: string;
 
     /**
-     * All NamedEntitys will have a name, but in some cases this might be null. e.g. an unnamed namespace.
-     * @param {Type} type
-     * @param {string} name
+     * All NamedEntitys will have a name, but in some cases this might be "". e.g. an unnamed namespace.
      */
-    init : function(type, name) {
-        this.initParent(type);
+    public constructor(type: Type, name: string) {
+        super(type);
         this.name = name;
     }
-});
+}
 
-export var DeclaredEntity = NamedEntity.extend({
-    _name : "DeclaredEntity",
+export class DeclaredEntity extends NamedEntity {
+    protected static _name = "DeclaredEntity";
 
     /**
      * If neither entity is defined, does nothing.
@@ -501,21 +516,21 @@ export var DeclaredEntity = NamedEntity.extend({
      * If both entities are defined, throws an exception. If the entities are functions with
      * the same signature and different return types, throws an exception.
      * REQUIRES: Both entities should have the same type. (for functions, the same signature)
-     * @param {DeclaredEntity} entity1 - An entity already present in a scope.
-     * @param {DeclaredEntity} entity2 - A new entity matching the original one.
+     * @param entity1 - An entity already present in a scope.
+     * @param entity2 - A new entity matching the original one.
      * @throws {Note}
      */
-    merge : function(entity1, entity2) {
+    public static merge(entity1: DeclaredEntity, entity2: DeclaredEntity) {
 
         // TODO: Add support for "forward declarations" of a class/struct
 
         // Special case: ignore magic functions
-        if (isA(entity1, MagicFunctionEntity) || isA(entity2, MagicFunctionEntity)) {
+        if (entity1 instanceof MagicFunctionEntity || entity2 instanceof MagicFunctionEntity) {
             return;
         }
 
         // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
-        if (isA(entity1.decl, ClassDeclaration) && isA(entity2.decl, ClassDeclaration)
+        if (entity1.decl instanceof ClassDeclaration && entity2.decl instanceof ClassDeclaration
             && entity1.type.className === entity2.type.className) {
             if (entity1.decl.isLibraryConstruct() && entity2.decl.isLibraryConstruct() !== undefined
                 && entity1.decl.getLibraryId() === entity2.decl.getLibraryId() ||
@@ -541,11 +556,11 @@ export var DeclaredEntity = NamedEntity.extend({
         // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
         // have already been checked above and must be the same at this point, so it's pointless and will cause errors
         // to try to merge them.)
-        if (isA(entity1.decl, MemberDeclaration)) {
+        if (entity1.decl instanceof MemberDeclaration) {
             return;
         }
-        if (isA(entity1.decl, FunctionDefinition) && entity1.decl.isInlineMemberFunction) {
-            return;
+        if (entity1.decl instanceof FunctionDefinition && entity1.decl.isInlineMemberFunction) {
+            return; // TODO: Should we be checking this?
         }
 
         // Attempt to merge the two
@@ -565,7 +580,7 @@ export var DeclaredEntity = NamedEntity.extend({
             }
 
             // Check return types for functions
-            if (isA(entity1, FunctionEntity)) {
+            if (entity1 instanceof FunctionEntity) {
                 // If they have mismatched return types, that's a problem.
                 if (!entity1.type.sameReturnType(entity2.type)){
                     throw CPPError.link.func.returnTypesMatch([entity1.decl, entity2.decl], entity1.name);
@@ -575,195 +590,208 @@ export var DeclaredEntity = NamedEntity.extend({
             // If a previous declaration, and now a new definition, merge
             undefinedEntity.setDefinition(definedEntity.definition);
         }
-    },
+    }
 
-    init : function(decl) {
-        this.initParent(decl.type, decl.name);
+    public readonly decl: Declaration;
+    public readonly definition?: Declaration;
+    public readonly initializer?: Initializer;
+
+    public constructor(decl: Declaration) {
+        super(decl.type, decl.name);
         this.decl = decl;
-    },
+    }
 
-    setDefinition : function(definition) {
-        this.definition = definition;
-    },
+    public setDefinition(definition: Declaration) {
+        (<Declaration>this.definition) = definition;
+    }
 
-    isDefined : function() {
+    public isDefined() {
         return !!this.definition;
-    },
+    }
 
     // TODO: when namespaces are implemented, need to fix this function
-    getFullyQualifiedName : function() {
+    public getFullyQualifiedName() {
         return "::" + this.name;
-    },
+    }
 
-    isLibraryConstruct : function() {
+    public isLibraryConstruct() {
         return this.decl.isLibraryConstruct();
-    },
+    }
 
-    isLibraryUnsupported : function() {
+    public isLibraryUnsupported() {
         return this.decl.isLibraryUnsupported();
-    },
+    }
 
     // TODO: these can be removed if declaration/definition classes are reworked such that
     //       the initializer can be easily retrieved from the definition. e.g. if multiple definitions
     //       from several declarators on a single line are actually treated as several definitions (as they
     //       really should be)
-    setInitializer : function (init) {
-        this.i_init = init;
-    },
-    getInitializer : function() {
-        return this.i_init;
+    public setInitializer(init: Initializer) {
+        (<Initializer>this.initializer) = init;
     }
-});
+};
 
-export var ReferenceEntity = DeclaredEntity.extend({
-    _name: "ReferenceEntity",
-    storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
+//TODO: rename to specifically for local references
+export class ReferenceEntity extends DeclaredEntity {
+    protected static _name = "ReferenceEntity";
+    // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    runtimeLookup :  function(sim, inst){
-        return inst.containingRuntimeFunction().stackFrame.referenceLookup(this).runtimeLookup(sim, inst);
-    },
-    runtimeInstance : function(){
-        return ReferenceEntityInstance.instance(this);
-    },
-    describe : function(){
-        if (isA(this.decl, Declarations.Parameter)){
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return rtConstruct.containingRuntimeFunction().stackFrame.referenceLookup(this).runtimeLookup(sim, rtConstruct);
+    }
+
+    public runtimeInstance() {
+        return new ReferenceEntityInstance(this);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        if (this.decl instanceof Declarations.Parameter){
             return {message: "the reference parameter " + this.name};
         }
         else{
             return {message: "the reference " + this.name};
         }
     }
-});
+};
 
 // TODO: determine what should actually be the base class here
-export var ReferenceEntityInstance = DeclaredEntity.extend({
-    _name: "ReferenceEntityInstance",
-    init: function (entity) {
-        this.initParent(entity.decl);
-    },
-    allocated : function(){},
+// TODO: I think this should be an object?
+export class RuntimeReference {
+    protected static readonly _name = "ReferenceEntityInstance";
 
-    runtimeLookup :  function(){
-        // It's possible someone will be looking up the reference in order to bind it (e.g. auxiliary reference used
-        // in function return), so if we aren't bound to anything return ourselves.
-        return this.refersTo || this; // Don't need chained lookup here since this.refersTo should never be another reference
-    },
-    bindTo : function(refersTo){
-        assert(isA(refersTo, CPPObject) || isA(refersTo, ReferenceEntityInstance)); // Must refer to a concrete thingy
+    public readonly observable = new Observable(this);
 
-        // If the thing we refer to is a reference, look it up first so we refer to the source.
-        // This eliminates chains of references, which for now is what I want.
-        if (isA(refersTo, ReferenceEntityInstance)) {
-            this.refersTo = refersTo.runtimeLookup();
-        }
-        else{
-            this.refersTo = refersTo;
-        }
-        this.send("bound");
-    },
+    public readonly entity: ReferenceEntity;
+    public readonly refersTo!: CPPObject; // TODO: this needs to be initially bound to some fake object. Otherwise, Lobster will crash if simulated code looks up a reference before it is bound (tricky but possible).
 
-    describe : function(){
+    public constructor(entity: ReferenceEntity) {
+        this.entity = entity;
+    }
+
+    public bindTo(refersTo: CPPObject) {
+        (<typeof RuntimeReference.prototype.refersTo>this.refersTo) = refersTo;
+        this.observable.send("bound");
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         if (this.refersTo) {
-            return {message: "the reference " + this.name + " (which is bound to " + this.refersTo.describe().message + ")"};
+            return {message: "the reference " + this.entity.name + " (which is bound to " + this.refersTo.describe().message + ")"};
         }
         else {
-            return {message: "the reference " + this.name + " (which has not yet been bound to an object)"};
+            return {message: "the reference " + this.entity.name + " (which has not yet been bound to an object)"};
         }
     }
-});
+};
 
-export var StaticEntity = DeclaredEntity.extend({
-    _name: "StaticEntity",
-    storage: "static",
-    init: function(decl){
-        this.initParent(decl);
-    },
-    objectInstance: function(){
-        return StaticObjectInstance.instance(this);
-    },
-    instanceString : function(){
+export class StaticEntity extends DeclaredEntity {
+    protected static _name =  "StaticEntity";
+
+    // storage: "static",
+    constructor(decl: Declaration) {
+        super(decl);
+    }
+
+    public objectInstance(){
+        return new StaticObjectInstance(this);
+    }
+
+    public toString() {
         return this.name + " (" + this.type + ")";
-    },
-    runtimeLookup :  function(sim, inst) {
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return sim.memory.staticLookup(this).runtimeLookup(sim, inst);
-    },
-    describe : function(){
+    }
+    
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {name: this.name, message: "the variable " + this.name};
     }
-});
+};
 
-export var StringLiteralEntity = CPPEntity.extend({
-    _name: "StringLiteralEntity",
-    storage: "static",
-    init: function(str){
-        this.initParent(Types.Array.instance(Types.Char.instance(true), str.length + 1)); // + 1 for null char
-        this.i_str = str;
-    },
-    objectInstance : function() {
-        return StringLiteralObject.instance(this.type);
-    },
-    instanceString : function(){
-        return "string literal \"" + Util.unescapeString(this.i_str) + "\"";
-    },
-    getLiteralString : function() {
-        return this.i_str;
-    },
-    runtimeLookup :  function(sim, inst) {
-        return sim.memory.getStringLiteral(this.i_str);
-    },
-    describe : function(){
-        return {message: "the string literal \"" + Util.unescapeString(this.i_str) + "\""};
+export class StringLiteralEntity extends CPPEntity {
+    protected static _name = "StringLiteralEntity";
+    // storage: "static",
+
+    public readonly str: string;
+
+    public constructor(str: string) {
+        super(Types.Array.instance(Types.Char.instance(true), str.length + 1)); // + 1 for null char
+        this.str = str;
     }
-});
+
+    public objectInstance() {
+        return new StringLiteralObject(this.type);
+    }
+
+    public toString() {
+        return "string literal \"" + Util.unescapeString(this.str) + "\"";
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return sim.memory.getStringLiteral(this.str);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return {message: "the string literal \"" + Util.unescapeString(this.str) + "\""};
+    }
+};
 
 
-export var AutoEntity = DeclaredEntity.extend({
-    _name: "AutoEntity",
-    storage: "automatic",
-    init: function(decl){
-        this.initParent(decl);
-    },
-    instanceString : function(){
+export class AutoEntity extends DeclaredEntity {
+    protected readonly _name = "AutoEntity";
+
+    // storage: "automatic",
+    
+    public constructor(decl: Declaration) {
+        super(decl);
+    }
+
+    public toString() {
         return this.name + " (" + this.type + ")";
-    },
-    objectInstance: function(){
-        return AutoObject.instance(this);
-    },
-    runtimeLookup :  function (sim, inst) {
+    }
+
+    public objectInstance() {
+        return new AutoObject(this);
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
         // We lookup first on the current stack frame and then call
         // lookup again in case it's a reference or something.
-        return inst.containingRuntimeFunction().stackFrame.getObjectForEntity(this).runtimeLookup(sim, inst);
-    },
-    describe : function(){
-        if (isA(this.decl, Declarations.Parameter)){
+        return rtConstruct.containingRuntimeFunction().stackFrame.getObjectForEntity(this).runtimeLookup(sim, rtConstruct);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        if (this.decl instanceof Declarations.Parameter){  // TODO: can this ever be a parameter??
             return {message: "the parameter " + this.name};
         }
         else{
             return {message: "the local variable " + this.name};
         }
     }
-});
+};
 
-export var ParameterEntity = CPPEntity.extend({
-    _name: "ParameterEntity",
-    storage: "automatic",
-    init: function(func, num){
-        assert(isA(func, FunctionEntity) || isA(func, PointedFunctionEntity));
-        assert(num !== undefined);
+export class ParameterEntity extends CPPEntity {
+    protected readonly _name = "ParameterEntity";
+    // storage: "automatic",
 
+    public readonly func: FunctionEntity;
+    public readonly num: number;
+
+    public constructor(func: FunctionEntity, num: number) {
+        super(func.type.paramTypes[num]);
         this.num = num;
         this.func = func;
+    }
 
-        this.initParent("Parameter "+num+" of "+func.name);
-        this.type = func.type.paramTypes[num];
-    },
-    instanceString : function(){
-        return this.name + " (" + this.type + ")";
-    },
-    objectInstance: function(){
-        return AutoObject.instance(this);
-    },
-    runtimeLookup :  function (sim, inst) {
+    public toString() {
+        return "parameter " + this.num + " of " + this.func.describe().name;
+    }
+
+    public objectInstance() {
+        return new AutoObject(this);
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
         var func = sim.topFunction();
 
@@ -772,20 +800,23 @@ export var ParameterEntity = CPPEntity.extend({
 
         // Look it up in the context of the top function on the stack.
         return objEntity.runtimeLookup(sim, func);
-    },
-    describe : function(){
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "parameter " + this.num + " of " + this.func.describe().message};
     }
 
-});
+};
 
-export var ReturnEntity = CPPEntity.extend({
-    _name: "ReturnEntity",
-    storage: "automatic",
+export class ReturnEntity extends CPPEntity {
+    protected static _name = "ReturnEntity";
 
-    instanceString : function() {
+    // storage: "automatic",
+
+    public toString() {
         return "return value (" + this.type + ")";
-    },
+    }
+    
     /**
      * If this is return-by-value (i.e. non-reference type), returns the temporary return object for the currently
      * executing function. If it is return-by-reference, there is only a return object if the return has already been
@@ -793,123 +824,139 @@ export var ReturnEntity = CPPEntity.extend({
      * If the return type is void, returns null.
      * @param sim
      * @param inst
-     * @returns {CPPObject?}
      */
-    runtimeLookup :  function (sim, inst) {
-        if (isA(this.type, Types.Void)) {
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        if (this.type instanceof Types.Void) {
             return null;
         }
         else {
-            return inst.containingRuntimeFunction().getReturnObject();
+            return rtConstruct.containingRuntimeFunction().getReturnObject();
         }
-    },
-    describe : function(){
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         // TODO: add info about which function? would need to be specified when the return value is created
         return {message: "the return value"};
     }
-});
+};
 
-export var ReceiverEntity = CPPEntity.extend({
-    _name: "ReceiverEntity",
-    storage: "automatic",
-    init: function(type){
-        assert(isA(type, Types.Class));
-        this.initParent(type);
-    },
-    instanceString : function(){
+export class ReceiverEntity extends CPPEntity {
+    protected static readonly _name: "ReceiverEntity";
+
+    // storage: "automatic",
+    
+    constructor(type: Types.Class) {
+        super(type);
+    }
+
+    public toString() {
         return "function receiver (" + this.type + ")";
-    },
-    runtimeLookup :  function (sim, inst) {
-        return inst.contextualReceiver();
-    },
-    describe : function(sim, inst){
-        if (inst){
-            return {message: "the receiver of this call to " + inst.containingRuntimeFunction().describe().message + " (i.e. *this) "};
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return rtConstruct.contextualReceiver();
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
+        if (rtConstruct){
+            return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
         }
         else {
             return {message: "the receiver of this call (i.e. *this)"};
         }
     }
-});
+};
 
 
 
-export var NewObjectEntity = CPPEntity.extend({
-    _name: "NewObjectEntity",
-    storage: "automatic",
-    instanceString : function(){
+export class NewObjectEntity extends CPPEntity {
+    protected static readonly _name = "NewObjectEntity";
+
+    // storage: "automatic",
+    
+    public toString() {
         return "object (" + this.type + ")";
-    },
-    runtimeLookup :  function (sim, inst) {
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
         // no additional runtimeLookup() needed on the object since it will never be a reference
-        return inst.getAllocatedObject();
-    },
-    describe : function(){
+        return rtConstruct.getAllocatedObject();
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
     }
 
-});
+};
 
-export var ArraySubobjectEntity = CPPEntity.extend({
-    _name: "ArraySubobjectEntity",
-    storage: "none",
-    init: function(arrayEntity, index){
-        assert(isA(arrayEntity.type, Types.Array));
-        this.initParent(arrayEntity.type.elemType);
-        this.i_arrayEntity = arrayEntity;
-        this.i_index = index;
-    },
+export class ArraySubobjectEntity extends CPPEntity {
+    protected static readonly _name = "ArraySubobjectEntity";
+    // storage: "none",
 
-    runtimeLookup :  function (sim, inst) {
-        return this.i_arrayEntity.runtimeLookup(sim, inst).elemObjects[this.i_index].runtimeLookup(sim, inst);
-    },
-    objectInstance : function(arrObj){
-        return ArraySubobject.instance(arrObj, this.i_index);
-    },
-    describe : function(){
+    public readonly arrayEntity: CPPEntity;
+    public readonly index: number;
+
+    constructor(arrayEntity: CPPEntity, index: number) {
+        super(arrayEntity.type.elemType);
+        this.arrayEntity = arrayEntity;
+        this.index = index;
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return this.i_arrayEntity.runtimeLookup(sim, rtConstruct).elemObjects[this.i_index].runtimeLookup(sim, rtConstruct);
+    }
+
+    public objectInstance(arrObj: CPPObject) {
+        return new ArraySubobject(arrObj, this.index);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var desc = {};
-        var arrDesc = this.i_arrayEntity.describe();
-        desc.message = "element " + this.i_index + " of " + arrDesc.message;
+        var arrDesc = this.arrayEntity.describe(sim, rtConstruct);
+        desc.message = "element " + this.index + " of " + arrDesc.message;
         if (arrDesc.name){
-            desc.name = arrDesc.name + "[" + this.i_index + "]";
+            desc.name = arrDesc.name + "[" + this.index + "]";
         }
         return desc;
     }
-});
+}
 
-export var BaseClassSubobjectEntity = CPP.CPPEntity.extend({
-    _name: "BaseClassSubobjectEntity",
-    storage: "none",
-    init: function(type, memberOfType, access){
-        assert(isA(type, Types.Class));
-        assert(isA(memberOfType, Types.Class));
-        this.initParent(type);
-        if (!this.type._isInstance){
-            this.type = this.type.instance(); // TODO remove once type is actually passed in as instance
-        }
+export class BaseClassSubobjectEntity extends CPPEntity {
+    protected static readonly _name = "BaseClassSubobjectEntity";
+    // storage: "none",
+
+    public readonly access: string;
+    public readonly memberOfType: Types.Class;
+
+    constructor(type: Type, memberOfType: Types.Class, access: string) {
+        super(type);
         this.memberOfType = memberOfType;
         this.access = access;
-    },
-    instanceString : function(){
-        return this.name + " (" + this.type + ")";
-    },
-    runtimeLookup :  function (sim, inst) {
-        var recObj = inst.contextualReceiver();
+    }
 
-        while(recObj && !isA(recObj.type, this.type)){ // TODO: this isA should probably be changed to a type function
+    public toString() {
+        return "the " + this.type.className + " base object of " + this.memberOfType.className;
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var recObj = rtConstruct.contextualReceiver();
+
+        while(recObj && !(recObj.type instanceof this.type)){ // TODO: this isA should probably be changed to a type function
             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
         }
-        assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
+        Util.assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
 
         return recObj.runtimeLookup(sim, inst);
-    },
-    objectInstance : function(parentObj){
-        return BaseClassSubobject.instance(this.type, parentObj);
-    },
-    describe : function(){
-        return {message: "the " + this.name + " base object of " + this.memberOfType.className};
     }
-});
+    
+    public objectInstance(parentObj: CPPObject) {
+        return new BaseClassSubobject(this.type, parentObj);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return {message: "the " + this.type.className + " base object of " + this.memberOfType.className};
+    }
+};
 
 export var MemberSubobjectEntity = DeclaredEntity.extend({
     _name: "MemberSubobjectEntity",
@@ -923,7 +970,7 @@ export var MemberSubobjectEntity = DeclaredEntity.extend({
     instanceString : function(){
         return this.name + " (" + this.type + ")";
     },
-    runtimeLookup :  function (sim, inst) {
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var recObj = inst.contextualReceiver();
 
         while(recObj && !recObj.type.isInstanceOf(this.memberOfType)){
@@ -937,7 +984,7 @@ export var MemberSubobjectEntity = DeclaredEntity.extend({
     objectInstance : function(parentObj){
         return MemberSubobject.instance(this.type, parentObj, this.name);
     },
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (inst){
             var recObj = inst.contextualReceiver();
             if (recObj.name){
@@ -994,7 +1041,7 @@ export var TemporaryObjectEntity = CPPEntity.extend({
         inst.temporaryObjects[obj.entityId] = obj;
         return obj;
     },
-    runtimeLookup :  function (sim, inst) {
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var ownerInst = inst;
         while (ownerInst.model !== this.owner){
             ownerInst = ownerInst.parent;
@@ -1029,7 +1076,7 @@ export var FunctionEntity = DeclaredEntity.extend({
     getPointerTo : function() {
         return Value.instance(this, this.type);
     },
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return this.decl.describe(sim, inst);
     }
 });
@@ -1071,7 +1118,7 @@ export var MemberFunctionEntity = FunctionEntity.extend({
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
-        if (overridden && isA(overridden, FunctionEntity) && overridden.virtual){
+        if (overridden && overridden instanceof FunctionEntity && overridden.virtual){
             this.virtual = true;
             // Check to make sure that the return types are covariant
             if (!covariantType(this.type.returnType, overridden.type.returnType)){
@@ -1088,7 +1135,7 @@ export var MemberFunctionEntity = FunctionEntity.extend({
     isLinked : function(){
         return this.virtual && this.pureVirtual || this.isDefined();
     },
-    runtimeLookup :  function(sim, inst){
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (this.virtual){
             // If it's a virtual function start from the class scope of the dynamic type
             var receiver = inst.contextualReceiver();
@@ -1098,7 +1145,7 @@ export var MemberFunctionEntity = FunctionEntity.extend({
             // Sorry this is hacky :(
             // If it's a destructor, we look instead for the destructor of the dynamic type
             var func;
-            if (isA(this.definition, DestructorDefinition)) {
+            if (this.definition instanceof DestructorDefinition) {
                 func = dynamicType.destructor;
             }
             else{
@@ -1134,7 +1181,7 @@ export var PointedFunctionEntity = CPPEntity.extend({
     instanceString : function() {
         return this.name;
     },
-    runtimeLookup :  function(sim, inst){
+    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return inst.pointedFunction.runtimeLookup(sim,inst);
     },
     isLinked : function(){
@@ -1155,7 +1202,7 @@ export var TypeEntity = DeclaredEntity.extend({
     instanceString : function() {
         return "TypeEntity: " + this.type.instanceString();
     },
-    describe : function(sim, inst){
+    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return this.type.describe(sim, inst);
     }
 });
@@ -1214,7 +1261,7 @@ export var overloadResolution = function(candidates, args, isThisConst, options)
         }
         else{
             for(var i = 0; i < args.length; ++i){
-                if (isA(paramTypes[i], Types.Reference)){
+                if (paramTypes[i] instanceof Types.Reference){
                     tempArgs.push(args[i]);
                     if(!referenceCompatible(args[i].type, paramTypes[i].refTo)){
                         problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));

@@ -24,7 +24,7 @@ export var ImplicitConversion = Expression.extend({
         this.compileTemporarires();
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (inst.index == "subexpressions"){
             return Expression.upNext.apply(this, arguments);
@@ -34,7 +34,7 @@ export var ImplicitConversion = Expression.extend({
         return false;
     },
 
-    stepForward : function(sim, inst){
+    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if(inst.index == "operate") {
             this.operate(sim, inst);
             this.done(sim, inst);
@@ -59,7 +59,7 @@ var DoNothing = ImplicitConversion.extend({
         this.initParent(from, to, valueCategory);
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var evalValue = inst.childInstances.from.evalValue;
         // Note, we get the type from the evalValue to preserve RTTI
         inst.setEvalValue(Value.instance(evalValue.value, evalValue.type));
@@ -78,14 +78,14 @@ export var LValueToRValue = ImplicitConversion.extend({
         this.initParent(from, toType, "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var evalValue = inst.childInstances.from.evalValue;
         // Note, we get the type from the evalValue to preserve RTTI
 
         inst.setEvalValue(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     },
 
-    upNext : function(sim, inst){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if(inst.index === "operate" && isA(this.from, Identifier) && this.from.entity === sim.endlEntity){
             this.stepForward(sim, inst);
             return true;
@@ -107,7 +107,7 @@ export var LValueToRValue = ImplicitConversion.extend({
         }
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return {message: "The value of " + this.from.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
     }
 
@@ -120,12 +120,12 @@ export var ArrayToPointer = ImplicitConversion.extend({
         this.initParent(from, Types.Pointer.instance(from.type.elemType), "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var arrObj = inst.childInstances.from.evalValue;
         inst.setEvalValue(Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj)));
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return {message: "In this case (and most others), using the name of an array in an expression will yield a the address of its first element. That's what happens here."};
     }
 });
@@ -139,12 +139,12 @@ export var FunctionToPointer = ImplicitConversion.extend({
         this.initParent(from, Types.Pointer.instance(from.type), "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var func = inst.childInstances.from.evalValue;
         inst.setEvalValue(Value.instance(func, this.type));
     },
 
-    explain : function(sim, inst){
+    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return {message: "Using the name of a function in an expression will yield a pointer to that function."};
     }
 });
@@ -159,7 +159,7 @@ export var QualificationConversion = ImplicitConversion.extend({
         this.initParent(from, toType, "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var evalValue = inst.childInstances.from.evalValue;
         inst.setEvalValue(evalValue.getValue());
     }
@@ -174,7 +174,7 @@ export var NullPointerConversion = DoNothing.extend({
         assert(from.valueCategory === "prvalue");
         this.initParent(from, to, "prvalue");
     },
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         inst.setEvalValue(Value.instance(0, this.type));
     }
 });
@@ -195,7 +195,7 @@ export var PointerToBooleanConversion = ImplicitConversion.extend({
         this.initParent(from, Types.Bool.instance(), "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
         var val = inst.childInstances.from.evalValue.value;
         inst.setEvalValue(Value.instance(val != 0 ? true : false, this.type));
@@ -221,7 +221,7 @@ export var IntegralConversion = ImplicitConversion.extend({
         this.englishName = from.type.englishString() + " to " + toType.englishString();
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
         var val = inst.childInstances.from.evalValue.value;
         if (isA(this.from.type, Types.Bool)){ // from bool
@@ -246,7 +246,7 @@ export var IntegralFloatingConversion = ImplicitConversion.extend({
         this.initParent(from, toType, "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // I think only thing I really need here is to handle booleans gracefully
         // Adding 0.0 should do the trick.
         var val = inst.childInstances.from.evalValue.value;
@@ -268,7 +268,7 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
         this.initParent(from, toType, "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var val = inst.childInstances.from.evalValue.value;
         if (isA(this.type, Types.Bool)) {
             inst.setEvalValue(Value.instance(val != 0, this.type));
@@ -290,7 +290,7 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
 //         this.initParent(from, toType, "prvalue");
 //     },
 //
-//     operate : function(sim, inst){
+//     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //         // I think only thing I really need here is to handle booleans gracefully
 //         // Adding 0.0 should do the trick.
 //         var cstr = inst.childInstances.from.evalValue.value;
@@ -307,7 +307,7 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
 //        this.initParent(from, Types.Pointer.instance(from.type.elemType), "prvalue");
 //    },
 //
-//    operate : function(sim, inst){
+//    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        var arrObj = inst.childInstances.from.evalValue.object;
 //        inst.setEvalValue(Value.instance(arrObj.address, this.type));
 //    }
@@ -324,7 +324,7 @@ export var IntegralPromotion = ImplicitConversion.extend({
         this.initParent(from, toType, "prvalue");
     },
 
-    operate : function(sim, inst){
+    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
         var val = inst.childInstances.from.evalValue.value;
         if (isA(this.from.type, Types.Bool)){ // from bool
