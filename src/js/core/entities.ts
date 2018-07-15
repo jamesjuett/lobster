@@ -958,20 +958,25 @@ export class BaseClassSubobjectEntity extends CPPEntity {
     }
 };
 
-export var MemberSubobjectEntity = DeclaredEntity.extend({
-    _name: "MemberSubobjectEntity",
-    storage: "none",
-    init: function(decl, memberOfType){
-        this.initParent(decl);
-        assert(this.type._isInstance); // TODO: remove once I can confirm the type is always instantiated
+export class MemberSubobjectEntity extends DeclaredEntity {
+    protected static readonly _name = "MemberSubobjectEntity";
+    // storage: "none",
+
+    public readonly access: string;
+    public readonly memberOfType: Types.Class;
+
+    public constructor(decl: Declaration, memberOfType: Types.Class) {
+        super(decl);
         this.memberOfType = memberOfType;
         this.access = decl.access;
-    },
-    instanceString : function(){
+    }
+
+    public toString() {
         return this.name + " (" + this.type + ")";
-    },
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var recObj = inst.contextualReceiver();
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var recObj = rtConstruct.contextualReceiver();
 
         while(recObj && !recObj.type.isInstanceOf(this.memberOfType)){
             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
@@ -980,18 +985,20 @@ export var MemberSubobjectEntity = DeclaredEntity.extend({
         assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
 
         return recObj.getMemberSubobject(this.name).runtimeLookup(sim, inst); // I think the lookup here is in case of reference members?
-    },
-    objectInstance : function(parentObj){
+    }
+
+    public objectInstance(parentObj: CPPObject) {
         return MemberSubobject.instance(this.type, parentObj, this.name);
-    },
-    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst){
-            var recObj = inst.contextualReceiver();
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
+        if (rtConstruct){
+            var recObj = rtConstruct.contextualReceiver();
             if (recObj.name){
                 return {message: recObj.name + "." + this.name};
             }
             else{
-                return {message: "the member " + this.name + " of " + recObj.describe(sim, inst).message};
+                return {message: "the member " + this.name + " of " + recObj.describe(sim, rtConstruct).message};
             }
         }
         else{
@@ -1001,38 +1008,46 @@ export var MemberSubobjectEntity = DeclaredEntity.extend({
             };
         }
     }
-});
+}
 
-export var TemporaryObjectEntity = CPPEntity.extend({
-    _name: "TemporaryObjectEntity",
-    storage: "temp",
-    init: function(type, creator, owner, name){
-        this.initParent(type);
+export class TemporaryObjectEntity extends CPPEntity {
+    protected static readonly _name = "TemporaryObjectEntity";
+    // storage: "temp",
+
+    public readonly creator: CPPConstruct;
+    public readonly owner: CPPConstruct;
+    public readonly name: string;
+
+    constructor(type: Type, creator: CPPConstruct, owner: CPPConstruct, name: string) {
+        super(type);
         this.creator = creator;
         this.setOwner(owner);
         this.name = name; // TODO: change when I check over usages of .name and replace with description or something
-    },
-    setOwner : function(newOwner){
+    }
+
+    public setOwner(newOwner: CPPConstruct) {
         if (newOwner === this.owner)
             if (this.owner){
                 this.owner.removeTemporaryObject(this);
             }
-        this.owner = newOwner;
+        (<string>this.owner) = newOwner;
         this.owner.addTemporaryObject(this);
-    },
-    updateOwner : function(){
+    }
+
+    public updateOwner() {
         var newOwner = this.creator.findFullExpression();
         if (newOwner === this.owner){ return; }
         if (this.owner){
             this.owner.removeTemporaryObject(this);
         }
-        this.owner = newOwner;
+        (<string>this.owner) = newOwner;
         this.owner.addTemporaryObject(this);
-    },
-    objectInstance: function(creatorInst){
-        var obj = creatorInst.sim.memory.allocateTemporaryObject(this);
+    }
 
-        var inst = creatorInst;
+    public objectInstance(creatorRt: RuntimeConstruct){
+        var obj = creatorRt.sim.memory.allocateTemporaryObject(this);
+
+        var inst = creatorRt;
         while (inst.model !== this.owner){
             inst = inst.parent;
         }
@@ -1040,56 +1055,66 @@ export var TemporaryObjectEntity = CPPEntity.extend({
         inst.temporaryObjects = inst.temporaryObjects || {};
         inst.temporaryObjects[obj.entityId] = obj;
         return obj;
-    },
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var ownerInst = inst;
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var ownerInst = rtConstruct;
         while (ownerInst.model !== this.owner){
             ownerInst = ownerInst.parent;
         }
         var tempObjInst = ownerInst.temporaryObjects[this.entityId];
-        return tempObjInst && tempObjInst.runtimeLookup(sim, inst);
-    },
-    describe : function(){
+        return tempObjInst && tempObjInst.runtimeLookup(sim, rtConstruct);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: this.name}; // TOOD: eventually change implementation when I remove name
     }
 
-});
+}
 
-export var FunctionEntity = DeclaredEntity.extend({
-    _name: "FunctionEntity",
-    isStaticallyBound : function(){
+export class FunctionEntity extends DeclaredEntity {
+    protected static readonly _name = "FunctionEntity";
+
+    public isStaticallyBound() {
         return true;
-    },
-    isVirtual : function(){
-        return false;
-    },
-    instanceString : function() {
-        return this.name;
-    },
-
-    nameString : function(){
-        return this.name;
-    },
-    isLinked : function() {
-        return this.isDefined();
-    },
-    getPointerTo : function() {
-        return Value.instance(this, this.type);
-    },
-    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return this.decl.describe(sim, inst);
     }
-});
 
-export var MagicFunctionEntity = FunctionEntity.extend({
-    init : function(decl) {
-        this.initParent(decl);
+    public isVirtual() {
+        return false;
+    }
+
+    public toString() {
+        return this.name;
+    }
+
+    public nameString() {
+        return this.name;
+    }
+
+    public isLinked() {
+        return this.isDefined();
+    }
+
+    // TODO: check on what this is here for
+    public getPointerTo() {
+        return new Value(this, this.type);
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return this.decl.describe(sim, rtConstruct);
+    }
+}
+
+export class MagicFunctionEntity extends FunctionEntity {
+    public constructor(decl: Declaration) {
+        super(decl);
         this.setDefinition(decl);
-    },
-    describe : function(){
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "no description available"};
     }
-});
+}
 
 
 export var MemberFunctionEntity = FunctionEntity.extend({
