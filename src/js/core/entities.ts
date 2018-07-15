@@ -2,7 +2,8 @@ import * as Util from "../util/util";
 import {CPPError} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type} from "./types";
+import {Type, covariantType} from "./types";
+import * as Types from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -447,7 +448,7 @@ export abstract class CPPEntity {
     public readonly observable = new Observable(this);
 
     public readonly entityId: number;
-    public readonly type: type;
+    public readonly type: Type;
 
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
@@ -1075,6 +1076,8 @@ export class TemporaryObjectEntity extends CPPEntity {
 export class FunctionEntity extends DeclaredEntity {
     protected static readonly _name = "FunctionEntity";
 
+    public readonly type!: Types.Function; // ! - Initialized by parent constructor
+
     public isStaticallyBound() {
         return true;
     }
@@ -1117,21 +1120,26 @@ export class MagicFunctionEntity extends FunctionEntity {
 }
 
 
-export var MemberFunctionEntity = FunctionEntity.extend({
-    _name: "MemberFunctionEntity",
-    isMemberFunction: true,
-    init: function(decl, containingClass, virtual){
-        this.initParent(decl);
-        this.i_containingClass = containingClass;
-        this.virtual = virtual;
+export class MemberFunctionEntity extends FunctionEntity {
+    protected static readonly _name = "MemberFunctionEntity";
+
+    public readonly containingClass: Types.Class;
+    public readonly isVirtual: boolean;
+    public readonly pureVirtual: boolean;
+
+    constructor(decl: Declaration, containingClass: Types.Class, isVirtual: boolean) {
+        super(decl);
+        this.containingClass = containingClass;
+        this.isVirtual = isVirtual;
         this.pureVirtual = decl.pureVirtual;
-        // May be set to virtual if it's discovered to be an overrider
+        // May also be set to virtual later if it's discovered to be an overrider
         // for a virtual function in a base class
 
         this.checkForOverride();
-    },
-    checkForOverride : function(){
-        if (!this.i_containingClass.getBaseClass()){
+    }
+
+    private checkForOverride() {
+        if (!this.containingClass.getBaseClass()) {
             return;
         }
 
@@ -1139,32 +1147,32 @@ export var MemberFunctionEntity = FunctionEntity.extend({
         // If any are virtual, this one would have already been set to be
         // also virtual by this same procedure, so checking this one is sufficient.
         // If we override any virtual function, this one is too.
-        var overridden = this.i_containingClass.getBaseClass().classScope.singleLookup(this.name, {
+        var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
             exactMatch:true, own:true, noNameHiding:true});
 
-        if (overridden && overridden instanceof FunctionEntity && overridden.virtual){
-            this.virtual = true;
+        if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
+            (<boolean>this.isVirtual) = true;
             // Check to make sure that the return types are covariant
             if (!covariantType(this.type.returnType, overridden.type.returnType)){
                 throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
             }
         }
-    },
-    isStaticallyBound : function(){
-        return !this.virtual;
-    },
-    isVirtual : function(){
-        return this.virtual;
-    },
-    isLinked : function(){
+    }
+
+    public isStaticallyBound() {
+        return !this.isVirtual;
+    }
+
+    public isLinked() {
         return this.virtual && this.pureVirtual || this.isDefined();
-    },
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (this.virtual){
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        if (this.isVirtual){
             // If it's a virtual function start from the class scope of the dynamic type
-            var receiver = inst.contextualReceiver();
-            assert(receiver, "dynamic function lookup requires receiver");
+            var receiver = rtConstruct.contextualReceiver();
+            Util.assert(receiver, "dynamic function lookup requires receiver");
             var dynamicType = receiver.type;
 
             // Sorry this is hacky :(
@@ -1178,74 +1186,67 @@ export var MemberFunctionEntity = FunctionEntity.extend({
                     paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
                     exactMatch:true, own:true, noNameHiding:true});
             }
-            assert(func, "Failed to find virtual function implementation during lookup.");
+            Util.assert(func, "Failed to find virtual function implementation during lookup.");
             return func;
         }
         else{
             return this;
         }
-    },
-    suppressedVirtualProxy : function(){
-        return this.proxy({
-            virtual: false
-        });
     }
 
-});
+    public suppressedVirtualProxy() : MemberFunctionEntity {
+        var proxy = Object.create(this);
+        proxy.isVirtual = false;
+        return proxy;
+    }
+
+};
 
 
-export var PointedFunctionEntity = CPPEntity.extend({
-    _name: "FunctionEntity",
-    init: function(type){
-        this.initParent(type);
-        this.name = "Unknown function of type " + type;
-    },
-    isStaticallyBound : function(){
+export class PointedFunctionEntity extends CPPEntity {
+    protected static readonly _name = "FunctionEntity";
+
+    private readonly desc: string;
+
+    constructor(type: Type) {
+        super(type);
+        this.desc = "Unknown function of type " + type;
+    }
+
+    public isStaticallyBound() {
         return true;
-    },
-    instanceString : function() {
-        return this.name;
-    },
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return inst.pointedFunction.runtimeLookup(sim,inst);
-    },
-    isLinked : function(){
+    }
+
+    public toString() {
+        return this.desc;
+    }
+
+    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return rtConstruct.pointedFunction.runtimeLookup(sim, rtConstruct);
+    }
+
+    public isLinked() {
         return true;
-    },
-    isVirtual : function() {
-        return false;
-    },
-    describe : function(){
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "no description available"};
     }
-});
+}
 
 
 
-export var TypeEntity = DeclaredEntity.extend({
-    _name: "TypeEntity",
-    instanceString : function() {
+export class TypeEntity extends DeclaredEntity {
+    protected static readonly _name = "TypeEntity";
+
+    public toString() {
         return "TypeEntity: " + this.type.instanceString();
-    },
-    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return this.type.describe(sim, inst);
     }
-});
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return this.type.describe(sim, rtConstruct);
+    }
+};
 
 // Selects from candidates the function that is the best match
 // for the arguments in the args array. Also modifies args so
@@ -1256,7 +1257,7 @@ export var TypeEntity = DeclaredEntity.extend({
 //              consisting of an array of any semantic problems that prevent it
 //              from being chosen.
 
-var convLen = function(args) {
+var convLen = function(args: Expression[]) {
     var total = 0;
     for (var i = 0; i < args.length; ++i) {
         total += args[i].conversionLength;
@@ -1264,20 +1265,17 @@ var convLen = function(args) {
     return total;
 };
 
-export var overloadResolution = function(candidates, args, isThisConst, options){
-    options = options || {};
+export var overloadResolution = function(candidates: FunctionEntity[], args: Expression[], isThisConst: boolean, candidateProblems?: Note[]){
     // Find the constructor
-    var cand;
-    var tempArgs;
-    var viable = [];
+    let viable = [];
     for(var c = 0; c < candidates.length; ++c){
-        cand = candidates[c];
-        tempArgs = [];
-        var problems = [];
-        options.problems && options.problems.push(problems);
+        let cand = candidates[c];
+        let tempArgs = [];
+        var problems: Note[] = [];
+        candidateProblems && candidateProblems.push(problems);
 
         // Check argument types against parameter types
-        var paramTypes = cand.paramTypes || cand.type.paramTypes;
+        var paramTypes = cand.type.paramTypes;
         if (args.length !== paramTypes.length){
             problems.push(CPPError.param.numParams(args[i]));
         }

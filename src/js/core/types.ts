@@ -1,6 +1,7 @@
 import * as Util from "util/util";
 import CPPConstruct from "constructs";
 import CPPError from "error";
+import assign from "lodash/assign"
 				
 var vowels = ["a", "e", "i", "o", "u"];
 var isVowel = function(c){
@@ -129,7 +130,7 @@ export var subType = function(type1, type2){
     return isA(type1, ClassType) && isA(type2, ClassType) && type1.isDerivedFrom(type2);
 };
 
-export var covariantType = function(derived, base){
+export var covariantType = function(derived: Type, base: Type){
     if (sameType(derived, base)){
         return true;
     }
@@ -217,8 +218,21 @@ export var isCvConvertible = function(t1, t2){
     return true;
 };
 
+interface DefaultTypeProperties {
+    size: number;
+    precedence: number;
+    isObjectType?: boolean;
+    isArithmeticType?: boolean;
+    isIntegralType?: boolean;
+    isFloatingPointType?: boolean;
+    isComplete?: boolean;
+}
+function addDefaultTypeProperties(proto: Type, props: DefaultTypeProperties) {
+    assign(proto, props);
+}
+
 export class Type {
-    _name: "Type",
+    public static readonly _name = "Type";
     size: Class._ABSTRACT,
     isObjectType : true,
     isArithmeticType : false,
@@ -229,10 +243,10 @@ export class Type {
      * Used in parenthesization of string representations of types.
      * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
      */
-    i_precedence : Class._ABSTRACT,
+    precedence : Class._ABSTRACT,
 
-    i_maxSize : 0,
-    i_isComplete: false,
+    maxSize : 0,
+    isComplete: false,
 
 
     setMaxSize : function(newMax) {
@@ -1175,11 +1189,18 @@ export {ClassType as Class};
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-var FunctionType = Type.extend({
-    _name: "Function",
-    isObjectType: false,
-    i_precedence: 2,
-    size: 0,
+export class FunctionType extends Type {
+    public static readonly _name = "FunctionType";
+
+    private static readonly _defaultProps = addDefaultTypeProperties(
+        FunctionType.prototype,
+        {
+            isObjectType: false,
+            precedence: 2,
+            size: 0,
+        }
+    );
+    
     init: function(returnType, paramTypes, isConst, isVolatile, isThisConst){
         this.initParent(isConst, isVolatile);
 
@@ -1267,5 +1288,5 @@ var FunctionType = Type.extend({
 	valueToString : function(value){
 		return ""+value;
 	}
-});
+}
 export {FunctionType as Function};
