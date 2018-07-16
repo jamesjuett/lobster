@@ -1,5 +1,5 @@
-import {readValueWithAlert} from "expressions";
-
+import {Expression, readValueWithAlert} from "./expressions";
+import {Type} from "./types";
 
 export var ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
@@ -426,7 +426,7 @@ var standardConversion3 = function(from, toType){
     return from;
 };
 
-export var standardConversion = function(from, toType, options){
+export var standardConversion = function(from: Expression, toType: Type, options = {}){
     options = options || {};
 
     if (!options.suppressLTR){

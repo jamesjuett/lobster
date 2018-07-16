@@ -4,7 +4,7 @@ import { CPPObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer } from "./types";
 import last from "lodash/last";
 
-type RawValueType = number | string | boolean;
+export type RawValueType = number | string | boolean;
 
 export class Value {
     private static _name = "Value";
