@@ -4,8 +4,8 @@ import { CPPObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer } from "./types";
 import last from "lodash/last";
 
-export type byte = number | string | boolean; // HACK
-export type RawValueType = number | string | boolean;
+export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
+export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
 export class Value {
     private static _name = "Value";
