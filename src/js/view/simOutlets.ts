@@ -1975,7 +1975,7 @@ Lobster.Outlets.CPP.PointerMemoryObject = Outlets.CPP.SingleMemoryObject.extend(
 
         var newPointedObject;
         if (isA(this.object.type, Types.ArrayPointer)){
-            newPointedObject = this.object.type.getArrayObject();;
+            newPointedObject = this.object.type.arrayObject;
         }
         else if (isA(this.object.type, Types.ObjectPointer)){
             newPointedObject = this.object.type.getPointedObject();

@@ -4,6 +4,7 @@ import { CPPObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer } from "./types";
 import last from "lodash/last";
 
+export type byte = number | string | boolean; // HACK
 export type RawValueType = number | string | boolean;
 
 export class Value {
@@ -285,7 +286,7 @@ export class Memory {
 
         }
         if (ptr.type instanceof ObjectPointer && ptr.type.isValueValid(addr)) {
-            return ptr.type.obj;
+            return ptr.type.pointedObject;
         }
 
         // Grab object from memory
