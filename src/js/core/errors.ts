@@ -1,4 +1,4 @@
-interface Description {
+export interface Description {
     name: string;
     message: string;
 }

@@ -1,25 +1,26 @@
-import * as Util from "util/util";
-import CPPConstruct from "constructs";
-import CPPError from "error";
+import * as Util from "../util/util";
+import {CPPConstruct} from "./constructs";
+import {CPPError} from "./errors";
+import {Value, RawValueType} from "./runtimeEnvironment";
 import assign from "lodash/assign"
+import {Description} from "./errors";
 				
 var vowels = ["a", "e", "i", "o", "u"];
-var isVowel = function(c){
+function isVowel(c: string) {
 	return vowels.indexOf(c) != -1;
 };
 
 
 
 
-export var TypeSpecifier = CPPConstruct.extend({
-    _name: "TypeSpecifier",
+export class TypeSpecifier extends CPPConstruct {
 
-    compile : function(){
+    public compile() {
 
-        var constCount = 0;
-        var volatileCount = 0;
+        let constCount = 0;
+        let volatileCount = 0;
 
-        var specs = this.ast;
+        let specs = this.ast;
 
         for(var i = 0; i < specs.length; ++i){
             var spec = specs[i];
@@ -97,7 +98,7 @@ export var TypeSpecifier = CPPConstruct.extend({
 
         var scopeType;
         if (scopeType = this.contextualScope.lookup(this.typeName)){
-            if (isA(scopeType, TypeEntity)){
+            if (scopeType instanceof TypeEntity){
                 this.type = scopeType.type.instance(this.isConst, this.isVolatile);
                 return;
             }
@@ -106,7 +107,7 @@ export var TypeSpecifier = CPPConstruct.extend({
         this.type = Unknown.instance();
         this.addNote(CPPError.type.typeNotFound(this, this.typeName));
 	}
-});
+};
 
 export var userTypeNames = {};
 export var builtInTypes = {};
@@ -117,17 +118,17 @@ export var defaultUserTypeNames = {
     size_t : true
 };
 
-export var sameType = function(type1, type2){
+export function sameType(type1: Type, type2: Type) {
     return type1 && type2 && type1.sameType(type2);
 };
 
-export var similarType = function(type1, type2){
+export function similarType(type1: Type, type2: Type) {
     return type1 && type2 && type1.similarType(type2);
 };
 
 // TODO subType function is dangerous :(
-export var subType = function(type1, type2){
-    return isA(type1, ClassType) && isA(type2, ClassType) && type1.isDerivedFrom(type2);
+export function subType(type1: Type, type2: Type) {
+    return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
 };
 
 export var covariantType = function(derived: Type, base: Type){
@@ -137,11 +138,11 @@ export var covariantType = function(derived: Type, base: Type){
 
     var dc;
     var bc;
-    if (isA(derived, Pointer) && isA(base, Pointer)){
+    if (derived instanceof Pointer && base instanceof Pointer){
         dc = derived.ptrTo;
         bc = base.ptrTo;
     }
-    else if (isA(derived, Reference) && isA(base, Reference)){
+    else if (derived instanceof Reference && base instanceof Reference){
         dc = derived.refTo;
         bc = base.refTo;
     }
@@ -150,7 +151,7 @@ export var covariantType = function(derived: Type, base: Type){
     }
 
     // Must be pointers or references to class type
-    if (!isA(dc, ClassType) || !isA(bc, ClassType)){
+    if (!(dc instanceof ClassType) || !(bc instanceof ClassType)){
         return false;
     }
 
@@ -173,12 +174,12 @@ export var covariantType = function(derived: Type, base: Type){
     return true;
 };
 
-export var referenceCompatible = function(type1, type2){
-    return type1 && type2 && type1.isReferenceCompatible(type2);
+export var referenceCompatible = function(from: Type, to: Type){
+    return from && to && from.isReferenceCompatible(to);
 };
 
-export var noRef = function(type){
-    if(isA(type, Reference)){
+export var noRef = function(type : Type){
+    if(type instanceof Reference){
         return type.refTo;
     }
     else{
@@ -186,7 +187,7 @@ export var noRef = function(type){
     }
 };
 
-export var isCvConvertible = function(t1, t2){
+export var isCvConvertible = function(t1: Type, t2: Type){
 
     // t1 and t2 must be similar
     if (!similarType(t1,t2)){ return false; }
@@ -233,116 +234,116 @@ function addDefaultTypeProperties(proto: Type, props: DefaultTypeProperties) {
 
 export class Type {
     public static readonly _name = "Type";
-    size: Class._ABSTRACT,
-    isObjectType : true,
-    isArithmeticType : false,
-    isIntegralType : false,
-    isFloatingPointType : false,
 
+    public static readonly maxSize = 0;
+    
+    private static readonly _defaultProps = addDefaultTypeProperties(
+        Type.prototype,
+        {
+            size: 0,
+            precedence: 0,
+            isObjectType: true,
+            isArithmeticType: false,
+            isIntegralType: false,
+            isFloatingPointType: false,
+            isComplete: false
+        }
+    );
+
+    // All these use the definite assignment assertion because they are initialized as default properties on the prototype
+    public readonly size!: number;
+    public readonly isObjectType!: boolean;
+    public readonly isArithmeticType!: boolean;
+    public readonly isIntegralType!: boolean;
+    public readonly isFloatingPointType!: boolean;
+    public readonly isComplete!: boolean;
     /**
      * Used in parenthesization of string representations of types.
      * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
      */
-    precedence : Class._ABSTRACT,
+    private readonly precedence!: boolean;
 
-    maxSize : 0,
-    isComplete: false,
+    public readonly isConst: boolean;
+    public readonly isVolatile: boolean;
 
-
-    setMaxSize : function(newMax) {
-        this.i_maxSize = newMax;
-    },
-
-    getMaxSize : function() {
-        return this.i_maxSize;
-    },
-
-    init: function (isConst, isVolatile) {
-        if (this.size > Type.getMaxSize()){
-            Type.setMaxSize(this.size);
+    public constructor(isConst: boolean = false, isVolatile: boolean = false) {
+        if (this.size > Type.maxSize) {
+            (<number>Type.maxSize) = this.size;
         }
-        this.isConst = isConst || false;
+        this.isConst = isConst;
         // TODO ignore volatile completely? for now (and perhaps forever lol)
-        this.isVolatile = false;// isVolatile || false;
-    },
+        this.isVolatile = isVolatile;
+    }
 
-    getCVString : function() {
+    public getCVString() {
         return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
-    },
+    }
 
-    instanceString: function(){
+    public toString() {
         return this.typeString(false, "");
-    },
-
+    }
 
     /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
-     * @param {Type} other
-     * @returns {Boolean}
+     * @param other
      */
-    sameType : Class._ABSTRACT,
+    public abstract sameType(other: Type) : boolean;
 
     /**
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
-     * @param {Type} other
-     * @returns {Boolean}
+     * @param other
      */
-    similarType : Class._ABSTRACT,
+    public abstract similarType(other: Type) : boolean;
 
 
     /**
      * Returns true if this type is reference-related (see C++ standard) to the type other.
-     * @param {Type} other
-     * @returns {boolean}
+     * @param other
      */
-    isReferenceRelated : function(other){
+    public isReferenceRelated(other: Type) {
         return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
             subType(this.cvUnqualified(),other.cvUnqualified());
-    },
+    }
 
     /**
      * Returns true if this type is reference-compatible (see C++ standard) to the type other.
      * @param {Type} other
      * @returns {boolean}
      */
-    isReferenceCompatible : function(other){
+    public isReferenceCompatible(other: Type) {
         return this.isReferenceRelated(other) && other && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
-
-    },
+    }
 
     /**
      * Returns a C++ styled string representation of this type.
-     * @param {boolean} excludeBase If true, exclude the base type.
-     * @param {String} varname The name of the variable. May be the empty string.
-     * @param {boolean} decorated If true, html tags will be added.
-     * @returns {String}
+     * @param excludeBase If true, exclude the base type.
+     * @param varname The name of the variable. May be the empty string.
+     * @param decorated If true, html tags will be added.
      */
-    typeString : Class._ABSTRACT,
+    public abstract typeString(excludeBase: boolean, varname: string, decorated?: boolean) : string;
 
     /**
      * Returns a C++ styled string representation of this type, with the base type excluded as
      * would be suitable for only printing the declarator part of a declaration.
-     * @param {String} varname The name of the variable. May be the empty string.
-     * @returns {String}
+     * @param varname The name of the variable. May be the empty string.
      */
-    declaratorString : function(varname){
+    public declaratorString(varname: string) {
         return this.typeString(true, varname);
-    },
+    }
 
     /**
      * Returns a string representing a type as it might be read verbally in english.
      * e.g. int const * var[5] --> "an array of 5 pointers to const int"
-     * @param {boolean} plural Whether the returned string should be plural.
-     * @returns {String}
+     * @param plural Whether the returned string should be plural.
      */
-    englishString : Class._ABSTRACT,
+    public abstract englishString(plural: boolean) : string;
 
     /**
      * Helper function for functions that create string representations of types.
      */
-    i_parenthesize : function(outside, str){
-        return this.i_precedence < outside.i_precedence ? "(" + str + ")" : str;
-    },
+    private parenthesize(outside: Type, str: string) {
+        return this.precedence < outside.precedence ? "(" + str + ")" : str;
+    }
 
     /**
      * Returns a human-readable string representation of the given raw value for this Type.
@@ -350,146 +351,115 @@ export class Type {
      * value of an object.
      * Note that the value representation for the type in Lobster is just a javascript
      * value. It is not the C++ value representation for the type.
-     * @param {Value} value
-     * @returns {String}
+     * @param value
      */
-    valueToString : Class._ABSTRACT,
+    public abstract valueToString(value: Value) : string;
 
     /**
      * Returns the string representation of the given raw value for this Type that would be
      * printed to an ostream.
      * Note that the raw value representation for the type in Lobster is just a javascript
      * value. It is not the C++ value representation for the type.
-     * Note: This is a hack that may eventually be removed since printing to a stream should
+     * TODO: This is a hack that may eventually be removed since printing to a stream should
      * really be handled by overloaded << operator functions.
-     * @param {Value} value
-     * @returns {String}
+     * @param value
      */
-    valueToOstreamString : function(value){
+    public valueToOstreamString(value: Value) {
         return this.valueToString(value);
-    },
+    }
 
     /**
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
-    describe : function(){
+    public describe() : Description {
         var str = this.typeString(false, "");
         return {name: str, message: str};
-    },
+    }
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
      * TODO: Right now, the hack that is used is that the whole value
      * @param bytes
-     * @returns {*}
      */
-    bytesToValue : function(bytes){
+    public bytesToValue(bytes: Value[]){
         // HACK: the whole value is stored in the first byte
         return bytes[0];
-    },
+    }
 
     /**
      * Converts a raw value representing a value of this type to a sequence of bytes
      * (i.e. the C++ object representation)
-     * @param {*} value
-     * @returns {Array}
+     * @param value
      */
-    valueToBytes : function(value){
+    public valueToBytes(value: Value) {
         var bytes = [];
         // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
         for(var i = 1; i < this.size-1; ++i){
             bytes.push(0);
         }
-        return bytes;
-    },
+        return <Value[]>bytes;
+    }
 
     /**
      * Returns whether a given raw value for this type is valid. For example, a pointer type may track runtime
      * type information about the array from which it was originally derived. If the pointer value increases such
      * that it wanders over the end of that array, its value becomes invalid.
-     * @param {*} value
-     * @returns {boolean}
-     */
-    isValueValid : function(value){
-        return true;
-    },
-
-    /**
-     * Returns whether a given raw value for this type is dereferenceable. For most types, this function just returns
-     * false since dereferencing them doesn't even make sense. For pointer types, the given raw value is dereferenceable
-     * if the result of the dereference will be a live object. An example of the distinction between validity and
-     * dereferenceability for pointer types would be an array pointer. The pointer value (an address) is dereferenceable
-     * if it is within the bounds of the array. It is valid in those same locations plus also the location one space
-     * past the end (but not dereferenceable there). All other address values are invalid.
      * @param value
-     * @returns {*|boolean}
      */
-    isValueDereferenceable : function(value) {
-        return this.isValueValid(value);
-    },
-
-    /**
-     * Returns whether or not the type is complete. Note a type may be incomplete at one point during compilation
-     * and then completed later. e.g. a class type is incomplete until its definition is finished
-     * @returns {boolean}
-     */
-    isComplete : function(){
-        return !!this._isComplete;
-    },
+    public abstract isValueValid(value: RawValueType) : boolean;
 
     /**
      * If this is a compound type, returns the "next" type.
      * e.g. if this is a pointer-to-int, returns int
      * e.g. if this ia a reference to pointer-to-int, returns int
      * e.g. if this is an array of bool, returns bool
-     * @returns {null | Type}
      */
-    getCompoundNext : function() {
+    public getCompoundNext() : Type | null {
         return null;
-    },
+    }
 
     /**
      * Returns true if this type is either const or volatile (or both)
      * @returns {boolean}
      */
-    isCVQualified : function() {
+    public isCVQualified() {
         return this.isConst || this.isVolatile;
-    },
+    }
 
     /**
      * Returns a cv-unqualified proxy object for this type, unless this type was already cv-unqualified,
      * in which case just returns this object.
      * @returns {Type}
      */
-    cvUnqualified : function(){
+    public cvUnqualified() {
         if (!this.isCVQualified()){
             return this;
         }
-        else{
-            return this.proxy({
-                isConst: false,
-                isVolatile: false
-            }, false);
+        else {
+            var proxy = Object.create(this);
+            proxy.isConst = false;
+            proxy.isVolatile = false;
+            return proxy;
         }
-    },
+    }
 
     /**
      * Returns a proxy object for this type with the specified cv-qualifications, unless this type already matches
      * the given cv-qualifications, in which case just returns this object.
      * @returns {Type}
      */
-    cvQualified : function(isConst, isVolatile){
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
         if (this.isConst == isConst && this.isVolatile == isVolatile){
             return this;
         }
         else{
-            return this.proxy({
-                isConst: isConst,
-                isVolatile: isVolatile
-            }, false);
+            var proxy = Object.create(this);
+            proxy.isConst = isConst;
+            proxy.isVolatile = isVolatile;
+            return proxy;
         }
     }
 };
@@ -756,7 +726,7 @@ export var Pointer = Type.extend({
     init: function(ptrTo, isConst, isVolatile){
         this.initParent(isConst, isVolatile);
         this.ptrTo = ptrTo;
-        this.funcPtr = isA(this.ptrTo, FunctionType);
+        this.funcPtr = this.ptrTo instanceof FunctionType;
         return this;
     },
     getCompoundNext : function() {
@@ -779,7 +749,7 @@ export var Pointer = Type.extend({
         return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
     },
     valueToString : function(value){
-        if (isA(this.ptrTo, FunctionType) && value) {
+        if (this.ptrTo instanceof FunctionType && value) {
             return value.name;
         }
         else{
@@ -787,8 +757,16 @@ export var Pointer = Type.extend({
         }
     },
     isObjectPointer : function() {
-        return this.ptrTo.isObjectType || isA(this.ptrTo, Void);
+        return this.ptrTo.isObjectType || this.ptrTo instanceof Void;
     },
+    /**
+     * Returns whether a given raw value for this type is dereferenceable. For pointer types, the given raw value is dereferenceable
+     * if the result of the dereference will be a live object. An example of the distinction between validity and
+     * dereferenceability for pointer types would be an array pointer. The pointer value (an address) is dereferenceable
+     * if it is within the bounds of the array. It is valid in those same locations plus also the location one space
+     * past the end (but not dereferenceable there). All other address values are invalid.
+     * @param value
+     */
     isValueDereferenceable : function(value) {
         return this.isValueValid(value);
     }
@@ -1210,7 +1188,7 @@ export class FunctionType extends Type {
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
         // TODO not for poitners/refrences
-        if(!(isA(returnType, ClassType) || isA(returnType, Pointer) || isA(returnType, Reference))){
+        if(!(returnType instanceof ClassType || returnType instanceof Pointer || returnType instanceof Reference)){
             this.returnType = returnType.cvUnqualified();
         }
         else{
@@ -1218,7 +1196,7 @@ export class FunctionType extends Type {
         }
 
         this.paramTypes = paramTypes.map(function(ptype){
-            return isA(ptype, ClassType) ? ptype : ptype.cvUnqualified();
+            return ptype instanceof ClassType ? ptype : ptype.cvUnqualified();
         });
         // Top-level const on parameter types is ignored for non-class types
 
@@ -1258,7 +1236,7 @@ export class FunctionType extends Type {
         return this.sameType(other);
     },
     sameParamTypes : function(other){
-        if (isA(other, FunctionType)){
+        if (other instanceof FunctionType){
             return this.sameParamTypes(other.paramTypes);
         }
         if (this.paramTypes.length !== other.length){

@@ -1,5 +1,5 @@
 import * as Util from "../util/util";
-import {CPPError} from "./errors";
+import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
 import {Type, covariantType} from "./types";
@@ -8,6 +8,9 @@ import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
 import { CPPObject } from "./objects";
+import {standardConversion} from "./standardConversions";
+import * as Expressions from "./expressions";
+import {Expression} from "./expressions";
 
 export class Scope {
     private static _name = "Scope";
@@ -57,14 +60,17 @@ export class Scope {
         var ents = [];
         for(var name in this.entities) {
             if (Array.isArray(this.entities[name])) {
-                ents.pushAll(this.entities[name]);
+                var e = <CPPEntity[]>this.entities[name];
+                for(let i = 0; i < e.length; ++i) {
+                    ents.push(e[i]);
+                }
             }
             else{
                 ents.push(this.entities[name]);
             }
         }
         return ents;
-    },
+    }
 
     // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
     /**
@@ -74,10 +80,10 @@ export class Scope {
      * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. Function declarations with
      * the same signature but a mismatch of return types, duplicate definition)
      */
-    addDeclaredEntity : function(entity) {
+    public addDeclaredEntity(entity: DeclaredEntity) {
         var otherEnt = this.ownEntity(entity.name);
 
-        if (!otherEnt){ // No previous entity with this name, so just add it
+        if (!otherEnt) { // No previous entity with this name, so just add it
             this.addEntity(entity);
         }
         else if (Array.isArray(otherEnt)){ // Array means a set of functions, check each one
@@ -109,9 +115,9 @@ export class Scope {
         }
     },
 
-    ownEntity : function(name){
+    public ownEntity(name: string) {
         return this.entities[name];
-    },
+    }
 
     singleLookup : function(name, options){
         var result = this.lookup(name, options);
@@ -593,13 +599,13 @@ export class DeclaredEntity extends NamedEntity {
         }
     }
 
-    public readonly decl: Declaration;
+    public readonly declaration: Declaration;
     public readonly definition?: Declaration;
     public readonly initializer?: Initializer;
 
     public constructor(decl: Declaration) {
         super(decl.type, decl.name);
-        this.decl = decl;
+        this.declaration = decl;
     }
 
     public setDefinition(definition: Declaration) {
@@ -1277,16 +1283,16 @@ export var overloadResolution = function(candidates: FunctionEntity[], args: Exp
         // Check argument types against parameter types
         var paramTypes = cand.type.paramTypes;
         if (args.length !== paramTypes.length){
-            problems.push(CPPError.param.numParams(args[i]));
+            problems.push(CPPError.param.numParams(cand.declaration));
         }
-        else if (isThisConst && cand.isMemberFunction && !cand.type.isThisConst){
-            problems.push(CPPError.param.thisConst(args[i]));
+        else if (isThisConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
+            problems.push(CPPError.param.thisConst(cand.declaration));
         }
         else{
             for(var i = 0; i < args.length; ++i){
                 if (paramTypes[i] instanceof Types.Reference){
                     tempArgs.push(args[i]);
-                    if(!referenceCompatible(args[i].type, paramTypes[i].refTo)){
+                    if(!Types.referenceCompatible(args[i].type, paramTypes[i].refTo)){
                         problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));
                     }
                     //else if (args[i].valueCategory !== "lvalue"){
@@ -1295,7 +1301,7 @@ export var overloadResolution = function(candidates: FunctionEntity[], args: Exp
                 }
                 else{
                     tempArgs.push(standardConversion(args[i], paramTypes[i]));
-                    if(!sameType(tempArgs[i].type, paramTypes[i])){
+                    if(!Types.sameType(tempArgs[i].type, paramTypes[i])){
                         problems.push(CPPError.param.paramType(args[i], args[i].type, paramTypes[i]));
                     }
 
@@ -1306,7 +1312,7 @@ export var overloadResolution = function(candidates: FunctionEntity[], args: Exp
         if (problems.length == 0) {
             viable.push({
                 cand: cand,
-                args: tempArgs.clone()
+                args: tempArgs
             });
         }
     }
@@ -1336,10 +1342,10 @@ export var overloadResolution = function(candidates: FunctionEntity[], args: Exp
 
 // TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.
 // Probably would be best to just create an "AuxiliaryExpression" class for something like this.
-var fakeExpressionsFromTypes = function(types){
+var fakeExpressionsFromTypes = function(types: Type[]) {
     var exprs = [];
     for (var i = 0; i < types.length; ++i){
-        exprs[i] = AuxiliaryExpression.instance(types[i]);
+        exprs[i] = Expressions.AuxiliaryExpression.instance(types[i]);
         // exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
     }
     return exprs;
