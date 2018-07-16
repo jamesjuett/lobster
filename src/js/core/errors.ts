@@ -226,7 +226,7 @@ export var CPPError = {
     },
     class_def : {
         prev_def : function(src, name, prev){
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.prev_def", name + " cannot be defined more than once. Note that Labster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.prev_def", name + " cannot be defined more than once. Note that Lobster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
         },
         base_class_type : function(src, name){
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.base_class_type", "I cannot find a suitable class called \""+ name + "\" to use as a base.");
@@ -237,16 +237,16 @@ export var CPPError = {
             return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, "class_def.big_three", "This class does not follow the rule of the Big Three. It has a custom implementation for the " + yStr + " but not for the " + nStr + ". The compiler will provide implicit versions of the missing ones, but they will almost certainly work \"incorrectly\" (e.g. make shallow copies or neglect to delete dynamic memory).");
         },
         multiple_inheritance : function(src){
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.multiple_inheritance", "Sorry, but Labster does not support multiple inheritance.");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.multiple_inheritance", "Sorry, but Lobster does not support multiple inheritance.");
         },
         virtual_inheritance : function(src){
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.virtual_inheritance", "Sorry, but Labster does not support virtual inheritance.");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.virtual_inheritance", "Sorry, but Lobster does not support virtual inheritance.");
         },
         ctor_def : function(src){
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.ctor_def", "Sorry, but for now Labster only supports constructors that are defined inline. (i.e. You need a body.)");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.ctor_def", "Sorry, but for now Lobster only supports constructors that are defined inline. (i.e. You need a body.)");
         },
         dtor_def : function(src){
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.dtor_def", "Sorry, but for now Labster only supports destructors that are defined inline. (i.e. You need a body.)");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "class_def.dtor_def", "Sorry, but for now Lobster only supports destructors that are defined inline. (i.e. You need a body.)");
         }
     },
 	declaration : {
@@ -322,7 +322,7 @@ export var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.func.returnTypesMatch", "Cannot redeclare function " + name + " with the same parameter types but a different return type.");
             },
             mainParams : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.func.mainParams", "Sorry, but for now command line arguments (and thus parameters for main) are not supported in Labster.");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.func.mainParams", "Sorry, but for now command line arguments (and thus parameters for main) are not supported in Lobster.");
             },
             no_return_type : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.func.no_return_type", "You must specify a return type for this function. (Or if you meant it to be a constructor, did you misspell the name?)");
@@ -350,13 +350,13 @@ export var CPPError = {
 		},
         array : {
             length_required : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.array.length_required", "Must specify length when declaring an array. (Sorry, but Labster requires this for now even if it could hypothetically be deduced from the initializer.)");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.array.length_required", "Must specify length when declaring an array. (Sorry, but Lobster requires this for now even if it could hypothetically be deduced from the initializer.)");
             },
             literal_length_only : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.array.literal_length_only", "At the moment, only literal array lengths are supported for non-dynamic arrays.");
             },
             zero_length : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.array.zero_length", "Statically allocated arrays with zero length are prohibited (and why would you want one?).");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.array.zero_length", "Although technically allowed in C++, arrays with zero length are prohibited in Lobster.");
             }
         },
         init : {
@@ -387,7 +387,7 @@ export var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referenceLvalue : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referenceLvalue", "For now, references cannot be bound to prvalues of non-class type in Labster.");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referenceLvalue", "For now, references cannot be bound to prvalues of non-class type in Lobster.");
             },
             referencePrvalueConst : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
@@ -461,7 +461,7 @@ export var CPPError = {
 			return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "type.one_type", "Type specifier must only specify one type.");//  Found: [" + typeNames + "].");
 		},
         storage : function(src){
-            return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, "type.storage", "Because of the way Labster works, storage class specifiers (e.g. static) have no effect.");
+            return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, "type.storage", "Because of the way Lobster works, storage class specifiers (e.g. static) have no effect.");
         },
         typeNotFound : function(src, typeName){
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "type.typeNotFound", "Oops, this is embarassing... I feel like " + typeName + " should be a type, but I can't figure out what it is.");
@@ -583,10 +583,10 @@ export var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.condition_bool", "Expression of type (" + type + ") cannot be converted to boolean condition.");
             },
             sameType : function(src) {
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.sameType", "Labster's ternary operator requires second and third operands of the same type.");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.sameType", "Lobster's ternary operator requires second and third operands of the same type.");
             },
             noVoid : function(src) {
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.noVoid", "Labster's ternary operator does not allow void operands.");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.noVoid", "Lobster's ternary operator does not allow void operands.");
             },
             sameValueCategory : function(src) {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.sameValueCategory", "The second and third operands of the ternary operator must yield a common value category.");
@@ -619,7 +619,7 @@ export var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.paramReferenceType", "The given argument (of type " + from + ") cannot be bound to a reference parameter of a different type ("+ to + ").");
             },
             paramReferenceLvalue : function(src) {
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Labster. (i.e. you have to bind a variable)");
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Lobster. (i.e. you have to bind a variable)");
             },
             not_defined : function(src, type, paramTypes, message){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.functionCall.not_defined", "A function call operator with parameters of types (" +
@@ -673,7 +673,7 @@ export var CPPError = {
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "param.paramReferenceType", "The given argument (of type " + from + ") cannot be bound to a reference parameter of a different type ("+ to + ").");
         },
         paramReferenceLvalue : function(src) {
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "param.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Labster. (i.e. you have to bind a variable)");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "param.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Lobster. (i.e. you have to bind a variable)");
         },
         // paramCopyConstructor : function(src, type) {
         //     return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "param.paramCopyConstructor", "Cannot find a copy constructor to pass a parameter of type " + type + " by value.");

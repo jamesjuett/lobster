@@ -4,6 +4,7 @@ import {CPPError} from "./errors";
 import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject } from "./objects";
+import flatten from "lodash/flatten";
 				
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -875,6 +876,10 @@ export class Pointer extends Type {
     public isValueDereferenceable(value: RawValueType) {
         return this.isValueValid(value);
     }
+
+    public isValueValid(value: RawValueType) {
+        return true;
+    }
 }
 
 export class ArrayPointer extends Pointer {
@@ -933,107 +938,143 @@ export class ObjectPointer extends Pointer {
 
 
 // REQUIRES: refTo must be a type
+// TODO: reference shouldn't really have a size...perhaps rework so that there's an intermediate subclass of Type for Object types with a size
 export class Reference extends Type {
-    _name: "Reference",
-    isObjectType: false,
-    i_precedence: 1,
-    _isComplete: true,
 
-    init: function(refTo, isConst, isVolatile){
+    public readonly size!: number;
+    protected readonly precedence!: number;
+    public readonly isComplete!: boolean;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Reference,
+        {
+            size: 0,
+            precedence: 1,
+            isComplete: true
+        }
+    );
+
+    public readonly refTo: Type;
+
+    public constructor(refTo: Type, isConst?: boolean, isVolatile?: boolean) {
         // References have no notion of const (they can't be re-bound anyway)
-        this.initParent(false, isVolatile);
+        super(false, isVolatile);
         this.refTo = refTo;
         this.size = this.refTo.size;
         return this;
-    },
+    }
 
-    getCompoundNext : function() {
+    public getCompoundNext() {
         return this.refTo;
-    },
+    }
 
-    sameType : function(other){
-        return other.isA(Reference) && this.refTo.sameType(other.refTo);
-    },
-    //Note: I don't think similar types even make sense with references. See spec 4.4
-    similarType : function(other){
-        return other.isA(Reference) && this.refTo.similarType(other.refTo);
-    },
-    typeString : function(excludeBase, varname, decorated){
-		return this.refTo.typeString(excludeBase, this.i_parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
-	},
-	englishString : function(plural){
-		return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString();
-	},
-	valueToString : function(value){
+    public sameType(other: Type) : boolean {
+        return other instanceof Reference && this.refTo.sameType(other.refTo);
+    }
+
+    //Note: I don't think similar types even make sense with references. See standard 4.4
+    public similarType(other: Type) : boolean {
+        return other instanceof Reference && this.refTo.similarType(other.refTo);
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+		return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
+    }
+    
+	public englishString(plural: boolean) {
+		return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString(false);
+    }
+    
+	public valueToString(value: RawValueType){
 		return ""+value;
 	}
-});
+}
 
 
 // REQUIRES: elemType must be a type
-var ArrayType = Type.extend({
-    _name: "Array",
-    i_precedence: 2,
-    _isComplete: true, // Assume complete. If length is unknown, individual Array types will set to false
-    init: function(elemType, length, isConst, isVolatile){
+export class ArrayType extends Type {
+    
+    public readonly size!: number;
+    protected readonly precedence!: number;
+    public readonly isComplete!: boolean;
+    public readonly isObjectType!: boolean;
 
-        if (length === undefined){
-            this._isComplete = false;
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        ArrayType,
+        {
+            precedence: 2,
+            isComplete: true,
+            isObjectType: true,
+            size: 0 // Will be overriden by instance size unless it's an array of unknown bound
         }
+    );
 
-        // Set size before initParent since that assumes size is what it should be when it runs
-        this.properSize = elemType.size * length;
-        this.size = Math.max(1, this.properSize);
+    public readonly elemType: Type;
+    public readonly length?: number;
 
-        this.initParent(elemType.isConst, elemType.isVolatile);
+    public constructor(elemType: Type, length?: number, isConst?: boolean, isVolatile: boolean) {
+
+        // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be const or volatile
+        super(false, false);
+
         this.elemType = elemType;
         this.length = length;
-        return this;
-    },
-
-    getCompoundNext : function() {
-        return this.elemType;
-    },
-
-    setLength : function(length){
-        this.length = length;
-        this.properSize = this.elemType.size * length;
-        this.size = Math.max(1, this.properSize);
-        if (this.size > Type.getMaxSize()){
-            Type.setMaxSize(this.size);
+        
+        if (length !== undefined) {
+            this.size = elemType.size * length;
         }
-    },
-    sameType : function(other){
-        return other.isA(ArrayType) && this.elemType.sameType(other.elemType) && this.length === other.length;
-    },
-    similarType : function(other){
-        return other.isA(ArrayType) && this.elemType.similarType(other.elemType) && this.length === other.length;
-    },
-    typeString : function(excludeBase, varname, decorated){
+        else {
+            // An array type of unknown bound is considered incomplete
+            this.isComplete = false;
+        }
+
+
+        return this;
+    }
+
+    public getCompoundNext() {
+        return this.elemType;
+    }
+
+    public sameType(other: Type) : boolean {
+        return other instanceof ArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
+    }
+
+    public similarType(other: Type) : boolean {
+        return other instanceof ArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
 		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]", decorated);
-	},
-	englishString : function(plural){
-		return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
-	},
-	valueToString : function(value){
+    }
+    
+	public englishString(plural: boolean) {
+        if (this.length) {
+            return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
+        }
+        else {
+            return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
+        }
+    }
+    
+	public valueToString(value: RawValueType) {
 		return ""+value;
-	},
-    bytesToValue : function(bytes){
+    }
+    
+    public bytesToValue(bytes: byte[]) {
         var arr = [];
         var elemSize = this.elemType.size;
         for(var i = 0; i < bytes.length; i += elemSize){
             arr.push(this.elemType.bytesToValue(bytes.slice(i, i + elemSize)));
         }
         return arr;
-    },
-    valueToBytes : function(value){
-        var bytes = [];
-        for(var i = 0; i < value.length; ++i){
-            bytes.pushAll(this.elemType.valueToBytes(value[i]));
-        }
-        return bytes;
     }
-});
+    public valueToBytes(value: RawValueType) {
+        return flatten(value.map(
+            (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
+        ));
+    }
+}
 export {ArrayType as Array};
 
 
