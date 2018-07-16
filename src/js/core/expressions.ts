@@ -3148,9 +3148,10 @@ var parseCPPChar = function(litValue){
 var literalJSParse = {
 	"int": parseInt,
 	"float": parseFloat,
-	"double": parseFloat,
+    "double": parseFloat,
+    "bool" : function(b) {return b ? 1 : 0;},
     "char": parseCPPChar,
-    "string": Util.escapeString
+    "string": Util.escapeString // TODO: is this still used?
 };
 var literalTypes = {
 	"int": Types.Int.instance(),

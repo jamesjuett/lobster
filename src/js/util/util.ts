@@ -1,4 +1,4 @@
-var Lobster = Lobster || {};
+import assign from "lodash/assign";
 
 export function debug(message, category){
     if (category){
@@ -16,28 +16,12 @@ export function assert(condition: boolean, message: string = "") {
         throw Error("Assert failed: " + message);
 };
 
-var MagicMap = Class.extend({
-    init: function(){
-        this.map = {};
-    },
 
-    createDefault: function(key){
-        return {};
-    },
+export function addDefaultProperties<T>(proto: {prototype: T}, props: {}) {
+    assign(proto, props);
+}
 
-    get: function(key){
-        assert(key != "get", "Cannot use \"get\" as a key into a MagicMap.");
-        assert(key != "set", "Cannot use \"set\" as a key into a MagicMap.");
-        return (this.map.hasOwnProperty(key) ? this.map[key] : this.map[key] = this.createDefault())
-    },
-
-    set: function(key, value){
-        assert(key != "get", "Cannot use \"get\" as a key into a MagicMap.");
-        assert(key != "set", "Cannot use \"set\" as a key into a MagicMap.");
-        this.map[key] = value;
-    }
-});
-
+export type Constructor<T = {}> = new (...args: any[]) => T;
 
 
 

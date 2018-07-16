@@ -1,9 +1,9 @@
 import * as Util from "../util/util";
 import {CPPConstruct} from "./constructs";
 import {CPPError} from "./errors";
-import {Value, RawValueType} from "./runtimeEnvironment";
-import assign from "lodash/assign"
+import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
+import { CPPObject } from "./objects";
 				
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -110,7 +110,7 @@ export class TypeSpecifier extends CPPConstruct {
 };
 
 export var userTypeNames = {};
-export var builtInTypes = {};
+export var builtInTypes : {[index:string]: Util.Constructor} = {};
 
 export var defaultUserTypeNames = {
     ostream : true,
@@ -219,30 +219,40 @@ export var isCvConvertible = function(t1: Type, t2: Type){
     return true;
 };
 
-interface DefaultTypeProperties {
-    size: number;
-    precedence: number;
-    isObjectType?: boolean;
-    isArithmeticType?: boolean;
-    isIntegralType?: boolean;
-    isFloatingPointType?: boolean;
-    isComplete?: boolean;
-}
-function addDefaultTypeProperties(proto: Type, props: DefaultTypeProperties) {
-    assign(proto, props);
-}
+// interface DefaultTypeProperties {
+//     size: number;
+//     precedence: number;
+//     isObjectType?: boolean;
+//     isArithmeticType?: boolean;
+//     isIntegralType?: boolean;
+//     isFloatingPointType?: boolean;
+//     isComplete?: boolean;
+// }
 
 export class Type {
     public static readonly _name = "Type";
 
-    public static readonly maxSize = 0;
-    
-    private static readonly _defaultProps = addDefaultTypeProperties(
-        Type.prototype,
+    public abstract readonly size: number;
+
+    /**
+     * Used in parenthesization of string representations of types.
+     * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
+     */
+    protected abstract readonly precedence: number;
+
+
+    // All these use the definite assignment assertion because they are initialized as default properties on the prototype
+    public readonly isObjectType!: boolean;
+    public readonly isArithmeticType!: boolean;
+    public readonly isIntegralType!: boolean;
+    public readonly isFloatingPointType!: boolean;
+    public readonly isComplete!: boolean;
+
+    // Set the default properties above
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Type,
         {
-            size: 0,
-            precedence: 0,
-            isObjectType: true,
+            isObjectType: false,
             isArithmeticType: false,
             isIntegralType: false,
             isFloatingPointType: false,
@@ -250,26 +260,11 @@ export class Type {
         }
     );
 
-    // All these use the definite assignment assertion because they are initialized as default properties on the prototype
-    public readonly size!: number;
-    public readonly isObjectType!: boolean;
-    public readonly isArithmeticType!: boolean;
-    public readonly isIntegralType!: boolean;
-    public readonly isFloatingPointType!: boolean;
-    public readonly isComplete!: boolean;
-    /**
-     * Used in parenthesization of string representations of types.
-     * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
-     */
-    private readonly precedence!: boolean;
-
+    // regular member properties
     public readonly isConst: boolean;
     public readonly isVolatile: boolean;
 
     public constructor(isConst: boolean = false, isVolatile: boolean = false) {
-        if (this.size > Type.maxSize) {
-            (<number>Type.maxSize) = this.size;
-        }
         this.isConst = isConst;
         // TODO ignore volatile completely? for now (and perhaps forever lol)
         this.isVolatile = isVolatile;
@@ -311,7 +306,7 @@ export class Type {
      * @returns {boolean}
      */
     public isReferenceCompatible(other: Type) {
-        return this.isReferenceRelated(other) && other && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
+        return this.isReferenceRelated(other) && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
     }
 
     /**
@@ -341,7 +336,7 @@ export class Type {
     /**
      * Helper function for functions that create string representations of types.
      */
-    private parenthesize(outside: Type, str: string) {
+    protected parenthesize(outside: Type, str: string) {
         return this.precedence < outside.precedence ? "(" + str + ")" : str;
     }
 
@@ -353,7 +348,7 @@ export class Type {
      * value. It is not the C++ value representation for the type.
      * @param value
      */
-    public abstract valueToString(value: Value) : string;
+    public abstract valueToString(value: RawValueType) : string;
 
     /**
      * Returns the string representation of the given raw value for this Type that would be
@@ -364,7 +359,7 @@ export class Type {
      * really be handled by overloaded << operator functions.
      * @param value
      */
-    public valueToOstreamString(value: Value) {
+    public valueToOstreamString(value: RawValueType) {
         return this.valueToString(value);
     }
 
@@ -383,7 +378,7 @@ export class Type {
      * TODO: Right now, the hack that is used is that the whole value
      * @param bytes
      */
-    public bytesToValue(bytes: Value[]){
+    public bytesToValue(bytes: byte[]){
         // HACK: the whole value is stored in the first byte
         return bytes[0];
     }
@@ -393,14 +388,14 @@ export class Type {
      * (i.e. the C++ object representation)
      * @param value
      */
-    public valueToBytes(value: Value) {
+    public valueToBytes(value: RawValueType) {
         var bytes = [];
         // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
         for(var i = 1; i < this.size-1; ++i){
             bytes.push(0);
         }
-        return <Value[]>bytes;
+        return <byte[]>bytes;
     }
 
     /**
@@ -464,301 +459,411 @@ export class Type {
     }
 };
 
-export var SimpleType = Type.extend({
-    _name: "SimpleType",
-    i_precedence: 0,
-    _isComplete: true,
+/**
+ * Used when a compilation error causes an unknown type.
+ */
+export class Unknown extends Type {
 
-    /**
-     * Subclasses must implement a concrete i_type property that should be a
-     * string indicating the kind of type e.g. "int", "double", "bool", etc.
-     */
-    i_type: Class._ABSTRACT,
+    public readonly size!: number;
+    protected readonly precedence!: number;
 
-    sameType : function(other){
-        return other && other.isA(SimpleType)
-            && other.i_type === this.i_type
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Unknown,
+        {
+            size: 0,
+            precedence: 0
+        }
+    );
+
+    public sameType(other: Type) : boolean {
+        return false;
+    }
+
+    public similarType(other: Type) : boolean{
+        return false;
+    }
+
+	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+        return "<unknown>";
+    }
+    
+	public englishString(plural: boolean) {
+		return "an unknown type";
+    }
+    
+	public valueToString(value: RawValueType) {
+        Util.assert(false);
+        return "";
+    }
+    
+    public isValueValid(value: RawValueType) {
+        return false;
+    }
+}
+
+builtInTypes["unknown"] = Unknown;
+
+export class Void extends Type {
+
+    protected readonly simpleType!: string;
+    public readonly size!: number;
+    protected readonly precedence!: number;
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Void,
+        {
+            simpleType: "void",
+            size: 0,
+            precedence: 0
+        }
+    );
+
+    public sameType(other: Type) : boolean {
+        return other instanceof Void
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
-    },
-    similarType : function(other){
-        return other && other.isA(SimpleType)
-            && other.i_type === this.i_type;
-    },
+    }
 
-	typeString : function(excludeBase, varname, decorated){
+    public similarType(other: Type) : boolean{
+        return other instanceof Void;
+    }
+
+	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+        return "void";
+    }
+    
+	public englishString(plural: boolean) {
+		return "void";
+    }
+    
+	public valueToString(value: RawValueType) {
+        Util.assert(false);
+        return "";
+    }
+    
+    public isValueValid(value: RawValueType) {
+        return false;
+    }
+}
+builtInTypes["void"] = Void;
+
+export abstract class SimpleType extends Type {
+    
+    /**
+     * Subclasses must implement a concrete type property that should be a
+     * string indicating the kind of type e.g. "int", "double", "bool", etc.
+     */
+    protected abstract simpleType: string;
+
+    public readonly isComplete!: boolean;
+    protected readonly precedence!: number;
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        SimpleType,
+        {
+            isComplete: true,
+            precedence: 0
+        }
+    );
+
+    public sameType(other: Type) : boolean {
+        return other instanceof SimpleType
+            && other.simpleType === this.simpleType
+            && other.isConst === this.isConst
+            && other.isVolatile === this.isVolatile;
+    }
+
+    public similarType(other: Type) : boolean{
+        return other instanceof SimpleType
+            && other.simpleType === this.simpleType;
+    }
+
+	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
         if (excludeBase) {
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.i_type) : this.i_type) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.simpleType) : this.simpleType) + (varname ? " " + varname : "");
         }
-	},
-	englishString : function(plural){
-		// no recursive calls to this.i_type.englishString() here
-		// because this.i_type is just a string representing the type
-        var word = this.getCVString() + this.i_type;
-		return (plural ? this.i_type+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
-	},
-	valueToString : function(value){
-		return ""+value;
-	}
-});
-
-/**
- * Used when a compilation error causes an unknown type.
- */
-export var Unknown = SimpleType.extend({
-    _name: "UnknownType",
-    i_type: "unknown",
-    isObjectType: false,
-    size: 4
-});
-builtInTypes["unknown"] = Unknown;
-
-export var Void = SimpleType.extend({
-    _name: "Void",
-    i_type: "void",
-    isObjectType: false,
-    isComplete: false,
-    size: 0
-});
-builtInTypes["void"] = Void;
-
-var _Universal_data = SimpleType.extend({
-    _name: "_Universal_data",
-    i_type: "_universal_data",
-    size: 16
-});
-builtInTypes["_universal_data"] = _Universal_data;
-
-var IntegralTypeBase = SimpleType.extend({
-    _name: "IntegralTypeBase",
-    isIntegralType: true,
-    isArithmeticType: true,
-
-    init: function(isConst, isVolatile) {
-        this.initParent(isConst, isVolatile);
     }
-});
+    
+	public englishString(plural: boolean) {
+		// no recursive calls to this.simpleType.englishString() here
+		// because this.simpleType is just a string representing the type
+        var word = this.getCVString() + this.simpleType;
+		return (plural ? this.simpleType+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+    }
+    
+	public valueToString(value: RawValueType) {
+		return ""+value;
+    }
+    
+    public isValueValid(value: RawValueType) {
+        return true;
+    }
+}
 
 
-export var Char = IntegralTypeBase.extend({
-    _name: "Char",
-    i_type: "char",
-    size: 1,
 
-    NULL_CHAR : 0,
+// TODO: This was an idea for a hack to store C++ object data into a javascript object. I don't think it's going to be used anywhere.
+// var _Universal_data = SimpleType.extend({
+//     _name: "_Universal_data",
+//     simpleType: "_universal_data",
+//     size: 16
+// });
+// builtInTypes["_universal_data"] = _Universal_data;
 
-    isNullChar : function(value) {
+abstract class IntegralTypeBase extends SimpleType {
+
+    public readonly isIntegralType!: boolean;
+    public readonly isArithmeticType!: boolean;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        IntegralTypeBase,
+        {
+            isIntegralType: true,
+            isArithmeticType: true
+        }
+    );
+}
+
+
+export class Char extends IntegralTypeBase {
+    
+    protected readonly simpleType!: string;
+    public readonly size!: number;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Char,
+        {
+            simpleType: "char",
+            size: 1
+        }
+    );
+
+    public static readonly NULL_CHAR = 0;
+
+    public static isNullChar(value: RawValueType) {
         return value === this.NULL_CHAR;
-    },
+    }
 
-    jsStringToNullTerminatedCharArray : function(str) {
+    public jsStringToNullTerminatedCharArray(str: string) {
         var chars = str.split("").map(function(c){
             return c.charCodeAt(0);
         });
         chars.push(Char.NULL_CHAR);
         return chars;
-    },
-
-    valueToString : function(value){
-        return "'" + Util.unescapeString(String.fromCharCode(value)) + "'";//""+value;
-    },
-    valueToOstreamString : function(value){
-        return String.fromCharCode(value);
     }
-});
+
+    public valueToString(value: RawValueType) {
+        // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
+        return "'" + Util.unescapeString(String.fromCharCode(<number>value)) + "'";//""+value;
+    }
+    public valueToOstreamString(value: RawValueType) {
+        // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
+        return String.fromCharCode(<number>value);
+    }
+}
 builtInTypes["char"] = Char;
 
-export var Int = IntegralTypeBase.extend({
-    _name: "Int",
-    i_type: "int",
-    size: 4
-});
+export class Int extends IntegralTypeBase {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Int,
+        {
+            simpleType: "int",
+            size: 4
+        }
+    );
+};
+
 builtInTypes["int"] = Int;
 
-export var Size_t = IntegralTypeBase.extend({
-    _name: "Size_t",
-    i_type: "size_t",
-    size: 8
-});
+export class Size_t extends IntegralTypeBase {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Size_t,
+        {
+            simpleType: "size_t",
+            size: 8
+        }
+    );
+}
 builtInTypes["size_t"] = Size_t;
 
-export var Bool = IntegralTypeBase.extend({
-    _name: "Bool",
-    i_type: "bool",
-    size: 1,
+export class Bool extends IntegralTypeBase {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
 
-    bytesToValue : function(bytes){
-        return (bytes[0] ? true : false);
-    },
-
-    valueToOstreamString : function(value) {
-        return value ? "1" : "0";
-    }
-    //valueToString : function(value){
-    //    return value ? "T" : "F";
-    //}
-});
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Bool,
+        {
+            simpleType: "bool",
+            size: 1
+        }
+    );
+}
 builtInTypes["bool"] = Bool;
 
-export var Enum = IntegralTypeBase.extend({
-    _name: "Enum",
-    size: 4,
-    extend: function(){
+// TODO: add support for Enums
 
-        var sub = SimpleType.extend.apply(this, arguments);
-        assert(sub.values);
-        sub.valueMap = {};
-        for(var i = 0; i < sub.values.length; ++i) {
-            sub.valueMap[sub.values[i]] = i;
+
+
+abstract class FloatingPointTypeBase extends SimpleType {
+
+
+
+    public readonly isFloatingPointType!: boolean;
+    public readonly isArithmeticType!: boolean;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        FloatingPointTypeBase,
+        {
+            isFloatingPointType: true,
+            isArithmeticType: true
         }
+    );
 
-        return sub;
-    },
-    valueToString : function(value){
-        return this.values[value];
-    }
-});
-
-
-
-var FloatingPointBase = SimpleType.extend({
-    _name: "FloatingPointBase",
-    isFloatingPointType: true,
-    isArithmeticType: true,
-
-    valueToString : function(value){
-        var str = ""+value;
+    public valueToString(value: RawValueType) {
+        // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
+        var str = ""+<number>value;
         return str.indexOf(".") != -1 ? str : str + ".";
     }
+}
 
-});
+export class Float extends FloatingPointTypeBase {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
 
-export var Float = FloatingPointBase.extend({
-    _name: "Float",
-    i_type: "float",
-    size: 4
-});
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Float,
+        {
+            simpleType: "float",
+            size: 4
+        }
+    );
+}
 builtInTypes["float"] = Float;
 
-export var Double = FloatingPointBase.extend({
-    _name: "Double",
-    i_type: "double",
-    size: 8
-});
+export class Double extends FloatingPointTypeBase {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Double,
+        {
+            simpleType: "double",
+            size: 8
+        }
+    );
+}
 builtInTypes["double"] = Double;
 
+export class OStream extends SimpleType {
+    protected readonly simpleType!: string;
+    public readonly size!: number;
 
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        OStream,
+        {
+            simpleType: "ostream",
+            size: 4
+        }
+    );
 
-
-
-
-
-// builtInTypes["string"] =
-//     StringType = SimpleType.extend({
-//     _name: "String",
-//     i_type: "string",
-//     size: 4,
-//     defaultValue: "",
-//
-//     valueToString : function(value){
-//         value = value.replace(/\n/g,"\\n");
-//         return '"' + value + '"';
-//     },
-//     valueToOstreamString : function(value){
-//         return value;
-//     },
-//     bytesToValue : function(bytes){
-//         return ""+bytes[0];
-//     }
-// });
-
-
-
-
-
-
-
-export var OStream = SimpleType.extend({
-    _name: "OStream",
-    i_type: "ostream",
-    size: 4,
-
-    valueToString : function(value){
-        return JSON.stringify(value);
-    }
-});
+    // public valueToString(value: RawValueType){
+    //     return JSON.stringify(value);
+    // }
+}
 builtInTypes["ostream"] = OStream;
 
-export var IStream = SimpleType.extend({
-    _name: "IStream",
-    i_type: "istream",
-    size: 4,
+// TODO: add support for istream
+// export class IStream = SimpleType.extend({
+//     _name: "IStream",
+//     simpleType: "istream",
+//     size: 4,
 
-    valueToString : function(value){
-        return JSON.stringify(value);
+//     valueToString : function(value){
+//         return JSON.stringify(value);
+//     }
+// });
+// builtInTypes["istream"] = IStream;
+
+
+
+
+
+//TODO: create separate function pointer type???
+
+export class Pointer extends Type {
+
+    public readonly size!: number;
+    protected readonly precedence!: number;
+    public readonly isComplete!: boolean;
+
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        Pointer,
+        {
+            size: 8,
+            precedence: 1,
+            isComplete: true
+        }
+    );
+
+    public static isNull(value: RawValueType) {
+        return <number>value === 0;
     }
-});
-builtInTypes["istream"] = IStream;
 
+    public static isNegative(value: RawValueType) {
+        return <number>value < 0;
+    }
 
+    public readonly ptrTo: Type;
 
-
-
-
-
-// REQUIRES: ptrTo must be a type
-export var Pointer = Type.extend({
-    _name: "Pointer",
-    size: 8,
-    i_precedence: 1,
-    _isComplete: true,
-
-    isNull : function(value){
-        return value === 0;
-    },
-    isNegative : function(value){
-        return value < 0;
-    },
-
-    init: function(ptrTo, isConst, isVolatile){
-        this.initParent(isConst, isVolatile);
+    public constructor(ptrTo: Type, isConst?: boolean, isVolatile?: boolean) {
+        super(isConst, isVolatile);
         this.ptrTo = ptrTo;
-        this.funcPtr = this.ptrTo instanceof FunctionType;
-        return this;
-    },
-    getCompoundNext : function() {
+    }
+
+    public getCompoundNext() {
         return this.ptrTo;
-    },
-    sameType : function(other){
-        return other && other.isA(Pointer)
+    }
+
+    public sameType(other: Type) : boolean {
+        return other instanceof Pointer
             && this.ptrTo.sameType(other.ptrTo)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
-    },
-    similarType : function(other){
-        return other && other.isA(Pointer)
+    }
+
+    similarType(other: Type) : boolean {
+        return other instanceof Pointer
             && this.ptrTo.similarType(other.ptrTo);
-    },
-    typeString : function(excludeBase, varname, decorated){
-        return this.ptrTo.typeString(excludeBase, this.i_parenthesize(this.ptrTo, this.getCVString() + "*" + varname), decorated);
-    },
-    englishString : function(plural){
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+        return this.ptrTo.typeString(excludeBase, this.parenthesize(this.ptrTo, this.getCVString() + "*" + varname), decorated);
+    }
+
+    public englishString(plural: boolean) {
         return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
-    },
-    valueToString : function(value){
+    }
+
+    public valueToString(value: RawValueType) {
         if (this.ptrTo instanceof FunctionType && value) {
             return value.name;
         }
         else{
             return "0x" + value;
         }
-    },
-    isObjectPointer : function() {
+    }
+
+    public isObjectPointer() {
         return this.ptrTo.isObjectType || this.ptrTo instanceof Void;
-    },
+    }
+
     /**
      * Returns whether a given raw value for this type is dereferenceable. For pointer types, the given raw value is dereferenceable
      * if the result of the dereference will be a live object. An example of the distinction between validity and
@@ -767,74 +872,68 @@ export var Pointer = Type.extend({
      * past the end (but not dereferenceable there). All other address values are invalid.
      * @param value
      */
-    isValueDereferenceable : function(value) {
+    public isValueDereferenceable(value: RawValueType) {
         return this.isValueValid(value);
     }
-});
+}
 
-export var ArrayPointer = Pointer.extend({
-    _name: "ArrayPointer",
-    size: 8,
+export class ArrayPointer extends Pointer {
+    
+    public readonly arrayObject: CPPObject;
 
-    init: function(arrObj, isConst, isVolatile){
-        this.initParent(arrObj.type.elemType, isConst, isVolatile);
-        this.arrObj = arrObj;
-    },
-    getArrayObject : function(){
-        return this.arrObj;
-    },
-    valueToString : function(value){
-        return "0x" + value;
-    },
-    min : function(){
-        return this.arrObj.address;
-    },
-    onePast : function(){
-        return this.arrObj.address + this.arrObj.type.properSize;
-    },
-    isValueValid : function(value){
-        if (!this.arrObj.isAlive()){
+    public constructor(arrayObject: CPPObject, isConst?: boolean, isVolatile?: boolean) {
+        super(arrayObject.type.elemType, isConst, isVolatile);
+        this.arrayObject = arrayObject;
+    }
+
+    public min() {
+        return this.arrayObject.address;
+    }
+
+    public onePast() {
+        return this.arrayObject.address + this.arrayObject.type.properSize;
+    }
+
+    public isValueValid(value: RawValueType) {
+        if (!this.arrayObject.isAlive){
             return false;
         }
-        var arrObj = this.arrObj;
-        return arrObj.address <= value && value <= arrObj.address + arrObj.type.properSize;
-    },
-    isValueDereferenceable : function(value) {
+        var arrayObject = this.arrayObject;
+        return arrayObject.address <= value && value <= arrayObject.address + arrayObject.type.properSize;
+    }
+
+    public isValueDereferenceable(value: RawValueType) {
         return this.isValueValid(value) && value !== this.onePast();
-    },
-    toIndex : function(addr){
-        return Util.integerDivision(addr - this.arrObj.address, this.arrObj.type.elemType.size);
     }
 
-});
-
-export var ObjectPointer = Pointer.extend({
-    _name: "ObjectPointer",
-
-    init: function(obj, isConst, isVolatile){
-        this.initParent(obj.type, isConst, isVolatile);
-        this.obj = obj;
-    },
-    getPointedObject : function(){
-        return this.obj;
-    },
-    valueToString : function(value){
-        //if (this.obj.name){
-        //    return "0x" + value;
-        //}
-        //else{
-            return "0x" + value;
-        //}
-    },
-    isValueValid : function(value){
-        return this.obj.isAlive() && this.obj.address === value;
+    public toIndex(addr: number) {
+        return Util.integerDivision(addr - this.arrayObject.address, this.arrayObject.type.elemType.size);
     }
 
-});
+}
+
+export class ObjectPointer extends Pointer {
+    
+    public readonly pointedObject: CPPObject;
+
+    public constructor(obj: CPPObject, isConst?: boolean, isVolatile?: boolean) {
+        super(obj.type, isConst, isVolatile);
+        this.pointedObject = obj;
+    }
+
+    public getPointedObject() {
+        return this.pointedObject;
+    }
+    
+    public isValueValid(value: RawValueType) {
+        return this.pointedObject.isAlive && this.pointedObject.address === value;
+    }
+
+}
 
 
 // REQUIRES: refTo must be a type
-export var Reference = Type.extend({
+export class Reference extends Type {
     _name: "Reference",
     isObjectType: false,
     i_precedence: 1,
@@ -853,11 +952,11 @@ export var Reference = Type.extend({
     },
 
     sameType : function(other){
-        return other && other.isA(Reference) && this.refTo.sameType(other.refTo);
+        return other.isA(Reference) && this.refTo.sameType(other.refTo);
     },
     //Note: I don't think similar types even make sense with references. See spec 4.4
     similarType : function(other){
-        return other && other.isA(Reference) && this.refTo.similarType(other.refTo);
+        return other.isA(Reference) && this.refTo.similarType(other.refTo);
     },
     typeString : function(excludeBase, varname, decorated){
 		return this.refTo.typeString(excludeBase, this.i_parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
@@ -905,10 +1004,10 @@ var ArrayType = Type.extend({
         }
     },
     sameType : function(other){
-        return other && other.isA(ArrayType) && this.elemType.sameType(other.elemType) && this.length === other.length;
+        return other.isA(ArrayType) && this.elemType.sameType(other.elemType) && this.length === other.length;
     },
     similarType : function(other){
-        return other && other.isA(ArrayType) && this.elemType.similarType(other.elemType) && this.length === other.length;
+        return other.isA(ArrayType) && this.elemType.similarType(other.elemType) && this.length === other.length;
     },
     typeString : function(excludeBase, varname, decorated){
 		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]", decorated);
@@ -1115,15 +1214,15 @@ var ClassType = Type.extend({
     },
 
     sameType : function(other){
-        //alert(other && other.isA(this._class));
+        //alert(other.isA(this._class));
         return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     },
 
     similarType : function(other){
-        //alert(other && other.isA(this._class));
-        return other && other.isA(ClassType) && other.i_classId === this.i_classId;
+        //alert(other.isA(this._class));
+        return other.isA(ClassType) && other.i_classId === this.i_classId;
     },
     typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {
@@ -1170,7 +1269,7 @@ export {ClassType as Class};
 export class FunctionType extends Type {
     public static readonly _name = "FunctionType";
 
-    private static readonly _defaultProps = addDefaultTypeProperties(
+    private static readonly _defaultProps = addDefaultProperties(
         FunctionType.prototype,
         {
             isObjectType: false,
