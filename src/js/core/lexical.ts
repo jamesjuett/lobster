@@ -38,3 +38,17 @@ export var checkIdentifier = function(src: CPPConstruct, iden: string, noteHandl
         noteHandler.addNote(CPPError.iden.alt_op(src, iden));
     }
 };
+
+export function createFullyQualifiedName(...names : string[]) {
+    return "::" + names.join("::");
+}
+
+export function fullyQualifiedNameToUnqualified(fqname: string) {
+    let i = fqname.lastIndexOf("::");
+    if (i === -1) {
+        return fqname;
+    }
+    else{
+        return fqname.slice(i+2);
+    }
+}

@@ -5,6 +5,8 @@ import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject } from "./objects";
 import flatten from "lodash/flatten";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity } from "./entities";
+import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 				
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -233,7 +235,7 @@ export var isCvConvertible = function(t1: Type, t2: Type){
 export class Type {
     public static readonly _name = "Type";
 
-    public abstract readonly size: number;
+    public abstract readonly size: number; // TODO: this should not be required for all types
 
     /**
      * Used in parenthesization of string representations of types.
@@ -961,7 +963,6 @@ export class Reference extends Type {
         super(false, isVolatile);
         this.refTo = refTo;
         this.size = this.refTo.size;
-        return this;
     }
 
     public getCompoundNext() {
@@ -1012,7 +1013,7 @@ export class ArrayType extends Type {
     public readonly elemType: Type;
     public readonly length?: number;
 
-    public constructor(elemType: Type, length?: number, isConst?: boolean, isVolatile: boolean) {
+    public constructor(elemType: Type, length?: number, isConst?: boolean, isVolatile?: boolean) {
 
         // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be const or volatile
         super(false, false);
@@ -1027,9 +1028,6 @@ export class ArrayType extends Type {
             // An array type of unknown bound is considered incomplete
             this.isComplete = false;
         }
-
-
-        return this;
     }
 
     public getCompoundNext() {
@@ -1077,119 +1075,132 @@ export class ArrayType extends Type {
 }
 export {ArrayType as Array};
 
+// TODO: Add a type for an incomplete class
 
+// TODO: get rid of or move this comment somewhere appropriate
 /**
  * memberEntities - an array of all member entities. does not inlcude constructors, destructor, or base class subobject entities
  * subobjectEntities - an array containing all subobject entities, include base class subobjects and member subobjects
  * baseClassSubobjectEntities - an array containing entities for any base class subobjects
  * memberSubobjectEntities - an array containing entities for member subobjects (does not contain base class subobjects)
  * constructors - an array of the constructor entities for this class. may be empty if no constructors
- * copyConstructor - the copy constructor entity for this class. might be null if doesn't have a copy constructor
  * destructor - the destructor entity for this class. might be null if doesn't have a destructor
  */
-var ClassType = Type.extend({
-    _name: "Class",
-    i_precedence: 0,
-    className: Class._ABSTRACT,
-    _nextClassId: 0,
-
-    createClassType : function(name, parentScope, base, members) {
-        assert(this == ClassType); // shouldn't be called on instances
-        var classType = this.extend({
-            _name : name,
-            i_classId : this._nextClassId++,
-            i_isComplete : false,
-            className : name,
-            size : 1,
-            i_reallyZeroSize : true,
-            classScope : ClassScope.instance(name, parentScope, base && base.classScope),
-            memberEntities : [],
-            subobjectEntities : [],
-            baseClassSubobjectEntities : [],
-            memberSubobjectEntities : [],
-            constructors : [],
-            copyConstructor : null,
-            destructor : null,
-
-            i_baseClass : base || null // TODO: change if we ever want multiple inheritance
 
 
-        });
+export class ClassType extends Type {
+    public readonly size: number;
+    protected readonly precedence!: number;
+    // public readonly isComplete: boolean;
+    public readonly isObjectType!: boolean;
 
-        if (base){
-            classType.addBaseClass(base);
+    protected static readonly _defaultProps = Util.addDefaultProperties(
+        ClassType,
+        {
+            precedence: 0,
+            isObjectType: true,
+        }
+    );
+
+    public readonly cppClass: ClassEntity;
+
+    public constructor(cppClass: ClassEntity, isConst?: boolean, isVolatile?: boolean) {
+        super(isConst, isVolatile);
+
+        this.cppClass = cppClass;
+        this.size = cppClass.size;
+    }
+
+    public get isComplete() {
+        return 
+    }
+}
+
+export class CPPClass {
+
+    private static nextClassId = 0;
+
+    public readonly name: string;
+    public readonly fullyQualifiedName: string;
+    public readonly size: number = 1;
+    private actuallyZeroSize = true;
+
+    private scope: ClassScope;
+    private memberEntities : CPPEntity[] = [];
+    private subobjectEntities: CPPEntity[] = [];
+    private baseClassSubobjectEntities : ClassEntity[] = [];
+    private memberSubobjectEntities : CPPEntity[] = [];
+    private constructors : FunctionEntity[] = [];
+    private destructor : null;
+    
+    public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
+        this.fullyQualifiedName = fullyQualifiedName;
+        this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
+        this.scope = ClassScope.instance(name, parentScope, baseClass);
+
+        if (baseClass) {
+            let baseEntity = new BaseClassSubobjectEntity(baseClass, this, "public");
+            this.baseClassSubobjectEntities.push(baseEntity);
+            this.subobjectEntities.push(baseEntity);
+            this.size += base.type.size;
         }
 
+    }
 
-        members && members.forEach(classType.addMember.bind(classType));
-
-        // var fakeDecl = FakeDeclaration.instance("numDucklings", Int.instance());
-        // classType.addMember(MemberSubobjectEntity.instance(fakeDecl, classType));
-
-        return classType;
-    },
-
-    addBaseClass : function(base) {
-        this.baseClassSubobjectEntities.push(BaseClassSubobjectEntity.instance(base, this, "public"));
-        this.subobjectEntities.push();
-        this.size += base.size;
-    },
-
-    getBaseClass : function() {
+    public getBaseClass() {
         if (this.baseClassSubobjectEntities.length > 0) {
             return this.baseClassSubobjectEntities[0].type;
         }
         else {
             return null;
         }
-    },
+    }
 
-    memberLookup : function(memberName, options) {
-        return this.classScope.memberLookup(memberName, options);
-    },
+    public memberLookup(memberName: string, options: LookupOptions) {
+        return this.scope.memberLookup(memberName, options);
+    }
 
-    requiredMemberLookup : function(memberName, options) {
-        return this.classScope.requiredMemberLookup(memberName, options);
-    },
+    public requiredMemberLookup(memberName: string, options: LookupOptions) {
+        return this.scope.requiredMemberLookup(memberName, options);
+    }
 
-    hasMember : function(memberName, options) {
+    public hasMember(memberName: string, options: LookupOptions) {
         return !!this.memberLookup(memberName, options);
-    },
+    }
 
-    addMember : function(mem){
-        assert(this._isClass);
-        this.classScope.addDeclaredEntity(mem);
+    public addMember(mem: CPPEntity) {
+        this.scope.addDeclaredEntity(mem);
         this.memberEntities.push(mem);
         if(mem.type.isObjectType){
-            if (this.i_reallyZeroSize){
-                this.size = 0;
-                delete this.i_reallyZeroSize;
+            if (this.actuallyZeroSize){
+                (<number>this.size) = 0;
+                this.actuallyZeroSize = false;
             }
-            mem.memberIndex = this.memberSubobjectEntities.length;
+            
             this.memberSubobjectEntities.push(mem);
             this.subobjectEntities.push(mem);
-            this.size += mem.type.size;
+            (<number>this.size) += mem.type.size;
         }
-    },
+    }
 
-    addConstructor : function(constructor){
+    public addConstructor(constructor: ConstructorEntity) {
         this.constructors.push(constructor);
-    },
+    }
 
-    addDestructor : function(destructor){
+    public addDestructor(destructor: DestructorEntity) {
         this.destructor = destructor;
-    },
+    }
 
-    getDefaultConstructor : function(){
-        return this.classScope.singleLookup(this.className+"\0", {
+    public getDefaultConstructor() {
+        return this.scope.singleLookup(this.name+"\0", {
             own:true, noBase:true, exactMatch:true,
             paramTypes:[]});
-    },
+    }
 
-    getCopyConstructor : function(requireConst){
-        return this.classScope.singleLookup(this.className+"\0", {
+    public getCopyConstructor(requireConst: boolean){
+        return this.scope.singleLookup(this.name+"\0", {
                 own:true, noBase:true, exactMatch:true,
-                paramTypes:[Reference.instance(this.instance(true))]}) ||
+                paramTypes:[new Reference(this.instance(true))]}) ||
             !requireConst &&
             this.classScope.singleLookup(this.className+"\0", {
                 own:true, noBase:true, exactMatch:true,
@@ -1355,7 +1366,6 @@ export class FunctionType extends Type {
             this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString();
         }
         this.paramStrEnglish += ")";
-        return this;
     },
     sameType : function(other){
         if (!other){
