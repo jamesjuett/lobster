@@ -1,16 +1,18 @@
 import {checkIdentifier} from "./lexical";
 import {CPPConstruct} from "./constructs";
 import * as Util from "../util/util";
+import { CPPObject } from "./objects";
 
-export var readValueWithAlert = function(evalValue, sim, expr, inst){
-    if(!evalValue.isValueValid()){
-        var msg = "The value you just got out of " + expr.describeEvalValue(0, sim, inst).message + " isn't valid. It might be uninitialized or it could have come from a dead object.";
-        if (evalValue.rawValue() == 0){
+export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
+    let value = obj.readValue();
+    if(!value.isValid) {
+        var msg = "The value you just got out of " + expr.describeEvalValue(0, sim, rt).message + " isn't valid. It might be uninitialized or it could have come from a dead object.";
+        if (value.rawValue() === 0){
             msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
         }
         sim.undefinedBehavior(msg);
     }
-    return evalValue.readValue();
+    return value;
 };
 
 /**

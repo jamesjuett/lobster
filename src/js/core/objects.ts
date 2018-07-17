@@ -1,29 +1,57 @@
-import * as Types from "types";
+import * as Types from "./types";
+import { ArrayType } from "./types";
+import { Observable } from "../util/observe";
+import { assert } from "../util/util";
+
+interface ObjectStorage {
+
+};
+
+class AtomicObjectStorage implements ObjectStorage {
+
+}
+
+class ArrayObjectStorage implements ObjectStorage {
+    private readonly type: ArrayType;
+    private readonly elemObjects: CPPObject[] = [];
+
+    public constructor(type: ArrayType) {
+        this.type = type;
+        for(let i = 0; i < this.type.length; ++i){
+            this.elemObjects.push(ArraySubobject.instance(this, i));
+        }
+    }
+}
+
+class classObjectStorage implements ObjectStorage {
+
+}
+
 
 export class CPPObject {
-    _name: "CPPObject",
-    storage: Class._ABSTRACT,
 
-    // ADD OBSERVABLE
+    public readonly observable = new Observable(this);
 
-    init: function(name, type){
+    /**
+     * This is NOT any sort of official name/symbol for the object.
+     * It is just used for a human-readable description, which is often going
+     * to be the same as that.
+     */
+    public readonly name: string;
+
+    public readonly type: Type; // TODO: change to ObjectType type
+
+    public readonly size: number;
+
+    public constructor(name: string, type: Type) {
         this.name = name;
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
-        this.nonRefType = this.type;
-        if (isA(this.type, Types.Reference) && isA(this.type.refTo, Types.Class)){
-            this.nonRefType = this.type.refTo;
-        }
-
-        if (isA(this.type, Types.Array)){
-            this.isArray = true;
-            // If array, make subobjects for all elements
-            this.elemObjects = [];
-            for(var i = 0; i < this.type.length; ++i){
-                this.elemObjects.push(ArraySubobject.instance(this, i));
-            }
+        if (this.type instanceof Types.Array) {
+            // this.isArray = true;
+            this.objectStorage = new ArrayObjectStorage();
         }
         else if (isA(this.nonRefType, Types.Class)){
             this.isClass = true;
@@ -52,12 +80,6 @@ export class CPPObject {
             });
 
         }
-    },
-
-    // TODO: Ultimately, I don't think this is needed, but I think I use it occassionally.
-    // Remove and fix places after we have more thorough regression testing (or typescript)
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return this;
     },
 
     // HACK: I should split this class into subclasses/mixins for objects of class type or array type
