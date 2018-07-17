@@ -1102,10 +1102,10 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
             }
         }
 
-        this.type.copyConstructor = null;
+        let hasCopyConstructor = false;
         for(var i = 0; i < this.type.constructors.length; ++i){
             if (this.type.constructors[i].decl.isCopyConstructor){
-                this.type.copyConstructor = this.type.constructors[i];
+                hasCopyConstructor = true;
                 break;
             }
         }
@@ -1116,7 +1116,7 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
         // Rule of the Big Three
         var bigThreeYes = [];
         var bigThreeNo = [];
-        (this.type.copyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
+        (hasCopyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
         (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
 
@@ -1132,13 +1132,12 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
 
         this.customBigThree = bigThreeYes.length > 0;
 
-        if (!this.type.copyConstructor) {
+        if (!hasCopyConstructor) {
             // Create implicit copy constructor
             var icc = this.createImplicitCopyConstructor();
             if (icc) {
                 icc.compile();
                 assert(!icc.hasErrors());
-                this.type.copyConstructor = icc.entity;
             }
         }
 

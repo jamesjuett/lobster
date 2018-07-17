@@ -12,7 +12,15 @@ import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 
+export interface LookupOptions {
+    own?: boolean;
+    noBase?: boolean;
+    exactMatch?: boolean;
+    paramTypes?: Type[]
+}
+
 export class Scope {
+
     private static _name = "Scope";
     private static HIDDEN = Symbol("HIDDEN");
     private static NO_MATCH = Symbol("NO_MATCH");
