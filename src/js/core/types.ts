@@ -5,7 +5,7 @@ import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity } from "./entities";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 				
 var vowels = ["a", "e", "i", "o", "u"];
@@ -1011,9 +1011,9 @@ export class ArrayType extends Type {
     );
 
     public readonly elemType: Type;
-    public readonly length?: number;
+    public readonly length: number;
 
-    public constructor(elemType: Type, length?: number, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(elemType: Type, length: number, isConst?: boolean, isVolatile?: boolean) {
 
         // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be const or volatile
         super(false, false);
@@ -1089,9 +1089,7 @@ export {ArrayType as Array};
 
 
 export class ClassType extends Type {
-    public readonly size: number;
     protected readonly precedence!: number;
-    // public readonly isComplete: boolean;
     public readonly isObjectType!: boolean;
 
     protected static readonly _defaultProps = Util.addDefaultProperties(
@@ -1102,180 +1100,32 @@ export class ClassType extends Type {
         }
     );
 
-    public readonly cppClass: ClassEntity;
+    private readonly cppClass: ClassEntity;
 
     public constructor(cppClass: ClassEntity, isConst?: boolean, isVolatile?: boolean) {
         super(isConst, isVolatile);
 
         this.cppClass = cppClass;
-        this.size = cppClass.size;
     }
 
     public get isComplete() {
-        return 
-    }
-}
-
-export class CPPClass {
-
-    private static nextClassId = 0;
-
-    public readonly name: string;
-    public readonly fullyQualifiedName: string;
-    public readonly size: number = 1;
-    private actuallyZeroSize = true;
-
-    private scope: ClassScope;
-    private memberEntities : CPPEntity[] = [];
-    private subobjectEntities: CPPEntity[] = [];
-    private baseClassSubobjectEntities : ClassEntity[] = [];
-    private memberSubobjectEntities : CPPEntity[] = [];
-    private constructors : FunctionEntity[] = [];
-    private destructor : null;
-    
-    public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
-        this.fullyQualifiedName = fullyQualifiedName;
-        this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
-        this.scope = ClassScope.instance(name, parentScope, baseClass);
-
-        if (baseClass) {
-            let baseEntity = new BaseClassSubobjectEntity(baseClass, this, "public");
-            this.baseClassSubobjectEntities.push(baseEntity);
-            this.subobjectEntities.push(baseEntity);
-            this.size += base.type.size;
-        }
-
+        return this.cppClass.isComplete;
     }
 
-    public getBaseClass() {
-        if (this.baseClassSubobjectEntities.length > 0) {
-            return this.baseClassSubobjectEntities[0].type;
-        }
-        else {
-            return null;
-        }
+    public get size() {
+        return this.cppClass.size;
     }
 
-    public memberLookup(memberName: string, options: LookupOptions) {
-        return this.scope.memberLookup(memberName, options);
-    }
-
-    public requiredMemberLookup(memberName: string, options: LookupOptions) {
-        return this.scope.requiredMemberLookup(memberName, options);
-    }
-
-    public hasMember(memberName: string, options: LookupOptions) {
-        return !!this.memberLookup(memberName, options);
-    }
-
-    public addMember(mem: CPPEntity) {
-        this.scope.addDeclaredEntity(mem);
-        this.memberEntities.push(mem);
-        if(mem.type.isObjectType){
-            if (this.actuallyZeroSize){
-                (<number>this.size) = 0;
-                this.actuallyZeroSize = false;
-            }
-            
-            this.memberSubobjectEntities.push(mem);
-            this.subobjectEntities.push(mem);
-            (<number>this.size) += mem.type.size;
-        }
-    }
-
-    public addConstructor(constructor: ConstructorEntity) {
-        this.constructors.push(constructor);
-    }
-
-    public addDestructor(destructor: DestructorEntity) {
-        this.destructor = destructor;
-    }
-
-    public getDefaultConstructor() {
-        return this.scope.singleLookup(this.name+"\0", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[]});
-    }
-
-    public getCopyConstructor(requireConst: boolean){
-        return this.scope.singleLookup(this.name+"\0", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new Reference(this.instance(true))]}) ||
-            !requireConst &&
-            this.classScope.singleLookup(this.className+"\0", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[Reference.instance(this.instance(false))]});
-    },
-
-    getAssignmentOperator : function(requireConst, isThisConst){
-        return this.classScope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[this.instance()]}) ||
-            this.classScope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[Reference.instance(this.instance(true))]}) ||
-            !requireConst &&
-            this.classScope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[Reference.instance(this.instance(false))]})
-
-    },
-
-    makeComplete : function() {
-        this.i_isComplete = true;
-    },
-
-    isComplete : function(){
-        return this.i_isComplete || this.i_isTemporarilyComplete;
-    },
-    setTemporarilyComplete : function(){
-        this.i_isTemporarilyComplete = true;
-    },
-    unsetTemporarilyComplete : function(){
-        delete this.i_isTemporarilyComplete;
-    },
-
-
-    // TODO: I think this is fragile dependent on order of compilation of translation units
-    merge : function(class1, class2) {
-        class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
-    },
-
-    classString : function(){
-        return this.className;
-    },
-
-    // Functions that may be called on either the class or the instance
-
-    isDerivedFrom : function(potentialBase){
-        var b = this.getBaseClass();
-        while(b){
-            if (similarType(potentialBase, b)){
-                return true;
-            }
-            b = b.base;
-        }
-        return false;
-    },
-
-
-    // Below this are instance-only functions
-
-    isInstanceOf : function(other) {
-        return this.i_classId === other.i_classId;
-    },
-
-    sameType : function(other){
+    public sameType(other: Type) {
         //alert(other.isA(this._class));
         return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
-    },
+    }
 
-    similarType : function(other){
-        //alert(other.isA(this._class));
-        return other.isA(ClassType) && other.i_classId === this.i_classId;
-    },
+    public similarType(other: Type) {
+        return other instanceof ClassType && other.cppClass.fullyQualifiedName === this.cppClass;
+    }
     typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {
             return varname ? varname : "";
@@ -1310,6 +1160,140 @@ export class CPPClass {
         }
         return bytes;
     }
+}
+
+export class CPPClass {
+
+    private static nextClassId = 0;
+
+    public readonly name: string;
+    public readonly fullyQualifiedName: string;
+    public readonly size: number = 1;
+    private actuallyZeroSize = true;
+
+    private scope: ClassScope;
+    private memberEntities : CPPEntity[] = [];
+    private subobjectEntities: CPPEntity[] = [];
+    private baseClassSubobjectEntities: ClassEntity[] = [];
+    private memberSubobjectEntities: CPPEntity[] = [];
+    private constructors: FunctionEntity[] = [];
+    private destructor: null;
+
+    public readonly isComplete: boolean;
+    
+    public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
+        this.fullyQualifiedName = fullyQualifiedName;
+        this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
+        this.scope = ClassScope.instance(name, parentScope, baseClass);
+
+        if (baseClass) {
+            let baseEntity = new BaseClassSubobjectEntity(baseClass, this, "public");
+            this.baseClassSubobjectEntities.push(baseEntity);
+            this.subobjectEntities.push(baseEntity);
+            this.size += base.type.size;
+        }
+
+        this.isComplete = false;
+    }
+
+    public getBaseClass() {
+        if (this.baseClassSubobjectEntities.length > 0) {
+            return this.baseClassSubobjectEntities[0];
+        }
+        else {
+            return null;
+        }
+    }
+
+    public memberLookup(memberName: string, options: LookupOptions) {
+        return this.scope.memberLookup(memberName, options);
+    }
+
+    public requiredMemberLookup(memberName: string, options: LookupOptions) {
+        return this.scope.requiredMemberLookup(memberName, options);
+    }
+
+    public hasMember(memberName: string, options: LookupOptions) {
+        return !!this.memberLookup(memberName, options);
+    }
+
+    public addMember(mem: CPPEntity) {
+        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+        this.scope.addDeclaredEntity(mem);
+        this.memberEntities.push(mem);
+        if(mem.type.isObjectType){
+            if (this.actuallyZeroSize){
+                (<number>this.size) = 0;
+                this.actuallyZeroSize = false;
+            }
+            
+            this.memberSubobjectEntities.push(mem);
+            this.subobjectEntities.push(mem);
+            (<number>this.size) += mem.type.size;
+        }
+    }
+
+    public addConstructor(constructor: ConstructorEntity) {
+        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+        this.constructors.push(constructor);
+    }
+
+    public addDestructor(destructor: DestructorEntity) {
+        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+        this.destructor = destructor;
+    }
+
+    public getDefaultConstructor() {
+        return this.scope.singleLookup(this.name+"\0", {
+            own:true, noBase:true, exactMatch:true,
+            paramTypes:[]});
+    }
+
+    public getCopyConstructor(requireConst: boolean){
+        return this.scope.singleLookup(this.name+"\0", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[new Reference(new ClassType(this, true))]}) ||
+            !requireConst &&
+            this.scope.singleLookup(this.name+"\0", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[new Reference(new ClassType(this))]});
+    }
+
+    public getAssignmentOperator(requireConst: boolean, isThisConst: boolean) {
+        return this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[new ClassType(this)]}) ||
+            this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[new Reference(new ClassType(this, true))]}) ||
+            !requireConst &&
+            this.scope.singleLookup("operator=", {
+                own:true, noBase:true, exactMatch:true,
+                paramTypes:[new Reference(new ClassType(this))]})
+
+    }
+
+    public makeComplete() {
+        (<boolean>this.isComplete) = true;
+    }
+
+    // TODO: think about whether this is necessary (it probably is, or maybe just the class scopes would need to be merged?)
+    // merge : function(class1, class2) {
+    //     class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
+    // },
+
+    public isDerivedFrom(potentialBase: ClassEntity) {
+        var b = this.getBaseClass();
+        while(b) {
+            if (similarType(potentialBase.type, b.type)) {
+                return true;
+            }
+            b = b.base;
+        }
+        return false;
+    }
+
+
 
 });
 export {ClassType as Class};

@@ -656,7 +656,7 @@ export class ReferenceEntity extends DeclaredEntity {
     }
 
     public runtimeInstance() {
-        return new ReferenceEntityInstance(this);
+        return new RuntimeReference(this);
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -993,7 +993,7 @@ export class MemberSubobjectEntity extends DeclaredEntity {
     public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var recObj = rtConstruct.contextualReceiver();
 
-        while(recObj && !recObj.type.isInstanceOf(this.memberOfType)){
+        while(recObj && !recObj.type.similarType(this.memberOfType)) {
             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
         }
 
