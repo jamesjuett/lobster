@@ -1,17 +1,21 @@
 import * as Types from "./types";
-import { ArrayType } from "./types";
+import { Type, ArrayType, ClassType } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 
-interface ObjectStorage {
+interface ObjectData {
 
 };
 
-class AtomicObjectStorage implements ObjectStorage {
+class AtomicObjectData implements ObjectData {
+    private readonly type: Type;
+    public constructor(type: Type) {
+
+    }
 
 }
 
-class ArrayObjectStorage implements ObjectStorage {
+class ArrayObjectData implements ObjectData {
     private readonly type: ArrayType;
     private readonly elemObjects: CPPObject[] = [];
 
@@ -23,8 +27,28 @@ class ArrayObjectStorage implements ObjectStorage {
     }
 }
 
-class classObjectStorage implements ObjectStorage {
+class ClassObjectData implements ObjectData {
+    
+    private readonly type: ClassType;
 
+    public readonly subobjects: Subobject[];
+    public readonly baseSubobjects: BaseClassSubobject[];
+    public readonly memberSubobjects: MemberSubobject[];
+    private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
+
+    public constructor(type: ClassType) {
+        this.memberSubobjects = type.memberSubobjectEntities.map((mem) => {
+            let subObj = mem.objectInstance(this);
+            this.memberSubobjectMap[mem.name] = subObj;
+            return subObj;
+        });
+
+        this.baseSubobjects = type.baseClassSubobjectEntities.map((base) => {
+            return base.objectInstance(this);
+        });
+
+        this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
+    }
 }
 
 
@@ -43,42 +67,23 @@ export class CPPObject {
 
     public readonly size: number;
 
+    public readonly data: ObjectData;
+
     public constructor(name: string, type: Type) {
         this.name = name;
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
-        if (this.type instanceof Types.Array) {
+        if (this.type instanceof ArrayType) {
             // this.isArray = true;
-            this.objectStorage = new ArrayObjectStorage();
+            this.data = new ArrayObjectData(this.type);
         }
-        else if (isA(this.nonRefType, Types.Class)){
-            this.isClass = true;
-            // If class, make subobjects for all members
-
-            var classType = this.nonRefType;
-
-
-            // TODO I think the 3 statements below can be replaced with:
-            var self = this;
-            //this.subobjects = classType.subobjectEntities.map(function(mem){
-            //    return mem.objectInstance(self);
-            //});
-            this.subobjects = [];
-            this.i_memberSubobjectMap = {};
-            this.i_baseSubobjects = [];
-            classType.baseClassSubobjectEntities.forEach(function(baseEntity){
-                var baseSubobj = baseEntity.objectInstance(self);
-                self.subobjects.push(baseSubobj);
-                self.i_baseSubobjects.push(baseSubobj);
-            });
-            classType.memberSubobjectEntities.map(function(memEntity){
-                var subobj = memEntity.objectInstance(self);
-                self.subobjects.push(subobj);
-                self.i_memberSubobjectMap[memEntity.name] = subobj;
-            });
-
+        else if (this.type instanceof ClassType) {
+            this.data = new ClassObjectData(this.type);
+        }
+        else {
+            this.data = new AtomicObjectData(this.type);
         }
     },
 
