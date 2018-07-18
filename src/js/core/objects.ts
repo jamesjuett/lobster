@@ -2,52 +2,86 @@ import * as Types from "./types";
 import { Type, ArrayType, ClassType } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
+import { Memory } from "./runtimeEnvironment";
 
-interface ObjectData {
+abstract class ObjectData {
+    protected readonly type: Type;
+    protected readonly memory: Memory;
+    protected readonly address: number;
 
+    public constructor(type: Type, memory: Memory, address: number) {
+        this.type = type;
+        this.memory = memory;
+        this.address = address;
+    }
 };
 
-class AtomicObjectData implements ObjectData {
-    private readonly type: Type;
-    public constructor(type: Type) {
-
-    }
+class AtomicObjectData extends ObjectData {
 
 }
 
-class ArrayObjectData implements ObjectData {
-    private readonly type: ArrayType;
-    private readonly elemObjects: CPPObject[] = [];
+class ArrayObjectData extends ObjectData {
 
-    public constructor(type: ArrayType) {
-        this.type = type;
+    protected readonly type!: ArrayType; // Initialized by parent ctor
+
+    private readonly elemObjects: CPPObject[];
+
+    public constructor(type: ArrayType, memory: Memory, address: number) {
+        super(type, memory, address);
+
+        let subAddr = this.address;
+        this.elemObjects = [];
         for(let i = 0; i < this.type.length; ++i){
-            this.elemObjects.push(ArraySubobject.instance(this, i));
+            this.elemObjects.push(ArraySubobject.instance(this, i, memory, subAddr));
+            subAddr += this.type.elemType.size;
+        } 
+    }
+
+    public getArrayElemSubobject(index: number) {
+        if (0 <= index && index < this.elemObjects.length) {
+            return this.elemObjects[index];
+        }
+        else {
+            var outOfBoundsObj = ArraySubobject.instance(this, index);
+            outOfBoundsObj.allocated(this.memory, this.address + index * this.type.elemType.size);
+            return outOfBoundsObj;
         }
     }
 }
 
-class ClassObjectData implements ObjectData {
-    
-    private readonly type: ClassType;
+class ClassObjectData extends ObjectData {
+
+    protected readonly type!: ClassType; // Initialized by parent ctor
 
     public readonly subobjects: Subobject[];
     public readonly baseSubobjects: BaseClassSubobject[];
     public readonly memberSubobjects: MemberSubobject[];
     private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
 
-    public constructor(type: ClassType) {
+    public constructor(type: ClassType, memory: Memory, address: Address) {
+        super(type, memory, address);
+        
+        let subAddr = this.address;
+
+        this.baseSubobjects = type.baseClassSubobjectEntities.map((base) => {
+            let subObj = base.objectInstance(this, memory, subAddr);
+            subAddr += subObj.size;
+            return subObj;
+        });
+
         this.memberSubobjects = type.memberSubobjectEntities.map((mem) => {
-            let subObj = mem.objectInstance(this);
+            let subObj = mem.objectInstance(this, memory, subAddr);
+            subAddr += subObj.size;
             this.memberSubobjectMap[mem.name] = subObj;
             return subObj;
         });
 
-        this.baseSubobjects = type.baseClassSubobjectEntities.map((base) => {
-            return base.objectInstance(this);
-        });
 
         this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
+    }
+
+    public getMemberSubobject(name: string) {
+        return this.memberSubobjectMap[name];
     }
 }
 
@@ -69,7 +103,11 @@ export class CPPObject {
 
     public readonly data: ObjectData;
 
-    public constructor(name: string, type: Type) {
+    public readonly address: number;
+
+    public readonly alive: boolean;
+
+    public constructor(name: string, type: Type, memory: Memory, address: number) {
         this.name = name;
         this.type = type;
         this.size = type.size;
@@ -77,34 +115,18 @@ export class CPPObject {
 
         if (this.type instanceof ArrayType) {
             // this.isArray = true;
-            this.data = new ArrayObjectData(this.type);
+            this.data = new ArrayObjectData(this.type, memory, address);
         }
         else if (this.type instanceof ClassType) {
-            this.data = new ClassObjectData(this.type);
+            this.data = new ClassObjectData(this.type, memory, address);
         }
         else {
-            this.data = new AtomicObjectData(this.type);
+            this.data = new AtomicObjectData(this.type, memory, address);
         }
-    },
 
-    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
-    // Then this function should also only exist in the appropriate specialized classes
-    getMemberSubobject : function(name) {
-        return this.i_memberSubobjectMap && this.i_memberSubobjectMap[name];
-    },
+        this.alive = true;
+    }
 
-    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
-    // Then this function should also only exist in the appropriate specialized classes
-    getArrayElemSubobject : function (index) {
-        if (0 <= index && index < this.elemObjects.length) {
-            return this.elemObjects[index];
-        }
-        else {
-            var outOfBoundsObj = ArraySubobject.instance(this, index);
-            outOfBoundsObj.allocated(this.memory, this.address + index * this.type.elemType.size);
-            return outOfBoundsObj;
-        }
-    },
 
     // HACK: I should split this class into subclasses/mixins for objects of class type or array type
     // Then this function should also only exist in the appropriate specialized classes
@@ -136,21 +158,7 @@ export class CPPObject {
         this.memory = memory;
         this.address = address;
 
-        // Allocate subobjects if needed
-        if(this.isArray){
-            var subAddr = this.address;
-            for(var i = 0; i < this.type.length; ++i){
-                this.elemObjects[i].allocated(memory, subAddr);
-                subAddr += this.type.elemType.size;
-            }
-        }
-        else if (this.isClass){
-            var subAddr = this.address;
-            for(var i = 0; i < this.subobjects.length; ++i){
-                this.subobjects[i].allocated(memory, subAddr);
-                subAddr += this.subobjects[i].type.size;
-            }
-        }
+
 
         this.send("allocated");
     },
