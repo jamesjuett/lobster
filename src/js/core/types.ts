@@ -381,7 +381,7 @@ export class Type {
      * TODO: Right now, the hack that is used is that the whole value
      * @param bytes
      */
-    public bytesToValue(bytes: byte[]){
+    public bytesToValue(bytes: byte[]) : RawValueType {
         // HACK: the whole value is stored in the first byte
         return bytes[0];
     }
@@ -426,6 +426,8 @@ export class Type {
     public isCVQualified() {
         return this.isConst || this.isVolatile;
     }
+
+    // TODO: perhaps make a way to clone a type with a particular cv qualification rather than the proxy approach, which seems more fragile
 
     /**
      * Returns a cv-unqualified proxy object for this type, unless this type was already cv-unqualified,
@@ -1059,18 +1061,20 @@ export class ArrayType extends Type {
 		return ""+value;
     }
     
-    public bytesToValue(bytes: byte[]) {
-        var arr = [];
-        var elemSize = this.elemType.size;
-        for(var i = 0; i < bytes.length; i += elemSize){
-            arr.push(this.elemType.bytesToValue(bytes.slice(i, i + elemSize)));
-        }
-        return arr;
+    public bytesToValue(bytes: byte[]) : never {
+        return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
+        // var arr = [];
+        // var elemSize = this.elemType.size;
+        // for(var i = 0; i < bytes.length; i += elemSize){
+        //     arr.push(this.elemType.bytesToValue(bytes.slice(i, i + elemSize)));
+        // }
+        // return arr;
     }
-    public valueToBytes(value: RawValueType) {
-        return flatten(value.map(
-            (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
-        ));
+    public valueToBytes(value: RawValueType) : never {
+        return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
+        // return flatten(value.map(
+        //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
+        // ));
     }
 }
 export {ArrayType as Array};

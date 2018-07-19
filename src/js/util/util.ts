@@ -16,6 +16,10 @@ export function assert(condition: boolean, message: string = "") {
         throw Error("Assert failed: " + message);
 };
 
+export function assertFalse(message: string = "") : never {
+    throw Error("Assert failed: " + message);
+};
+
 
 export function addDefaultProperties<T>(proto: {prototype: T}, props: {}) {
     assign(proto, props);
