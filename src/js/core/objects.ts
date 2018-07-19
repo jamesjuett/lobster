@@ -2,21 +2,31 @@ import * as Types from "./types";
 import { Type, ArrayType, ClassType } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
-import { Memory } from "./runtimeEnvironment";
+import { Memory, Value, RawValueType } from "./runtimeEnvironment";
+import { RuntimeConstruct } from "./constructs";
 
 abstract class ObjectData {
-    protected readonly type: Type;
+    protected readonly object: CPPObject;
+    protected readonly size: number;
     protected readonly memory: Memory;
     protected readonly address: number;
 
-    public constructor(type: Type, memory: Memory, address: number) {
-        this.type = type;
+    public constructor(object: CPPObject, memory: Memory, address: number) {
+        this.object = object;
+        this.size = this.object.size;
         this.memory = memory;
         this.address = address;
     }
+
+    public abstract rawValue() : RawValueType;
 };
 
 class AtomicObjectData extends ObjectData {
+
+    public rawValue() {
+        var bytes = this.memory.readBytes(this.address, this.size);
+        return this.object.type.bytesToValue(bytes);
+    }
 
 }
 
@@ -37,15 +47,24 @@ class ArrayObjectData extends ObjectData {
         } 
     }
 
+    public getSubobjectByAddress(address: number) {
+        let index = (address - this.address) / this.type.elemType.size;
+        return this.getArrayElemSubobject(index);
+    }
+
     public getArrayElemSubobject(index: number) {
         if (0 <= index && index < this.elemObjects.length) {
             return this.elemObjects[index];
         }
         else {
-            var outOfBoundsObj = ArraySubobject.instance(this, index);
+            let outOfBoundsObj = ArraySubobject.instance(this, index);
             outOfBoundsObj.allocated(this.memory, this.address + index * this.type.elemType.size);
             return outOfBoundsObj;
         }
+    }
+
+    public rawValue() {
+        return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
     }
 }
 
@@ -83,6 +102,20 @@ class ClassObjectData extends ObjectData {
     public getMemberSubobject(name: string) {
         return this.memberSubobjectMap[name];
     }
+
+    // TODO: Could remove? This isn't currently used and I don't think it's useful for anything
+    // public getSubobjectByAddress(address: number) {
+    //     for(var i = 0; i < this.subobjects.length; ++i) {
+    //         var subObj = this.subobjects[i];
+    //         if (subObj.address === address){
+    //             return subObj;
+    //         }
+    //     }
+    // }
+
+    public rawValue() {
+        return this.subobjects.map((subObj) => { return subObj.rawValue(); });
+    }
 }
 
 
@@ -98,14 +131,17 @@ export class CPPObject {
     public readonly name: string;
 
     public readonly type: Type; // TODO: change to ObjectType type
-
     public readonly size: number;
-
-    public readonly data: ObjectData;
 
     public readonly address: number;
 
-    public readonly alive: boolean;
+    public readonly data: ObjectData;
+
+    public readonly isAlive: boolean;
+    public readonly deallocatedBy?: RuntimeConstruct;
+
+
+    private readonly _isValid: boolean;
 
     public constructor(name: string, type: Type, memory: Memory, address: number) {
         this.name = name;
@@ -124,156 +160,64 @@ export class CPPObject {
             this.data = new AtomicObjectData(this.type, memory, address);
         }
 
-        this.alive = true;
+        this.address = address;
+        this.isAlive = true;
+        this._isValid = false;
+
+        this.observable.send("allocated");
     }
 
+    public subobjectValueWritten() {
+        this.observable.send("valueWritten");
+    }
 
-    // HACK: I should split this class into subclasses/mixins for objects of class type or array type
-    // Then this function should also only exist in the appropriate specialized classes
-    memberSubobjectValueWritten : function() {
-        this.send("valueWritten");
-    },
-
-    arrayElemValueWritten : function() {
-        this.send("valueWritten");
-    },
-
-    instanceString : function(){
+    public toString() {
         return "@"+ this.address;
-    },
-    valueString : function(){
-        return this.type.valueToString(this.rawValue());
-    },
-    nameString : function(){
-        return this.name || "0x" + this.address;
-    },
-    valueToOstreamString : function(){
-        return this.type.valueToOstreamString(this.rawValue());
-    },
-    isAlive : function(){
-        return !!this.alive;
-    },
-    allocated : function(memory, address, inst){
-        this.alive = true;
-        this.memory = memory;
-        this.address = address;
+    }
 
+    // TODO: remove if not needed
+    // nameString : function() {
+    //     return this.name || "0x" + this.address;
+    // },
 
+    public deallocated(rt: RuntimeConstruct) {
+        (<boolean>this.isAlive) = false;
+        (<RuntimeConstruct>this.deallocatedBy) = rt;
+        this.observable.send("deallocated");
+    }
 
-        this.send("allocated");
-    },
-    deallocated : function(inst){
-        this.alive = false;
-        this.deallocatedByInst = inst;
-        this.send("deallocated");
-        // deallocate subobjects if needed
-        //if(this.isArray){
-        //    for(var i = 0; i < this.type.length; ++i){
-        //        this.elemObjects[i].deallocated();
-        //    }
-        //}
-        //else if (this.isClass){
-        //    for(var i = 0; i < this.subobjects.length; ++i){
-        //        this.subobjects[i].deallocated();
-        //    }
-        //}
-    },
-    obituary : function(){
-        return {killer: this.deallocatedByInst};
-    },
-    getPointerTo : function(){
-        assert(this.address, "Must be allocated before you can get pointer to object.");
-        return Value.instance(this.address, Types.ObjectPointer.instance(this));
-    },
-    getSubobject : function(addr){
-        if(this.isArray){
-            var offset = (addr - this.address) / this.type.elemType.size;
-            if (0 <= offset && offset < this.elemObjects.length) {
-                return this.elemObjects[offset];
-            }
-            else {
-                var outOfBoundsObj = ArraySubobject.instance(this, offset);
-                outOfBoundsObj.allocated(this.memory, this.address + offset * this.type.elemType.size);
-                return outOfBoundsObj;
-            }
-            // for(var i = 0; i < this.type.length; ++i){
-            //     var subObj = this.elemObjects[i];
-            //     if (subObj.address === addr){
-            //         return subObj;
-            //     }
-            // }
-        }
-        else if (this.isClass){
-            for(var i = 0; i < this.subobjects.length; ++i){
-                var subObj = this.subobjects[i];
-                if (subObj.address === addr){
-                    return subObj;
-                }
-            }
-        }
+    public getPointerTo() {
+        return new Value(this.address, new Types.ObjectPointer(this));
+    }
 
-        // Sorry, can't help you
-        return null;
-    },
-    getValue : function(read){
-        if (this.isValueValid()){
-            return Value.instance(this.rawValue(read), this.type);
+    public getValue(read: boolean = false) {
+        return new Value(this.rawValue(read), this.type, this.isValid);
+    }
+
+    public rawValue(read: boolean = false) {
+        let val = this.data.rawValue();
+        if (read) {
+            this.observable.send("valueRead", val);
         }
-        else{
-            return Value.instance(this.rawValue(read), this.type, {invalid:true});
-        }
-    },
-    readRawValue : function(){
+        return val;
+    }
+    
+    public readValue() {
+        return this.getValue(true);
+    }
+    
+    public readRawValue() {
         return this.rawValue(true);
-    },
-    rawValue : function(read){
-        if (this.isArray){
-            var arr = [];
-            for(var i = 0; i < this.nonRefType.length; ++i){
-                // use rawValue here to deeply remove Value object wrappers
-                arr.push(this.elemObjects[i].getValue(read));
-            }
-            return arr;
-        }
-        else if (this.isClass){
-            var val = [];
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                // use rawValue here to deeply remove Value object wrappers
-                val.push(this.subobjects[i].rawValue(read));
-            }
-            return val;
-        }
-        else{
-            if (read) {
-                var bytes = this.memory.readBytes(this.address, this.size, this);
-                var val = this.nonRefType.bytesToValue(bytes);
-                this.send("valueRead", val);
-                return val;
-            }
-            else {
-                var bytes = this.memory.getBytes(this.address, this.size);
-                return this.nonRefType.bytesToValue(bytes);
-            }
-        }
-    },
-    setValue : function(newValue, write){
+    }
 
-        // It's possible newValue could be another object.
-        // Handle this as a special case by first looking up value.
-        if (isA(newValue, CPPObject)){
-            newValue = newValue.getValue(write);
-        }
+    public setValue(newValue: Value, write: boolean = false) {
 
-        if (isA(newValue, Value)){
-            this.setValidity(newValue.isValueValid());
-            // Accept new RTTI
-            this.type = newValue.type;
-            newValue = newValue.rawValue();
-        }
-        else{
-            // assume it was valid
-            this.setValidity(true);
-        }
+        this._isValid = newValue.isValid;
+
+        // Accept new RTTI
+        (<Type>this.type) = newValue.type;
+        
+        newValue = newValue.rawValue();
 
 
         if (this.isArray){
@@ -298,153 +242,158 @@ export class CPPObject {
             }
         }
     },
-
-    readValue : function(){
-        return this.getValue(true);
-    },
     writeValue : function(newValue){
         this.setValue(newValue, true);
     },
-    byteRead: function(addr){
-        if (this.isArray){
-            // If array, find the subobject containing the byte
-            this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteRead(addr);
-        }
-        else if (this.isClass){
-            var ad = this.address;
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(ad = ad + mem.type.size > addr){
-                    ad.byteRead(addr);
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("byteRead", {addr: addr});
-        }
-    },
-    bytesRead: function(addr, length){
-        if (this.isArray) {
-            var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
-            var endIndex = Math.min(
-                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
-                this.nonRefType.length);
 
-            for (var i = beginIndex; i < endIndex; ++i) {
-                this.elemObjects[i].bytesRead(addr, length);
-            }
-        }
-        else if (this.isClass){
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
-                    mem.bytesRead(addr, length);
-                }
-                else if (mem.address > addr +length){
-                    // break if we are now in members past affected bytes
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("bytesRead", {addr: addr, length: length});
-        }
-    },
-    byteSet: function(addr, value){
-        if (this.isArray){
-            // If array, find the subobject containing the byte
-            this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteSet(addr, value);
-        }
-        else if (this.isClass){
-            var ad = this.address;
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(ad = ad + mem.type.size > addr){
-                    mem.byteSet(addr, value);
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("byteSet", {addr: addr, value: value});
-        }
-    },
-    bytesSet: function(addr, values){
-        var length = values.length;
-        if (this.isArray) {
-            var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
-            var endIndex = Math.min(
-                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
-                this.nonRefType.length);
 
-            for (var i = beginIndex; i < endIndex; ++i) {
-                this.elemObjects[i].bytesSet(addr, values);
-            }
-        }
-        else if (this.isClass){
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
-                    mem.bytesSet(addr, values);
-                }
-                else if (mem.address > addr +length){
-                    // break if we are now in members past affected bytes
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("bytesSet", {addr: addr, values: values});
-        }
-    },
-    byteWritten: function(addr, value){
-        if (this.isArray){
-            // If array, find the subobject containing the byte
-            this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteWritten(addr, value);
-        }
-        else if (this.isClass){
-            var ad = this.address;
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(ad = ad + mem.type.size > addr){
-                    mem.byteWritten(addr, value);
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("byteWritten", {addr: addr, value: value});
-        }
-    },
-    bytesWritten: function(addr, values){
-        var length = values.length;
-        if (this.isArray) {
-            var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
-            var endIndex = Math.min(
-                beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
-                this.nonRefType.length);
+    // TODO: figure out whether this old code is worth keeping
+    // originally, these functions were used to notify an object when somebody else
+    // messed with (i.e. read/wrote bytes that were part of the object).
 
-            for (var i = beginIndex; i < endIndex; ++i) {
-                this.elemObjects[i].bytesWritten(addr, values);
-            }
-        }
-        else if (this.isClass){
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                var mem = this.subobjects[i];
-                if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
-                    mem.bytesWritten(addr, values);
-                }
-                else if (mem.address > addr +length){
-                    // break if we are now in members past affected bytes
-                    break;
-                }
-            }
-        }
-        else{
-            this.send("bytesWritten", {addr: addr, values: values});
-        }
-    },
+    // byteRead: function(addr){
+    //     if (this.isArray){
+    //         // If array, find the subobject containing the byte
+    //         this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteRead(addr);
+    //     }
+    //     else if (this.isClass){
+    //         var ad = this.address;
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(ad = ad + mem.type.size > addr){
+    //                 ad.byteRead(addr);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("byteRead", {addr: addr});
+    //     }
+    // },
+    // bytesRead: function(addr, length){
+    //     if (this.isArray) {
+    //         var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
+    //         var endIndex = Math.min(
+    //             beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+    //             this.nonRefType.length);
+
+    //         for (var i = beginIndex; i < endIndex; ++i) {
+    //             this.elemObjects[i].bytesRead(addr, length);
+    //         }
+    //     }
+    //     else if (this.isClass){
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
+    //                 mem.bytesRead(addr, length);
+    //             }
+    //             else if (mem.address > addr +length){
+    //                 // break if we are now in members past affected bytes
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("bytesRead", {addr: addr, length: length});
+    //     }
+    // },
+    // byteSet: function(addr, value){
+    //     if (this.isArray){
+    //         // If array, find the subobject containing the byte
+    //         this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteSet(addr, value);
+    //     }
+    //     else if (this.isClass){
+    //         var ad = this.address;
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(ad = ad + mem.type.size > addr){
+    //                 mem.byteSet(addr, value);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("byteSet", {addr: addr, value: value});
+    //     }
+    // },
+    // bytesSet: function(addr, values){
+    //     var length = values.length;
+    //     if (this.isArray) {
+    //         var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
+    //         var endIndex = Math.min(
+    //             beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+    //             this.nonRefType.length);
+
+    //         for (var i = beginIndex; i < endIndex; ++i) {
+    //             this.elemObjects[i].bytesSet(addr, values);
+    //         }
+    //     }
+    //     else if (this.isClass){
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
+    //                 mem.bytesSet(addr, values);
+    //             }
+    //             else if (mem.address > addr +length){
+    //                 // break if we are now in members past affected bytes
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("bytesSet", {addr: addr, values: values});
+    //     }
+    // },
+    // byteWritten: function(addr, value){
+    //     if (this.isArray){
+    //         // If array, find the subobject containing the byte
+    //         this.elemObjects[(addr - this.address) / this.nonRefType.elemType.size].byteWritten(addr, value);
+    //     }
+    //     else if (this.isClass){
+    //         var ad = this.address;
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(ad = ad + mem.type.size > addr){
+    //                 mem.byteWritten(addr, value);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("byteWritten", {addr: addr, value: value});
+    //     }
+    // },
+    // bytesWritten: function(addr, values){
+    //     var length = values.length;
+    //     if (this.isArray) {
+    //         var beginIndex = Math.max(0, Math.floor(( addr - this.address ) / this.nonRefType.elemType.size));
+    //         var endIndex = Math.min(
+    //             beginIndex + Math.ceil(length / this.nonRefType.elemType.size),
+    //             this.nonRefType.length);
+
+    //         for (var i = beginIndex; i < endIndex; ++i) {
+    //             this.elemObjects[i].bytesWritten(addr, values);
+    //         }
+    //     }
+    //     else if (this.isClass){
+    //         for(var i = 0; i < this.subobjects.length; ++i) {
+    //             var mem = this.subobjects[i];
+    //             if(addr < mem.address + mem.type.size && mem.address < addr + length){ // check for overlap
+    //                 mem.bytesWritten(addr, values);
+    //             }
+    //             else if (mem.address > addr +length){
+    //                 // break if we are now in members past affected bytes
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         this.send("bytesWritten", {addr: addr, values: values});
+    //     }
+    // },
+
+
+
     callReceived : function(){
         this.send("callReceived", this);
     },
@@ -585,14 +534,21 @@ export var AnonObject = CPPObject.extend({
 });
 
 
-export var Subobject = CPPObject.extend({
-    _name: "Subobject",
-    parentObject : Class._ABSTRACT,
-    isAlive : function(){
-        return this.parentObject().isAlive();
-    },
-    obituary : function(){
-        return this.parentObject().obituary();
+export abstract class Subobject extends CPPObject {
+
+    public readonly containingObject: CPPObject;
+
+    public constructor(containingObject: CPPObject, name: string, type: Type, memory: Memory, address: number) {
+        super(name, type, memory, address);
+        this.containingObject = containingObject;
+    }
+
+    get isAlive() {
+        return this.containingObject.isAlive;
+    }
+
+    get deallocatedBy() {
+        return this.containingObject.deallocatedBy;
     }
 });
 

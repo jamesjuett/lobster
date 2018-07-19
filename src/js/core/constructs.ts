@@ -1,3 +1,5 @@
+import { Observable } from "../util/observe";
+
 export var CPPConstruct = Class.extend({
     _name: "CPPConstruct",
     _nextId: 0,
@@ -363,7 +365,10 @@ export var CPPConstruct = Class.extend({
 // });
 
 
-export var RuntimeConstruct = Class.extend(Observable,{
+export class RuntimeConstruct {
+
+    public readonly observable = new Observable(this);
+    
     _name: "RuntimeConstruct",
     //silent: true,
     init: function (sim, model, index, stackType, parent) {
@@ -488,7 +493,7 @@ export var RuntimeConstruct = Class.extend(Observable,{
     describe : function(){
         return this.model.describe(this.sim, this);
     }
-});
+}
 
 export var RuntimeFunction = RuntimeConstruct.extend({
     _name : "RuntimeFunction",

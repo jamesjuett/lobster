@@ -11,7 +11,7 @@ export class Value {
     private static _name = "Value";
 
     public readonly type: Type;
-    public readonly isValid: boolean;
+    private readonly _isValid: boolean;
 
     public readonly rawValue: RawValueType;
 
@@ -21,8 +21,15 @@ export class Value {
         // TODO: remove this.value in favor of using rawValue() function
         this.rawValue = rawValue;
         this.type = type;
-        this.isValid = isValid && this.type.isValueValid(this.rawValue);
+        this._isValid = isValid;
     };
+
+
+    public get isValid() {
+        // Note: this is implemented as a getter since it is necessary to call isValueValid on the type each time.
+        //       e.g. A type with RTTI like an array pointer may become invalid if the array dies.
+        return this._isValid && this.type.isValueValid(this.rawValue);
+    }
 
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value(valueToClone, this.type, this.isValid);
@@ -161,7 +168,7 @@ export class Memory {
         return this.bytes[addr];
     }
 
-    public readByte(addr: number, fromObj: CPPObject) {
+    public readByte(addr: number) {
 
         // Notify any other object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
@@ -179,7 +186,7 @@ export class Memory {
         return this.bytes.slice(addr, addr + num);
     }
 
-    public readBytes(addr: number, num: number, fromObj: CPPObject) {
+    public readBytes(addr: number, num: number) {
         var end = addr + num;
 
         // Notify any other object that is interested in that byte
@@ -208,7 +215,7 @@ export class Memory {
         //}
     }
 
-    public writeByte(addr: number, value: RawValueType, fromObj: CPPObject) {
+    public writeByte(addr: number, value: RawValueType) {
         this.bytes[addr] = value;
 
         // Notify any other object that is interested in that byte
@@ -238,7 +245,7 @@ export class Memory {
         //}
     }
 
-    public writeBytes(addr: number, values: RawValueType[], fromObj: CPPObject) {
+    public writeBytes(addr: number, values: RawValueType[]) {
 
         //TODO remove this commented code
         //if (isA(fromObj, TemporaryObject)){
@@ -269,13 +276,13 @@ export class Memory {
     }
 
     // Attempts to dereference a pointer and retreive the object it points to.
-    // Takes in a Value or CPPObject of pointer type. Must point to an object type.
+    // Takes in a Value of pointer type. Must point to an object type.
     // Returns the most recently allocated object at the given address.
     // This may be an object which is no longer alive (has been deallocated).
     // If no object is found, or an object of a type that does not match the pointed-to type is found,
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
-    dereference(ptr: Value | CPPObject) {
+    dereference(ptr: Value) {
         assert(ptr.type.isObjectPointer());
 
         var addr = ptr.rawValue();
