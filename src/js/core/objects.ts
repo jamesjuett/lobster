@@ -6,6 +6,7 @@ import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { Description } from "./errors";
 import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity } from "./entities";
+import { Simulation } from "./Simulation";
 
 abstract class ObjectData<T extends Type> {
     protected readonly object: CPPObject<T>;
@@ -135,7 +136,7 @@ export class ClassObjectData extends ObjectData<ClassType> {
 }
 
 
-export class CPPObject<T extends Type = Type> {  // TODO: change T to extend ObjectType
+export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to extend ObjectType
 
     public readonly observable = new Observable(this);
 
@@ -183,6 +184,7 @@ export class CPPObject<T extends Type = Type> {  // TODO: change T to extend Obj
         return "@"+ this.address;
     }
 
+    // TODO: figure out precisely what this is used for and make sure overrides actually provide appropriate strings
     public nameString() {
         return "@" + this.address;
     }
@@ -466,7 +468,7 @@ export class DynamicObject extends CPPObject {
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return {message: "the heap object " + (this.name || "at 0x" + this.address)};
+        return {message: "the heap object at 0x" + this.address};
     }
 }
 
@@ -553,11 +555,11 @@ export class AnonymousObject extends CPPObject {
 };
 
 
-export abstract class Subobject<T extends Type> extends CPPObject<T> {
+export abstract class Subobject<T extends Type = Type> extends CPPObject<T> {
 
     public readonly containingObject: CPPObject;
 
-    public constructor(containingObject: CPPObject, type: Type, memory: Memory, address: number) {
+    public constructor(containingObject: CPPObject, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.containingObject = containingObject;
     }
@@ -614,7 +616,43 @@ export class ArraySubobject extends Subobject {
 
 
 
+export class BaseClassSubobject extends Subobject<ClassType> {
+    public constructor(containingObject: CPPObject<ClassType>, type: ClassType, index: number, memory: Memory, address: number) {
+        super(containingObject, type, memory, address);
+    }
+    public nameString() {
+        return this.containingObject.nameString();
+    }
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+        return {message: "the " + this.type.name + " base of " + this.containingObject.describe(sim, rtConstruct).message};
+    }
+}
 
+export class MemberSubobject<T extends Type> extends Subobject<T> {
+
+    public readonly name: string;
+
+    public constructor(containingObject: CPPObject<ClassType>, type: T, name: string, memory: Memory, address: number) {
+        super(containingObject, type, memory, address);
+        this.name = name;
+    }
+
+    public nameString() {
+        return this.containingObject.nameString() + "." + this.name;
+    }
+    
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var parent = this.containingObject;
+        let parentDesc = parent.describe(sim, rtConstruct);
+        let desc : Description = {
+            message: "the member " + this.name + " of " + parentDesc.message
+        }
+        if (parentDesc.name){
+            desc.name = parentDesc.name + "." + this.name;
+        }
+        return desc;
+    }
+}
 
 export class TemporaryObjectInstance<T extends Type> extends CPPObject<Type> {
 
@@ -634,57 +672,3 @@ export class TemporaryObjectInstance<T extends Type> extends CPPObject<Type> {
         return {name: this.name, message: "the temporary object" + this.name};
     }
 }
-
-export var BaseClassSubobject = Subobject.extend({
-    _name: "BaseClassSubobject",
-    storage: "none",
-    init: function(type, parent){
-        assert(isA(type, Types.Class));
-        this.initParent("-"+type.className, type);
-        this.parent = parent;
-        this.storage = parent.storage;
-    },
-    parentObject : function(){
-        return this.parent;
-    },
-    nameString : function(){
-        return this.parent.nameString();
-    },
-    describe : function(){
-        return {message: "the " + this.type.className + " base of " + this.parentObject().describe().message};
-    }
-});
-
-export var MemberSubobject = Subobject.extend({
-    _name: "MemberSubobject",
-    storage: "none",
-
-    
-    public readonly name: string;
-
-    init: function(type, parent, name){
-        this.initParent(name || null, type);
-        this.parent = parent;
-        this.storage = parent.storage;
-    },
-    parentObject : function(){
-        return this.parent;
-    },
-    nameString : function(){
-        return this.parent.nameString() + "." + this.name;
-    },
-    describe : function(){
-        var parent = this.parentObject();
-        if (parent.name){
-            return {message: parent.name + "." + this.name};
-        }
-        else{
-            return {message: "the member " + this.name + " of " + parent.describe().message};
-        }
-    },
-    setValue : function(newValue, write) {
-        MemberSubobject._parent.setValue.apply(this, arguments);
-        write && this.parent.memberSubobjectValueWritten(this);
-    }
-});
-

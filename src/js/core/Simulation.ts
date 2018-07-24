@@ -1,6 +1,9 @@
-import * as Util from "util/util";
+import { Observable } from "../util/observe";
 
-export var Simulation = Class.extend(Observable, Observer, {
+// TODO: add observer stuff
+export class Simulation {
+
+    public readonly observable = new Observable(this);
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
@@ -516,7 +519,7 @@ export var Simulation = Class.extend(Observable, Observer, {
         }
         else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
             var pointsTo = this.memory.dereference(obj);
-            if (pointsTo && !isA(pointsTo, AnonObject)){
+            if (pointsTo && !isA(pointsTo, AnonymousObject)){
                 return [pointsTo];
             }
         }
@@ -641,4 +644,4 @@ export var Simulation = Class.extend(Observable, Observer, {
     _act : {
         sourceCode : "codeSet"
     }
-});
+}
