@@ -16,7 +16,7 @@ export var DeadObjectMessage = RuntimeMessage.extend({
 
         // If we're working with a subobject, its lifetime is tied to that of its parent object
         // while(isA(this.deadObj, Subobject)){
-        //     this.deadObj = this.deadObj.parentObject();
+        //     this.deadObj = this.deadObj.containingObject;
         // }
 
         this.options = options || {};
