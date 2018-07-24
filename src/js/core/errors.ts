@@ -1,5 +1,5 @@
 export interface Description {
-    name: string;
+    name?: string;
     message: string;
 }
 

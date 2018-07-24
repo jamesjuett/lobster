@@ -1467,31 +1467,25 @@ export var Dereference = UnaryOp.extend({
             var addr = ptr.rawValue();
 
 
-            var invalidated = false;
 
             // If it's a null pointer, give message
             if (Types.Pointer.isNull(addr)){
                 sim.crash("Ow! Your code just dereferenced a null pointer!");
-                invalidated = true;
             }
             else if (Types.Pointer.isNegative(addr)){
                 sim.crash("Uh, wow. The pointer you're trying to dereference has a negative address.\nThanks a lot.");
-                invalidated = true;
             }
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
                     sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
                     sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
                     sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
 
             }
@@ -1505,9 +1499,6 @@ export var Dereference = UnaryOp.extend({
                 DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
             }
 
-            if (invalidated){
-                obj.invalidate();
-            }
             inst.setEvalValue(obj);
         }
     },
@@ -1889,26 +1880,20 @@ export var Subscript  = Expression.extend({
 
 
 
-            var invalidated = false;
-
             if (Types.Pointer.isNegative(addr)){
                 sim.crash("Good work. You subscripted so far backwards off the beginning of the array you went to a negative address. -__-");
-                invalidated = true;
             }
             else if (isA(ptr.type, Types.ArrayPointer)){
                 // If it's an array pointer, make sure it's in bounds and not one-past
                 if (addr < ptr.type.min()){
                     sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
                 else if (ptr.type.onePast() < addr){
                     sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
                 else if (addr == ptr.type.onePast()){
                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
                     sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                    invalidated = true;
                 }
 
             }
@@ -1921,10 +1906,7 @@ export var Subscript  = Expression.extend({
             if (!obj.isAlive()){
                 DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
             }
-
-            if (invalidated){
-                obj.invalidate();
-            }
+            
             inst.setEvalValue(obj);
             this.done(sim, inst);
         }

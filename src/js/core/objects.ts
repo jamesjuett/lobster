@@ -4,14 +4,16 @@ import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
+import { Description } from "./errors";
+import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity } from "./entities";
 
-abstract class ObjectData {
-    protected readonly object: CPPObject;
+abstract class ObjectData<T extends Type> {
+    protected readonly object: CPPObject<T>;
     protected readonly size: number;
     protected readonly memory: Memory;
     protected readonly address: number;
 
-    public constructor(object: CPPObject, memory: Memory, address: number) {
+    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
         this.object = object;
         this.size = this.object.size;
         this.memory = memory;
@@ -19,36 +21,40 @@ abstract class ObjectData {
     }
 
     public abstract rawValue() : RawValueType;
+
+    public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 };
 
-class AtomicObjectData extends ObjectData {
+export class AtomicObjectData extends ObjectData<Type> { // TODO: change to atomic type
 
     public rawValue() {
         var bytes = this.memory.readBytes(this.address, this.size);
         return this.object.type.bytesToValue(bytes);
     }
 
+    public setRawValue(newValue: RawValueType, write: boolean) {
+        this.memory.writeBytes(this.address, this.object.type.valueToBytes(newValue));
+    }
+
 }
 
-class ArrayObjectData extends ObjectData {
+export class ArrayObjectData extends ObjectData<ArrayType> {
 
-    protected readonly type!: ArrayType; // Initialized by parent ctor
+    private readonly elemObjects: ArraySubobject[];
 
-    private readonly elemObjects: CPPObject[];
-
-    public constructor(type: ArrayType, memory: Memory, address: number) {
-        super(type, memory, address);
+    public constructor(object: CPPObject<ArrayType>, memory: Memory, address: number) {
+        super(object, memory, address);
 
         let subAddr = this.address;
         this.elemObjects = [];
-        for(let i = 0; i < this.type.length; ++i){
-            this.elemObjects.push(ArraySubobject.instance(this, i, memory, subAddr));
-            subAddr += this.type.elemType.size;
+        for(let i = 0; i < this.object.type.length; ++i){
+            this.elemObjects.push(new ArraySubobject(this.object, i, memory, subAddr));
+            subAddr += this.object.type.elemType.size;
         } 
     }
 
     public getSubobjectByAddress(address: number) {
-        let index = (address - this.address) / this.type.elemType.size;
+        let index = (address - this.address) / this.object.type.elemType.size;
         return this.getArrayElemSubobject(index);
     }
 
@@ -57,8 +63,8 @@ class ArrayObjectData extends ObjectData {
             return this.elemObjects[index];
         }
         else {
-            let outOfBoundsObj = ArraySubobject.instance(this, index);
-            outOfBoundsObj.allocated(this.memory, this.address + index * this.type.elemType.size);
+            let outOfBoundsObj =  new ArraySubobject(this.object, index,
+                this.memory, this.address + index * this.object.type.elemType.size);
             return outOfBoundsObj;
         }
     }
@@ -66,29 +72,33 @@ class ArrayObjectData extends ObjectData {
     public rawValue() {
         return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
     }
+
+    public setRawValue(newValue: RawValueType, write: boolean) {
+        for(var i = 0; i < (<ArrayType>this.object.type).length; ++i){
+            this.elemObjects[i].setValue(newValue[i], write);
+        }
+    }
 }
 
-class ClassObjectData extends ObjectData {
-
-    protected readonly type!: ClassType; // Initialized by parent ctor
+export class ClassObjectData extends ObjectData<ClassType> {
 
     public readonly subobjects: Subobject[];
     public readonly baseSubobjects: BaseClassSubobject[];
     public readonly memberSubobjects: MemberSubobject[];
     private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
 
-    public constructor(type: ClassType, memory: Memory, address: Address) {
-        super(type, memory, address);
+    public constructor(object: CPPObject<ClassType>, memory: Memory, address: number) {
+        super(object, memory, address);
         
         let subAddr = this.address;
 
-        this.baseSubobjects = type.baseClassSubobjectEntities.map((base) => {
+        this.baseSubobjects = (<ClassType>this.object.type).baseClassSubobjectEntities.map((base) => {
             let subObj = base.objectInstance(this, memory, subAddr);
             subAddr += subObj.size;
             return subObj;
         });
 
-        this.memberSubobjects = type.memberSubobjectEntities.map((mem) => {
+        this.memberSubobjects = (<ClassType>this.object.type).memberSubobjectEntities.map((mem) => {
             let subObj = mem.objectInstance(this, memory, subAddr);
             subAddr += subObj.size;
             this.memberSubobjectMap[mem.name] = subObj;
@@ -116,48 +126,46 @@ class ClassObjectData extends ObjectData {
     public rawValue() {
         return this.subobjects.map((subObj) => { return subObj.rawValue(); });
     }
+
+    public setRawValue(newValue: RawValueType, write: boolean) {
+        for(var i = 0; i < this.subobjects.length; ++i) {
+            this.subobjects[i].setValue(newValue[i], write);
+        }
+    }
 }
 
 
-export class CPPObject {
+export class CPPObject<T extends Type = Type> {  // TODO: change T to extend ObjectType
 
     public readonly observable = new Observable(this);
 
-    /**
-     * This is NOT any sort of official name/symbol for the object.
-     * It is just used for a human-readable description, which is often going
-     * to be the same as that.
-     */
-    public readonly name: string;
-
-    public readonly type: Type; // TODO: change to ObjectType type
+    public readonly type: T;
     public readonly size: number;
 
     public readonly address: number;
 
-    public readonly data: ObjectData;
+    public readonly data: ObjectData<Type>;
 
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
 
 
-    private readonly _isValid: boolean;
+    private _isValid: boolean;
 
-    public constructor(name: string, type: Type, memory: Memory, address: number) {
-        this.name = name;
+    public constructor(type: T, memory: Memory, address: number) {
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
         if (this.type instanceof ArrayType) {
             // this.isArray = true;
-            this.data = new ArrayObjectData(this.type, memory, address);
+            this.data = new ArrayObjectData(<CPPObject<ArrayType>><CPPObject<Type>>this, memory, address);
         }
         else if (this.type instanceof ClassType) {
-            this.data = new ClassObjectData(this.type, memory, address);
+            this.data = new ClassObjectData(<CPPObject<ClassType>><CPPObject<Type>>this, memory, address);
         }
         else {
-            this.data = new AtomicObjectData(this.type, memory, address);
+            this.data = new AtomicObjectData(this, memory, address);
         }
 
         this.address = address;
@@ -175,23 +183,23 @@ export class CPPObject {
         return "@"+ this.address;
     }
 
-    // TODO: remove if not needed
-    // nameString : function() {
-    //     return this.name || "0x" + this.address;
-    // },
+    public nameString() {
+        return "@" + this.address;
+    }
 
-    public deallocated(rt: RuntimeConstruct) {
+    public deallocated(rt?: RuntimeConstruct) {
         (<boolean>this.isAlive) = false;
-        (<RuntimeConstruct>this.deallocatedBy) = rt;
+        this._isValid = false;
+        (<RuntimeConstruct|undefined>this.deallocatedBy) = rt;
         this.observable.send("deallocated");
     }
 
-    public getPointerTo() {
+    public getPointerTo() : Value<Types.Pointer> {
         return new Value(this.address, new Types.ObjectPointer(this));
     }
 
     public getValue(read: boolean = false) {
-        return new Value(this.rawValue(read), this.type, this.isValid);
+        return new Value(this.rawValue(read), this.type, this._isValid);
     }
 
     public rawValue(read: boolean = false) {
@@ -210,41 +218,24 @@ export class CPPObject {
         return this.rawValue(true);
     }
 
-    public setValue(newValue: Value, write: boolean = false) {
+    public setValue(newValue: Value<T>, write: boolean = false) {
 
         this._isValid = newValue.isValid;
 
         // Accept new RTTI
-        (<Type>this.type) = newValue.type;
+        (<T>this.type) = newValue.type;
         
-        newValue = newValue.rawValue();
+        this.data.setRawValue(newValue.rawValue(), write);
 
+        if(write) {
+            this.observable.send("valueWritten", newValue);
+        }
+        
+    }
 
-        if (this.isArray){
-            assert(newValue.length === this.nonRefType.length);
-            for(var i = 0; i < this.nonRefType.length; ++i){
-                this.elemObjects[i].setValue(newValue[i], write);
-            }
-        }
-        else if (this.isClass){
-            assert(newValue.length === this.subobjects.length);
-            for(var i = 0; i < this.subobjects.length; ++i) {
-                this.subobjects[i].setValue(newValue[i], write);
-            }
-        }
-        else{
-            if(write){
-                this.memory.writeBytes(this.address, this.nonRefType.valueToBytes(newValue), this);
-                this.send("valueWritten", newValue);
-            }
-            else{
-                this.memory.setBytes(this.address, this.nonRefType.valueToBytes(newValue), this);
-            }
-        }
-    },
-    writeValue : function(newValue){
+    public writeValue(newValue: Value<T>) {
         this.setValue(newValue, true);
-    },
+    }
 
 
     // TODO: figure out whether this old code is worth keeping
@@ -393,115 +384,146 @@ export class CPPObject {
     // },
 
 
-
-    callReceived : function(){
-        this.send("callReceived", this);
-    },
-    callEnded : function(){
-        this.send("callEnded", this);
-    },
-    setValidity : function(valid){
-        this._isValid = valid;
-        this.send("validitySet", valid);
-    },
-    invalidate : function(){
-        this.setValidity(false);
-    },
-    validate : function(){
-        this.setValidity(true);
-    },
-    isValueValid : function(){
-        return this._isValid && this.type.isValueValid(this.rawValue());
-    },
-    isValueDereferenceable : function() {
-        return this._isValid && this.type.isValueDereferenceable(this.rawValue());
-    },
-    describe : function(){
-        var w1 = isA(this.decl, Declarations.Parameter) ? "parameter " : "object ";
-        return {name: this.name, message: "the " + w1 + (this.name || ("at 0x" + this.address))};
+    public callReceived() {
+        this.observable.send("callReceived", this);
     }
+
+    public callEnded() {
+        this.observable.send("callEnded", this);
+    }
+
+    // public setValidity(valid: boolean) {
+    //     this._isValid = valid;
+    //     this.observable.send("validitySet", valid);
+    // }
+
+    public isValueValid() {
+        return this._isValid && this.type.isValueValid(this.rawValue());
+    }
+
+    public abstract describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description;
 
 };
 
 
-export var ThisObject = CPPObject.extend({
-    _name: "ThisObject",
-    storage: "automatic"
-});
+export class ThisObject extends CPPObject {
+    
+
+    public nameString() {
+        return "this";
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        return {name: "this", message: "the this pointer"};
+    }
+
+}
 
 
 
 
-export var StringLiteralObject = CPPObject.extend({
-    _name: "StringLiteralObject",
-    storage: "static",
-    init: function (type) {
-        this.initParent(null, type);
-    },
-    instanceString: function () {
+export class StringLiteralObject extends CPPObject {
+
+    public constructor(type: Type, memory: Memory, address: number) {
+        super(type, memory, address);
+    }
+
+    public toString() {
         return "string literal at 0x" + this.address;
-    },
-    describe: function () {
+    }
+
+    public nameString() {
+        return "string literal at 0x" + this.address;
+    }
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "string literal at 0x" + this.address};
     }
-});
+}
 
-export var DynamicObject = CPPObject.extend({
-    _name: "DynamicObject",
-    storage: "dynamic",
-    init: function(type, name){
-        this.initParent(name || null, type);
-    },
-    instanceString : function(){
+export class DynamicObject extends CPPObject {
+    
+    private hasBeenLeaked: boolean = false;
+
+    public constructor(type: Type, memory: Memory, address: number) {
+        super(type, memory, address);
+    }
+
+    public toString() {
         return "Heap object at " + this.address + " (" + this.type + ")";
-    },
-    leaked : function(sim){
+    }
+
+    public leaked(sim: Simulation) {
         if (!this.hasBeenLeaked){
             this.hasBeenLeaked = true;
             sim.memoryLeaked("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
-            this.send("leaked");
+            this.observable.send("leaked");
         }
-    },
-    unleaked : function(sim){
-        this.send("unleaked");
-    },
-    describe : function(){
+    }
+
+    // TODO: Why does this exist? How does something become unleaked??
+    public unleaked(sim: Simulation) {
+        this.observable.send("unleaked");
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: "the heap object " + (this.name || "at 0x" + this.address)};
     }
-});
+}
 
 
 
-export var AutoObject = CPPObject.extend({
-    _name: "AutoObject",
-    storage: "automatic",
-    init: function(autoObj){
-        this.initParent(autoObj.name, autoObj.type);
-        this.decl = autoObj.decl;
-        this.entityId = autoObj.entityId;
-    },
-    instanceString : function(){
+export class AutoObject extends CPPObject {
+
+    private readonly isParameter : boolean;
+    public readonly name: string;
+
+    public constructor(autoEntity: AutoEntity, memory: Memory, address: number) {
+        super(autoEntity.type, memory, address);
+        this.name = autoEntity.name;
+        this.isParameter = (autoEntity.declaration instanceof Declarations.Parameter);
+        // this.entityId = autoObj.entityId; // TODO: is this needed?
+    }
+
+    public toString() {
         return this.name + " (" + this.type + ")";
     }
-});
 
-export var StaticObjectInstance = CPP.CPPObject.extend({
-    _name: "StaticObjectInstance",
-    storage: "static",
-    init: function(staticEnt){
-        this.initParent(staticEnt.name, staticEnt.type);
-        this.decl = staticEnt.decl;
-        this.entityId = staticEnt.entityId;
-    },
-    instanceString : function(){
+    public nameString() {
+        return this.name;
+    }
+    
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+        var w1 = this.isParameter ? "parameter " : "object ";
+        return {name: this.name, message: "the " + w1 + this.name};
+    }
+}
+
+export class StaticObject extends CPPObject {
+
+    public readonly name: string;
+
+    public constructor(staticEntity: StaticEntity, memory: Memory, address: number) {
+        super(staticEntity.type, memory, address);
+        this.name = staticEntity.name;
+    }
+
+    public toString() {
         return this.name + " (" + this.type + ")";
     }
-});
+    
+    public nameString() {
+        return this.name;
+    }
+    
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+        return {name: this.name, message: "the static object" + this.name};
+    }
+}
 
 
 
 
-// TODO: rename?
+// TODO: remove this?
 export var EvaluationResultRuntimeEntity = CPPObject.extend({
     _name: "EvaluationResultRuntimeEntity",
     storage: "automatic",
@@ -518,28 +540,25 @@ export var EvaluationResultRuntimeEntity = CPPObject.extend({
 });
 
 
+// TODO: come up with a better name?
+export class AnonymousObject extends CPPObject {
+    public constructor(type: Type, memory: Memory, address: number) {
+        super(type, memory, address);
+        this.deallocated();
+    }
 
-export var AnonObject = CPPObject.extend({
-    _name: "AnonObject",
-    storage: "temp",
-    init: function(type, name){
-        this.initParent(name || null, type);
-    },
-    nameString : function(){
-        return this.name || "@" + this.address;
-    }/*,
-     isAlive : function(){
-     return false;
-     }*/
-});
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+        return {message: "an invalid object at 0x" + this.address};
+    }
+};
 
 
-export abstract class Subobject extends CPPObject {
+export abstract class Subobject<T extends Type> extends CPPObject<T> {
 
     public readonly containingObject: CPPObject;
 
-    public constructor(containingObject: CPPObject, name: string, type: Type, memory: Memory, address: number) {
-        super(name, type, memory, address);
+    public constructor(containingObject: CPPObject, type: Type, memory: Memory, address: number) {
+        super(type, memory, address);
         this.containingObject = containingObject;
     }
 
@@ -550,68 +569,71 @@ export abstract class Subobject extends CPPObject {
     get deallocatedBy() {
         return this.containingObject.deallocatedBy;
     }
-});
+    
+    public setValue(newValue: Value<T>, write: boolean = false) {
+        super.setValue(newValue, write);
+        if (write) {
+            this.containingObject.subobjectValueWritten();
+        }
+    }
+}
 
 
 
-export var ArraySubobject = Subobject.extend({
-    _name: "ArraySubobject",
-    storage: "temp",
-    init: function(arrObj, index){
-        this.initParent(null, arrObj.type.elemType);
-        this.arrObj = arrObj;
+export class ArraySubobject extends Subobject {
+    
+    public readonly containingObject!: CPPObject<ArrayType>; // Handled by parent
+    public readonly index: number;
+
+    public constructor(arrObj: CPPObject<ArrayType>, index: number, memory: Memory, address: number) {
+        super(arrObj, arrObj.type.elemType, memory, address);
         this.index = index;
-    },
-    nameString : function(){
-        return this.name || "@" + this.address;
-    },
-    parentObject : function(){
-        return this.arrObj;
-    },
-    getPointerTo : function(){
-        assert(this.address, "Must be allocated before you can get pointer to object.");
-        return Value.instance(this.address, Types.ArrayPointer.instance(this.arrObj));
-    },
-    describe : function(){
-        var desc = {};
-        var arrDesc = this.arrObj.describe();
-        desc.message = "element " + this.index + " of " + arrDesc.message;
+    }
+
+    // TODO: update to have name of containing object
+    // public nameString() {
+    //     return this.name || "@" + this.address;
+    // }
+
+    public getPointerTo() {
+        return new Value(this.address, new Types.ArrayPointer(this.containingObject));
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var arrDesc = this.containingObject.describe(sim, rtConstruct);
+        var desc : Description = {
+            message: "element " + this.index + " of " + arrDesc.message,
+        };
         if (arrDesc.name){
             desc.name = arrDesc.name + "[" + this.index + "]";
         }
         return desc;
-    },
-    isAlive : function() {
-        return ArraySubobject._parent.isAlive.apply(this, arguments) && this.isInBounds();
-    },
-    isValueValid : function() {
-        return Lobster.CPP.ArraySubobject._parent.isValueValid.apply(this, arguments) && this.isInBounds();
-    },
-    isInBounds : function() {
-        var offset = (this.address - this.arrObj.address) / this.type.size;
-        return 0 <= offset && offset < this.arrObj.elemObjects.length;
-    },
-    setValue : function(newValue, write) {
-        ArraySubobject._parent.setValue.apply(this, arguments);
-        write && this.arrObj.arrayElemValueWritten(this);
     }
-});
+
+}
 
 
 
 
 
-export var TemporaryObjectInstance = CPPObject.extend({
-    _name: "TemporaryObject",
-    storage: "temp",
-    init: function(tempObjEntity){
-        this.initParent(tempObjEntity.name, tempObjEntity.type);
-        this.entityId = tempObjEntity.entityId;
-    },
-    nameString : function(){
+export class TemporaryObjectInstance<T extends Type> extends CPPObject<Type> {
+
+    private name: string;
+
+    public constructor(tempObjEntity: TemporaryObjectEntity, memory: Memory, address: number) {
+        super(tempObjEntity.type, memory, address);
+        this.name = tempObjEntity.name;
+        // this.entityId = tempObjEntity.entityId;
+    }
+
+    public nameString() {
         return "@" + this.address;
     }
-});
+    
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+        return {name: this.name, message: "the temporary object" + this.name};
+    }
+}
 
 export var BaseClassSubobject = Subobject.extend({
     _name: "BaseClassSubobject",
@@ -636,6 +658,10 @@ export var BaseClassSubobject = Subobject.extend({
 export var MemberSubobject = Subobject.extend({
     _name: "MemberSubobject",
     storage: "none",
+
+    
+    public readonly name: string;
+
     init: function(type, parent, name){
         this.initParent(name || null, type);
         this.parent = parent;

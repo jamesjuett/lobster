@@ -1,23 +1,23 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer } from "./types";
+import { CPPObject, ArrayObjectData } from "./objects";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer } from "./types";
 import last from "lodash/last";
 
 export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
-export class Value {
+export class Value<T extends Type> { // TODO: Change T to extend ObjectType?
     private static _name = "Value";
 
-    public readonly type: Type;
+    public readonly type: T;
     private readonly _isValid: boolean;
 
     public readonly rawValue: RawValueType;
 
 
     // TODO: ts: change any type for value to match type expected for CPP type of value
-    constructor(rawValue: RawValueType, type: Type, isValid: boolean = true) {
+    constructor(rawValue: RawValueType, type: T, isValid: boolean = true) {
         // TODO: remove this.value in favor of using rawValue() function
         this.rawValue = rawValue;
         this.type = type;
@@ -27,18 +27,22 @@ export class Value {
 
     public get isValid() {
         // Note: this is implemented as a getter since it is necessary to call isValueValid on the type each time.
-        //       e.g. A type with RTTI like an array pointer may become invalid if the array dies.
+        //       e.g. A type with RTTI like an object pointer may become invalid if the object dies.
         return this._isValid && this.type.isValueValid(this.rawValue);
     }
 
     public clone(valueToClone: RawValueType = this.rawValue) {
-        return new Value(valueToClone, this.type, this.isValid);
+        return new Value<T>(valueToClone, this.type, this.isValid);
     }
 
-    public equals(otherValue: Value) {
-        return new Value(
+    public invalidated() {
+        return new Value<T>(this.rawValue, this.type, false);
+    }
+
+    public equals(otherValue: Value<T>) {
+        return new Value<Bool>(
             this.rawValue === otherValue.rawValue,
-            Bool.instance(),
+            new Bool(),
             this.isValid && otherValue.isValid);
     }
 
@@ -78,7 +82,7 @@ export class Value {
 
 
 var createAnonymousObject = function (type: Type, memory: Memory, address: number) {
-    var obj = new AnonObject(type);
+    var obj = new AnonymousObject(type);
     obj.allocated(memory, address);
     return obj;
 };
@@ -282,14 +286,15 @@ export class Memory {
     // If no object is found, or an object of a type that does not match the pointed-to type is found,
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
-    dereference(ptr: Value) {
+    // TODO: prevent writing to zero or negative address objects?
+    public dereference(ptr: Value<Pointer>) {
         assert(ptr.type.isObjectPointer());
 
         var addr = ptr.rawValue();
 
         // Handle special cases for pointers with RTTI
         if (ptr.type instanceof ArrayPointer) {
-            return ptr.type.arrObj.getSubobject(addr);
+            return (<ArrayObjectData>ptr.type.arrayObject.data).getSubobjectByAddress(addr);
 
         }
         if (ptr.type instanceof ObjectPointer && ptr.type.isValueValid(addr)) {
@@ -299,13 +304,13 @@ export class Memory {
         // Grab object from memory
         var obj = this.objects[addr];
 
-        if (obj && (similarType(obj.type, type) || subType(obj.type, type))) {
+        if (obj && (similarType(obj.type, ptr.type.ptrTo) || subType(obj.type, ptr.type.ptrTo))) {
             return obj;
         }
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
-        return createAnonymousObject(type, this, addr);
+        return createAnonymousObject(ptr.type, this, addr);
     }
     
 
