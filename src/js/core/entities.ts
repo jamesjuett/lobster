@@ -11,6 +11,7 @@ import { CPPObject } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
+import { Value } from "./runtimeEnvironment";
 
 export interface LookupOptions {
     own?: boolean;
@@ -706,8 +707,8 @@ export class StaticEntity extends DeclaredEntity {
         super(decl);
     }
 
-    public objectInstance(){
-        return new StaticObjectInstance(this);
+    public objectInstance() {
+        return new StaticObject(this);
     }
 
     public toString() {
@@ -921,6 +922,8 @@ export class ArraySubobjectEntity extends CPPEntity {
         return this.i_arrayEntity.runtimeLookup(sim, rtConstruct).elemObjects[this.i_index].runtimeLookup(sim, rtConstruct);
     }
 
+
+    // TODO: I don't think this ever gets used?
     public objectInstance(arrObj: CPPObject) {
         return new ArraySubobject(arrObj, this.index);
     }
