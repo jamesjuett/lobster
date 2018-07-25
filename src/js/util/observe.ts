@@ -88,7 +88,6 @@ function receiveMessage(observer: ObserverType, msg: Message) {
 }
 
 export class Observable {
-    private silent = false;
     private universalObservers: ObserverType[] = [];
     private observers: {[index: string] : ObserverType[]} = {};
 
@@ -99,7 +98,7 @@ export class Observable {
     }
 
     public send(category: string, data?: any) {
-        if (this.silent){
+        if (this.source.silent){
             return;
         }
         

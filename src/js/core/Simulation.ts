@@ -296,7 +296,7 @@ export class Simulation {
         if (target) {
             this.autoRun(copyMixin(options, {
                 pauseIf: function(){
-                    return target.hasBeenPopped;
+                    return !target.isActive;
                 }
             }));
         }
@@ -312,7 +312,7 @@ export class Simulation {
         if (target) {
             this.autoRun(copyMixin(options, {
                 pauseIf: function(){
-                    return target.hasBeenPopped;
+                    return !target.isActive;
                 }
             }));
         }
@@ -370,7 +370,7 @@ export class Simulation {
         this.i_alertsOff = true;
         this.i_explainOff = true;
         $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //RuntimeConstruct.silent = true;
+        //RuntimeConstruct.prototype.silent = true;
 		if (this.i_stepsTaken > 0){
 			this.clear();
 			var steps = this.i_stepsTaken-n;
@@ -379,7 +379,7 @@ export class Simulation {
                 this.stepForward();
 			}
 		}
-        //RuntimeConstruct.silent = false;
+        //RuntimeConstruct.prototype.silent = false;
         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
         this.i_alertsOff = false;
         this.i_explainOff = false;

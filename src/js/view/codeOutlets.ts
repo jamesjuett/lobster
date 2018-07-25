@@ -130,7 +130,7 @@ Lobster.Outlets.CPP.Code = WebOutlet.extend({
     },
 
     popped: function(){
-        if (this.inst.stackType == "call"){
+        if (this.inst.stackType == "function"){
             this.simOutlet.popFunction(this.inst);
         }
         this.element.removeClass("upNext");
@@ -257,7 +257,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     },
 
     setUpParams : function(){
-        var paramCodes = this.inst ? this.inst.getCaller().argInits : this.code.params;
+        var paramCodes = this.inst ? this.inst.caller.argInits : this.code.params;
         this.paramsElem.empty();
         this.paramsElem.append("(");
         //var paramElems = [];
@@ -278,7 +278,7 @@ Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
         Outlets.CPP.Function._parent.instanceSet.apply(this, arguments);
         this.setUpParams();
 
-        if (this.inst.hasControl()) {
+        if (this.inst.hasControl) {
             this.element.addClass("hasControl");
         }
     },
@@ -443,7 +443,7 @@ Lobster.Outlets.CPP.Statement = Outlets.CPP.Code.extend({
 
     // Statements get reset after being popped
     setInstance : function(inst){
-        if (!inst.hasBeenPopped){
+        if (inst.isActive){
             Outlets.CPP.Statement._parent.setInstance.apply(this, arguments);
         }
     }
@@ -1308,7 +1308,7 @@ Lobster.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
     },
 
     instanceSet : Class.ADDITIONALLY(function(){
-        if (this.inst.hasBeenCalled && !this.inst.func.hasBeenPopped){
+        if (this.inst.hasBeenCalled && this.inst.func.isActive){
             var funcOutlet = this.simOutlet.pushFunction(this.inst.func, this);
             funcOutlet && this.listenTo(funcOutlet);
         }

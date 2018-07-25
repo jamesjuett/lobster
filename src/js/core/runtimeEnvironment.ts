@@ -7,7 +7,7 @@ import last from "lodash/last";
 export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
-export class Value<T extends Type> { // TODO: Change T to extend ObjectType?
+export class Value<T extends Type = Type> { // TODO: Change T to extend ObjectType?
     private static _name = "Value";
 
     public readonly type: T;
@@ -508,7 +508,7 @@ class MemoryHeap {
 }
 
 
-class MemoryFrame {
+export class MemoryFrame {
     private static readonly _name = "MemoryFrame";
     
     public readonly observable = new Observable(this);
@@ -538,11 +538,11 @@ class MemoryFrame {
         var addr = this.start;
 
         if (this.func.model.isMemberFunction) {
-            var obj = new ThisObject("this", Types.ObjectPointer.instance(rtFunc.getReceiver()));
+            var obj = new ThisObject("this", Types.ObjectPointer.instance(rtFunc.receiver));
 
             // Allocate object
             this.memory.allocateObject(obj, addr);
-            obj.setValue(rtFunc.getReceiver().getPointerTo());
+            obj.setValue(rtFunc.receiver.getPointerTo());
             addr += obj.size;
 
             this.localObjectsByEntityId[obj.entityId] = obj;

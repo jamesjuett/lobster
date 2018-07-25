@@ -521,7 +521,7 @@ export class FunctionDefinition extends CPPConstruct {
     _name: "FunctionDefinition",
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
-    instType: "call",
+    instType: "function",
     i_runtimeConstructClass : RuntimeFunction,
 
     init : function(ast, context){
@@ -884,6 +884,7 @@ export class FunctionDefinition extends CPPConstruct {
         inst.i_returnObject = returnObject;
     },
 
+    //TODO: I think this can be removed for sure
     getReturnObject : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         return inst.i_returnObject;
     },
@@ -913,8 +914,8 @@ export class FunctionDefinition extends CPPConstruct {
             this.flowOffNonVoid(sim, inst);
         }
 
-        if (inst.getReceiver()){
-            inst.getReceiver().callEnded();
+        if (inst.receiver){
+            inst.receiver.callEnded();
         }
 
         sim.memory.stack.popFrame(inst);
