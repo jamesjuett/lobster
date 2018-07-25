@@ -1,43 +1,61 @@
 
-import {CPPConstruct} from "constructs";
+import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct } from "./constructs";
+import { addDefaultPropertiesToPrototype } from "../util/util";
+import { Expression } from "./expressions";
 
-export var Statement = CPPConstruct.extend({
-   _name: "Statement",
-    instType: "stmt",
+export abstract class Statement extends InstructionConstruct {
 
-    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        sim.pop(inst);
-        inst.send("reset");
+}
+
+export class RuntimeStatement extends RuntimeInstruction {
+    
+    public popped() {
+        super.popped();
+        this.observable.send("reset");
     }
-});
 
-export var Unsupported = Statement.extend({
-    _name: "Statements.Unsupported",
-    compile : function(){
-        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+}
+
+export class LabeledStatement extends UnsupportedConstruct {
+    protected readonly unsupportedName!: string;
+    protected static readonly _defaultProps = addDefaultPropertiesToPrototype(
+        LabeledStatement,
+        {
+            unsupportedName: "labeled statement"
+        }
+    );
+}
+
+export class SwitchStatement extends UnsupportedConstruct {
+    protected readonly unsupportedName!: string;
+    protected static readonly _defaultProps = addDefaultPropertiesToPrototype(
+        LabeledStatement,
+        {
+            unsupportedName: "switch statement"
+        }
+    );
+}
+
+
+interface ExpressionStatementASTNode extends ASTNode {
+    expression: ASTNode; // TODO: change to ExpressionASTNode
+}
+export class ExpressionStatement extends Statement {
+
+    public readonly expression: Expression;
+
+    public constructor(ast: ExpressionStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
+        super(ast, parent, context);
+
+        this.expression = <Expression>CPPConstruct.create(ast.expression, this, context);
     }
-});
-
-export var Labeled = Statements.Unsupported.extend({
-    _name: "Statements.Labeled",
-    englishName: "labeled statement"
-});
-
-export var Switch = Statements.Unsupported.extend({
-    _name: "Statements.Switch",
-    englishName: "switch statement"
-});
-
-/**
- * @property {Expression} expression
- *
- * The ast used to create an instance should have the following properties
- *  - expression
- *
- */
-export var Expression = Statement.extend({
-    _name: "ExpressionStatement",
-    initIndex: "expr",
+        
+    public compile() {
+        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+            //         var childName = this.i_childrenToCreate[i];
+            //         this[childName].compile();
+            //     }
+    }
 
     i_childrenToCreate : ["expression"],
 
