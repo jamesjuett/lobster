@@ -8,8 +8,10 @@ import { Scope } from "./entities";
 import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Type } from "./types";
+import { Type, ClassType } from "./types";
 import { Note } from "./errors";
+import { Value, MemoryFrame } from "./runtimeEnvironment";
+import { CPPObject } from "./objects";
 
 export interface ASTNode {
     construct_type: string;
@@ -36,7 +38,7 @@ export class GlobalProgramConstruct {
 
 export abstract class CPPConstruct {
 
-    // _nextId: 0, // TODO: remove if not needed
+    private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
     // i_childrenToCreate : [],
@@ -73,6 +75,8 @@ export abstract class CPPConstruct {
     //     return construct;
     // },
     
+    public readonly id: number;
+
     public readonly notes: Note[] = []; 
     public readonly hasErrors: boolean = false;
 
@@ -92,7 +96,7 @@ export abstract class CPPConstruct {
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
     public constructor(ast: ASTNode, parent: CPPConstruct | GlobalProgramConstruct, context: ConstructContext) {
-        // this.id = CPPConstruct._nextId++;
+        this.id = CPPConstruct.NEXT_ID++;
 
         this.ast = ast;
 
@@ -305,7 +309,7 @@ export abstract class CPPConstruct {
     // },
 }
 
-class InstructionConstruct extends CPPConstruct {
+export abstract class InstructionConstruct extends CPPConstruct {
 
     public readonly parent!: FunctionDefinition | InstructionConstruct; // Assigned by base class ctor
 
@@ -322,6 +326,8 @@ class InstructionConstruct extends CPPConstruct {
         return {isTail: false};
     }
 }
+
+export type ExecutableConstruct = FunctionDefinition | InstructionConstruct;
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -355,203 +361,226 @@ class InstructionConstruct extends CPPConstruct {
 // });
 
 
-export class RuntimeConstruct {
+export abstract class RuntimeConstruct {
 
     public readonly observable = new Observable(this);
+
+    public readonly sim: Simulation;
+    public readonly model: ExecutableConstruct;
+    public readonly stackType: string;
+
+    public readonly pushedChildren: {[index: string]: RuntimeConstruct};
+
+    private readonly parent: RuntimeConstruct;
+    public abstract readonly containingRuntimeFunction: RuntimeFunction;
+
+    public readonly stepsTaken: number;
+    public readonly isActive: boolean = false;
+
+    // TODO: refactor pauses. maybe move them to the implementation
+    private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    _name: "RuntimeConstruct",
-    //silent: true,
-    init: function (sim, model, index, stackType, parent) {
-        this.initParent();
+    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
         this.sim = sim;
         this.model = model;
-        this.index = index;
 
         this.stackType = stackType;
 
-        this.subCalls = [];
         this.parent = parent;
-        this.pushedChildren = {};
-        assert(this.parent || this.model.i_isMainCall, "All code instances must have a parent.");
+        this.pushedChildren = {}; // TODO: change name (the children are not necessarily pushed)
         assert(this.parent !== this, "Code instance may not be its own parent");
-        if (this.parent) {
+        
+        // if (this.parent) {
 
-            if (this.stackType != "call") {
-                this.parent.pushChild(this);
-            }
-            else {
-                this.parent.pushSubCall(this);
-            }
+            this.parent.addChild(this);
 
-            // Inherit the containing function from parent. Derived classes (e.g. RuntimeFunction) may
-            // overwrite this as needed (e.g. RuntimeFunction is its own containing function)
-            this.i_containingRuntimeFunction = this.parent.i_containingRuntimeFunction;
 
-        }
+        // }
 
         this.stepsTaken = sim.stepsTaken();
-        this.pauses = {};
-    },
+    }
 
-    /**
-     * Returns the RuntimeFunction containing this runtime construct.
-     * @returns {RuntimeFunction}
-     */
-    containingRuntimeFunction : function() {
-        return this.i_containingRuntimeFunction;
-    },
+    public stepForward() {
+        this.observable.send("stepForward");
+        return this.stepForwardImpl();
+    }
 
-    instanceString : function(){
-        return "instance of " + this._name + " (" + this.model._name + ")";
-    },
-    stepForward : function(){
-        return this.model.stepForward(this.sim, this);
-    },
-    upNext : function(){
+    protected stepForwardImpl() {
+        // hook for subclasses
+        return false;
+    }
+
+    public upNext() {
         for(var key in this.pauses){
             var p = this.pauses[key];
-            if (p.pauseWhenUpNext ||
-                p.pauseAtIndex !== undefined && this.index == p.pauseAtIndex){
+            if (p.pauseWhenUpNext //||
+                // p.pauseAtIndex !== undefined && this.index == p.pauseAtIndex){
+            ){
                 this.sim.pause();
                 p.callback && p.callback();
                 delete this.pauses[key];
                 break;
             }
         }
-        this.send("upNext");
-        return this.model.upNext(this.sim, this);
-    },
-    setPauseWhenUpNext : function(){
+        this.observable.send("upNext");
+        return this.upNextImpl();
+    }
+
+    protected upNextImpl() {
+        return true;
+    }
+
+    public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
-    },
-    wait : function(){
-        this.send("wait");
     }
 
-    public done() {
-        this.sim.pop(this);
+    protected wait() {
+        this.observable.send("wait");
     }
 
-    pushed : function(){
-//		this.update({pushed: this});
-    },
-    popped : function(){
-        this.hasBeenPopped = true;
-        this.send("popped", this);
-    },
-    pushChild : function(child){
+    // public done() {
+    //     this.sim.pop(this);
+    // }
+
+    public pushed() {
+        (<boolean>this.isActive) = true;
+        this.observable.send("pushed");
+    }
+
+    public popped() {
+        (<boolean>this.isActive) = false;
+        this.observable.send("popped", this);
+    }
+
+    private addChild(child: RuntimeConstruct) {
         this.pushedChildren[child.model.id] = child;
-        this.send("childPushed", child);
-    },
-    pushSubCall : function(subCall){
-        this.subCalls.push(subCall);
-        this.send("subCallPushed", subCall);
-    },
-    findParent : function(stackType){
-        if (stackType){
-            var parent = this.parent;
-            while(parent && parent.stackType != stackType){
-                parent = parent.parent;
-            }
-            return parent;
-        }
-        else{
-            return this.parent;
-        }
-    },
-    findParentByModel : function(model){
-        assert(isA(model, CPPConstruct));
+        this.observable.send("childPushed", child);
+    }
+    
+    // findParent : function(stackType){
+    //     if (stackType){
+    //         var parent = this.parent;
+    //         while(parent && parent.stackType != stackType){
+    //             parent = parent.parent;
+    //         }
+    //         return parent;
+    //     }
+    //     else{
+    //         return this.parent;
+    //     }
+    // },
 
+    public findParentByModel(model: ExecutableConstruct) {
         var parent = this.parent;
         while(parent && parent.model.id != model.id){
             parent = parent.parent;
         }
         return parent;
-    },
-    contextualReceiver : function(){
-        return this.containingRuntimeFunction().getReceiver();
-    },
+    }
 
-    setEvalValue: function(value){
-        this.evalValue = value;
-        this.send("evaluated", this.evalValue);
-    },
+    public contextualReceiver() {
+        return this.containingRuntimeFunction.receiver;
+    }
 
-    explain : function(){
+    public explain() {
         return this.model.explain(this.sim, this);
-    },
-    describe : function(){
+    }
+
+    public describe() {
         return this.model.describe(this.sim, this);
     }
 }
 
-export var RuntimeFunction = RuntimeConstruct.extend({
-    _name : "RuntimeFunction",
+export class RuntimeInstructionConstruct extends RuntimeConstruct {
+    
+    public readonly containingRuntimeFunction: RuntimeFunction;
 
-    init : function() {
-        this.initParent.apply(this, arguments);
-        this.i_containingRuntimeFunction = this;
-        this.i_caller = this.parent;
-    },
-
-    setReturnObject : function(returnObject){
-        this.i_returnObject = returnObject;
-    },
-
-    getReturnObject : function(){
-        return this.i_returnObject;
-    },
-
-    setReceiver : function(receiver) {
-        this.i_receiver = receiver;
-    },
-
-    getReceiver : function() {
-        return this.i_receiver;
-    },
-
-    setCaller : function(caller) {
-        this.i_caller = caller;
-    },
-
-    getCaller : function() {
-        return this.i_caller;
-    },
-
-    pushStackFrame : function() {
-        this.stackFrame = this.sim.memory.stack.pushFrame(this);
-    },
-
-    gainControl : function() {
-        this.i_hasControl = true;
-        this.send("gainControl");
-    },
-
-    loseControl : function() {
-        delete this.i_hasControl;
-        this.send("loseControl");
-    },
-
-    hasControl : function() {
-        return this.i_hasControl;
-    },
-
-    encounterReturnStatement : function() {
-        this.i_returnStatementEncountered = true;
-    },
-
-    returnStatementEncountered : function() {
-        return this.i_returnStatementEncountered;
+    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
+        super(sim, model, stackType, parent);
+        // Inherit the containing function from parent. Derived classes (e.g. RuntimeFunction) may
+        // overwrite this as needed (e.g. RuntimeFunction is its own containing function)
+        this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
-});
+}
 
-export var RuntimeFunctionCall = RuntimeConstruct.extend({
+export class RuntimeFunction extends RuntimeConstruct {
+
+    public readonly caller: RuntimeFunctionCall;
+    public readonly containingRuntimeFunction: RuntimeFunction;
+
+    public readonly stackFrame?: MemoryFrame;
+    public readonly returnObject?: CPPObject;
+
+    public readonly hasControl: boolean = false;
+
+    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeFunctionCall) {
+        super(sim, model, stackType, parent);
+  
+        // A function is its own containing function context
+        this.containingRuntimeFunction = this;
+
+        this.caller = parent;
+    }
+
+    public setReturnObject(returnObject: CPPObject) {
+        (<CPPObject>this.returnObject) = returnObject;
+    }
+
+    
+
+    // setCaller : function(caller) {
+    //     this.i_caller = caller;
+    // },
+
+    public pushStackFrame() {
+        (<MemoryFrame>this.stackFrame) = this.sim.memory.stack.pushFrame(this);
+    }
+
+    public gainControl() {
+        (<boolean>this.hasControl) = true;
+        this.observable.send("gainControl");
+    }
+
+    public loseControl() {
+        (<boolean>this.hasControl) = true;
+        this.observable.send("loseControl");
+    }
+
+    // private encounterReturnStatement : function() {
+    //     this.i_returnStatementEncountered = true;
+    // },
+
+    // returnStatementEncountered : function() {
+    //     return this.i_returnStatementEncountered;
+    // }
+}
+
+export class RuntimeMemberFunction extends RuntimeFunction {
+    public readonly receiver?: CPPObject<ClassType>;
+
+    public setReceiver(receiver: CPPObject<ClassType>) {
+        (<CPPObject<ClassType>>this.receiver) = receiver;
+    }
+}
+
+export class RuntimeExpression extends RuntimeConstruct {
+    
+    public readonly evalValue?: Value;
+
+    public setEvalValue(value: Value) {
+        (<Value>this.evalValue) = value;
+        this.observable.send("evaluated", this.evalValue);
+    }
+    
+}
+
+export class RuntimeFunctionCall extends RuntimeInstructionConstruct {
     _name: "RuntimeFunctionCall",
 
     getRuntimeFunction : function() {
         return this.func;
     }
-});
+}
 
 /**
  * Represents either a dot or arrow operator at runtime.

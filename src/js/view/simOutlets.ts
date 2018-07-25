@@ -531,7 +531,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     stepOver : function(){
         this.runningProgress.css("visibility", "visible");
 
-        RuntimeConstruct.silent = true;
+        RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
@@ -539,7 +539,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
         this.sim.stepOver({
             after : function(){
-                RuntimeConstruct.silent = false;
+                RuntimeConstruct.prototype.silent = false;
                 self.stackFrames.refresh();
                 setTimeout(function(){self.setAnimationsOn(true);}, 10);
                 self.runningProgress.css("visibility", "hidden");
@@ -554,7 +554,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     stepOut : function(){
         this.runningProgress.css("visibility", "visible");
 
-        RuntimeConstruct.silent = true;
+        RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
@@ -562,7 +562,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         var self = this;
         this.sim.stepOut({
             after : function(){
-                RuntimeConstruct.silent = false;
+                RuntimeConstruct.prototype.silent = false;
                 self.stackFrames.refresh();
                 setTimeout(function(){self.setAnimationsOn(true);}, 10);
                 self.runningProgress.css("visibility", "hidden");
@@ -586,14 +586,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     runToEnd : function(){
         this.runningProgress.css("visibility", "visible");
 
-        //RuntimeConstruct.silent = true;
+        //RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
         var self = this;
         this.sim.speed = 1;
         this.sim.autoRun({after: function(){
-            //RuntimeConstruct.silent = false;
+            //RuntimeConstruct.prototype.silent = false;
             //self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             //self.setEnabledButtons({
@@ -607,14 +607,14 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
     skipToEnd : function(){
         this.runningProgress.css("visibility", "visible");
 
-        RuntimeConstruct.silent = true;
+        RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
 
         var self = this;
         this.sim.speed = Simulation.MAX_SPEED;
         this.sim.autoRun({after: function(){
-            RuntimeConstruct.silent = false;
+            RuntimeConstruct.prototype.silent = false;
             self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             //self.setEnabledButtons({
@@ -639,12 +639,12 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.runningProgress.css("visibility", "visible");
         var self = this;
 
-        RuntimeConstruct.silent = true;
+        RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.ignoreStepBackward = true;
         setTimeout(function(){
             self.sim.stepBackward(n);
-            RuntimeConstruct.silent = false;
+            RuntimeConstruct.prototype.silent = false;
             self.stackFrames.refresh();
             setTimeout(function(){self.setAnimationsOn(true);}, 10);
             self.setEnabledButtons({
@@ -662,7 +662,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
 
     setAnimationsOn : function(animOn){
         if (animOn){
-            //RuntimeConstruct.silent = false;
+            //RuntimeConstruct.prototype.silent = false;
 //        this.silent = false;
             Outlets.CPP.CPP_ANIMATIONS = true;
             $.fx.off = false;
@@ -674,7 +674,7 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             $.fx.off = true;
             Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
 //        this.silent = true;
-//            RuntimeConstruct.silent = true;
+//            RuntimeConstruct.prototype.silent = true;
         }
     },
 

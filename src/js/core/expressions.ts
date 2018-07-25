@@ -2369,7 +2369,7 @@ export var FunctionCall = Expression.extend({
     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         //if (this.func && this.func.decl && this.func.decl.isImplicit()){
         //    setTimeout(function(){
-        //        while (!inst.hasBeenPopped){
+        //        while (inst.isActive){
         //            sim.stepForward();
         //        }
         //    },0);
@@ -2387,8 +2387,8 @@ export var FunctionCall = Expression.extend({
                 return false;
             }
 
-            if (inst.func.getReceiver()) {
-                inst.func.getReceiver().callReceived();
+            if (inst.func.receiver) {
+                inst.func.receiver.callReceived();
             }
 
 

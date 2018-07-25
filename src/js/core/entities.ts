@@ -12,6 +12,7 @@ import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 import { Value } from "./runtimeEnvironment";
+import { RuntimeConstruct } from "./constructs";
 
 export interface LookupOptions {
     own?: boolean;
@@ -653,7 +654,7 @@ export class ReferenceEntity extends DeclaredEntity {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return rtConstruct.containingRuntimeFunction().stackFrame.referenceLookup(this).runtimeLookup(sim, rtConstruct);
+        return rtConstruct.containingRuntimeFunction.stackFrame.referenceLookup(this).runtimeLookup(sim, rtConstruct);
     }
 
     public runtimeInstance() {
@@ -846,7 +847,7 @@ export class ReturnEntity extends CPPEntity {
             return null;
         }
         else {
-            return rtConstruct.containingRuntimeFunction().getReturnObject();
+            return rtConstruct.containingRuntimeFunction.returnObject;
         }
     }
 
