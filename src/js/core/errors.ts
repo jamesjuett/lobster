@@ -60,7 +60,7 @@ export var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
-export var Note = Class.extend({
+export class Note {
     _name: "Note",
 
     TYPE_ERROR: "error",
@@ -101,7 +101,7 @@ export var Note = Class.extend({
     getId : function() {
         return this.i_id;
     }
-});
+}
 
 
 

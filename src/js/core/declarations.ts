@@ -1,4 +1,5 @@
 import {checkIdentifier} from "lexical";
+import { CPPConstruct } from "./constructs";
 
 // A POD type
 export var StorageSpecifier = CPPConstruct.extend({
@@ -69,7 +70,8 @@ var BaseDeclarationMixin = {
     }
 };
 
-export class Declaration extends BaseDeclarationMixin {
+// TODO: add base declaration mixin stuff
+export class Declaration extends CPPConstruct {
     _name: "Declaration",
     instType: "stmt",
     initIndex: 0,
@@ -514,7 +516,8 @@ var OVERLOADABLE_OPS = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
+    // TODO: Add BaseDeclarationMixin stuff
+export class FunctionDefinition extends CPPConstruct {
     _name: "FunctionDefinition",
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
@@ -987,7 +990,7 @@ export var FunctionDefinition = CPPConstruct.extend(BaseDeclarationMixin, {
         exp.message = "a function definition";
         return exp;
     }
-});
+}
 
 // TODO: this should be called ClassDefinition
 export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {

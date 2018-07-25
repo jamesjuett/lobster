@@ -1,10 +1,15 @@
 
 import * as Statements from "./statements";
-import * as Declarations from "./declartions";
+import * as Declarations from "./declarations";
 import * as Initializers from "./initializers";
 import * as Expressions from "./expressions";
+import { ASTNode, ConstructContext, CPPConstruct } from "./constructs";
 
-export const CONSTRUCT_CLASSES = {
+interface ConstructConstructor {
+    new (ast: ASTNode, parent: CPPConstruct, context: ConstructContext) : CPPConstruct
+}
+
+export const CONSTRUCT_CLASSES: {[index:string]: ConstructConstructor} = {
     labeled_statement : Statements.Labeled,
     null_statement : Statements.Null,
     expression_statement : Statements.Expression,
@@ -58,11 +63,11 @@ export const CONSTRUCT_CLASSES = {
     arrow_expression : Expressions.Arrow,
     postfix_increment_expression : Expressions.Increment,
     postfix_decrement_expression : Expressions.Decrement,
-    construct_expression : Expressions.Construct,
+    // construct_expression : Expressions.Construct,
     parentheses_expression : Expressions.Parentheses,
     this_expression : Expressions.ThisExpression,
     identifier_expression : Expressions.Identifier,
     literal : Expressions.Literal,
     string_literal : Expressions.StringLiteral,
-    member_declaration : Declarations.Member
+    member_declaration : Declarations.MemberDeclaration
 };

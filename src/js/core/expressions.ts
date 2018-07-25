@@ -1906,7 +1906,7 @@ export var Subscript  = Expression.extend({
             if (!obj.isAlive()){
                 DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
             }
-            
+
             inst.setEvalValue(obj);
             this.done(sim, inst);
         }
@@ -3187,7 +3187,7 @@ export var StringLiteral  = Expression.extend({
         var val = (conv ? conv(this.ast.value) : this.ast.value);
 
         this.i_stringEntity = StringLiteralEntity.instance(val);
-        this.getTranslationUnit().addStringLiteral(this.i_stringEntity);
+        this.translationUnit.addStringLiteral(this.i_stringEntity);
         this.i_isStringLiteral = true;
         this.i_stringValue = val;
         this.type = this.i_stringEntity.type;
