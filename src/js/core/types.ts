@@ -252,7 +252,7 @@ export class Type {
     public readonly isComplete!: boolean;
 
     // Set the default properties above
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Type,
         {
             isObjectType: false,
@@ -472,7 +472,7 @@ export class Unknown extends Type {
     public readonly size!: number;
     protected readonly precedence!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Unknown,
         {
             size: 0,
@@ -513,7 +513,7 @@ export class Void extends Type {
     protected readonly simpleType!: string;
     public readonly size!: number;
     protected readonly precedence!: number;
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Void,
         {
             simpleType: "void",
@@ -561,7 +561,7 @@ export abstract class SimpleType extends Type {
 
     public readonly isComplete!: boolean;
     protected readonly precedence!: number;
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         SimpleType,
         {
             isComplete: true,
@@ -621,7 +621,7 @@ abstract class IntegralTypeBase extends SimpleType {
     public readonly isIntegralType!: boolean;
     public readonly isArithmeticType!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         IntegralTypeBase,
         {
             isIntegralType: true,
@@ -636,7 +636,7 @@ export class Char extends IntegralTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Char,
         {
             simpleType: "char",
@@ -673,7 +673,7 @@ export class Int extends IntegralTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Int,
         {
             simpleType: "int",
@@ -688,7 +688,7 @@ export class Size_t extends IntegralTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Size_t,
         {
             simpleType: "size_t",
@@ -702,7 +702,7 @@ export class Bool extends IntegralTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Bool,
         {
             simpleType: "bool",
@@ -723,7 +723,7 @@ abstract class FloatingPointTypeBase extends SimpleType {
     public readonly isFloatingPointType!: boolean;
     public readonly isArithmeticType!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         FloatingPointTypeBase,
         {
             isFloatingPointType: true,
@@ -742,7 +742,7 @@ export class Float extends FloatingPointTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Float,
         {
             simpleType: "float",
@@ -756,7 +756,7 @@ export class Double extends FloatingPointTypeBase {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Double,
         {
             simpleType: "double",
@@ -770,7 +770,7 @@ export class OStream extends SimpleType {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         OStream,
         {
             simpleType: "ostream",
@@ -808,7 +808,7 @@ export class Pointer extends Type {
     protected readonly precedence!: number;
     public readonly isComplete!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Pointer,
         {
             size: 8,
@@ -949,7 +949,7 @@ export class Reference extends Type {
     protected readonly precedence!: number;
     public readonly isComplete!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         Reference,
         {
             size: 0,
@@ -1002,7 +1002,7 @@ export class ArrayType extends Type {
     public readonly isComplete!: boolean;
     public readonly isObjectType!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         ArrayType,
         {
             precedence: 2,
@@ -1096,7 +1096,7 @@ export class ClassType extends Type {
     protected readonly precedence!: number;
     public readonly isObjectType!: boolean;
 
-    protected static readonly _defaultProps = Util.addDefaultProperties(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         ClassType,
         {
             precedence: 0,
@@ -1309,8 +1309,8 @@ export {ClassType as Class};
 export class FunctionType extends Type {
     public static readonly _name = "FunctionType";
 
-    private static readonly _defaultProps = addDefaultProperties(
-        FunctionType.prototype,
+    private static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
+        FunctionType,
         {
             isObjectType: false,
             precedence: 2,

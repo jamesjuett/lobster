@@ -468,9 +468,6 @@ export var CPPError = {
         }
 	},
     expr : {
-        unsupported : function(src, expressionName) {
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.unsupported", "Sorry, you have used an expression " + expressionName + " that is not currently supported.");
-        },
         overloadLookup : function(src, op){
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.overloadLookup", "Trying to find a function implementing an overloaded " + op + " operator...");
         },
@@ -711,9 +708,6 @@ export var CPPError = {
             convert : function(src, from, to) {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "stmt.returnStatement.convert", "Cannot convert " + from + " to return type of " + to + " in return statement.");
             }
-        },
-        unsupported : function(src, statementName) {
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "stmt.unsupported", "Sorry, you have used a statement " + statementName + " that is not currently supported.");
         }
     },
     link : {
@@ -773,6 +767,11 @@ export var CPPError = {
         recursiveInclude : function(sourceRef){
              return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
         }
+    },
+    lobster : {
+        unsupported : function(src, expressionName) {
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.unsupported", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
+        },
     }
 };
 

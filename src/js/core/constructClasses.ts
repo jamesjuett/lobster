@@ -10,13 +10,13 @@ interface ConstructConstructor {
 }
 
 export const CONSTRUCT_CLASSES: {[index:string]: ConstructConstructor} = {
-    labeled_statement : Statements.Labeled,
+    labeled_statement : Statements.LabeledStatement,
     null_statement : Statements.Null,
-    expression_statement : Statements.Expression,
+    expression_statement : Statements.ExpressionStatement,
     compound_statement : Statements.Block,
     opaque_function_body_block : Statements.OpaqueFunctionBodyBlock,
     selection_statement : Statements.Selection,
-    switch_statement : Statements.Switch,
+    switch_statement : Statements.SwitchStatement,
     while_statement : Statements.While,
     dowhile_statement : Statements.DoWhile,
     for_statement : Statements.For,

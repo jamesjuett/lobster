@@ -21,8 +21,8 @@ export function assertFalse(message: string = "") : never {
 };
 
 
-export function addDefaultProperties<T>(proto: {prototype: T}, props: {}) {
-    assign(proto, props);
+export function addDefaultPropertiesToPrototype<T>(ctor: {prototype: T}, props: {}) {
+    assign(ctor.prototype, props);
 }
 
 export type Constructor<T = {}> = new (...args: any[]) => T;

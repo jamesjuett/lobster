@@ -9,9 +9,10 @@ import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
 import { Type, ClassType } from "./types";
-import { Note } from "./errors";
+import { Note, CPPError } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
+import * as Util from "../util/util";
 
 export interface ASTNode {
     construct_type: string;
@@ -36,7 +37,7 @@ export class GlobalProgramConstruct {
     }
 }
 
-export abstract class CPPConstruct {
+export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
 
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
@@ -87,7 +88,7 @@ export abstract class CPPConstruct {
     public readonly isImplicit: boolean;
     public readonly isAuxiliary: boolean;
 
-    public readonly ast: ASTNode;
+    public readonly ast: AST_Type;
     // public readonly code:
 
     public readonly isLibraryUnsupported?: boolean;
@@ -95,7 +96,7 @@ export abstract class CPPConstruct {
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    public constructor(ast: ASTNode, parent: CPPConstruct | GlobalProgramConstruct, context: ConstructContext) {
+    public constructor(ast: AST_Type, parent: CPPConstruct | GlobalProgramConstruct, context: ConstructContext) {
         this.id = CPPConstruct.NEXT_ID++;
 
         this.ast = ast;
@@ -309,13 +310,15 @@ export abstract class CPPConstruct {
     // },
 }
 
+export type ExecutableConstruct = FunctionDefinition | InstructionConstruct;
+
 export abstract class InstructionConstruct extends CPPConstruct {
 
-    public readonly parent!: FunctionDefinition | InstructionConstruct; // Assigned by base class ctor
+    public readonly parent!: ExecutableConstruct; // Assigned by base class ctor
 
     public readonly containingFunction: FunctionDefinition;
     
-    public constructor(ast: ASTNode, parent: FunctionDefinition | InstructionConstruct, context: ConstructContext = {}) {
+    public constructor(ast: ASTNode, parent: ExecutableConstruct, context: ConstructContext = {}) {
         super(ast, parent, context);
 
         // Use containing function from context or inherit from parent
@@ -326,8 +329,6 @@ export abstract class InstructionConstruct extends CPPConstruct {
         return {isTail: false};
     }
 }
-
-export type ExecutableConstruct = FunctionDefinition | InstructionConstruct;
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -359,6 +360,18 @@ export type ExecutableConstruct = FunctionDefinition | InstructionConstruct;
 //         this.type = type;
 //     }
 // });
+
+
+export abstract class UnsupportedConstruct extends CPPConstruct {
+
+    // propetry expected of subclasses. For efficiency, they can define it using
+    // Util.addDefaultPropertiesToPrototype
+    protected abstract readonly unsupportedName: string;
+
+    public compile() {
+        this.addNote(CPPError.lobster.unsupported(this, this.unsupportedName));
+    }
+}
 
 
 export abstract class RuntimeConstruct {
@@ -438,10 +451,6 @@ export abstract class RuntimeConstruct {
         this.observable.send("wait");
     }
 
-    // public done() {
-    //     this.sim.pop(this);
-    // }
-
     public pushed() {
         (<boolean>this.isActive) = true;
         this.observable.send("pushed");
@@ -491,7 +500,7 @@ export abstract class RuntimeConstruct {
     }
 }
 
-export class RuntimeInstructionConstruct extends RuntimeConstruct {
+export class RuntimeInstruction extends RuntimeConstruct {
     
     public readonly containingRuntimeFunction: RuntimeFunction;
 
@@ -563,7 +572,7 @@ export class RuntimeMemberFunction extends RuntimeFunction {
     }
 }
 
-export class RuntimeExpression extends RuntimeConstruct {
+export class RuntimeExpression extends RuntimeInstruction {
     
     public readonly evalValue?: Value;
 
@@ -574,12 +583,9 @@ export class RuntimeExpression extends RuntimeConstruct {
     
 }
 
-export class RuntimeFunctionCall extends RuntimeInstructionConstruct {
-    _name: "RuntimeFunctionCall",
+export class RuntimeFunctionCall extends RuntimeInstruction {
 
-    getRuntimeFunction : function() {
-        return this.func;
-    }
+    public readonly calledFunction: RuntimeFunction;
 }
 
 /**

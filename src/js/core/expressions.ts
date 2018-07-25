@@ -2,6 +2,7 @@ import {checkIdentifier} from "./lexical";
 import {CPPConstruct} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
+import { CPPError } from "./errors";
 
 export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
     let value = obj.readValue();
@@ -866,7 +867,7 @@ export var BinaryOperator  = Expression.extend({
 
         // If using an overloaded member operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
+            inst.childInstances.funcCall.calledFunction.setReceiver(EvaluationResultRuntimeEntity.instance(this.left.type, inst.childInstances.left));
         }
 
         return toReturn;
@@ -1406,7 +1407,7 @@ export var UnaryOp  = Expression.extend({
 
         // If using an assignment operator, set receiver for function call instance
         if (this.funcCall && this.isMemberOverload){
-            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+            inst.childInstances.funcCall.calledFunction.setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
         }
 
         return toReturn;
