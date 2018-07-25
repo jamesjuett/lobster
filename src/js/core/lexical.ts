@@ -52,3 +52,11 @@ export function fullyQualifiedNameToUnqualified(fqname: string) {
         return fqname.slice(i+2);
     }
 }
+
+export interface SourceCode {
+    text: string;
+    line: number;
+    column: number;
+    start: number;
+    end: number;
+}

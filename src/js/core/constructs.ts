@@ -1,34 +1,70 @@
+import assign from "lodash/assign";
 import { Observable } from "../util/observe";
+import { CONSTRUCT_CLASSES } from "./constructClasses";
+import { assert } from "../util/util";
+import { SourceCode } from "./lexical";
+import { FunctionDefinition } from "./declarations";
+import { Scope } from "./entities";
+import { TranslationUnit } from "./Program";
+import { SemanticException } from "./semanticExceptions";
+import { Simulation } from "./Simulation";
+import { Type } from "./types";
+import { Note } from "./errors";
 
-export var CPPConstruct = Class.extend({
-    _name: "CPPConstruct",
-    _nextId: 0,
-    initIndex: "pushChildren",
+export interface ASTNode {
+    construct_type: string;
+    code?: SourceCode;
+    library_id?: number;
+    library_unsupported?: boolean;
+};
 
-    i_childrenToCreate : [],
-    i_childrenToConvert : {},
-    i_childrenToExecute : [],
+export interface ConstructContext {
+    implicit?: boolean;
+    auxiliary?: boolean;
+}
 
-    create : function(ast, context, classToUse) {
+export class GlobalProgramConstruct {
+    public readonly contextualScope: Scope;
+    public readonly translationUnit: TranslationUnit;
+    public readonly isImplicit = false;
+    public readonly isAuxiliary = false;
+
+    public addChild(child: CPPConstruct) {
+        // Do nothing lol we don't care to collect them here
+    }
+}
+
+export abstract class CPPConstruct {
+
+    // _nextId: 0, // TODO: remove if not needed
+    // initIndex: "pushChildren",
+
+    // i_childrenToCreate : [],
+    // i_childrenToConvert : {},
+    // i_childrenToExecute : [],
+
+    public static create(ast: ASTNode, parent: CPPConstruct, context: ConstructContext = {}) {
+
+        // TODO: Determine if allowing detacted constructs is actually necessary
         // if ast is actually already a (detatched) construct, just attach it to the
         // provided context rather than creating a new one.
-        if (isA(ast, CPPConstruct)) {
-            assert(!ast.isAttached());
-            if (context) {
-                if (context.auxiliary) {
-                    return this.create(ast.ast, context, classToUse);
-                }
-                else {
-                    ast.attach(context);
-                }
-            }
-            return ast;
-        }
+        // if (isA(ast, CPPConstruct)) {
+        //     assert(!ast.isAttached());
+        //     if (context) {
+        //         if (context.auxiliary) {
+        //             return this.create(ast.ast, context);
+        //         }
+        //         else {
+        //             ast.attach(context);
+        //         }
+        //     }
+        //     return ast;
+        // }
 
-        var constructClass = classToUse || CONSTRUCT_CLASSES[ast["construct_type"]];
-        assert(constructClass, "Unrecognized construct_type.");
-        return constructClass.instance(ast, context);
-    },
+        var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
+        assert(constructCtor !== undefined, "Unrecognized construct_type.");
+        return new constructCtor(ast, parent, context);
+    }
     //
     // createWithChildren : function(children, context) {
     //     var construct = this.instance(context);
@@ -36,44 +72,82 @@ export var CPPConstruct = Class.extend({
     //
     //     return construct;
     // },
+    
+    public readonly notes: Note[] = []; 
+    public readonly hasErrors: boolean = false;
+
+    public readonly parent: CPPConstruct | GlobalProgramConstruct; // TODO: check definite assignment assertions here and below
+    public readonly children: CPPConstruct[] = [];
+    public readonly contextualScope: Scope;
+    public readonly translationUnit: TranslationUnit;
+    public readonly isImplicit: boolean;
+    public readonly isAuxiliary: boolean;
+
+    public readonly ast: ASTNode;
+    // public readonly code:
+
+    public readonly isLibraryUnsupported?: boolean;
+    public readonly libraryId?: number;
 
     // context parameter is often just parent code element in form
     // {parent: theParent}, but may also have additional information
-    init: function (ast, context) {
-        assert(ast || ast === null);
-        ast = ast || {};
-        assert(context || context === null);
-        this.id = CPPConstruct._nextId++;
-        this.children = [];
-        this.i_notes = [];
-        this.i_hasErrors = false;
+    public constructor(ast: ASTNode, parent: CPPConstruct | GlobalProgramConstruct, context: ConstructContext) {
+        // this.id = CPPConstruct._nextId++;
 
         this.ast = ast;
-        if (ast.code) {
-            this.code = ast.code;
-        }
-        if (ast.library_id) {
-            this.i_libraryId = ast.library_id;
-        }
-        if (ast.library_unsupported) {
-            this.i_library_unsupported = true;
-        }
 
-        this.i_isAttached = false;
-        if (context) {
-            this.attach(context);
+        // if (ast.code) {
+        //     this.code = ast.code;
+        // }
+
+        // TODO: figure out library stuff
+        // if (ast.library_id) {
+        //     this.i_libraryId = ast.library_id;
+        // }
+        // if (ast.library_unsupported) {
+        //     this.i_library_unsupported = true;
+        // }
+
+        this.parent = parent;
+
+        // Use implicit from context or inherit from parent
+        this.isImplicit = context.implicit || this.parent.isImplicit;
+
+        this.isAuxiliary = context.auxiliary || this.parent.isAuxiliary;
+
+        // If a contextual scope was specified, use that. Otherwise inherit from parent
+        this.contextualScope = this.parent.contextualScope;
+
+        // Use translation unit from context or inherit from parent
+        this.translationUnit = this.parent && this.parent.translationUnit;
+
+        
+        // TODO: figure out library stuff
+        // If the parent is an usupported library construct, so are its children (including this one)
+        // if (this.parent && this.parent.library_unsupported) {
+        //     this.i_library_unsupported = true;
+        // }
+
+        // If this contruct is NOT auxiliary WITH RESPECT TO ITS PARENT (as indicated by context.auxiliary), then we should
+        // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
+        if (this.parent && !context.auxiliary) {
+            // This cast here is a hack to get around the type system not liking
+            // the fact that addChild is public in GlobalProgramConstruct but private in CPPConstruct
+            // (the union type only contains the public methods)
+            (<CPPConstruct>this.parent).addChild(this);
         }
-    },
+    }
 
-    attach : function(context) {
-        this.i_setContext(context);
-        this.i_createFromAST(this.ast, context);
-        this.i_isAttached = true;
-    },
+    private addChild(child: CPPConstruct) {
+        this.children.push(child);
+    }
 
-    isAttached : function() {
-        return this.i_isAttached;
-    },
+    // TODO: remove if not needed
+    // private attach(context: ConstructContext) {
+    //     this.setContext(context);
+    //     this.createFromAST(this.ast, context);
+    //     (<boolean>this.isAttached) = true;
+    // }
 
     /**
      * Default for derived classes, pulls children from i_childrenToCreate array.
@@ -81,257 +155,173 @@ export var CPPConstruct = Class.extend({
      * a different scope in the context for children, getting extra properties from the AST, etc.)
      * @param ast
      */
-    i_createFromAST : function(ast, context) {
-        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
-            var childName = this.i_childrenToCreate[i];
-            this[childName] = this.i_createChild(ast[childName]);
-        }
-    },
+    // protected abstract i_createFromAST(ast: ASTNode, context: ConstructContext) : void;
+    // //     for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+    // //         var childName = this.i_childrenToCreate[i];
+    // //         this[childName] = this.i_createChild(ast[childName]);
+    // //     }
+    // // }
 
-    i_createChild : function(ast, context) {
-        if (!ast) {return ast;}
-        if (Array.isArray(ast)){
-            var self = this;
-            return ast.map(function(a) {
-                return self.i_createChild(a, context);
-            });
-        }
+    // protected createChild(ast: ASTNode, context?: ConstructContext) {
+    //     return CPPConstruct.create(ast, assign({parent:this}, context));
+    // }
 
-        return CPPConstruct.create(ast, mixin({parent:this}, context || {}));
-    },
+    // protected i_setContext(context: ConstructContext) {        
+        
+    // }
 
-    // i_createAndConnectChild : function(source, context) {
-    //     return this.i_connectChild(this.i_createChild(source, context));
-    // },
+    public getSourceReference() {
+        return this.translationUnit.getSourceReferenceForConstruct(this);
+    }
 
-    // i_connectChild : function(childConstruct) {
-    //     if(!childConstruct) {return childConstruct;}
-    //     childConstruct.i_context.parent = this;
-    //     childConstruct.i_setContext(childConstruct.i_context);
-    //     this.children.push(childConstruct);
-    //     return childConstruct;
-    // },
+    public hasSourceCode() {
+        return !!this.ast.code;
+    }
 
-    i_setContext : function(context){
-        assert(!this.i_isAttached);
-        this.i_isAttached = true;
-        assert(context.hasOwnProperty("parent"));
-        assert(!context.parent || isA(context.parent, CPPConstruct));
-        assert(!context.parent || context.parent.isAttached());
-        this.parent = context.parent;
+    public getSourceCode() {
+        return this.ast.code;
+    }
 
-        // Use containing function from context or inherit from parent
-        this.i_containingFunction = context.func || (this.parent && this.parent.i_containingFunction);
+    // public getSourceText() {
+    //     return this.ast.code ? this.ast.code.text : "an expression";
+    // }
 
-        // Use implicit from context or inherit from parent
-        this.i_isImplicit = context.implicit || (this.parent && this.parent.i_isImplicit);
+    public isLibraryConstruct() {
+        return this.libraryId !== undefined;
+    }
 
-        // If auxiliary, increase auxiliary level over parent. If no parent, use default of 0
-        if (this.parent){
-            if (context.auxiliary) {
-                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel + 1;
-            }
-            else {
-                this.i_auxiliaryLevel = this.parent.i_auxiliaryLevel;
-            }
-        }
-        else{
-            this.i_auxiliaryLevel = 0;
-        }
-
-        // If a contextual scope was specified, use that. Otherwise inherit from parent
-        this.contextualScope = context.scope || (this.parent && this.parent.contextualScope);
-
-        // Use translation unit from context or inherit from parent
-        this.i_translationUnit = context.translationUnit || (this.parent && this.parent.i_translationUnit);
-
-        // If the parent is an usupported library construct, so are its children (including this one)
-        if (this.parent && this.parent.i_library_unsupported) {
-            this.i_library_unsupported = true;
-        }
-
-        // If this contruct is not auxiliary WITH RESPECT TO ITS PARENT, then we should
-        // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
-        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
-            this.parent.children.push(this);
-        }
-    },
-
-    getSourceReference : function() {
-        return this.i_translationUnit.getSourceReferenceForConstruct(this);
-    },
-
-    hasSourceCode : function() {
-        return !!this.code;
-    },
-
-    getSourceCode : function() {
-        return this.code;
-    },
-
-    getSourceText : function() {
-        return this.code ? this.code.text : "an expression";
-    },
-
-    isLibraryConstruct : function() {
-        return this.i_libraryId !== undefined;
-    },
-
-    getLibraryId : function() {
-        return this.i_libraryId;
-    },
-
-    isLibraryUnsupported : function () {
-        return this.i_library_unsupported;
-    },
-
-    getTranslationUnit : function() {
-        return this.i_translationUnit;
-    },
+    public getLibraryId() {
+        return this.libraryId;
+    }
 
     /**
      * Default for derived classes, simply compiles children from i_childrenToCreate array.
      * Usually, derived classes will need to override (e.g. to do any typechecking at all)
      */
-    compile: function() {
-        this.i_compileChildren();
-    },
+    public abstract compile() : void;
+    // compile: function() {
+    //     this.i_compileChildren();
+    // },
 
-    i_compileChildren: function() {
-        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
-            var childName = this.i_childrenToCreate[i];
-            this[childName].compile();
-        }
-    },
+    // i_compileChildren: function() {
+    //     for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
+    //         var childName = this.i_childrenToCreate[i];
+    //         this[childName].compile();
+    //     }
+    // },
 
-    tryCompile : function(){
+    public tryCompile() {
         try{
-            return this.compile.apply(this, arguments);
+            this.compile.apply(this, arguments);
         }
         catch(e){
-            if (isA(e, SemanticException)){
+            if (e instanceof SemanticException) {
                 this.addNote(e.annotation(this));
             }
             else{
                 throw e;
             }
         }
-    },
+    }
 
-    isTailChild : function(child){
-        return {isTail: false};
-    },
+    // createAndPushInstance : function(sim, parent){
+    //     var inst = this.createInstance.apply(this, arguments);
+    //     sim.push(inst);
+    //     return inst;
+    // },
 
-    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        sim.pop(inst);
-    },
-
-    createInstance : function(sim, parent){
-        return (this.i_runtimeConstructClass || RuntimeConstruct).instance(sim, this, this.initIndex, this.instType, parent);
-    },
-
-    createAndPushInstance : function(sim, parent){
-        var inst = this.createInstance.apply(this, arguments);
-        sim.push(inst);
-        return inst;
-    },
-
-    i_createAndCompileChildExpr : function(ast, convertTo){
-        var child = this.i_createChild(ast);
+    public createAndCompileChildExpr(ast: ASTNode, convertTo: Type) {
+        var child = CPPConstruct.create(ast, this);
         child.tryCompile();
         if (convertTo){
             child = standardConversion(child, convertTo);
         }
         return child;
-    },
-
-    pushChildInstances : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        inst.childInstances = inst.childInstances || {};
-        for(var i = this.i_childrenToExecute.length-1; i >= 0; --i){
-            var childName = this.i_childrenToExecute[i];
-            var child = this[childName];
-            if (Array.isArray(child)){
-                // Note: no nested arrays, but that really seems unnecessary
-                var childArr = inst.childInstances[childName] = [];
-                for(var j = child.length-1; j >= 0; --j){
-                    childArr.unshift(child[j].createAndPushInstance(sim, inst));
-                }
-            }
-            else{
-                inst.childInstances[childName] = child.createAndPushInstance(sim, inst);
-            }
-        }
-        //inst.send("wait", this.sub.length);
-    },
-
-    childInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct, name){
-        return inst && inst.childInstances && inst.childInstances[name];
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Evaluate subexpressions
-        if (inst.index === "pushChildren"){
-            this.pushChildInstances(sim, inst);
-            inst.index = "afterChildren";
-            inst.wait();
-            return true;
-        }
-        else if (inst.index === "done"){
-            this.done(sim, inst);
-            return true;
-        }
-        return false;
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "[No explanation available.]", ignore: true};
-    },
-    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "[No description available.]", ignore: false};
-    },
-    /**
-     *
-     * @param {Note} note
-     */
-    addNote : function(note) {
-        this.i_notes.push(note);
-        if (note.getType() === Note.TYPE_ERROR) {
-            this.i_hasErrors = true;
-        }
-        if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
-            this.parent.addNote(note);
-        }
-    },
-
-    getNotes : function() {
-        return this.i_notes;
-    },
-
-    hasErrors : function() {
-        return this.i_hasErrors;
-    },
-
-    getSourceReference : function() {
-        return this.i_translationUnit.getSourceReferenceForConstruct(this);
-    },
-
-    isAuxiliary : function() {
-        return this.i_auxiliaryLevel > 0;
-    },
-
-    isImplicit : function() {
-        return this.i_isImplicit;
-    },
-
-    containingFunction : function() {
-        return this.i_containingFunction;
     }
-});
+
+    // public pushChildInstances : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     inst.childInstances = inst.childInstances || {};
+    //     for(var i = this.i_childrenToExecute.length-1; i >= 0; --i){
+    //         var childName = this.i_childrenToExecute[i];
+    //         var child = this[childName];
+    //         if (Array.isArray(child)){
+    //             // Note: no nested arrays, but that really seems unnecessary
+    //             var childArr = inst.childInstances[childName] = [];
+    //             for(var j = child.length-1; j >= 0; --j){
+    //                 childArr.unshift(child[j].createAndPushInstance(sim, inst));
+    //             }
+    //         }
+    //         else{
+    //             inst.childInstances[childName] = child.createAndPushInstance(sim, inst);
+    //         }
+    //     }
+    //     //inst.send("wait", this.sub.length);
+    // },
+
+    // childInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct, name){
+    //     return inst && inst.childInstances && inst.childInstances[name];
+    // },
+
+    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     // Evaluate subexpressions
+    //     if (inst.index === "pushChildren"){
+    //         this.pushChildInstances(sim, inst);
+    //         inst.index = "afterChildren";
+    //         inst.wait();
+    //         return true;
+    //     }
+    //     else if (inst.index === "done"){
+    //         this.done(sim, inst);
+    //         return true;
+    //     }
+    //     return false;
+    // },
+
+    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    // },
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct){
+        return {message: "[No explanation available.]", ignore: true};
+    }
+
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
+        return {message: "[No description available.]", ignore: false};
+    }
+
+    public addNote(note: Note) {
+        this.notes.push(note);
+        if (note.getType() === Note.TYPE_ERROR) {
+            (<boolean>this.hasErrors) = true;
+        }
+        // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
+        //     this.parent.addNote(note);
+        // }
+    }
+
+    // getNotes : function() {
+    //     return this.i_notes;
+    // },
+}
+
+class InstructionConstruct extends CPPConstruct {
+
+    public readonly parent!: FunctionDefinition | InstructionConstruct; // Assigned by base class ctor
+
+    public readonly containingFunction: FunctionDefinition;
+    
+    public constructor(ast: ASTNode, parent: FunctionDefinition | InstructionConstruct, context: ConstructContext = {}) {
+        super(ast, parent, context);
+
+        // Use containing function from context or inherit from parent
+        this.containingFunction = this.parent.containingFunction;
+    }
+    
+    public isTailChild(child: CPPConstruct) {
+        return {isTail: false};
+    }
+}
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -436,12 +426,12 @@ export class RuntimeConstruct {
     },
     wait : function(){
         this.send("wait");
-    },
-    done : function(){
-        if (this.model.done){
-            return this.model.done(this.sim, this);
-        }
-    },
+    }
+
+    public done() {
+        this.sim.pop(this);
+    }
+
     pushed : function(){
 //		this.update({pushed: this});
     },

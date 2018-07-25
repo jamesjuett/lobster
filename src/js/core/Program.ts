@@ -493,7 +493,7 @@ export var SourceReference = Class.extend({
  *   "syntaxError": if a syntax error is encountered during parsing. data contains properties line, column, and message
  *   "compilationFinished": after compilation is finished
  */
-export var TranslationUnit = Class.extend(Observable, NoteRecorder, {
+export class TranslationUnit = Class.extend(Observable, NoteRecorder, {
     _name: "TranslationUnit",
 
     /**
@@ -934,4 +934,4 @@ export var TranslationUnit = Class.extend(Observable, NoteRecorder, {
 	    this.i_functionCalls.push(call);
 	    this.i_program.registerFunctionCall(call);
     }
-});
+}
