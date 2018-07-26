@@ -1,11 +1,11 @@
 
-import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, RuntimeExpression } from "./constructs";
+import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, RuntimeExpression, ExecutableConstructContext } from "./constructs";
 import { addDefaultPropertiesToPrototype } from "../util/util";
 import { Expression } from "./expressions";
 import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
 
-export abstract class Statement<AST_Type extends ASTNode = ASTNode> extends InstructionConstruct<AST_Type> {
+export abstract class Statement extends InstructionConstruct {
 
     public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
 
@@ -55,17 +55,19 @@ export interface ExpressionStatementASTNode extends ASTNode {
     expression: ExpressionASTNode;
 }
 
-export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
+export class ExpressionStatement extends Statement {
 
     public readonly expression: Expression;
 
-    public constructor(ast: ExpressionStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
-        super(ast, parent, context);
-        this.expression = <Expression>CPPConstruct.create(ast.expression, this, context);
+    public static createFromAST(ast: ExpressionStatementASTNode, context: ExecutableConstructContext) {
+        return new ExpressionStatement(context,
+            Expression.createFromAST(ast.expression, context)
+        );
     }
-    
-    public compile() {
-        this.expression.compile();
+
+    public constructor(context: ExecutableConstructContext, expression: Expression) {
+        super(context);
+        this.addChild(this.expression = expression);
     }
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
@@ -107,10 +109,6 @@ export class RuntimeExpressionStatement extends RuntimeStatement {
 
 export class NullStatement extends Statement {
 
-    public compile() {
-        // do nothing
-    }
-
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
         return new RuntimeNullStatement(this, parent);
     }
@@ -149,10 +147,6 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
     public constructor(ast: DeclarationStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
         super(ast, parent, context);
         this.declaration = <Declaration>CPPConstruct.create(ast.declaration, this, context);
-    }
-    
-    public compile() {
-        this.declaration.compile();
     }
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {

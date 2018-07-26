@@ -22,22 +22,26 @@ export interface ASTNode {
 };
 
 export interface ConstructContext {
+    translationUnit: TranslationUnit;
+    contextualScope: Scope;
+    source?: SourceCode;
     implicit?: boolean;
-    auxiliary?: boolean;
+    libraryId?: number;
+    libraryUnsupported?: boolean;
 }
 
 export class GlobalProgramConstruct {
-    public readonly contextualScope: Scope;
-    public readonly translationUnit: TranslationUnit;
-    public readonly isImplicit = false;
-    public readonly isAuxiliary = false;
+    // public readonly contextualScope: Scope;
+    // public readonly translationUnit: TranslationUnit;
+    // public readonly isImplicit = false;
+    // public readonly isAuxiliary = false;
 
-    public addChild(child: CPPConstruct) {
-        // Do nothing lol we don't care to collect them here
-    }
+    // public addChild(child: CPPConstruct) {
+    //     // Do nothing lol we don't care to collect them here
+    // }
 }
 
-export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
+export abstract class CPPConstruct {
 
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
@@ -46,7 +50,7 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
     // i_childrenToConvert : {},
     // i_childrenToExecute : [],
 
-    public static create(ast: ASTNode, parent: CPPConstruct, context: ConstructContext = {}) {
+    public static createFromAST(ast: ASTNode, context: ConstructContext) {
 
         // TODO: Determine if allowing detacted constructs is actually necessary
         // if ast is actually already a (detatched) construct, just attach it to the
@@ -66,7 +70,7 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
 
         var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
         assert(constructCtor !== undefined, "Unrecognized construct_type.");
-        return new constructCtor(ast, parent, context);
+        return new constructCtor(ast, context);
     }
     //
     // createWithChildren : function(children, context) {
@@ -81,50 +85,33 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
     public readonly notes: Note[] = []; 
     public readonly hasErrors: boolean = false;
 
-    public readonly parent: CPPConstruct | GlobalProgramConstruct; // TODO: check definite assignment assertions here and below
-    public readonly children: CPPConstruct[] = [];
-    public readonly contextualScope: Scope;
+    public readonly context: ConstructContext;
     public readonly translationUnit: TranslationUnit;
-    public readonly isImplicit: boolean;
-    public readonly isAuxiliary: boolean;
-
-    public readonly ast: AST_Type;
-    // public readonly code:
-
-    public readonly isLibraryUnsupported?: boolean;
+    public readonly contextualScope: Scope;
+    public readonly source?: SourceCode;
+    public readonly isImplicit?: boolean;
     public readonly libraryId?: number;
+    public readonly isLibraryUnsupported?: boolean;
 
-    // context parameter is often just parent code element in form
-    // {parent: theParent}, but may also have additional information
-    public constructor(ast: AST_Type, parent: CPPConstruct | GlobalProgramConstruct, context: ConstructContext) {
+    public readonly parent?: CPPConstruct | GlobalProgramConstruct;
+    public readonly children: CPPConstruct[] = [];
+    
+    public constructor(context: ConstructContext) {
         this.id = CPPConstruct.NEXT_ID++;
 
-        this.ast = ast;
-
-        // if (ast.code) {
-        //     this.code = ast.code;
-        // }
+        this.context = context;
+        this.translationUnit = context.translationUnit;
+        this.contextualScope = context.contextualScope
+        if (context.source) { this.source = context.source; }
+        if (context.implicit) { this.isImplicit = true; }
 
         // TODO: figure out library stuff
-        // if (ast.library_id) {
-        //     this.i_libraryId = ast.library_id;
+        // if (context.libraryId) {
+        //     this.libraryId = context.libraryId;
         // }
-        // if (ast.library_unsupported) {
-        //     this.i_library_unsupported = true;
+        // if (context.libraryUnsupported) {
+        //     this.isLibraryUnsupported = true;
         // }
-
-        this.parent = parent;
-
-        // Use implicit from context or inherit from parent
-        this.isImplicit = context.implicit || this.parent.isImplicit;
-
-        this.isAuxiliary = context.auxiliary || this.parent.isAuxiliary;
-
-        // If a contextual scope was specified, use that. Otherwise inherit from parent
-        this.contextualScope = this.parent.contextualScope;
-
-        // Use translation unit from context or inherit from parent
-        this.translationUnit = this.parent && this.parent.translationUnit;
 
         
         // TODO: figure out library stuff
@@ -135,16 +122,17 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
 
         // If this contruct is NOT auxiliary WITH RESPECT TO ITS PARENT (as indicated by context.auxiliary), then we should
         // add it as a child. Otherwise, if this construct is auxiliary in that sense we don't.
-        if (this.parent && !context.auxiliary) {
-            // This cast here is a hack to get around the type system not liking
-            // the fact that addChild is public in GlobalProgramConstruct but private in CPPConstruct
-            // (the union type only contains the public methods)
-            (<CPPConstruct>this.parent).addChild(this);
-        }
+        // if (context.parent) {
+        //     // This cast here is a hack to get around the type system not liking
+        //     // the fact that addChild is public in GlobalProgramConstruct but private in CPPConstruct
+        //     // (the union type only contains the public methods)
+        //     (<CPPConstruct>this.parent).addChild(this);
+        // }
     }
 
-    private addChild(child: CPPConstruct) {
+    public addChild(child: CPPConstruct) {
         this.children.push(child);
+        (<CPPConstruct|GlobalProgramConstruct>child.parent) = this;
     }
 
     // TODO: remove if not needed
@@ -179,14 +167,6 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
         return this.translationUnit.getSourceReferenceForConstruct(this);
     }
 
-    public hasSourceCode() {
-        return !!this.ast.code;
-    }
-
-    public getSourceCode() {
-        return this.ast.code;
-    }
-
     // public getSourceText() {
     //     return this.ast.code ? this.ast.code.text : "an expression";
     // }
@@ -199,11 +179,6 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
         return this.libraryId;
     }
 
-    /**
-     * Default for derived classes, simply compiles children from i_childrenToCreate array.
-     * Usually, derived classes will need to override (e.g. to do any typechecking at all)
-     */
-    public abstract compile() : void;
     // compile: function() {
     //     this.i_compileChildren();
     // },
@@ -215,19 +190,19 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
     //     }
     // },
 
-    public tryCompile() {
-        try{
-            this.compile.apply(this, arguments);
-        }
-        catch(e){
-            if (e instanceof SemanticException) {
-                this.addNote(e.annotation(this));
-            }
-            else{
-                throw e;
-            }
-        }
-    }
+    // public tryCompile() {
+    //     try{
+    //         this.compile.apply(this, arguments);
+    //     }
+    //     catch(e){
+    //         if (e instanceof SemanticException) {
+    //             this.addNote(e.annotation(this));
+    //         }
+    //         else{
+    //             throw e;
+    //         }
+    //     }
+    // }
 
     // createAndPushInstance : function(sim, parent){
     //     var inst = this.createInstance.apply(this, arguments);
@@ -310,23 +285,26 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
     // },
 }
 
-export interface ExecutableConstruct<AST_Type extends ASTNode = ASTNode> extends CPPConstruct<AST_Type> {
-    readonly parent: ExecutableConstruct;
+export interface ExecutableConstruct extends CPPConstruct {
+    readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
     readonly containingFunction: FunctionDefinition;
 }
 
-export abstract class InstructionConstruct<AST_Type extends ASTNode = ASTNode>
-    extends CPPConstruct<AST_Type> implements ExecutableConstruct<AST_Type> {
+export interface ExecutableConstructContext extends ConstructContext {
+    readonly containingFunction: FunctionDefinition;
+}
 
-    public readonly parent!: ExecutableConstruct; // Assigned by base class ctor
+export abstract class InstructionConstruct extends CPPConstruct implements ExecutableConstruct {
+
+    public readonly parent?: ExecutableConstruct;
 
     public readonly containingFunction: FunctionDefinition;
     
-    public constructor(ast: AST_Type, parent: ExecutableConstruct, context: ConstructContext = {}) {
-        super(ast, parent, context);
+    public constructor(context: ExecutableConstructContext) {
+        super(context);
 
         // Use containing function from context or inherit from parent
-        this.containingFunction = this.parent.containingFunction;
+        this.containingFunction = context.containingFunction;
     }
     
     public isTailChild(child: CPPConstruct) {
@@ -403,6 +381,7 @@ export abstract class RuntimeConstruct {
         this.stackType = stackType;
 
         this.parent = parent;
+        this.sim = parent.sim;
         this.pushedChildren = {}; // TODO: change name (the children are not necessarily pushed)
         assert(this.parent !== this, "Code instance may not be its own parent");
         
@@ -508,8 +487,8 @@ export abstract class RuntimeInstruction extends RuntimeConstruct {
     
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (sim: Simulation, model: InstructionConstruct, stackType: string, parent: ExecutableRuntimeConstruct) {
-        super(sim, model, stackType, parent);
+    public constructor (model: InstructionConstruct, stackType: string, parent: ExecutableRuntimeConstruct) {
+        super(model, stackType, parent);
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
 }
@@ -524,8 +503,8 @@ export class RuntimeFunction extends RuntimeConstruct {
 
     public readonly hasControl: boolean = false;
 
-    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeFunctionCall) {
-        super(sim, model, stackType, parent);
+    public constructor (model: ExecutableConstruct, stackType: string, parent: RuntimeFunctionCall) {
+        super(model, stackType, parent);
   
         // A function is its own containing function context
         this.containingRuntimeFunction = this;

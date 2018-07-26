@@ -29,7 +29,7 @@ export const CONSTRUCT_CLASSES: {[index:string]: any} = {
     function_definition : Declarations.FunctionDefinition,
     constructor_definition : Declarations.ConstructorDefinition,
     destructor_definition : Declarations.DestructorDefinition,
-    member_initializer : Initializers.MemberInitializer,
+    member_initializer : Initializers.MemberInitializer, // TODO: remove initializers from here?
     direct_initializer : Initializers.DirectInitializer,
     copy_initializer : Initializers.CopyInitializer,
     initializer_list : Initializers.InitializerList,
