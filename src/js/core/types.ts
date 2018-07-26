@@ -1104,9 +1104,9 @@ export class ClassType extends Type {
         }
     );
 
-    private readonly cppClass: ClassEntity;
+    public readonly cppClass: CPPClass;
 
-    public constructor(cppClass: ClassEntity, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(cppClass: CPPClass, isConst?: boolean, isVolatile?: boolean) {
         super(isConst, isVolatile);
 
         this.cppClass = cppClass;
@@ -1128,7 +1128,7 @@ export class ClassType extends Type {
     }
 
     public similarType(other: Type) {
-        return other instanceof ClassType && other.cppClass.fullyQualifiedName === this.cppClass;
+        return other instanceof ClassType && other.cppClass.fullyQualifiedName === this.cppClass.fullyQualifiedName;
     }
     typeString : function(excludeBase, varname, decorated){
         if (excludeBase) {
@@ -1180,7 +1180,7 @@ export class CPPClass {
     private subobjectEntities: CPPEntity[] = [];
     private baseClassSubobjectEntities: ClassEntity[] = [];
     private memberSubobjectEntities: CPPEntity[] = [];
-    private constructors: FunctionEntity[] = [];
+    public constructors: FunctionEntity[] = [];
     private destructor: null;
 
     public readonly isComplete: boolean;

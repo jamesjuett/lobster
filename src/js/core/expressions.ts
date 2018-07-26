@@ -1,5 +1,5 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError } from "./errors";
@@ -29,7 +29,17 @@ export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: 
  *   6. Compile any temporary objects for whom this is the enclosing full expression.
  *
  */
+
+export interface ExpressionASTNode extends ASTNode {
+
+}
+
 export class Expression extends CPPConstruct {
+
+    public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
+        return super.createFromAST(ast, context);
+    }
+
     _name: "Expression",
     type: Types.Unknown.instance(),
     initIndex : "subexpressions",
@@ -2186,7 +2196,7 @@ export var FunctionCall = Expression.extend({
 
             if (!this.i_isMainCall && !this.isAuxiliary()){
                 // Register as a function call in our function context
-                this.containingFunction().calls.push(this);
+                this.containingFunction().calls.push(this); // TODO modifying calls is rude here. Instead have the containing function attach it
 
                 // Register as a call in the translation unit (this is used during the linking process later)
                 this.i_translationUnit.registerFunctionCall(this);

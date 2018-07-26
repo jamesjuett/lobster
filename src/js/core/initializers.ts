@@ -1,37 +1,47 @@
 import {Expression} from "./expressions";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext } from "./constructs";
+import { CPPEntity, overloadResolution } from "./entities";
+import { Reference, ClassType } from "./types";
+import { CPPError } from "./errors";
 
 
-//TODO: why does this extend Expression?
-export class Initializer extends Expression {
-    _name: "Initializer",
-    isTailChild : function(child){
+export class Initializer<AST_Type extends ASTNode = ASTNode> extends InstructionConstruct<AST_Type> {
+    
+    public isTailChild(child: ExecutableConstruct) {
         return {isTail: true};
     }
-};
+
+}
 
 
-export var DefaultInitializer = Initializer.extend({
-    _name : "DefaultInitializer",
-    //initIndex: "explain",
+export interface DefaultInitializerASTNode extends ASTNode {
+    // Nothing additional needed
+}
 
-    compile : function(entity) {
-        assert(isA(entity, CPPEntity));
+export class DefaultInitializer extends Initializer<DefaultInitializerASTNode> {
+
+    public readonly entity: CPPEntity;
+
+    public constructor(ast: DefaultInitializerASTNode, parent: ExecutableConstruct, entity: CPPEntity, context?: ConstructContext) {
+        super(ast, parent, context);
+
         this.entity = entity;
-        var args = [];
-
-        var type = this.type = this.entity.type;
-
-        this.numArgs = 0;
 
 
-        if (isA(type, Types.Reference)) {
+        let type = this.entity.type;
+
+        let args = [];
+        let numArgs = 0;
+
+        if (type instanceof Reference) {
             // Cannot default initialize a reference
             this.addNote(CPPError.declaration.init.referenceBind(this));
             return;
         }
-        else if (isA(type, Types.Class)){
+        
+        if (type instanceof ClassType) {
             // Try to find default constructor. Not using lookup because constructors have no name.
-            this.myConstructor = overloadResolution(type.constructors, []);
+            this.myConstructor = overloadResolution(type.cppClass.constructors, []);
             if (!this.myConstructor) {
                 this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
                 return;

@@ -1283,7 +1283,7 @@ var convLen = function(args: Expression[]) {
     return total;
 };
 
-export var overloadResolution = function(candidates: FunctionEntity[], args: Expression[], isThisConst: boolean, candidateProblems?: Note[]){
+export var overloadResolution = function(candidates: FunctionEntity[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
     // Find the constructor
     let viable = [];
     for(var c = 0; c < candidates.length; ++c){
