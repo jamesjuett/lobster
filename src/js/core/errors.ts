@@ -680,6 +680,7 @@ export var CPPError = {
         }
     },
     stmt : {
+        // TODO: when would this ever be used?
         declaration : function(src, decl){
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "stmt.declaration", "Sorry, this kind of declaration (" + decl.describe().message + ") is not allowed here.");
         },
@@ -770,7 +771,7 @@ export var CPPError = {
     },
     lobster : {
         unsupported : function(src, expressionName) {
-            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.unsupported", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.unsupported", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
         },
     }
 };

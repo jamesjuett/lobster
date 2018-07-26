@@ -9,9 +9,9 @@ interface ConstructConstructor {
     new (ast: ASTNode, parent: CPPConstruct, context: ConstructContext) : CPPConstruct
 }
 
-export const CONSTRUCT_CLASSES: {[index:string]: ConstructConstructor} = {
+export const CONSTRUCT_CLASSES: {[index:string]: any} = {
     labeled_statement : Statements.LabeledStatement,
-    null_statement : Statements.Null,
+    null_statement : Statements.NullStatement,
     expression_statement : Statements.ExpressionStatement,
     compound_statement : Statements.Block,
     opaque_function_body_block : Statements.OpaqueFunctionBodyBlock,
@@ -23,7 +23,7 @@ export const CONSTRUCT_CLASSES: {[index:string]: ConstructConstructor} = {
     break_statement : Statements.Break,
     continue_statement : Statements.Continue,
     return_statement : Statements.Return,
-    declaration_statement : Statements.Declaration,
+    declaration_statement : Statements.DeclarationStatement,
     simple_declaration : Declarations.Declaration,
     class_declaration : Declarations.ClassDeclaration,
     function_definition : Declarations.FunctionDefinition,

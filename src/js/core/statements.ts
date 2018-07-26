@@ -1,20 +1,31 @@
 
-import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct } from "./constructs";
+import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, RuntimeExpression } from "./constructs";
 import { addDefaultPropertiesToPrototype } from "../util/util";
 import { Expression } from "./expressions";
+import { Simulation } from "./Simulation";
+import { Declaration } from "./declarations";
 
-export abstract class Statement extends InstructionConstruct {
+export abstract class Statement<AST_Type extends ASTNode = ASTNode> extends InstructionConstruct<AST_Type> {
+
+    public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
 
 }
 
-export class RuntimeStatement extends RuntimeInstruction {
+export abstract class RuntimeStatement extends RuntimeInstruction {
     
+    public constructor (model: Statement, parent: ExecutableRuntimeConstruct) {
+        super(model, "statement", parent);
+    }
+
+
     public popped() {
         super.popped();
         this.observable.send("reset");
     }
 
 }
+
+
 
 export class LabeledStatement extends UnsupportedConstruct {
     protected readonly unsupportedName!: string;
@@ -25,6 +36,8 @@ export class LabeledStatement extends UnsupportedConstruct {
         }
     );
 }
+
+
 
 export class SwitchStatement extends UnsupportedConstruct {
     protected readonly unsupportedName!: string;
@@ -37,91 +50,153 @@ export class SwitchStatement extends UnsupportedConstruct {
 }
 
 
-interface ExpressionStatementASTNode extends ASTNode {
-    expression: ASTNode; // TODO: change to ExpressionASTNode
+
+export interface ExpressionStatementASTNode extends ASTNode {
+    expression: ExpressionASTNode;
 }
-export class ExpressionStatement extends Statement {
+
+export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public readonly expression: Expression;
 
     public constructor(ast: ExpressionStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
         super(ast, parent, context);
-
         this.expression = <Expression>CPPConstruct.create(ast.expression, this, context);
     }
-        
+    
     public compile() {
-        for(var i = 0; i < this.i_childrenToCreate.length; ++i) {
-            //         var childName = this.i_childrenToCreate[i];
-            //         this[childName].compile();
-            //     }
+        this.expression.compile();
     }
 
-    i_childrenToCreate : ["expression"],
+    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeExpressionStatement(this, parent);
+    }
 
-	upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "expr"){
-            this.expression.createAndPushInstance(sim, inst);
-            inst.index = "done";
-        }
-		return true;
-	},
-	
-	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        this.done(sim, inst);
-	},
-
-    isTailChild : function(child){
+    public isTailChild(child: CPPConstruct) {
         return {isTail: true};
     }
-});
+}
 
-export var Null = Statement.extend({
-    _name : "NullStatement",
-    initIndex : "done",
+export class RuntimeExpressionStatement extends RuntimeStatement {
 
-});
+    public readonly model!: ExpressionStatement; // Initialized by parent
 
-/**
- * @property {Declaration} declaration
- *
- * * When creating an instance, specify these options
- *  - declaration
- *
- */
-export var Declaration = Statement.extend({
-    _name: "DeclarationStatement",
-    initIndex: "decl",
+    public expression: RuntimeExpression;
+    private index = "expr";
 
-    i_childrenToCreate : ["declaration"],
+    public constructor (model: ExpressionStatement, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.expression = this.model.expression.createRuntimeExpression(this);
+    }
 
-    compile : function(){
-		this.i_compileChildren();
-
-        if (!isA(this.declaration, Declarations.Declaration)){
-            this.addNote(CPPError.stmt.declaration(this, this.declaration));
+	protected upNextImpl() {
+        if (this.index === "expr") {
+            this.sim.push(this.expression);
+            this.index = "done";
         }
-	},
+		return true;
+	}
 	
-	upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "decl"){
-            this.declaration.createAndPushInstance(sim, inst);
-            inst.index = "done";
+	protected stepForwardImpl() {
+        this.sim.pop();
+        return false;
+	}
+}
+
+
+
+export class NullStatement extends Statement {
+
+    public compile() {
+        // do nothing
+    }
+
+    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeNullStatement(this, parent);
+    }
+}
+
+export class RuntimeNullStatement extends RuntimeStatement {
+
+    public constructor (model: NullStatement, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+
+    public upNextImpl() {
+        return false;
+    }
+
+    public stepForwardImpl() {
+        return false;
+    }
+
+}
+
+
+
+
+
+
+
+export interface DeclarationStatementASTNode extends ASTNode {
+    declaration: DeclarationASTNode;
+}
+
+export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
+
+    public readonly declaration: Declaration;
+
+    public constructor(ast: DeclarationStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
+        super(ast, parent, context);
+        this.declaration = <Declaration>CPPConstruct.create(ast.declaration, this, context);
+    }
+    
+    public compile() {
+        this.declaration.compile();
+    }
+
+    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeDeclarationStatement(this, parent);
+    }
+
+    public isTailChild(child: CPPConstruct) {
+        return {isTail: true};
+    }
+}
+
+export class RuntimeDeclarationStatement extends RuntimeStatement {
+
+    public readonly model!: DeclarationStatement; // Initialized by parent
+
+    private index = 0;
+
+    public constructor (model: DeclarationStatement, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+	
+    protected upNextImpl() {
+        let initializers = this.model.declaration.initializers;
+        if (this.index < initializers.length) {
+            let init = initializers[this.index];
+            if(init) { // TODO: is this if check necessary?
+                this.observable.send("initializing", this.index);
+                let runtimeInit = init.createRuntimeInitializer(this);
+                this.sim.push(runtimeInit);
+            }
+            ++this.index;
+            this.wait();
+            return true;
         }
         else{
-            this.done(sim, inst);
+            this.sim.pop();
+            return true;
         }
-		return true;
-	},
-	
-	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-		// nothing to do
-	},
-
-    isTailChild : function(child){
-        return {isTail: true};
     }
-});
+
+    public stepForwardImpl() {
+        return false;
+    }
+}
 
 
 

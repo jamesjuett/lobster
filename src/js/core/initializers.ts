@@ -1,5 +1,7 @@
 import {Expression} from "./expressions";
 
+
+//TODO: why does this extend Expression?
 export class Initializer extends Expression {
     _name: "Initializer",
     isTailChild : function(child){
