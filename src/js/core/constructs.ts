@@ -310,15 +310,19 @@ export abstract class CPPConstruct<AST_Type extends ASTNode = ASTNode> {
     // },
 }
 
-export type ExecutableConstruct = FunctionDefinition | InstructionConstruct;
+export interface ExecutableConstruct<AST_Type extends ASTNode = ASTNode> extends CPPConstruct<AST_Type> {
+    readonly parent: ExecutableConstruct;
+    readonly containingFunction: FunctionDefinition;
+}
 
-export abstract class InstructionConstruct extends CPPConstruct {
+export abstract class InstructionConstruct<AST_Type extends ASTNode = ASTNode>
+    extends CPPConstruct<AST_Type> implements ExecutableConstruct<AST_Type> {
 
     public readonly parent!: ExecutableConstruct; // Assigned by base class ctor
 
     public readonly containingFunction: FunctionDefinition;
     
-    public constructor(ast: ASTNode, parent: ExecutableConstruct, context: ConstructContext = {}) {
+    public constructor(ast: AST_Type, parent: ExecutableConstruct, context: ConstructContext = {}) {
         super(ast, parent, context);
 
         // Use containing function from context or inherit from parent
@@ -393,8 +397,7 @@ export abstract class RuntimeConstruct {
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
-        this.sim = sim;
+    public constructor (model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
@@ -413,15 +416,15 @@ export abstract class RuntimeConstruct {
         this.stepsTaken = sim.stepsTaken();
     }
 
+    /**
+     * REQUIRES: this instance is on the top of the execution stack
+     */
     public stepForward() {
         this.observable.send("stepForward");
         return this.stepForwardImpl();
     }
 
-    protected stepForwardImpl() {
-        // hook for subclasses
-        return false;
-    }
+    protected abstract stepForwardImpl() : boolean;
 
     public upNext() {
         for(var key in this.pauses){
@@ -439,9 +442,7 @@ export abstract class RuntimeConstruct {
         return this.upNextImpl();
     }
 
-    protected upNextImpl() {
-        return true;
-    }
+    protected abstract upNextImpl() : boolean;
 
     public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
@@ -500,14 +501,15 @@ export abstract class RuntimeConstruct {
     }
 }
 
-export class RuntimeInstruction extends RuntimeConstruct {
+// TODO: this is just the same as RuntimeConstruct right now
+export type ExecutableRuntimeConstruct = RuntimeFunction | RuntimeInstruction;
+
+export abstract class RuntimeInstruction extends RuntimeConstruct {
     
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (sim: Simulation, model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
+    public constructor (sim: Simulation, model: InstructionConstruct, stackType: string, parent: ExecutableRuntimeConstruct) {
         super(sim, model, stackType, parent);
-        // Inherit the containing function from parent. Derived classes (e.g. RuntimeFunction) may
-        // overwrite this as needed (e.g. RuntimeFunction is its own containing function)
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
 }

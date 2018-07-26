@@ -1,5 +1,5 @@
 import {checkIdentifier} from "lexical";
-import { CPPConstruct } from "./constructs";
+import { CPPConstruct, ExecutableConstruct } from "./constructs";
 
 // A POD type
 export var StorageSpecifier = CPPConstruct.extend({
@@ -238,31 +238,6 @@ export class Declaration extends CPPConstruct {
         return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
     },
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index < this.initializers.length){
-            var init = this.initializers[inst.index];
-            if(init){
-                inst.send("initializing", inst.index);
-                init.createAndPushInstance(sim, inst);
-            }
-            ++inst.index;
-            inst.wait();
-            return true;
-        }
-        else{
-            this.done(sim, inst);
-            return true;
-        }
-    },
-
-    done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        sim.pop(inst);
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Don't have to do anything unless there's an initializer, right?
-
-    }
 };
 
 
@@ -517,7 +492,7 @@ var OVERLOADABLE_OPS = {};
     });
 
     // TODO: Add BaseDeclarationMixin stuff
-export class FunctionDefinition extends CPPConstruct {
+export class FunctionDefinition extends CPPConstruct implements ExecutableConstruct {
     _name: "FunctionDefinition",
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??

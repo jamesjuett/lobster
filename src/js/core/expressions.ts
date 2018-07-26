@@ -45,6 +45,7 @@ export class Expression extends CPPConstruct {
         }
     },
 
+
     compile : function() {
 
         // Parent compile - will compile all children specified in i_childrenToCreate
@@ -299,7 +300,7 @@ export var Unsupported = Expression.extend({
     }
 });
 
-export var Null = Expression.extend({
+export class NullStatement = Expression.extend({
     _name: "Null",
     valueCategory: "prvalue",
     createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -2087,6 +2088,7 @@ export var PREDEFINED_FUNCTIONS = {
 
 
 // TODO: move FunctionCall to its own module
+// TODO: FunctionCall should not extend Expression
 export var FunctionCall = Expression.extend({
     _name: "FunctionCall",
     i_runtimeConstructClass : RuntimeFunctionCall,
