@@ -1,8 +1,9 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, ArrayObjectData } from "./objects";
+import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer } from "./types";
 import last from "lodash/last";
+import { RuntimeReference, Scope, FunctionBlockScope, ReferenceEntity, StaticEntity, AutoEntity } from "./entities";
 
 export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
@@ -115,7 +116,7 @@ export class Memory {
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
     private objects!: { [index: number]: CPPObject };
     private stringLiteralMap!: { [index: string]: StringLiteralObject };
-    private staticObjects!: { [index: string]: CPPObject };
+    private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
     private stack!: MemoryStack;
     private heap!: MemoryHeap;
@@ -372,8 +373,8 @@ export class Memory {
 
     
 
-    public staticLookup(staticEntity: StaticEntity) {
-        return this.staticObjects[staticEntity.getFullyQualifiedName()];
+    public staticLookup<T extends Type>(staticEntity: StaticEntity<T>) {
+        return <StaticObject<T>>this.staticObjects[staticEntity.getFullyQualifiedName()];
     }
 
     public allocateTemporaryObject(tempEntity: TemporaryObjectEntity) {
@@ -513,7 +514,7 @@ export class MemoryFrame {
     
     public readonly observable = new Observable(this);
 
-    public readonly scope: Scope;
+    public readonly scope: FunctionBlockScope;
     private readonly start: number;
     private readonly end: number;
     private readonly memory: Memory;
@@ -521,10 +522,10 @@ export class MemoryFrame {
 
     private size: number;
     private readonly localObjectsByEntityId: {[index:number]: AutoObject};
-    private readonly localReferencesByEntityId: {[index:number]: ReferenceEntityInstance};
+    private readonly localReferencesByEntityId: {[index:number]: RuntimeReference};
     
 
-    public constructor(scope: Scope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
+    public constructor(scope: FunctionBlockScope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
         var self = this;
         this.scope = scope;
         this.memory = memory;
@@ -591,11 +592,11 @@ export class MemoryFrame {
         return str;
     }
 
-    public getObjectForEntity(entity: AutoEntity) {
-        return this.localObjectsByEntityId[entity.entityId];
+    public getLocalObject<T extends Type>(entity: AutoEntity<T>) {
+        return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
-    public referenceLookup(entity: AutoEntity) {
-        return this.localReferencesByEntityId[entity.entityId].runtimeLookup();
+    public referenceLookup<T extends Type>(entity: ReferenceEntity<T>) : RuntimeReference<T>{
+        return <RuntimeReference<T>>this.localReferencesByEntityId[entity.entityId];
     }
     public setUpReferenceInstances() {
         var self = this;

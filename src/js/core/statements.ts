@@ -686,7 +686,7 @@ export var Break = Statement.extend({
         if (inst.index == "break"){
             var containerInst = inst.findParentByModel(this.container);
 //            inst.send("returned", {call: func.parent});
-            containerInst.done(sim);
+            containerInst.done(sim); // TODO: should be done with simulation stack instead of parent
             // return true;
         }
     }

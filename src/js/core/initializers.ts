@@ -4,6 +4,7 @@ import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, Array
 import { Reference, ClassType, AtomicType, ArrayType } from "./types";
 import { CPPError } from "./errors";
 import { assertFalse } from "../util/util";
+import { CPPObject } from "./objects";
 
 
 export abstract class Initializer extends InstructionConstruct {
@@ -100,6 +101,8 @@ export abstract class DefaultInitializer extends Initializer {
 export abstract class RuntimeDefaultInitializer<Construct_type extends DefaultInitializer = DefaultInitializer>
     extends RuntimeInitializer<Construct_type> {
 
+    public abstract readonly target: CPPObject;
+
 }
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
@@ -125,10 +128,13 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
 
 export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer<AtomicDefaultInitializer> {
 
+    public readonly object: CPPObject<AtomicType>;
+
     private index = 0;
 
     public constructor (model: AtomicDefaultInitializer, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
+        this.object = this.model.entity.
     }
 	
     protected upNextImpl() {
