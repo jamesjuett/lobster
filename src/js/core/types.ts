@@ -5,7 +5,7 @@ import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope } from "./entities";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope, ConstructorEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 				
 var vowels = ["a", "e", "i", "o", "u"];
@@ -551,7 +551,11 @@ export class Void extends Type {
 }
 builtInTypes["void"] = Void;
 
-export abstract class SimpleType extends Type {
+export abstract class AtomicType extends Type {
+
+}
+
+export abstract class SimpleType extends AtomicType {
     
     /**
      * Subclasses must implement a concrete type property that should be a
@@ -802,7 +806,7 @@ builtInTypes["ostream"] = OStream;
 
 //TODO: create separate function pointer type???
 
-export class Pointer extends Type {
+export class Pointer extends AtomicType {
 
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -943,7 +947,7 @@ export class ObjectPointer extends Pointer {
 
 // REQUIRES: refTo must be a type
 // TODO: reference shouldn't really have a size...perhaps rework so that there's an intermediate subclass of Type for Object types with a size
-export class Reference extends Type {
+export class Reference extends AtomicType {
 
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -1180,7 +1184,7 @@ export class CPPClass {
     private subobjectEntities: CPPEntity[] = [];
     private baseClassSubobjectEntities: ClassEntity[] = [];
     private memberSubobjectEntities: CPPEntity[] = [];
-    public constructors: FunctionEntity[] = [];
+    public ctors: ConstructorEntity[] = [];
     private destructor: null;
 
     public readonly isComplete: boolean;
@@ -1239,7 +1243,7 @@ export class CPPClass {
 
     public addConstructor(constructor: ConstructorEntity) {
         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
-        this.constructors.push(constructor);
+        this.ctors.push(constructor);
     }
 
     public addDestructor(destructor: DestructorEntity) {
@@ -1299,7 +1303,7 @@ export class CPPClass {
 
 
 
-});
+}
 export {ClassType as Class};
 
 

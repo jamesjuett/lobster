@@ -1,89 +1,59 @@
-import {Expression} from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext } from "./constructs";
-import { CPPEntity, overloadResolution } from "./entities";
-import { Reference, ClassType } from "./types";
+import { Expression, FunctionCall } from "./expressions";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct } from "./constructs";
+import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity } from "./entities";
+import { Reference, ClassType, AtomicType, ArrayType } from "./types";
 import { CPPError } from "./errors";
+import { assertFalse } from "../util/util";
 
 
-export class Initializer<AST_Type extends ASTNode = ASTNode> extends InstructionConstruct<AST_Type> {
+export abstract class Initializer extends InstructionConstruct {
     
+    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
+
     public isTailChild(child: ExecutableConstruct) {
         return {isTail: true};
     }
 
 }
 
+export abstract class RuntimeInitializer<Construct_type extends Initializer = Initializer> extends RuntimeInstruction<Construct_type> {
+    
+    protected constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+        super(model, "initializer", parent);
+    }
 
-export interface DefaultInitializerASTNode extends ASTNode {
-    // Nothing additional needed
 }
 
-export class DefaultInitializer extends Initializer<DefaultInitializerASTNode> {
-
-    public readonly entity: CPPEntity;
-
-    public constructor(ast: DefaultInitializerASTNode, parent: ExecutableConstruct, entity: CPPEntity, context?: ConstructContext) {
-        super(ast, parent, context);
-
-        this.entity = entity;
 
 
-        let type = this.entity.type;
 
-        let args = [];
-        let numArgs = 0;
 
-        if (type instanceof Reference) {
-            // Cannot default initialize a reference
-            this.addNote(CPPError.declaration.init.referenceBind(this));
-            return;
+export abstract class DefaultInitializer extends Initializer {
+
+    public abstract readonly entity: CPPEntity;
+
+    public static create(context: ExecutableConstructContext, entity: CPPEntity) : DefaultInitializer {
+        if (entity.type instanceof AtomicType) {
+            return new AtomicDefaultInitializer(context, <CPPEntity<AtomicType>> entity);
         }
-        
-        if (type instanceof ClassType) {
-            // Try to find default constructor. Not using lookup because constructors have no name.
-            this.myConstructor = overloadResolution(type.cppClass.constructors, []);
-            if (!this.myConstructor) {
-                this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
-                return;
-            }
-
-            this.funcCall = this.funcCall = FunctionCall.instance({args: args}, {parent:this});
-            this.funcCall.compile({
-                func: this.myConstructor,
-                receiver: this.entity});
-            this.args = this.funcCall.args;
-            this.i_childrenToExecute = ["funcCall"];
+        else if (entity.type instanceof ClassType) {
+            return new ClassDefaultInitializer(context, <CPPEntity<ClassType>> entity);
         }
-        else if (isA(type, Types.Array)){
-            // If it's not an array of class type, the initializers do nothing so don't
-            // even make them at all.
-            if (isA(type.elemType, Types.Class)){
-                this.arrayElemInitializers = [];
-                for(var i = 0; i < type.length; ++i){
-                    var elemInit = DefaultInitializer.instance(this.ast, {parent:this});
-                    this.arrayElemInitializers.push(elemInit);
-                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
-                    if (elemInit.hasErrors()){
-                        this.addNote(CPPError.declaration.init.array_default_init(this));
-                        break;
-                    }
-                }
-                this.i_childrenToExecute = ["arrayElemInitializers"];
-            }
+        else if (entity.type instanceof ArrayType) {
+            return new ArrayDefaultInitializer(context, <CPPEntity<ArrayType>> entity);
         }
         else{
-            // Do nothing
-            if(!isA(type, Types.Pointer)){
-                this.addNote(CPPError.declaration.init.uninitialized(this, this.entity));
-            }
+            return assertFalse();
         }
+    }
 
+    protected constructor(context: ExecutableConstructContext) {
+        super(context);
+    }
+    
+    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer;
 
-
-        return DefaultInitializer._parent.compile.apply(this, arguments);
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         if (inst.index === "operate"){
             if (isA(this.entity.type, Types.Class) || isA(this.entity.type, Types.Array)) {
                 // Nothing to do, handled by child initializers for each element
@@ -98,17 +68,6 @@ export class DefaultInitializer extends Initializer<DefaultInitializerASTNode> {
         else{
             return DefaultInitializer._parent.upNext.apply(this, arguments);
         }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Will only get to here if it's a non-class, non-array type.
-
-        var obj = this.entity.runtimeLookup(sim, inst);
-        assert(obj, "Tried to look up entity to initialize but object was null.");
-        // No initialization. Object has junk value.
-        // Object should be invalidated by default and nobody has written to it.
-        inst.send("initialized", obj);
-        this.done(sim, inst);
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -136,7 +95,186 @@ export class DefaultInitializer extends Initializer<DefaultInitializerASTNode> {
         }
         return exp;
     }
-});
+}
+
+export abstract class RuntimeDefaultInitializer<Construct_type extends DefaultInitializer = DefaultInitializer>
+    extends RuntimeInitializer<Construct_type> {
+
+}
+
+export class AtomicDefaultInitializer extends DefaultInitializer {
+
+    public readonly entity: CPPEntity<AtomicType>;
+
+    public constructor(context: ExecutableConstructContext, entity: CPPEntity<AtomicType>) {
+        super(context);
+        
+        this.entity = entity;
+
+        if (entity.type instanceof Reference) {
+            // Cannot default initialize a reference
+            this.addNote(CPPError.declaration.init.referenceBind(this));
+            return;
+        }
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeAtomicDefaultInitializer(this, parent);
+    }
+}
+
+export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer<AtomicDefaultInitializer> {
+
+    private index = 0;
+
+    public constructor (model: AtomicDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+	
+    protected upNextImpl() {
+        // No initialization. Object has junk value.
+        var obj = this.model.entity.runtimeLookup(sim, inst);
+        this.observable.send("initialized", obj);
+        this.sim.pop();
+        return true;
+    }
+
+    public stepForwardImpl() {
+        return false;
+    }
+}
+
+export class ClassDefaultInitializer extends DefaultInitializer {
+
+    public readonly entity: CPPEntity<ClassType>;
+    public readonly ctor: ConstructorEntity?;
+    public readonly ctorCall: MemberFunctionCall?;
+
+    public constructor(context: ExecutableConstructContext, entity: CPPEntity<ClassType>) {
+        super(context);
+
+        this.entity = entity;
+
+        // Try to find default constructor. Not using lookup because constructors have no name.
+        this.ctor = overloadResolution(entity.type.cppClass.ctors, []);
+        if (!this.ctor) {
+            this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
+            return;
+        }
+        
+        //MemberFunctionCall args are: context, function to call, receiver, ctor args
+        this.ctorCall = new MemberFunctionCall(context, this.ctor, this.entity, []);
+        this.addChild(this.ctorCall);
+        // this.args = this.ctorCall.args;
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeClassDefaultInitializer(this, parent);
+    }
+}
+
+export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer<ClassDefaultInitializer> {
+
+    private index = "callCtor";
+    public readonly ctorCall: RuntimeMemberFunctionCall;
+
+    public constructor (model: ClassDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.ctorCall = this.model.ctorCall.createRuntimeMemberFunctionCall(this);
+    }
+	
+    protected upNextImpl() {
+        if (this.index === "callCtor") {
+            this.sim.push(this.ctorCall);
+            this.index = "done";
+            return true;
+        }
+        else {
+            this.sim.pop();
+            return true;
+        }
+    }
+
+    public stepForwardImpl() {
+        return false;
+    }
+
+}
+
+export class ArrayDefaultInitializer extends DefaultInitializer {
+
+    public readonly entity: CPPEntity<ArrayType>;
+    public readonly elementInitializers?: DefaultInitializer[];
+
+    public constructor(context: ExecutableConstructContext, entity: CPPEntity<ArrayType>) {
+        super(context);
+        
+        this.entity = entity;
+
+        // If it's not an array of class type, the initializers do nothing so don't
+        // even make them at all.
+        let type = this.entity.type;
+        if (type.elemType instanceof ClassType) {
+            this.elementInitializers = [];
+            for(let i = 0; i < type.length; ++i){
+                let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.entity, i));
+                this.elementInitializers.push(elemInit);
+                this.addChild(elemInit);
+                if (elemInit.hasErrors) {
+                    this.addNote(CPPError.declaration.init.array_default_init(this));
+                    break;
+                }
+            }
+        }
+
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeArrayDefaultInitializer(this, parent);
+    }
+
+}
+
+export class RuntimeArrayDefaultInitializer extends RuntimeDefaultInitializer<ArrayDefaultInitializer> {
+
+    private index = 0;
+    public readonly elementInitializers?: RuntimeDefaultInitializer[];
+
+    public constructor (model: ArrayDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        if (this.model.elementInitializers) {
+            this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
+                return elemInit.createRuntimeInitializer(this);
+            })
+            this.index = "pushInits";
+        }
+    }
+	
+    protected upNextImpl() {
+        if (this.elementInitializers && this.index < this.elementInitializers.length) {
+            this.sim.push(this.elementInitializers[this.index++])
+        }
+        else {
+            this.sim.pop();
+        }
+        return false;
+    }
+
+    public stepForwardImpl() {
+        return false;
+    }
+    
+}
+
+
+
+
+
+
+
+
+
+
 
 var DirectCopyInitializerBase = Initializer.extend({
     _name : "DirectCopyInitializerBase",

@@ -356,12 +356,12 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
 }
 
 
-export abstract class RuntimeConstruct {
+export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruct = ExecutableConstruct> {
 
     public readonly observable = new Observable(this);
 
     public readonly sim: Simulation;
-    public readonly model: ExecutableConstruct;
+    public readonly model: Construct_type;
     public readonly stackType: string;
 
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
@@ -375,7 +375,7 @@ export abstract class RuntimeConstruct {
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: ExecutableConstruct, stackType: string, parent: RuntimeConstruct) {
+    public constructor (model: Construct_type, stackType: string, parent: RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
@@ -483,11 +483,12 @@ export abstract class RuntimeConstruct {
 // TODO: this is just the same as RuntimeConstruct right now
 export type ExecutableRuntimeConstruct = RuntimeFunction | RuntimeInstruction;
 
-export abstract class RuntimeInstruction extends RuntimeConstruct {
+export abstract class RuntimeInstruction<Construct_type extends InstructionConstruct = InstructionConstruct>
+    extends RuntimeConstruct<Construct_type> {
     
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (model: InstructionConstruct, stackType: string, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: Construct_type, stackType: string, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
