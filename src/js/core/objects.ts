@@ -1,5 +1,4 @@
-import * as Types from "./types";
-import { Type, ArrayType, ClassType } from "./types";
+import { Type, ArrayType, ClassType, AtomicType, Pointer } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -26,7 +25,7 @@ abstract class ObjectData<T extends Type> {
     public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 };
 
-export class AtomicObjectData extends ObjectData<Type> { // TODO: change to atomic type
+class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: change to atomic type
 
     public rawValue() {
         var bytes = this.memory.readBytes(this.address, this.size);
@@ -39,11 +38,15 @@ export class AtomicObjectData extends ObjectData<Type> { // TODO: change to atom
 
 }
 
-export class ArrayObjectData extends ObjectData<ArrayType> {
+class ArrayObjectData<Elem_type extends Type, T extends ArrayType<Elem_type>> extends ObjectData<T> {
 
-    private readonly elemObjects: ArraySubobject[];
+    public static create<Elem_type extends Type>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
+        return new ArrayObjectData<Elem_type, ArrayType<Elem_type>>(object, memory, address);
+    } 
 
-    public constructor(object: CPPObject<ArrayType>, memory: Memory, address: number) {
+    private readonly elemObjects: ArraySubobject<Elem_type>[];
+
+    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
         super(object, memory, address);
 
         let subAddr = this.address;
@@ -54,7 +57,7 @@ export class ArrayObjectData extends ObjectData<ArrayType> {
         } 
     }
 
-    public getSubobjectByAddress(address: number) {
+    public getArrayElemSubobjectByAddress(address: number) {
         let index = (address - this.address) / this.object.type.elemType.size;
         return this.getArrayElemSubobject(index);
     }
@@ -64,7 +67,7 @@ export class ArrayObjectData extends ObjectData<ArrayType> {
             return this.elemObjects[index];
         }
         else {
-            let outOfBoundsObj =  new ArraySubobject(this.object, index,
+            let outOfBoundsObj =  new ArraySubobject<Elem_type>(this.object, index,
                 this.memory, this.address + index * this.object.type.elemType.size);
             return outOfBoundsObj;
         }
@@ -81,14 +84,14 @@ export class ArrayObjectData extends ObjectData<ArrayType> {
     }
 }
 
-export class ClassObjectData extends ObjectData<ClassType> {
+class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
     public readonly subobjects: Subobject[];
     public readonly baseSubobjects: BaseClassSubobject[];
     public readonly memberSubobjects: MemberSubobject[];
     private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
 
-    public constructor(object: CPPObject<ClassType>, memory: Memory, address: number) {
+    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
         super(object, memory, address);
         
         let subAddr = this.address;
@@ -145,7 +148,7 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
 
     public readonly address: number;
 
-    public readonly data: ObjectData<Type>;
+    private readonly data: ObjectData<T>;
 
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
@@ -160,10 +163,10 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
 
         if (this.type instanceof ArrayType) {
             // this.isArray = true;
-            this.data = new ArrayObjectData(<CPPObject<ArrayType>><CPPObject<Type>>this, memory, address);
+            this.data = <any>new ArrayObjectData(<any>this, memory, address);
         }
         else if (this.type instanceof ClassType) {
-            this.data = new ClassObjectData(<CPPObject<ClassType>><CPPObject<Type>>this, memory, address);
+            this.data = <any>new ClassObjectData(<any>this, memory, address);
         }
         else {
             this.data = new AtomicObjectData(this, memory, address);
@@ -174,6 +177,21 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
         this._isValid = false;
 
         this.observable.send("allocated");
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public getArrayElemSubobject<Elem_type extends Type>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
+        return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobject(index);
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public getArrayElemSubobjectByAddress<Elem_type extends Type>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
+        return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobjectByAddress(address);
+    }
+
+    // Only allowed if receiver matches CPPObject<ClassType>
+    public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
+        return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
     }
 
     public subobjectValueWritten() {
@@ -582,12 +600,12 @@ export abstract class Subobject<T extends Type = Type> extends CPPObject<T> {
 
 
 
-export class ArraySubobject extends Subobject {
+export class ArraySubobject<T extends Type = Type> extends Subobject<T> {
     
-    public readonly containingObject!: CPPObject<ArrayType>; // Handled by parent
+    public readonly containingObject!: CPPObject<ArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
     public readonly index: number;
 
-    public constructor(arrObj: CPPObject<ArrayType>, index: number, memory: Memory, address: number) {
+    public constructor(arrObj: CPPObject<ArrayType<T>>, index: number, memory: Memory, address: number) {
         super(arrObj, arrObj.type.elemType, memory, address);
         this.index = index;
     }
@@ -628,7 +646,7 @@ export class BaseClassSubobject extends Subobject<ClassType> {
     }
 }
 
-export class MemberSubobject<T extends Type> extends Subobject<T> {
+export class MemberSubobject<T extends Type = Type> extends Subobject<T> {
 
     public readonly name: string;
 

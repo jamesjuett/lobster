@@ -999,7 +999,7 @@ export class Reference extends AtomicType {
 
 
 // REQUIRES: elemType must be a type
-export class ArrayType extends Type {
+export class ArrayType<Elem_type extends Type = Type> extends Type {
     
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -1016,10 +1016,10 @@ export class ArrayType extends Type {
         }
     );
 
-    public readonly elemType: Type;
+    public readonly elemType: Elem_type;
     public readonly length: number;
 
-    public constructor(elemType: Type, length: number, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(elemType: Elem_type, length: number, isConst?: boolean, isVolatile?: boolean) {
 
         // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be const or volatile
         super(false, false);
