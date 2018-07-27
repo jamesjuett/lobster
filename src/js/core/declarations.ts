@@ -493,6 +493,10 @@ var OVERLOADABLE_OPS = {};
 
     // TODO: Add BaseDeclarationMixin stuff
 export class FunctionDefinition extends CPPConstruct implements ExecutableConstruct {
+
+    public readonly parent?: ExecutableConstruct;
+    public readonly containingFunction: FunctionDefinition = this;
+
     _name: "FunctionDefinition",
     isDefinition: true,
     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??

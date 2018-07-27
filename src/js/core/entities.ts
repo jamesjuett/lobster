@@ -2,16 +2,16 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType} from "./types";
+import {Type, covariantType, ArrayType, ClassType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 import { Value, Memory } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeConstruct, ExecutableRuntimeConstruct } from "./constructs";
 
 export interface LookupOptions {
     own?: boolean;
@@ -508,7 +508,7 @@ export abstract class CPPEntity<T extends Type = Type> {
 };
 
 export interface ObjectEntity<T extends Type = Type> extends CPPEntity<T> {
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
@@ -656,7 +656,7 @@ export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> im
     protected static _name = "ReferenceEntity";
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
     }
@@ -724,7 +724,7 @@ export class StaticEntity<T extends Type = Type> extends DeclaredEntity<T> imple
         return this.name + " (" + this.type + ")";
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : StaticObject<T> {
         return rtConstruct.sim.memory.staticLookup(this);
     }
     
@@ -752,7 +752,7 @@ export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectE
         return "string literal \"" + Util.unescapeString(this.str) + "\"";
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         return rtConstruct.sim.memory.getStringLiteral(this.str);
     }
 
@@ -779,7 +779,7 @@ export class AutoEntity<T extends Type = Type> extends DeclaredEntity<T> impleme
         return new AutoObject(this);
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : AutoObject<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
     }
@@ -809,7 +809,7 @@ export class ParameterEntity<T extends Type = Type> extends CPPEntity<T> impleme
         return "parameter " + this.num + " of the called function";
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
         var func = rtConstruct.sim.topFunction();
 
@@ -837,17 +837,18 @@ export class ReturnEntity<T extends Type = Type> extends CPPEntity<T> implements
     
     /**
      * REQUIRES: This function assumes the return object for the containing runtime function has already been set.
-     * If this is return-by-value (i.e. non-reference type), returns the temporary return object for the currently
+     * If this is return-by-value (i.e. non-reference type), that is the temporary return object for the currently
      * executing function. If it is return-by-reference, there is only a return object if the return has already been
      * processed and the returned object has been set. If so, this function returns that object, otherwise null.
      * If the return type is void, returns null.
      */
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         // TODO: consider again the stuff that got commented. shouldn't it be the case that if a ReturnEntity exists, it's not a void function?
         // if (this.type instanceof Types.Void) {
         //     return null;
         // }
         // else {
+            // TODO: revisit non-null assertion below
             return <CPPObject<T>>rtConstruct.containingRuntimeFunction.returnObject!;
         // }
     }
@@ -858,12 +859,12 @@ export class ReturnEntity<T extends Type = Type> extends CPPEntity<T> implements
     }
 };
 
-export class ReceiverEntity<T extends Type = Type> extends CPPEntity<T> {
+export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
     protected static readonly _name: "ReceiverEntity";
 
     // storage: "automatic",
     
-    constructor(type: Types.Class) {
+    constructor(type: T) {
         super(type);
     }
 
@@ -871,7 +872,7 @@ export class ReceiverEntity<T extends Type = Type> extends CPPEntity<T> {
         return "function receiver (" + this.type + ")";
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         return rtConstruct.contextualReceiver();
     }
 
@@ -887,7 +888,7 @@ export class ReceiverEntity<T extends Type = Type> extends CPPEntity<T> {
 
 
 
-export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> {
+export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "NewObjectEntity";
 
     // storage: "automatic",
@@ -896,7 +897,7 @@ export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> {
         return "object (" + this.type + ")";
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         // no additional runtimeLookup() needed on the object since it will never be a reference
         return rtConstruct.getAllocatedObject();
     }
@@ -907,21 +908,21 @@ export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> {
 
 };
 
-export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> {
+export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "ArraySubobjectEntity";
     // storage: "none",
 
-    public readonly arrayEntity: CPPEntity;
+    public readonly arrayEntity: ObjectEntity<ArrayType<T>>;
     public readonly index: number;
 
-    constructor(arrayEntity: CPPEntity, index: number) {
+    constructor(arrayEntity: ObjectEntity<ArrayType<T>>, index: number) {
         super(arrayEntity.type.elemType);
         this.arrayEntity = arrayEntity;
         this.index = index;
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return this.i_arrayEntity.runtimeLookup(sim, rtConstruct).elemObjects[this.i_index].runtimeLookup(sim, rtConstruct);
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+        return this.arrayEntity.runtimeLookup(rtConstruct).getArrayElemSubobject(this.index);
     }
 
 

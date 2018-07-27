@@ -367,7 +367,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
 
     private readonly parent: RuntimeConstruct;
-    public abstract readonly containingRuntimeFunction: RuntimeFunction;
+    public abstract readonly containingRuntimeFunction: RuntimeMemberFunction;
 
     public readonly stepsTaken: number;
     public readonly isActive: boolean = false;
@@ -494,7 +494,7 @@ export abstract class RuntimeInstruction<Construct_type extends InstructionConst
     }
 }
 
-export class RuntimeFunction extends RuntimeConstruct {
+export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
 
     public readonly caller: RuntimeFunctionCall;
     public readonly containingRuntimeFunction: RuntimeFunction;
@@ -504,8 +504,8 @@ export class RuntimeFunction extends RuntimeConstruct {
 
     public readonly hasControl: boolean = false;
 
-    public constructor (model: ExecutableConstruct, stackType: string, parent: RuntimeFunctionCall) {
-        super(model, stackType, parent);
+    public constructor (model: FunctionDefinition, parent: RuntimeFunctionCall) {
+        super(model, "function", parent);
   
         // A function is its own containing function context
         this.containingRuntimeFunction = this;
@@ -547,11 +547,14 @@ export class RuntimeFunction extends RuntimeConstruct {
 }
 
 export class RuntimeMemberFunction extends RuntimeFunction {
-    public readonly receiver?: CPPObject<ClassType>;
 
-    public setReceiver(receiver: CPPObject<ClassType>) {
-        (<CPPObject<ClassType>>this.receiver) = receiver;
+    public readonly receiver: CPPObject<ClassType>;
+
+    public constructor (model: FunctionDefinition, parent: RuntimeFunctionCall, receiver: CPPObject<ClassType>) {
+        super(model, parent);
+        this.receiver = receiver;
     }
+
 }
 
 export class RuntimeExpression extends RuntimeInstruction {
@@ -568,6 +571,11 @@ export class RuntimeExpression extends RuntimeInstruction {
 export class RuntimeFunctionCall extends RuntimeInstruction {
 
     public readonly calledFunction: RuntimeFunction;
+}
+
+export class RuntimeMemberFunctionCall extends RuntimeFunctionCall {
+    
+    public readonly calledFunction: RuntimeMemberFunction;
 }
 
 /**
