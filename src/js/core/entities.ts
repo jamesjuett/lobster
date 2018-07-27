@@ -457,21 +457,21 @@ export var ClassScope = NamespaceScope.extend({
 });
 
 
-export abstract class CPPEntity {
+export abstract class CPPEntity<T extends Type = Type> {
     protected static _name = "CPPEntity";
     private static _nextEntityId = 0;
 
     public readonly observable = new Observable(this);
 
     public readonly entityId: number;
-    public readonly type: Type;
+    public readonly type: T;
 
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
      * the type will be null.
-     * @param {Type?} type
+     * TODO: fix this - there should probably be a subtype or interface for a TypedEntity or ObjectEntity
      */
-    public constructor(type: Type) {
+    public constructor(type: T) {
         this.entityId = CPPEntity._nextEntityId++;
         this.type = type;
     }
@@ -930,9 +930,10 @@ export class ArraySubobjectEntity extends CPPEntity {
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var desc = {};
-        var arrDesc = this.arrayEntity.describe(sim, rtConstruct);
-        desc.message = "element " + this.index + " of " + arrDesc.message;
+        let arrDesc = this.arrayEntity.describe(sim, rtConstruct);
+        let desc : Description = {
+            message: "element " + this.index + " of " + arrDesc.message
+        };
         if (arrDesc.name){
             desc.name = arrDesc.name + "[" + this.index + "]";
         }
@@ -1100,7 +1101,7 @@ export class FunctionEntity extends DeclaredEntity {
         return true;
     }
 
-    public isVirtual() {
+    public get isVirtual() {// TODO: why do we have this for non-member functions as well?
         return false;
     }
 
@@ -1220,6 +1221,10 @@ export class MemberFunctionEntity extends FunctionEntity {
 
 };
 
+export class ConstructorEntity extends MemberFunctionEntity {
+
+}
+
 
 export class PointedFunctionEntity extends CPPEntity {
     protected static readonly _name = "FunctionEntity";
@@ -1283,7 +1288,7 @@ var convLen = function(args: Expression[]) {
     return total;
 };
 
-export var overloadResolution = function(candidates: FunctionEntity[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
+export function overloadResolution<T extends FunctionEntity>(candidates: T[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
     // Find the constructor
     let viable = [];
     for(var c = 0; c < candidates.length; ++c){

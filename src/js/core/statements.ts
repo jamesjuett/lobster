@@ -11,9 +11,9 @@ export abstract class Statement extends InstructionConstruct {
 
 }
 
-export abstract class RuntimeStatement extends RuntimeInstruction {
+export abstract class RuntimeStatement<Construct_type extends Statement = Statement> extends RuntimeInstruction<Construct_type> {
     
-    public constructor (model: Statement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
         super(model, "statement", parent);
     }
 
@@ -51,6 +51,8 @@ export class SwitchStatement extends UnsupportedConstruct {
 
 
 
+
+
 export interface ExpressionStatementASTNode extends ASTNode {
     expression: ExpressionASTNode;
 }
@@ -79,9 +81,7 @@ export class ExpressionStatement extends Statement {
     }
 }
 
-export class RuntimeExpressionStatement extends RuntimeStatement {
-
-    public readonly model!: ExpressionStatement; // Initialized by parent
+export class RuntimeExpressionStatement extends RuntimeStatement<ExpressionStatement> {
 
     public expression: RuntimeExpression;
     private index = "expr";
@@ -107,6 +107,8 @@ export class RuntimeExpressionStatement extends RuntimeStatement {
 
 
 
+
+
 export class NullStatement extends Statement {
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
@@ -114,7 +116,7 @@ export class NullStatement extends Statement {
     }
 }
 
-export class RuntimeNullStatement extends RuntimeStatement {
+export class RuntimeNullStatement extends RuntimeStatement<NullStatement> {
 
     public constructor (model: NullStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -140,13 +142,19 @@ export interface DeclarationStatementASTNode extends ASTNode {
     declaration: DeclarationASTNode;
 }
 
-export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
+export class DeclarationStatement extends Statement {
 
     public readonly declaration: Declaration;
 
-    public constructor(ast: DeclarationStatementASTNode, parent: ExecutableConstruct, context?: ConstructContext) {
-        super(ast, parent, context);
-        this.declaration = <Declaration>CPPConstruct.create(ast.declaration, this, context);
+    public static createFromAST(ast: DeclarationStatementASTNode, context: ExecutableConstructContext) {
+        return new DeclarationStatement(context,
+            Declaration.createFromAST(ast.declaration, context)
+        );
+    }
+
+    public constructor(context: ExecutableConstructContext, declaration: Declaration) {
+        super(context);
+        this.addChild(this.declaration = declaration);
     }
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
@@ -158,9 +166,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
     }
 }
 
-export class RuntimeDeclarationStatement extends RuntimeStatement {
-
-    public readonly model!: DeclarationStatement; // Initialized by parent
+export class RuntimeDeclarationStatement extends RuntimeStatement<DeclarationStatement> {
 
     private index = 0;
 
@@ -172,7 +178,7 @@ export class RuntimeDeclarationStatement extends RuntimeStatement {
         let initializers = this.model.declaration.initializers;
         if (this.index < initializers.length) {
             let init = initializers[this.index];
-            if(init) { // TODO: is this if check necessary?
+            if(init) { // TODO: is this if check necessary? shouldn't there always be an initializer (even if it's a default one?)
                 this.observable.send("initializing", this.index);
                 let runtimeInit = init.createRuntimeInitializer(this);
                 this.sim.push(runtimeInit);
