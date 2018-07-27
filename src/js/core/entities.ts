@@ -2,16 +2,15 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType} from "./types";
-import * as Types from "./types";
+import {Type, covariantType, ArrayType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
-import { Value } from "./runtimeEnvironment";
+import { Value, Memory } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 
 export interface LookupOptions {
@@ -326,7 +325,7 @@ export var BlockScope = Scope.extend({
 
 });
 
-export var FunctionBlockScope = BlockScope.extend({
+export class FunctionBlockScope extends BlockScope {
     _name: "FunctionBlockScope",
     init: function(parent, sim){
         this.initParent(parent, sim);
@@ -342,7 +341,7 @@ export var FunctionBlockScope = BlockScope.extend({
     addStaticEntity : function(ent) {
         this.sim.addStaticEntity(ent);
     }
-});
+}
 
 export var NamespaceScope = Scope.extend({
 
@@ -508,7 +507,11 @@ export abstract class CPPEntity<T extends Type = Type> {
     //TODO: function for isOdrUsed()?
 };
 
-export abstract class NamedEntity extends CPPEntity {
+export interface ObjectEntity<T extends Type = Type> extends CPPEntity<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
+}
+
+export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static _name = "NamedEntity";
 
     // public static linkage: "none", // TODO NEW make this abstract
@@ -524,7 +527,7 @@ export abstract class NamedEntity extends CPPEntity {
     }
 }
 
-export class DeclaredEntity extends NamedEntity {
+export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     protected static _name = "DeclaredEntity";
 
     /**
@@ -649,16 +652,17 @@ export class DeclaredEntity extends NamedEntity {
 };
 
 //TODO: rename to specifically for local references
-export class ReferenceEntity extends DeclaredEntity {
+export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static _name = "ReferenceEntity";
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return rtConstruct.containingRuntimeFunction.stackFrame.referenceLookup(this).runtimeLookup(sim, rtConstruct);
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
+        // TODO: revisit the non-null assertion below
+        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
     }
 
-    public runtimeInstance() {
-        return new RuntimeReference(this);
+    public runtimeInstance(memory: Memory) {
+        return new RuntimeReference(this, memory);
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -673,16 +677,20 @@ export class ReferenceEntity extends DeclaredEntity {
 
 // TODO: determine what should actually be the base class here
 // TODO: I think this should be an object?
-export class RuntimeReference {
+// TOOD: I don't think this should be an object! Move to runtimeEnvironment.ts?
+export class RuntimeReference<T extends Type = Type> {
     protected static readonly _name = "ReferenceEntityInstance";
 
     public readonly observable = new Observable(this);
 
-    public readonly entity: ReferenceEntity;
-    public readonly refersTo!: CPPObject; // TODO: this needs to be initially bound to some fake object. Otherwise, Lobster will crash if simulated code looks up a reference before it is bound (tricky but possible).
+    public readonly entity: ReferenceEntity<T>;
+    public readonly refersTo: CPPObject<T>; // TODO: this needs to be initially bound to some fake object. Otherwise, Lobster will crash if simulated code looks up a reference before it is bound (tricky but possible).
 
-    public constructor(entity: ReferenceEntity) {
+    public constructor(entity: ReferenceEntity<T>, memory: Memory) {
         this.entity = entity;
+        
+        // Initially refers to a dead object at address 0
+        this.refersTo = new AnonymousObject(this.entity.type, memory, 0);
     }
 
     public bindTo(refersTo: CPPObject) {
@@ -700,7 +708,7 @@ export class RuntimeReference {
     }
 };
 
-export class StaticEntity extends DeclaredEntity {
+export class StaticEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static _name =  "StaticEntity";
 
     // storage: "static",
@@ -716,8 +724,8 @@ export class StaticEntity extends DeclaredEntity {
         return this.name + " (" + this.type + ")";
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return sim.memory.staticLookup(this).runtimeLookup(sim, inst);
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {
+        return rtConstruct.sim.memory.staticLookup(this);
     }
     
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -725,7 +733,7 @@ export class StaticEntity extends DeclaredEntity {
     }
 };
 
-export class StringLiteralEntity extends CPPEntity {
+export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectEntity<ArrayType> {
     protected static _name = "StringLiteralEntity";
     // storage: "static",
 
@@ -744,8 +752,8 @@ export class StringLiteralEntity extends CPPEntity {
         return "string literal \"" + Util.unescapeString(this.str) + "\"";
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return sim.memory.getStringLiteral(this.str);
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        return rtConstruct.sim.memory.getStringLiteral(this.str);
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -754,7 +762,7 @@ export class StringLiteralEntity extends CPPEntity {
 };
 
 
-export class AutoEntity extends DeclaredEntity {
+export class AutoEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected readonly _name = "AutoEntity";
 
     // storage: "automatic",
@@ -771,10 +779,9 @@ export class AutoEntity extends DeclaredEntity {
         return new AutoObject(this);
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        // We lookup first on the current stack frame and then call
-        // lookup again in case it's a reference or something.
-        return rtConstruct.containingRuntimeFunction().stackFrame.getObjectForEntity(this).runtimeLookup(sim, rtConstruct);
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
+        // TODO: revisit the non-null assertion below
+        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -787,30 +794,24 @@ export class AutoEntity extends DeclaredEntity {
     }
 };
 
-export class ParameterEntity extends CPPEntity {
+export class ParameterEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
     protected readonly _name = "ParameterEntity";
     // storage: "automatic",
 
-    public readonly func: FunctionEntity;
     public readonly num: number;
 
-    public constructor(func: FunctionEntity, num: number) {
-        super(func.type.paramTypes[num]);
+    public constructor(type: Type, num: number) {
+        super(type);
         this.num = num;
-        this.func = func;
     }
 
     public toString() {
-        return "parameter " + this.num + " of " + this.func.describe().name;
+        return "parameter " + this.num + " of the called function";
     }
 
-    public objectInstance() {
-        return new AutoObject(this);
-    }
-
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
-        var func = sim.topFunction();
+        var func = rtConstruct.sim.topFunction();
 
         // Now we can look up object entity associated with this parameter
         var objEntity = func.model.params[this.num].entity;
@@ -825,7 +826,7 @@ export class ParameterEntity extends CPPEntity {
 
 };
 
-export class ReturnEntity extends CPPEntity {
+export class ReturnEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static _name = "ReturnEntity";
 
     // storage: "automatic",
@@ -835,20 +836,20 @@ export class ReturnEntity extends CPPEntity {
     }
     
     /**
+     * REQUIRES: This function assumes the return object for the containing runtime function has already been set.
      * If this is return-by-value (i.e. non-reference type), returns the temporary return object for the currently
      * executing function. If it is return-by-reference, there is only a return object if the return has already been
      * processed and the returned object has been set. If so, this function returns that object, otherwise null.
      * If the return type is void, returns null.
-     * @param sim
-     * @param inst
      */
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        if (this.type instanceof Types.Void) {
-            return null;
-        }
-        else {
-            return rtConstruct.containingRuntimeFunction.returnObject;
-        }
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        // TODO: consider again the stuff that got commented. shouldn't it be the case that if a ReturnEntity exists, it's not a void function?
+        // if (this.type instanceof Types.Void) {
+        //     return null;
+        // }
+        // else {
+            return <CPPObject<T>>rtConstruct.containingRuntimeFunction.returnObject!;
+        // }
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -857,7 +858,7 @@ export class ReturnEntity extends CPPEntity {
     }
 };
 
-export class ReceiverEntity extends CPPEntity {
+export class ReceiverEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static readonly _name: "ReceiverEntity";
 
     // storage: "automatic",
@@ -886,7 +887,7 @@ export class ReceiverEntity extends CPPEntity {
 
 
 
-export class NewObjectEntity extends CPPEntity {
+export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static readonly _name = "NewObjectEntity";
 
     // storage: "automatic",
@@ -906,7 +907,7 @@ export class NewObjectEntity extends CPPEntity {
 
 };
 
-export class ArraySubobjectEntity extends CPPEntity {
+export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static readonly _name = "ArraySubobjectEntity";
     // storage: "none",
 
@@ -941,7 +942,7 @@ export class ArraySubobjectEntity extends CPPEntity {
     }
 }
 
-export class BaseClassSubobjectEntity extends CPPEntity {
+export class BaseClassSubobjectEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static readonly _name = "BaseClassSubobjectEntity";
     // storage: "none",
 
@@ -978,7 +979,7 @@ export class BaseClassSubobjectEntity extends CPPEntity {
     }
 };
 
-export class MemberSubobjectEntity extends DeclaredEntity {
+export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity<T> {
     protected static readonly _name = "MemberSubobjectEntity";
     // storage: "none",
 
@@ -1030,7 +1031,7 @@ export class MemberSubobjectEntity extends DeclaredEntity {
     }
 }
 
-export class TemporaryObjectEntity extends CPPEntity {
+export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
@@ -1092,7 +1093,7 @@ export class TemporaryObjectEntity extends CPPEntity {
 
 }
 
-export class FunctionEntity extends DeclaredEntity {
+export class FunctionEntity extends DeclaredEntity<Types.FunctionType> {
     protected static readonly _name = "FunctionEntity";
 
     public readonly type!: Types.Function; // ! - Initialized by parent constructor

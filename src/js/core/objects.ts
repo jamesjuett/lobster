@@ -424,9 +424,9 @@ export class ThisObject extends CPPObject {
 
 
 
-export class StringLiteralObject extends CPPObject {
+export class StringLiteralObject extends CPPObject<ArrayType> {
 
-    public constructor(type: Type, memory: Memory, address: number) {
+    public constructor(type: ArrayType, memory: Memory, address: number) {
         super(type, memory, address);
     }
 
@@ -474,7 +474,7 @@ export class DynamicObject extends CPPObject {
 
 
 
-export class AutoObject extends CPPObject {
+export class AutoObject<T extends Type = Type> extends CPPObject<T> {
 
     private readonly isParameter : boolean;
     public readonly name: string;
@@ -500,7 +500,7 @@ export class AutoObject extends CPPObject {
     }
 }
 
-export class StaticObject extends CPPObject {
+export class StaticObject<T extends Type = Type> extends CPPObject<T> {
 
     public readonly name: string;
 
@@ -543,8 +543,8 @@ export var EvaluationResultRuntimeEntity = CPPObject.extend({
 
 
 // TODO: come up with a better name?
-export class AnonymousObject extends CPPObject {
-    public constructor(type: Type, memory: Memory, address: number) {
+export class AnonymousObject<T extends Type = Type> extends CPPObject<T> {
+    public constructor(type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.deallocated();
     }

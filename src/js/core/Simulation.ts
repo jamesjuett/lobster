@@ -1,9 +1,13 @@
 import { Observable } from "../util/observe";
+import { Memory } from "./runtimeEnvironment";
 
 // TODO: add observer stuff
 export class Simulation {
 
     public readonly observable = new Observable(this);
+
+    public readonly memory: Memory;
+
     _name: "Simulation",
 
     MAX_SPEED: -13445, // lol
