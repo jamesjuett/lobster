@@ -421,7 +421,7 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
         return this._isValid && this.type.isValueValid(this.rawValue());
     }
 
-    public abstract describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description;
+    public abstract describe() : Description;
 
 };
 
@@ -433,7 +433,7 @@ export class ThisObject extends CPPObject {
         return "this";
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {name: "this", message: "the this pointer"};
     }
 
@@ -455,7 +455,7 @@ export class StringLiteralObject extends CPPObject<ArrayType> {
     public nameString() {
         return "string literal at 0x" + this.address;
     }
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "string literal at 0x" + this.address};
     }
 }
@@ -485,7 +485,7 @@ export class DynamicObject extends CPPObject {
         this.observable.send("unleaked");
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "the heap object at 0x" + this.address};
     }
 }
@@ -512,7 +512,7 @@ export class AutoObject<T extends Type = Type> extends CPPObject<T> {
         return this.name;
     }
     
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+    public describe() : Description{
         var w1 = this.isParameter ? "parameter " : "object ";
         return {name: this.name, message: "the " + w1 + this.name};
     }
@@ -535,7 +535,7 @@ export class StaticObject<T extends Type = Type> extends CPPObject<T> {
         return this.name;
     }
     
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+    public describe() : Description{
         return {name: this.name, message: "the static object" + this.name};
     }
 }
@@ -567,7 +567,7 @@ export class AnonymousObject<T extends Type = Type> extends CPPObject<T> {
         this.deallocated();
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+    public describe() : Description{
         return {message: "an invalid object at 0x" + this.address};
     }
 };
@@ -619,8 +619,8 @@ export class ArraySubobject<T extends Type = Type> extends Subobject<T> {
         return new Value(this.address, new Types.ArrayPointer(this.containingObject));
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var arrDesc = this.containingObject.describe(sim, rtConstruct);
+    public describe() {
+        var arrDesc = this.containingObject.describe();
         var desc : Description = {
             message: "element " + this.index + " of " + arrDesc.message,
         };
@@ -641,8 +641,8 @@ export class BaseClassSubobject extends Subobject<ClassType> {
     public nameString() {
         return this.containingObject.nameString();
     }
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
-        return {message: "the " + this.type.name + " base of " + this.containingObject.describe(sim, rtConstruct).message};
+    public describe() : Description{
+        return {message: "the " + this.type.name + " base of " + this.containingObject.describe().message};
     }
 }
 
@@ -659,9 +659,9 @@ export class MemberSubobject<T extends Type = Type> extends Subobject<T> {
         return this.containingObject.nameString() + "." + this.name;
     }
     
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         var parent = this.containingObject;
-        let parentDesc = parent.describe(sim, rtConstruct);
+        let parentDesc = parent.describe();
         let desc : Description = {
             message: "the member " + this.name + " of " + parentDesc.message
         }
@@ -686,7 +686,7 @@ export class TemporaryObjectInstance<T extends Type> extends CPPObject<Type> {
         return "@" + this.address;
     }
     
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description{
+    public describe() : Description{
         return {name: this.name, message: "the temporary object" + this.name};
     }
 }

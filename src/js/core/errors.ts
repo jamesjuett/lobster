@@ -1,6 +1,12 @@
 export interface Description {
     name?: string;
     message: string;
+    ignore?: boolean; // TODO: check what this is used for
+}
+
+export interface Explanation {
+    message: string;
+    ignore?: boolean; // TODO: check what this is used for
 }
 
 export var RuntimeMessage = Class.extend({

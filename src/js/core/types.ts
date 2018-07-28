@@ -3,9 +3,9 @@ import {CPPConstruct} from "./constructs";
 import {CPPError} from "./errors";
 import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
-import { CPPObject } from "./objects";
+import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope, ConstructorEntity } from "./entities";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope, ConstructorEntity, MemberSubobjectEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 				
 var vowels = ["a", "e", "i", "o", "u"];
@@ -1180,9 +1180,9 @@ export class CPPClass {
     private actuallyZeroSize = true;
 
     private scope: ClassScope;
-    private memberEntities : CPPEntity[] = [];
-    private subobjectEntities: CPPEntity[] = [];
-    private baseClassSubobjectEntities: ClassEntity[] = [];
+    private memberEntities : MemberSubobjectEntity[] = [];
+    private subobjectEntities: (MemberSubobjectEntity | BaseClassSubobjectEntity)[] = [];
+    private baseClassSubobjectEntities: BaseClassSubobjectEntity[] = [];
     private memberSubobjectEntities: CPPEntity[] = [];
     public ctors: ConstructorEntity[] = [];
     private destructor: null;
