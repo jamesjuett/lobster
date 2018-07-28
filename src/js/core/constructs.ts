@@ -9,7 +9,7 @@ import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
 import { Type, ClassType } from "./types";
-import { Note, CPPError } from "./errors";
+import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import * as Util from "../util/util";
@@ -262,11 +262,11 @@ export abstract class CPPConstruct {
 
     // },
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
         return {message: "[No explanation available.]", ignore: true};
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description {
         return {message: "[No description available.]", ignore: false};
     }
 
@@ -367,7 +367,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
 
     private readonly parent: RuntimeConstruct;
-    public abstract readonly containingRuntimeFunction: RuntimeMemberFunction;
+    public abstract readonly containingRuntimeFunction: RuntimeFunction;
 
     public readonly stepsTaken: number;
     public readonly isActive: boolean = false;
@@ -481,7 +481,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
 }
 
 // TODO: this is just the same as RuntimeConstruct right now
-export type ExecutableRuntimeConstruct = RuntimeFunction | RuntimeInstruction;
+export type ExecutableRuntimeConstruct = RuntimeConstruct;// = RuntimeFunction | RuntimeInstruction;
 
 export abstract class RuntimeInstruction<Construct_type extends InstructionConstruct = InstructionConstruct>
     extends RuntimeConstruct<Construct_type> {

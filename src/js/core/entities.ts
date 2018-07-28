@@ -492,7 +492,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     //     return this;
     // }
 
-    public abstract describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description;
+    public abstract describe() : Description;
 
     // TODO: does this belong here?
     public isLibraryConstruct() {
@@ -665,7 +665,7 @@ export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> im
         return new RuntimeReference(this, memory);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         if (this.decl instanceof Declarations.Parameter){
             return {message: "the reference parameter " + this.name};
         }
@@ -698,7 +698,7 @@ export class RuntimeReference<T extends Type = Type> {
         this.observable.send("bound");
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         if (this.refersTo) {
             return {message: "the reference " + this.entity.name + " (which is bound to " + this.refersTo.describe().message + ")"};
         }
@@ -728,7 +728,7 @@ export class StaticEntity<T extends Type = Type> extends DeclaredEntity<T> imple
         return rtConstruct.sim.memory.staticLookup(this);
     }
     
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {name: this.name, message: "the variable " + this.name};
     }
 };
@@ -756,7 +756,7 @@ export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectE
         return rtConstruct.sim.memory.getStringLiteral(this.str);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "the string literal \"" + Util.unescapeString(this.str) + "\""};
     }
 };
@@ -784,7 +784,7 @@ export class AutoEntity<T extends Type = Type> extends DeclaredEntity<T> impleme
         return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         if (this.decl instanceof Declarations.Parameter){  // TODO: can this ever be a parameter??
             return {message: "the parameter " + this.name};
         }
@@ -820,7 +820,7 @@ export class ParameterEntity<T extends Type = Type> extends CPPEntity<T> impleme
         return objEntity.runtimeLookup(sim, func);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "parameter " + this.num + " of " + this.func.describe().message};
     }
 
@@ -853,7 +853,7 @@ export class ReturnEntity<T extends Type = Type> extends CPPEntity<T> implements
         // }
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
         return {message: "the return value"};
     }
@@ -876,13 +876,13 @@ export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity
         return rtConstruct.contextualReceiver();
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (rtConstruct){
-            return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
-        }
-        else {
+    public describe() {
+        // if (rtConstruct){
+        //     return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
+        // }
+        // else {
             return {message: "the receiver of this call (i.e. *this)"};
-        }
+        // }
     }
 };
 
@@ -902,7 +902,7 @@ export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> impleme
         return rtConstruct.getAllocatedObject();
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
     }
 
@@ -931,8 +931,8 @@ export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> im
         return new ArraySubobject(arrObj, this.index);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        let arrDesc = this.arrayEntity.describe(sim, rtConstruct);
+    public describe() {
+        let arrDesc = this.arrayEntity.describe();
         let desc : Description = {
             message: "element " + this.index + " of " + arrDesc.message
         };
@@ -943,14 +943,14 @@ export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> im
     }
 }
 
-export class BaseClassSubobjectEntity<T extends Type = Type> extends CPPEntity<T> {
+export class BaseClassSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
     protected static readonly _name = "BaseClassSubobjectEntity";
     // storage: "none",
 
     public readonly access: string;
-    public readonly memberOfType: Types.Class;
+    public readonly memberOfType: ClassType;
 
-    constructor(type: Type, memberOfType: Types.Class, access: string) {
+    constructor(type: ClassType, memberOfType: ClassType, access: string) {
         super(type);
         this.memberOfType = memberOfType;
         this.access = access;
@@ -960,7 +960,7 @@ export class BaseClassSubobjectEntity<T extends Type = Type> extends CPPEntity<T
         return "the " + this.type.className + " base object of " + this.memberOfType.className;
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         var recObj = rtConstruct.contextualReceiver();
 
         while(recObj && !(recObj.type instanceof this.type)){ // TODO: this isA should probably be changed to a type function
@@ -968,19 +968,19 @@ export class BaseClassSubobjectEntity<T extends Type = Type> extends CPPEntity<T
         }
         Util.assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
 
-        return recObj.runtimeLookup(sim, inst);
+        return recObj;
     }
     
     public objectInstance(parentObj: CPPObject) {
         return new BaseClassSubobject(this.type, parentObj);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "the " + this.type.className + " base object of " + this.memberOfType.className};
     }
 };
 
-export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity<T> {
+export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "MemberSubobjectEntity";
     // storage: "none",
 
@@ -997,7 +997,7 @@ export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity
         return this.name + " (" + this.type + ")";
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         var recObj = rtConstruct.contextualReceiver();
 
         while(recObj && !recObj.type.similarType(this.memberOfType)) {
@@ -1006,21 +1006,21 @@ export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity
 
         assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
 
-        return recObj.getMemberSubobject(this.name).runtimeLookup(sim, inst); // I think the lookup here is in case of reference members?
+        return recObj.getMemberSubobject(this.name);
     }
 
     public objectInstance(parentObj: CPPObject) {
         return MemberSubobject.instance(this.type, parentObj, this.name);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public describe() {
         if (rtConstruct){
             var recObj = rtConstruct.contextualReceiver();
             if (recObj.name){
                 return {message: recObj.name + "." + this.name};
             }
             else{
-                return {message: "the member " + this.name + " of " + recObj.describe(sim, rtConstruct).message};
+                return {message: "the member " + this.name + " of " + recObj.describe().message};
             }
         }
         else{
@@ -1032,7 +1032,7 @@ export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity
     }
 }
 
-export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> {
+export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
@@ -1079,16 +1079,16 @@ export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> {
         return obj;
     }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         var ownerInst = rtConstruct;
         while (ownerInst.model !== this.owner){
             ownerInst = ownerInst.parent;
         }
         var tempObjInst = ownerInst.temporaryObjects[this.entityId];
-        return tempObjInst && tempObjInst.runtimeLookup(sim, rtConstruct);
+        return tempObjInst && tempObjInst;
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: this.name}; // TOOD: eventually change implementation when I remove name
     }
 
@@ -1124,8 +1124,8 @@ export class FunctionEntity extends DeclaredEntity<Types.FunctionType> {
         return new Value(this, this.type);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return this.decl.describe(sim, rtConstruct);
+    public describe() {
+        return this.decl.describe();
     }
 }
 
@@ -1135,7 +1135,7 @@ export class MagicFunctionEntity extends FunctionEntity {
         this.setDefinition(decl);
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "no description available"};
     }
 }
@@ -1254,7 +1254,7 @@ export class PointedFunctionEntity extends CPPEntity {
         return true;
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    public describe() {
         return {message: "no description available"};
     }
 }
@@ -1268,8 +1268,8 @@ export class TypeEntity extends DeclaredEntity {
         return "TypeEntity: " + this.type.instanceString();
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return this.type.describe(sim, rtConstruct);
+    public describe() {
+        return this.type.describe();
     }
 };
 
