@@ -205,7 +205,7 @@ export class Declaration extends CPPConstruct {
             entity = FunctionEntity.instance(declarator);
         }
         else if (isA(declarator.type, Types.Reference)) {
-            entity = ReferenceEntity.instance(declarator);
+            entity = LocalReferenceEntity.instance(declarator);
         }
         else if (this.storageDuration === "static"){
             entity = StaticEntity.instance(declarator);
@@ -269,7 +269,7 @@ export var Parameter = CPPConstruct.extend({
 
 
             if (isA(this.type, Types.Reference)){
-                this.entity = ReferenceEntity.instance(this);
+                this.entity = LocalReferenceEntity.instance(this);
             }
             else{
                 this.entity = AutoEntity.instance(this);

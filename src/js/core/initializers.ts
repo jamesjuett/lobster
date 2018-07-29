@@ -1,15 +1,19 @@
 import { Expression, FunctionCall } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct } from "./constructs";
-import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity } from "./entities";
-import { Reference, ClassType, AtomicType, ArrayType, Type } from "./types";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, RuntimeExpression } from "./constructs";
+import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity } from "./entities";
+import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType } from "./types";
 import { CPPError } from "./errors";
 import { assertFalse } from "../util/util"
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
+import { Value } from "./runtimeEnvironment";
+import { standardConversion } from "./standardConversions";
 
 
 export abstract class Initializer extends InstructionConstruct {
-    
+
+    public abstract readonly target: ObjectEntity;
+
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
 
     public isTailChild(child: ExecutableConstruct) {
@@ -32,13 +36,15 @@ export abstract class RuntimeInitializer<Construct_type extends Initializer = In
 
 export abstract class DefaultInitializer extends Initializer {
 
-    public abstract readonly target: ObjectEntity;
-
+    public static create(context: ExecutableConstructContext, target: ReferenceEntity) : ReferenceDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>) : ArrayDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity) : DefaultInitializer {
-        if (target.type instanceof AtomicType) {
+        if (target instanceof ReferenceEntity) {
+            return new ReferenceDefaultInitializer(context, <ReferenceEntity> target);
+        }
+        else if (target.type instanceof AtomicType) {
             return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>> target);
         }
         else if (target.type instanceof ArrayType) {
@@ -52,6 +58,7 @@ export abstract class DefaultInitializer extends Initializer {
         }
     }
 
+    // NOTE: this isn't redundant - it's here to make it protected rather than the public inherited one
     protected constructor(context: ExecutableConstructContext) {
         super(context);
     }
@@ -62,8 +69,27 @@ export abstract class DefaultInitializer extends Initializer {
 export abstract class RuntimeDefaultInitializer<Construct_type extends DefaultInitializer = DefaultInitializer>
     extends RuntimeInitializer<Construct_type> {
 
-    public abstract readonly target: CPPObject;
+}
 
+export class ReferenceDefaultInitializer extends DefaultInitializer {
+
+    public readonly target: ReferenceEntity<AtomicType>;
+
+    public constructor(context: ExecutableConstructContext, target: ReferenceEntity<AtomicType>) {
+        super(context);
+        this.target = target;
+
+        // Cannot default initialize a reference
+        this.addNote(CPPError.declaration.init.referenceBind(this));
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : never {
+        return assertFalse("A default initializer for a reference is not allowed.");
+    }
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : never {
+        return assertFalse("A default initializer for a reference is not allowed.");
+    }
 }
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
@@ -72,14 +98,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
 
     public constructor(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>) {
         super(context);
-        
         this.target = target;
-
-        if (target.type instanceof Reference) {
-            // Cannot default initialize a reference
-            this.addNote(CPPError.declaration.init.referenceBind(this));
-            return;
-        }
     }
 
     public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
@@ -96,8 +115,6 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
 export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer<AtomicDefaultInitializer> {
 
     public readonly target: CPPObject<AtomicType>;
-
-    private index = 0;
 
     public constructor (model: AtomicDefaultInitializer, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -273,20 +290,215 @@ export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer<Cl
 
 
 
+export interface DirectInitializerASTNode extends ASTNode {
+    args: ExpressionASTNode[];
+}
+
+export type CopyInitializerASTNode = DirectInitializerASTNode;
+
+export abstract class DirectInitializer extends Initializer {
+
+    // NOTE: removed since I don't think it makes sense to create an initializer directly from an AST (and it doesn't match the base signature of CPPConstruct.createFromAST)
+    // public static createFromAST<T extends Type>(ast: DirectInitializerASTNode, context: ExecutableConstructContext, target: ObjectEntity<T>) {
+    //     return this.create(context, target,
+    //         ast.args.map((a) => {
+    //             return Expression.createFromAST(a, context);
+    //         })
+    //     )
+    // }
+
+    public static create(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) : AtomicDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) : AtomicDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) : ArrayDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer {
+        if (target instanceof ReferenceEntity) {
+            return new ReferenceDirectInitializer(context, target, args);
+        }
+        else if (target.type instanceof AtomicType) {
+            return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args);
+        }
+        else if (target.type instanceof ArrayType) {
+            return new ArrayDirectInitializer(context, <ObjectEntity<ArrayType>> target, args);
+        }
+        else if (target.type instanceof ClassType) {
+            return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args);
+        }
+        else{
+            return assertFalse();
+        }
+    }
+
+    public abstract readonly args: Expression[];
+
+    // NOTE: this isn't redundant - it's here to make it protected rather than the public inherited one
+    protected constructor(context: ExecutableConstructContext) {
+        super(context);
+    }
+    
+    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDirectInitializer;
+}
+
+export abstract class RuntimeDirectInitializer<Construct_type extends DirectInitializer = DirectInitializer>
+    extends RuntimeInitializer<Construct_type> {
+
+}
 
 
-var DirectCopyInitializerBase = Initializer.extend({
+export class ReferenceDirectInitializer extends DirectInitializer {
+
+    public readonly target: ReferenceEntity;
+    public readonly args: Expression[];
+
+    public constructor(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) {
+        super(context);
+        this.target = target;
+        
+        this.args = args;
+        args.forEach((a) => {this.addChild(a);});
+
+        // Note: With a reference, no conversions are done
+        if (this.args.length > 1){
+            this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
+            return;
+        }
+        
+        let targetType = target.type;
+        let arg = this.args[0];
+        if (!referenceCompatible(arg.type, targetType)) {
+            this.addNote(CPPError.declaration.init.referenceType(this, arg, targetType));
+        }
+        else if (arg.valueCategory === "prvalue" && !targetType.isConst){
+            this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
+        }
+        else if (arg.valueCategory === "prvalue"){
+            this.addNote(CPPError.lobster.referencePrvalue(this));
+        }
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeReferenceDirectInitializer(this, parent);
+    }
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalValue(0);
+        return {message: (targetDesc.name || targetDesc.message) + " will be bound to " + (rhsDesc.name || rhsDesc.message) + "."};
+    }
+}
+
+// export namespace ReferenceDirectInitializer {
+//     export interface Compiled extends ReferenceDirectInitializer {
+//         args: RuntimeExpression.LValue[];
+//     }
+// }
+
+export class RuntimeReferenceDirectInitializer extends RuntimeDirectInitializer<ReferenceDirectInitializer> {
+
+    public readonly args: RuntimeExpression[];
+
+    private argIndex = 0;
+
+    public constructor (model: ReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.args = this.model.args.map((a) => {
+            return a.createRuntimeExpression(this);
+        });
+    }
+
+    protected upNextImpl() {
+        if (this.argIndex < this.args.length) {
+            this.sim.push(this.args[this.argIndex++]);
+        }
+    }
+    
+    public stepForwardImpl() {
+        let rtRef = this.model.target.getRuntimeReference(this);
+        rtRef.bindTo(
+            <CPPObject>this.args[0].evalValue
+        );
+        this.observable.send("initialized", rtRef);
+        this.sim.pop();
+    }
+}
+
+
+export class AtomicDirectInitializer extends DirectInitializer {
+
+    public readonly target: ObjectEntity<AtomicType>;
+    public readonly args: Expression[];
+
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) {
+        super(context);
+        
+        this.target = target;
+        
+        let targetType = target.type;
+
+        if (args.length > 1){
+            this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
+        }
+
+        //Attempt standard conversion to declared type, including lvalue to rvalue conversions
+        let arg = standardConversion(args[0], targetType);
+
+        if (!sameType(arg.type, targetType)) {
+            this.addNote(CPPError.declaration.init.convert(this, arg.type, targetType));
+        }
+        
+        args[0] = arg;
+        this.args = args;
+        args.forEach((a) => {this.addChild(a);});
+        
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeAtomicDirectInitializer(this, parent);
+    }
+
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalValue(0);
+        return {message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "."};
+    }
+}
+
+export class RuntimeAtomicDirectInitializer extends RuntimeDirectInitializer<AtomicDirectInitializer> {
+
+    public readonly target: CPPObject<AtomicType>;
+    public readonly args: RuntimeExpression[];
+
+    private argIndex = 0;
+
+    public constructor (model: AtomicDirectInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.target = this.model.target.runtimeLookup(this);
+        this.args = this.model.args.map((a) => {
+            return a.createRuntimeExpression(this);
+        });
+    }
+
+    protected upNextImpl() {
+        if (this.argIndex < this.args.length) {
+            this.sim.push(this.args[this.argIndex++]);
+        }
+    }
+
+    public stepForwardImpl() {
+        this.target.writeValue(<Value<AtomicType>>this.args[0].evalValue);
+        this.observable.send("initialized", this.target);
+        this.sim.pop();
+    }
+}
+
+
+
+export class DirectCopyInitializerBase2 = Initializer.extend({
     _name : "DirectCopyInitializerBase",
 
     compile : function(entity) {
         var self = this;
-        assert(isA(entity, CPPEntity));
-        var args = this.ast.args;
-        assert(Array.isArray(args));
-        this.entity = entity;
-
-        var type = this.type = this.entity.type;
-
         this.numArgs = args.length;
 
         // Note: make sure to set this before modifying context of arguments.
@@ -296,29 +508,7 @@ var DirectCopyInitializerBase = Initializer.extend({
         // If we aren't making a function call, we can go ahead and compile args now
         if (!this.makesFunctionCall){
             // Compile all expressions as children
-            this.args = args.map(function(arg){
-                if (isA(arg, EntityExpression)){
-                    return arg;
-                }
-                return self.i_createAndCompileChildExpr(arg);
-            });
             var arg = this.args[0];
-            if (isA(type, Types.Reference)) {
-                // With a reference, no conversions are done
-                if (this.args.length > 1){
-                    this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
-                }
-                else if (!referenceCompatible(arg.type, type.refTo)){
-                    this.addNote(CPPError.declaration.init.referenceType(this, arg, type));
-                }
-                else if (!isA(type.refTo, Types.Class) && arg.valueCategory !== "lvalue"){
-                    this.addNote(CPPError.declaration.init.referenceLvalue(this));
-                }
-                else if (arg.valueCategory === "prvalue" && !type.refTo.isConst){
-                    this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
-                }
-                this.i_childrenToExecute = ["args"];
-            }
             else if (isA(type, Types.Array) && isA(this.args[0].type, Types.Array) && this.args[0].entity){
                 if (this.args.length > 1){
                     this.addNote(CPPError.declaration.init.array_args(this, type));
@@ -350,20 +540,6 @@ var DirectCopyInitializerBase = Initializer.extend({
                 }
                 this.i_childrenToExecute = ["args"];
 
-            }
-            else{ // Scalar type
-                if (this.args.length > 1){
-                    this.addNote(CPPError.declaration.init.scalar_args(this, type));
-                }
-
-                //Attempt standard conversion to declared type
-                arg = this.args[0] = standardConversion(arg, type);
-
-                // Type check
-                if (!sameType(type, arg.type)) {
-                    this.addNote(CPPError.declaration.init.convert(this, arg.type, type));
-                }
-                this.i_childrenToExecute = ["args"];
             }
         }
         else { // if (isA(type, Types.Class))
@@ -405,22 +581,13 @@ var DirectCopyInitializerBase = Initializer.extend({
 
     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
-        if (isA(this.entity.type, Types.Void)){
-            this.done(sim, inst);
-            return;
-        }
-
         //sim.explain(this.explain(sim, inst));
         var obj = this.entity.runtimeLookup(sim, inst);
         assert(obj, "Tried to look up entity to initialize but object was null.");
         var type = this.entity.type;
 
 
-        if (isA(type, Types.Reference)) {
-            obj.bindTo(inst.childInstances.args[0].evalValue);
-            inst.send("initialized", obj);
-            this.done(sim, inst);
-        }
+        
         else if (isA(type, Types.Class)) {
 
             // Look up the receiver in this context and set it at runtime for the constructor.
@@ -445,11 +612,8 @@ var DirectCopyInitializerBase = Initializer.extend({
 
                 obj.writeValue(charsToWrite);
             }
-            else if (isA(type, Types.Array)) {
-                // Nothing to do, handled by child initializers
-            }
             else {
-                obj.writeValue(inst.childInstances.args[0].evalValue);
+                
             }
             inst.send("initialized", obj);
             this.done(sim, inst);
@@ -460,10 +624,8 @@ var DirectCopyInitializerBase = Initializer.extend({
         var exp = {message:""};
         var type = this.entity.type;
         var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
-        if (isA(type, Types.Reference)) {
-            var rhs = this.args[0].describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.args[0]).message;
-            exp.message = obj.describe().message + " will be bound to " + rhs + ".";
-        }
+        
+        
         else if (isA(type, Types.Class)) {
             exp.message = obj.describe().message + " will be initialized using " + this.funcCall.describe(sim).message + ".";
         }
@@ -476,31 +638,29 @@ var DirectCopyInitializerBase = Initializer.extend({
                 exp.message = "Each element in the array will be initialized on its own.";
             }
             else {
-                var rhs = this.args[0].describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.args[0]).message;
-                exp.message = obj.describe().message + " will be initialized with " + rhs + ".";
             }
         }
         return exp;
     }
 });
 
-export var DirectInitializer = DirectCopyInitializerBase.extend({
-    _name : "DirectInitializer"
+// export var DirectInitializer = DirectCopyInitializerBase.extend({
+//     _name : "DirectInitializer"
 
-    //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //    sim.explain("Direct initializer up next!");
-    //    return DefaultInitializer._parent.upNext.apply(this, arguments);
-    //}
-});
+//     //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //    sim.explain("Direct initializer up next!");
+//     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
+//     //}
+// });
 
-export var CopyInitializer = DirectCopyInitializerBase.extend({
-    _name : "CopyInitializer"
+// export var CopyInitializer = DirectCopyInitializerBase.extend({
+//     _name : "CopyInitializer"
 
-    //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //    sim.explain("Copy initializer up next!");
-    //    return DefaultInitializer._parent.upNext.apply(this, arguments);
-    //}
-});
+//     //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //    sim.explain("Copy initializer up next!");
+//     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
+//     //}
+// });
 
 export var ParameterInitializer = CopyInitializer.extend({
     _name : "ParameterInitializer",

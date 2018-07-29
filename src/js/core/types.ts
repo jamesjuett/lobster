@@ -177,11 +177,11 @@ export var covariantType = function(derived: Type, base: Type){
     return true;
 };
 
-export var referenceCompatible = function(from: Type, to: Type){
+export function referenceCompatible(from: Type, to: Type){
     return from && to && from.isReferenceCompatible(to);
 };
 
-export var noRef = function(type : Type){
+export function noRef(type : Type){
     if(type instanceof Reference){
         return type.refTo;
     }
@@ -190,7 +190,7 @@ export var noRef = function(type : Type){
     }
 };
 
-export var isCvConvertible = function(t1: Type, t2: Type){
+export function isCvConvertible(t1: Type, t2: Type){
 
     // t1 and t2 must be similar
     if (!similarType(t1,t2)){ return false; }
@@ -376,40 +376,6 @@ export class Type {
     }
 
     /**
-     * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
-     * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
-     * TODO: Right now, the hack that is used is that the whole value
-     * @param bytes
-     */
-    public bytesToValue(bytes: byte[]) : RawValueType {
-        // HACK: the whole value is stored in the first byte
-        return bytes[0];
-    }
-
-    /**
-     * Converts a raw value representing a value of this type to a sequence of bytes
-     * (i.e. the C++ object representation)
-     * @param value
-     */
-    public valueToBytes(value: RawValueType) {
-        var bytes = [];
-        // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
-        bytes[0] = value;
-        for(var i = 1; i < this.size-1; ++i){
-            bytes.push(0);
-        }
-        return <byte[]>bytes;
-    }
-
-    /**
-     * Returns whether a given raw value for this type is valid. For example, a pointer type may track runtime
-     * type information about the array from which it was originally derived. If the pointer value increases such
-     * that it wanders over the end of that array, its value becomes invalid.
-     * @param value
-     */
-    public abstract isValueValid(value: RawValueType) : boolean;
-
-    /**
      * If this is a compound type, returns the "next" type.
      * e.g. if this is a pointer-to-int, returns int
      * e.g. if this ia a reference to pointer-to-int, returns int
@@ -551,7 +517,44 @@ export class Void extends Type {
 }
 builtInTypes["void"] = Void;
 
-export abstract class AtomicType extends Type {
+export abstract class ObjectType extends Type {
+    
+    /**
+     * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
+     * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
+     * TODO: Right now, the hack that is used is that the whole value
+     * @param bytes
+     */
+    public bytesToValue(bytes: byte[]) : RawValueType {
+        // HACK: the whole value is stored in the first byte
+        return bytes[0];
+    }
+
+    /**
+     * Converts a raw value representing a value of this type to a sequence of bytes
+     * (i.e. the C++ object representation)
+     * @param value
+     */
+    public valueToBytes(value: RawValueType) {
+        var bytes = [];
+        // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
+        bytes[0] = value;
+        for(var i = 1; i < this.size-1; ++i){
+            bytes.push(0);
+        }
+        return <byte[]>bytes;
+    }
+
+    /**
+     * Returns whether a given raw value for this type is valid. For example, a pointer type may track runtime
+     * type information about the array from which it was originally derived. If the pointer value increases such
+     * that it wanders over the end of that array, its value becomes invalid.
+     * @param value
+     */
+    public abstract isValueValid(value: RawValueType) : boolean;
+}
+
+export abstract class AtomicType extends ObjectType {
 
 }
 
@@ -947,7 +950,7 @@ export class ObjectPointer extends Pointer {
 
 // REQUIRES: refTo must be a type
 // TODO: reference shouldn't really have a size...perhaps rework so that there's an intermediate subclass of Type for Object types with a size
-export class Reference extends AtomicType {
+export class Reference extends Type {
 
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -999,7 +1002,7 @@ export class Reference extends AtomicType {
 
 
 // REQUIRES: elemType must be a type
-export class ArrayType<Elem_type extends Type = Type> extends Type {
+export class ArrayType<Elem_type extends ObjectType = Type> extends ObjectType {
     
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -1096,7 +1099,7 @@ export {ArrayType as Array};
  */
 
 
-export class ClassType extends Type {
+export class ClassType extends ObjectType {
     protected readonly precedence!: number;
     public readonly isObjectType!: boolean;
 

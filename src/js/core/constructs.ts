@@ -133,6 +133,9 @@ export abstract class CPPConstruct {
     public addChild(child: CPPConstruct) {
         this.children.push(child);
         (<CPPConstruct|GlobalProgramConstruct>child.parent) = this;
+
+        //TODO: add all notes from child?
+        //TODO: if child has errors, this has errors
     }
 
     // TODO: remove if not needed
@@ -403,7 +406,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
         return this.stepForwardImpl();
     }
 
-    protected abstract stepForwardImpl() : boolean;
+    protected abstract stepForwardImpl() : void;
 
     public upNext() {
         for(var key in this.pauses){
@@ -421,7 +424,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
         return this.upNextImpl();
     }
 
-    protected abstract upNextImpl() : boolean;
+    protected abstract upNextImpl() : void;
 
     public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
@@ -559,7 +562,7 @@ export class RuntimeMemberFunction extends RuntimeFunction {
 
 export class RuntimeExpression extends RuntimeInstruction {
     
-    public readonly evalValue?: Value;
+    public readonly evalValue?: Value | CPPObject;
 
     public setEvalValue(value: Value) {
         (<Value>this.evalValue) = value;
