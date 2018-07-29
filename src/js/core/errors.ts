@@ -392,9 +392,6 @@ export var CPPError = {
                 var desc = entity.describe();
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
-            referenceLvalue : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referenceLvalue", "For now, references cannot be bound to prvalues of non-class type in Lobster.");
-            },
             referencePrvalueConst : function(src){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
@@ -778,6 +775,9 @@ export var CPPError = {
     lobster : {
         unsupported : function(src, expressionName) {
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.unsupported", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
+        },
+        referencePrvalue : function(src){
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.referencePrvalue", "Sorry, Lobster does not yet support binding references (even if they are reference-to-const) to prvalues (e.g. temporary objects).");
         },
     }
 };

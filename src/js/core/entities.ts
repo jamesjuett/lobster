@@ -2,7 +2,7 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -507,7 +507,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     //TODO: function for isOdrUsed()?
 };
 
-export interface ObjectEntity<T extends Type = Type> extends CPPEntity<T> {
+export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
@@ -651,10 +651,18 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     }
 };
 
+export abstract class ReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+    public abstract getRuntimeReference(rtConstruct : ExecutableRuntimeConstruct) : RuntimeReference<T>;
+    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+}
+
 //TODO: rename to specifically for local references
-export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected static _name = "ReferenceEntity";
+export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends ReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
+
+    public getRuntimeReference(rtConstruct : ExecutableRuntimeConstruct) : RuntimeReference<T> {
+        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this);
+    }
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertion below
@@ -662,7 +670,7 @@ export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> im
     }
 
     public runtimeInstance(memory: Memory) {
-        return new RuntimeReference(this, memory);
+        return new RuntimeReference<T>(this, memory);
     }
 
     public describe() {
@@ -678,13 +686,12 @@ export class ReferenceEntity<T extends Type = Type> extends DeclaredEntity<T> im
 // TODO: determine what should actually be the base class here
 // TODO: I think this should be an object?
 // TOOD: I don't think this should be an object! Move to runtimeEnvironment.ts?
-export class RuntimeReference<T extends Type = Type> {
-    protected static readonly _name = "ReferenceEntityInstance";
+export class RuntimeReference<T extends ObjectType = ObjectType> {
 
     public readonly observable = new Observable(this);
 
     public readonly entity: ReferenceEntity<T>;
-    public readonly refersTo: CPPObject<T>; // TODO: this needs to be initially bound to some fake object. Otherwise, Lobster will crash if simulated code looks up a reference before it is bound (tricky but possible).
+    public readonly refersTo: CPPObject<T>;
 
     public constructor(entity: ReferenceEntity<T>, memory: Memory) {
         this.entity = entity;
@@ -708,7 +715,7 @@ export class RuntimeReference<T extends Type = Type> {
     }
 };
 
-export class StaticEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
+export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static _name =  "StaticEntity";
 
     // storage: "static",
@@ -762,7 +769,7 @@ export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectE
 };
 
 
-export class AutoEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
+export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected readonly _name = "AutoEntity";
 
     // storage: "automatic",
@@ -794,13 +801,14 @@ export class AutoEntity<T extends Type = Type> extends DeclaredEntity<T> impleme
     }
 };
 
-export class ParameterEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
+// TODO: will need to add a class for ReferenceParameterEntity
+export class ParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected readonly _name = "ParameterEntity";
     // storage: "automatic",
 
     public readonly num: number;
 
-    public constructor(type: Type, num: number) {
+    public constructor(type: T, num: number) {
         super(type);
         this.num = num;
     }
@@ -826,7 +834,7 @@ export class ParameterEntity<T extends Type = Type> extends CPPEntity<T> impleme
 
 };
 
-export class ReturnEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
+export class ReturnEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static _name = "ReturnEntity";
 
     // storage: "automatic",
@@ -888,7 +896,7 @@ export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity
 
 
 
-export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
+export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "NewObjectEntity";
 
     // storage: "automatic",
@@ -908,7 +916,7 @@ export class NewObjectEntity<T extends Type = Type> extends CPPEntity<T> impleme
 
 };
 
-export class ArraySubobjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
+export class ArraySubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "ArraySubobjectEntity";
     // storage: "none",
 
@@ -980,7 +988,8 @@ export class BaseClassSubobjectEntity extends CPPEntity<ClassType> implements Ob
     }
 };
 
-export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity<T> implements ObjectEntity<T> {
+// TODO: need class for reference members
+export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "MemberSubobjectEntity";
     // storage: "none",
 
@@ -1032,7 +1041,7 @@ export class MemberSubobjectEntity<T extends Type = Type> extends DeclaredEntity
     }
 }
 
-export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> implements ObjectEntity<T> {
+export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
@@ -1040,7 +1049,7 @@ export class TemporaryObjectEntity<T extends Type = Type> extends CPPEntity<T> i
     public readonly owner: CPPConstruct;
     public readonly name: string;
 
-    constructor(type: Type, creator: CPPConstruct, owner: CPPConstruct, name: string) {
+    constructor(type: T, creator: CPPConstruct, owner: CPPConstruct, name: string) {
         super(type);
         this.creator = creator;
         this.setOwner(owner);

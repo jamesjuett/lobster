@@ -1,4 +1,4 @@
-import { Type, ArrayType, ClassType, AtomicType, Pointer } from "./types";
+import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -7,7 +7,7 @@ import { Description } from "./errors";
 import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity } from "./entities";
 import { Simulation } from "./Simulation";
 
-abstract class ObjectData<T extends Type> {
+abstract class ObjectData<T extends ObjectType> {
     protected readonly object: CPPObject<T>;
     protected readonly size: number;
     protected readonly memory: Memory;
@@ -38,9 +38,9 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: ch
 
 }
 
-class ArrayObjectData<Elem_type extends Type, T extends ArrayType<Elem_type>> extends ObjectData<T> {
+class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_type>> extends ObjectData<T> {
 
-    public static create<Elem_type extends Type>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
+    public static create<Elem_type extends ObjectType>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
         return new ArrayObjectData<Elem_type, ArrayType<Elem_type>>(object, memory, address);
     } 
 
@@ -139,7 +139,7 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 }
 
 
-export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to extend ObjectType
+export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: change T to extend ObjectType
 
     public readonly observable = new Observable(this);
 
@@ -180,12 +180,12 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobject<Elem_type extends Type>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobject<Elem_type extends ObjectType>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
         return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobject(index);
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjectByAddress<Elem_type extends Type>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobjectByAddress<Elem_type extends ObjectType>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
         return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobjectByAddress(address);
     }
 
@@ -214,8 +214,8 @@ export abstract class CPPObject<T extends Type = Type> {  // TODO: change T to e
         this.observable.send("deallocated");
     }
 
-    public getPointerTo() : Value<Types.Pointer> {
-        return new Value(this.address, new Types.ObjectPointer(this));
+    public getPointerTo() : Value<Pointer> {
+        return new Value(this.address, new ObjectPointer(this));
     }
 
     public getValue(read: boolean = false) {
@@ -464,7 +464,7 @@ export class DynamicObject extends CPPObject {
     
     private hasBeenLeaked: boolean = false;
 
-    public constructor(type: Type, memory: Memory, address: number) {
+    public constructor(type: ObjectType, memory: Memory, address: number) {
         super(type, memory, address);
     }
 
@@ -492,7 +492,7 @@ export class DynamicObject extends CPPObject {
 
 
 
-export class AutoObject<T extends Type = Type> extends CPPObject<T> {
+export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     private readonly isParameter : boolean;
     public readonly name: string;
@@ -518,7 +518,7 @@ export class AutoObject<T extends Type = Type> extends CPPObject<T> {
     }
 }
 
-export class StaticObject<T extends Type = Type> extends CPPObject<T> {
+export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     public readonly name: string;
 
@@ -561,7 +561,7 @@ export var EvaluationResultRuntimeEntity = CPPObject.extend({
 
 
 // TODO: come up with a better name?
-export class AnonymousObject<T extends Type = Type> extends CPPObject<T> {
+export class AnonymousObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
     public constructor(type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.deallocated();
@@ -573,7 +573,7 @@ export class AnonymousObject<T extends Type = Type> extends CPPObject<T> {
 };
 
 
-export abstract class Subobject<T extends Type = Type> extends CPPObject<T> {
+export abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     public readonly containingObject: CPPObject;
 
@@ -600,7 +600,7 @@ export abstract class Subobject<T extends Type = Type> extends CPPObject<T> {
 
 
 
-export class ArraySubobject<T extends Type = Type> extends Subobject<T> {
+export class ArraySubobject<T extends ObjectType = ObjectType> extends Subobject<T> {
     
     public readonly containingObject!: CPPObject<ArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
     public readonly index: number;
@@ -616,7 +616,7 @@ export class ArraySubobject<T extends Type = Type> extends Subobject<T> {
     // }
 
     public getPointerTo() {
-        return new Value(this.address, new Types.ArrayPointer(this.containingObject));
+        return new Value(this.address, new ArrayPointer(this.containingObject));
     }
 
     public describe() {
@@ -646,7 +646,7 @@ export class BaseClassSubobject extends Subobject<ClassType> {
     }
 }
 
-export class MemberSubobject<T extends Type = Type> extends Subobject<T> {
+export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobject<T> {
 
     public readonly name: string;
 
@@ -672,11 +672,11 @@ export class MemberSubobject<T extends Type = Type> extends Subobject<T> {
     }
 }
 
-export class TemporaryObjectInstance<T extends Type> extends CPPObject<Type> {
+export class TemporaryObjectInstance<T extends ObjectType> extends CPPObject<T> {
 
     private name: string;
 
-    public constructor(tempObjEntity: TemporaryObjectEntity, memory: Memory, address: number) {
+    public constructor(tempObjEntity: TemporaryObjectEntity<T>, memory: Memory, address: number) {
         super(tempObjEntity.type, memory, address);
         this.name = tempObjEntity.name;
         // this.entityId = tempObjEntity.entityId;

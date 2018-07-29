@@ -1,8 +1,9 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
-import { CPPError } from "./errors";
+import { CPPError, Description } from "./errors";
+import { Type } from "./types";
 
 export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
     let value = obj.readValue();
@@ -40,8 +41,14 @@ export class Expression extends CPPConstruct {
         return super.createFromAST(ast, context);
     }
 
+    public abstract readonly valueCategory: string;
+    public abstract readonly type: Type;
+    public abstract describeEvalValue(depth: number, rtConstruct?: RuntimeConstruct) : Description;
+
+    public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
+
     _name: "Expression",
-    type: Types.Unknown.instance(),
+    // type: Types.Unknown.instance(),
     initIndex : "subexpressions",
     instType : "expr",
     conversionLength: 0,
@@ -2442,6 +2449,7 @@ export var FunctionCall = Expression.extend({
         };
     },
 
+    // TODO: what is this? should it be describeEvalValue? or explain? probably not just describe since that is for objects
     describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var desc = {};
         desc.message = "a call to " + this.func.describe(sim).message;

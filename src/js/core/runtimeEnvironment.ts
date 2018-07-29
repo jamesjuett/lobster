@@ -3,12 +3,12 @@ import { Observable } from "../util/observe";
 import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer } from "./types";
 import last from "lodash/last";
-import { RuntimeReference, Scope, FunctionBlockScope, ReferenceEntity, StaticEntity, AutoEntity } from "./entities";
+import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 
 export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
-export class Value<T extends Type = Type> { // TODO: Change T to extend ObjectType?
+export class Value<T extends Type = Type> { // TODO: Change T to extend ObjectType? Or better yet AtomicType?
     private static _name = "Value";
 
     public readonly type: T;
@@ -595,12 +595,12 @@ export class MemoryFrame {
     public getLocalObject<T extends Type>(entity: AutoEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
-    public referenceLookup<T extends Type>(entity: ReferenceEntity<T>) : RuntimeReference<T>{
+    public referenceLookup<T extends Type>(entity: LocalReferenceEntity<T>) : RuntimeReference<T>{
         return <RuntimeReference<T>>this.localReferencesByEntityId[entity.entityId];
     }
     public setUpReferenceInstances() {
         var self = this;
-        this.scope.referenceObjects.forEach(function (ref: ReferenceEntity) {
+        this.scope.referenceObjects.forEach(function (ref: LocalReferenceEntity) {
             self.localReferencesByEntityId[ref.entityId] = ref.runtimeInstance();
             //self.memory.allocateObject(ref, addr);
             //addr += ref.type.size;
