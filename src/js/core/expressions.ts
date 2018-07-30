@@ -1,5 +1,5 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
@@ -35,23 +35,36 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
-export class Expression extends CPPConstruct {
+export abstract class Expression extends InstructionConstruct {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
         return super.createFromAST(ast, context);
     }
 
+    public readonly parent?: InstructionConstruct;
+
     public abstract readonly valueCategory: string;
-    public abstract readonly type: Type;
-    public abstract describeEvalValue(depth: number, rtConstruct?: RuntimeConstruct) : Description;
+    public abstract readonly type?: Type;
+    public readonly conversionLength: number = 0;
+
+
+
+
+
+    public attach(parent: InstructionConstruct) {
+        (<InstructionConstruct>this.parent) = parent;
+        parent.children.push(this); // rudeness approved here
+    }
 
     public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
-    _name: "Expression",
+    public abstract describeEvalValue(depth: number, rtConstruct?: RuntimeConstruct) : Description;
+
+    
+
+
     // type: Types.Unknown.instance(),
     initIndex : "subexpressions",
-    instType : "expr",
-    conversionLength: 0,
 
     i_childrenToConvert : {},
     i_childrenToExecute : [],
@@ -180,9 +193,9 @@ export class Expression extends CPPConstruct {
 
 
 
-    isTailChild : function(child){
+    public isTailChild(child) {
         return {isTail: false};
-    },
+    }
 
     createTemporaryObject : function(type, name){
         var tempObj = TemporaryObjectEntity.instance(type, this, this.findFullExpression(), name);
@@ -202,37 +215,8 @@ export class Expression extends CPPConstruct {
         }
     },
 
-    isFullExpression : function(){
 
-        // Special case - an auxiliary expression is always its own full expression.
-        // e.g. We don't want temporaries from auxiliary expressions to sneak in!
-        if (this.isAuxiliary()){
-            return true;
-        }
-
-        // Special case - initializer that is in context of declaration and does not require function call is not
-        // considered an expression.
-        // So if our parent is one of these, then we are the full expression!
-        var parent = this.parent;
-        if (isA(parent, Initializer) && (isA(parent.parent, Declaration) && !parent.makesFunctionCall)){
-            return true;
-        }
-
-        return !isA(this.parent, Expression);
-    },
-
-    /**
-     * Returns the nearest full expression containing this expression (possibly itself).
-     * @param inst
-     */
-    findFullExpression : function(){
-        if (this.isFullExpression()){
-            return this;
-        }
-        else{
-            return this.parent.findFullExpression();
-        }
-    },
+    
 
     // TODO NEW It appears this was once used, but as far as I can tell, it does
     // nothing because it is only called once from the CPPConstruct constructor and

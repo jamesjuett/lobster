@@ -13,6 +13,7 @@ import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import * as Util from "../util/util";
+import { Expression } from "./expressions";
 
 export interface ASTNode {
     construct_type: string;
@@ -93,7 +94,7 @@ export abstract class CPPConstruct {
     public readonly libraryId?: number;
     public readonly isLibraryUnsupported?: boolean;
 
-    public readonly parent?: CPPConstruct | GlobalProgramConstruct;
+    public abstract readonly parent?: CPPConstruct;
     public readonly children: CPPConstruct[] = [];
     
     protected constructor(context: ConstructContext) {
@@ -130,13 +131,13 @@ export abstract class CPPConstruct {
         // }
     }
 
-    public addChild(child: CPPConstruct) {
-        this.children.push(child);
-        (<CPPConstruct|GlobalProgramConstruct>child.parent) = this;
+    // public addChild(child: CPPConstruct) {
+    //     this.children.push(child);
+    //     (<CPPConstruct|GlobalProgramConstruct>child.parent) = this;
 
-        //TODO: add all notes from child?
-        //TODO: if child has errors, this has errors
-    }
+    //     //TODO: add all notes from child?
+    //     //TODO: if child has errors, this has errors
+    // }
 
     // TODO: remove if not needed
     // private attach(context: ConstructContext) {
@@ -264,6 +265,9 @@ export abstract class CPPConstruct {
     // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     // },
+    
+
+    
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
         return {message: "[No explanation available.]", ignore: true};
@@ -289,8 +293,9 @@ export abstract class CPPConstruct {
 }
 
 export interface ExecutableConstruct extends CPPConstruct {
-    readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
+    // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
     readonly containingFunction: FunctionDefinition;
+    
 }
 
 export interface ExecutableConstructContext extends ConstructContext {
@@ -299,7 +304,7 @@ export interface ExecutableConstructContext extends ConstructContext {
 
 export abstract class InstructionConstruct extends CPPConstruct implements ExecutableConstruct {
 
-    public readonly parent?: ExecutableConstruct;
+    public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
 
     public readonly containingFunction: FunctionDefinition;
     
@@ -309,9 +314,39 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
         // Use containing function from context or inherit from parent
         this.containingFunction = context.containingFunction;
     }
-    
+
     public isTailChild(child: CPPConstruct) {
         return {isTail: false};
+    }
+}
+
+export abstract class PotentialFullExpression extends InstructionConstruct {
+    
+    public abstract readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
+
+    public isFullExpression() : boolean {
+        if (!this.parent || !(this.parent instanceof PotentialFullExpression)) {
+            return true;
+        }
+
+        return !this.parent.isFullExpression();
+    }
+
+    // TODO: this function can probably be cleaned up so that it doesn't require these ugly runtime checks
+    /**
+     * Returns the nearest full expression containing this expression (possibly itself).
+     * @param inst
+     */
+    public findFullExpression() : PotentialFullExpression {
+        if (this.isFullExpression()) {
+            return this;
+        }
+
+        if (!this.parent || !(this.parent instanceof PotentialFullExpression)) {
+            return Util.assertFalse("failed to find full expression for " + this);
+        }
+
+        return this.parent.findFullExpression();
     }
 }
 

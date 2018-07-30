@@ -14,6 +14,13 @@ export abstract class Initializer extends InstructionConstruct {
 
     public abstract readonly target: ObjectEntity;
 
+    public readonly parent?: InstructionConstruct;
+
+    public attach(parent: InstructionConstruct) {
+        (<InstructionConstruct>this.parent) = parent;
+        parent.children.push(this); // rudeness approved here
+    }
+
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
 
     public isTailChild(child: ExecutableConstruct) {
@@ -596,6 +603,7 @@ export class ClassDirectInitializer extends DirectInitializer {
                         return aa.type;
                     })));
             }
+            this.args = args;
             return;
         }
 
@@ -621,7 +629,6 @@ export class ClassDirectInitializer extends DirectInitializer {
 export class RuntimeClassDirectInitializer extends RuntimeDirectInitializer<ClassDirectInitializer> {
 
     public readonly target: CPPObject<ClassType>;
-    public readonly args: RuntimeExpression[];
     
     public readonly ctorCall: RuntimeMemberFunctionCall;
 
