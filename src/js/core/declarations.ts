@@ -1213,9 +1213,9 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
         if (this.type.subobjectEntities.length > 0){
             src += "\n : ";
         }
-        src += this.type.baseClassSubobjectEntities.map(function(subObj){
+        src += this.type.baseClassEntities.map(function(subObj){
             return subObj.type.className + "(other)";
-        }).concat(this.type.memberSubobjectEntities.map(function(subObj){
+        }).concat(this.type.memberEntities.map(function(subObj){
             return subObj.name + "(other." + subObj.name + ")";
         })).join(", ");
 
@@ -1263,7 +1263,7 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
 
         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
 
-        src += this.type.baseClassSubobjectEntities.map(function(subObj){
+        src += this.type.baseClassEntities.map(function(subObj){
             return subObj.type.className + "::operator=(rhs);";
         }).join("\n");
 
@@ -1367,7 +1367,7 @@ export var MemberDeclaration = Declaration.extend({
             entity = StaticEntity.instance(decl);
         }
         else{
-            entity = MemberSubobjectEntity.instance(decl, this.i_containingClass);
+            entity = MemberVariableEntity.instance(decl, this.i_containingClass);
             this.isDefinition = false; // TODO NEW: This is a hack. Since implementing a proper linking phase, static stuff may be broken.
         }
 
@@ -1383,7 +1383,7 @@ export var MemberDeclaration = Declaration.extend({
                 options.exactMatch = true;
                 options.noBase = true;
             }
-            if ((isA(entity, MemberSubobjectEntity) || isA(entity, MemberFunctionEntity))){
+            if ((isA(entity, MemberVariableEntity) || isA(entity, MemberFunctionEntity))){
                 // We don't check if a conflicting member already exists here - that will be
                 // done inside addMember and an exception will be thrown if there is a conflict
                 this.i_containingClass.addMember(entity); // this internally adds it to the class scope
@@ -1527,12 +1527,12 @@ export var ConstructorDefinition = FunctionDefinition.extend({
             }
             else if (baseInits.length === 1){
                 var mem = MemberInitializer.instance(baseInits[0], {parent: this, scope: this.bodyScope});
-                mem.compile(this.i_containingClass.baseClassSubobjectEntities[0]);
+                mem.compile(this.i_containingClass.baseClassEntities[0]);
                 this.memberInitializers.push(mem);
             }
             else{
                 var mem = DefaultMemberInitializer.instance(this.ast, {parent: this, scope: this.bodyScope});
-                mem.compile(this.i_containingClass.baseClassSubobjectEntities[0]);
+                mem.compile(this.i_containingClass.baseClassEntities[0]);
                 this.memberInitializers.push(mem);
                 mem.isMemberInitializer = true;
             }
@@ -1671,7 +1671,7 @@ export var DestructorDefinition = FunctionDefinition.extend({
 
         });
 
-        this.basesToDestruct = this.i_containingClass.baseClassSubobjectEntities.map(function(entityToDestruct){
+        this.basesToDestruct = this.i_containingClass.baseClassEntities.map(function(entityToDestruct){
             var dest = entityToDestruct.type.destructor;
             if (dest){
                 var call = FunctionCall.instance({args: []}, {parent: self});

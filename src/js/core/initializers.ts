@@ -1,8 +1,8 @@
-import { Expression, FunctionCall } from "./expressions";
+import { Expression, FunctionCall, StringLiteral, EntityExpression } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, RuntimeExpression } from "./constructs";
-import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity } from "./entities";
-import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType } from "./types";
-import { CPPError } from "./errors";
+import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
+import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char } from "./types";
+import { CPPError, Explanation } from "./errors";
 import { assertFalse } from "../util/util"
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
@@ -57,11 +57,6 @@ export abstract class DefaultInitializer extends Initializer {
             return assertFalse();
         }
     }
-
-    // NOTE: this isn't redundant - it's here to make it protected rather than the public inherited one
-    protected constructor(context: ExecutableConstructContext) {
-        super(context);
-    }
     
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer;
 }
@@ -106,8 +101,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        let target = rtConstruct ? this.target.runtimeLookup(rtConstruct) : this.target;
-        let targetDesc = target.describe();
+        let targetDesc = this.target.describe();
         return {message: "No initialization will take place. " + (targetDesc.name || targetDesc.message) + " will have a junk value."};
     }
 }
@@ -125,11 +119,10 @@ export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer<A
         // No initialization. Object has junk value.
         this.observable.send("initialized", this.target);
         this.sim.pop();
-        return true;
     }
 
     public stepForwardImpl() {
-        return false;
+        // do nothing
     }
 }
 
@@ -143,10 +136,12 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
         
         this.target = target;
 
-        // If it's not an array of class type, the initializers do nothing so don't
-        // even make them at all.
+        // If it's an array of atomic types, do nothing.
         let type = this.target.type;
-        if (type.elemType instanceof ClassType) {
+        if (type.elemType instanceof AtomicType) {
+            // Do nothing
+        }
+        else {
             this.elementInitializers = [];
             for(let i = 0; i < type.length; ++i){
                 let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.target, i));
@@ -166,19 +161,18 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        let target = rtConstruct ? this.target.runtimeLookup(rtConstruct) : this.target;
-        let targetDesc = target.describe();
-        return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " this.ctorCall.describe().message};
-
-        if (target.type.length === 0) {
+        let targetDesc = this.target.describe();
+        let targetType = this.target.type;
+        
+        if (targetType.length === 0) {
             return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
         }
-        else if (target.type.elemType instanceof ClassType) {
-            // TODO: what if there are errors and/or no element initializers??
-            return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be initialized using a default constructor." };
+        else if (targetType.elemType instanceof AtomicType) {
+            return {message: "No initialization will take place. The elements of " + (targetDesc.name || targetDesc.message) + " will have junk values." };
         }
         else {
-            return {message: "No initialization will take place. The elements of " + (targetDesc.name || targetDesc.message) + " will have junk values." };
+            return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized. For example, " +
+                this.elementInitializers![0].explain(sim, rtConstruct) };
         }
     }
 
@@ -206,13 +200,13 @@ export class RuntimeArrayDefaultInitializer extends RuntimeDefaultInitializer<Ar
             this.sim.push(this.elementInitializers[this.index++])
         }
         else {
+            this.observable.send("initialized", this.target);
             this.sim.pop();
         }
-        return false;
     }
 
     public stepForwardImpl() {
-        return false;
+        // do nothing
     }
     
 }
@@ -246,8 +240,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        let target = rtConstruct ? this.target.runtimeLookup(rtConstruct) : this.target;
-        let targetDesc = target.describe();
+        let targetDesc = this.target.describe();
         // TODO: what if there is an error that causes no ctor to be found/available
         return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall.describe().message};
     }
@@ -270,16 +263,15 @@ export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer<Cl
         if (this.index === "callCtor") {
             this.sim.push(this.ctorCall);
             this.index = "done";
-            return true;
         }
         else {
+            this.observable.send("initialized", this.target);
             this.sim.pop();
-            return true;
         }
     }
 
     public stepForwardImpl() {
-        return false;
+        // do nothing
     }
 
 }
@@ -307,7 +299,7 @@ export abstract class DirectInitializer extends Initializer {
     //     )
     // }
 
-    public static create(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) : AtomicDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) : ReferenceDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) : AtomicDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) : ArrayDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
@@ -493,224 +485,331 @@ export class RuntimeAtomicDirectInitializer extends RuntimeDirectInitializer<Ato
 }
 
 
+/**
+ * Note: Only allowed use is to initialize a char array from a string literal
+ */
+export class ArrayDirectInitializer extends DirectInitializer {
 
-export class DirectCopyInitializerBase2 = Initializer.extend({
-    _name : "DirectCopyInitializerBase",
+    public readonly target: ObjectEntity<ArrayType>;
+    public readonly args: Expression[];
 
-    compile : function(entity) {
-        var self = this;
-        this.numArgs = args.length;
-
-        // Note: make sure to set this before modifying context of arguments.
-        // They need to know so they can decide if this is their full expression.
-        this.makesFunctionCall = isA(type, Types.Class);
-
-        // If we aren't making a function call, we can go ahead and compile args now
-        if (!this.makesFunctionCall){
-            // Compile all expressions as children
-            var arg = this.args[0];
-            else if (isA(type, Types.Array) && isA(this.args[0].type, Types.Array) && this.args[0].entity){
-                if (this.args.length > 1){
-                    this.addNote(CPPError.declaration.init.array_args(this, type));
-                }
-
-                this.arrayElemInitializers = [];
-                for(var i = 0; i < type.length; ++i){
-                    // TODO: find a way to clean up these shenanagins for array initalization.
-                    // Or decide that this is an inherent quirk of the language and throw up my hands.
-                    // A slight improvement might be creating a fake AST node that just starts with the entity
-                    // and then when it compiles it actually does nothing. This would still be trickery, but wouldn't
-                    // require the check for EntityExpression and treating it differently elsewhere.
-                    // TODO: Fix this by having a special initializer class for array subobjects?
-                    var elemInit = DirectInitializer.instance({args: [EntityExpression.instance(ArraySubobjectEntity.instance(this.args[0].entity, i), null, null)]}, {parent:this});
-                    this.arrayElemInitializers.push(elemInit);
-                    elemInit.compile(ArraySubobjectEntity.instance(this.entity, i));
-                    if(elemInit.hasErrors()) {
-                        this.addNote(CPPError.declaration.init.array_direct_init(this));
-                        break;
-                    }
-                    this.i_childrenToExecute = ["arrayElemInitializers"];
-                }
-            }
-            else if (isA(type, Types.Array) && isA(type.elemType, Types.Char)
-                && isA(arg, Expressions.StringLiteral)) {
-                //if we're initializing a character array from a string literal, check length
-                if (arg.type.length > type.length){
-                    this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, type.length));
-                }
-                this.i_childrenToExecute = ["args"];
-
-            }
-        }
-        else { // if (isA(type, Types.Class))
-
-            // Need to select constructor, so have to compile auxiliary arguments
-            var auxArgs = args.map(function (arg) {
-                if (isA(arg, EntityExpression)){
-                    return arg;
-                }
-                var auxArg = Expression.create(arg, {parent: self, auxiliary: true});
-                auxArg.compile();
-                return auxArg;
-            });
-            this.myConstructor = overloadResolution(type.constructors, auxArgs);
-
-            if (!this.myConstructor) {
-                if (args.length == 0) {
-                    this.addNote(CPPError.declaration.init.no_default_constructor(this, this.entity));
-                }
-                else {
-                    this.addNote(CPPError.declaration.init.matching_constructor(this, this.entity,
-                        auxArgs.map(function (aa) {
-                            return aa.type;
-                        })));
-                }
-                return;
-            }
-
-            this.funcCall = FunctionCall.instance({args: args}, {parent: this});
-            this.funcCall.compile({
-                func: this.myConstructor,
-                receiver: this.entity});
-            this.args = this.funcCall.args;
-            // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
-        }
-
-        return Lobster.DirectCopyInitializerBase._parent.compile.apply(this, arguments);
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        //sim.explain(this.explain(sim, inst));
-        var obj = this.entity.runtimeLookup(sim, inst);
-        assert(obj, "Tried to look up entity to initialize but object was null.");
-        var type = this.entity.type;
-
-
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) {
+        super(context);
         
-        else if (isA(type, Types.Class)) {
+        this.target = target;
+        let targetType = target.type;
 
-            // Look up the receiver in this context and set it at runtime for the constructor.
-            // This is important because for parameter initializers, which use parameter entities,
-            // the context of the constructor would yield a parameter of that constructor rather
-            // that the parameter of the functions (which is being initialized via the constructor and
-            // should be the receiver),
-
-            this.funcCall.createAndPushInstance(sim, inst);
-            inst.index = "done";
-            return true;
-        }
-        else{
-            // Handle char[] initialization from string literal as special case
-            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0], Expressions.StringLiteral)) {
-                var charsToWrite = inst.childInstances.args[0].evalValue.rawValue();
-
-                // pad with zeros
-                while (charsToWrite.length < type.length) {
-                    charsToWrite.push(Types.Char.NULL_CHAR);
-                }
-
-                obj.writeValue(charsToWrite);
+        // TS type system ensures target is array type, need to check element type and that args are a single string literal
+        if (targetType.elemType instanceof Char && args.length === 1 && args[0] instanceof StringLiteral) {
+            let arg = <StringLiteral>args[0];
+            
+            if (arg.type.length > targetType.length){
+                this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, targetType.length));
             }
-            else {
-                
-            }
-            inst.send("initialized", obj);
-            this.done(sim, inst);
-        }
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var exp = {message:""};
-        var type = this.entity.type;
-        var obj = inst && this.entity.runtimeLookup(sim, inst) || this.entity;
-        
-        
-        else if (isA(type, Types.Class)) {
-            exp.message = obj.describe().message + " will be initialized using " + this.funcCall.describe(sim).message + ".";
         }
         else {
-            // Handle char[] initialization from string literal as special case
-            if (isA(type, Types.Array) && isA(type.elemType, Types.Char) && isA(this.args[0], Expressions.StringLiteral)) {
-                exp.message = obj.describe().message + " (a character array) will be initialized from a string literal. Remember that a null character is automatically appended!";
-            }
-            else if (isA(type, Types.Array)) {
-                exp.message = "Each element in the array will be initialized on its own.";
+            this.addNote(CPPError.declaration.init.array_string_literal(this, targetType));
+        }
+
+        this.args = args;
+        args.forEach((a) => {this.addChild(a);});
+        
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeArrayDirectInitializer(this, parent);
+    }
+
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalValue(0);
+        return {message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!"};
+    }
+}
+
+export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<ArrayDirectInitializer> {
+
+    public readonly target: CPPObject<ArrayType>;
+    public readonly args: RuntimeExpression[];
+
+    private argIndex = 0;
+
+    public constructor (model: ArrayDirectInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.target = this.model.target.runtimeLookup(this);
+        this.args = this.model.args.map((a) => {
+            return a.createRuntimeExpression(this);
+        });
+    }
+
+    protected upNextImpl() {
+        if (this.argIndex < this.args.length) {
+            this.sim.push(this.args[this.argIndex++]);
+        }
+    }
+
+    public stepForwardImpl() {
+        
+        var charsToWrite = this.args[0].evalValue.rawValue();
+
+        // pad with zeros
+        while (charsToWrite.length < this.target.type.length) {
+            charsToWrite.push(Char.NULL_CHAR);
+        }
+
+        this.target.writeValue(charsToWrite);
+        this.observable.send("initialized", this.target);
+        this.sim.pop();
+    }
+}
+
+
+export class ClassDirectInitializer extends DirectInitializer {
+
+    public readonly target: ObjectEntity<ClassType>;
+    public readonly args: Expression[];
+
+    public readonly ctor: ConstructorEntity?;
+    public readonly ctorCall: MemberFunctionCall?;
+
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) {
+        super(context);
+        
+        this.target = target;
+        
+        let targetType = target.type;
+
+        
+
+
+        // Need to select constructor, so have to compile auxiliary arguments
+        this.ctor = overloadResolution(targetType.cppClass.ctors, args);
+
+        if (!this.ctor) {
+            if (args.length == 0) {
+                this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
             }
             else {
+                this.addNote(CPPError.declaration.init.matching_constructor(this, this.target,
+                    args.map(function (aa) {
+                        return aa.type;
+                    })));
             }
-        }
-        return exp;
-    }
-});
-
-// export var DirectInitializer = DirectCopyInitializerBase.extend({
-//     _name : "DirectInitializer"
-
-//     //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//     //    sim.explain("Direct initializer up next!");
-//     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
-//     //}
-// });
-
-// export var CopyInitializer = DirectCopyInitializerBase.extend({
-//     _name : "CopyInitializer"
-
-//     //upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//     //    sim.explain("Copy initializer up next!");
-//     //    return DefaultInitializer._parent.upNext.apply(this, arguments);
-//     //}
-// });
-
-export var ParameterInitializer = CopyInitializer.extend({
-    _name : "ParameterInitializer",
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var exp = ParameterInitializer._parent.explain.apply(this, arguments);
-        exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
-        return exp;
-    }
-});
-
-export var ReturnInitializer = CopyInitializer.extend({
-    _name : "ReturnInitializer",
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-
-        // Need to handle return-by-reference differently, since there is no actual reference that
-        // gets bound. (The runtimeLookup for the return entity would yield null). Instead, we just
-        // set the return object for the enclosing function to the evaluated argument (which should
-        // have yielded an object).
-        if (isA(this.entity.type, Types.Reference)) {
-            inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalValue);
-            this.done(sim, inst);
             return;
         }
 
-        return ReturnInitializer._parent.stepForward.apply(this, arguments);
+        
+        this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, args);
+        this.args = this.ctorCall.args;
+        this.addChild(this.ctorCall);
+        // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
     }
-});
 
-export var MemberInitializer = DirectInitializer.extend({
-    _name : "MemberInitializer",
-    isMemberInitializer: true
-});
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeClassDirectInitializer(this, parent);
+    }
 
-export var DefaultMemberInitializer = DefaultInitializer.extend({
-    _name : "DefaultMemberInitializer",
-    isMemberInitializer: true
-});
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.describe();
+        // TODO: what if there is an error that causes no ctor to be found/available
+        return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall.describe().message};
+    }
+}
 
-export var NewDirectInitializer = DirectInitializer.extend({
-    _name : "NewDirectInitializer",
-    i_runtimeConstructClass : RuntimeNewInitializer
-});
+export class RuntimeClassDirectInitializer extends RuntimeDirectInitializer<ClassDirectInitializer> {
+
+    public readonly target: CPPObject<ClassType>;
+    public readonly args: RuntimeExpression[];
+    
+    public readonly ctorCall: RuntimeMemberFunctionCall;
+
+    private index = "callCtor";
+
+    public constructor (model: ClassDirectInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.target = this.model.target.runtimeLookup(this);
+        this.ctorCall = this.model.ctorCall.createRuntimeMemberFunctionCall(this);
+    }
+
+    protected upNextImpl() {
+        if (this.index === "callCtor") {
+            this.sim.push(this.ctorCall);
+            this.index = "done";
+        }
+        else {
+            this.observable.send("initialized", this.target);
+            this.sim.pop();
+        }
+    }
+
+    public stepForwardImpl() {
+        // do nothing
+    }
+}
 
 
-export var NewDefaultInitializer = DefaultInitializer.extend({
-    _name : "NewDefaultInitializer",
-    i_runtimeConstructClass : RuntimeNewInitializer
-});
+
+export type CopyInitializer = DirectInitializer;
+export type RuntimeCopyInitializer = RuntimeDirectInitializer;
+export type ReferenceCopyInitializer = ReferenceDirectInitializer;
+export type RuntimeReferenceCopyInitializer = RuntimeReferenceDirectInitializer;
+export type AtomicCopyInitializer = AtomicDirectInitializer;
+export type RuntimeAtomicCopyInitializer = RuntimeAtomicDirectInitializer;
+export type ArrayCopyInitializer = ArrayDirectInitializer;
+export type RuntimeArrayCopyInitializer = RuntimeArrayDirectInitializer;
+export type ClassCopyInitializer = ClassDirectInitializer;
+export type RuntimeClassCopyInitializer = RuntimeClassDirectInitializer;
+
+
+
+
+/**
+ * Note: only use is in implicitly defined copy constructor
+ */
+export class ArrayMemberInitializer extends Initializer {
+
+     // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
+    public readonly target: ObjectEntity<ArrayType>;
+    public readonly otherMember: ObjectEntity<ArrayType>;
+    
+    public readonly elementInitializers: (DefaultInitializer | ArrayMemberInitializer)[] = [];
+
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>,
+                       otherMember: ObjectEntity<ArrayType>) {
+        super(context);
+        
+        this.target = target;
+        this.otherMember = otherMember;
+        let targetType = target.type;
+
+        for(let i = 0; i < targetType.length; ++i) {
+            let elemInit;
+            if (targetType.elemType instanceof ArrayType) {
+                elemInit = new ArrayMemberInitializer(context,
+                    new ArraySubobjectEntity(<ObjectEntity<ArrayType<ArrayType>>>target, i),
+                    new ArraySubobjectEntity(<ObjectEntity<ArrayType<ArrayType>>>otherMember, i));
+            }
+            else {
+                elemInit = DirectInitializer.create(context,
+                    new ArraySubobjectEntity(target, i),
+                    [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))]);
+            }
+
+            this.addChild(elemInit);
+
+            if(elemInit.hasErrors) {
+                this.addNote(CPPError.declaration.init.array_direct_init(this));
+                break;
+            }
+        }
+        
+    }
+
+    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeArrayMemberInitializer(this, parent);
+    }
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
+        let targetDesc = this.target.describe();
+        let targetType = this.target.type;
+        let otherMemberDesc = this.otherMember.describe();
+        
+        if (targetType.length === 0) {
+            return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
+        }
+        else {
+            return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized with the value of the"
+                + "corresponding element of " + (otherMemberDesc.name || otherMemberDesc.message) + ". For example, " +
+                this.elementInitializers[0].explain(sim, rtConstruct) };
+        }
+    }
+}
+
+export class RuntimeArrayMemberInitializer extends RuntimeInitializer<ArrayMemberInitializer> {
+
+    public readonly target: CPPObject<ArrayType>;
+    public readonly elementInitializers: (RuntimeDefaultInitializer | RuntimeArrayMemberInitializer)[];
+
+    private index = 0;
+
+    public constructor (model: ArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.target = this.model.target.runtimeLookup(this);
+        this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
+            return elemInit.createRuntimeInitializer(this);
+        });
+    }
+	
+    protected upNextImpl() {
+        if (this.elementInitializers && this.index < this.elementInitializers.length) {
+            this.sim.push(this.elementInitializers[this.index++])
+        }
+        else {
+            this.observable.send("initialized", this.target);
+            this.sim.pop();
+        }
+    }
+
+    public stepForwardImpl() {
+        // do nothing
+    }
+}
+
+
+
+
+
+// export var ParameterInitializer = CopyInitializer.extend({
+//     _name : "ParameterInitializer",
+
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var exp = ParameterInitializer._parent.explain.apply(this, arguments);
+//         exp.message = exp.message + "\n\n(Parameter passing is done by copy-initialization.)";
+//         return exp;
+//     }
+// });
+
+// export var ReturnInitializer = CopyInitializer.extend({
+//     _name : "ReturnInitializer",
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
+
+//         // Need to handle return-by-reference differently, since there is no actual reference that
+//         // gets bound. (The runtimeLookup for the return entity would yield null). Instead, we just
+//         // set the return object for the enclosing function to the evaluated argument (which should
+//         // have yielded an object).
+//         if (isA(this.entity.type, Types.Reference)) {
+//             inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalValue);
+//             this.done(sim, inst);
+//             return;
+//         }
+
+//         return ReturnInitializer._parent.stepForward.apply(this, arguments);
+//     }
+// });
+
+// export var MemberInitializer = DirectInitializer.extend({
+//     _name : "MemberInitializer",
+//     isMemberInitializer: true
+// });
+
+// export var DefaultMemberInitializer = DefaultInitializer.extend({
+//     _name : "DefaultMemberInitializer",
+//     isMemberInitializer: true
+// });
+
+// export var NewDirectInitializer = DirectInitializer.extend({
+//     _name : "NewDirectInitializer",
+//     i_runtimeConstructClass : RuntimeNewInitializer
+// });
+
+
+// export var NewDefaultInitializer = DefaultInitializer.extend({
+//     _name : "NewDefaultInitializer",
+//     i_runtimeConstructClass : RuntimeNewInitializer
+// });
 
 
 

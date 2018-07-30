@@ -5,7 +5,7 @@ import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassSubobjectEntity, Scope, ConstructorEntity, MemberSubobjectEntity } from "./entities";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 				
 var vowels = ["a", "e", "i", "o", "u"];
@@ -518,7 +518,7 @@ export class Void extends Type {
 builtInTypes["void"] = Void;
 
 export abstract class ObjectType extends Type {
-    
+
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
@@ -1002,7 +1002,7 @@ export class Reference extends Type {
 
 
 // REQUIRES: elemType must be a type
-export class ArrayType<Elem_type extends ObjectType = Type> extends ObjectType {
+export class ArrayType<Elem_type extends ObjectType = ObjectType> extends ObjectType {
     
     public readonly size!: number;
     protected readonly precedence!: number;
@@ -1092,7 +1092,7 @@ export {ArrayType as Array};
 /**
  * memberEntities - an array of all member entities. does not inlcude constructors, destructor, or base class subobject entities
  * subobjectEntities - an array containing all subobject entities, include base class subobjects and member subobjects
- * baseClassSubobjectEntities - an array containing entities for any base class subobjects
+ * baseClassEntities - an array containing entities for any base class subobjects
  * memberSubobjectEntities - an array containing entities for member subobjects (does not contain base class subobjects)
  * constructors - an array of the constructor entities for this class. may be empty if no constructors
  * destructor - the destructor entity for this class. might be null if doesn't have a destructor
@@ -1182,11 +1182,13 @@ export class CPPClass {
     public readonly size: number = 1;
     private actuallyZeroSize = true;
 
+    // TODO: there isn't really a need to store entities in here. just the types would be fine and entities for the named
+    // members would still go in the class scope. Base class entities aren't really needed at all.
     private scope: ClassScope;
-    private memberEntities : MemberSubobjectEntity[] = [];
-    private subobjectEntities: (MemberSubobjectEntity | BaseClassSubobjectEntity)[] = [];
-    private baseClassSubobjectEntities: BaseClassSubobjectEntity[] = [];
-    private memberSubobjectEntities: CPPEntity[] = [];
+    private memberEntities : MemberVariableEntity[] = [];
+    private subobjectEntities: (MemberVariableEntity | BaseClassEntity)[] = [];
+    public readonly baseClassEntities: BaseClassEntity[] = [];
+    public readonly memberSubobjectEntities: MemberVariableEntity[] = [];
     public ctors: ConstructorEntity[] = [];
     private destructor: null;
 
@@ -1198,8 +1200,8 @@ export class CPPClass {
         this.scope = ClassScope.instance(name, parentScope, baseClass);
 
         if (baseClass) {
-            let baseEntity = new BaseClassSubobjectEntity(baseClass, this, "public");
-            this.baseClassSubobjectEntities.push(baseEntity);
+            let baseEntity = new BaseClassEntity(baseClass, this, "public");
+            this.baseClassEntities.push(baseEntity);
             this.subobjectEntities.push(baseEntity);
             this.size += base.type.size;
         }
@@ -1208,8 +1210,8 @@ export class CPPClass {
     }
 
     public getBaseClass() {
-        if (this.baseClassSubobjectEntities.length > 0) {
-            return this.baseClassSubobjectEntities[0];
+        if (this.baseClassEntities.length > 0) {
+            return this.baseClassEntities[0];
         }
         else {
             return null;

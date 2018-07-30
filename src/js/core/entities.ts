@@ -6,7 +6,7 @@ import {Type, covariantType, ArrayType, ClassType, ObjectType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
@@ -917,8 +917,6 @@ export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntit
 };
 
 export class ArraySubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    protected static readonly _name = "ArraySubobjectEntity";
-    // storage: "none",
 
     public readonly arrayEntity: ObjectEntity<ArrayType<T>>;
     public readonly index: number;
@@ -933,12 +931,6 @@ export class ArraySubobjectEntity<T extends ObjectType = ObjectType> extends CPP
         return this.arrayEntity.runtimeLookup(rtConstruct).getArrayElemSubobject(this.index);
     }
 
-
-    // TODO: I don't think this ever gets used?
-    public objectInstance(arrObj: CPPObject) {
-        return new ArraySubobject(arrObj, this.index);
-    }
-
     public describe() {
         let arrDesc = this.arrayEntity.describe();
         let desc : Description = {
@@ -951,8 +943,57 @@ export class ArraySubobjectEntity<T extends ObjectType = ObjectType> extends CPP
     }
 }
 
-export class BaseClassSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
-    protected static readonly _name = "BaseClassSubobjectEntity";
+export class BaseSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+
+    public readonly containingEntity: ObjectEntity<ClassType>;
+
+    constructor(containingEntity: ObjectEntity<ClassType>, type: ClassType) {
+        super(type);
+        this.containingEntity = containingEntity;
+    }
+
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+        // TODO: check on non-null assertion below
+        return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
+    }
+
+    public describe() {
+        return {message: "the " + this.type.cppClass.name + " base class subobject of " + this.containingEntity.describe()};
+    }
+}
+
+
+
+export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+
+    public readonly containingEntity: ObjectEntity<ClassType>;
+    public readonly name: string;
+
+    constructor(containingEntity: ObjectEntity<ClassType>, type: T, name: string) {
+        super(type);
+        this.containingEntity = containingEntity;
+        this.name = name;
+    }
+
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+        // TODO: check on cast below
+        return <MemberSubobject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberSubobject(this.name);
+    }
+
+    public describe() {
+        let containingObjectDesc = this.containingEntity.describe();
+        let desc : Description = {
+            message: "the " + this.name + " member of " + containingObjectDesc.message
+        }
+        if (containingObjectDesc.name) {
+            desc.name = containingObjectDesc.name + "." + this.name
+        }
+        return desc;
+    }
+}
+
+export class BaseClassEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+    protected static readonly _name = "BaseClassEntity";
     // storage: "none",
 
     public readonly access: string;
@@ -979,8 +1020,8 @@ export class BaseClassSubobjectEntity extends CPPEntity<ClassType> implements Ob
         return recObj;
     }
     
-    public objectInstance(parentObj: CPPObject) {
-        return new BaseClassSubobject(this.type, parentObj);
+    public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
+        return new BaseSubobject(parentObj, this.type, memory, address);
     }
 
     public describe() {
@@ -989,8 +1030,8 @@ export class BaseClassSubobjectEntity extends CPPEntity<ClassType> implements Ob
 };
 
 // TODO: need class for reference members
-export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected static readonly _name = "MemberSubobjectEntity";
+export class MemberVariableEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+    protected static readonly _name = "MemberVariableEntity";
     // storage: "none",
 
     public readonly access: string;
@@ -1018,8 +1059,8 @@ export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends De
         return recObj.getMemberSubobject(this.name);
     }
 
-    public objectInstance(parentObj: CPPObject) {
-        return MemberSubobject.instance(this.type, parentObj, this.name);
+    public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
+        return new MemberSubobject(parentObj, this.type, this.name, memory, address);
     }
 
     public describe() {
@@ -1299,6 +1340,7 @@ var convLen = function(args: Expression[]) {
     return total;
 };
 
+// TODO: Update this so it does not modify the arguments passed in. This is essential.
 export function overloadResolution<T extends FunctionEntity>(candidates: T[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
     // Find the constructor
     let viable = [];
