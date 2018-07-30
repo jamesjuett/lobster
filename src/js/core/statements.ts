@@ -7,6 +7,13 @@ import { Declaration } from "./declarations";
 
 export abstract class Statement extends InstructionConstruct {
 
+    public readonly parent?: ExecutableConstruct;
+
+    public attach(parent: ExecutableConstruct) {
+        (<ExecutableConstruct>this.parent) = parent;
+        parent.children.push(this); // rudeness approved here
+    }
+
     public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
 
 }

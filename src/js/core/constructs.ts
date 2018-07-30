@@ -4,11 +4,11 @@ import { CONSTRUCT_CLASSES } from "./constructClasses";
 import { assert } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
-import { Scope } from "./entities";
+import { Scope, TemporaryObjectEntity } from "./entities";
 import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Type, ClassType } from "./types";
+import { Type, ClassType, ObjectType } from "./types";
 import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
@@ -322,7 +322,32 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
 
 export abstract class PotentialFullExpression extends InstructionConstruct {
     
-    public abstract readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
+    public readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
+
+    private readonly temporaryObjectEntities: TemporaryObjectEntity[] = [];
+
+    public readonly isAttached: boolean = false;
+
+    public attach(parent: InstructionConstruct) {
+        (<InstructionConstruct>this.parent) = parent;
+        parent.children.push(this); // rudeness approved here
+        (<boolean>this.isAttached) = true;
+
+        // This may no longer be a full expression. If so, move temporary entities to
+        // their new full expression.
+        if (!this.isFullExpression()) {
+            let fe = this.findFullExpression();
+            this.temporaryObjectEntities.forEach((tempEnt) => {
+                fe.addTemporaryObject(tempEnt);
+            });
+            this.temporaryObjectEntities.length = 0; // clear array
+        }
+
+        // Now that we are attached, the assumption is no more temporary entities
+        // will be added to this construct or its attached children. (There's an
+        // assert in addTemporaryObject() to prevent this.) That means it is now
+        // safe to compile and add the temporary deallocator construct as a child.
+    }
 
     public isFullExpression() : boolean {
         if (!this.parent || !(this.parent instanceof PotentialFullExpression)) {
@@ -348,7 +373,20 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
 
         return this.parent.findFullExpression();
     }
+
+    private addTemporaryObject(tempObjEnt: TemporaryObjectEntity) {
+        assert(!this.isAttached, "Temporary objects may not be added to a full expression after it has been attached.")
+        this.temporaryObjectEntities.push(tempObjEnt);
+    }
+
+    public createTemporaryObject<T extends ObjectType>(type: T, description: string) {
+        let fe = this.findFullExpression();
+        var tempObjEnt = new TemporaryObjectEntity(type, this, fe, description);
+        this.temporaryObjectEntities[tempObjEnt.entityId] = tempObjEnt
+        return tempObjEnt;
+    }
 }
+
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -410,6 +448,8 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     public readonly stepsTaken: number;
     public readonly isActive: boolean = false;
 
+    private isDone: boolean = false;
+
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
@@ -433,6 +473,8 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
         this.stepsTaken = sim.stepsTaken();
     }
 
+
+
     /**
      * REQUIRES: this instance is on the top of the execution stack
      */
@@ -444,6 +486,12 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     protected abstract stepForwardImpl() : void;
 
     public upNext() {
+        this.observable.send("upNext");
+        if (this.isDone) {
+            this.sim.pop();
+            return;
+        }
+
         for(var key in this.pauses){
             var p = this.pauses[key];
             if (p.pauseWhenUpNext //||
@@ -455,11 +503,15 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
                 break;
             }
         }
-        this.observable.send("upNext");
+
         return this.upNextImpl();
     }
 
     protected abstract upNextImpl() : void;
+
+    protected done() {
+        this.isDone = true;
+    }
 
     public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
@@ -531,6 +583,32 @@ export abstract class RuntimeInstruction<Construct_type extends InstructionConst
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
 }
+
+
+export abstract class RuntimePotentialFullExpression<Construct_type extends PotentialFullExpression>
+    extends RuntimeInstruction<Construct_type> {
+
+
+    protected done() {
+        super.done();
+
+        if (this.model.isFullExpression()) {
+            // Take care of any temporary objects owned by this full expression
+            // Push destructors after, because we want them to run first (its a stack)
+            if (this.tempDeallocator){
+                this.tempDeallocator.createAndPushInstance(sim, inst);
+            }
+            if(this.temporariesToDestruct){
+                this.temporariesToDestruct.forEach(function(tempObj){
+                    tempObj.createAndPushInstance(sim, inst)
+                });
+            }
+        }
+    }
+}
+
+
+
 
 export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
 
