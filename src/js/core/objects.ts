@@ -87,7 +87,7 @@ class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_typ
 class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
     public readonly subobjects: Subobject[];
-    public readonly baseSubobjects: BaseClassSubobject[];
+    public readonly baseSubobjects: BaseSubobject[];
     public readonly memberSubobjects: MemberSubobject[];
     private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
 
@@ -96,14 +96,14 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
         
         let subAddr = this.address;
 
-        this.baseSubobjects = (<ClassType>this.object.type).baseClassSubobjectEntities.map((base) => {
-            let subObj = base.objectInstance(this, memory, subAddr);
+        this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
+            let subObj = base.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
             return subObj;
         });
 
-        this.memberSubobjects = (<ClassType>this.object.type).memberSubobjectEntities.map((mem) => {
-            let subObj = mem.objectInstance(this, memory, subAddr);
+        this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
+            let subObj = mem.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
             this.memberSubobjectMap[mem.name] = subObj;
             return subObj;
@@ -115,6 +115,10 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
     public getMemberSubobject(name: string) {
         return this.memberSubobjectMap[name];
+    }
+
+    public getBaseSubobject() : BaseSubobject | undefined {
+        return this.baseSubobjects[0];
     }
 
     // TODO: Could remove? This isn't currently used and I don't think it's useful for anything
@@ -192,6 +196,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
     // Only allowed if receiver matches CPPObject<ClassType>
     public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
         return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
+    }
+
+    // Only allowed if receiver matches CPPObject<ClassType>
+    public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
+        return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
     }
 
     public subobjectValueWritten() {
@@ -634,8 +643,8 @@ export class ArraySubobject<T extends ObjectType = ObjectType> extends Subobject
 
 
 
-export class BaseClassSubobject extends Subobject<ClassType> {
-    public constructor(containingObject: CPPObject<ClassType>, type: ClassType, index: number, memory: Memory, address: number) {
+export class BaseSubobject extends Subobject<ClassType> {
+    public constructor(containingObject: CPPObject<ClassType>, type: ClassType, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
     }
     public nameString() {

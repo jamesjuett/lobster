@@ -96,7 +96,7 @@ export abstract class CPPConstruct {
     public readonly parent?: CPPConstruct | GlobalProgramConstruct;
     public readonly children: CPPConstruct[] = [];
     
-    public constructor(context: ConstructContext) {
+    protected constructor(context: ConstructContext) {
         this.id = CPPConstruct.NEXT_ID++;
 
         this.context = context;
@@ -303,7 +303,7 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
 
     public readonly containingFunction: FunctionDefinition;
     
-    public constructor(context: ExecutableConstructContext) {
+    protected constructor(context: ExecutableConstructContext) {
         super(context);
 
         // Use containing function from context or inherit from parent

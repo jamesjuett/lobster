@@ -369,8 +369,8 @@ export var CPPError = {
             scalar_args : function(src, declType){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.scalar_args", "Invalid initialization of scalar type " + declType + " from multiple values.");
             },
-            array_args : function(src, declType){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.array_args", "Invalid initialization of array type " + declType + ".");
+            array_string_literal : function(src, targetType){
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.array_string_literal", "Cannot direct/copy initialize an array of type " + targetType + ". The only allowed direct/copy initialization of an array is to initialize an array of char from a string literal.");
             },
             convert : function(src, initType, declType){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "declaration.init.convert", "Invalid conversion from " + initType + " to " + declType + ".");
@@ -422,7 +422,7 @@ export var CPPError = {
                 return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, "declaration.init.array_default_init", "Note: Default initialization of an array requires default initialization of each of its elements.");
             },
             array_direct_init : function(src){
-                return CompilerNote.instance(src, CompilerNote.TYPE_WARNING, "declaration.init.array_direct_init", "Note: initialization of an array requires initialization of each of its elements.");
+                return CompilerNote.instance(src, CompilerNote.TYPE_OTHER, "declaration.init.array_direct_init", "Note: initialization of an array requires initialization of each of its elements.");
             }
 
         },

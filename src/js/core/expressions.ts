@@ -1994,7 +1994,7 @@ export var Dot  = Expression.extend({
             return Expression.upNext.apply(this, arguments);
         }
         else{
-            // entity may be MemberSubobjectEntity but should never be an AutoEntity
+            // entity may be MemberVariableEntity but should never be an AutoEntity
             assert(!isA(this.entity, AutoEntity));
             inst.setObjectAccessedFrom(inst.childInstances.operand.evalValue);
             inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
@@ -3199,7 +3199,7 @@ export var Literal  = Expression.extend({
 //	}
 });
 
-export var StringLiteral  = Expression.extend({
+export class StringLiteral extends Expression {
     _name: "StringLiteral",
     initIndex: false,
     compile : function(){
@@ -3230,7 +3230,7 @@ export var StringLiteral  = Expression.extend({
 //		this.done(sim, inst);
 //		return true;
 //	}
-});
+}
 
 export var Parentheses  = Expression.extend({
     _name: "Parentheses",
