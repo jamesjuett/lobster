@@ -1,5 +1,5 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
@@ -35,13 +35,11 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
-export abstract class Expression extends InstructionConstruct {
+export abstract class Expression extends PotentialFullExpression {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
         return super.createFromAST(ast, context);
     }
-
-    public readonly parent?: InstructionConstruct;
 
     public abstract readonly valueCategory: string;
     public abstract readonly type?: Type;
@@ -49,12 +47,6 @@ export abstract class Expression extends InstructionConstruct {
 
 
 
-
-
-    public attach(parent: InstructionConstruct) {
-        (<InstructionConstruct>this.parent) = parent;
-        parent.children.push(this); // rudeness approved here
-    }
 
     public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
@@ -102,28 +94,7 @@ export abstract class Expression extends InstructionConstruct {
         //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
         // }
     },
-    compileTemporarires : function(){
-        if (this.temporaryObjects) {
-            this.temporariesToDestruct = [];
-            for (var entId in this.temporaryObjects){
-                var tempEnt = this.temporaryObjects[entId];
-                if (isA(tempEnt.type, Types.Class)){
-                    var dest = tempEnt.type.destructor;
-                    if (dest) {
-                        var call = FunctionCall.instance({args: []}, {parent: this});
-                        call.compile({func: dest, receiver: tempEnt});
-                        this.temporariesToDestruct.push(call);
-                    }
-                    else{
-                        this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator.model, tempEnt));
-                    }
-                }
-            }
-
-            this.tempDeallocator = Statements.TemporaryDeallocator.instance(null, {parent: this});
-            this.tempDeallocator.compile(this.temporaryObjects);
-        }
-    },
+    
 
     convert : function(){
 
@@ -197,23 +168,7 @@ export abstract class Expression extends InstructionConstruct {
         return {isTail: false};
     }
 
-    createTemporaryObject : function(type, name){
-        var tempObj = TemporaryObjectEntity.instance(type, this, this.findFullExpression(), name);
-        //this.createdTemporaries = this.createdTemporaries || [];
-        //this.createdTemporaries.push(tempObj);
-        return tempObj;
-    },
 
-    addTemporaryObject : function(tempObj){
-        this.temporaryObjects = this.temporaryObjects || {};
-        this.temporaryObjects[tempObj.entityId] = tempObj;
-    },
-
-    removeTemporaryObject : function(tempObj){
-        if (this.temporaryObjects){
-            delete this.temporaryObjects[tempObj.entityId];
-        }
-    },
 
 
     
@@ -278,16 +233,7 @@ export abstract class Expression extends InstructionConstruct {
 	done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 		sim.pop(inst);
 
-        // Take care of any temporary objects owned by this expression
-        // Push destructors after, because we want them to run first (its a stack)
-        if (this.tempDeallocator){
-            this.tempDeallocator.createAndPushInstance(sim, inst);
-        }
-        if(this.temporariesToDestruct){
-            this.temporariesToDestruct.forEach(function(tempObj){
-                tempObj.createAndPushInstance(sim, inst)
-            });
-        }
+        
 
 	}
 }

@@ -11,7 +11,7 @@ import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 import { Value, Memory } from "./runtimeEnvironment";
-import { RuntimeConstruct, ExecutableRuntimeConstruct } from "./constructs";
+import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression } from "./constructs";
 
 export interface LookupOptions {
     own?: boolean;
@@ -1086,34 +1086,19 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
-    public readonly creator: CPPConstruct;
-    public readonly owner: CPPConstruct;
+    public readonly creator: PotentialFullExpression;
+    public readonly owner: PotentialFullExpression;
     public readonly name: string;
 
-    constructor(type: T, creator: CPPConstruct, owner: CPPConstruct, name: string) {
+    constructor(type: T, creator: PotentialFullExpression, owner: PotentialFullExpression, description: string) {
         super(type);
         this.creator = creator;
         this.setOwner(owner);
         this.name = name; // TODO: change when I check over usages of .name and replace with description or something
     }
 
-    public setOwner(newOwner: CPPConstruct) {
-        if (newOwner === this.owner)
-            if (this.owner){
-                this.owner.removeTemporaryObject(this);
-            }
-        (<string>this.owner) = newOwner;
-        this.owner.addTemporaryObject(this);
-    }
-
-    public updateOwner() {
-        var newOwner = this.creator.findFullExpression();
-        if (newOwner === this.owner){ return; }
-        if (this.owner){
-            this.owner.removeTemporaryObject(this);
-        }
-        (<string>this.owner) = newOwner;
-        this.owner.addTemporaryObject(this);
+    public setOwner(newOwner: PotentialFullExpression) {
+        (<PotentialFullExpression>this.owner) = newOwner;
     }
 
     public objectInstance(creatorRt: RuntimeConstruct){

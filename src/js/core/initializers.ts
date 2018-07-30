@@ -1,5 +1,5 @@
 import { Expression, FunctionCall, StringLiteral, EntityExpression } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, RuntimeExpression } from "./constructs";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, RuntimeExpression, PotentialFullExpression } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char } from "./types";
 import { CPPError, Explanation } from "./errors";
@@ -10,16 +10,9 @@ import { Value } from "./runtimeEnvironment";
 import { standardConversion } from "./standardConversions";
 
 
-export abstract class Initializer extends InstructionConstruct {
+export abstract class Initializer extends PotentialFullExpression {
 
     public abstract readonly target: ObjectEntity;
-
-    public readonly parent?: InstructionConstruct;
-
-    public attach(parent: InstructionConstruct) {
-        (<InstructionConstruct>this.parent) = parent;
-        parent.children.push(this); // rudeness approved here
-    }
 
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
 
