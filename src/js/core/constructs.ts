@@ -473,12 +473,9 @@ export class TemporaryDeallocator extends InstructionConstruct {
 
 export abstract class UnsupportedConstruct extends CPPConstruct {
 
-    // propetry expected of subclasses. For efficiency, they can define it using
-    // Util.addDefaultPropertiesToPrototype
-    protected abstract readonly unsupportedName: string;
-
-    public compile() {
-        this.addNote(CPPError.lobster.unsupported(this, this.unsupportedName));
+    public constructor(context: ConstructContext, unsupportedName: string) {
+        super(context);
+        this.addNote(CPPError.lobster.unsupported(this, unsupportedName));
     }
 }
 

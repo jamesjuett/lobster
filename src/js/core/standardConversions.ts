@@ -1,4 +1,4 @@
-import {Expression, readValueWithAlert} from "./expressions";
+import {Expression, readValueWithAlert, Comma} from "./expressions";
 import {Type} from "./types";
 
 export var ImplicitConversion = Expression.extend({
@@ -340,7 +340,7 @@ export var IntegralPromotion = ImplicitConversion.extend({
 });
 
 // TODO: replace external uses of this function with a wrapper function that has a more meaningful name
-export var standardConversion1 = function(from){
+export function standardConversion1(from: Expression) : Expression{
 
     // TODO function to pointer conversion
 
@@ -426,7 +426,7 @@ var standardConversion3 = function(from, toType){
     return from;
 };
 
-export var standardConversion = function(from: Expression, toType: Type, options = {}){
+export function standardConversion(from: Expression, toType: Type, options = {}) : Expression {
     options = options || {};
 
     if (!options.suppressLTR){

@@ -582,12 +582,6 @@ export var CPPError = {
             condition_bool : function(src, type){
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.condition_bool", "Expression of type (" + type + ") cannot be converted to boolean condition.");
             },
-            sameType : function(src) {
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.sameType", "Lobster's ternary operator requires second and third operands of the same type.");
-            },
-            noVoid : function(src) {
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.noVoid", "Lobster's ternary operator does not allow void operands.");
-            },
             sameValueCategory : function(src) {
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.ternary.sameValueCategory", "The second and third operands of the ternary operator must yield a common value category.");
             }
@@ -778,6 +772,12 @@ export var CPPError = {
         },
         referencePrvalue : function(src){
             return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.referencePrvalue", "Sorry, Lobster does not yet support binding references (even if they are reference-to-const) to prvalues (e.g. temporary objects).");
+        },
+        ternarySameType : function(src, type1, type2) {
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.ternarySameType", "Lobster's ternary operator requires second and third operands of the same type. The given operands have types " + type1 + " and " + type2 + ".");
+        },
+        ternaryNoVoid : function(src) {
+            return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "lobster.ternaryNoVoid", "Lobster's ternary operator does not allow void operands.");
         },
     }
 };
