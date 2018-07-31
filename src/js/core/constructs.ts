@@ -322,16 +322,14 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
         this.containingFunction = context.containingFunction;
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {isTail: false};
-    }
+    public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
 }
 
 export abstract class PotentialFullExpression extends InstructionConstruct {
     
     public readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
 
-    private readonly temporaryObjects: TemporaryObjectEntity[] = [];
+    public readonly temporaryObjects: TemporaryObjectEntity[] = [];
     public readonly temporaryDeallocator?: TemporaryDeallocator;
 
 
@@ -423,6 +421,10 @@ export class TemporaryDeallocator extends InstructionConstruct {
                 }
             }
         });
+    }
+
+    public createRuntimeConstruct(parent: RuntimePotentialFullExpression) {
+        return new RuntimeTemporaryDeallocator(this, parent);
     }
 
     public attachTo(parent: InstructionConstruct) {
@@ -637,21 +639,20 @@ export abstract class RuntimeInstruction<Construct_type extends InstructionConst
 export abstract class RuntimePotentialFullExpression<Construct_type extends PotentialFullExpression = PotentialFullExpression>
     extends RuntimeInstruction<Construct_type> {
 
+    public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
+
+    public constructor(model: Construct_type, stackType: string, parent: ExecutableRuntimeConstruct) {
+        super(model, stackType, parent);
+        if (this.model.temporaryDeallocator) {
+            this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
+        }
+    }
 
     protected done() {
         super.done();
 
-        if (this.model.isFullExpression()) {
-            // Take care of any temporary objects owned by this full expression
-            // Push destructors after, because we want them to run first (its a stack)
-            if (this.tempDeallocator){
-                this.tempDeallocator.createAndPushInstance(sim, inst);
-            }
-            if(this.temporariesToDestruct){
-                this.temporariesToDestruct.forEach(function(tempObj){
-                    tempObj.createAndPushInstance(sim, inst)
-                });
-            }
+        if (this.temporaryDeallocator) {
+            this.sim.push(this.temporaryDeallocator);
         }
     }
 }
@@ -767,16 +768,6 @@ export class RuntimeMemberFunction extends RuntimeFunction {
 
 }
 
-export class RuntimeExpression extends RuntimeInstruction {
-    
-    public readonly evalValue?: Value | CPPObject;
-
-    public setEvalValue(value: Value) {
-        (<Value>this.evalValue) = value;
-        this.observable.send("evaluated", this.evalValue);
-    }
-    
-}
 
 export class RuntimeFunctionCall extends RuntimeInstruction {
 
