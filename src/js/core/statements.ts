@@ -9,7 +9,7 @@ export abstract class Statement extends InstructionConstruct {
 
     public readonly parent?: ExecutableConstruct;
 
-    public attach(parent: ExecutableConstruct) {
+    public attachTo(parent: ExecutableConstruct) {
         (<ExecutableConstruct>this.parent) = parent;
         parent.children.push(this); // rudeness approved here
     }
@@ -76,7 +76,7 @@ export class ExpressionStatement extends Statement {
 
     public constructor(context: ExecutableConstructContext, expression: Expression) {
         super(context);
-        this.addChild(this.expression = expression);
+        this.attach(this.expression = expression);
     }
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
@@ -161,7 +161,7 @@ export class DeclarationStatement extends Statement {
 
     public constructor(context: ExecutableConstructContext, declaration: Declaration) {
         super(context);
-        this.addChild(this.declaration = declaration);
+        this.attach(this.declaration = declaration);
     }
 
     public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
@@ -706,32 +706,4 @@ export var Continue = Unsupported.extend({
 });
 
 
-export var TemporaryDeallocator = Statement.extend({
-    _name: "TemporaryDeallocator",
 
-    compile : function(temporaries){
-        this.temporaries = temporaries;
-
-        // TODO: we could put a check for necessary destructors here...I think there's one somewhere else already,
-        // but it might be kind of elegant to put it here.
-    },
-
-    //stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //
-    //},
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        for (var key in this.temporaries){
-            var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
-            if (tempObjInst) {
-                sim.memory.deallocateTemporaryObject(tempObjInst, inst);
-            }
-        }
-        this.done(sim, inst);
-        return true;
-    },
-
-    isTailChild : function(child){
-        return {isTail: true};
-    }
-});

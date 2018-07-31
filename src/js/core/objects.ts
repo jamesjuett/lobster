@@ -681,7 +681,7 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
     }
 }
 
-export class TemporaryObjectInstance<T extends ObjectType> extends CPPObject<T> {
+export class TemporaryObjectInstance<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     private name: string;
 

@@ -1,9 +1,10 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject } from "./objects";
+import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
+import { RuntimeConstruct } from "./constructs";
 
 export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
@@ -398,9 +399,9 @@ export class Memory {
 
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
     public deallocateTemporaryObject(obj: TemporaryObjectInstance, killer?: RuntimeConstruct) {
-        this.deallocateObject(obj, killer);
+        this.deallocateObject(obj.address, killer);
         //this.temporaryBottom += obj.type.size;
-        delete this.temporaryObjects[obj];
+        delete this.temporaryObjects[obj.address];
         this.observable.send("temporaryObjectDeallocated", obj);
     }
 };
