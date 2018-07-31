@@ -1190,7 +1190,7 @@ export class CPPClass {
     public readonly baseClassEntities: BaseClassEntity[] = [];
     public readonly memberSubobjectEntities: MemberVariableEntity[] = [];
     public ctors: ConstructorEntity[] = [];
-    private destructor: null;
+    public destructor?: DestructorEntity;
 
     public readonly isComplete: boolean;
     

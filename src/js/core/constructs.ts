@@ -131,6 +131,12 @@ export abstract class CPPConstruct {
         // }
     }
 
+    public attach<T extends CPPConstruct>(this: T, child: {
+        attachTo(parent: T) : void
+    }) {
+        child.attachTo(this);
+    }
+
     // public addChild(child: CPPConstruct) {
     //     this.children.push(child);
     //     (<CPPConstruct|GlobalProgramConstruct>child.parent) = this;
@@ -305,6 +311,7 @@ export interface ExecutableConstructContext extends ConstructContext {
 export abstract class InstructionConstruct extends CPPConstruct implements ExecutableConstruct {
 
     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
+    public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
 
     public readonly containingFunction: FunctionDefinition;
     
@@ -324,29 +331,32 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     
     public readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
 
-    private readonly temporaryObjectEntities: TemporaryObjectEntity[] = [];
+    private readonly temporaryObjects: TemporaryObjectEntity[] = [];
+    public readonly temporaryDeallocator?: TemporaryDeallocator;
 
-    public readonly isAttached: boolean = false;
 
-    public attach(parent: InstructionConstruct) {
+    public attachTo(parent: InstructionConstruct) {
         (<InstructionConstruct>this.parent) = parent;
         parent.children.push(this); // rudeness approved here
-        (<boolean>this.isAttached) = true;
 
         // This may no longer be a full expression. If so, move temporary entities to
         // their new full expression.
         if (!this.isFullExpression()) {
             let fe = this.findFullExpression();
-            this.temporaryObjectEntities.forEach((tempEnt) => {
+            this.temporaryObjects.forEach((tempEnt) => {
                 fe.addTemporaryObject(tempEnt);
             });
-            this.temporaryObjectEntities.length = 0; // clear array
+            this.temporaryObjects.length = 0; // clear array
         }
 
         // Now that we are attached, the assumption is no more temporary entities
         // will be added to this construct or its attached children. (There's an
         // assert in addTemporaryObject() to prevent this.) That means it is now
         // safe to compile and add the temporary deallocator construct as a child.
+        if(this.temporaryObjects.length > 0) {
+            (<TemporaryDeallocator>this.temporaryDeallocator) = new TemporaryDeallocator(this.context, this.temporaryObjects);
+            this.attach(this.temporaryDeallocator!);
+        }
     }
 
     public isFullExpression() : boolean {
@@ -375,18 +385,57 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     }
 
     private addTemporaryObject(tempObjEnt: TemporaryObjectEntity) {
-        assert(!this.isAttached, "Temporary objects may not be added to a full expression after it has been attached.")
-        this.temporaryObjectEntities.push(tempObjEnt);
+        assert(!this.parent, "Temporary objects may not be added to a full expression after it has been attached.")
+        this.temporaryObjects.push(tempObjEnt);
     }
 
     public createTemporaryObject<T extends ObjectType>(type: T, description: string) {
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, description);
-        this.temporaryObjectEntities[tempObjEnt.entityId] = tempObjEnt
+        this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt
         return tempObjEnt;
     }
 }
 
+export class TemporaryDeallocator extends InstructionConstruct {
+
+    public readonly parent?: PotentialFullExpression;
+    public readonly temporaryObjects: TemporaryObjectEntity[];
+
+    public readonly dtors: (MemberFunctionCall | null)[];
+
+    public constructor(context: ExecutableConstructContext, temporaryObjects: TemporaryObjectEntity[] ) {
+        super(context);
+        this.temporaryObjects = temporaryObjects;
+
+        this.dtors = temporaryObjects.map((tempEnt) => {
+            if (tempEnt.type instanceof ClassType) {
+                var dtor = tempEnt.type.cppClass.destructor;
+                if (dtor) {
+                    //MemberFunctionCall args are: context, function to call, receiver, ctor args
+                    let dtorCall = new MemberFunctionCall(context, dtor, tempEnt, []);
+                    this.attach(dtorCall);
+                    return dtorCall;
+                }
+                else{
+                    this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator, tempEnt));
+                    return null;
+                }
+            }
+        });
+    }
+
+    public attachTo(parent: InstructionConstruct) {
+        (<InstructionConstruct>this.parent) = parent;
+        parent.children.push(this); // rudeness approved here
+
+    }
+
+
+    public isTailChild(child: ExecutableConstruct) {
+        return {isTail: true};
+    }
+}
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -585,7 +634,7 @@ export abstract class RuntimeInstruction<Construct_type extends InstructionConst
 }
 
 
-export abstract class RuntimePotentialFullExpression<Construct_type extends PotentialFullExpression>
+export abstract class RuntimePotentialFullExpression<Construct_type extends PotentialFullExpression = PotentialFullExpression>
     extends RuntimeInstruction<Construct_type> {
 
 
@@ -604,6 +653,51 @@ export abstract class RuntimePotentialFullExpression<Construct_type extends Pote
                 });
             }
         }
+    }
+}
+
+export class RuntimeTemporaryDeallocator extends RuntimeInstruction<TemporaryDeallocator> {
+
+    private index = 0;
+    private justDestructed: boolean = false;
+
+    public constructor (model: TemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+        super(model, "expression", parent);
+    }
+	
+    protected upNextImpl() {
+
+        // for (var key in this.temporaries){
+        //     var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
+        //     if (tempObjInst) {
+        //         sim.memory.deallocateTemporaryObject(tempObjInst, inst);
+        //     }
+        // }
+        // this.done(sim, inst);
+        // return true;
+
+
+        let dtors = this.model.dtors;
+        if (this.index < dtors.length) {
+            let dtor = dtors[this.index];
+            if (!this.justDestructed && dtor) {
+                dtor.createRuntimeConstruct(this);
+                this.sim.push(dtor);
+                this.justDestructed = true;
+            }
+            else {
+                this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this));
+                ++this.index;
+                this.justDestructed = false;
+            }
+        }
+        else{
+            this.sim.pop();
+        }
+    }
+
+    public stepForwardImpl() {
+        return false;
     }
 }
 
