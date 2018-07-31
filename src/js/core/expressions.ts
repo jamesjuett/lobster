@@ -1,10 +1,11 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression, ExecutableConstructContext, ExecutableConstruct, RuntimeInstruction} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression, ExecutableConstructContext, ExecutableConstruct, RuntimeInstruction, RuntimePotentialFullExpression, UnsupportedConstruct} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
-import { Type, Unknown } from "./types";
+import { Type, Unknown, Bool, sameType, VoidType, ObjectType } from "./types";
 import { Value } from "./runtimeEnvironment";
+import { standardConversion, standardConversion1 } from "./standardConversions";
 
 export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
     let value = obj.readValue();
@@ -36,14 +37,14 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
-export abstract class Expression<T extends Type = Type> extends PotentialFullExpression {
+export abstract class Expression extends PotentialFullExpression {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
         return super.createFromAST(ast, context);
     }
 
     public abstract readonly valueCategory: string;
-    public abstract readonly type?: T;
+    public abstract readonly type: Type;
     public readonly conversionLength: number = 0;
 
     protected constructor(context: ExecutableConstructContext) {
@@ -109,19 +110,19 @@ export abstract class Expression<T extends Type = Type> extends PotentialFullExp
 }
 
 
-export class RuntimeExpression<Construct_type extends Expression = Expression> extends RuntimeInstruction<Construct_type> {
+export abstract class RuntimeExpression<Construct_type extends Expression = Expression> extends RuntimePotentialFullExpression<Construct_type> {
     
     public readonly evalValue?: Value | CPPObject;
 
-    public setEvalValue(value: Value) {
-        (<Value>this.evalValue) = value;
+    public constructor(model: Construct_type, parent: ExecutableRuntimeConstruct) {
+        super(model, "expression", parent);
+    }
+
+    public setEvalValue(value: Value | CPPObject) {
+        (<Value | CPPObject>this.evalValue) = value;
         this.observable.send("evaluated", this.evalValue);
     }
 
-    public abstract describeEvalValue(depth: number) : Description;
-    //     return inst.evalValue.describe();
-    // }
-    
 
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //     // Evaluate subexpressions
@@ -141,21 +142,33 @@ export class RuntimeExpression<Construct_type extends Expression = Expression> e
 
 }
 
-export var Unsupported = Expression.extend({
-    _name: "Unsupported",
-    valueCategory: "prvalue",
-    typeCheck : function(){
-        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+export namespace RuntimeExpression {
+    export interface LValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
+        public readonly evalValue: CPPObject<T>;
     }
-});
+    export interface RValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
+        public readonly evalValue: CPPObject<T>;
+    }
+}
 
-export class NullStatement = Expression.extend({
-    _name: "Null",
-    valueCategory: "prvalue",
-    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Do nothing
+export class UnsupportedExpression extends Expression {
+    public readonly type = new Unknown();
+    public readonly valueCategory = "prvalue";
+
+    public constructor(context: ExecutableConstructContext, unsupportedName: string) {
+        super(context);
+        this.addNote(CPPError.lobster.unsupported(this, unsupportedName));
     }
-});
+
+    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) : never {
+        return Util.assertFalse();
+    }
+
+    public describeEvalValue(depth: number) {
+        return {message: "the result of an unsupported expression"};
+    };
+}
+
 
 
 
@@ -227,26 +240,39 @@ export class NullStatement = Expression.extend({
 
 
 
-export class Comma<T extends Type = Type> extends Expression<T> {
-    _name: "Comma",
-    englishName: "comma",
-    i_childrenToCreate : ["left", "right"],
-    i_childrenToExecute : ["left", "right"],
-    typeCheck : function(){
-        this.type = this.right.type;
-        this.valueCategory = this.right.valueCategory;
-    },
+export class Comma extends Expression {
+    public readonly englishName = "comma";
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public readonly left: Expression;
+    public readonly right: Expression;
 
-        // Evaluate subexpressions
-        if (inst.index === "operate"){
-            inst.setEvalValue(inst.childInstances.right.evalValue);
-            this.done(sim, inst);
-        }
-    },
+    public readonly type: Type;
+    public readonly valueCategory: string;
 
-    isTailChild : function(child){
+    public constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+        super(context);
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+
+        this.type = right.type;
+        this.valueCategory = right.valueCategory
+    }
+
+    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     // Evaluate subexpressions
+    //     if (inst.index === "operate"){
+    //         inst.setEvalValue(inst.childInstances.right.evalValue);
+    //         this.done(sim, inst);
+    //     }
+    // },
+
+    
+    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeComma(this, parent);
+    }
+
+    public isTailChild(child: ExecutableConstruct) {
         if (child === this.right){
             return {isTail: true,
                 reason: "The recursive call is on the right side of the comma, so it is guaranteed to be evaluated last."
@@ -259,72 +285,103 @@ export class Comma<T extends Type = Type> extends Expression<T> {
             };
         }
     }
-});
 
+    public describeEvalValue(depth: number) {
+        return this.right.describeEvalValue(depth);
+    }
+}
 
-export var Ternary  = Expression.extend({
-    _name: "Ternary",
-    englishName: "ternary",
-    i_childrenToCreate : ["condition", "then", "otherwise"],
-    i_childrenToConvert : {
-        condition: Types.Bool.instance()
-    },
-    initIndex: "cond",
+export class RuntimeComma extends RuntimeExpression<Comma> {
 
-    convert : function(){
-        // If one of the expressions is a prvalue, make the other one as well
-        if (this.then.valueCategory === "prvalue" && this.otherwise.valueCategory === "lvalue"){
-            this.otherwise = standardConversion1(this.otherwise);
-        }
-        else if (this.otherwise.valueCategory === "prvalue" && this.then.valueCategory === "lvalue"){
-            this.then = standardConversion1(this.then);
-        }
-    },
+    public left: RuntimeExpression;
+    public right: RuntimeExpression;
 
-    typeCheck : function(){
-        if (!isA(this.condition.type, Types.Bool)){
-            this.addNote(CPPError.expr.ternary.condition_bool(this.condition, this.condition.type));
+    private index = "subexpressions";
+
+    public constructor (model: Comma, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+    }
+
+	protected upNextImpl() {
+        if (this.index === "subexpressions") {
+            // push right then left on the stack so that they run left to right
+            this.sim.push(this.right);
+            this.sim.push(this.left);
         }
-        if (!sameType(this.then.type, this.otherwise.type)) {
-            this.addNote(CPPError.expr.ternary.sameType(this, this.then, this.otherwise));
+        else {
+            this.setEvalValue(this.right.evalValue!);
+            this.done();
         }
-        if (isA(this.then.type, Types.Void) || isA(this.otherwise.type, Types.Void)) {
-            this.addNote(CPPError.expr.ternary.noVoid(this, this.then, this.otherwise));
+	}
+	
+	protected stepForwardImpl() {
+        this.sim.pop();
+        return false;
+	}
+}
+
+export class Ternary extends Expression {
+
+    // i_childrenToCreate : ["condition", "then", "otherwise"],
+    // i_childrenToConvert : {
+    //     condition: Types.Bool.instance()
+    // },
+    // initIndex: "cond",
+
+    public readonly type: Type;
+    public readonly valueCategory: string;
+
+    public readonly condition: Expression;
+    public readonly then: Expression;
+    public readonly otherwise: Expression;
+
+    public constructor(context: ExecutableConstructContext, condition: Expression, then: Expression, otherwise: Expression) {
+        super(context);
+
+        condition = standardConversion(condition, new Bool());
+        this.attach(this.condition = condition);
+
+        // If one of the expressions is a prvalue, attempt to make the other one as well
+        if (then.valueCategory === "prvalue" && otherwise.valueCategory === "lvalue"){
+            otherwise = standardConversion1(otherwise);
         }
-        if (this.then.valueCategory !== this.otherwise.valueCategory){
+        else if (otherwise.valueCategory === "prvalue" && then.valueCategory === "lvalue"){
+            this.then = standardConversion1(then);
+        }
+
+        this.attach(this.then = then);
+        this.attach(this.otherwise = otherwise);
+
+        if (!(condition.type instanceof Bool)) {
+            this.addNote(CPPError.expr.ternary.condition_bool(condition, condition.type));
+        }
+        if (!sameType(then.type, otherwise.type)) {
+            this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
+        }
+        if ((then.type instanceof VoidType) || (otherwise.type instanceof VoidType)) {
+            this.addNote(CPPError.lobster.ternaryNoVoid(this));
+        }
+        if (then.valueCategory !== otherwise.valueCategory){
             this.addNote(CPPError.expr.ternary.sameValueCategory(this));
         }
 
-        this.type = this.then.type;
-        this.valueCategory = this.then.valueCategory;
-    },
+        this.type = then.type;
+        this.valueCategory = then.valueCategory;
+    }
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "cond"){
-            inst.condition = this.condition.createAndPushInstance(sim, inst);
-            inst.index = "checkCond";
-            return true;
-        }
-        else if (inst.index === "checkCond"){
-            if(inst.condition.evalValue.value){
-                inst.then = this.then.createAndPushInstance(sim, inst);
-            }
-            else{
-                inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
-            }
-            inst.index = "operate";
-            return true;
-        }
-    },
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeTernary(this, parent);
+    }
+    
+    // TODO
+    public describeEvalValue(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
 
-        // Evaluate subexpressions
-        if (inst.index === "operate"){
-            inst.setEvalValue(inst.condition.evalValue.value ? inst.then.evalValue : inst.otherwise.evalValue);
-            this.done(sim, inst);
-        }
-    },
+    
 
     isTailChild : function(child){
         if (child === this.condition){
@@ -337,7 +394,57 @@ export var Ternary  = Expression.extend({
             return {isTail: true};
         }
     }
-});
+}
+
+export class RuntimeTernary extends RuntimeExpression<Ternary> {
+
+    public condition: RuntimeExpression.RValue<Bool>;
+    public then?: RuntimeExpression;
+    public otherwise?: RuntimeExpression;
+
+    private index = "condition";
+
+    public constructor (model: Ternary, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.condition = <RuntimeExpression.RValue<Bool>>this.model.condition.createRuntimeExpression(this);
+        // note: don't create runtime instances of then/otherwise until we know which one will execute
+    }
+
+    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    // },
+
+    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     // Evaluate subexpressions
+    //     if (inst.index === "operate"){
+    //         inst.setEvalValue(inst.condition.evalValue.value ? inst.then.evalValue : inst.otherwise.evalValue);
+    //         this.done(sim, inst);
+    //     }
+    // },
+
+	protected upNextImpl() {
+        if (this.index === "condition") {
+            this.sim.push(this.condition);
+            this.index = "branch";
+        }
+        else if (this.index === "branch") {
+            if(this.condition.evalValue!.rawValue){
+                inst.then = this.then.createAndPushInstance(sim, inst);
+            }
+            else{
+                inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
+            }
+            inst.index = "operate";
+            return true;
+        }
+	}
+	
+	protected stepForwardImpl() {
+        this.sim.pop();
+        return false;
+	}
+}
 
 /**
  * @property {Expression} lhs
@@ -3099,6 +3206,14 @@ export var Literal  = Expression.extend({
 });
 
 export class StringLiteral extends Expression {
+    public valueCategory: string;
+    public type: Type;
+    public createRuntimeExpression(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression<Expression> {
+        throw new Error("Method not implemented.");
+    }
+    public describeEvalValue(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
     _name: "StringLiteral",
     initIndex: false,
     compile : function(){

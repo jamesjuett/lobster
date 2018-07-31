@@ -474,13 +474,13 @@ export class Unknown extends Type {
 
 builtInTypes["unknown"] = Unknown;
 
-export class Void extends Type {
+export class VoidType extends Type {
 
     protected readonly simpleType!: string;
     public readonly size!: number;
     protected readonly precedence!: number;
     protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Void,
+        VoidType,
         {
             simpleType: "void",
             size: 0,
@@ -489,13 +489,13 @@ export class Void extends Type {
     );
 
     public sameType(other: Type) : boolean {
-        return other instanceof Void
+        return other instanceof VoidType
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
     public similarType(other: Type) : boolean{
-        return other instanceof Void;
+        return other instanceof VoidType;
     }
 
 	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
@@ -515,7 +515,7 @@ export class Void extends Type {
         return false;
     }
 }
-builtInTypes["void"] = Void;
+builtInTypes["void"] = VoidType;
 
 export abstract class ObjectType extends Type {
 
@@ -873,7 +873,7 @@ export class Pointer extends AtomicType {
     }
 
     public isObjectPointer() {
-        return this.ptrTo.isObjectType || this.ptrTo instanceof Void;
+        return this.ptrTo.isObjectType || this.ptrTo instanceof VoidType;
     }
 
     /**
