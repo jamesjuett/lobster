@@ -1,9 +1,10 @@
 import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression} from "./constructs";
+import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeExpression, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression, ExecutableConstructContext, ExecutableConstruct, RuntimeInstruction} from "./constructs";
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
-import { Type } from "./types";
+import { Type, Unknown } from "./types";
+import { Value } from "./runtimeEnvironment";
 
 export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
     let value = obj.readValue();
@@ -35,43 +36,18 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
-export abstract class Expression extends PotentialFullExpression {
+export abstract class Expression<T extends Type = Type> extends PotentialFullExpression {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
         return super.createFromAST(ast, context);
     }
 
     public abstract readonly valueCategory: string;
-    public abstract readonly type?: Type;
+    public abstract readonly type?: T;
     public readonly conversionLength: number = 0;
 
-
-
-
-    public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
-
-    public abstract describeEvalValue(depth: number, rtConstruct?: RuntimeConstruct) : Description;
-
-    
-
-
-    // type: Types.Unknown.instance(),
-    initIndex : "subexpressions",
-
-    i_childrenToConvert : {},
-    i_childrenToExecute : [],
-
-    i_convertChildren: function() {
-        for (var childName in this.i_childrenToConvert) {
-            this[childName] = standardConversion(this[childName], this.i_childrenToConvert[childName]);
-        }
-    },
-
-
-    compile : function() {
-
-        // Parent compile - will compile all children specified in i_childrenToCreate
-        CPPConstruct.compile.apply(this, arguments);
+    protected constructor(context: ExecutableConstructContext) {
+        super(context);
 
         // Apply any standard conversions specified in i_childrenToConvert
         this.i_convertChildren();
@@ -88,20 +64,102 @@ export abstract class Expression extends PotentialFullExpression {
         this.typeCheck();
 
         this.compileTemporarires();
+    }
 
 
-        // if (this.isFullExpression()){
-        //     this.semanticProblems.addWidget(ExpressionAnnotation.instance(this));
-        // }
-    },
+    public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
+
+
+
+    // i_convertChildren: function() {
+    //     for (var childName in this.i_childrenToConvert) {
+    //         this[childName] = standardConversion(this[childName], this.i_childrenToConvert[childName]);
+    //     }
+    // },
     
 
-    convert : function(){
+    protected convert() {
 
-    },
+    }
+
+    protected typeCheck() {
+
+    }
+
+
+
+
+
+    public isWellTyped() {
+        return this.type && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
+    }
+
+
+    public isTailChild(child: ExecutableConstruct) {
+        return {isTail: false};
+    }
+
+    public abstract describeEvalValue(depth: number) : Description;
+    //     return {message: "the result of " + this.getSourceText()};
+    // }
+
+
+
+
+}
+
+
+export class RuntimeExpression<Construct_type extends Expression = Expression> extends RuntimeInstruction<Construct_type> {
+    
+    public readonly evalValue?: Value | CPPObject;
+
+    public setEvalValue(value: Value) {
+        (<Value>this.evalValue) = value;
+        this.observable.send("evaluated", this.evalValue);
+    }
+
+    public abstract describeEvalValue(depth: number) : Description;
+    //     return inst.evalValue.describe();
+    // }
+    
+
+    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     // Evaluate subexpressions
+    //     if (inst.index === "subexpressions"){
+    //         this.pushChildInstances(sim, inst);
+    //         inst.index = "operate";
+    //         inst.wait();
+    //         return true;
+    //     }
+
+    //     return CPPConstruct.upNext.apply(this, arguments);
+    // },
+	
+	// done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+	// 	sim.pop(inst);
+	// }
+
+}
+
+export var Unsupported = Expression.extend({
+    _name: "Unsupported",
+    valueCategory: "prvalue",
     typeCheck : function(){
+        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
+    }
+});
 
-    },
+export class NullStatement = Expression.extend({
+    _name: "Null",
+    valueCategory: "prvalue",
+    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+        // Do nothing
+    }
+});
+
+
+
+
 
     // processNonMemberOverload : function(args, op){
     //     try{
@@ -127,138 +185,49 @@ export abstract class Expression extends PotentialFullExpression {
     // },
 
 
-    compileMemberOverload : function(thisArg, argAsts, isThisConst, op){
-        var self = this;
-        var auxArgs = argAsts.map(function(argAst){
-            var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
-            auxArg.tryCompile();
-            return auxArg;
-        });
+    // compileMemberOverload : function(thisArg, argAsts, isThisConst, op){
+    //     var self = this;
+    //     var auxArgs = argAsts.map(function(argAst){
+    //         var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
+    //         auxArg.tryCompile();
+    //         return auxArg;
+    //     });
 
-        try{
-            var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
-                own:true, paramTypes:auxArgs.map(function(arg){return arg.type;}),
-                isThisConst: isThisConst
-            });
+    //     try{
+    //         var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
+    //             own:true, paramTypes:auxArgs.map(function(arg){return arg.type;}),
+    //             isThisConst: isThisConst
+    //         });
 
-            this.isOverload = true;
-            this.isMemberOverload = true;
-            this.funcCall = FunctionCall.instance({args: argAsts}, {parent:this});
-            this.funcCall.compile({func: overloadedOp});
-            this.type = this.funcCall.type;
-            this.valueCategory = this.funcCall.valueCategory;
-            this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(CPPError.expr.overloadLookup(this, op));
-                this.addNote(e.annotation(this));
-                return;
-            }
-            else{
-                throw e;
-            }
-        }
-    },
-
-
-
-
-    public isTailChild(child) {
-        return {isTail: false};
-    }
-
-
-
-
-    
-
-    // TODO NEW It appears this was once used, but as far as I can tell, it does
-    // nothing because it is only called once from the CPPConstruct constructor and
-    // on the first call, it just delegates the work to the parent class version.
-    // I've commented it out for now and will remove it later after regression
-    // testing is more mature.
-    // setContext : function(context){
-    //     // Don't do anything special for first time
-    //     if (!this.parent){
-    //         CPPConstruct.setContext.apply(this, arguments);
-    //         return;
+    //         this.isOverload = true;
+    //         this.isMemberOverload = true;
+    //         this.funcCall = FunctionCall.instance({args: argAsts}, {parent:this});
+    //         this.funcCall.compile({func: overloadedOp});
+    //         this.type = this.funcCall.type;
+    //         this.valueCategory = this.funcCall.valueCategory;
+    //         this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
     //     }
-    //
-    //     var oldFull = this.findFullExpression();
-    //     CPPConstruct.setContext.apply(this, arguments);
-    //
-    //     // If this construct's containing full expression has changed, we need to reassign
-    //     // that new full expression as the owner of any temporaries this construct would
-    //     // have sent to its old full expression. We don't know which of the temporaries
-    //     // from the old full expression those were (they could have come from elsewhere),
-    //     // so we just update them all.
-    //     var newFull = this.findFullExpression();
-    //     if (oldFull !== newFull && oldFull.temporaryObjects){
-    //         for(var id in oldFull.temporaryObjects){
-    //             oldFull.temporaryObjects[id].updateOwner();
+    //     catch(e){
+    //         if (isA(e, SemanticExceptions.BadLookup)){
+    //             this.addNote(CPPError.expr.overloadLookup(this, op));
+    //             this.addNote(e.annotation(this));
+    //             return;
+    //         }
+    //         else{
+    //             throw e;
     //         }
     //     }
-    // },
-    isWellTyped : function(){
-        return this.type && !isA(this.type, Types.Unknown);
-    },
-    describeEvalValue : function(depth, sim, inst){
-        if (inst && inst.evalValue){
-            return inst.evalValue.describe();
-        }
-        else if (depth == 0){
-            return {message: "the result of " + this.getSourceText()};
-        }
-        else{
-            return {message: "the result of " + this.getSourceText()};
-        }
-    },
+    // }
 
 
 
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Evaluate subexpressions
-        if (inst.index === "subexpressions"){
-            this.pushChildInstances(sim, inst);
-            inst.index = "operate";
-            inst.wait();
-            return true;
-        }
-
-        return CPPConstruct.upNext.apply(this, arguments);
-    },
-	
-	done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-		sim.pop(inst);
-
-        
-
-	}
-}
-
-
-export var Unsupported = Expression.extend({
-    _name: "Unsupported",
-    valueCategory: "prvalue",
-    typeCheck : function(){
-        this.addNote(CPPError.expr.unsupported(this, this.englishName ? "(" + this.englishName + ")" : ""));
-    }
-});
-
-export class NullStatement = Expression.extend({
-    _name: "Null",
-    valueCategory: "prvalue",
-    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Do nothing
-    }
-});
 
 
 
 
-export var Comma = Expression.extend({
+
+export class Comma<T extends Type = Type> extends Expression<T> {
     _name: "Comma",
     englishName: "comma",
     i_childrenToCreate : ["left", "right"],

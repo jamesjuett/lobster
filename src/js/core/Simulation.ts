@@ -1,5 +1,6 @@
 import { Observable } from "../util/observe";
 import { Memory } from "./runtimeEnvironment";
+import { ExecutableRuntimeConstruct } from "./constructs";
 
 // TODO: add observer stuff
 export class Simulation {
@@ -7,6 +8,48 @@ export class Simulation {
     public readonly observable = new Observable(this);
 
     public readonly memory: Memory;
+
+
+	public push(rt: ExecutableRuntimeConstruct) {
+		this.i_execStack.push(codeInstance);
+		codeInstance.pushed(this);
+		this.send("pushed", codeInstance, this);
+    }
+    
+    public pop() {
+        
+    }
+
+	// REQUIRES: query is either a string indicating a stackType
+	//           or an instance on the stack.
+	// pop : function(query, returnArray){
+	// 	if (query){
+	// 		var poppedArr = [];
+	// 		var popped;
+	// 		while (this.i_execStack.length > 0){
+	// 			popped = this.i_execStack.pop();
+	// 			popped.popped(this);
+    //             if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
+    //                 this.leakCheck();
+    //             }
+
+	// 			poppedArr.push(popped);
+	// 			var current = (typeof query == "string" ? popped.stackType : popped);
+	// 			if (current == query){
+	// 				break;
+	// 			}
+	// 		}
+	// 		return (returnArray ? poppedArr : popped);
+	// 	}
+	// 	else{
+	// 		var popped = this.i_execStack.pop();
+    //         popped.popped(this);
+    //         if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
+    //             this.leakCheck();
+    //         }
+	// 		return popped;
+	// 	}
+	// }
 
     _name: "Simulation",
 
@@ -123,12 +166,6 @@ export class Simulation {
             });
         };
     },
-	
-	push : function(codeInstance){
-		this.i_execStack.push(codeInstance);
-		codeInstance.pushed(this);
-		this.send("pushed", codeInstance, this);
-	},
 
     popUntil : function(inst){
         while(this.i_execStack.length > 0 && this.i_execStack.last() !== inst){
@@ -136,36 +173,7 @@ export class Simulation {
         }
     },
 	
-	// REQUIRES: query is either a string indicating a stackType
-	//           or an instance on the stack.
-	pop : function(query, returnArray){
-		if (query){
-			var poppedArr = [];
-			var popped;
-			while (this.i_execStack.length > 0){
-				popped = this.i_execStack.pop();
-				popped.popped(this);
-                if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
-                    this.leakCheck();
-                }
-
-				poppedArr.push(popped);
-				var current = (typeof query == "string" ? popped.stackType : popped);
-				if (current == query){
-					break;
-				}
-			}
-			return (returnArray ? poppedArr : popped);
-		}
-		else{
-			var popped = this.i_execStack.pop();
-            popped.popped(this);
-            if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
-                this.leakCheck();
-            }
-			return popped;
-		}
-	},
+	
 	
 	peek : function(query, returnArray, offset){
         if (this.i_execStack.length === 0){
