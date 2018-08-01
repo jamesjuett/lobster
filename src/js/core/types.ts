@@ -474,6 +474,8 @@ export class Unknown extends Type {
 
 builtInTypes["unknown"] = Unknown;
 
+export let UNKNOWN_TYPE = new Unknown();
+
 export class VoidType extends Type {
 
     protected readonly simpleType!: string;

@@ -765,7 +765,7 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
 
     createElement: function(){
 
-//          this.element.append(this.code.argument.evalValue.valueString());
+//          this.element.append(this.code.argument.evalResult.valueString());
 
     },
     instanceRemoved : function(){
@@ -1005,11 +1005,11 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         this.element.addClass("expression");
         if (this.code.isFullExpression()) {this.element.addClass("fullExpression");}
 
-        this.evalValueElem = $("<span class='lobster-hidden-expression' style='opacity:0'></span>"); // TODO fix this ugly hack
+        this.evalResultElem = $("<span class='lobster-hidden-expression' style='opacity:0'></span>"); // TODO fix this ugly hack
         this.wrapper = $("<span class='lobster-expression-wrapper'></span>");
         this.exprElem = $("<span class='expr'></span>"); // TODO fix this ugly hack
         this.wrapper.append(this.exprElem);
-        this.wrapper.append(this.evalValueElem);
+        this.wrapper.append(this.evalResultElem);
 
         this.element.append(this.wrapper);
 
@@ -1041,7 +1041,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 
     },
 
-    setEvalValue : function(value, suppressAnimation){
+    setEvalResult : function(value, suppressAnimation){
         this.showingEvalValue = true;
         // If it's void, don't do anything
         if (value === undefined || isA(value.type, Types.Void)){
@@ -1049,45 +1049,45 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         }
 
         if (value.isA(CPPObject) || value.isA(FunctionEntity)){
-            this.evalValueElem.html(value.nameString());
-            this.evalValueElem.addClass("lvalue");
+            this.evalResultElem.html(value.nameString());
+            this.evalResultElem.addClass("lvalue");
         }
         else{  // value.isA(Value)
             if (isA(value.type, Types.Tree_t)){
-                this.evalValueElem.html(breadthFirstTree(value.rawValue()));
+                this.evalResultElem.html(breadthFirstTree(value.rawValue()));
             }
             else{
-                this.evalValueElem.html(value.valueString());
+                this.evalResultElem.html(value.valueString());
             }
-            this.evalValueElem.addClass("rvalue");
+            this.evalResultElem.addClass("rvalue");
             if (!value.isValueValid()){
-                this.evalValueElem.addClass("invalid");
+                this.evalResultElem.addClass("invalid");
             }
         }
 
         if(Outlets.CPP.CPP_ANIMATIONS && !suppressAnimation) {
             this.wrapper.animate({
-                width: this.evalValueElem.css("width")
+                width: this.evalResultElem.css("width")
             }, 500, function () {
                 $(this).css("width", "auto");
             });
-//                this.evalValueElem.animate({
-//                    width: this.evalValueElem.css("width")
+//                this.evalResultElem.animate({
+//                    width: this.evalResultElem.css("width")
 //                }, 500, function () {
 //                    $(this).css("width", "auto");
 //                });
         }
 
         //if (suppressAnimation){
-        //    this.evalValueElem.addClass("noTransitions").height();
+        //    this.evalResultElem.addClass("noTransitions").height();
         //    this.exprElem.addClass("noTransitions").height();
         //}
 
-        this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+        this.evalResultElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
         this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
         //if (suppressAnimation){
-        //    this.evalValueElem.removeClass("noTransitions").height();
+        //    this.evalResultElem.removeClass("noTransitions").height();
         //    this.exprElem.removeClass("noTransitions").height();
         //}
     },
@@ -1100,8 +1100,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 //            }, 500, function () {
 //                $(this).css("width", "auto");
 //            });
-////                this.evalValueElem.animate({
-////                    width: this.evalValueElem.css("width")
+////                this.evalResultElem.animate({
+////                    width: this.evalResultElem.css("width")
 ////                }, 500, function () {
 ////                    $(this).css("width", "auto");
 ////                });
@@ -1109,7 +1109,7 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
         var self = this;
         //setTimeout(function() {
             self.exprElem.removeClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 1);
-            self.evalValueElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0);
+            self.evalResultElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0);
 
             self.element.removeClass("rvalue");
             self.element.removeClass("lvalue");
@@ -1119,8 +1119,8 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
 
     instanceSet : function(){
         Outlets.CPP.Expression._parent.instanceSet.apply(this, arguments);
-        if (this.inst.evalValue){
-            this.setEvalValue(this.inst.evalValue, true);
+        if (this.inst.evalResult){
+            this.setEvalResult(this.inst.evalResult, true);
         }
         else{
             this.removeEvalValue();
@@ -1135,24 +1135,24 @@ Lobster.Outlets.CPP.Expression = Outlets.CPP.Code.extend({
     _act: $.extend({}, Outlets.CPP.Code._act, {
         evaluated: function(msg){
             var value = msg.data;
-            this.setEvalValue(value);
+            this.setEvalResult(value);
 
 
 //            console.log("expression evaluated to " + value.value);
         },
         returned: function(msg){
             var value = msg.data;
-            this.setEvalValue(value);
+            this.setEvalResult(value);
 
 //            if(Outlets.CPP.CPP_ANIMATIONS) {
 //                this.wrapper.animate({
-//                    width: this.evalValueElem.css("width")
+//                    width: this.evalResultElem.css("width")
 //                }, 500, function () {
 //                    $(this).css("width", "auto");
 //                });
 //            }
 
-            //this.evalValueElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
+            //this.evalResultElem.removeClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 1);
             //this.exprElem.addClass("lobster-hidden-expression");//.fadeTo(EVAL_FADE_DURATION, 0);
 
 //            console.log("expression evaluated to " + value.value);
@@ -1205,17 +1205,17 @@ Lobster.Outlets.CPP.Assignment = Outlets.CPP.Expression.extend({
 
         returned: function(msg){
             var value = msg.data;
-            this.setEvalValue(value);
+            this.setEvalResult(value);
 
 //            if(Outlets.CPP.CPP_ANIMATIONS) {
 //                this.wrapper.animate({
-//                    width: this.evalValueElem.css("width")
+//                    width: this.evalResultElem.css("width")
 //                }, 500, function () {
 //                    $(this).css("width", "auto");
 //                });
 //            }
 
-            this.evalValueElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
+            this.evalResultElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
             this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
 
 //            console.log("expression evaluated to " + value.value);
@@ -1324,14 +1324,14 @@ Lobster.Outlets.CPP.FunctionCall = Outlets.CPP.Code.extend({
             var sourceOutlet = msg.data;
 
             var self = this;
-            var data = sourceOutlet.inst && sourceOutlet.inst.childInstances && sourceOutlet.inst.childInstances.args && sourceOutlet.inst.childInstances.args[0] && sourceOutlet.inst.childInstances.args[0].evalValue;
+            var data = sourceOutlet.inst && sourceOutlet.inst.childInstances && sourceOutlet.inst.childInstances.args && sourceOutlet.inst.childInstances.args[0] && sourceOutlet.inst.childInstances.args[0].evalResult;
             if (!data){
                 return;
             }
             this.simOutlet.valueTransferOverlay(sourceOutlet, this.returnOutlet, Util.htmlDecoratedValue(data.instanceString()), 500,
                 function () {
                     if(self.returnOutlet) { // may have evaporated if we're moving too fast
-                        self.returnOutlet.setEvalValue(data);
+                        self.returnOutlet.setEvalResult(data);
                     }
                 });
         },
@@ -1405,9 +1405,9 @@ Lobster.Outlets.CPP.FunctionCallExpression = Outlets.CPP.Expression.extend({
 
         returned: function(msg){
             var value = msg.data;
-            this.setEvalValue(value);
+            this.setEvalResult(value);
 
-            this.evalValueElem.removeClass("lobster-hidden-expression");
+            this.evalResultElem.removeClass("lobster-hidden-expression");
             this.exprElem.addClass("lobster-hidden-expression");
         },
         tailCalled : function(msg){
@@ -1726,7 +1726,7 @@ Lobster.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
         this.exprElem.append(Util.htmlDecoratedName(this.code.memberName, this.code.type));
     },
 
-    setEvalValue : function(value) {
+    setEvalResult : function(value) {
 
     }
 });
@@ -1747,7 +1747,7 @@ Lobster.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
         this.exprElem.append(Util.htmlDecoratedName(this.code.memberName, this.code.type));
     },
 
-    setEvalValue : function(value) {
+    setEvalResult : function(value) {
 
     }
 });
@@ -1823,7 +1823,7 @@ Lobster.Outlets.CPP.Identifier = Outlets.CPP.Expression.extend({
         }
     },
 
-    setEvalValue : function(value) {
+    setEvalResult : function(value) {
 
     }
 });

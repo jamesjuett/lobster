@@ -646,11 +646,10 @@ export abstract class RuntimePotentialFullExpression<Construct_type extends Pote
     }
 
     protected done() {
-        super.done();
-
         if (this.temporaryDeallocator) {
             this.sim.push(this.temporaryDeallocator);
         }
+        super.done();
     }
 }
 

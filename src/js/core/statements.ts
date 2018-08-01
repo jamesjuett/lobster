@@ -1,7 +1,7 @@
 
-import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, RuntimeExpression, ExecutableConstructContext } from "./constructs";
+import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext } from "./constructs";
 import { addDefaultPropertiesToPrototype } from "../util/util";
-import { Expression } from "./expressions";
+import { Expression, RuntimeExpression } from "./expressions";
 import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
 
@@ -453,7 +453,7 @@ export var Selection = Statement.extend({
             return true;
         }
         else if (inst.index == "body"){
-            if(inst.condition.evalValue.value){
+            if(inst.condition.evalResult.value){
                 inst.then = this.then.createAndPushInstance(sim, inst);
                 inst.index = "done";
                 return true;
@@ -557,7 +557,7 @@ export var While = Iteration.extend({
             return true;
         }
         else if (inst.index == "checkCond"){
-            if(inst.condition.evalValue.value) {
+            if(inst.condition.evalResult.value) {
                 inst.index = "body";
             }
             else{
@@ -638,7 +638,7 @@ export var For = Iteration.extend({
             return true;
         }
         else if (inst.index == "body"){
-            if(inst.condition.evalValue.value){
+            if(inst.condition.evalResult.value){
                 inst.body = this.body.createAndPushInstance(sim, inst);
                 inst.index = "post";
                 return true;

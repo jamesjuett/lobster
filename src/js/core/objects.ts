@@ -228,23 +228,19 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
     }
 
     public getValue(read: boolean = false) {
-        return new Value(this.rawValue(read), this.type, this._isValid);
-    }
-
-    public rawValue(read: boolean = false) {
-        let val = this.data.rawValue();
+        let val = new Value(this.rawValue, this.type, this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
         }
         return val;
     }
+
+    public get rawValue() {
+        return this.data.rawValue();
+    }
     
     public readValue() {
         return this.getValue(true);
-    }
-    
-    public readRawValue() {
-        return this.rawValue(true);
     }
 
     public setValue(newValue: Value<T>, write: boolean = false) {
@@ -564,7 +560,7 @@ export var EvaluationResultRuntimeEntity = CPPObject.extend({
         return this.name + " (" + this.type + ")";
     },
     runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return this.inst.evalValue.runtimeLookup(sim, inst);
+        return this.inst.evalResult.runtimeLookup(sim, inst);
     }
 });
 
