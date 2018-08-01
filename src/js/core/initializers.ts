@@ -1,5 +1,5 @@
-import { Expression, FunctionCall, StringLiteral, EntityExpression } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, RuntimeExpression, PotentialFullExpression } from "./constructs";
+import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression } from "./expressions";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char } from "./types";
 import { CPPError, Explanation } from "./errors";
@@ -374,7 +374,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
-        let rhsDesc = this.args[0].describeEvalValue(0);
+        let rhsDesc = this.args[0].describeEvalResult(0);
         return {message: (targetDesc.name || targetDesc.message) + " will be bound to " + (rhsDesc.name || rhsDesc.message) + "."};
     }
 }
@@ -407,7 +407,7 @@ export class RuntimeReferenceDirectInitializer extends RuntimeDirectInitializer<
     public stepForwardImpl() {
         let rtRef = this.model.target.getRuntimeReference(this);
         rtRef.bindTo(
-            <CPPObject>this.args[0].evalValue
+            <CPPObject>this.args[0].evalResult
         );
         this.observable.send("initialized", rtRef);
         this.sim.pop();
@@ -451,7 +451,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
-        let rhsDesc = this.args[0].describeEvalValue(0);
+        let rhsDesc = this.args[0].describeEvalResult(0);
         return {message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "."};
     }
 }
@@ -478,7 +478,7 @@ export class RuntimeAtomicDirectInitializer extends RuntimeDirectInitializer<Ato
     }
 
     public stepForwardImpl() {
-        this.target.writeValue(<Value<AtomicType>>this.args[0].evalValue);
+        this.target.writeValue(<Value<AtomicType>>this.args[0].evalResult);
         this.observable.send("initialized", this.target);
         this.sim.pop();
     }
@@ -523,7 +523,7 @@ export class ArrayDirectInitializer extends DirectInitializer {
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
-        let rhsDesc = this.args[0].describeEvalValue(0);
+        let rhsDesc = this.args[0].describeEvalResult(0);
         return {message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!"};
     }
 }
@@ -551,7 +551,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Arra
 
     public stepForwardImpl() {
         
-        var charsToWrite = this.args[0].evalValue.rawValue();
+        var charsToWrite = this.args[0].evalResult.rawValue();
 
         // pad with zeros
         while (charsToWrite.length < this.target.type.length) {
@@ -781,7 +781,7 @@ export class RuntimeArrayMemberInitializer extends RuntimeInitializer<ArrayMembe
 //         // set the return object for the enclosing function to the evaluated argument (which should
 //         // have yielded an object).
 //         if (isA(this.entity.type, Types.Reference)) {
-//             inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalValue);
+//             inst.containingRuntimeFunction().setReturnValue(inst.childInstances.args[0].evalResult);
 //             this.done(sim, inst);
 //             return;
 //         }
@@ -862,7 +862,7 @@ export var InitializerList = CPPConstruct.extend({
 
         var arr = [];
         for(var i = 0; i < this.initializerListLength; ++i){
-            arr[i] = inst.childInstances["arg"+i].evalValue.getValue();
+            arr[i] = inst.childInstances["arg"+i].evalResult.getValue();
         }
         obj.writeValue(arr);
 

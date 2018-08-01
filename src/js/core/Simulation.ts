@@ -601,8 +601,8 @@ export class Simulation {
 
         for(var i = 0; i < this.i_execStack.length; ++i){
             var inst = this.i_execStack[i];
-            if (inst.evalValue) {
-                obj = inst.evalValue;
+            if (inst.evalResult) {
+                obj = inst.evalResult;
             }
             else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
                 if (isA(inst.func.model.type.returnType, Types.Reference)) {

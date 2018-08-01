@@ -1,15 +1,15 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer } from "./types";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 
-export type byte = any; // HACK - can be resolved if I make the memory model realistic and not hacky
-export type RawValueType = any; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
+export type byte = number | boolean; // HACK - can be resolved if I make the memory model realistic and not hacky
+export type RawValueType = number | boolean; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
-export class Value<T extends Type = Type> { // TODO: Change T to extend ObjectType? Or better yet AtomicType?
+export class Value<T extends ObjectType = ObjectType> { // TODO: Change T to extend ObjectType? Or better yet AtomicType?
     private static _name = "Value";
 
     public readonly type: T;
@@ -25,7 +25,6 @@ export class Value<T extends Type = Type> { // TODO: Change T to extend ObjectTy
         this.type = type;
         this._isValid = isValid;
     };
-
 
     public get isValid() {
         // Note: this is implemented as a getter since it is necessary to call isValueValid on the type each time.

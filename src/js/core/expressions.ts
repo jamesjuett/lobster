@@ -3,15 +3,18 @@ import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, ExecutableRun
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
-import { Type, Unknown, Bool, sameType, VoidType, ObjectType } from "./types";
+import { Type, Unknown, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE } from "./types";
 import { Value } from "./runtimeEnvironment";
 import { standardConversion, standardConversion1 } from "./standardConversions";
+import { Simulation } from "./Simulation";
+import { CPPEntity } from "./entities";
 
-export var readValueWithAlert = function(obj: CPPObject, sim: Simulation, expr: Expression, rt: RuntimeConstruct){
+export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
     if(!value.isValid) {
-        var msg = "The value you just got out of " + expr.describeEvalValue(0, sim, rt).message + " isn't valid. It might be uninitialized or it could have come from a dead object.";
-        if (value.rawValue() === 0){
+        let objDesc = obj.describe();
+        var msg = "The value you just got out of " + (objDesc.name || objDesc.message) + " isn't valid. It might be uninitialized or it could have come from a dead object.";
+        if (value.rawValue === 0){
             msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
         }
         sim.undefinedBehavior(msg);
@@ -91,7 +94,7 @@ export abstract class Expression extends PotentialFullExpression {
 
 
 
-    public isWellTyped() {
+    public get isWellTyped() {
         return this.type && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
     }
 
@@ -100,7 +103,7 @@ export abstract class Expression extends PotentialFullExpression {
         return {isTail: false};
     }
 
-    public abstract describeEvalValue(depth: number) : Description;
+    public abstract describeEvalResult(depth: number) : Description;
     //     return {message: "the result of " + this.getSourceText()};
     // }
 
@@ -112,15 +115,15 @@ export abstract class Expression extends PotentialFullExpression {
 
 export abstract class RuntimeExpression<Construct_type extends Expression = Expression> extends RuntimePotentialFullExpression<Construct_type> {
     
-    public readonly evalValue?: Value | CPPObject;
+    public readonly evalResult?: Value | CPPObject;
 
     public constructor(model: Construct_type, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
-    public setEvalValue(value: Value | CPPObject) {
-        (<Value | CPPObject>this.evalValue) = value;
-        this.observable.send("evaluated", this.evalValue);
+    public setEvalResult(value: Value | CPPObject) {
+        (<Value | CPPObject>this.evalResult) = value;
+        this.observable.send("evaluated", this.evalResult);
     }
 
 
@@ -144,10 +147,10 @@ export abstract class RuntimeExpression<Construct_type extends Expression = Expr
 
 export namespace RuntimeExpression {
     export interface LValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
-        public readonly evalValue: CPPObject<T>;
+        public readonly evalResult?: CPPObject<T>;
     }
     export interface RValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
-        public readonly evalValue: CPPObject<T>;
+        public readonly evalResult?: Value<T>;
     }
 }
 
@@ -164,7 +167,7 @@ export class UnsupportedExpression extends Expression {
         return Util.assertFalse();
     }
 
-    public describeEvalValue(depth: number) {
+    public describeEvalResult(depth: number) {
         return {message: "the result of an unsupported expression"};
     };
 }
@@ -262,7 +265,7 @@ export class Comma extends Expression {
 
     //     // Evaluate subexpressions
     //     if (inst.index === "operate"){
-    //         inst.setEvalValue(inst.childInstances.right.evalValue);
+    //         inst.setEvalResult(inst.childInstances.right.evalResult);
     //         this.done(sim, inst);
     //     }
     // },
@@ -286,8 +289,8 @@ export class Comma extends Expression {
         }
     }
 
-    public describeEvalValue(depth: number) {
-        return this.right.describeEvalValue(depth);
+    public describeEvalResult(depth: number) {
+        return this.right.describeEvalResult(depth);
     }
 }
 
@@ -309,16 +312,13 @@ export class RuntimeComma extends RuntimeExpression<Comma> {
             // push right then left on the stack so that they run left to right
             this.sim.push(this.right);
             this.sim.push(this.left);
-        }
-        else {
-            this.setEvalValue(this.right.evalValue!);
-            this.done();
+            this.index = "operate";
         }
 	}
 	
 	protected stepForwardImpl() {
-        this.sim.pop();
-        return false;
+        this.setEvalResult(this.right.evalResult!);
+        this.done();
 	}
 }
 
@@ -377,13 +377,13 @@ export class Ternary extends Expression {
     }
     
     // TODO
-    public describeEvalValue(depth: number): Description {
+    public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
     }
 
     
 
-    isTailChild : function(child){
+    public isTailChild(child: ExecutableConstruct) {
         if (child === this.condition){
             return {isTail: false,
                 reason: "One of the two subexpressions in the ternary operator will be evaluated after the function call.",
@@ -399,15 +399,16 @@ export class Ternary extends Expression {
 export class RuntimeTernary extends RuntimeExpression<Ternary> {
 
     public condition: RuntimeExpression.RValue<Bool>;
-    public then?: RuntimeExpression;
-    public otherwise?: RuntimeExpression;
+    public then: RuntimeExpression;
+    public otherwise: RuntimeExpression;
 
     private index = "condition";
 
     public constructor (model: Ternary, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.condition = <RuntimeExpression.RValue<Bool>>this.model.condition.createRuntimeExpression(this);
-        // note: don't create runtime instances of then/otherwise until we know which one will execute
+        this.then = this.model.then.createRuntimeExpression(this);
+        this.otherwise = this.model.otherwise.createRuntimeExpression(this);
     }
 
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -418,7 +419,7 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
 
     //     // Evaluate subexpressions
     //     if (inst.index === "operate"){
-    //         inst.setEvalValue(inst.condition.evalValue.value ? inst.then.evalValue : inst.otherwise.evalValue);
+    //         inst.setEvalResult(inst.condition.evalResult.value ? inst.then.evalResult : inst.otherwise.evalResult);
     //         this.done(sim, inst);
     //     }
     // },
@@ -429,20 +430,19 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
             this.index = "branch";
         }
         else if (this.index === "branch") {
-            if(this.condition.evalValue!.rawValue){
-                inst.then = this.then.createAndPushInstance(sim, inst);
+            if(this.condition.evalResult!.rawValue) {
+                this.sim.push(this.then);
             }
             else{
-                inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
+                this.sim.push(this.otherwise)
             }
-            inst.index = "operate";
-            return true;
+            this.index = "operate";
         }
 	}
 	
 	protected stepForwardImpl() {
+        this.setEvalResult(this.then ? this.then.evalResult! : this.otherwise!.evalResult!);
         this.sim.pop();
-        return false;
 	}
 }
 
@@ -454,152 +454,185 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
  * errors and isn't well-typed, or if this is a regular, non-overloaded assignment
  *
  */
-export var Assignment  = Expression.extend({
-    _name: "Assignment",
-    valueCategory : "lvalue",
-    isOverload : false,
-    isMemberOverload : true,
-    i_childrenToCreate : ["lhs"],
-    i_childrenToExecute : ["lhs", "rhs"],
-    i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
+export class Assignment extends Expression {
+    // public readonly 
+    // valueCategory : "lvalue",
+    // isOverload : false,
+    // isMemberOverload : true,
+    // i_childrenToCreate : ["lhs"],
+    // i_childrenToExecute : ["lhs", "rhs"],
+    // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
 
-    convert : function(){
+
+    public readonly type: Type;
+    public readonly valueCategory: string = "lvalue";
+
+    public readonly lhs: Expression;
+    public readonly rhs: Expression;
+
+    private constructor(context: ExecutableConstructContext, lhs: Expression, rhs: Expression) {
+        super(context);
 
         // If the lhs doesn't have a type, the rest of the analysis doesn't make much sense.
-        if (!this.lhs.isWellTyped()){
+        if (!lhs.isWellTyped || !rhs.isWellTyped) {
+            this.type = UNKNOWN_TYPE;
+            this.attach(this.lhs = lhs);
+            this.attach(this.rhs = rhs);
             return;
         }
 
-        // Check for overloaded assignment
-        // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
-        if (isA(this.lhs.type, Types.Class)){
-            // Class-type LHS means we check for an overloaded = operator
+        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
 
-            // Compile the RHS as an auxiliary expression so that we can figure out its type without impacting the construct tree
-            var auxRhs = CPPConstruct.create(this.ast.rhs, {parent: this, auxiliary: true});
-            auxRhs.compile();
-
-            try{
-                // Look for an overloaded = operator that we can use with an argument of the RHS type
-                // Note: "own" here means don't look in parent scope containing the class definition, but we still
-                // look in the scope of any base classes that exist due to the class scope performing member lookup
-                var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
-                    paramTypes:[auxRhs.type],
-                    isThisConst: this.lhs.type.isConst
-                });
-
-                // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
-                if (assnOp){
-                    this.isOverload = true;
-                    this.isMemberOverload = true;
-                    this.funcCall = FunctionCall.instance({args: [this.ast.rhs]}, {parent:this});
-                    this.funcCall.compile({func: assnOp});
-                    this.type = this.funcCall.type;
-                    this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
-                }
-                else{
-                    this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
-                }
-            }
-            catch(e){
-                if (isA(e, SemanticExceptions.BadLookup)){
-                    this.addNote(CPPError.expr.overloadLookup(this, "="));
-                    this.addNote(e.annotation(this));
-                }
-                else{
-                    throw e;
-                }
-            }
-        }
-        else{
-            // Non-class type, so this is regular assignment. Create and compile the rhs, and then attempt
-            // standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue conversion
-            this.rhs = this.i_createAndCompileChildExpr(this.ast.rhs, this.lhs.type.cvUnqualified());
-        }
-    },
-
-    typeCheck : function(){
-
-        // If the lhs doesn't have a type, we didn't make an rhs or a funcCall, so we can't type check anything
-        if (!this.lhs.isWellTyped()){
-            return;
-        }
-
-        // All type checking is handled by the function call child if it's overloaded.
-        if (this.funcCall){
-            return;
-        }
-
-        // ----- Type checking below here is only applied for regular, non-overloaded assignment -----
-
-        if (this.lhs.valueCategory != "lvalue") {
+        if (lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
 
-        if (this.lhs.type.isConst) {
+        if (lhs.type.isConst) {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        if (!this.rhs.isWellTyped()){
-            return;
-        }
-
-        if (!sameType(this.rhs.type, this.lhs.type.cvUnqualified())) {
-            this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
+        if (!sameType(rhs.type, lhs.type.cvUnqualified())) {
+            this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
         }
 
         // warning for self assignment
-        if (isA(this.lhs, Identifier) && isA(this.rhs, Identifier) && this.lhs.entity === this.rhs.entity){
-            this.addNote(CPPError.expr.assignment.self(this, this.lhs.entity));
+        if (lhs instanceof Identifier && rhs instanceof Identifier && lhs.entity === rhs.entity){
+            this.addNote(CPPError.expr.assignment.self(this, lhs.entity));
         }
 
-        this.type = this.lhs.type;
-    },
+        this.type = lhs.type;
+        this.attach(this.lhs = lhs);
+        this.attach(this.rhs = rhs);
+    }
 
-    upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (this.funcCall){
-            inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
-        }
-    }),
+    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeAssignment(this, parent);
+    }
+    
+    // TODO
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
-        if (inst.index == "operate"){
+    // convert : function(){
 
-            if (this.funcCall){
-                // Assignment operator function call has already taken care of the "assignment".
-                // Just evaluate to returned value from assignment operator.
-                inst.setEvalValue(inst.childInstances.funcCall.evalValue);
-                this.done(sim, inst);
-                //return true;
-            }
-            else{
-                // lhs and rhs are already evaluated
-                // result of lhs should be an lvalue
-                var lhs = inst.childInstances.lhs.evalValue;
-                var rhs = inst.childInstances.rhs.evalValue;
+        
 
-                lhs.writeValue(rhs);
+    //     // Check for overloaded assignment
+    //     // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
+    //     if (isA(this.lhs.type, Types.Class)){
+    //         // Class-type LHS means we check for an overloaded = operator
 
-                inst.setEvalValue(lhs);
-                this.done(sim, inst);
-            }
-        }
-    },
+    //         // Compile the RHS as an auxiliary expression so that we can figure out its type without impacting the construct tree
+    //         var auxRhs = CPPConstruct.create(this.ast.rhs, {parent: this, auxiliary: true});
+    //         auxRhs.compile();
 
-    isTailChild : function(child){
+    //         try{
+    //             // Look for an overloaded = operator that we can use with an argument of the RHS type
+    //             // Note: "own" here means don't look in parent scope containing the class definition, but we still
+    //             // look in the scope of any base classes that exist due to the class scope performing member lookup
+    //             var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
+    //                 paramTypes:[auxRhs.type],
+    //                 isThisConst: this.lhs.type.isConst
+    //             });
+
+    //             // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
+    //             if (assnOp){
+    //                 this.isOverload = true;
+    //                 this.isMemberOverload = true;
+    //                 this.funcCall = FunctionCall.instance({args: [this.ast.rhs]}, {parent:this});
+    //                 this.funcCall.compile({func: assnOp});
+    //                 this.type = this.funcCall.type;
+    //                 this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
+    //             }
+    //             else{
+    //                 this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
+    //             }
+    //         }
+    //         catch(e){
+    //             if (isA(e, SemanticExceptions.BadLookup)){
+    //                 this.addNote(CPPError.expr.overloadLookup(this, "="));
+    //                 this.addNote(e.annotation(this));
+    //             }
+    //             else{
+    //                 throw e;
+    //             }
+    //         }
+    //     }
+    //     // else{
+    //     //     // Non-class type, so this is regular assignment. Create and compile the rhs, and then attempt
+    //     //     // standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue conversion
+    //     // }
+    // },
+
+
+    // upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     if (this.funcCall){
+    //         inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
+    //     }
+    // }),
+
+    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     if (inst.index == "operate"){
+
+    //         if (this.funcCall){
+    //             // Assignment operator function call has already taken care of the "assignment".
+    //             // Just evaluate to returned value from assignment operator.
+    //             inst.setEvalResult(inst.childInstances.funcCall.evalResult);
+    //             this.done(sim, inst);
+    //             //return true;
+    //         }
+    //         else{
+    //         }
+    //     }
+    // },
+
+    public isTailChild(child: ExecutableConstruct) {
         return {isTail: false,
             reason: "The assignment itself will happen after the recursive call returns.",
             others: [this]
         };
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var lhs = this.lhs.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.lhs);
-        var rhs = this.rhs.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.rhs);
-        return {message: (rhs.name || rhs.message) + " will be assigned to " + (lhs.name || lhs.message) + "."};
     }
-});
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var lhs = this.lhs.describeEvalResult(0);
+        var rhs = this.rhs.describeEvalResult(0);
+        return {message: "The value of " + (rhs.name || rhs.message) + " will be assigned to " + (lhs.name || lhs.message) + "."};
+    }
+}
+
+
+export class RuntimeAssignment extends RuntimeExpression<Assignment> {
+
+    public lhs: RuntimeExpression.LValue;
+    public rhs: RuntimeExpression.RValue;
+
+    private index = 0;
+
+    public constructor (model: Assignment, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.lhs = <RuntimeExpression.LValue>this.model.lhs.createRuntimeExpression(this);
+        this.rhs = <RuntimeExpression.RValue>this.model.rhs.createRuntimeExpression(this);
+    }
+
+	protected upNextImpl() {
+        if (this.index === 0) {
+            // push rhs then lhs on the stack so that they run left to right (although order is technically indeterminately sequenced)
+            this.sim.push(this.rhs);
+            this.sim.push(this.lhs);
+            ++this.index;
+        }
+        // index 1 do nothing, go to stepForward
+	}
+	
+	protected stepForwardImpl() {
+        this.lhs.evalResult!.writeValue(this.rhs.evalResult!);
+        this.setEvalResult(this.lhs.evalResult!);
+        this.done();
+	}
+}
 
 var beneathConversions = function(expr){
     while(isA(expr, Conversions.ImplicitConversion)){
@@ -683,12 +716,12 @@ export var CompoundAssignment  = Expression.extend({
                 findLhs = findLhs.childInstances.from; // strip conversions off left operand
             }
 
-            var lhs = findLhs.evalValue;
-            var rhs = inst.rhs.evalValue;
+            var lhs = findLhs.evalResult;
+            var rhs = inst.rhs.evalResult;
 
             lhs.writeValue(rhs);
 
-            inst.setEvalValue(lhs);
+            inst.setEvalResult(lhs);
             this.done(sim, inst);
         }
     },
@@ -902,15 +935,15 @@ export var BinaryOperator  = Expression.extend({
             if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
                 // Just evaluate to returned value from assignment operator.
-                inst.setEvalValue(inst.childInstances.funcCall.evalValue);
+                inst.setEvalResult(inst.childInstances.funcCall.evalResult);
                 this.done(sim, inst);
                 //return true;
             }
 
             else{
-                var result = this.operate(inst.childInstances.left.evalValue, inst.childInstances.right.evalValue, sim, inst);
+                var result = this.operate(inst.childInstances.left.evalResult, inst.childInstances.right.evalResult, sim, inst);
                 if (result) {
-                    inst.setEvalValue(result);
+                    inst.setEvalResult(result);
                 }
                 this.done(sim, inst);
             }
@@ -1023,7 +1056,7 @@ export var BinaryOperatorLogical = BinaryOperator.extend({
             return true;
         }
         else if (inst.index === "subexpressions2"){
-            if(inst.childInstances.left.evalValue.value == this.shortCircuitValue){
+            if(inst.childInstances.left.evalResult.value == this.shortCircuitValue){
                 inst.index = "shortCircuit";
                 return false;
             }
@@ -1041,7 +1074,7 @@ export var BinaryOperatorLogical = BinaryOperator.extend({
             return Expressions.BinaryOperator.stepForward.apply(this, arguments);
         }
         else{ // "shortCirucit"
-            inst.setEvalValue(inst.childInstances.left.evalValue);
+            inst.setEvalResult(inst.childInstances.left.evalResult);
             this.done(sim, inst);
         }
     },
@@ -1442,7 +1475,7 @@ export var UnaryOp  = Expression.extend({
             if (this.funcCall){
                 // Assignment operator function call has already taken care of the "assignment".
                 // Just evaluate to returned value from assignment operator.
-                inst.setEvalValue(inst.childInstances.funcCall.evalValue);
+                inst.setEvalResult(inst.childInstances.funcCall.evalResult);
                 this.done(sim, inst);
                 //return true;
             }
@@ -1485,10 +1518,10 @@ export var Dereference = UnaryOp.extend({
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
         if (isA(this.operand.type.ptrTo, Types.Function)){
             //function pointer
-            inst.setEvalValue(inst.childInstances.operand.evalValue);
+            inst.setEvalResult(inst.childInstances.operand.evalResult);
         }
         else{
-            var ptr = inst.childInstances.operand.evalValue;
+            var ptr = inst.childInstances.operand.evalResult;
             var addr = ptr.rawValue();
 
 
@@ -1524,28 +1557,28 @@ export var Dereference = UnaryOp.extend({
                 DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
             }
 
-            inst.setEvalValue(obj);
+            inst.setEvalResult(obj);
         }
     },
 
-    describeEvalValue : function(depth, sim, inst){
-        if (inst && inst.evalValue){
-            return inst.evalValue.describe();
+    describeEvalResult : function(depth, sim, inst){
+        if (inst && inst.evalResult){
+            return inst.evalResult.describe();
         }
         else if (depth == 0){
             return {message: "the result of " + this.getSourceText()};
         }
         else{
-            return {message: "the object at address " + this.operand.describeEvalValue(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
+            return {message: "the object at address " + this.operand.describeEvalResult(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
         }
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalValue){
-            return {message: "We will find the object at address " + inst.childInstances.operand.evalValue.describe().message}
+        if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalResult){
+            return {message: "We will find the object at address " + inst.childInstances.operand.evalResult.describe().message}
         }
         else{
-            return {message: "The result of " + this.operand.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
+            return {message: "The result of " + this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
         }
     }
 });
@@ -1564,9 +1597,9 @@ export var AddressOf = UnaryOp.extend({
     },
 
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var obj = inst.childInstances.operand.evalValue;
+        var obj = inst.childInstances.operand.evalResult;
 
-        inst.setEvalValue(obj.getPointerTo());
+        inst.setEvalResult(obj.getPointerTo());
     }
 });
 
@@ -1594,8 +1627,8 @@ export var UnaryPlus = UnaryOp.extend({
     },
 
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.operand.evalValue.value;
-        inst.setEvalValue(Value.instance(val, this.type));
+        var val = inst.childInstances.operand.evalResult.value;
+        inst.setEvalResult(Value.instance(val, this.type));
     }
 });
 
@@ -1622,8 +1655,8 @@ export var UnaryMinus = UnaryOp.extend({
     },
 
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.operand.evalValue.value;
-        inst.setEvalValue(Value.instance(-val, this.type));
+        var val = inst.childInstances.operand.evalResult.value;
+        inst.setEvalResult(Value.instance(-val, this.type));
     }
 });
 
@@ -1644,7 +1677,7 @@ export var LogicalNot = UnaryOp.extend({
     },
 
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalValue(Value.instance(!inst.childInstances.operand.evalValue.value, this.type));
+        inst.setEvalResult(Value.instance(!inst.childInstances.operand.evalResult.value, this.type));
     }
 });
 
@@ -1677,7 +1710,7 @@ export var Prefix = UnaryOp.extend({
         }
     },
     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var obj = inst.childInstances.operand.evalValue;
+        var obj = inst.childInstances.operand.evalResult;
         var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
 
         var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
@@ -1702,11 +1735,11 @@ export var Prefix = UnaryOp.extend({
         }
 
         obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-        inst.setEvalValue(obj);
+        inst.setEvalResult(obj);
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evdesc = this.operand.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
+        var evdesc = this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
         var incDec = this.operator === "++" ? "incremented" : "decremented";
         return {message: "First, the value of " + evdesc + " will be " + incDec + " by one. Then this expression as a whole will evaluate to the new value of " + evdesc + "."};
     }
@@ -1742,7 +1775,7 @@ export var Increment  = Expression.extend({
 
         // Evaluate subexpressions
         if (inst.index == "operate"){
-            var obj = inst.childInstances.operand.evalValue;
+            var obj = inst.childInstances.operand.evalResult;
             var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
             var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
             var newRawValue = oldValue.rawValue() + amount;
@@ -1764,7 +1797,7 @@ export var Increment  = Expression.extend({
 
 
             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-            inst.setEvalValue(oldValue);
+            inst.setEvalResult(oldValue);
             this.done(sim, inst);
         }
     }
@@ -1798,7 +1831,7 @@ export var Decrement  = Expression.extend({
 
         // Evaluate subexpressions
         if (inst.index == "operate"){
-            var obj = inst.childInstances.operand.evalValue;
+            var obj = inst.childInstances.operand.evalResult;
             var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
             var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
             var newRawValue = oldValue.rawValue() - amount;
@@ -1818,7 +1851,7 @@ export var Decrement  = Expression.extend({
             }
 
             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-            inst.setEvalValue(oldValue);
+            inst.setEvalResult(oldValue);
             this.done(sim, inst);
         }
     }
@@ -1876,12 +1909,12 @@ export var Subscript  = Expression.extend({
                 return true;
             }
             else if (inst.index === "operate"){
-                inst.childInstances.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.childInstances.operand.evalValue);
+                inst.childInstances.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.childInstances.operand.evalResult);
                 inst.index = "done";
                 return true;
             }
             else{
-                inst.setEvalValue(inst.childInstances.funcCall.evalValue);
+                inst.setEvalResult(inst.childInstances.funcCall.evalResult);
                 this.done(sim, inst);
                 return true;
             }
@@ -1898,8 +1931,8 @@ export var Subscript  = Expression.extend({
             // sub and operand are already evaluated
             // result of operand should be a pointer
             // result of sub should be an integer
-            var offset = inst.childInstances.arg.evalValue;
-            var ptr = inst.childInstances.operand.evalValue;
+            var offset = inst.childInstances.arg.evalResult;
+            var ptr = inst.childInstances.operand.evalResult;
             ptr = Value.instance(ptr.value+offset.value*this.type.size, ptr.type);
             var addr = ptr.value;
 
@@ -1932,7 +1965,7 @@ export var Subscript  = Expression.extend({
                 DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
             }
 
-            inst.setEvalValue(obj);
+            inst.setEvalResult(obj);
             this.done(sim, inst);
         }
     },
@@ -2002,8 +2035,8 @@ export var Dot  = Expression.extend({
         else{
             // entity may be MemberVariableEntity but should never be an AutoEntity
             assert(!isA(this.entity, AutoEntity));
-            inst.setObjectAccessedFrom(inst.childInstances.operand.evalValue);
-            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
+            inst.setObjectAccessedFrom(inst.childInstances.operand.evalResult);
+            inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
             this.done(sim, inst);
             return true;
         }
@@ -2064,12 +2097,12 @@ export var Arrow  = Expression.extend({
     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (inst.index == "operate"){
-            var addr = inst.childInstances.operand.evalValue;
+            var addr = inst.childInstances.operand.evalResult;
             if (Types.Pointer.isNull(addr.rawValue())){
                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
             }
             inst.setObjectAccessedFrom(sim.memory.dereference(addr, this.operand.type.ptrTo));
-            inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
+            inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
 
             this.done(sim, inst);
             return true;
@@ -2092,7 +2125,7 @@ export var PREDEFINED_FUNCTIONS = {
         return Value.instance(Math.floor(sim.nextRandom() * 32767), Types.Int.instance());
     },
     "assert" : function(args, sim, inst){
-        if(!args[0].evalValue.value){
+        if(!args[0].evalResult.value){
             sim.assertionFailure("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
         }
         return Value.instance("", Types.Void.instance());
@@ -2102,7 +2135,7 @@ export var PREDEFINED_FUNCTIONS = {
         return Value.instance("", Types.Void.instance());
     },
     "pauseIf" : function(args, sim, inst){
-        if(args[0].evalValue.value){
+        if(args[0].evalResult.value){
             sim.pause();
         }
         return Value.instance("", Types.Void.instance());
@@ -2365,19 +2398,19 @@ export var FunctionCall = Expression.extend({
         else if (inst.index == "return"){
             // Unless return type is void, we will have a return object
             if (this.returnByReference) {
-                inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
+                inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
             }
             else if (this.returnByValue){
                 if (isA(this.type, Types.Class)) {
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
+                    inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
                 }
                 else{
-                    inst.setEvalValue(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
+                    inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
                 }
             }
             else {
                 // nothing to do it must be void
-                inst.setEvalValue(Value.instance("", Types.Void.instance()));
+                inst.setEvalResult(Value.instance("", Types.Void.instance()));
             }
 
             inst.func.loseControl();
@@ -2408,7 +2441,7 @@ export var FunctionCall = Expression.extend({
                 assert(preFn, "Cannot find internal implementation of magic function.");
 
                 // Note: magic functions just want args, not initializers (because they're magic!)
-                inst.setEvalValue(preFn(inst.args, sim, inst));
+                inst.setEvalResult(preFn(inst.args, sim, inst));
                 this.done(sim, inst);
                 return false;
             }
@@ -2455,7 +2488,7 @@ export var FunctionCall = Expression.extend({
         };
     },
 
-    // TODO: what is this? should it be describeEvalValue? or explain? probably not just describe since that is for objects
+    // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
     describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var desc = {};
         desc.message = "a call to " + this.func.describe(sim).message;
@@ -2574,13 +2607,13 @@ export var FunctionCallExpression  = Expression.extend({
             // it not animate in most cases (since that would be annoying)
             if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function) ||
                     !isA(this.operand.entity, FunctionEntity)){
-                inst.pointedFunction = inst.operand.evalValue.rawValue();
+                inst.pointedFunction = inst.operand.evalResult.rawValue();
             }
-            // TODO: hack on next line has || inst.operand.evalValue
+            // TODO: hack on next line has || inst.operand.evalResult
             // TODO: remember why that's a hack and not just the right thing to do
             if (isA(this.boundFunction, MemberFunctionEntity)) {
                 if (isA(this.operand.type, Types.Class)) {
-                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalValue);
+                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalResult);
                 }
                 else {
                     inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.contextualReceiver());
@@ -2594,7 +2627,7 @@ export var FunctionCallExpression  = Expression.extend({
             return true;
         }
         else {
-            inst.setEvalValue(inst.funcCall.evalValue);
+            inst.setEvalResult(inst.funcCall.evalResult);
             this.done(sim, inst);
         }
         return true;
@@ -2710,7 +2743,7 @@ export var NewExpression = Expression.extend({
 
             // If it's an array, we need to use the dynamic length
             if (this.dynamicLength) {
-                var len = inst.dynamicLength.evalValue.rawValue();
+                var len = inst.dynamicLength.evalResult.rawValue();
                 if (len === 0){
                     sim.alert("Sorry, but I can't allocate a dynamic array of zero length. I know there's technically an old C-style hack that uses zero-length arrays, but hey, I'm just a lobster. I'll go ahead and allocate an array of length 1 instead.");
                     len = 1;
@@ -2740,11 +2773,11 @@ export var NewExpression = Expression.extend({
         else if (inst.index === "operate") {
             if (isA(this.heapType, Types.Array)){
                 // RTTI for array pointer
-                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
+                inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
             }
             else{
                 // RTTI for object pointer
-                inst.setEvalValue(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
+                inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
             }
             sim.i_pendingNews.pop();
             this.done(sim, inst);
@@ -2806,7 +2839,7 @@ export var Delete  = Expression.extend({
     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
         if (!inst.alreadyDestructed){
-            var ptr = inst.childInstances.operand.evalValue;
+            var ptr = inst.childInstances.operand.evalResult;
             if (Types.Pointer.isNull(ptr.rawValue())){
                 this.done(sim, inst);
                 return;
@@ -2861,7 +2894,7 @@ export var Delete  = Expression.extend({
             }
         }
         else{
-            var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalValue.value, inst);
+            var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalResult.value, inst);
             this.done(sim, inst);
         }
 
@@ -2938,7 +2971,7 @@ export var DeleteArray = Delete.extend({
     _name: "DeleteArray",
 
     stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var ptr = inst.childInstances.operand.evalValue;
+        var ptr = inst.childInstances.operand.evalResult;
         deleteHeapArray(sim, inst, ptr);
         this.done(sim, inst);
     },
@@ -2998,10 +3031,10 @@ export var ConstructExpression = Expression.extend({
         }
         else{
             if (isA(this.type, Types.class)){
-                inst.setEvalValue(inst.tempObject);
+                inst.setEvalResult(inst.tempObject);
             }
             else{
-                inst.setEvalValue(inst.tempObject.readValue());
+                inst.setEvalResult(inst.tempObject.readValue());
             }
             this.done(sim, inst);
         }
@@ -3023,7 +3056,10 @@ var identifierToText = function(qualId){
     }
 };
 
-export var Identifier  = Expression.extend({
+export class Identifier extends Expression {
+
+    public readonly entity: CPPEntity; // TODO: should this be NamedEntity? Does it make a difference?
+
     _name: "Identifier",
     valueCategory: "lvalue",
     initIndex: false,
@@ -3074,15 +3110,15 @@ export var Identifier  = Expression.extend({
 	},
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
+        inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
 
         this.done(sim, inst);
         return true;
     },
 
-    describeEvalValue : function(depth, sim, inst){
-        if (inst && inst.evalValue){
-            return inst.evalValue.describe();
+    describeEvalResult : function(depth, sim, inst){
+        if (inst && inst.evalResult){
+            return inst.evalResult.describe();
         }
         // Note don't care about depth since we always just use identifier
         else{
@@ -3093,7 +3129,7 @@ export var Identifier  = Expression.extend({
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         return {message: this.entity.name};
     }
-});
+}
 
 
 
@@ -3112,7 +3148,7 @@ export var ThisExpression  = Expression.extend({
     },
     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // Set this pointer with RTTI to point to receiver
-        inst.setEvalValue(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
+        inst.setEvalResult(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
         this.done(sim, inst);
     }
 });
@@ -3129,7 +3165,7 @@ export var EntityExpression  = Expression.extend({
 
     },
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalValue(this.entity.runtimeLookup(sim, inst));
+        inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
         this.done(sim, inst);
     }
 });
@@ -3189,12 +3225,12 @@ export var Literal  = Expression.extend({
 	},
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.evalValue = this.value;
+        inst.evalResult = this.value;
         this.done(sim, inst);
         return true;
     },
 
-    describeEvalValue : function(depth, sim, inst){
+    describeEvalResult : function(depth, sim, inst){
         var str = this.value.toString();
         return {name: str, message: str};
     }
@@ -3211,7 +3247,7 @@ export class StringLiteral extends Expression {
     public createRuntimeExpression(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression<Expression> {
         throw new Error("Method not implemented.");
     }
-    public describeEvalValue(depth: number): Description {
+    public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
     }
     _name: "StringLiteral",
@@ -3231,12 +3267,12 @@ export class StringLiteral extends Expression {
     },
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.evalValue = this.i_stringEntity.runtimeLookup(sim, inst);
+        inst.evalResult = this.i_stringEntity.runtimeLookup(sim, inst);
         this.done(sim, inst);
         return true;
     },
 
-    describeEvalValue : function(depth, sim, inst){
+    describeEvalResult : function(depth, sim, inst){
         return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
     }
 
@@ -3264,7 +3300,7 @@ export var Parentheses  = Expression.extend({
             return true;
         }
         else {
-            inst.setEvalValue(inst.childInstances.subexpression.evalValue);
+            inst.setEvalResult(inst.childInstances.subexpression.evalResult);
             this.done(sim, inst);
         }
         return true;

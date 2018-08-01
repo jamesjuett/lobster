@@ -60,9 +60,9 @@ var DoNothing = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalValue;
+        var evalValue = inst.childInstances.from.evalResult;
         // Note, we get the type from the evalValue to preserve RTTI
-        inst.setEvalValue(Value.instance(evalValue.value, evalValue.type));
+        inst.setEvalResult(Value.instance(evalValue.value, evalValue.type));
     }
 });
 
@@ -79,10 +79,10 @@ export var LValueToRValue = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalValue;
+        var evalValue = inst.childInstances.from.evalResult;
         // Note, we get the type from the evalValue to preserve RTTI
 
-        inst.setEvalValue(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
+        inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     },
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -95,20 +95,20 @@ export var LValueToRValue = ImplicitConversion.extend({
         }
     },
 
-    describeEvalValue : function(depth, sim, inst){
-        if (inst && inst.evalValue){
-            return inst.evalValue.describe();
+    describeEvalResult : function(depth, sim, inst){
+        if (inst && inst.evalResult){
+            return inst.evalResult.describe();
         }
         else if (depth == 0){
             return {message: "the value of " + this.getSourceText()};
         }
         else{
-            return {message: "the value of " + this.from.describeEvalValue(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
+            return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
         }
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "The value of " + this.from.describeEvalValue(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
+        return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
     }
 
 });
@@ -121,8 +121,8 @@ export var ArrayToPointer = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var arrObj = inst.childInstances.from.evalValue;
-        inst.setEvalValue(Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj)));
+        var arrObj = inst.childInstances.from.evalResult;
+        inst.setEvalResult(Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj)));
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -140,8 +140,8 @@ export var FunctionToPointer = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var func = inst.childInstances.from.evalValue;
-        inst.setEvalValue(Value.instance(func, this.type));
+        var func = inst.childInstances.from.evalResult;
+        inst.setEvalResult(Value.instance(func, this.type));
     },
 
     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -160,8 +160,8 @@ export var QualificationConversion = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalValue;
-        inst.setEvalValue(evalValue.getValue());
+        var evalValue = inst.childInstances.from.evalResult;
+        inst.setEvalResult(evalValue.getValue());
     }
 });
 
@@ -175,7 +175,7 @@ export var NullPointerConversion = DoNothing.extend({
         this.initParent(from, to, "prvalue");
     },
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalValue(Value.instance(0, this.type));
+        inst.setEvalResult(Value.instance(0, this.type));
     }
 });
 
@@ -197,8 +197,8 @@ export var PointerToBooleanConversion = ImplicitConversion.extend({
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalValue.value;
-        inst.setEvalValue(Value.instance(val != 0 ? true : false, this.type));
+        var val = inst.childInstances.from.evalResult.value;
+        inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
     }
 });
 
@@ -223,15 +223,15 @@ export var IntegralConversion = ImplicitConversion.extend({
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalValue.value;
+        var val = inst.childInstances.from.evalResult.value;
         if (isA(this.from.type, Types.Bool)){ // from bool
-            inst.setEvalValue(Value.instance(val ? 1 : 0, this.type));
+            inst.setEvalResult(Value.instance(val ? 1 : 0, this.type));
         }
         else if (isA(this.type, Types.Bool)){ // to bool
-            inst.setEvalValue(Value.instance(val != 0 ? true : false, this.type));
+            inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
         }
         else{
-            inst.setEvalValue(Value.instance(val, this.type));
+            inst.setEvalResult(Value.instance(val, this.type));
         }
     }
 });
@@ -249,12 +249,12 @@ export var IntegralFloatingConversion = ImplicitConversion.extend({
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         // I think only thing I really need here is to handle booleans gracefully
         // Adding 0.0 should do the trick.
-        var val = inst.childInstances.from.evalValue.value;
+        var val = inst.childInstances.from.evalResult.value;
         if (isA(this.from.type, Types.Bool)){ // bool to floating
-            inst.setEvalValue(Value.instance(val ? 1.0 : 0.0, this.type));
+            inst.setEvalResult(Value.instance(val ? 1.0 : 0.0, this.type));
         }
         else{
-            inst.setEvalValue(Value.instance(val, this.type));
+            inst.setEvalResult(Value.instance(val, this.type));
         }
     }
 });
@@ -269,12 +269,12 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
     },
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.from.evalValue.value;
+        var val = inst.childInstances.from.evalResult.value;
         if (isA(this.type, Types.Bool)) {
-            inst.setEvalValue(Value.instance(val != 0, this.type));
+            inst.setEvalResult(Value.instance(val != 0, this.type));
         }
         else{
-            inst.setEvalValue(Value.instance(Math.trunc(val), this.type));
+            inst.setEvalResult(Value.instance(Math.trunc(val), this.type));
         }
     }
 });
@@ -293,8 +293,8 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
 //     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //         // I think only thing I really need here is to handle booleans gracefully
 //         // Adding 0.0 should do the trick.
-//         var cstr = inst.childInstances.from.evalValue.value;
-//         inst.setEvalValue(Value.instance(cstr.split(""), Types.String));
+//         var cstr = inst.childInstances.from.evalResult.value;
+//         inst.setEvalResult(Value.instance(cstr.split(""), Types.String));
 //     }
 // });
 
@@ -308,8 +308,8 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
 //    },
 //
 //    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//        var arrObj = inst.childInstances.from.evalValue.object;
-//        inst.setEvalValue(Value.instance(arrObj.address, this.type));
+//        var arrObj = inst.childInstances.from.evalResult.object;
+//        inst.setEvalResult(Value.instance(arrObj.address, this.type));
 //    }
 //});
 
@@ -326,15 +326,15 @@ export var IntegralPromotion = ImplicitConversion.extend({
 
     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalValue.value;
+        var val = inst.childInstances.from.evalResult.value;
         if (isA(this.from.type, Types.Bool)){ // from bool
-            inst.setEvalValue(Value.instance(val ? 1 : 0, this.type));
+            inst.setEvalResult(Value.instance(val ? 1 : 0, this.type));
         }
         else if (isA(this.type, Types.Bool)){ // to bool
-            inst.setEvalValue(Value.instance(val != 0 ? true : false, this.type));
+            inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
         }
         else{
-            inst.setEvalValue(Value.instance(val, this.type));
+            inst.setEvalResult(Value.instance(val, this.type));
         }
     }
 });
