@@ -496,8 +496,6 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     public readonly stepsTaken: number;
     public readonly isActive: boolean = false;
 
-    private isDone: boolean = false;
-
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
@@ -535,10 +533,6 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
 
     public upNext() {
         this.observable.send("upNext");
-        if (this.isDone) {
-            this.sim.pop();
-            return;
-        }
 
         for(var key in this.pauses){
             var p = this.pauses[key];
@@ -556,10 +550,6 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     }
 
     protected abstract upNextImpl() : void;
-
-    protected done() {
-        this.isDone = true;
-    }
 
     public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
@@ -643,13 +633,6 @@ export abstract class RuntimePotentialFullExpression<Construct_type extends Pote
         if (this.model.temporaryDeallocator) {
             this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
         }
-    }
-
-    protected done() {
-        if (this.temporaryDeallocator) {
-            this.sim.push(this.temporaryDeallocator);
-        }
-        super.done();
     }
 }
 

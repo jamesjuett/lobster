@@ -25,6 +25,12 @@ export function addDefaultPropertiesToPrototype<T>(ctor: {prototype: T}, props: 
     assign(ctor.prototype, props);
 }
 
+export function createMethodMixin<TargetType, MethodName extends keyof TargetType>(mix: TargetType[MethodName]) {
+    return (targetProto: TargetType, name: MethodName) => {
+        targetProto[name] = mix;
+    }
+}
+
 export type Constructor<T = {}> = new (...args: any[]) => T;
 
 

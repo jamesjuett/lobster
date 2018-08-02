@@ -126,7 +126,6 @@ export abstract class RuntimeExpression<Construct_type extends Expression = Expr
         this.observable.send("evaluated", this.evalResult);
     }
 
-
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //     // Evaluate subexpressions
     //     if (inst.index === "subexpressions"){
@@ -237,7 +236,45 @@ export class UnsupportedExpression extends Expression {
 
 
 
+export class SimpleRuntimeExpression<Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
 
+    private index = 0;
+
+    protected abstract subexpressions: RuntimeAssignment[]
+
+    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+
+    protected upNextImpl() {
+        if (this.index === 0) { // subexpressions
+            // push subexpressions in reverse order since it's a stack
+            for (let i = this.subexpressions.length - 1; i >= 0; --i) {
+                this.sim.push(this.subexpressions[i]);
+            }
+            this.index = 1; // operate
+        }
+        else if (this.index === 2) { // cleanup
+            if (this.temporaryDeallocator) {
+                this.sim.push(this.temporaryDeallocator);
+                this.index === 3; // done
+            }
+            else {
+                this.sim.pop();
+            }
+        }
+        else if (this.index === 3) {
+            this.sim.pop();
+        }
+    }
+    
+    protected stepForwardImpl() {
+        this.operate();
+        this.index = 2; // cleanup
+    }
+
+    protected abstract operate() : void;
+}
 
 
 
@@ -487,6 +524,8 @@ export class Assignment extends Expression {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
 
+        // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
+
         if (lhs.type.isConst) {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
@@ -734,7 +773,10 @@ export var CompoundAssignment  = Expression.extend({
     }
 });
 
-export var BinaryOperator  = Expression.extend({
+
+
+
+export class BinaryOperator extends Expression {
     _name: "BinaryOperator",
     valueCategory : "prvalue",
     isOverload : false,
@@ -958,7 +1000,6 @@ export var BinaryOperator  = Expression.extend({
     }
 });
 
-// TODO cv-combined types and composite pointer types
 
 export var BinaryOperatorRelational = BinaryOperator.extend({
     _name: "BinaryOperatorRelational",
