@@ -122,11 +122,11 @@ export var defaultUserTypeNames = {
 };
 
 export function sameType(type1: Type, type2: Type) {
-    return type1 && type2 && type1.sameType(type2);
+    return type1.sameType(type2);
 };
 
 export function similarType(type1: Type, type2: Type) {
-    return type1 && type2 && type1.similarType(type2);
+    return type1.similarType(type2);
 };
 
 // TODO subType function is dangerous :(
@@ -433,44 +433,44 @@ export class Type {
 /**
  * Used when a compilation error causes an unknown type.
  */
-export class Unknown extends Type {
+// export class Unknown extends Type {
 
-    public readonly size!: number;
-    protected readonly precedence!: number;
+//     public readonly size!: number;
+//     protected readonly precedence!: number;
 
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Unknown,
-        {
-            size: 0,
-            precedence: 0
-        }
-    );
+//     protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
+//         Unknown,
+//         {
+//             size: 0,
+//             precedence: 0
+//         }
+//     );
 
-    public sameType(other: Type) : boolean {
-        return false;
-    }
+//     public sameType(other: Type) : boolean {
+//         return false;
+//     }
 
-    public similarType(other: Type) : boolean{
-        return false;
-    }
+//     public similarType(other: Type) : boolean{
+//         return false;
+//     }
 
-	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return "<unknown>";
-    }
+// 	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+//         return "<unknown>";
+//     }
     
-	public englishString(plural: boolean) {
-		return "an unknown type";
-    }
+// 	public englishString(plural: boolean) {
+// 		return "an unknown type";
+//     }
     
-	public valueToString(value: RawValueType) {
-        Util.assert(false);
-        return "";
-    }
+// 	public valueToString(value: RawValueType) {
+//         Util.assert(false);
+//         return "";
+//     }
     
-    public isValueValid(value: RawValueType) {
-        return false;
-    }
-}
+//     public isValueValid(value: RawValueType) {
+//         return false;
+//     }
+// }
 
 builtInTypes["unknown"] = Unknown;
 
