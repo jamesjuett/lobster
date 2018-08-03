@@ -110,7 +110,7 @@ export abstract class Expression extends PotentialFullExpression {
 
 }
 
-type CompiledExpression<T extends Type, VC extends ValueCategory> = Expression & {type: T} & {valueCategory: VC};
+type CompiledExpression<E extends Expression, T extends Type, VC extends ValueCategory> = E & {type: T} & {valueCategory: VC};
 
 interface VCResultTypes<T extends Type> {
     prvalue: T extends ObjectType ? Value<T> : never;
@@ -118,7 +118,8 @@ interface VCResultTypes<T extends Type> {
     lvalue: T extends ObjectType ? CPPObject<T> : never; // TODO: add functions/arrays as possible results
 }
 
-export class RuntimeExpression<T extends Type, VC extends ValueCategory, Construct_type extends CompiledExpression<T,VC>> extends RuntimePotentialFullExpression<Construct_type> {
+export class RuntimeExpression<E extends Expression, T extends Type, VC extends ValueCategory> extends RuntimePotentialFullExpression<CompiledExpression<E,T,VC>> {
+    
     protected stepForwardImpl(): void {
         throw new Error("Method not implemented.");
     }
@@ -128,17 +129,12 @@ export class RuntimeExpression<T extends Type, VC extends ValueCategory, Constru
     
     public readonly evalResult?: VCResultTypes<T>[VC];
 
-    public constructor(model: CompiledExpression<T,VC>, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: CompiledExpression<E,T,VC>, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
-    public setEvalResult(value: Value | CPPObject) {
-        (<Value | CPPObject>this.evalResult) = value;
-        this.observable.send("evaluated", this.evalResult);
-        let y! : CompiledExpression<AtomicType, "lvalue">;
-        let c! : ExecutableRuntimeConstruct;
-        let x = new RuntimeExpression(y, c);
-        x.evalResult;
+    public setEvalResult(value: VCResultTypes<T>[VC]) {
+        (<VCResultTypes<T>[VC]>this.evalResult) = value;
     }
 
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
