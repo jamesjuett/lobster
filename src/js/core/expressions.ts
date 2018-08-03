@@ -3,9 +3,9 @@ import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, ExecutableRun
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
-import { Type, Unknown, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE } from "./types";
+import { Type, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE, AtomicType, Double, Float } from "./types";
 import { Value } from "./runtimeEnvironment";
-import { standardConversion, standardConversion1 } from "./standardConversions";
+import { standardConversion, convertToPRValue, integralPromotion, usualArithmeticConversions } from "./standardConversions";
 import { Simulation } from "./Simulation";
 import { CPPEntity } from "./entities";
 
@@ -36,6 +36,8 @@ export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
  *
  */
 
+export type ValueCategory = "prvalue" | "xvalue" | "lvalue";
+
 export interface ExpressionASTNode extends ASTNode {
 
 }
@@ -47,7 +49,7 @@ export abstract class Expression extends PotentialFullExpression {
     }
 
     public abstract readonly valueCategory: string;
-    public abstract readonly type: Type;
+    public abstract readonly type: Type?;
     public readonly conversionLength: number = 0;
 
     protected constructor(context: ExecutableConstructContext) {
@@ -90,12 +92,8 @@ export abstract class Expression extends PotentialFullExpression {
 
     }
 
-
-
-
-
-    public get isWellTyped() {
-        return this.type && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
+    public isTyped() : this is TypedExpression {
+        return !!this.type;// && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
     }
 
 
@@ -112,18 +110,35 @@ export abstract class Expression extends PotentialFullExpression {
 
 }
 
+type CompiledExpression<T extends Type, VC extends ValueCategory> = Expression & {type: T} & {valueCategory: VC};
 
-export abstract class RuntimeExpression<Construct_type extends Expression = Expression> extends RuntimePotentialFullExpression<Construct_type> {
+interface VCResultTypes<T extends Type> {
+    prvalue: T extends ObjectType ? Value<T> : never;
+    xvalue: T extends ObjectType ? CPPObject<T> : never;
+    lvalue: T extends ObjectType ? CPPObject<T> : never; // TODO: add functions/arrays as possible results
+}
+
+export class RuntimeExpression<T extends Type, VC extends ValueCategory, Construct_type extends CompiledExpression<T,VC>> extends RuntimePotentialFullExpression<Construct_type> {
+    protected stepForwardImpl(): void {
+        throw new Error("Method not implemented.");
+    }
+    protected upNextImpl(): void {
+        throw new Error("Method not implemented.");
+    }
     
-    public readonly evalResult?: Value | CPPObject;
+    public readonly evalResult?: VCResultTypes<T>[VC];
 
-    public constructor(model: Construct_type, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: CompiledExpression<T,VC>, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
     public setEvalResult(value: Value | CPPObject) {
         (<Value | CPPObject>this.evalResult) = value;
         this.observable.send("evaluated", this.evalResult);
+        let y! : CompiledExpression<AtomicType, "lvalue">;
+        let c! : ExecutableRuntimeConstruct;
+        let x = new RuntimeExpression(y, c);
+        x.evalResult;
     }
 
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -144,17 +159,8 @@ export abstract class RuntimeExpression<Construct_type extends Expression = Expr
 
 }
 
-export namespace RuntimeExpression {
-    export interface LValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
-        public readonly evalResult?: CPPObject<T>;
-    }
-    export interface RValue<T extends ObjectType = ObjectType, Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
-        public readonly evalResult?: Value<T>;
-    }
-}
-
 export class UnsupportedExpression extends Expression {
-    public readonly type = new Unknown();
+    public readonly type = UNKNOWN_TYPE;
     public readonly valueCategory = "prvalue";
 
     public constructor(context: ExecutableConstructContext, unsupportedName: string) {
@@ -240,7 +246,7 @@ export class SimpleRuntimeExpression<Construct_type extends Expression = Express
 
     private index = 0;
 
-    protected abstract subexpressions: RuntimeAssignment[]
+    protected abstract subexpressions: RuntimeExpression[]
 
     public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -254,29 +260,36 @@ export class SimpleRuntimeExpression<Construct_type extends Expression = Express
             }
             this.index = 1; // operate
         }
-        else if (this.index === 2) { // cleanup
-            if (this.temporaryDeallocator) {
-                this.sim.push(this.temporaryDeallocator);
-                this.index === 3; // done
-            }
-            else {
-                this.sim.pop();
-            }
-        }
-        else if (this.index === 3) {
-            this.sim.pop();
-        }
     }
     
     protected stepForwardImpl() {
         this.operate();
-        this.index = 2; // cleanup
+        this.done();
     }
 
     protected abstract operate() : void;
 }
 
 
+interface LRExpression extends Expression {
+    left: Expression;
+    right: Expression;
+};
+
+abstract class LRRuntimeExpression<Construct_type extends LRExpression> extends SimpleRuntimeExpression<Construct_type> {
+    
+    public left: RuntimeExpression.RValue;
+    public right: RuntimeExpression.RValue;
+
+    protected subexpressions: RuntimeExpression[];
+
+    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.subexpressions = [this.left, this.right];
+    }
+}
 
 
 
@@ -331,32 +344,13 @@ export class Comma extends Expression {
     }
 }
 
-export class RuntimeComma extends RuntimeExpression<Comma> {
 
-    public left: RuntimeExpression;
-    public right: RuntimeExpression;
+export class RuntimeComma extends LRRuntimeExpression<Comma> {
 
-    private index = "subexpressions";
-
-    public constructor (model: Comma, parent: ExecutableRuntimeConstruct) {
-        super(model, parent);
-        this.left = this.model.left.createRuntimeExpression(this);
-        this.right = this.model.right.createRuntimeExpression(this);
+    protected operate() {
+        this.setEvalResult(this.right.evalResult!);
     }
 
-	protected upNextImpl() {
-        if (this.index === "subexpressions") {
-            // push right then left on the stack so that they run left to right
-            this.sim.push(this.right);
-            this.sim.push(this.left);
-            this.index = "operate";
-        }
-	}
-	
-	protected stepForwardImpl() {
-        this.setEvalResult(this.right.evalResult!);
-        this.done();
-	}
 }
 
 export class Ternary extends Expression {
@@ -382,10 +376,10 @@ export class Ternary extends Expression {
 
         // If one of the expressions is a prvalue, attempt to make the other one as well
         if (then.valueCategory === "prvalue" && otherwise.valueCategory === "lvalue"){
-            otherwise = standardConversion1(otherwise);
+            otherwise = convertToPRValue(otherwise);
         }
         else if (otherwise.valueCategory === "prvalue" && then.valueCategory === "lvalue"){
-            this.then = standardConversion1(then);
+            this.then = convertToPRValue(then);
         }
 
         this.attach(this.then = then);
@@ -483,14 +477,6 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
 	}
 }
 
-/**
- * @property {Expression} lhs
- * @property {?Expression} rhs - only available after compilation. may be null, either if lhs has compilation errors
- * and isn't well-typed, or if this is an overloaded assignment.
- * @property {?FunctionCall} funcCall - only available after compilation. may be null, either if lhs has compilation
- * errors and isn't well-typed, or if this is a regular, non-overloaded assignment
- *
- */
 export class Assignment extends Expression {
     // public readonly 
     // valueCategory : "lvalue",
@@ -643,33 +629,28 @@ export class Assignment extends Expression {
 }
 
 
-export class RuntimeAssignment extends RuntimeExpression<Assignment> {
+export interface CompiledAssignment extends CompiledExpression {
+    public readonly lhs: Expression.LValue;
+    public readonly rhs: Expression.RValue;
+}
+
+
+export class RuntimeAssignment extends SimpleRuntimeExpression<Assignment> {
 
     public lhs: RuntimeExpression.LValue;
     public rhs: RuntimeExpression.RValue;
-
-    private index = 0;
+    protected subexpressions: RuntimeExpression<Expression>[];
 
     public constructor (model: Assignment, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.lhs = <RuntimeExpression.LValue>this.model.lhs.createRuntimeExpression(this);
         this.rhs = <RuntimeExpression.RValue>this.model.rhs.createRuntimeExpression(this);
+        this.subexpressions = [this.rhs, this.lhs];
     }
 
-	protected upNextImpl() {
-        if (this.index === 0) {
-            // push rhs then lhs on the stack so that they run left to right (although order is technically indeterminately sequenced)
-            this.sim.push(this.rhs);
-            this.sim.push(this.lhs);
-            ++this.index;
-        }
-        // index 1 do nothing, go to stepForward
-	}
-	
-	protected stepForwardImpl() {
+	protected operate() {
         this.lhs.evalResult!.writeValue(this.rhs.evalResult!);
         this.setEvalResult(this.lhs.evalResult!);
-        this.done();
 	}
 }
 
@@ -774,10 +755,148 @@ export var CompoundAssignment  = Expression.extend({
 });
 
 
+export abstract class BinaryOperator extends Expression {
+    
+    public abstract readonly type: AtomicType?;
+    public readonly valueCategory: string = "rvalue";
+
+    public abstract readonly left: Expression;
+    public abstract readonly right: Expression;
+
+}
+
+export abstract class RuntimeBinaryOperator<Construct_type extends BinaryOperator = BinaryOperator> extends RuntimeExpression<Construct_type> {
+
+}
 
 
-export class BinaryOperator extends Expression {
-    _name: "BinaryOperator",
+// type CPPConstructPropertyNames<C extends CPPConstruct> = { [K in keyof C]: C[K] extends (CPPConstruct|null) ? K : never }[keyof C];
+// type CPPConstructProperties<C extends CPPConstruct> = {[P in CPPConstructPropertyNames<C>]: NonNullable<C[P]>};
+
+// let x : CPPConstructProperties<Assignment> = <any>2;
+// let y : { [K in keyof Assignment]: Assignment[K] }//[keyof Assignment]
+// let z : CPPConstructPropertyNames<Assignment>
+// let w : { [K in keyof Assignment]: Assignment[K] extends ( null | undefined) ? K : never };
+// let a = x;
+// a.
+
+// class Test<K extends keyof Test<K>> {
+//     blah: number;
+
+//     public constructor(){
+//         this.blah = 5;
+//     }
+// }
+
+// let x : Test<"blah">;
+
+// export type Compiled<Construct_type extends CPPConstruct> = Construct_type & {
+//     []
+// }
+
+abstract class SimpleArithmeticBinaryOperator extends BinaryOperator {
+    
+    public readonly type: AtomicType?;
+
+    public readonly left: Expression;
+    public readonly right: Expression;
+
+    public readonly operator: string;
+
+    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression, operator: string) {
+        super(context);
+        this.operator = operator;
+        // Arithmetic types are required
+        if (!left.isTyped() || !right.isTyped()) {
+            this.type = null;
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+        
+        if (!left.type.isArithmeticType || !right.type.isArithmeticType) {
+            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
+            this.type = null;
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+
+        ({left, right} = usualArithmeticConversions(left, right));
+
+        
+        if (!sameType(left.type!, right.type!)) {
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
+        }
+
+        this.type = <AtomicType>left.type; //NOTE: this cast is valid since arithmeticType implies AtomicType
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+    }
+}
+
+export class MultiplicationOperator extends SimpleArithmeticBinaryOperator {
+    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+        return new RuntimeMultiplicationOperator
+    }
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export class RuntimeMultiplicationOperator extends LRRuntimeExpression<MultiplicationOperator> {
+    public operate() {
+        this.setEvalResult(this.left.evalResult)
+    }
+}
+
+"*": BinaryOperator.extend({
+    _name: "BinaryOperator[*]",
+    requiresArithmeticOperands : true,
+
+    operate : function(left, right, sim, inst){
+        return Value.instance(left.value * right.value, this.left.type); // TODO match C++ arithmetic
+    }
+
+}),
+"/": BinaryOperator.extend({
+    _name: "BinaryOperator[/]",
+    requiresArithmeticOperands : true,
+
+    operate : function(left, right, sim, inst){
+        if (this.left.type.isIntegralType){
+            return Value.instance(Util.integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
+        }
+        else{
+            return Value.instance(Util.floatingDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
+        }
+
+    }
+
+}),
+"%": BinaryOperator.extend({
+    _name: "BinaryOperator[%]",
+    requiresArithmeticOperands : true,
+
+    typeCheck : function(){
+        if (!Expressions.BinaryOperator.typeCheck.apply(this)){
+            return false;
+        }
+        else if(this.left.type.isIntegralType && this.right.type.isIntegralType){
+            return true;
+        }
+        else{
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
+        }
+    },
+
+    operate : function(left, right, sim, inst){
+        return Value.instance(modulo(left.value, right.value), this.left.type); // TODO match C++ arithmetic
+    }
+
+}),
+
+export class OldBinaryOperator extends Expression {
     valueCategory : "prvalue",
     isOverload : false,
     i_childrenToExecute : ["left", "right"],
@@ -808,11 +927,6 @@ export class BinaryOperator extends Expression {
     compile : function(){
 
         // Compile left
-        var auxLeft = CPPConstruct.create(this.ast.left, {parent: this, auxiliary: true});
-        var auxRight = CPPConstruct.create(this.ast.right, {parent: this, auxiliary: true});
-
-        auxLeft.compile();
-        auxRight.compile();
 
         // If either has problems that prevent us from determining type, nothing more can be done
         if (!auxLeft.isWellTyped() || !auxRight.isWellTyped()){
@@ -890,54 +1004,11 @@ export class BinaryOperator extends Expression {
         this.compileTemporarires();
     },
 
-    usualArithmeticConversions : function(){
-        // Only do conversions if both are arithmetic
-        if (!this.left.type.isArithmeticType || !this.right.type.isArithmeticType){
-            return;
-        }
-
-        // TODO If either has scoped enumeration type, no conversions are performed
-
-        // TODO If either is long double, the other shall be converted to long double
-
-        // If either is double, the other shall be converted to double
-        if (isA(this.left.type, Types.Double)){
-            this.right = standardConversion(this.right, Types.Double.instance(), {suppressLTR:true});
-            return;
-        }
-        if (isA(this.right.type, Types.Double)){
-            this.left = standardConversion(this.left, Types.Double.instance(), {suppressLTR:true});
-            return;
-        }
-        // If either is float, the other shall be converted to float
-
-        if (isA(this.left.type, Types.Float)){
-            this.right = standardConversion(this.right, Types.Float.instance(), {suppressLTR:true});
-            return;
-        }
-        if (isA(this.right.type, Types.Float)){
-            this.left = standardConversion(this.left, Types.Float.instance(), {suppressLTR:true});
-            return;
-        }
-
-        // Otherwise, do integral promotions
-        this.left = integralPromotion(this.left);
-        this.right = integralPromotion(this.right);
-
-        // If both operands have the same type, no further conversion is needed
-        if (sameType(this.left.type, this.right.type)){
-            return;
-        }
-
-        // Otherwise, if both operands have signed or both have unsigned types,
-        // operand with type of lesser integer conversion rank shall be converted
-        // to the type of the operand with greater rank
-
-    },
+    
 
     convert : function(){
-        this.left = standardConversion1(this.left);
-        this.right = standardConversion1(this.right);
+        this.left = convertToPRValue(this.left);
+        this.right = convertToPRValue(this.right);
 
         if (this.left.type.isArithmeticType && this.right.type.isArithmeticType) { // Regular arithmetic
             this.usualArithmeticConversions();
@@ -1299,51 +1370,7 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
 
 
     }),
-    "*": BinaryOperator.extend({
-        _name: "BinaryOperator[*]",
-        requiresArithmeticOperands : true,
-
-        operate : function(left, right, sim, inst){
-            return Value.instance(left.value * right.value, this.left.type); // TODO match C++ arithmetic
-        }
-
-    }),
-    "/": BinaryOperator.extend({
-        _name: "BinaryOperator[/]",
-        requiresArithmeticOperands : true,
-
-        operate : function(left, right, sim, inst){
-            if (this.left.type.isIntegralType){
-                return Value.instance(Util.integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-            }
-            else{
-                return Value.instance(Util.floatingDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-            }
-
-        }
-
-    }),
-    "%": BinaryOperator.extend({
-        _name: "BinaryOperator[%]",
-        requiresArithmeticOperands : true,
-
-        typeCheck : function(){
-            if (!Expressions.BinaryOperator.typeCheck.apply(this)){
-                return false;
-            }
-            else if(this.left.type.isIntegralType && this.right.type.isIntegralType){
-                return true;
-            }
-            else{
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-            }
-        },
-
-        operate : function(left, right, sim, inst){
-            return Value.instance(modulo(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-        }
-
-    }),
+    
     "<<": BinaryOperator.extend({
 
         operate: function(left, right, sim, inst){
@@ -1650,7 +1677,7 @@ export var UnaryPlus = UnaryOp.extend({
     valueCategory: "prvalue",
 
     convert : function(){
-        this.operand = this.operand = standardConversion1(this.operand);
+        this.operand = this.operand = convertToPRValue(this.operand);
         if (this.operand.type.isIntegralType){
             this.operand = this.operand = integralPromotion(this.operand);
         }
@@ -1678,7 +1705,7 @@ export var UnaryMinus = UnaryOp.extend({
     valueCategory: "prvalue",
 
     convert : function(){
-        this.operand = this.operand = standardConversion1(this.operand);
+        this.operand = this.operand = convertToPRValue(this.operand);
         if (this.operand.type.isIntegralType){
             this.operand = this.operand = integralPromotion(this.operand);
         }
@@ -2622,7 +2649,7 @@ export var FunctionCallExpression  = Expression.extend({
         else if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
             this.staticFunctionType = this.operand.type.ptrTo;
             this.boundFunction = PointedFunctionEntity.instance(this.operand.type.ptrTo);
-            this.operand = standardConversion1(this.operand);
+            this.operand = convertToPRValue(this.operand);
         }
         else if (isA(this.operand.type, Types.Function)){
             this.staticFunctionType = this.operand.type;

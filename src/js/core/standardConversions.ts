@@ -1,5 +1,5 @@
-import {Expression, readValueWithAlert, Comma} from "./expressions";
-import {Type} from "./types";
+import {Expression, readValueWithAlert, Comma, TypedExpression} from "./expressions";
+import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType} from "./types";
 
 export var ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
@@ -339,22 +339,23 @@ export var IntegralPromotion = ImplicitConversion.extend({
     }
 });
 
-// TODO: replace external uses of this function with a wrapper function that has a more meaningful name
-export function standardConversion1(from: Expression) : Expression{
+export function convertToPRValue(from: TypedExpression) : TypedExpression {
 
-    // TODO function to pointer conversion
+    if (from.valueCategory === "prvalue") {
+        return from;
+    }
 
-    // Don't do lvalue to rvalue conversion on Classes dude
-    if (isA(from.type, Types.Class)){
+    // Don't do lvalue to rvalue conversion on Classes dude // TODO: what does this mean?
+    if (from.type instanceof ClassType) {
         return from;
     }
 
     // array to pointer conversion
-    if (isA(from.type, Types.Array)) {
+    if (from.type instanceof ArrayType) {
         return ArrayToPointer.instance(from);
     }
 
-    if (isA(from.type, Types.Function)){
+    if (from.type instanceof FunctionType) {
         return FunctionToPointer.instance(from);
     }
 
@@ -430,14 +431,14 @@ export function standardConversion(from: Expression, toType: Type, options = {})
     options = options || {};
 
     if (!options.suppressLTR){
-        from = standardConversion1(from, options);
+        from = convertToPRValue(from, options);
     }
     from = standardConversion2(from, toType, options);
     from = standardConversion3(from, toType, options);
     return from;
 };
 
-export var integralPromotion = function(expr){
+export function integralPromotion(expr) {
     if (expr.type.isIntegralType && !isA(expr.type, Types.Int)) {
         return IntegralPromotion.instance(expr, Types.Int.instance());
     }
@@ -445,4 +446,52 @@ export var integralPromotion = function(expr){
         return expr;
     }
 };
+
+export function usualArithmeticConversions(left:TypedExpression, right:TypedExpression) {
+    // Only do conversions if both are arithmetic
+    if (!left.type.isArithmeticType || !right.type.isArithmeticType){
+        return {left: left, right: right};
+    }
+    
+    left = convertToPRValue(left);
+    right = convertToPRValue(right);
+
+    // TODO If either has scoped enumeration type, no conversions are performed
+
+    // TODO If either is long double, the other shall be converted to long double
+
+    // If either is double, the other shall be converted to double
+    if (left.type instanceof Double) {
+        right = standardConversion(right, new Double(), {suppressLTR:true});
+        return {left: left, right: right};
+    }
+    if (right.type instanceof Double) {
+        left = standardConversion(left, new Double(), {suppressLTR:true});
+        return {left: left, right: right};
+    }
+    // If either is float, the other shall be converted to float
+
+    if (left.type instanceof Float) {
+        right = standardConversion(right, new Float(), {suppressLTR:true});
+        return {left: left, right: right};
+    }
+    if (right.type instanceof Float) {
+        left = standardConversion(left, new Float(), {suppressLTR:true});
+        return {left: left, right: right};
+    }
+
+    // Otherwise, do integral promotions
+    left = integralPromotion(left);
+    right = integralPromotion(right);
+
+    // If both operands have the same type, no further conversion is needed
+    if (sameType(left.type, right.type)){
+        return {left: left, right: right};
+    }
+
+    // TODO: Otherwise, if both operands have signed or both have unsigned types,
+    // operand with type of lesser integer conversion rank shall be converted
+    // to the type of the operand with greater rank
+    return {left: left, right: right};
+}
 
