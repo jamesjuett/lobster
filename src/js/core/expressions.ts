@@ -52,6 +52,10 @@ export abstract class Expression extends PotentialFullExpression {
     public abstract readonly type: Type?;
     public readonly conversionLength: number = 0;
 
+    public abstract readonly compiledType : {
+        
+    }
+
     protected constructor(context: ExecutableConstructContext) {
         super(context);
 
@@ -73,7 +77,7 @@ export abstract class Expression extends PotentialFullExpression {
     }
 
 
-    public abstract createRuntimeExpression(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
+    public abstract createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<this>;
 
 
 
@@ -110,7 +114,17 @@ export abstract class Expression extends PotentialFullExpression {
 
 }
 
-type CompiledExpression<E extends Expression, T extends Type, VC extends ValueCategory> = E & {type: T} & {valueCategory: VC};
+type ExpressionPropertyNames<C extends Expression> = { [K in keyof C]: C[K] extends Expression ? K : never }[keyof C];
+type CompiledChildExpressions<E extends Expression, T extends Type, VC extends ValueCategory, Ex extends keyof any> = {
+    [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never),T,VC>;
+};
+
+type CompiledExpression<E extends Expression = Expression,
+                        T extends Type = Type,
+                        VC extends ValueCategory = ValueCategory>
+                        = E & E["compiledType"] & CompiledChildExpressions<E,T,VC, keyof E["compiledType"]>;
+
+
 
 interface VCResultTypes<T extends Type> {
     prvalue: T extends ObjectType ? Value<T> : never;
@@ -118,18 +132,13 @@ interface VCResultTypes<T extends Type> {
     lvalue: T extends ObjectType ? CPPObject<T> : never; // TODO: add functions/arrays as possible results
 }
 
-export class RuntimeExpression<E extends Expression, T extends Type, VC extends ValueCategory> extends RuntimePotentialFullExpression<CompiledExpression<E,T,VC>> {
-    
-    protected stepForwardImpl(): void {
-        throw new Error("Method not implemented.");
-    }
-    protected upNextImpl(): void {
-        throw new Error("Method not implemented.");
-    }
-    
+export abstract class RuntimeExpression<E extends CompiledExpression = CompiledExpression,
+                                        T extends Type = Type, 
+                                        VC extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression<E> {
+        
     public readonly evalResult?: VCResultTypes<T>[VC];
 
-    public constructor(model: CompiledExpression<E,T,VC>, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: E, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
@@ -238,13 +247,15 @@ export class UnsupportedExpression extends Expression {
 
 
 
-export class SimpleRuntimeExpression<Construct_type extends Expression = Expression> extends RuntimeExpression<Construct_type> {
+export class SimpleRuntimeExpression<E extends Expression = Expression,
+                                     T extends Type = Type,
+                                     VC extends ValueCategory = ValueCategory> extends RuntimeExpression<E, T, VC> {
 
     private index = 0;
 
-    protected abstract subexpressions: RuntimeExpression[]
+    protected abstract subexpressions: RuntimeExpression<Expression, Type, ValueCategory>[]
 
-    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledExpression<E,T,VC>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -267,12 +278,12 @@ export class SimpleRuntimeExpression<Construct_type extends Expression = Express
 }
 
 
-interface LRExpression extends Expression {
-    left: Expression;
-    right: Expression;
+type CompiledLRExpression<E extends Expression = Expression, T extends Type = Type, VC extends ValueCategory = ValueCategory> = CompiledExpression<E,T,VC> & {
+    left: CompiledExpression<Expression, Type, "prvalue">;
+    right: CompiledExpression<Expression, Type, "prvalue">;
 };
 
-abstract class LRRuntimeExpression<Construct_type extends LRExpression> extends SimpleRuntimeExpression<Construct_type> {
+abstract class LRRuntimeExpression<E extends Expression, T extends Type, VC extends ValueCategory> extends SimpleRuntimeExpression<CompiledLRExpression<E,T,VC>,T,VC> {
     
     public left: RuntimeExpression.RValue;
     public right: RuntimeExpression.RValue;
@@ -287,7 +298,10 @@ abstract class LRRuntimeExpression<Construct_type extends LRExpression> extends 
     }
 }
 
-
+type CompiledComma<T extends Type = Type, VC extends ValueCategory = ValueCategory> = CompiledExpression<Comma,T,VC> & {
+    left: CompiledExpression;
+    right: CompiledExpression;
+};
 
 export class Comma extends Expression {
     public readonly englishName = "comma";
@@ -341,7 +355,19 @@ export class Comma extends Expression {
 }
 
 
-export class RuntimeComma extends LRRuntimeExpression<Comma> {
+export class RuntimeComma extends SimpleRuntimeExpression<Comma> {
+
+    public left: RuntimeExpression;
+    public right: RuntimeExpression;
+
+    protected subexpressions: RuntimeExpression[];
+
+    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.subexpressions = [this.left, this.right];
+    }
 
     protected operate() {
         this.setEvalResult(this.right.evalResult!);
@@ -473,6 +499,11 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
 	}
 }
 
+let a! : CompiledExpression<Assignment>;
+a.lhs;
+let rt = new RuntimeExpression(a.lhs, <any>2);
+rt.evalResult
+
 export class Assignment extends Expression {
     // public readonly 
     // valueCategory : "lvalue",
@@ -481,7 +512,9 @@ export class Assignment extends Expression {
     // i_childrenToCreate : ["lhs"],
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
-
+    public compiledType! : Expression["compiledType"] & {
+        lhs: CompiledExpression<Expression, AtomicType, "prvalue">
+    }
 
     public readonly type: Type;
     public readonly valueCategory: string = "lvalue";
