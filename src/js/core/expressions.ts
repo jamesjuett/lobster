@@ -48,12 +48,12 @@ export abstract class Expression extends PotentialFullExpression {
         return super.createFromAST(ast, context);
     }
 
-    public abstract readonly valueCategory: string;
+    public abstract readonly valueCategory: ValueCategory;
     public abstract readonly type: Type?;
     public readonly conversionLength: number = 0;
 
-    public abstract readonly compiledType : {
-        
+    public readonly compiledType! : {
+        readonly type: Type;
     }
 
     protected constructor(context: ExecutableConstructContext) {
@@ -77,7 +77,7 @@ export abstract class Expression extends PotentialFullExpression {
     }
 
 
-    public abstract createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<this>;
+    public abstract createRuntimeExpression(this: CompiledExpression<this>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<this>;
 
 
 
@@ -132,7 +132,7 @@ interface VCResultTypes<T extends Type> {
     lvalue: T extends ObjectType ? CPPObject<T> : never; // TODO: add functions/arrays as possible results
 }
 
-export abstract class RuntimeExpression<E extends CompiledExpression = CompiledExpression,
+export abstract class RuntimeExpression<E extends Expression = Expression,
                                         T extends Type = Type, 
                                         VC extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression<E> {
         
@@ -165,6 +165,7 @@ export abstract class RuntimeExpression<E extends CompiledExpression = CompiledE
 }
 
 export class UnsupportedExpression extends Expression {
+
     public readonly type = UNKNOWN_TYPE;
     public readonly valueCategory = "prvalue";
 
@@ -255,7 +256,7 @@ export class SimpleRuntimeExpression<E extends Expression = Expression,
 
     protected abstract subexpressions: RuntimeExpression<Expression, Type, ValueCategory>[]
 
-    public constructor (model: CompiledExpression<E,T,VC>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: E, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -278,9 +279,11 @@ export class SimpleRuntimeExpression<E extends Expression = Expression,
 }
 
 
-type CompiledLRExpression<E extends Expression = Expression, T extends Type = Type, VC extends ValueCategory = ValueCategory> = CompiledExpression<E,T,VC> & {
-    left: CompiledExpression<Expression, Type, "prvalue">;
-    right: CompiledExpression<Expression, Type, "prvalue">;
+abstract class LRExpression extends Expression {
+    compiledType! : Expression["compiledType"] & {
+        left: CompiledExpression<Expression, Type, "prvalue">;
+        right: CompiledExpression<Expression, Type, "prvalue">;
+    }
 };
 
 abstract class LRRuntimeExpression<E extends Expression, T extends Type, VC extends ValueCategory> extends SimpleRuntimeExpression<CompiledLRExpression<E,T,VC>,T,VC> {
@@ -298,19 +301,13 @@ abstract class LRRuntimeExpression<E extends Expression, T extends Type, VC exte
     }
 }
 
-type CompiledComma<T extends Type = Type, VC extends ValueCategory = ValueCategory> = CompiledExpression<Comma,T,VC> & {
-    left: CompiledExpression;
-    right: CompiledExpression;
-};
-
 export class Comma extends Expression {
-    public readonly englishName = "comma";
 
     public readonly left: Expression;
     public readonly right: Expression;
 
-    public readonly type: Type;
-    public readonly valueCategory: string;
+    public readonly type: Type?;
+    public readonly valueCategory: ValueCategory;
 
     public constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
         super(context);
@@ -331,7 +328,9 @@ export class Comma extends Expression {
     // },
 
     
-    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression(this: CompiledExpression<this>, parent: ExecutableRuntimeConstruct) {
+        let x : this;
+        x.left
         return new RuntimeComma(this, parent);
     }
 
@@ -355,14 +354,14 @@ export class Comma extends Expression {
 }
 
 
-export class RuntimeComma extends SimpleRuntimeExpression<Comma> {
+export class RuntimeComma extends SimpleRuntimeExpression<CompiledExpression<Comma>> {
 
     public left: RuntimeExpression;
     public right: RuntimeExpression;
 
     protected subexpressions: RuntimeExpression[];
 
-    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledExpression<Comma>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -499,11 +498,6 @@ export class RuntimeTernary extends RuntimeExpression<Ternary> {
 	}
 }
 
-let a! : CompiledExpression<Assignment>;
-a.lhs;
-let rt = new RuntimeExpression(a.lhs, <any>2);
-rt.evalResult
-
 export class Assignment extends Expression {
     // public readonly 
     // valueCategory : "lvalue",
@@ -512,12 +506,12 @@ export class Assignment extends Expression {
     // i_childrenToCreate : ["lhs"],
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
-    public compiledType! : Expression["compiledType"] & {
-        lhs: CompiledExpression<Expression, AtomicType, "prvalue">
-    }
+    public readonly compiledType! : Expression["compiledType"] & {
+        readonly lhs: CompiledExpression<Expression, Type, "lvalue">
+    };
 
     public readonly type: Type;
-    public readonly valueCategory: string = "lvalue";
+    public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
     public readonly rhs: Expression;
