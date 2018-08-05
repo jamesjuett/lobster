@@ -1,5 +1,6 @@
-import {Expression, readValueWithAlert, Comma, TypedExpression} from "./expressions";
-import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType} from "./types";
+import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal} from "./expressions";
+import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, Pointer, Int, subType, Bool} from "./types";
+import { assertFalse } from "../util/util";
 
 export var ImplicitConversion = Expression.extend({
     _name: "ImplicitConversion",
@@ -339,59 +340,58 @@ export var IntegralPromotion = ImplicitConversion.extend({
     }
 });
 
-export function convertToPRValue(from: TypedExpression) : TypedExpression {
+export function convertToPRValue<T extends Type>(from: TypedExpression<T, ValueCategory>) : TypedExpression<T, "prvalue"> {
 
     if (from.valueCategory === "prvalue") {
-        return from;
+        return <TypedExpression<T, "prvalue">> from;
     }
 
     // Don't do lvalue to rvalue conversion on Classes dude // TODO: what does this mean?
     if (from.type instanceof ClassType) {
-        return from;
+        return assertFalse("Class type object should never be converted to a prvalue");
     }
 
     // array to pointer conversion
     if (from.type instanceof ArrayType) {
-        return ArrayToPointer.instance(from);
+        return new ArrayToPointer(from);
     }
 
     if (from.type instanceof FunctionType) {
-        return FunctionToPointer.instance(from);
+        return new FunctionToPointer(from);
     }
 
     // lvalue to rvalue conversion
     if (from.valueCategory === "lvalue" || from.valueCategory === "xvalue"){
-        return LValueToRValue.instance(from);
+        return new LValueToRValue(from);
     }
 
-    return from;
 };
 
-var standardConversion2 = function(from, toType, options){
+var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">, toType: ObjectType) {
 
     if (sameType(from.type, toType)){
         return from;
     }
 
-    if (isA(toType, Types.Pointer) && isA(from, Literal) && isA(from.type, Types.Int) && from.value.rawValue() == 0){
+    if (isType(toType, Pointer) && (from instanceof Literal) && isType(from.type, Int) && from.value.rawValue() == 0){
         return NullPointerConversion.instance(from, toType);
     }
 
-    if (isA(toType, Types.Pointer) && toType._isInstance){
-        if (isA(from.type, Types.Pointer) && subType(from.type.ptrTo, toType.ptrTo)){
-            toType = Types.Pointer.instance(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
+    if (isType(toType, Pointer)) {
+        if (isType(from.type, Pointer) && subType(from.type.ptrTo, toType.ptrTo)) {
+            toType = new Pointer(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
             return PointerConversion.instance(from, toType);
         }
     }
 
-    if (isA(toType, Types.Double)){
-        if (isA(from.type, Types.Float)){
+    if (isType(toType, Double)){
+        if (isType(from.type, Float)){
             return FloatingPointPromotion.instance(from);
         }
     }
 
-    if (isA(toType, Types.Bool)){
-        if (isA(from.type, Types.Pointer)){
+    if (isType(toType, Bool)) {
+        if (isType(from.type, Pointer)) {
             return PointerToBooleanConversion.instance(from);
         }
     }
@@ -427,7 +427,7 @@ var standardConversion3 = function(from, toType){
     return from;
 };
 
-export function standardConversion(from: Expression, toType: Type, options = {}) : Expression {
+export function standardConversion(from: TypedExpression, toType: Type, options = {}) : TypedExpression {
     options = options || {};
 
     if (!options.suppressLTR){

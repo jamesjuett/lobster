@@ -301,6 +301,7 @@ export abstract class CPPConstruct {
 export interface ExecutableConstruct extends CPPConstruct {
     // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
     readonly containingFunction: FunctionDefinition;
+    readonly context: ExecutableConstructContext;
     
 }
 

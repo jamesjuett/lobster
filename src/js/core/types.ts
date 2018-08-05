@@ -121,6 +121,10 @@ export var defaultUserTypeNames = {
     size_t : true
 };
 
+export function isType<T extends Type>(type: Type, ctor: Util.Constructor<T>) : type is InstanceType<typeof ctor> {
+    return type.isType(ctor);
+};
+
 export function sameType(type1: Type, type2: Type) {
     return type1.sameType(type2);
 };
@@ -129,7 +133,7 @@ export function similarType(type1: Type, type2: Type) {
     return type1.similarType(type2);
 };
 
-// TODO subType function is dangerous :(
+// TODO subType function is dangerous :( (I think I originally wrote this because Type overall doesn't have isDerivedFrom)
 export function subType(type1: Type, type2: Type) {
     return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
 };
@@ -282,14 +286,19 @@ export class Type {
     }
 
     /**
+     * Returns true if this type object is an instance of the given Type class
+     */
+    public isType<T extends Type>(ctor: Util.Constructor<T>) : this is InstanceType<typeof ctor> {
+        return this instanceof ctor;
+    }
+    
+    /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
-     * @param other
      */
     public abstract sameType(other: Type) : boolean;
 
     /**
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
-     * @param other
      */
     public abstract similarType(other: Type) : boolean;
 
@@ -298,7 +307,7 @@ export class Type {
      * Returns true if this type is reference-related (see C++ standard) to the type other.
      * @param other
      */
-    public isReferenceRelated(other: Type) {
+    public isReferenceRelated(other: Type) : boolean {
         return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
             subType(this.cvUnqualified(),other.cvUnqualified());
     }
@@ -496,7 +505,7 @@ export class VoidType extends Type {
             && other.isVolatile === this.isVolatile;
     }
 
-    public similarType(other: Type) : boolean{
+    public similarType(other: Type) : boolean {
         return other instanceof VoidType;
     }
 
@@ -852,7 +861,7 @@ export class Pointer extends AtomicType {
             && other.isVolatile === this.isVolatile;
     }
 
-    similarType(other: Type) : boolean {
+    public similarType(other: Type) : boolean {
         return other instanceof Pointer
             && this.ptrTo.similarType(other.ptrTo);
     }
