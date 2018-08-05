@@ -3,7 +3,7 @@ import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, ExecutableRun
 import * as Util from "../util/util";
 import { CPPObject } from "./objects";
 import { CPPError, Description } from "./errors";
-import { Type, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE, AtomicType, Double, Float } from "./types";
+import { Type, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE, AtomicType, Double, Float, isType } from "./types";
 import { Value } from "./runtimeEnvironment";
 import { standardConversion, convertToPRValue, integralPromotion, usualArithmeticConversions } from "./standardConversions";
 import { Simulation } from "./Simulation";
@@ -48,12 +48,13 @@ export abstract class Expression extends PotentialFullExpression {
         return super.createFromAST(ast, context);
     }
 
-    public abstract readonly valueCategory: ValueCategory;
+    public abstract readonly valueCategory: ValueCategory?;
     public abstract readonly type: Type?;
     public readonly conversionLength: number = 0;
 
-    public readonly compiledType! : {
+    public readonly t_compiledType! : {
         readonly type: Type;
+        readonly valueCategory: ValueCategory;
     }
 
     protected constructor(context: ExecutableConstructContext) {
@@ -77,7 +78,7 @@ export abstract class Expression extends PotentialFullExpression {
     }
 
 
-    public abstract createRuntimeExpression(this: CompiledExpression<this>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<this>;
+    public abstract createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
 
 
@@ -96,12 +97,20 @@ export abstract class Expression extends PotentialFullExpression {
 
     }
 
-    public isTyped() : this is TypedExpression {
-        return !!this.type;// && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
+    public isWellTyped() : this is TypedExpression {
+        return this.type !== null && this.valueCategory !== null;
+    }
+
+    public isSuccessfullyCompiled() : this is CompiledExpression<this> {
+        return !this.hasErrors;// && !(this.type instanceof Unknown); // TODO: Do I need Types.Unknown?
     }
 
 
     public isTailChild(child: ExecutableConstruct) {
+        let x! : Expression;
+        if (x.isSuccessfullyCompiled()) {
+            x.createRuntimeExpression(<any>2);
+        }
         return {isTail: false};
     }
 
@@ -114,6 +123,11 @@ export abstract class Expression extends PotentialFullExpression {
 
 }
 
+export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
+    readonly type: T;
+    readonly valueCategory: V;
+}
+
 type ExpressionPropertyNames<C extends Expression> = { [K in keyof C]: C[K] extends Expression ? K : never }[keyof C];
 type CompiledChildExpressions<E extends Expression, T extends Type, VC extends ValueCategory, Ex extends keyof any> = {
     [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never),T,VC>;
@@ -122,45 +136,44 @@ type CompiledChildExpressions<E extends Expression, T extends Type, VC extends V
 type CompiledExpression<E extends Expression = Expression,
                         T extends Type = Type,
                         VC extends ValueCategory = ValueCategory>
-                        = E & E["compiledType"] & CompiledChildExpressions<E,T,VC, keyof E["compiledType"]>;
+                        = E & E["t_compiledType"] & CompiledChildExpressions<E,T,VC, keyof E["t_compiledType"]> & {
+                            // t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
+                            // from being assignable to a compiled expression type
+                            // TODO: maybe better to use a symbol here?
+                            t_isCompiled: "true"
+                        };
 
 
 
-interface VCResultTypes<T extends Type> {
-    prvalue: T extends ObjectType ? Value<T> : never;
-    xvalue: T extends ObjectType ? CPPObject<T> : never;
-    lvalue: T extends ObjectType ? CPPObject<T> : never; // TODO: add functions/arrays as possible results
-}
+type VCResultTypes<T extends Type> =
+    T extends ObjectType ? {
+        prvalue: Value<T>;
+        xvalue: CPPObject<T>;
+        lvalue: CPPObject<T>;
+    }
+    : ObjectType extends T ? { // That is, T is more general, so it's possible T is an ObjectType
+        prvalue: Value<ObjectType>;
+        xvalue: CPPObject<ObjectType>;
+        lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
+    } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
+        prvalue: never;
+        xvalue: never;
+        lvalue: never; // TODO: add functions/arrays as possible results
+    };
 
-export abstract class RuntimeExpression<E extends Expression = Expression,
+export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression,
                                         T extends Type = Type, 
-                                        VC extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression<E> {
+                                        VC extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression<CE> {
         
     public readonly evalResult?: VCResultTypes<T>[VC];
 
-    public constructor(model: E, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
     public setEvalResult(value: VCResultTypes<T>[VC]) {
         (<VCResultTypes<T>[VC]>this.evalResult) = value;
     }
-
-    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //     // Evaluate subexpressions
-    //     if (inst.index === "subexpressions"){
-    //         this.pushChildInstances(sim, inst);
-    //         inst.index = "operate";
-    //         inst.wait();
-    //         return true;
-    //     }
-
-    //     return CPPConstruct.upNext.apply(this, arguments);
-    // },
-	
-	// done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-	// 	sim.pop(inst);
-	// }
 
 }
 
@@ -248,15 +261,15 @@ export class UnsupportedExpression extends Expression {
 
 
 
-export class SimpleRuntimeExpression<E extends Expression = Expression,
+export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExpression,
                                      T extends Type = Type,
-                                     VC extends ValueCategory = ValueCategory> extends RuntimeExpression<E, T, VC> {
+                                     VC extends ValueCategory = ValueCategory> extends RuntimeExpression<CE, T, VC> {
 
     private index = 0;
 
-    protected abstract subexpressions: RuntimeExpression<Expression, Type, ValueCategory>[]
+    protected abstract subexpressions: RuntimeExpression[]
 
-    public constructor (model: E, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -280,7 +293,7 @@ export class SimpleRuntimeExpression<E extends Expression = Expression,
 
 
 abstract class LRExpression extends Expression {
-    compiledType! : Expression["compiledType"] & {
+    t_compiledType! : Expression["t_compiledType"] & {
         left: CompiledExpression<Expression, Type, "prvalue">;
         right: CompiledExpression<Expression, Type, "prvalue">;
     }
@@ -307,7 +320,7 @@ export class Comma extends Expression {
     public readonly right: Expression;
 
     public readonly type: Type?;
-    public readonly valueCategory: ValueCategory;
+    public readonly valueCategory: ValueCategory?;
 
     public constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
         super(context);
@@ -317,20 +330,8 @@ export class Comma extends Expression {
         this.type = right.type;
         this.valueCategory = right.valueCategory
     }
-
-    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    //     // Evaluate subexpressions
-    //     if (inst.index === "operate"){
-    //         inst.setEvalResult(inst.childInstances.right.evalResult);
-    //         this.done(sim, inst);
-    //     }
-    // },
-
     
-    public createRuntimeExpression(this: CompiledExpression<this>, parent: ExecutableRuntimeConstruct) {
-        let x : this;
-        x.left
+    public createRuntimeExpression(this: CompiledExpression<Comma>, parent: ExecutableRuntimeConstruct) {
         return new RuntimeComma(this, parent);
     }
 
@@ -376,14 +377,8 @@ export class RuntimeComma extends SimpleRuntimeExpression<CompiledExpression<Com
 
 export class Ternary extends Expression {
 
-    // i_childrenToCreate : ["condition", "then", "otherwise"],
-    // i_childrenToConvert : {
-    //     condition: Types.Bool.instance()
-    // },
-    // initIndex: "cond",
-
-    public readonly type: Type;
-    public readonly valueCategory: string;
+    public readonly type: Type?;
+    public readonly valueCategory: ValueCategory?;
 
     public readonly condition: Expression;
     public readonly then: Expression;
@@ -391,29 +386,31 @@ export class Ternary extends Expression {
 
     public constructor(context: ExecutableConstructContext, condition: Expression, then: Expression, otherwise: Expression) {
         super(context);
-
+        
         condition = standardConversion(condition, new Bool());
-        this.attach(this.condition = condition);
-
+        
         // If one of the expressions is a prvalue, attempt to make the other one as well
         if (then.valueCategory === "prvalue" && otherwise.valueCategory === "lvalue"){
             otherwise = convertToPRValue(otherwise);
         }
         else if (otherwise.valueCategory === "prvalue" && then.valueCategory === "lvalue"){
-            this.then = convertToPRValue(then);
+            then = convertToPRValue(then);
         }
-
+        
+        this.attach(this.condition = condition);
         this.attach(this.then = then);
         this.attach(this.otherwise = otherwise);
 
-        if (!(condition.type instanceof Bool)) {
+        if (condition.type && !isType(condition.type, Bool)) {
             this.addNote(CPPError.expr.ternary.condition_bool(condition, condition.type));
         }
-        if (!sameType(then.type, otherwise.type)) {
-            this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
-        }
-        if ((then.type instanceof VoidType) || (otherwise.type instanceof VoidType)) {
-            this.addNote(CPPError.lobster.ternaryNoVoid(this));
+        if (then.type && otherwise.type){
+            if (!sameType(then.type, otherwise.type)) {
+                this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
+            }
+            if (isType(then.type, VoidType) || isType(otherwise.type, VoidType)) {
+                this.addNote(CPPError.lobster.ternaryNoVoid(this));
+            }
         }
         if (then.valueCategory !== otherwise.valueCategory){
             this.addNote(CPPError.expr.ternary.sameValueCategory(this));
@@ -424,7 +421,7 @@ export class Ternary extends Expression {
     }
 
 
-    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression(this: CompiledExpression<Ternary>, parent: ExecutableRuntimeConstruct) {
         return new RuntimeTernary(this, parent);
     }
     
@@ -448,33 +445,20 @@ export class Ternary extends Expression {
     }
 }
 
-export class RuntimeTernary extends RuntimeExpression<Ternary> {
+export class RuntimeTernary extends RuntimeExpression<CompiledExpression<Ternary>> {
 
-    public condition: RuntimeExpression.RValue<Bool>;
+    public condition: RuntimeExpression;
     public then: RuntimeExpression;
     public otherwise: RuntimeExpression;
 
     private index = "condition";
 
-    public constructor (model: Ternary, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledExpression<Ternary>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
-        this.condition = <RuntimeExpression.RValue<Bool>>this.model.condition.createRuntimeExpression(this);
+        this.condition = this.model.condition.createRuntimeExpression(this);
         this.then = this.model.then.createRuntimeExpression(this);
         this.otherwise = this.model.otherwise.createRuntimeExpression(this);
     }
-
-    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    // },
-
-    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    //     // Evaluate subexpressions
-    //     if (inst.index === "operate"){
-    //         inst.setEvalResult(inst.condition.evalResult.value ? inst.then.evalResult : inst.otherwise.evalResult);
-    //         this.done(sim, inst);
-    //     }
-    // },
 
 	protected upNextImpl() {
         if (this.index === "condition") {
@@ -506,8 +490,9 @@ export class Assignment extends Expression {
     // i_childrenToCreate : ["lhs"],
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
-    public readonly compiledType! : Expression["compiledType"] & {
+    public readonly t_compiledType! : Expression["t_compiledType"] & {
         readonly lhs: CompiledExpression<Expression, Type, "lvalue">
+        readonly rhs: CompiledExpression<Expression, Type, "prvalue">
     };
 
     public readonly type: Type;
@@ -519,8 +504,8 @@ export class Assignment extends Expression {
     private constructor(context: ExecutableConstructContext, lhs: Expression, rhs: Expression) {
         super(context);
 
-        // If the lhs doesn't have a type, the rest of the analysis doesn't make much sense.
-        if (!lhs.isWellTyped || !rhs.isWellTyped) {
+        // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
+        if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
             this.type = UNKNOWN_TYPE;
             this.attach(this.lhs = lhs);
             this.attach(this.rhs = rhs);
@@ -529,7 +514,7 @@ export class Assignment extends Expression {
 
         rhs = standardConversion(rhs, lhs.type.cvUnqualified());
 
-        if (lhs.valueCategory != "lvalue") {
+        if (lhs.valueCategory && lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
 
@@ -3299,7 +3284,7 @@ var literalTypes = {
     "char" : Types.Char.instance()
 };
 
-export var Literal  = Expression.extend({
+export class Literal extends Expression {
     _name: "Literal",
     initIndex: false,
     compile : function(){
