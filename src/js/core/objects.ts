@@ -235,7 +235,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
         return val;
     }
 
-    public get rawValue() {
+    public get _rawValue() {
         return this.data.rawValue();
     }
     

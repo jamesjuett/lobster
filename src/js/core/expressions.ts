@@ -48,13 +48,13 @@ export abstract class Expression extends PotentialFullExpression {
         return super.createFromAST(ast, context);
     }
 
-    public abstract readonly valueCategory: ValueCategory?;
     public abstract readonly type: Type?;
+    public abstract readonly valueCategory: ValueCategory?;
     public readonly conversionLength: number = 0;
 
     public readonly t_compiledType! : {
-        readonly type: Type;
-        readonly valueCategory: ValueCategory;
+        public abstract readonly type: Type;
+        public abstract readonly valueCategory: ValueCategory;
     }
 
     protected constructor(context: ExecutableConstructContext) {
@@ -123,24 +123,36 @@ export abstract class Expression extends PotentialFullExpression {
 
 }
 
-export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
+export type TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = Expression & {
     readonly type: T;
     readonly valueCategory: V;
 }
 
 type ExpressionPropertyNames<C extends Expression> = { [K in keyof C]: C[K] extends Expression ? K : never }[keyof C];
-type CompiledChildExpressions<E extends Expression, T extends Type, VC extends ValueCategory, Ex extends keyof any> = {
-    [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never),T,VC>;
+type CompiledChildExpressions<E extends Expression, Ex extends keyof any> = {
+    [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never)>;
 };
 
 type CompiledExpression<E extends Expression = Expression,
-                        T extends Type = Type,
-                        VC extends ValueCategory = ValueCategory>
-                        = E & E["t_compiledType"] & CompiledChildExpressions<E,T,VC, keyof E["t_compiledType"]> & {
+                        T extends Type = E["t_compiledType"]["type"],
+                        VC extends ValueCategory = E["t_compiledType"]["valueCategory"]>
+                        = E & E["t_compiledType"] & CompiledChildExpressions<E, keyof E["t_compiledType"]> & {
+
+                            // Used to "wipe out" the type and valueCategory properties, so that the template parameter
+                            // versions can be added back in below with "last one wins" semantics rather than intersection
+                            readonly type: never;
+                            readonly valueCategory: never;
+
                             // t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
                             // from being assignable to a compiled expression type
                             // TODO: maybe better to use a symbol here?
-                            t_isCompiled: "true"
+                            readonly t_isCompiled: "true"
+                        }
+                        | {
+                            // Add in the type and valueCategory properties from the template parameters with
+                            // "last one wins" semantics
+                            readonly type: T;
+                            readonly valueCategory: VC;
                         };
 
 
@@ -161,18 +173,19 @@ type VCResultTypes<T extends Type> =
         lvalue: never; // TODO: add functions/arrays as possible results
     };
 
-export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression,
-                                        T extends Type = Type, 
-                                        VC extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression<CE> {
+type EvalResultType<CE extends CompiledExpression> = VCResultTypes<CE["type"]>[CE["valueCategory"]];
+
+export abstract class RuntimeExpression<CE extends CompiledExpression<Expression, Type, ValueCategory> = CompiledExpression<Expression, Type, ValueCategory>>
+    extends RuntimePotentialFullExpression<CE> {
         
-    public readonly evalResult?: VCResultTypes<T>[VC];
+    public readonly evalResult?: EvalResultType<CE>;
 
     public constructor(model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
-    public setEvalResult(value: VCResultTypes<T>[VC]) {
-        (<VCResultTypes<T>[VC]>this.evalResult) = value;
+    public setEvalResult(value: EvalResultType<CE>) {
+        (<EvalResultType<CE>>this.evalResult) = value;
     }
 
 }
@@ -384,11 +397,38 @@ export class Ternary extends Expression {
     public readonly then: Expression;
     public readonly otherwise: Expression;
 
+    public readonly t_compiledType! : Expression["t_compiledType"] & {
+        readonly condition: CompiledExpression<Expression, Bool, "prvalue">
+    };
+
     public constructor(context: ExecutableConstructContext, condition: Expression, then: Expression, otherwise: Expression) {
         super(context);
         
+        if(condition.isWellTyped()) {
+            condition = this.compileCondition(condition);
+        }
+
+        if (then.isWellTyped() && otherwise.isWellTyped()) {
+            ({then, otherwise} = this.compileConsequences(then, otherwise));
+        }
+
+        this.attach(this.condition = condition);
+        this.attach(this.then = then);
+        this.attach(this.otherwise = otherwise);
+
+        this.type = then.type;
+        this.valueCategory = then.valueCategory;
+    }
+
+    private compileCondition(condition : TypedExpression) : TypedExpression {
         condition = standardConversion(condition, new Bool());
-        
+        if (!isType(condition.type, Bool)) {
+            this.addNote(CPPError.expr.ternary.condition_bool(condition, condition.type));
+        }
+        return condition;
+    }
+
+    private compileConsequences(then: TypedExpression, otherwise: TypedExpression) {
         // If one of the expressions is a prvalue, attempt to make the other one as well
         if (then.valueCategory === "prvalue" && otherwise.valueCategory === "lvalue"){
             otherwise = convertToPRValue(otherwise);
@@ -396,30 +436,21 @@ export class Ternary extends Expression {
         else if (otherwise.valueCategory === "prvalue" && then.valueCategory === "lvalue"){
             then = convertToPRValue(then);
         }
-        
-        this.attach(this.condition = condition);
-        this.attach(this.then = then);
-        this.attach(this.otherwise = otherwise);
+    
 
-        if (condition.type && !isType(condition.type, Bool)) {
-            this.addNote(CPPError.expr.ternary.condition_bool(condition, condition.type));
+        if (!sameType(then.type, otherwise.type)) {
+            this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
         }
-        if (then.type && otherwise.type){
-            if (!sameType(then.type, otherwise.type)) {
-                this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
-            }
-            if (isType(then.type, VoidType) || isType(otherwise.type, VoidType)) {
-                this.addNote(CPPError.lobster.ternaryNoVoid(this));
-            }
+        if (isType(then.type, VoidType) || isType(otherwise.type, VoidType)) {
+            this.addNote(CPPError.lobster.ternaryNoVoid(this));
         }
+        
         if (then.valueCategory !== otherwise.valueCategory){
             this.addNote(CPPError.expr.ternary.sameValueCategory(this));
         }
-
-        this.type = then.type;
-        this.valueCategory = then.valueCategory;
+        
+        return {then, otherwise};
     }
-
 
     public createRuntimeExpression(this: CompiledExpression<Ternary>, parent: ExecutableRuntimeConstruct) {
         return new RuntimeTernary(this, parent);
@@ -447,7 +478,7 @@ export class Ternary extends Expression {
 
 export class RuntimeTernary extends RuntimeExpression<CompiledExpression<Ternary>> {
 
-    public condition: RuntimeExpression;
+    public condition: RuntimeExpression<CompiledExpression<Expression, Bool, "prvalue">>;
     public then: RuntimeExpression;
     public otherwise: RuntimeExpression;
 
@@ -456,8 +487,11 @@ export class RuntimeTernary extends RuntimeExpression<CompiledExpression<Ternary
     public constructor (model: CompiledExpression<Ternary>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.condition = this.model.condition.createRuntimeExpression(this);
+        this.condition.evalResult
         this.then = this.model.then.createRuntimeExpression(this);
         this.otherwise = this.model.otherwise.createRuntimeExpression(this);
+        let x : CompiledExpression<Ternary>;
+        x.cndition;
     }
 
 	protected upNextImpl() {
@@ -466,7 +500,7 @@ export class RuntimeTernary extends RuntimeExpression<CompiledExpression<Ternary
             this.index = "branch";
         }
         else if (this.index === "branch") {
-            if(this.condition.evalResult!.rawValue) {
+            if(this.condition.evalResult.rawValue) {
                 this.sim.push(this.then);
             }
             else{
@@ -524,7 +558,7 @@ export class Assignment extends Expression {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        if (!sameType(rhs.type, lhs.type.cvUnqualified())) {
+        if (rhs.type && !sameType(rhs.type, lhs.type.cvUnqualified())) {
             this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
         }
 
@@ -538,7 +572,7 @@ export class Assignment extends Expression {
         this.attach(this.rhs = rhs);
     }
 
-    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression(this: CompiledExpression<Assignment>, parent: ExecutableRuntimeConstruct) {
         return new RuntimeAssignment(this, parent);
     }
     
@@ -643,7 +677,7 @@ export interface CompiledAssignment extends CompiledExpression {
 }
 
 
-export class RuntimeAssignment extends SimpleRuntimeExpression<Assignment> {
+export class RuntimeAssignment extends SimpleRuntimeExpression<CompiledExpression<Assignment>> {
 
     public lhs: RuntimeExpression.LValue;
     public rhs: RuntimeExpression.RValue;
