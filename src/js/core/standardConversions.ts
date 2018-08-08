@@ -1,4 +1,4 @@
-import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal} from "./expressions";
+import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression} from "./expressions";
 import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, Pointer, Int, subType, Bool} from "./types";
 import { assertFalse } from "../util/util";
 
@@ -427,7 +427,7 @@ var standardConversion3 = function(from, toType){
     return from;
 };
 
-export function standardConversion(from: TypedExpression, toType: Type, options = {}) : TypedExpression {
+export function standardConversion(from: CompiledExpression, toType: Type, options = {}) : CompiledExpression {
     options = options || {};
 
     if (!options.suppressLTR){

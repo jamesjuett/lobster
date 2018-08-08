@@ -1,13 +1,13 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType } from "./types";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 
 export type byte = number | boolean; // HACK - can be resolved if I make the memory model realistic and not hacky
-export type RawValueType = number | boolean; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
+export type RawValueType = number; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
 
 export class Value<T extends ObjectType = ObjectType> { // TODO: Change T to extend ObjectType? Or better yet AtomicType?
     private static _name = "Value";
@@ -49,6 +49,14 @@ export class Value<T extends ObjectType = ObjectType> { // TODO: Change T to ext
 
     public rawEquals(otherRawValue: any) {
         return this.rawValue === otherRawValue;
+    }
+
+    public combine(otherValue: Value<T>, combiner: (a:RawValueType, b:RawValueType) => RawValueType) {
+        assert(sameType(this.type, otherValue.type));
+        return new Value<T>(
+            combiner(this.rawValue, otherValue.rawValue),
+            this.type,
+            this.isValid && otherValue.isValid);
     }
 
     public toString() {
