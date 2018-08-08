@@ -33,7 +33,7 @@ export function createMethodMixin<TargetType, MethodName extends keyof TargetTyp
 
 export type Constructor<T = {}> = new (...args: any[]) => T;
 
-
+export type Overwrite<T1, T2> = Pick<T1, Exclude<keyof T1, keyof T2>> & T2;
 
 
 export function htmlDecoratedOperator(operator, cssClass){
@@ -62,19 +62,6 @@ interface Array<T> {
 } 
 Array.prototype.clear = function () {
     this.length = 0;
-}
-
-// TODO: move these somewhere more appropriate
-export function integerDivision(num, den){
-    return Math.trunc(num / den);
-};
-
-export function floatingDivision(num, den){
-    return num / den;
-};
-
-export function modulo(num, den){
-    return num - integerDivision(num, den)*den;
 }
 
 

@@ -300,7 +300,7 @@ export abstract class CPPConstruct {
 
 export interface ExecutableConstruct extends CPPConstruct {
     // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
-    readonly containingFunction: FunctionDefinition;
+    // readonly containingFunction: FunctionDefinition;
     readonly context: ExecutableConstructContext;
     
 }
@@ -314,12 +314,11 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
     public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
 
-    public readonly containingFunction: FunctionDefinition;
+    // public readonly containingFunction: FunctionDefinition;
     
     protected constructor(context: ExecutableConstructContext) {
         super(context);
 
-        // Use containing function from context or inherit from parent
         this.containingFunction = context.containingFunction;
     }
 

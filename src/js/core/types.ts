@@ -566,6 +566,7 @@ export abstract class ObjectType extends Type {
 }
 
 export abstract class AtomicType extends ObjectType {
+    public readonly isAtomic = true;
 
 }
 
@@ -934,7 +935,7 @@ export class ArrayPointer extends Pointer {
     }
 
     public toIndex(addr: number) {
-        return Util.integerDivision(addr - this.arrayObject.address, this.arrayObject.type.elemType.size);
+        return integerDivision(addr - this.arrayObject.address, this.arrayObject.type.elemType.size);
     }
 
 }
