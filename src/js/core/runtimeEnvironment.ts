@@ -1,15 +1,15 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, ArrayObjectData, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType } from "./types";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 
 export type byte = number | boolean; // HACK - can be resolved if I make the memory model realistic and not hacky
-export type RawValueType = number; // HACK - can be resolved if I make Value generic and parameterized by the raw value type
+export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
 
-export class Value<T extends ObjectType = ObjectType> { // TODO: Change T to extend ObjectType? Or better yet AtomicType?
+export class Value<T extends AtomicType = AtomicType> {
     private static _name = "Value";
 
     public readonly type: T;
@@ -56,6 +56,14 @@ export class Value<T extends ObjectType = ObjectType> { // TODO: Change T to ext
         return new Value<T>(
             combiner(this.rawValue, otherValue.rawValue),
             this.type,
+            this.isValid && otherValue.isValid);
+    }
+
+    public compare(otherValue: Value<T>, comparer: (a:RawValueType, b:RawValueType) => boolean) {
+        assert(sameType(this.type, otherValue.type));
+        return new Value<Bool>(
+            comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
+            new Bool(),
             this.isValid && otherValue.isValid);
     }
 

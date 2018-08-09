@@ -827,36 +827,71 @@ export var CompoundAssignment  = Expression.extend({
 });
 
 
-export function add(a: number, b: number) {
-    return a + b;
+export function add(left: number, right: number) {
+    return left + right;
 }
 
-export function sub(a: number, b: number) {
-    return a - b;
+export function sub(left: number, right: number) {
+    return left - right;
 }
 
-export function mult(a: number, b: number) {
-    return a * b;
+export function mult(left: number, right: number) {
+    return left * right;
 }
 
-export function intDiv(num: number, den: number){
-    return Math.trunc(num / den);
+export function intDiv(left: number, right: number){
+    return Math.trunc(left / right);
 };
 
-export function floatDiv(num: number, den: number){
-    return num / den;
+export function floatDiv(left: number, right: number){
+    return left / right;
 };
 
-export function mod(num: number, den: number){
-    return num - intDiv(num, den)*den;
+export function mod(left: number, right: number){
+    return left - intDiv(left, right)*right;
+}
+
+export function lt(left: number, right: number){
+    return left < right;
+}
+
+export function gt(left: number, right: number){
+    return left > right;
+}
+
+export function lte(left: number, right: number){
+    return left <= right;
+}
+
+export function gte(left: number, right: number){
+    return left >= right;
+}
+
+export function eq(left: number, right: number){
+    return left == right;
+}
+
+export function ne(left: number, right: number){
+    return left == right;
+}
+
+export function bitAnd(left: number, right: number){
+    return left & right;
+}
+
+export function bitXor(left: number, right: number){
+    return left ^ right;
+}
+
+export function bitOr(left: number, right: number){
+    return left | right;
 }
 
 
-type BinaryOperators = "+" | "-" | "*" | "/" | "%";
-type BinaryOpType<V extends Value> = {
-    readonly evalResult: V;
-    setEvalResult(v: V): void;
-}
+type t_SimpleBinaryOperators = "+" | "-" | "*" | "/" | "%" | "<" | ">" | "<=" | ">=" | "==" | "!=" | "&" | "^" | "|";
+
+const SimpleBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
+
 const BINARY_OPERATIONS = {
     "+" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
         rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, add))
@@ -877,6 +912,33 @@ const BINARY_OPERATIONS = {
     },
     "%" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
         rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, mod))
+    },
+    "<" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lt))
+    },
+    ">" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gt))
+    },
+    "<=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lte))
+    },
+    ">=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gte))
+    },
+    "==" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, eq))
+    },
+    "!=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, ne))
+    },
+    "&" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitAnd))
+    },
+    "^" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitXor))
+    },
+    "|" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitOr))
     }
 }
 
@@ -888,14 +950,14 @@ export abstract class BinaryOperator extends Expression {
     public abstract readonly left: Expression;
     public abstract readonly right: Expression;
 
-    public readonly operator: BinaryOperators;
+    public readonly operator: t_SimpleBinaryOperators;
     
     public readonly _t_compiledType!: Expression["_t_compiledType"] & {
         readonly left: Compiled<Expression, AtomicType, "prvalue">
         readonly right: Compiled<Expression, AtomicType, "prvalue">
     }
 
-    protected constructor(context: ExecutableConstructContext, operator: BinaryOperators) {
+    protected constructor(context: ExecutableConstructContext, operator: t_SimpleBinaryOperators) {
         super(context)
         this.operator = operator;
     }
@@ -939,30 +1001,6 @@ export class RuntimeBinaryOperator<CE extends Compiled<BinaryOperator> = Compile
 
 
 
-// type CPPConstructPropertyNames<C extends CPPConstruct> = { [K in keyof C]: C[K] extends (CPPConstruct|null) ? K : never }[keyof C];
-// type CPPConstructProperties<C extends CPPConstruct> = {[P in CPPConstructPropertyNames<C>]: NonNullable<C[P]>};
-
-// let x : CPPConstructProperties<Assignment> = <any>2;
-// let y : { [K in keyof Assignment]: Assignment[K] }//[keyof Assignment]
-// let z : CPPConstructPropertyNames<Assignment>
-// let w : { [K in keyof Assignment]: Assignment[K] extends ( null | undefined) ? K : never };
-// let a = x;
-// a.
-
-// class Test<K extends keyof Test<K>> {
-//     blah: number;
-
-//     public constructor(){
-//         this.blah = 5;
-//     }
-// }
-
-// let x : Test<"blah">;
-
-// export type Compiled<Construct_type extends CPPConstruct> = Construct_type & {
-//     []
-// }
-
 class ArithmeticBinaryOperator extends BinaryOperator {
     
     public readonly type: AtomicType?;
@@ -970,9 +1008,9 @@ class ArithmeticBinaryOperator extends BinaryOperator {
     public readonly left: Expression;
     public readonly right: Expression;
 
-    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression, operator: BinaryOperators) {
+    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression, operator: t_SimpleBinaryOperators) {
         super(context, operator);
-        // Arithmetic types are required
+
         if (!left.isWellTyped() || !right.isWellTyped()) {
             this.type = null;
             this.attach(this.left = left);
@@ -980,7 +1018,17 @@ class ArithmeticBinaryOperator extends BinaryOperator {
             return;
         }
         
+        // Arithmetic types are required
         if (!left.type.isArithmeticType || !right.type.isArithmeticType) {
+            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
+            this.type = null;
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+
+        // % operator requires integral operands
+        if (operator === "%" && (!left.type.isIntegralType || !right.type.isIntegralType)) {
             this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
             this.type = null;
             this.attach(this.left = left);
@@ -992,10 +1040,15 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
         
         if (!sameType(left.type!, right.type!)) {
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
         }
 
-        this.type = <AtomicType>left.type; //NOTE: this cast is valid since arithmeticType implies AtomicType. TODO: work this into the type hierarchy?
+        if (SimpleBinaryOperatorsYieldBool.has(this.operator)) {
+            this.type = new Bool();
+        }
+        else {
+            this.type = <AtomicType>left.type; //NOTE: this cast is valid since arithmeticType implies AtomicType. TODO: work this into the type hierarchy?
+        }
         this.attach(this.left = left);
         this.attach(this.right = right);
     }
@@ -1005,64 +1058,42 @@ class ArithmeticBinaryOperator extends BinaryOperator {
     }
 }
 
-export class MultiplicationOperator extends ArithmeticBinaryOperator {
-    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) {
-        return new RuntimeMultiplicationOperator
-    }
-    public describeEvalResult(depth: number): Description {
-        throw new Error("Method not implemented.");
-    }
-}
+// PointerRelationalBinaryOperator
 
-export class RuntimeMultiplicationOperator extends LRRuntimeExpression<MultiplicationOperator> {
-    
-}
 
-"*": BinaryOperator.extend({
-    _name: "BinaryOperator[*]",
-    requiresArithmeticOperands : true,
+//     convert : function(){
 
-    operate : function(left, right, sim, inst){
-        return Value.instance(left.value * right.value, this.left.type); // TODO match C++ arithmetic
-    }
+//         if (isA(this.left.type, Types.Pointer) && isA(this.right, Literal) && isA(this.right.type, Types.Int) && this.right.value.rawValue() == 0){
+//             this.right = Conversions.NullPointerConversion.instance(this.right, this.left.type);
+//         }
+//         if (isA(this.right.type, Types.Pointer) && isA(this.left, Literal) && isA(this.left.type, Types.Int) && this.left.value.rawValue() == 0){
+//             this.left = Conversions.NullPointerConversion.instance(this.left, this.right.type);
+//         }
+//     },
 
-}),
-"/": BinaryOperator.extend({
-    _name: "BinaryOperator[/]",
-    requiresArithmeticOperands : true,
+//     typeCheck : function(){
 
-    operate : function(left, right, sim, inst){
-        if (this.left.type.isIntegralType){
-            return Value.instance(Util.integerDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-        }
-        else{
-            return Value.instance(Util.floatingDivision(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-        }
+//         // Note: typeCheck is only called if it's not an overload
 
-    }
+//         if (isA(this.left.type, Types.Pointer)){
+//             if (!isA(this.right.type, Types.Pointer)){
+//                 // TODO this is a hack until I implement functions to determine cv-combined type and composite pointer types
+//                 this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
+//                 return false;
+//             }
+//         }
+//     },
 
-}),
-"%": BinaryOperator.extend({
-    _name: "BinaryOperator[%]",
-    requiresArithmeticOperands : true,
+//     operate : function(left, right, sim, inst){
+//         if (this.isPointerComparision) {
+//             if (!this.allowDiffArrayPointers && (!isA(left.type, Types.ArrayPointer) || !isA(right.type, Types.ArrayPointer) || left.type.arrObj !== right.type.arrObj)){
+//                 sim.unspecifiedBehavior("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
+//             }
+//             return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
+//         }
+//     }
+// });
 
-    typeCheck : function(){
-        if (!Expressions.BinaryOperator.typeCheck.apply(this)){
-            return false;
-        }
-        else if(this.left.type.isIntegralType && this.right.type.isIntegralType){
-            return true;
-        }
-        else{
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        }
-    },
-
-    operate : function(left, right, sim, inst){
-        return Value.instance(modulo(left.value, right.value), this.left.type); // TODO match C++ arithmetic
-    }
-
-}),
 
 export class OldBinaryOperator extends Expression {
     valueCategory : "prvalue",
@@ -1240,61 +1271,6 @@ export class OldBinaryOperator extends Expression {
 });
 
 
-export var BinaryOperatorRelational = BinaryOperator.extend({
-    _name: "BinaryOperatorRelational",
-    type: Types.Bool.instance(),
-
-    convert : function(){
-        Expressions.BinaryOperator.convert.apply(this);
-
-        if (isA(this.left.type, Types.Pointer) && isA(this.right, Literal) && isA(this.right.type, Types.Int) && this.right.value.rawValue() == 0){
-            this.right = Conversions.NullPointerConversion.instance(this.right, this.left.type);
-        }
-        if (isA(this.right.type, Types.Pointer) && isA(this.left, Literal) && isA(this.left.type, Types.Int) && this.left.value.rawValue() == 0){
-            this.left = Conversions.NullPointerConversion.instance(this.left, this.right.type);
-        }
-    },
-
-    typeCheck : function(){
-
-        // Note: typeCheck is only called if it's not an overload
-
-        if (isA(this.left.type, Types.Pointer)){
-            if (!isA(this.right.type, Types.Pointer)){
-                // TODO this is a hack until I implement functions to determine cv-combined type and composite pointer types
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-                return false;
-            }
-        }
-        else if (!Expressions.BinaryOperator.typeCheck.apply(this)){
-            return false;
-        }
-
-        // after first if, we know left and right have same type
-        else if(this.left.type.isArithmeticType){
-            return true;
-        }
-        else if(isA(this.left.type, Types.Pointer)){
-            this.isPointerComparision = true;
-            return true;
-        }
-        else{
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        }
-    },
-
-    operate : function(left, right, sim, inst){
-        if (this.isPointerComparision) {
-            if (!this.allowDiffArrayPointers && (!isA(left.type, Types.ArrayPointer) || !isA(right.type, Types.ArrayPointer) || left.type.arrObj !== right.type.arrObj)){
-                sim.unspecifiedBehavior("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
-            }
-            return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
-        }
-        else{
-            return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
-        }
-    }
-});
 
 
 export var BinaryOperatorLogical = BinaryOperator.extend({
@@ -1381,18 +1357,6 @@ export var BinaryOperatorLogical = BinaryOperator.extend({
 
 
 export var BINARY_OPS = Expressions.BINARY_OPS = {
-    "|" : Unsupported.extend({
-        _name: "BinaryOperator[|]",
-        englishName: "bitwise or"
-    }),
-    "&" : Unsupported.extend({
-        _name: "BinaryOperator[&]",
-        englishName: "bitwise and"
-    }),
-    "^" : Unsupported.extend({
-        _name: "BinaryOperator[^]",
-        englishName: "bitwise xor"
-    }),
     "||": BinaryOperatorLogical.extend({
         _name: "BinaryOperator[||]",
         shortCircuitValue: true,
@@ -1576,50 +1540,6 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
             // var next = sim.peek();
             // return isA(next.model, BINARY_OPS["<<"]) || isA(next.model, Literal) || isA(next.model, Conversions.LValueToRValue) && isA(next.model.from, Identifier) && next.model.from.entity === sim.endlEntity;
         }
-    }),
-    "<": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[<]",
-        compare : function(left, right){
-            return left < right;
-        }
-
-    }),
-    "==": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[==]",
-        allowDiffArrayPointers: true,
-        compare : function(left, right){
-            return left == right;
-        }
-
-    }),
-    "!=": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[!=]",
-        allowDiffArrayPointers: true,
-        compare : function(left, right){
-            return left != right;
-        }
-
-    }),
-    ">": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[>]",
-        compare : function(left, right){
-            return left > right;
-        }
-
-    }),
-    "<=": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[<=]",
-        compare : function(left, right){
-            return left <= right;
-        }
-
-    }),
-    ">=": BinaryOperatorRelational.extend({
-        _name: "BinaryOperator[>=]",
-        compare : function(left, right){
-            return left >= right;
-        }
-
     })
 };
 
