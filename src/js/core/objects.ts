@@ -20,9 +20,9 @@ abstract class ObjectData<T extends ObjectType> {
         this.address = address;
     }
 
-    public abstract rawValue() : RawValueType;
+    // public abstract rawValue() : RawValueType;
 
-    public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
+    // public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 };
 
 class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: change to atomic type
@@ -73,15 +73,15 @@ class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_typ
         }
     }
 
-    public rawValue() {
-        return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
-    }
+    // public rawValue() {
+    //     return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
+    // }
 
-    public setRawValue(newValue: RawValueType, write: boolean) {
-        for(var i = 0; i < (<ArrayType>this.object.type).length; ++i){
-            this.elemObjects[i].setValue(newValue[i], write);
-        }
-    }
+    // public setRawValue(newValue: RawValueType, write: boolean) {
+    //     for(var i = 0; i < (<ArrayType>this.object.type).length; ++i){
+    //         this.elemObjects[i].setValue(newValue[i], write);
+    //     }
+    // }
 }
 
 class ClassObjectData<T extends ClassType> extends ObjectData<T> {
@@ -131,19 +131,21 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
     //     }
     // }
 
-    public rawValue() {
-        return this.subobjects.map((subObj) => { return subObj.rawValue(); });
-    }
+    // public rawValue() {
+    //     return this.subobjects.map((subObj) => { return subObj.rawValue(); });
+    // }
 
-    public setRawValue(newValue: RawValueType, write: boolean) {
-        for(var i = 0; i < this.subobjects.length; ++i) {
-            this.subobjects[i].setValue(newValue[i], write);
-        }
-    }
+    // public setRawValue(newValue: RawValueType, write: boolean) {
+    //     for(var i = 0; i < this.subobjects.length; ++i) {
+    //         this.subobjects[i].setValue(newValue[i], write);
+    //     }
+    // }
 }
 
-
-export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: change T to extend ObjectType
+// TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
+// atomic objects and use a public factory function to create the appropriate instance based on the
+// template parameter. (Rather than the current awkward composition and conditional method strategy)
+export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     public readonly observable = new Observable(this);
 
@@ -173,7 +175,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
             this.data = <any>new ClassObjectData(<any>this, memory, address);
         }
         else {
-            this.data = new AtomicObjectData(this, memory, address);
+            this.data = <any>new AtomicObjectData(<any>this, memory, address);
         }
 
         this.address = address;
@@ -227,30 +229,30 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
         return new Value(this.address, new ObjectPointer(this));
     }
 
-    public getValue(read: boolean = false) {
-        let val = new Value(this.rawValue, this.type, this._isValid);
+    public getValue(this: CPPObject<AtomicType>, read: boolean = false) {
+        let val = new Value(this._rawValue, this.type, this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
         }
         return val;
     }
 
-    public get _rawValue() {
+    public get _rawValue(this: CPPObject<AtomicType>) {
         return this.data.rawValue();
     }
     
-    public readValue() {
+    public readValue(this: CPPObject<AtomicType>) {
         return this.getValue(true);
     }
 
-    public setValue(newValue: Value<T>, write: boolean = false) {
+    public setValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>, write: boolean = false) {
 
         this._isValid = newValue.isValid;
 
         // Accept new RTTI
-        (<T>this.type) = newValue.type;
+        (<T_Atomic>this.type) = newValue.type;
         
-        this.data.setRawValue(newValue.rawValue(), write);
+        this.data.setRawValue(newValue.rawValue, write);
 
         if(write) {
             this.observable.send("valueWritten", newValue);
@@ -258,7 +260,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {  // TODO: c
         
     }
 
-    public writeValue(newValue: Value<T>) {
+    public writeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
         this.setValue(newValue, true);
     }
 
