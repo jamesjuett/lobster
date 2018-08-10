@@ -365,6 +365,7 @@ export function convertToPRValue<T extends Type>(from: TypedExpression<T, ValueC
         return new LValueToRValue(from);
     }
 
+    return assertFalse("Failed to find matching conversion to convert to prvalue");
 };
 
 var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">, toType: ObjectType) {
@@ -427,7 +428,7 @@ var standardConversion3 = function(from, toType){
     return from;
 };
 
-export function standardConversion(from: CompiledExpression, toType: Type, options = {}) : CompiledExpression {
+export function standardConversion(from: TypedExpression, toType: Type, options = {}) : TypedExpression {
     options = options || {};
 
     if (!options.suppressLTR){
