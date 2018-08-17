@@ -46,8 +46,6 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
-// TODO: use symbols here?
-
 export abstract class Expression extends PotentialFullExpression {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
@@ -60,51 +58,14 @@ export abstract class Expression extends PotentialFullExpression {
 
     public abstract readonly _t_compiled!: CompiledExpression;
 
-    protected constructor(context: ExecutableConstructContext) {
-        super(context);
-
-        // Apply any standard conversions specified in i_childrenToConvert
-        this.i_convertChildren();
-
-        // If subexpressions have problems, just forget it :(
-        if (this.hasErrors()) {
-            return;
-        }
-
-        // Attempt custom conversions
-        this.convert();
-
-        // Type check
-        this.typeCheck();
-
-        this.compileTemporarires();
+    public createRuntimeExpression<T extends Type = Type, VC extends ValueCategory = ValueCategory>(this: TypedExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<TypedExpression<T,VC>>;
+    public createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression> {
+        return this.createRuntimeExpression_impl(parent);
     }
 
+    protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression>;
 
-    public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: Compiled<Expression,T,V>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<Compiled<Expression,T,V>>;
-
-
-
-    // i_convertChildren: function() {
-    //     for (var childName in this.i_childrenToConvert) {
-    //         this[childName] = standardConversion(this[childName], this.i_childrenToConvert[childName]);
-    //     }
-    // },
-    
-
-    protected convert() {
-
-    }
-
-    protected typeCheck() {
-
-    }
-
-    // public isType<T extends Type>(this: CompiledExpression, ctor: Util.Constructor<T>) : this is Expression<InstanceType<typeof ctor>> {
-    //     return isType(this.type, ctor);
-    // }
-
-    public isWellTyped() : this is TypedExpression {
+    public isWellTyped<T extends Type = Type, VC extends ValueCategory = ValueCategory>() : this is TypedExpression<T,VC> {
         return this.type !== null && this.valueCategory !== null;
     }
 
@@ -113,10 +74,6 @@ export abstract class Expression extends PotentialFullExpression {
     }
 
     public isTailChild(child: ExecutableConstruct) {
-        let x! : Expression;
-        if (x.isSuccessfullyCompiled()) {
-            x.createRuntimeExpression(<any>2);
-        }
         return {isTail: false};
     }
 
@@ -125,9 +82,9 @@ export abstract class Expression extends PotentialFullExpression {
     // }
 }
 
-export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
-    readonly type: T;
-    readonly valueCategory: V;
+export interface CompiledExpression extends Expression {
+    readonly type: Type;
+    readonly valueCategory: ValueCategory;
 
     // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
     // from being assignable to a compiled expression type
@@ -135,48 +92,17 @@ export interface CompiledExpression<T extends Type = Type, V extends ValueCatego
     readonly _t_isCompiled: void;
 }
 
-export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
+export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CompiledExpression {
     readonly type: T;
     readonly valueCategory: V;
 }
 
-// type Compiled<E extends Expression = Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = E & E["_t_compiledType"] & {
-//     readonly type: T;
-//     readonly valueCategory: V;
-// };
+type CompiledExpressionBase<E extends Expression> = E & CompiledExpression;
+type TypedExpressionBase<E extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = E & TypedExpression<T,V>;
 
-// interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> {
-//     readonly type: T;
-//     readonly valueCategory: V;
-//     readonly _t_isCompiled: true;
-// }
+type SimilarTypedExpression<CE extends TypedExpression> = TypedExpression<CE["type"], CE["valueCategory"]>;
 
-// 
-// type ExpressionPropertyNames<C extends Expression> = { [K in keyof C]: C[K] extends Expression ? K : never }[keyof C];
-// type CompiledChildExpressions<E extends Expression, Ex extends keyof any> = {
-//     [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never)>;
-// };
-
-// type CompiledExpression<E extends Expression = Expression,
-//                         T extends Type = E["t_compiledType"]["type"],
-//                         VC extends ValueCategory = E["t_compiledType"]["valueCategory"]>
-//                         = Util.Overwrite<
-//                             Util.Overwrite<
-//                                 Util.Overwrite<E, E["t_compiledType"]>,
-//                                 CompiledChildExpressions<E, keyof E["t_compiledType"]>>,
-//                             {
-
-//                                 // t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
-//                                 // from being assignable to a compiled expression type
-//                                 // TODO: maybe better to use a symbol here?
-//                                 readonly t_isCompiled: "true"
-
-//                                 // Add in the type and valueCategory properties from the template parameters with
-//                                 // "last one wins" semantics, because they were omitted (with Omit) previously
-//                                 readonly type: T;
-//                                 readonly valueCategory: VC;
-//                             }
-//                         >;
+export type Compiled<E extends Expression> = E["_t_compiled"];
 
 
 
@@ -223,11 +149,16 @@ export abstract class RuntimeExpression<CE extends CompiledExpression = Compiled
         super(model, "expression", parent);
     }
 
-    public setEvalResult(value: EvalResultType<CE>) {
+    protected setEvalResult(value: EvalResultType<CE>) {
         (<EvalResultType<CE>>this.evalResult) = value;
     }
 
 }
+
+// function createRuntimeExpression<T extends Type, VC extends ValueCategory>(e: TypedExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<TypedExpression<T,VC>>;
+// function createRuntimeExpression(e: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression> {
+//     return e.createRuntimeExpression(parent);
+// }
 
 export class UnsupportedExpression extends Expression {
 
@@ -245,7 +176,7 @@ export class UnsupportedExpression extends Expression {
     //     return false;
     // }
 
-    public createRuntimeExpression(parent: ExecutableRuntimeConstruct) : never {
+    public createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : never {
         return Util.assertFalse();
     }
 
@@ -253,6 +184,8 @@ export class UnsupportedExpression extends Expression {
         return {message: "the result of an unsupported expression"};
     };
 }
+
+
 
 
 
@@ -362,6 +295,8 @@ export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExp
 
 
 export class Comma extends Expression {
+    
+    public static readonly constructKind = Symbol("Comma");
 
     public readonly type: Type?;
     public readonly valueCategory: ValueCategory?;
@@ -371,7 +306,7 @@ export class Comma extends Expression {
 
     public readonly _t_compiled! : CompiledComma;
 
-    public constructor(context: ExecutableConstructContext, left: Compiled, right: Compiled) {
+    public constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
         super(context);
         this.attach(this.left = left);
         this.attach(this.right = right);
@@ -384,7 +319,7 @@ export class Comma extends Expression {
     //     return !this.hasErrors;
     // }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: Compiled<Comma, T, V>, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledComma<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeComma<CompiledComma<T,V>> {
         return new RuntimeComma(this, parent);
     }
 
@@ -407,21 +342,16 @@ export class Comma extends Expression {
     }
 }
 
-export interface CompiledComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Comma {
-    readonly _t_isCompiled: void;
-    abstract readonly type: T;
-    readonly valueCategory: V;
+
+export interface CompiledComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpressionBase<Comma,T,V> {
     readonly left: CompiledExpression;
-    readonly right: CompiledExpression<T,V>;
+    readonly right: TypedExpression<T,V>;
 }
-
-
-type SimilarCompiledExpression<CE extends CompiledExpression> = CompiledExpression<CE["type"], CE["valueCategory"]>;
 
 export class RuntimeComma<CE extends CompiledComma = CompiledComma> extends SimpleRuntimeExpression<CE> {
 
     public left: RuntimeExpression;
-    public right: RuntimeExpression<SimilarCompiledExpression<CE>>;
+    public right: RuntimeExpression<SimilarTypedExpression<CE>>;
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -435,6 +365,7 @@ export class RuntimeComma<CE extends CompiledComma = CompiledComma> extends Simp
     }
 
 }
+
 
 export class Ternary extends Expression {
     
@@ -502,16 +433,7 @@ export class Ternary extends Expression {
         return {then, otherwise};
     }
 
-    // public createRuntimeExpression<C extends Compiled<Ternary>>(this: C, parent: ExecutableRuntimeConstruct) : RuntimeTernary<C>{
-    //     return new RuntimeTernary(this, parent);
-    //     // let x: Compiled<Ternary>;
-    // }
-
-    // public createRuntimeExpression<C extends Compiled<Ternary, Type, ValueCategory>>(this: C, parent: ExecutableRuntimeConstruct): RuntimeExpression<C> {
-    //     return new RuntimeTernary(this, parent);
-    // }
-
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: Compiled<Ternary, T, V>, parent: ExecutableRuntimeConstruct): RuntimeTernary<Compiled<Ternary, T, V>> {
+    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledTernary<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<CompiledTernary<T,V>>{
         return new RuntimeTernary(this, parent);
     }
 
@@ -535,18 +457,15 @@ export class Ternary extends Expression {
     }
 }
 
-export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CompiledExpression<T,V> {
-    readonly _t_isCompiled: void;
-    abstract readonly type: T;
-    readonly valueCategory: V;
-    readonly condition: CompiledExpression<Bool, "prvalue">
-    readonly then: CompiledExpression
-    readonly otherwise: CompiledExpression
+export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpressionBase<Ternary,T,V> {
+    readonly condition: TypedExpression<Bool, "prvalue">;
+    readonly then: CompiledExpression;
+    readonly otherwise: CompiledExpression;
 }
 
 export class RuntimeTernary<CE extends CompiledTernary = CompiledTernary> extends RuntimeExpression<CE> {
 
-    public condition: RuntimeExpression<CompiledExpression<Bool, "prvalue">>;
+    public condition: RuntimeExpression<TypedExpression<Bool, "prvalue">>;
     public then: RuntimeExpression;
     public otherwise: RuntimeExpression;
 
@@ -590,7 +509,7 @@ export class Assignment extends Expression {
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
 
-    public readonly type: Type;
+    public readonly type: Type?;
     public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
@@ -637,13 +556,17 @@ export class Assignment extends Expression {
         this.attach(this.rhs = rhs);
     }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: Compiled<Assignment, T, V>, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression_impl<T extends AtomicType>(this: CompiledAssignment<T>, parent: ExecutableRuntimeConstruct) : RuntimeAssignment<CompiledAssignment<T>> {
         return new RuntimeAssignment(this, parent);
     }
     
     // TODO
     public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
+        let x! : CompiledComma<Bool, "prvalue">;
+        x.type
+        let y = x.createRuntimeExpression(<any>2);
+        let z = y.evalResult;
     }
 
 
@@ -735,19 +658,16 @@ export class Assignment extends Expression {
     }
 }
 
-export interface CompiledAssignment<T extends AtomicType = AtomicType, V extends "lvalue" = "lvalue"> extends CompiledExpression<T,V> {
-    readonly _t_isCompiled: void;
-    abstract readonly type: T;
-    readonly valueCategory: V;
-    readonly lhs: CompiledExpression<AtomicType, "lvalue">
-    readonly rhs: CompiledExpression<AtomicType, "prvalue">
+export interface CompiledAssignment<T extends AtomicType = AtomicType> extends TypedExpressionBase<Assignment,T,"lvalue"> {
+    readonly lhs: TypedExpression<AtomicType, "lvalue">
+    readonly rhs: TypedExpression<AtomicType, "prvalue">
 }
 
 
 export class RuntimeAssignment<CE extends CompiledAssignment = CompiledAssignment> extends SimpleRuntimeExpression<CE> {
 
-    public readonly lhs: RuntimeExpression<CompiledExpression<AtomicType, "lvalue">>;
-    public readonly rhs: RuntimeExpression<CompiledExpression<AtomicType, "prvalue">>
+    public readonly lhs: RuntimeExpression<TypedExpression<AtomicType, "lvalue">>;
+    public readonly rhs: RuntimeExpression<TypedExpression<AtomicType, "prvalue">>
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -999,8 +919,6 @@ export abstract class BinaryOperator extends Expression {
         return new RuntimeBinaryOperator(this, parent);
     }
 }
-
-type CompiledExpressionBase<E extends Expression, T extends Type, V extends ValueCategory> = E & CompiledExpression<T,V>;
 
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType, V extends "prvalue" = "prvalue"> extends CompiledExpressionBase<BinaryOperator,T,V> {
     readonly left: CompiledExpression<AtomicType, "prvalue">
@@ -3507,7 +3425,44 @@ export var Parentheses  = Expression.extend({
     }
 });
 
-// // hack to make sure I don't mess up capitalization
-// for (var key in Expressions){
-// 	Expressions[key.toLowerCase()] = Expressions[key];
+
+
+// OLD EXPRESSION JUNK BELOW
+
+// type Compiled<E extends Expression = Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = E & E["_t_compiledType"] & {
+//     readonly type: T;
+//     readonly valueCategory: V;
+// };
+
+// interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> {
+//     readonly type: T;
+//     readonly valueCategory: V;
+//     readonly _t_isCompiled: true;
 // }
+
+// 
+// type ExpressionPropertyNames<C extends Expression> = { [K in keyof C]: C[K] extends Expression ? K : never }[keyof C];
+// type CompiledChildExpressions<E extends Expression, Ex extends keyof any> = {
+//     [k in Exclude<ExpressionPropertyNames<E>,Ex>]: CompiledExpression<(E[k] extends Expression ? E[k] : never)>;
+// };
+
+// type CompiledExpression<E extends Expression = Expression,
+//                         T extends Type = E["t_compiledType"]["type"],
+//                         VC extends ValueCategory = E["t_compiledType"]["valueCategory"]>
+//                         = Util.Overwrite<
+//                             Util.Overwrite<
+//                                 Util.Overwrite<E, E["t_compiledType"]>,
+//                                 CompiledChildExpressions<E, keyof E["t_compiledType"]>>,
+//                             {
+
+//                                 // t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
+//                                 // from being assignable to a compiled expression type
+//                                 // TODO: maybe better to use a symbol here?
+//                                 readonly t_isCompiled: "true"
+
+//                                 // Add in the type and valueCategory properties from the template parameters with
+//                                 // "last one wins" semantics, because they were omitted (with Omit) previously
+//                                 readonly type: T;
+//                                 readonly valueCategory: VC;
+//                             }
+//                         >;

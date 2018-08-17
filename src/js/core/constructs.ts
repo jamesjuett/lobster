@@ -44,6 +44,8 @@ export class GlobalProgramConstruct {
 
 export abstract class CPPConstruct {
 
+    public static readonly constructKind : symbol = Symbol("CPPConstruct");
+
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
