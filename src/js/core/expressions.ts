@@ -1,14 +1,13 @@
-import {checkIdentifier} from "./lexical";
-import {CPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, ExecutableRuntimeConstruct, InstructionConstruct, PotentialFullExpression, ExecutableConstructContext, ExecutableConstruct, RuntimeInstruction, RuntimePotentialFullExpression, UnsupportedConstruct} from "./constructs";
 import * as Util from "../util/util";
-import { CPPObject } from "./objects";
-import { CPPError, Description } from "./errors";
-import { Type, Bool, sameType, VoidType, ObjectType, UNKNOWN_TYPE, AtomicType, Double, Float, isType } from "./types";
-import { Value, RawValueType } from "./runtimeEnvironment";
-import { standardConversion, convertToPRValue, integralPromotion, usualArithmeticConversions } from "./standardConversions";
-import { Simulation } from "./Simulation";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression } from "./constructs";
 import { CPPEntity } from "./entities";
-import { Omit } from "../../../node_modules/@types/lodash";
+import { CPPError, Description } from "./errors";
+import { checkIdentifier } from "./lexical";
+import { CPPObject } from "./objects";
+import { Value } from "./runtimeEnvironment";
+import { Simulation } from "./Simulation";
+import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, UNKNOWN_TYPE, VoidType, FunctionType } from "./types";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
@@ -59,13 +58,13 @@ export abstract class Expression extends PotentialFullExpression {
     public abstract readonly _t_compiled!: CompiledExpression;
 
     public createRuntimeExpression<T extends Type = Type, VC extends ValueCategory = ValueCategory>(this: TypedExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<TypedExpression<T,VC>>;
-    public createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression> {
+    public createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpressionInterface {
         return this.createRuntimeExpression_impl(parent);
     }
 
-    protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression>;
+    protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpressionInterface;
 
-    public isWellTyped<T extends Type = Type, VC extends ValueCategory = ValueCategory>() : this is TypedExpression<T,VC> {
+    public isWellTyped() : this is TypedExpression<Type,ValueCategory> {
         return this.type !== null && this.valueCategory !== null;
     }
 
@@ -92,10 +91,12 @@ export interface CompiledExpression extends Expression {
     readonly _t_isCompiled: void;
 }
 
+// Note: it's important that TypedExpression<Type, ValueCategory> is structurally equivalent to CompiledExpression
 export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CompiledExpression {
     readonly type: T;
     readonly valueCategory: V;
 }
+
 
 type CompiledExpressionBase<E extends Expression> = E & CompiledExpression;
 type TypedExpressionBase<E extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = E & TypedExpression<T,V>;
@@ -107,24 +108,24 @@ export type Compiled<E extends Expression> = E["_t_compiled"];
 
 
 type VCResultTypes<T extends Type> = T extends AtomicType ? {
-        prvalue: Value<T>;
-        xvalue: CPPObject<T>;
-        lvalue: CPPObject<T>;
+        readonly prvalue: Value<T>;
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
     }
     :
     T extends ObjectType ? {
-        prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
-        xvalue: CPPObject<T>;
-        lvalue: CPPObject<T>;
+        readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
     }
     : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        prvalue: Value<AtomicType>;
-        xvalue: CPPObject<ObjectType>;
-        lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
+        readonly prvalue: Value<AtomicType>;
+        readonly xvalue: CPPObject<ObjectType>;
+        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
     } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
-        prvalue: never;
-        xvalue: never;
-        lvalue: never; // TODO: add functions/arrays as possible results
+        readonly prvalue: never;
+        readonly xvalue: never;
+        readonly lvalue: never; // TODO: add functions/arrays as possible results
     };
 
 //     prvalue: T extends AtomicType ? Value<T> :
@@ -140,25 +141,27 @@ type VCResultTypes<T extends Type> = T extends AtomicType ? {
 
 type EvalResultType<E extends CompiledExpression> = VCResultTypes<E["type"]>[E["valueCategory"]];
 
-export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression>
-    extends RuntimePotentialFullExpression<CE> {
+export interface RuntimeExpressionInterface<CE extends CompiledExpression = CompiledExpression> extends RuntimePotentialFullExpression<CE> {
+    readonly _t_RuntimeExpressionInterface: void;
+
+}
+
+export abstract class RuntimeExpression<CE extends CompiledExpression>
+    extends RuntimePotentialFullExpression<CE> implements RuntimeExpressionInterface<CE>{
         
+    readonly _t_RuntimeExpressionInterface: void;
+
     public readonly evalResult?: EvalResultType<CE>;
 
     public constructor(model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
-    protected setEvalResult(value: EvalResultType<CE>) {
+    public setEvalResult(value: EvalResultType<CE>) {
         (<EvalResultType<CE>>this.evalResult) = value;
     }
 
 }
-
-// function createRuntimeExpression<T extends Type, VC extends ValueCategory>(e: TypedExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<TypedExpression<T,VC>>;
-// function createRuntimeExpression(e: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression<CompiledExpression> {
-//     return e.createRuntimeExpression(parent);
-// }
 
 export class UnsupportedExpression extends Expression {
 
@@ -350,7 +353,7 @@ export interface CompiledComma<T extends Type = Type, V extends ValueCategory = 
 
 export class RuntimeComma<CE extends CompiledComma = CompiledComma> extends SimpleRuntimeExpression<CE> {
 
-    public left: RuntimeExpression;
+    public left: RuntimeExpressionInterface;
     public right: RuntimeExpression<SimilarTypedExpression<CE>>;
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
@@ -466,8 +469,8 @@ export interface CompiledTernary<T extends Type = Type, V extends ValueCategory 
 export class RuntimeTernary<CE extends CompiledTernary = CompiledTernary> extends RuntimeExpression<CE> {
 
     public condition: RuntimeExpression<TypedExpression<Bool, "prvalue">>;
-    public then: RuntimeExpression;
-    public otherwise: RuntimeExpression;
+    public then: RuntimeExpression<SimilarTypedExpression<CE>>;
+    public otherwise: RuntimeExpression<SimilarTypedExpression<CE>>;
 
     private index = "condition";
 
@@ -545,11 +548,11 @@ export class Assignment extends Expression {
         }
 
         // warning for self assignment
-        if (lhs instanceof Identifier && rhs instanceof Identifier && lhs.entity === rhs.entity){
+        if (lhs instanceof Identifier && rhs instanceof Identifier && lhs.entity === rhs.entity) {
             this.addNote(CPPError.expr.assignment.self(this, lhs.entity));
         }
 
-        // TODO: do we need to check that lhs is an ObjectType? or is that necessary given all the other checks?
+        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
 
         this.type = lhs.type;
         this.attach(this.lhs = lhs);
@@ -563,10 +566,6 @@ export class Assignment extends Expression {
     // TODO
     public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
-        let x! : CompiledComma<Bool, "prvalue">;
-        x.type
-        let y = x.createRuntimeExpression(<any>2);
-        let z = y.evalResult;
     }
 
 
@@ -850,58 +849,58 @@ const SimpleBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="
 
 const BINARY_OPERATIONS = {
     "+" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, add))
+        return rt.left.evalResult!.combine(rt.right.evalResult!, add);
     },
     "-" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, sub))
+        return rt.left.evalResult!.combine(rt.right.evalResult!, sub);
     },
     "*" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, mult))
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, mult));
     },
     "/" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
         if (rt.left.model.type.isIntegralType) {
-            rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, intDiv))
+            rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, intDiv));
         }
         else {
-            rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, floatDiv))
+            rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, floatDiv));
         }
     },
     "%" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, mod))
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, mod));
     },
     "<" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lt))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lt));
     },
     ">" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gt))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gt));
     },
     "<=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lte))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, lte));
     },
     ">=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gte))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, gte));
     },
     "==" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, eq))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, eq));
     },
     "!=" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, ne))
+        rt.setEvalResult(rt.left.evalResult!.compare(rt.right.evalResult!, ne));
     },
     "&" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitAnd))
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitAnd));
     },
     "^" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitXor))
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitXor));
     },
     "|" : function<CE extends Compiled<BinaryOperator>>(rt: RuntimeBinaryOperator<CE>) {
-        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitOr))
+        rt.setEvalResult(rt.left.evalResult!.combine(rt.right.evalResult!, bitOr));
     }
 }
 
 export abstract class BinaryOperator extends Expression {
     
-    public abstract readonly type: AtomicType?;
-    public readonly valueCategory: "prvalue" = "prvalue";
+    public abstract readonly type: Type?;
+    public readonly valueCategory = "prvalue";
 
     public abstract readonly left: Expression;
     public abstract readonly right: Expression;
@@ -915,14 +914,14 @@ export abstract class BinaryOperator extends Expression {
         this.operator = operator;
     }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledBinaryOperator<T, V>, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression_impl<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeBinaryOperator<CompiledBinaryOperator<T>> {
         return new RuntimeBinaryOperator(this, parent);
     }
 }
 
-export interface CompiledBinaryOperator<T extends AtomicType = AtomicType, V extends "prvalue" = "prvalue"> extends CompiledExpressionBase<BinaryOperator,T,V> {
-    readonly left: CompiledExpression<AtomicType, "prvalue">
-    readonly right: CompiledExpression<AtomicType, "prvalue">
+export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends TypedExpressionBase<BinaryOperator,T,"prvalue"> {
+    readonly left: TypedExpression<AtomicType, "prvalue">
+    readonly right: TypedExpression<AtomicType, "prvalue">
 }
 
 // abstract class LRRuntimeExpression<E extends Expression, T extends Type, VC extends ValueCategory> extends SimpleRuntimeExpression<CompiledLRExpression<E,T,VC>,T,VC> {
@@ -942,8 +941,8 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType, V ext
 
 export class RuntimeBinaryOperator<CE extends CompiledBinaryOperator = CompiledBinaryOperator> extends SimpleRuntimeExpression<CE> {
 
-    public left: RuntimeExpression<CompiledExpression<AtomicType, "prvalue">>;
-    public right: RuntimeExpression<CompiledExpression<AtomicType, "prvalue">>;
+    public left: RuntimeExpression<TypedExpression<AtomicType, "prvalue">>;
+    public right: RuntimeExpression<TypedExpression<AtomicType, "prvalue">>;
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
