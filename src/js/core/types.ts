@@ -728,6 +728,8 @@ export class Bool extends IntegralTypeBase {
             size: 1
         }
     );
+
+    public static BOOL = new Bool();
 }
 builtInTypes["bool"] = Bool;
 

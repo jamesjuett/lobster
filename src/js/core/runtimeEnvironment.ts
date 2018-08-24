@@ -47,7 +47,7 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && otherValue.isValid);
     }
 
-    public rawEquals(otherRawValue: any) {
+    public rawEquals(otherRawValue: RawValueType) {
         return this.rawValue === otherRawValue;
     }
 

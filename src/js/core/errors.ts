@@ -508,6 +508,9 @@ export var CPPError = {
             integral_operands : function(src, operator, left, right) {    
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.integral_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ", which requires operands of integral type.");
             },
+            boolean_operand : function(src, operator, operand) {    
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.boolean_operand", "Invalid operand type (" + operand.type ") for operator " + operator + ", which requires operands that may be converted to boolean type.");
+            },
             arithmetic_common_type : function(src, operator, left, right) {    
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.arithmetic_common_type", "Performing the usual arithmetic conversions yielded operands of types (" + left.type + ", " + right.type + ") for operator " + operator + ", but a common arithmetic type could not be found.");
             }
