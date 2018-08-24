@@ -1,6 +1,6 @@
 import * as Util from "../util/util";
 import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression } from "./constructs";
-import { CPPEntity } from "./entities";
+import { CPPEntity, FunctionEntity, MemberFunctionEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier } from "./lexical";
 import { CPPObject } from "./objects";
@@ -301,23 +301,37 @@ export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExp
 // };
 
 
+type t_OverloadableOperators =
+    "+" | "-" | "*" | "/" | "%" |
+    "&" | "|" | "^" | "~" | "<<" | ">>" | "<" | ">" | "<=" |
+    ">=" | "==" | "!=" | "&&" | "||" | "!" | "++" | "--" |
+    "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" |
+    "," | "->" | "->*" | "()" | "[]";
+
+
 export class OperatorOverload extends Expression {
 
     public readonly type: Type?;
     public readonly valueCategory: ValueCategory?;
 
+    public readonly operator: t_OverloadableOperators;
     public readonly operands: Expression[];
     
+    public readonly isMemberOverload?: boolean;
+    public readonly overloadFunctionCall?: FunctionCall; 
+
     public readonly _t_compiled!: CompiledOperatorOverload;
 
-    private constructor(context: ExecutableConstructContext, operands: Expression[]) {
+    private constructor(context: ExecutableConstructContext, operands: Expression[], operator: t_OverloadableOperators) {
         super(context);
+
+        this.operator = operator;
+        this.operands = operands; // These may go through conversions when attached to a function call, but this member contains the "raw" versions
 
         // If any of the operands are not well-typed, can't compile
         if (!this.hasWellTypedOperands(operands)) {
             this.type = null;
             this.valueCategory = null;
-            this.operands = operands;
 
             // In this case, attach operands directly as children.
             operands.forEach((expr) => {this.attach(expr);});
@@ -328,140 +342,73 @@ export class OperatorOverload extends Expression {
         Util.assert(operands.length > 0, "Operator overload must have at least one operand.");
         Util.assert(operands.some((expr) => {return isType(expr.type, ClassType);}), "At least one operand in a non-member overload must have class-type.");
 
+
+        let overloadFunction : FunctionEntity? = null;
+
         // If the leftmost operand is class-type, we can look for a member overload
         let leftmost = operands[0];
-        if (leftmost)
-        // First, look for a member overload in left class type.
-        var overloadOp = auxLeft.type.classScope && auxLeft.type.classScope.singleLookup("operator" + this.operator, {
-            own:true, paramTypes:[auxRight.type], isThisConst : auxLeft.type.isConst
-        });
-
-        // If we didn't find a member overload, next look for a non-member overload
-        if (!overloadOp) {
-            overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
-                paramTypes: [auxLeft.type, auxRight.type]
+        if (isType(leftmost.type, ClassType)) {
+            let entity = leftmost.type.cppClass.scope.singleLookup("operator" + this.operator, {
+                own:true, params:[operands.slice(1)], isThisConst : leftmost.type.isConst
             });
+            
+            Util.assert(entity instanceof FunctionEntity, "Non-function entity found for operator overload name lookup.");
+            overloadFunction = <FunctionEntity>entity;
+        }
+        
+        // If we didn't find a member overload, next look for a non-member overload
+        if (!overloadFunction) {
+            let entity = this.contextualScope.singleLookup("operator" + this.operator, {
+                params: operands
+            });
+            
+            Util.assert(entity instanceof FunctionEntity, "Non-function entity found for operator overload name lookup.");
+            overloadFunction = <FunctionEntity>entity;
         }
 
-        if (overloadOp){
-            this.isOverload = true;
-            this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
+
+        if (overloadFunction) {
+            this.isMemberOverload = overloadFunction instanceof MemberFunctionEntity;
 
 
-            if (this.isMemberOverload){
-                // Member overload means left operand is our direct child, right operand is argument to function call
-                this.left = this.i_createAndCompileChildExpr(this.ast.left);
-                this.funcCall = FunctionCall.instance({args: [this.ast.right]}, {parent:this});
-                this.funcCall.compile({func: overloadOp});
-                this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
+            if (this.isMemberOverload) {
+                // Member overload means leftmost operand is our directly attached child, other operands are arguments to function call.
+                this.attach(operands[0]);
+                this.attach(this.overloadFunctionCall = new FunctionCall(context, overloadFunction, operands.slice(1)));
+                // The receiver of the function call is set at runtime after the operand is evaluated
             }
             else{
-                // Non-member overload means both left and right are arguments of the function call
-                this.funcCall = FunctionCall.instance({args: [this.ast.left, this.ast.right]}, {parent:this});
-                this.funcCall.compile({func: overloadOp});
-                this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
+                // Non-member overload means all operands are arguments of the function call
+                this.attach(this.overloadFunctionCall = new FunctionCall(context, overloadFunction, operands));
             }
 
-            this.type = this.funcCall.type;
-            this.valueCategory = this.funcCall.valueCategory;
+            this.type = this.overloadFunctionCall.type;
+            this.valueCategory = this.overloadFunctionCall.valueCategory;
         }
         else{
             // TODO: add in notes from attempted lookup operations for the member and non-member overloads
-            this.addNote(CPPError.expr.binary.overload_not_found(this, this.operator, auxLeft.type, auxRight.type));
+            this.addNote(CPPError.expr.binary.overload_not_found(this, operator, operands));
+
+            this.type = null;
+            this.valueCategory = null;
+
+            // If we didn't find a function to use, just attach operands directly as children.
+            operands.forEach((expr) => {this.attach(expr);});
         }
-
-        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-
-        if (lhs.valueCategory && lhs.valueCategory != "lvalue") {
-            this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
-        }
-
-        // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
-
-        if (lhs.type.isConst) {
-            this.addNote(CPPError.expr.assignment.lhs_const(this));
-        }
-
-        if (rhs.type && !sameType(rhs.type, lhs.type.cvUnqualified())) {
-            this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
-        }
-
-        // warning for self assignment
-        if (lhs instanceof Identifier && rhs instanceof Identifier && lhs.entity === rhs.entity) {
-            this.addNote(CPPError.expr.assignment.self(this, lhs.entity));
-        }
-
-        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
-
-        this.type = lhs.type;
-        this.attach(this.lhs = lhs);
-        this.attach(this.rhs = rhs);
     }
 
     private hasWellTypedOperands(operands: Expression[]) : operands is TypedExpression[] {
         return operands.every((expr) => { return expr.isWellTyped(); });
     }
 
-    public createRuntimeExpression_impl<T extends AtomicType>(this: CompiledAssignment<T>, parent: ExecutableRuntimeConstruct) : RuntimeAssignment<CompiledAssignment<T>> {
-        return new RuntimeAssignment(this, parent);
+    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledOperatorOverload<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeOperatorOverload<CompiledOperatorOverload<T,V>> {
+        return new RuntimeOperatorOverload(this, parent);
     }
     
-    // TODO
     public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
     }
 
-
-    // convert : function(){
-
-        
-
-    //     // Check for overloaded assignment
-    //     // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
-    //     if (isA(this.lhs.type, Types.Class)){
-    //         // Class-type LHS means we check for an overloaded = operator
-
-    //         // Compile the RHS as an auxiliary expression so that we can figure out its type without impacting the construct tree
-    //         var auxRhs = CPPConstruct.create(this.ast.rhs, {parent: this, auxiliary: true});
-    //         auxRhs.compile();
-
-    //         try{
-    //             // Look for an overloaded = operator that we can use with an argument of the RHS type
-    //             // Note: "own" here means don't look in parent scope containing the class definition, but we still
-    //             // look in the scope of any base classes that exist due to the class scope performing member lookup
-    //             var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
-    //                 paramTypes:[auxRhs.type],
-    //                 isThisConst: this.lhs.type.isConst
-    //             });
-
-    //             // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
-    //             if (assnOp){
-    //                 this.isOverload = true;
-    //                 this.isMemberOverload = true;
-    //                 this.funcCall = FunctionCall.instance({args: [this.ast.rhs]}, {parent:this});
-    //                 this.funcCall.compile({func: assnOp});
-    //                 this.type = this.funcCall.type;
-    //                 this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
-    //             }
-    //             else{
-    //                 this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
-    //             }
-    //         }
-    //         catch(e){
-    //             if (isA(e, SemanticExceptions.BadLookup)){
-    //                 this.addNote(CPPError.expr.overloadLookup(this, "="));
-    //                 this.addNote(e.annotation(this));
-    //             }
-    //             else{
-    //                 throw e;
-    //             }
-    //         }
-    //     }
-    //     // else{
-    //     //     // Non-class type, so this is regular assignment. Create and compile the rhs, and then attempt
-    //     //     // standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue conversion
-    //     // }
-    // },
 
 
     // upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -486,18 +433,14 @@ export class OperatorOverload extends Expression {
     //     }
     // },
 
-    public isTailChild(child: ExecutableConstruct) {
-        return {isTail: false,
-            reason: "The assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+}
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var lhs = this.lhs.describeEvalResult(0);
-        var rhs = this.rhs.describeEvalResult(0);
-        return {message: "The value of " + (rhs.name || rhs.message) + " will be assigned to " + (lhs.name || lhs.message) + "."};
-    }
+export interface CompiledOperatorOverload<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<OperatorOverload,T,V> {
+
+    public readonly operands: CompiledExpression[];
+    
+    public readonly isMemberOverload: boolean;
+    public readonly overloadFunctionCall: FunctionCall<T,V>; 
 }
 
 

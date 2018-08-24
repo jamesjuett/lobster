@@ -1198,7 +1198,7 @@ export class CPPClass {
 
     // TODO: there isn't really a need to store entities in here. just the types would be fine and entities for the named
     // members would still go in the class scope. Base class entities aren't really needed at all.
-    private scope: ClassScope;
+    public readonly scope: ClassScope;
     private memberEntities : MemberVariableEntity[] = [];
     private subobjectEntities: (MemberVariableEntity | BaseClassEntity)[] = [];
     public readonly baseClassEntities: BaseClassEntity[] = [];
