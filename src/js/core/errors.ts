@@ -499,8 +499,8 @@ export var CPPError = {
 
         },
         binary : {
-            overload_not_found : function(src, op, leftType, rightType){
-                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.overload_not_found", "An overloaded " + op + " operator for the types (" + leftType + ", " + rightType + ") cannot be found.");
+            overload_not_found : function(src, op, operands){
+                return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.overload_not_found", "An overloaded " + op + " operator for the types (" + operands.map((op)=>{return op.type;}).join(", ") + ") cannot be found.");
             },
             arithmetic_operands : function(src, operator, left, right) {    
                 return CompilerNote.instance(src, CompilerNote.TYPE_ERROR, "expr.binary.arithmetic_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ", which requires operands of arithmetic type.");
