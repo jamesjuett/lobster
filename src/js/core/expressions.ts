@@ -7,7 +7,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int } from "./types";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
@@ -68,9 +68,9 @@ export abstract class Expression extends PotentialFullExpression {
         return this.type !== null && this.valueCategory !== null;
     }
 
-    public isSuccessfullyCompiled() : this is Compiled<this> {
-        return !this.hasErrors;
-    }
+    // public isSuccessfullyCompiled() : this is Compiled<this> {
+    //     return !this.hasErrors;
+    // }
 
     public isTailChild(child: ExecutableConstruct) {
         return {isTail: false};
@@ -1099,7 +1099,7 @@ export class RuntimeSimpleBinaryOperator<CE extends CompiledBinaryOperator = Com
     }
 
     public operate() {
-        this.setEvalResult(BINARY_OPERATIONS[this.model.operator](this));
+        this.setEvalResult(BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
     }
 }
 
@@ -1169,6 +1169,120 @@ class ArithmeticBinaryOperator extends BinaryOperator {
         throw new Error("Method not implemented.");
     }
 }
+
+
+
+
+class PointerAddition extends BinaryOperator {
+    
+    public readonly type: AtomicType?;
+
+    public readonly left: Expression;
+    public readonly right: Expression;
+
+    public readonly pointer?: TypedExpression<Pointer, "prvalue">;
+    public readonly offset?: TypedExpression<AtomicType, "prvalue">;
+
+    public readonly operator! : "+"; // Narrows type from base
+
+    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+        super(context, "+");
+
+        if (left.isWellTyped() && right.isWellTyped()) {
+            left = convertToPRValue(left);
+            right = convertToPRValue(right);
+        }
+
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+
+        if (left.isWellTyped() && right.isWellTyped()) {
+            
+            if (left.type.isType(Pointer) && right.type.isIntegralType) {
+                this.pointer = <TypedExpression<Pointer, "prvalue">> left;
+                this.offset = <TypedExpression<AtomicType, "prvalue">> right;
+                this.type = this.pointer.type;
+            }
+            else if (left.type.isIntegralType && right.type.isType(Pointer)) {
+                this.pointer = <TypedExpression<Pointer, "prvalue">> right;
+                this.offset = <TypedExpression<AtomicType, "prvalue">> left;
+                this.type = this.pointer.type;
+            }
+            else {
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
+                this.type = null;
+            }
+        }
+        else {
+            this.type = null;
+        }
+    }
+
+    public createRuntimeExpression_impl(this: CompiledPointerAddition, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerAddition> {
+        return new RuntimePointerAddition(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledPointerAddition extends TypedCompiledExpressionBase<PointerAddition,Pointer,"prvalue"> {
+    readonly left: TypedCompiledExpression<AtomicType, "prvalue">
+    readonly right: TypedCompiledExpression<AtomicType, "prvalue">
+    
+    public readonly pointer: TypedExpression<Pointer, "prvalue">;
+    public readonly offset: TypedExpression<AtomicType, "prvalue">;
+}
+
+
+export class RuntimePointerAddition<CE extends CompiledPointerAddition = CompiledPointerAddition> extends SimpleRuntimeExpression<CE> {
+
+    public left: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public right: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+
+        // code below computes the new address after pointer addition, while preserving RTTI
+        //   result = leftResult + rightResult * pointerSize
+        let result = this.left.evalResult!.combine(
+            this.right.evalResult!.modify((a:RawValueType) => {
+                return a * this.model.pointer.type.ptrTo.size;
+            }),
+            add
+        );
+
+        // let result = Value.instance(left.value + right.value * this.left.type.ptrTo.size, left.type);
+        if (isA(left.type, Types.ArrayPointer)){
+            // Check that we haven't run off the array
+            if (result.value < result.type.min()){
+                //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+            }
+            else if (result.type.onePast() < result.value){
+                //sim.alert("Oops. That pointer just wandered off the end of its array.");
+            }
+
+            return result;
+        }
+        else{
+            // If the RTTI works well enough, this should always be unsafe
+            sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+            return result;
+        }
+        this.setEvalResult(BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
+    }
+}
+
+
+
+
 
 // PointerRelationalBinaryOperator
 
@@ -1454,52 +1568,11 @@ export var BINARY_OPS = Expressions.BINARY_OPS = {
 
         typeCheck : function(){
             // Check if it's pointer arithmetic
-            if (isA(this.left.type, Types.Pointer) || isA(this.right.type, Types.Pointer)) {
-                if (isA(this.right.type, Types.Pointer)){
-                    // Switch so left operand is always the pointer
-                    var temp = this.left;
-                    this.left = this.right;
-                    this.right = temp;
-                }
-
-                if (this.right.type.isIntegralType || this.right.type.isEnum){
-                    this.type = this.left.type;
-                    this.isPointerArithmetic = true;
-                    this.type = this.left.type;
-                    return true;
-                }
-            }
-//            else if(!Expressions.BinaryOperator.typeCheck.apply(this)){
-//                return false;
-//            }
-            else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
-                this.type = this.left.type;
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
+            
         },
 
         operate : function(left, right, sim, inst){
             if (this.isPointerArithmetic) {
-                // Can assume pointer is always on left
-                var result = Value.instance(left.value + right.value * this.left.type.ptrTo.size, left.type);
-                if (isA(left.type, Types.ArrayPointer)){
-                    // Check that we haven't run off the array
-                    if (result.value < result.type.min()){
-                        //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-                    }
-                    else if (result.type.onePast() < result.value){
-                        //sim.alert("Oops. That pointer just wandered off the end of its array.");
-                    }
-
-                    return result;
-                }
-                else{
-                    // If the RTTI works well enough, this should always be unsafe
-                    sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-                    return result;
-                }
             }
             else{
                 return Value.instance(left.value + right.value, this.left.type, {invalid: !left.isValueValid() || !right.isValueValid }); // TODO match C++ arithmetic

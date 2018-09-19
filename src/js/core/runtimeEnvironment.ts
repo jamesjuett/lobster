@@ -66,6 +66,13 @@ export class Value<T extends AtomicType = AtomicType> {
             new Bool(),
             this.isValid && otherValue.isValid);
     }
+    
+    public modify(modifier: (a:RawValueType) => RawValueType) {
+        return new Value<T>(
+            modifier(this.rawValue),
+            this.type,
+            this.isValid);
+    }
 
     public toString() {
         return this.valueString();
