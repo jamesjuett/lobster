@@ -1,7 +1,7 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType } from "./types";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType, IntegralType } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
@@ -57,6 +57,15 @@ export class Value<T extends AtomicType = AtomicType> {
             combiner(this.rawValue, otherValue.rawValue),
             this.type,
             this.isValid && otherValue.isValid);
+    }
+
+    public pointerOffset(this: Value<Pointer>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
+        return new Value<Pointer>(
+            (subtract ?
+                this.rawValue - this.type.ptrTo.size * offsetValue.rawValue :
+                this.rawValue + this.type.ptrTo.size * offsetValue.rawValue),
+            this.type,
+            this.isValid && offsetValue.isValid);
     }
 
     public compare(otherValue: Value<T>, comparer: (a:RawValueType, b:RawValueType) => boolean) {

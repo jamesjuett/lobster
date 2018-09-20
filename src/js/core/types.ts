@@ -635,13 +635,13 @@ export abstract class SimpleType extends AtomicType {
 // });
 // builtInTypes["_universal_data"] = _Universal_data;
 
-abstract class IntegralTypeBase extends SimpleType {
+export abstract class IntegralType extends SimpleType {
 
     public readonly isIntegralType!: boolean;
     public readonly isArithmeticType!: boolean;
 
     protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        IntegralTypeBase,
+        IntegralType,
         {
             isIntegralType: true,
             isArithmeticType: true
@@ -650,7 +650,7 @@ abstract class IntegralTypeBase extends SimpleType {
 }
 
 
-export class Char extends IntegralTypeBase {
+export class Char extends IntegralType {
     
     protected readonly simpleType!: string;
     public readonly size!: number;
@@ -688,7 +688,7 @@ export class Char extends IntegralTypeBase {
 }
 builtInTypes["char"] = Char;
 
-export class Int extends IntegralTypeBase {
+export class Int extends IntegralType {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
@@ -703,7 +703,7 @@ export class Int extends IntegralTypeBase {
 
 builtInTypes["int"] = Int;
 
-export class Size_t extends IntegralTypeBase {
+export class Size_t extends IntegralType {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
@@ -717,7 +717,7 @@ export class Size_t extends IntegralTypeBase {
 }
 builtInTypes["size_t"] = Size_t;
 
-export class Bool extends IntegralTypeBase {
+export class Bool extends IntegralType {
     protected readonly simpleType!: string;
     public readonly size!: number;
 
