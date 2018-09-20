@@ -1173,7 +1173,7 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
 
 
-class PointerAddition extends BinaryOperator {
+class PointerOffset extends BinaryOperator {
     
     public readonly type: Pointer?;
 
@@ -1222,8 +1222,8 @@ class PointerAddition extends BinaryOperator {
         }
     }
 
-    public createRuntimeExpression_impl(this: CompiledPointerAddition, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerAddition> {
-        return new RuntimePointerAddition(this, parent);
+    public createRuntimeExpression_impl(this: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerOffset> {
+        return new RuntimePointerOffset(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1231,7 +1231,7 @@ class PointerAddition extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerAddition extends TypedCompiledExpressionBase<PointerAddition,Pointer,"prvalue"> {
+export interface CompiledPointerOffset extends TypedCompiledExpressionBase<PointerOffset,Pointer,"prvalue"> {
     readonly left: TypedCompiledExpression<AtomicType, "prvalue">
     readonly right: TypedCompiledExpression<AtomicType, "prvalue">
     
@@ -1242,7 +1242,7 @@ export interface CompiledPointerAddition extends TypedCompiledExpressionBase<Poi
 }
 
 
-export class RuntimePointerAddition<CE extends CompiledPointerAddition = CompiledPointerAddition> extends SimpleRuntimeExpression<CE> {
+export class RuntimePointerOffset<CE extends CompiledPointerOffset = CompiledPointerOffset> extends SimpleRuntimeExpression<CE> {
 
     public left: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
     public right: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
@@ -1291,6 +1291,69 @@ export class RuntimePointerAddition<CE extends CompiledPointerAddition = Compile
     }
 }
 
+
+class PointerDifference extends BinaryOperator {
+    
+    public readonly type: IntegralType;
+
+    public readonly left: Expression;
+    public readonly right: Expression;
+
+    public readonly operator! : "-"; // Narrows type from base
+
+    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+        super(context, "-");
+
+        if (left.isWellTyped() && right.isWellTyped()) {
+            left = convertToPRValue(left);
+            right = convertToPRValue(right);
+        }
+
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+
+        if (left.isWellTyped() && right.isWellTyped()) {
+            
+            if (left.type.isType(Pointer) && right.type.isIntegralType) {
+                this.pointerOnLeft = true;
+                this.pointer = <TypedExpression<Pointer, "prvalue">> left;
+                this.offset = <TypedExpression<IntegralType, "prvalue">> right;
+                this.type = this.pointer.type;
+            }
+            else if (left.type.isIntegralType && right.type.isType(Pointer)) {
+                this.pointerOnLeft = false;
+                this.pointer = <TypedExpression<Pointer, "prvalue">> right;
+                this.offset = <TypedExpression<IntegralType, "prvalue">> left;
+                this.type = this.pointer.type;
+            }
+            else {
+                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
+                this.type = null;
+            }
+        }
+        else {
+            this.type = null;
+        }
+    }
+
+    public createRuntimeExpression_impl(this: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerOffset> {
+        return new RuntimePointerOffset(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledPointerOffset extends TypedCompiledExpressionBase<PointerOffset,Pointer,"prvalue"> {
+    readonly left: TypedCompiledExpression<AtomicType, "prvalue">
+    readonly right: TypedCompiledExpression<AtomicType, "prvalue">
+    
+    public readonly pointer: TypedCompiledExpression<Pointer, "prvalue">;
+    public readonly offset: TypedCompiledExpression<IntegralType, "prvalue">;
+    
+    public readonly pointerOnLeft?: boolean;
+}
 
 
 
