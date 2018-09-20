@@ -7,7 +7,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer } from "./types";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
@@ -1175,13 +1175,15 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
 class PointerAddition extends BinaryOperator {
     
-    public readonly type: AtomicType?;
+    public readonly type: Pointer?;
 
     public readonly left: Expression;
     public readonly right: Expression;
 
     public readonly pointer?: TypedExpression<Pointer, "prvalue">;
-    public readonly offset?: TypedExpression<AtomicType, "prvalue">;
+    public readonly offset?: TypedExpression<IntegralType, "prvalue">;
+
+    public readonly pointerOnLeft?: boolean;
 
     public readonly operator! : "+"; // Narrows type from base
 
@@ -1199,13 +1201,15 @@ class PointerAddition extends BinaryOperator {
         if (left.isWellTyped() && right.isWellTyped()) {
             
             if (left.type.isType(Pointer) && right.type.isIntegralType) {
+                this.pointerOnLeft = true;
                 this.pointer = <TypedExpression<Pointer, "prvalue">> left;
-                this.offset = <TypedExpression<AtomicType, "prvalue">> right;
+                this.offset = <TypedExpression<IntegralType, "prvalue">> right;
                 this.type = this.pointer.type;
             }
             else if (left.type.isIntegralType && right.type.isType(Pointer)) {
+                this.pointerOnLeft = false;
                 this.pointer = <TypedExpression<Pointer, "prvalue">> right;
-                this.offset = <TypedExpression<AtomicType, "prvalue">> left;
+                this.offset = <TypedExpression<IntegralType, "prvalue">> left;
                 this.type = this.pointer.type;
             }
             else {
@@ -1231,8 +1235,10 @@ export interface CompiledPointerAddition extends TypedCompiledExpressionBase<Poi
     readonly left: TypedCompiledExpression<AtomicType, "prvalue">
     readonly right: TypedCompiledExpression<AtomicType, "prvalue">
     
-    public readonly pointer: TypedExpression<Pointer, "prvalue">;
-    public readonly offset: TypedExpression<AtomicType, "prvalue">;
+    public readonly pointer: TypedCompiledExpression<Pointer, "prvalue">;
+    public readonly offset: TypedCompiledExpression<IntegralType, "prvalue">;
+    
+    public readonly pointerOnLeft?: boolean;
 }
 
 
@@ -1241,31 +1247,37 @@ export class RuntimePointerAddition<CE extends CompiledPointerAddition = Compile
     public left: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
     public right: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
 
+    public pointer: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
+    public offset: RuntimeExpressionBase<TypedCompiledExpression<IntegralType, "prvalue">>;
+
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
-        this.left = this.model.left.createRuntimeExpression(this);
-        this.right = this.model.right.createRuntimeExpression(this);
+        this.pointer = this.model.pointer.createRuntimeExpression(this);
+        this.offset = this.model.offset.createRuntimeExpression(this);
+        if (model.pointerOnLeft) {
+            this.left = this.pointer;
+            this.right = this.offset;
+        }
+        else {
+            this.left = this.offset;
+            this.right = this.pointer;
+        }
         this.setSubexpressions([this.left, this.right]);
     }
 
     public operate() {
 
         // code below computes the new address after pointer addition, while preserving RTTI
-        //   result = leftResult + rightResult * pointerSize
-        let result = this.left.evalResult!.combine(
-            this.right.evalResult!.modify((a:RawValueType) => {
-                return a * this.model.pointer.type.ptrTo.size;
-            }),
-            add
-        );
+        //   result = pointer + offset * pointerSize
+        let result = this.pointer.evalResult!.pointerOffset(this.offset.evalResult!);
+        this.setEvalResult(result);
 
-        // let result = Value.instance(left.value + right.value * this.left.type.ptrTo.size, left.type);
-        if (isA(left.type, Types.ArrayPointer)){
+        if (result.type.isType(ArrayPointer)){
             // Check that we haven't run off the array
-            if (result.value < result.type.min()){
+            if (result.rawValue < result.type.min()){
                 //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
             }
-            else if (result.type.onePast() < result.value){
+            else if (result.type.onePast() < result.rawValue){
                 //sim.alert("Oops. That pointer just wandered off the end of its array.");
             }
 
@@ -1273,10 +1285,9 @@ export class RuntimePointerAddition<CE extends CompiledPointerAddition = Compile
         }
         else{
             // If the RTTI works well enough, this should always be unsafe
-            sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+            this.sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
             return result;
         }
-        this.setEvalResult(BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
     }
 }
 
