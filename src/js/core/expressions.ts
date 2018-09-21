@@ -1294,7 +1294,7 @@ export class RuntimePointerOffset<CE extends CompiledPointerOffset = CompiledPoi
 
 class PointerDifference extends BinaryOperator {
     
-    public readonly type: IntegralType;
+    public readonly type: IntegralType?;
 
     public readonly left: Expression;
     public readonly right: Expression;
@@ -1314,17 +1314,8 @@ class PointerDifference extends BinaryOperator {
 
         if (left.isWellTyped() && right.isWellTyped()) {
             
-            if (left.type.isType(Pointer) && right.type.isIntegralType) {
-                this.pointerOnLeft = true;
-                this.pointer = <TypedExpression<Pointer, "prvalue">> left;
-                this.offset = <TypedExpression<IntegralType, "prvalue">> right;
-                this.type = this.pointer.type;
-            }
-            else if (left.type.isIntegralType && right.type.isType(Pointer)) {
-                this.pointerOnLeft = false;
-                this.pointer = <TypedExpression<Pointer, "prvalue">> right;
-                this.offset = <TypedExpression<IntegralType, "prvalue">> left;
-                this.type = this.pointer.type;
+            if (left.type.isType(Pointer) && right.type.isType(Pointer)) {
+                this.type = new Int();
             }
             else {
                 this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
@@ -1336,8 +1327,8 @@ class PointerDifference extends BinaryOperator {
         }
     }
 
-    public createRuntimeExpression_impl(this: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerOffset> {
-        return new RuntimePointerOffset(this, parent);
+    public createRuntimeExpression_impl(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerDifference> {
+        return new RuntimePointerDifference(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1345,14 +1336,9 @@ class PointerDifference extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerOffset extends TypedCompiledExpressionBase<PointerOffset,Pointer,"prvalue"> {
-    readonly left: TypedCompiledExpression<AtomicType, "prvalue">
-    readonly right: TypedCompiledExpression<AtomicType, "prvalue">
-    
-    public readonly pointer: TypedCompiledExpression<Pointer, "prvalue">;
-    public readonly offset: TypedCompiledExpression<IntegralType, "prvalue">;
-    
-    public readonly pointerOnLeft?: boolean;
+export interface CompiledPointerDifference extends TypedCompiledExpressionBase<PointerDifference,IntegralType,"prvalue"> {
+    readonly left: TypedCompiledExpression<Pointer, "prvalue">
+    readonly right: TypedCompiledExpression<Pointer, "prvalue">
 }
 
 
