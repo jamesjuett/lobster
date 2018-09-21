@@ -415,8 +415,8 @@ export class TemporaryDeallocator extends InstructionConstruct {
             if (tempEnt.type instanceof ClassType) {
                 var dtor = tempEnt.type.cppClass.destructor;
                 if (dtor) {
-                    //MemberFunctionCall args are: context, function to call, receiver, ctor args
-                    let dtorCall = new MemberFunctionCall(context, dtor, tempEnt, []);
+                    //MemberFunctionCall args are: context, function to call, empty args, receiver
+                    let dtorCall = new MemberFunctionCall(context, dtor, [], <TemporaryObjectEntity<ClassType>>tempEnt);
                     this.attach(dtorCall);
                     return dtorCall;
                 }

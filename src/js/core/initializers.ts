@@ -1,7 +1,7 @@
 import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
-import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char } from "./types";
+import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType } from "./types";
 import { CPPError, Explanation } from "./errors";
 import { assertFalse } from "../util/util"
 import { CPPObject } from "./objects";
@@ -303,6 +303,7 @@ export abstract class DirectInitializer extends Initializer {
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) : AtomicDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) : ArrayDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer {
         if (target instanceof ReferenceEntity) {
             return new ReferenceDirectInitializer(context, target, args);
