@@ -1280,13 +1280,10 @@ export class RuntimePointerOffset<CE extends CompiledPointerOffset = CompiledPoi
             else if (result.type.onePast() < result.rawValue){
                 //sim.alert("Oops. That pointer just wandered off the end of its array.");
             }
-
-            return result;
         }
         else{
             // If the RTTI works well enough, this should always be unsafe
             this.sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-            return result;
         }
     }
 }
@@ -1341,6 +1338,45 @@ export interface CompiledPointerDifference extends TypedCompiledExpressionBase<P
     readonly right: TypedCompiledExpression<Pointer, "prvalue">
 }
 
+export class RuntimePointerDifference<CE extends CompiledPointerDifference = CompiledPointerDifference> extends SimpleRuntimeExpression<CE> {
+
+    public left: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
+    public right: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);HTMLTableDataCellElement
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+        
+        let result = this.left.evalResult!.pointerDifference(this.right.evalResult!);
+
+        let leftArr = this.left.model.type.isType(ArrayPointer) ? this.left.model.type.arrayObject : null;
+        let rightArr = this.right.model.type.isType(ArrayPointer) ? this.right.model.type.arrayObject : null;
+
+        if (result.rawEquals(0)) {
+            // If it's the same address, I guess we can let it slide...
+        }
+        else if (!leftArr && rightArr) {
+            this.sim.undefinedBehavior("The left pointer in this subtraction is not from an array, so the resulting difference is not meaningful.");
+            result = result.invalidated();
+        }
+        else if (leftArr && !rightArr) {
+            this.sim.undefinedBehavior("The right pointer in this subtraction is not from an array, so the resulting difference is not meaningful.");
+            result = result.invalidated();
+        }
+        else if (leftArr && rightArr && leftArr !== rightArr) {
+            this.sim.undefinedBehavior("The pointers in this subtraction are pointing into two different arrays, so the resulting difference is not meaningful.");
+            result = result.invalidated();
+        }
+
+        this.setEvalResult(result);
+
+    }
+}
 
 
 
@@ -1623,96 +1659,6 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<Compiled
 
 export var BINARY_OPS = Expressions.BINARY_OPS = {
     
-    "+": BinaryOperator.extend({
-        _name: "BinaryOperator[+]",
-
-        typeCheck : function(){
-            // Check if it's pointer arithmetic
-            
-        },
-
-        operate : function(left, right, sim, inst){
-            if (this.isPointerArithmetic) {
-            }
-            else{
-                return Value.instance(left.value + right.value, this.left.type, {invalid: !left.isValueValid() || !right.isValueValid }); // TODO match C++ arithmetic
-            }
-        }
-    }),
-
-    "-": BinaryOperator.extend({
-        _name: "BinaryOperator[-]",
-
-        typeCheck : function(){
-
-            // Check if it's pointer arithmetic
-            if (isA(this.left.type, Types.Pointer) && isA(this.right.type, Types.Pointer) && similarType(this.left.type, this.right.type)) {
-                this.type = Types.Int.instance();
-                this.valueCategory = "prvalue";
-                this.isPointerArithmetic = true;
-                return true;
-            }
-            else if (isA(this.left.type, Types.Pointer) && this.right.type.isIntegralType) {
-                this.type = this.left.type;
-                this.valueCategory = "prvalue";
-                this.isPointerArithmetic = true;
-                return true;
-            }
-            else if(!Expressions.BinaryOperator.typeCheck.apply(this)){
-                return false;
-            }
-            else if(this.left.type.isArithmeticType && this.right.type.isArithmeticType){
-                return true;
-            }
-
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-        },
-
-        operate : function(left, right, sim, inst){
-            if (this.isPointerArithmetic) {
-                if (this.right.type.isIntegralType){
-                    // pointer - integral
-                    var result = Value.instance(left.value - right.value * this.left.type.ptrTo.size, left.type);
-                    if (isA(left.type, Types.ArrayPointer)){
-                        // Check that we haven't run off the array
-                        if (result.value < result.type.min()){
-                            //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-                        }
-                        else if (result.type.onePast() < result.value){
-                            //sim.alert("Oops. That pointer just wandered off the end of its array.");
-                        }
-                    }
-                    else{
-                        // If the RTTI works well enough, this should always be unsafe
-                        sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-                    }
-                    return result;
-                }
-                else{
-                    // pointer - pointer
-                    if (left.value == right.value){
-                        // If it's the same address, I guess we can let it slide...
-                    }
-                    else if (isA(left.type, Types.ArrayPointer) && isA(right.type, Types.ArrayPointer)){
-                        // Make sure they're both from the same array
-                        if (left.type.arrObj !== right.type.arrObj){
-                            sim.undefinedBehavior("Egad! Those pointers are pointing into two different arrays! Why are you subtracting them?");
-                        }
-                    }
-                    else{
-                        // If the RTTI works well enough, this should always be unsafe
-                        sim.undefinedBehavior("Hm, I can't verify both of these pointers are from the same array. You probably shouldn't be subtracting them.");
-                    }
-                    return Value.instance((left.value - right.value) / this.left.type.ptrTo.size, Types.Int.instance());
-                }
-            }
-            else{
-                return Value.instance(left.value - right.value, this.left.type); // TODO match C++ arithmetic
-            }
-        }
-
-
-    }),
     
     "<<": BinaryOperator.extend({
 
