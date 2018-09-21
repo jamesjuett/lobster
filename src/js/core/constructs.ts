@@ -42,6 +42,10 @@ export class GlobalProgramConstruct {
     // }
 }
 
+interface Attachable<T> {
+    attachTo : (parent: T) => void;
+};
+
 export abstract class CPPConstruct {
 
     public static readonly constructKind : symbol = Symbol("CPPConstruct");
@@ -133,10 +137,9 @@ export abstract class CPPConstruct {
         // }
     }
 
-    public attach<T extends CPPConstruct>(this: T, child: {
-        attachTo(parent: T) : void
-    }) {
+    public attach<T extends CPPConstruct>(this: T, child: Attachable<T> ) {
         child.attachTo(this);
+        // TODO: add notes from child?
     }
 
     // public addChild(child: CPPConstruct) {
