@@ -1,6 +1,6 @@
 import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression } from "./constructs";
-import { CPPEntity, FunctionEntity, MemberFunctionEntity } from "./entities";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct } from "./constructs";
+import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier } from "./lexical";
 import { CPPObject } from "./objects";
@@ -8,6 +8,7 @@ import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
 import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer } from "./types";
+import { CopyInitializer, DirectInitializer } from "./initializers";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
@@ -2281,26 +2282,19 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<Compiled
 
 // TODO: move FunctionCall to its own module
 // TODO: FunctionCall should not extend Expression
-export var FunctionCall = Expression.extend({
-    _name: "FunctionCall",
-    i_runtimeConstructClass : RuntimeFunctionCall,
-    initIndex: "arguments",
-    instType: "expr",
+export class FunctionCall extends InstructionConstruct {
+    
+    private readonly argInitializers: CopyInitializer[];
+    
+    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver: ObjectEntity<ClassType>) {
+        super(context);
 
-    i_createFromAST : function(ast, context) {
-        FunctionCall._parent.i_createFromAST.apply(this, arguments);
-
-        assert(Array.isArray(this.ast.args));
-        if (context.isMainCall) {
-            this.i_isMainCall = true;
-        }
-
-        // Create initializers for the parameters, which will be given the arguments from our ast
-        var self = this;
-        this.argInitializers = this.ast.args.map(function(argAst){
-            return ParameterInitializer.instance({args: [argAst]}, {parent: self});
+        // Create initializers for each argument/parameter pair
+        this.argInitializers = args.map((arg, i) => {
+            return DirectInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
         });
-    },
+        
+    }
 
     /**
      * A FunctionEntity must be provided to specify which function is being called.
