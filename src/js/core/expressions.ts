@@ -1004,7 +1004,7 @@ type t_BinaryOperators = t_ArithmeticBinaryOperators | t_LogicalBinaryOperators;
 
 const ArithmeticBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
 
-const BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, right: Value<AtomicType>) => Value<AtomicType>}
+const SIMPLE_BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, right: Value<AtomicType>) => Value<AtomicType>}
     = {
     "+" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
         return left.combine(right, add);
@@ -1099,7 +1099,7 @@ export class RuntimeSimpleBinaryOperator<CE extends CompiledBinaryOperator = Com
     }
 
     public operate() {
-        this.setEvalResult(BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
+        this.setEvalResult(SIMPLE_BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
     }
 }
 
@@ -1526,757 +1526,757 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<Compiled
 
 
 
-export var UnaryOp  = Expression.extend({
-    _name: "UnaryOp",
-    i_childrenToExecute : ["operand"],
-    i_childrenToExecuteForMemberOverload : ["operand", "funcCall"], // does not include rhs because function call does that
-    i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
-
-    i_createFromAST : function(ast, context){
-        UnaryOp._parent.i_createFromAST.apply(this, arguments);
-        this.operator = ast.operator;
-    },
-
-    compile : function(){
-
-        var auxOperand = CPPConstruct.create(this.ast.operand, {parent: this, auxiliary: true});
-        auxOperand.compile();
-
-        if (isA(auxOperand.type, Types.Class)){
-            // If it's of class type, we look for overloads
-            var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.operator, {
-                own:true, paramTypes:[], isThisConst : auxOperand.type.isConst
-            });
-            if (!overloadOp) {
-                overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
-                    paramTypes: [auxOperand.type]
-                });
-            }
-
-            if (overloadOp){
-                this.isOverload = true;
-                this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
-
-                if (this.isMemberOverload){
-                    // Member overload means operand is our direct child, and no arguments to function call
-                    this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
-                    this.funcCall = FunctionCall.instance({args: []}, {parent:this});
-                    this.funcCall.compile({func: overloadOp});
-                    this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
-                }
-                else{
-                    // Non-member overload means operand is the argument to the function call
-                    this.funcCall = FunctionCall.instance({args: [this.ast.operand]}, {parent:this});
-                    this.funcCall.compile({func: overloadOp});
-                    this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
-                }
-                this.type = this.funcCall.type;
-                this.valueCategory = this.funcCall.valueCategory;
-            }
-            else{
-
-                // TODO: this appears to allow compilation to proceed for a class-type operand with
-                // no overloads found, but that's doomed to fail (I think?). Perhaps my thought was
-                // the error messages provided if you accidentally used a unary operator e.g. * with
-                // a class-type operand were more illustrative if they said something like "you can't use
-                // * with a non-pointer type rather than oops i can't find an overload for * with this class type
-                this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
-                this.convert();
-                this.typeCheck();
-                this.compileTemporarires();
-            }
-        }
-        else{
-            this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
-            this.convert();
-            this.typeCheck();
-            this.compileTemporarires();
-        }
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Push lhs, rhs, and function call (if lhs class type)
-        var toReturn = Expression.upNext.apply(this, arguments);
-
-        // If using an assignment operator, set receiver for function call instance
-        if (this.funcCall && this.isMemberOverload){
-            inst.childInstances.funcCall.calledFunction.setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
-        }
-
-        return toReturn;
-    },
-
-    stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "operate"){
-            if (this.funcCall){
-                // Assignment operator function call has already taken care of the "assignment".
-                // Just evaluate to returned value from assignment operator.
-                inst.setEvalResult(inst.childInstances.funcCall.evalResult);
-                this.done(sim, inst);
-                //return true;
-            }
-            else{
-                this.operate(sim, inst);
-                this.done(sim, inst);
-            }
-        }
-    },
-
-    operate: Class._ABSTRACT,
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The " + this.operator + " operation will happen after the recursive call.",
-            others: [this]
-        };
-    }
-});
-
-export var Dereference = UnaryOp.extend({
-    _name: "Dereference",
-    valueCategory: "lvalue",
-    convert : function(){
-        this.operand = this.operand = standardConversion(this.operand, Types.Pointer);
-    },
-    typeCheck : function(){
-        // Type check
-        if (!isA(this.operand.type, Types.Pointer)) {
-            this.addNote(CPPError.expr.dereference.pointer(this, this.operand.type));
-        }
-        else if (!(this.operand.type.ptrTo.isObjectType || isA(this.operand.type.ptrTo, Types.Function))){
-            this.addNote(CPPError.expr.dereference.pointerToObjectType(this, this.operand.type));
-        }
-        else{
-            this.type = this.operand.type.ptrTo;
-        }
-    },
-
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (isA(this.operand.type.ptrTo, Types.Function)){
-            //function pointer
-            inst.setEvalResult(inst.childInstances.operand.evalResult);
-        }
-        else{
-            var ptr = inst.childInstances.operand.evalResult;
-            var addr = ptr.rawValue();
-
-
-
-            // If it's a null pointer, give message
-            if (Types.Pointer.isNull(addr)){
-                sim.crash("Ow! Your code just dereferenced a null pointer!");
-            }
-            else if (Types.Pointer.isNegative(addr)){
-                sim.crash("Uh, wow. The pointer you're trying to dereference has a negative address.\nThanks a lot.");
-            }
-            else if (isA(ptr.type, Types.ArrayPointer)){
-                // If it's an array pointer, make sure it's in bounds and not one-past
-                if (addr < ptr.type.min()){
-                    sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-                else if (ptr.type.onePast() < addr){
-                    sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-                else if (addr == ptr.type.onePast()){
-                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
-                    sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-
-            }
-
-            var obj = sim.memory.dereference(ptr);
-
-            // Note: dead object is not necessarily invalid. Invalid has to do with the value
-            // while dead/alive has to do with the object itself. Reading from dead object does
-            // yield an invalid value though.
-            if (!obj.isAlive()){
-                DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
-            }
-
-            inst.setEvalResult(obj);
-        }
-    },
-
-    describeEvalResult : function(depth, sim, inst){
-        if (inst && inst.evalResult){
-            return inst.evalResult.describe();
-        }
-        else if (depth == 0){
-            return {message: "the result of " + this.getSourceText()};
-        }
-        else{
-            return {message: "the object at address " + this.operand.describeEvalResult(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
-        }
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalResult){
-            return {message: "We will find the object at address " + inst.childInstances.operand.evalResult.describe().message}
-        }
-        else{
-            return {message: "The result of " + this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
-        }
-    }
-});
-
-export var AddressOf = UnaryOp.extend({
-    _name: "AddressOf",
-    valueCategory: "prvalue",
-
-    typeCheck : function(){
-        // operand must be an lvalue
-        if(this.operand.valueCategory !== "lvalue"){
-            this.addNote(CPPError.expr.addressOf.lvalue_required(this));
-        }
-
-        this.type = Types.Pointer.instance(this.operand.type);
-    },
-
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var obj = inst.childInstances.operand.evalResult;
-
-        inst.setEvalResult(obj.getPointerTo());
-    }
-});
-
-
-export var UnaryPlus = UnaryOp.extend({
-    _name: "UnaryPlus",
-    valueCategory: "prvalue",
-
-    convert : function(){
-        this.operand = this.operand = convertToPRValue(this.operand);
-        if (this.operand.type.isIntegralType){
-            this.operand = this.operand = integralPromotion(this.operand);
-        }
-    },
-
-    typeCheck : function(){
-        if(this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
-            this.type = this.operand.type;
-            return true;
-        }
-        else{
-            this.addNote(CPPError.expr.unaryPlus.operand(this));
-            return false;
-        }
-    },
-
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.operand.evalResult.value;
-        inst.setEvalResult(Value.instance(val, this.type));
-    }
-});
-
-export var UnaryMinus = UnaryOp.extend({
-    _name: "UnaryMinus",
-    valueCategory: "prvalue",
-
-    convert : function(){
-        this.operand = this.operand = convertToPRValue(this.operand);
-        if (this.operand.type.isIntegralType){
-            this.operand = this.operand = integralPromotion(this.operand);
-        }
-    },
-
-    typeCheck : function(){
-        if(this.operand.type.isArithmeticType) {
-            this.type = this.operand.type;
-            return true;
-        }
-        else{
-            this.addNote(CPPError.expr.unaryMinus.operand(this));
-            return false;
-        }
-    },
-
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.operand.evalResult.value;
-        inst.setEvalResult(Value.instance(-val, this.type));
-    }
-});
-
-export var LogicalNot = UnaryOp.extend({
-    _name: "LogicalNot",
-    valueCategory: "prvalue",
-    type: Types.Bool.instance(),
-
-    convert : function(){
-        this.operand = standardConversion(this.operand, Types.Bool.instance());
-    },
-
-    typeCheck : function(){
-        // Type check
-        if (!isA(this.operand.type, Types.Bool)){
-            this.addNote(CPPError.expr.logicalNot.operand_bool(this, this.operand));
-        }
-    },
-
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalResult(Value.instance(!inst.childInstances.operand.evalResult.value, this.type));
-    }
-});
-
-export var BitwiseNot = Unsupported.extend({
-    _name: "BitwiseNot",
-    englishName: "bitwise not"
-});
-
-export var Prefix = UnaryOp.extend({
-    _name: "Prefix",
-    valueCategory: "lvalue",
-    typeCheck : function(){
-        // Type check
-        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
-            this.type = this.operand.type;
-
-            if (this.operator == "--" && isA(this.operand.type, Types.Bool)){
-                this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
-            }
-
-            else if (this.operand.valueCategory === "lvalue") {
-                return true;
-            }
-            else{
-                this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
-            }
-        }
-        else{
-            this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
-        }
-    },
-    operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var obj = inst.childInstances.operand.evalResult;
-        var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
-
-        var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
-        var newRawValue = this.operator === "++" ? oldValue.rawValue() + amount : oldValue.rawValue() - amount;
-
-        if (isA(obj.type, Types.ArrayPointer)){
-            // Check that we haven't run off the array
-            if (newRawValue < obj.type.min()){
-                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
-                    sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-                }
-            }
-            else if (obj.type.onePast() < newRawValue){
-                if (obj.isValueValid()){ // it was valid but is just now becoming invalid
-                    sim.alert("Oops. That pointer just wandered off the end of its array.");
-                }
-            }
-        }
-        else if (isA(obj.type, Types.Pointer)){
-            // If the RTTI works well enough, this should always be unsafe
-            sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-        }
-
-        obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-        inst.setEvalResult(obj);
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evdesc = this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
-        var incDec = this.operator === "++" ? "incremented" : "decremented";
-        return {message: "First, the value of " + evdesc + " will be " + incDec + " by one. Then this expression as a whole will evaluate to the new value of " + evdesc + "."};
-    }
-});
-
-
-// TODO: Consolidate postfix increment/decrement into one class.  consider also merging subscript
-// TODO: Allow overriding postfix increment/decrement
-export var Increment  = Expression.extend({
-    _name: "Increment",
-    valueCategory: "prvalue",
-    i_childrenToCreate : ["operand"],
-    i_childrenToExecute : ["operand"],
-
-    typeCheck : function(){
-        // Type check
-        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
-            this.type = this.operand.type;
-
-            if (this.operand.valueCategory === "lvalue") {
-                return true;
-            }
-            else{
-                this.addNote(CPPError.expr.lvalue_operand(this, "++"));
-            }
-        }
-        else{
-            this.addNote(CPPError.expr.invalid_operand(this, "++", this.operand));
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        // Evaluate subexpressions
-        if (inst.index == "operate"){
-            var obj = inst.childInstances.operand.evalResult;
-            var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
-            var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
-            var newRawValue = oldValue.rawValue() + amount;
-
-
-            if (isA(obj.type, Types.ArrayPointer)){
-                // Check that we haven't run off the array
-                if (newRawValue < obj.type.min()){
-                    //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-                }
-                else if (obj.type.onePast() < newRawValue){
-                    //sim.alert("Oops. That pointer just wandered off the end of its array.");
-                }
-            }
-            else if (isA(obj.type, Types.Pointer)){
-                // If the RTTI works well enough, this should always be unsafe
-                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-            }
-
-
-            obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-            inst.setEvalResult(oldValue);
-            this.done(sim, inst);
-        }
-    }
-});
-
-export var Decrement  = Expression.extend({
-    _name: "Decrement",
-    valueCategory: "prvalue",
-    i_childrenToCreate : ["operand"],
-    i_childrenToExecute : ["operand"],
-    typeCheck : function(){
-        // Type check
-        if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
-            this.type = this.operand.type;
-
-            if (this.operator = "--" && isA(this.operand.type, Types.Bool)){
-                this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
-            }
-            else if (this.operand.valueCategory === "lvalue") {
-                return true;
-            }
-            else{
-                this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
-            }
-        }
-        else{
-            this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
-        }
-    },
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        // Evaluate subexpressions
-        if (inst.index == "operate"){
-            var obj = inst.childInstances.operand.evalResult;
-            var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
-            var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
-            var newRawValue = oldValue.rawValue() - amount;
-
-            if (isA(obj.type, Types.ArrayPointer)){
-                // Check that we haven't run off the array
-                if (newRawValue < obj.type.min()){
-                    //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-                }
-                else if (obj.type.onePast() < newRawValue){
-                    //sim.alert("Oops. That pointer just wandered off the end of its array.");
-                }
-            }
-            else if (isA(obj.type, Types.Pointer)){
-                // If the RTTI works well enough, this should always be unsafe
-                sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
-            }
-
-            obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
-            inst.setEvalResult(oldValue);
-            this.done(sim, inst);
-        }
-    }
-});
-
-
-
-// TODO: Allow overloading Subscript with initializer list
-export var Subscript  = Expression.extend({
-    _name: "Subscript",
-    valueCategory: "lvalue",
-    i_childrenToCreate : ["operand"],
-    i_childrenToExecute : ["operand", "arg"],
-    i_childrenToExecuteForMemberOverload : ["operand"], // does not include offset because function call does that
-
-    compile : function(){
-
-        this.operand.compile();
-
-        // Check for overload
-        if (isA(this.operand.type, Types.Class)){
-            this.compileMemberOverload(this.operand, [this.ast.arg], this.operand.type.isConst, "[]");
-        }
-        else{
-            this.operand = standardConversion(this.operand, Types.Pointer);
-            this.arg = this.i_createAndCompileChildExpr(this.ast.arg, Types.Int.instance());
-
-            this.convert();
-            this.typeCheck();
-            this.compileTemporarires();
-        }
-    },
-
-    typeCheck : function(){
-        if (!isA(this.operand.type, Types.Pointer)) {
-            this.addNote(CPPError.expr.array_operand(this, this.operand.type));
-        }
-        else{
-            this.type = this.operand.type.ptrTo;
-        }
-
-        if (!isA(this.arg.type, Types.Int)) {
-            this.addNote(CPPError.expr.array_offset(this, this.arg.type));
-        }
-    },
-
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (this.isOverload)
-        {
-            if (inst.index === "subexpressions"){
-                inst.childInstances = {};
-                inst.childInstances.operand = this.operand.createAndPushInstance(sim, inst);
-                inst.index = "operate";
-                return true;
-            }
-            else if (inst.index === "operate"){
-                inst.childInstances.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.childInstances.operand.evalResult);
-                inst.index = "done";
-                return true;
-            }
-            else{
-                inst.setEvalResult(inst.childInstances.funcCall.evalResult);
-                this.done(sim, inst);
-                return true;
-            }
-        }
-        else{
-            Expressions.Subscript._parent.upNext.apply(this, arguments);
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        // Evaluate subexpressions
-        if (inst.index === "operate"){
-            // sub and operand are already evaluated
-            // result of operand should be a pointer
-            // result of sub should be an integer
-            var offset = inst.childInstances.arg.evalResult;
-            var ptr = inst.childInstances.operand.evalResult;
-            ptr = Value.instance(ptr.value+offset.value*this.type.size, ptr.type);
-            var addr = ptr.value;
-
-
-
-            if (Types.Pointer.isNegative(addr)){
-                sim.crash("Good work. You subscripted so far backwards off the beginning of the array you went to a negative address. -__-");
-            }
-            else if (isA(ptr.type, Types.ArrayPointer)){
-                // If it's an array pointer, make sure it's in bounds and not one-past
-                if (addr < ptr.type.min()){
-                    sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-                else if (ptr.type.onePast() < addr){
-                    sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-                else if (addr == ptr.type.onePast()){
-                    // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
-                    sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-                }
-
-            }
-
-            var obj = sim.memory.dereference(ptr);
-
-            // Note: dead object is not necessarily invalid. Invalid has to do with the value
-            // while dead/alive has to do with the object itself. Reading from dead object does
-            // yield an invalid value though.
-            if (!obj.isAlive()){
-                DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
-            }
-
-            inst.setEvalResult(obj);
-            this.done(sim, inst);
-        }
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The subscripting will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
-
-export var Dot  = Expression.extend({
-    _name: "Dot",
-    i_runtimeConstructClass : RuntimeMemberAccess,
-    i_childrenToCreate : ["operand"],
-    i_childrenToExecute : ["operand"],
-
-    i_createFromAST : function(ast, context) {
-        Dot._parent.i_createFromAST.apply(this, arguments);
-        this.memberName = ast.member.identifier;
-    },
-
-    compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
-        Expressions.Dot._parent.compile.apply(this, arguments);
-    },
-
-    typeCheck : function(){
-        if (!isA(this.operand.type, Types.Class)) {
-            this.addNote(CPPError.expr.dot.class_type(this));
-            return false;
-        }
-
-        // Find out what this identifies
-        try {
-            this.entity = this.operand.type.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
-            this.type = this.entity.type;
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                // this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
-                // TODO: why is this commented?
-                this.addNote(e.annotation(this));
-            }
-            else{
-                throw e;
-            }
-        }
-
-        if (isA(this.type, Types.Reference)){
-            this.type = this.type.refTo;
-            this.valueCategory = "lvalue";
-        }
-        else if (this.operand.valueCategory === "lvalue"){
-            this.valueCategory = "lvalue";
-        }
-        else{
-            this.valueCategory = "xvalue";
-        }
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "subexpressions"){
-            return Expression.upNext.apply(this, arguments);
-        }
-        else{
-            // entity may be MemberVariableEntity but should never be an AutoEntity
-            assert(!isA(this.entity, AutoEntity));
-            inst.setObjectAccessedFrom(inst.childInstances.operand.evalResult);
-            inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
-            this.done(sim, inst);
-            return true;
-        }
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The dot operation itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
-
-
-
-export var Arrow  = Expression.extend({
-    _name: "Arrow",
-    i_runtimeConstructClass : RuntimeMemberAccess,
-    valueCategory: "lvalue",
-    i_childrenToCreate : ["operand"],
-    i_childrenToConvert : {
-        operand : Types.Pointer.instance()
-    },
-    i_childrenToExecute : ["operand"],
-
-    i_createFromAST : function(ast, context) {
-        Arrow._parent.i_createFromAST.apply(this, arguments);
-        this.memberName = ast.member.identifier;
-    },
-
-    compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
-        Expressions.Dot._parent.compile.apply(this, arguments);
-    },
-
-    typeCheck : function(){
-        if (!isA(this.operand.type, Types.Pointer) || !isA(this.operand.type.ptrTo, Types.Class)) {
-            this.addNote(CPPError.expr.arrow.class_pointer_type(this));
-            return false;
-        }
-
-        // Find out what this identifies
-        try{
-            this.entity = this.operand.type.ptrTo.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
-            this.type = this.entity.type;
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(CPPError.expr.arrow.memberLookup(this, this.operand.type.ptrTo, this.memberName));
-                // this.addNote(e.annotation(this));
-            }
-            else{
-                throw e;
-            }
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        if (inst.index == "operate"){
-            var addr = inst.childInstances.operand.evalResult;
-            if (Types.Pointer.isNull(addr.rawValue())){
-                sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
-            }
-            inst.setObjectAccessedFrom(sim.memory.dereference(addr, this.operand.type.ptrTo));
-            inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
-
-            this.done(sim, inst);
-            return true;
-        }
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The arrow operation itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
-
-
-
-
-export var PREDEFINED_FUNCTIONS = {
-    rand : function(args, sim, inst){
-        return Value.instance(Math.floor(sim.nextRandom() * 32767), Types.Int.instance());
-    },
-    "assert" : function(args, sim, inst){
-        if(!args[0].evalResult.value){
-            sim.assertionFailure("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
-        }
-        return Value.instance("", Types.Void.instance());
-    },
-    "pause" : function(args, sim, inst){
-        sim.pause();
-        return Value.instance("", Types.Void.instance());
-    },
-    "pauseIf" : function(args, sim, inst){
-        if(args[0].evalResult.value){
-            sim.pause();
-        }
-        return Value.instance("", Types.Void.instance());
-    }
-};
+// export var UnaryOp  = Expression.extend({
+//     _name: "UnaryOp",
+//     i_childrenToExecute : ["operand"],
+//     i_childrenToExecuteForMemberOverload : ["operand", "funcCall"], // does not include rhs because function call does that
+//     i_childrenToExecuteForOverload : ["funcCall"], // does not include rhs because function call does that
+
+//     i_createFromAST : function(ast, context){
+//         UnaryOp._parent.i_createFromAST.apply(this, arguments);
+//         this.operator = ast.operator;
+//     },
+
+//     compile : function(){
+
+//         var auxOperand = CPPConstruct.create(this.ast.operand, {parent: this, auxiliary: true});
+//         auxOperand.compile();
+
+//         if (isA(auxOperand.type, Types.Class)){
+//             // If it's of class type, we look for overloads
+//             var overloadOp = auxOperand.type.classScope.singleLookup("operator" + this.operator, {
+//                 own:true, paramTypes:[], isThisConst : auxOperand.type.isConst
+//             });
+//             if (!overloadOp) {
+//                 overloadOp = this.contextualScope.singleLookup("operator" + this.operator, {
+//                     paramTypes: [auxOperand.type]
+//                 });
+//             }
+
+//             if (overloadOp){
+//                 this.isOverload = true;
+//                 this.isMemberOverload = isA(overloadOp, MemberFunctionEntity);
+
+//                 if (this.isMemberOverload){
+//                     // Member overload means operand is our direct child, and no arguments to function call
+//                     this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
+//                     this.funcCall = FunctionCall.instance({args: []}, {parent:this});
+//                     this.funcCall.compile({func: overloadOp});
+//                     this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
+//                 }
+//                 else{
+//                     // Non-member overload means operand is the argument to the function call
+//                     this.funcCall = FunctionCall.instance({args: [this.ast.operand]}, {parent:this});
+//                     this.funcCall.compile({func: overloadOp});
+//                     this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
+//                 }
+//                 this.type = this.funcCall.type;
+//                 this.valueCategory = this.funcCall.valueCategory;
+//             }
+//             else{
+
+//                 // TODO: this appears to allow compilation to proceed for a class-type operand with
+//                 // no overloads found, but that's doomed to fail (I think?). Perhaps my thought was
+//                 // the error messages provided if you accidentally used a unary operator e.g. * with
+//                 // a class-type operand were more illustrative if they said something like "you can't use
+//                 // * with a non-pointer type rather than oops i can't find an overload for * with this class type
+//                 this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
+//                 this.convert();
+//                 this.typeCheck();
+//                 this.compileTemporarires();
+//             }
+//         }
+//         else{
+//             this.operand = this.i_createAndCompileChildExpr(this.ast.operand);
+//             this.convert();
+//             this.typeCheck();
+//             this.compileTemporarires();
+//         }
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         // Push lhs, rhs, and function call (if lhs class type)
+//         var toReturn = Expression.upNext.apply(this, arguments);
+
+//         // If using an assignment operator, set receiver for function call instance
+//         if (this.funcCall && this.isMemberOverload){
+//             inst.childInstances.funcCall.calledFunction.setReceiver(EvaluationResultRuntimeEntity.instance(this.operand.type, inst.childInstances.operand));
+//         }
+
+//         return toReturn;
+//     },
+
+//     stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index === "operate"){
+//             if (this.funcCall){
+//                 // Assignment operator function call has already taken care of the "assignment".
+//                 // Just evaluate to returned value from assignment operator.
+//                 inst.setEvalResult(inst.childInstances.funcCall.evalResult);
+//                 this.done(sim, inst);
+//                 //return true;
+//             }
+//             else{
+//                 this.operate(sim, inst);
+//                 this.done(sim, inst);
+//             }
+//         }
+//     },
+
+//     operate: Class._ABSTRACT,
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The " + this.operator + " operation will happen after the recursive call.",
+//             others: [this]
+//         };
+//     }
+// });
+
+// export var Dereference = UnaryOp.extend({
+//     _name: "Dereference",
+//     valueCategory: "lvalue",
+//     convert : function(){
+//         this.operand = this.operand = standardConversion(this.operand, Types.Pointer);
+//     },
+//     typeCheck : function(){
+//         // Type check
+//         if (!isA(this.operand.type, Types.Pointer)) {
+//             this.addNote(CPPError.expr.dereference.pointer(this, this.operand.type));
+//         }
+//         else if (!(this.operand.type.ptrTo.isObjectType || isA(this.operand.type.ptrTo, Types.Function))){
+//             this.addNote(CPPError.expr.dereference.pointerToObjectType(this, this.operand.type));
+//         }
+//         else{
+//             this.type = this.operand.type.ptrTo;
+//         }
+//     },
+
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (isA(this.operand.type.ptrTo, Types.Function)){
+//             //function pointer
+//             inst.setEvalResult(inst.childInstances.operand.evalResult);
+//         }
+//         else{
+//             var ptr = inst.childInstances.operand.evalResult;
+//             var addr = ptr.rawValue();
+
+
+
+//             // If it's a null pointer, give message
+//             if (Types.Pointer.isNull(addr)){
+//                 sim.crash("Ow! Your code just dereferenced a null pointer!");
+//             }
+//             else if (Types.Pointer.isNegative(addr)){
+//                 sim.crash("Uh, wow. The pointer you're trying to dereference has a negative address.\nThanks a lot.");
+//             }
+//             else if (isA(ptr.type, Types.ArrayPointer)){
+//                 // If it's an array pointer, make sure it's in bounds and not one-past
+//                 if (addr < ptr.type.min()){
+//                     sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+//                 else if (ptr.type.onePast() < addr){
+//                     sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+//                 else if (addr == ptr.type.onePast()){
+//                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+//                     sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+
+//             }
+
+//             var obj = sim.memory.dereference(ptr);
+
+//             // Note: dead object is not necessarily invalid. Invalid has to do with the value
+//             // while dead/alive has to do with the object itself. Reading from dead object does
+//             // yield an invalid value though.
+//             if (!obj.isAlive()){
+//                 DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
+//             }
+
+//             inst.setEvalResult(obj);
+//         }
+//     },
+
+//     describeEvalResult : function(depth, sim, inst){
+//         if (inst && inst.evalResult){
+//             return inst.evalResult.describe();
+//         }
+//         else if (depth == 0){
+//             return {message: "the result of " + this.getSourceText()};
+//         }
+//         else{
+//             return {message: "the object at address " + this.operand.describeEvalResult(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
+//         }
+//     },
+
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalResult){
+//             return {message: "We will find the object at address " + inst.childInstances.operand.evalResult.describe().message}
+//         }
+//         else{
+//             return {message: "The result of " + this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
+//         }
+//     }
+// });
+
+// export var AddressOf = UnaryOp.extend({
+//     _name: "AddressOf",
+//     valueCategory: "prvalue",
+
+//     typeCheck : function(){
+//         // operand must be an lvalue
+//         if(this.operand.valueCategory !== "lvalue"){
+//             this.addNote(CPPError.expr.addressOf.lvalue_required(this));
+//         }
+
+//         this.type = Types.Pointer.instance(this.operand.type);
+//     },
+
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var obj = inst.childInstances.operand.evalResult;
+
+//         inst.setEvalResult(obj.getPointerTo());
+//     }
+// });
+
+
+// export var UnaryPlus = UnaryOp.extend({
+//     _name: "UnaryPlus",
+//     valueCategory: "prvalue",
+
+//     convert : function(){
+//         this.operand = this.operand = convertToPRValue(this.operand);
+//         if (this.operand.type.isIntegralType){
+//             this.operand = this.operand = integralPromotion(this.operand);
+//         }
+//     },
+
+//     typeCheck : function(){
+//         if(this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
+//             this.type = this.operand.type;
+//             return true;
+//         }
+//         else{
+//             this.addNote(CPPError.expr.unaryPlus.operand(this));
+//             return false;
+//         }
+//     },
+
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var val = inst.childInstances.operand.evalResult.value;
+//         inst.setEvalResult(Value.instance(val, this.type));
+//     }
+// });
+
+// export var UnaryMinus = UnaryOp.extend({
+//     _name: "UnaryMinus",
+//     valueCategory: "prvalue",
+
+//     convert : function(){
+//         this.operand = this.operand = convertToPRValue(this.operand);
+//         if (this.operand.type.isIntegralType){
+//             this.operand = this.operand = integralPromotion(this.operand);
+//         }
+//     },
+
+//     typeCheck : function(){
+//         if(this.operand.type.isArithmeticType) {
+//             this.type = this.operand.type;
+//             return true;
+//         }
+//         else{
+//             this.addNote(CPPError.expr.unaryMinus.operand(this));
+//             return false;
+//         }
+//     },
+
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var val = inst.childInstances.operand.evalResult.value;
+//         inst.setEvalResult(Value.instance(-val, this.type));
+//     }
+// });
+
+// export var LogicalNot = UnaryOp.extend({
+//     _name: "LogicalNot",
+//     valueCategory: "prvalue",
+//     type: Types.Bool.instance(),
+
+//     convert : function(){
+//         this.operand = standardConversion(this.operand, Types.Bool.instance());
+//     },
+
+//     typeCheck : function(){
+//         // Type check
+//         if (!isA(this.operand.type, Types.Bool)){
+//             this.addNote(CPPError.expr.logicalNot.operand_bool(this, this.operand));
+//         }
+//     },
+
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         inst.setEvalResult(Value.instance(!inst.childInstances.operand.evalResult.value, this.type));
+//     }
+// });
+
+// export var BitwiseNot = Unsupported.extend({
+//     _name: "BitwiseNot",
+//     englishName: "bitwise not"
+// });
+
+// export var Prefix = UnaryOp.extend({
+//     _name: "Prefix",
+//     valueCategory: "lvalue",
+//     typeCheck : function(){
+//         // Type check
+//         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
+//             this.type = this.operand.type;
+
+//             if (this.operator == "--" && isA(this.operand.type, Types.Bool)){
+//                 this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
+//             }
+
+//             else if (this.operand.valueCategory === "lvalue") {
+//                 return true;
+//             }
+//             else{
+//                 this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
+//             }
+//         }
+//         else{
+//             this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
+//         }
+//     },
+//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var obj = inst.childInstances.operand.evalResult;
+//         var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
+
+//         var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
+//         var newRawValue = this.operator === "++" ? oldValue.rawValue() + amount : oldValue.rawValue() - amount;
+
+//         if (isA(obj.type, Types.ArrayPointer)){
+//             // Check that we haven't run off the array
+//             if (newRawValue < obj.type.min()){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+//                 }
+//             }
+//             else if (obj.type.onePast() < newRawValue){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the end of its array.");
+//                 }
+//             }
+//         }
+//         else if (isA(obj.type, Types.Pointer)){
+//             // If the RTTI works well enough, this should always be unsafe
+//             sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+//         }
+
+//         obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
+//         inst.setEvalResult(obj);
+//     },
+
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var evdesc = this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message;
+//         var incDec = this.operator === "++" ? "incremented" : "decremented";
+//         return {message: "First, the value of " + evdesc + " will be " + incDec + " by one. Then this expression as a whole will evaluate to the new value of " + evdesc + "."};
+//     }
+// });
+
+
+// // TODO: Consolidate postfix increment/decrement into one class.  consider also merging subscript
+// // TODO: Allow overriding postfix increment/decrement
+// export var Increment  = Expression.extend({
+//     _name: "Increment",
+//     valueCategory: "prvalue",
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToExecute : ["operand"],
+
+//     typeCheck : function(){
+//         // Type check
+//         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
+//             this.type = this.operand.type;
+
+//             if (this.operand.valueCategory === "lvalue") {
+//                 return true;
+//             }
+//             else{
+//                 this.addNote(CPPError.expr.lvalue_operand(this, "++"));
+//             }
+//         }
+//         else{
+//             this.addNote(CPPError.expr.invalid_operand(this, "++", this.operand));
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         // Evaluate subexpressions
+//         if (inst.index == "operate"){
+//             var obj = inst.childInstances.operand.evalResult;
+//             var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
+//             var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
+//             var newRawValue = oldValue.rawValue() + amount;
+
+
+//             if (isA(obj.type, Types.ArrayPointer)){
+//                 // Check that we haven't run off the array
+//                 if (newRawValue < obj.type.min()){
+//                     //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+//                 }
+//                 else if (obj.type.onePast() < newRawValue){
+//                     //sim.alert("Oops. That pointer just wandered off the end of its array.");
+//                 }
+//             }
+//             else if (isA(obj.type, Types.Pointer)){
+//                 // If the RTTI works well enough, this should always be unsafe
+//                 sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+//             }
+
+
+//             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
+//             inst.setEvalResult(oldValue);
+//             this.done(sim, inst);
+//         }
+//     }
+// });
+
+// export var Decrement  = Expression.extend({
+//     _name: "Decrement",
+//     valueCategory: "prvalue",
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToExecute : ["operand"],
+//     typeCheck : function(){
+//         // Type check
+//         if (this.operand.type.isArithmeticType || isA(this.operand.type, Types.Pointer)) {
+//             this.type = this.operand.type;
+
+//             if (this.operator = "--" && isA(this.operand.type, Types.Bool)){
+//                 this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
+//             }
+//             else if (this.operand.valueCategory === "lvalue") {
+//                 return true;
+//             }
+//             else{
+//                 this.addNote(CPPError.expr.lvalue_operand(this, this.operator));
+//             }
+//         }
+//         else{
+//             this.addNote(CPPError.expr.invalid_operand(this, this.operator, this.operand));
+//         }
+//     },
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         // Evaluate subexpressions
+//         if (inst.index == "operate"){
+//             var obj = inst.childInstances.operand.evalResult;
+//             var amount = (isA(this.type, Types.Pointer) ? this.type.ptrTo.size : 1);
+//             var oldValue = readValueWithAlert(obj, sim, this.operand, inst.childInstances.operand);
+//             var newRawValue = oldValue.rawValue() - amount;
+
+//             if (isA(obj.type, Types.ArrayPointer)){
+//                 // Check that we haven't run off the array
+//                 if (newRawValue < obj.type.min()){
+//                     //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+//                 }
+//                 else if (obj.type.onePast() < newRawValue){
+//                     //sim.alert("Oops. That pointer just wandered off the end of its array.");
+//                 }
+//             }
+//             else if (isA(obj.type, Types.Pointer)){
+//                 // If the RTTI works well enough, this should always be unsafe
+//                 sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+//             }
+
+//             obj.writeValue(Value.instance(newRawValue, oldValue.type, {invalid: !oldValue.isValueValid()}));
+//             inst.setEvalResult(oldValue);
+//             this.done(sim, inst);
+//         }
+//     }
+// });
+
+
+
+// // TODO: Allow overloading Subscript with initializer list
+// export var Subscript  = Expression.extend({
+//     _name: "Subscript",
+//     valueCategory: "lvalue",
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToExecute : ["operand", "arg"],
+//     i_childrenToExecuteForMemberOverload : ["operand"], // does not include offset because function call does that
+
+//     compile : function(){
+
+//         this.operand.compile();
+
+//         // Check for overload
+//         if (isA(this.operand.type, Types.Class)){
+//             this.compileMemberOverload(this.operand, [this.ast.arg], this.operand.type.isConst, "[]");
+//         }
+//         else{
+//             this.operand = standardConversion(this.operand, Types.Pointer);
+//             this.arg = this.i_createAndCompileChildExpr(this.ast.arg, Types.Int.instance());
+
+//             this.convert();
+//             this.typeCheck();
+//             this.compileTemporarires();
+//         }
+//     },
+
+//     typeCheck : function(){
+//         if (!isA(this.operand.type, Types.Pointer)) {
+//             this.addNote(CPPError.expr.array_operand(this, this.operand.type));
+//         }
+//         else{
+//             this.type = this.operand.type.ptrTo;
+//         }
+
+//         if (!isA(this.arg.type, Types.Int)) {
+//             this.addNote(CPPError.expr.array_offset(this, this.arg.type));
+//         }
+//     },
+
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (this.isOverload)
+//         {
+//             if (inst.index === "subexpressions"){
+//                 inst.childInstances = {};
+//                 inst.childInstances.operand = this.operand.createAndPushInstance(sim, inst);
+//                 inst.index = "operate";
+//                 return true;
+//             }
+//             else if (inst.index === "operate"){
+//                 inst.childInstances.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.childInstances.operand.evalResult);
+//                 inst.index = "done";
+//                 return true;
+//             }
+//             else{
+//                 inst.setEvalResult(inst.childInstances.funcCall.evalResult);
+//                 this.done(sim, inst);
+//                 return true;
+//             }
+//         }
+//         else{
+//             Expressions.Subscript._parent.upNext.apply(this, arguments);
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         // Evaluate subexpressions
+//         if (inst.index === "operate"){
+//             // sub and operand are already evaluated
+//             // result of operand should be a pointer
+//             // result of sub should be an integer
+//             var offset = inst.childInstances.arg.evalResult;
+//             var ptr = inst.childInstances.operand.evalResult;
+//             ptr = Value.instance(ptr.value+offset.value*this.type.size, ptr.type);
+//             var addr = ptr.value;
+
+
+
+//             if (Types.Pointer.isNegative(addr)){
+//                 sim.crash("Good work. You subscripted so far backwards off the beginning of the array you went to a negative address. -__-");
+//             }
+//             else if (isA(ptr.type, Types.ArrayPointer)){
+//                 // If it's an array pointer, make sure it's in bounds and not one-past
+//                 if (addr < ptr.type.min()){
+//                     sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+//                 else if (ptr.type.onePast() < addr){
+//                     sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+//                 else if (addr == ptr.type.onePast()){
+//                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+//                     sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
+//                 }
+
+//             }
+
+//             var obj = sim.memory.dereference(ptr);
+
+//             // Note: dead object is not necessarily invalid. Invalid has to do with the value
+//             // while dead/alive has to do with the object itself. Reading from dead object does
+//             // yield an invalid value though.
+//             if (!obj.isAlive()){
+//                 DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
+//             }
+
+//             inst.setEvalResult(obj);
+//             this.done(sim, inst);
+//         }
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The subscripting will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
+
+// export var Dot  = Expression.extend({
+//     _name: "Dot",
+//     i_runtimeConstructClass : RuntimeMemberAccess,
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToExecute : ["operand"],
+
+//     i_createFromAST : function(ast, context) {
+//         Dot._parent.i_createFromAST.apply(this, arguments);
+//         this.memberName = ast.member.identifier;
+//     },
+
+//     compile : function(compilationContext) {
+//         this.i_paramTypes = compilationContext && compilationContext.paramTypes;
+//         Expressions.Dot._parent.compile.apply(this, arguments);
+//     },
+
+//     typeCheck : function(){
+//         if (!isA(this.operand.type, Types.Class)) {
+//             this.addNote(CPPError.expr.dot.class_type(this));
+//             return false;
+//         }
+
+//         // Find out what this identifies
+//         try {
+//             this.entity = this.operand.type.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
+//             this.type = this.entity.type;
+//         }
+//         catch(e){
+//             if (isA(e, SemanticExceptions.BadLookup)){
+//                 // this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
+//                 // TODO: why is this commented?
+//                 this.addNote(e.annotation(this));
+//             }
+//             else{
+//                 throw e;
+//             }
+//         }
+
+//         if (isA(this.type, Types.Reference)){
+//             this.type = this.type.refTo;
+//             this.valueCategory = "lvalue";
+//         }
+//         else if (this.operand.valueCategory === "lvalue"){
+//             this.valueCategory = "lvalue";
+//         }
+//         else{
+//             this.valueCategory = "xvalue";
+//         }
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index === "subexpressions"){
+//             return Expression.upNext.apply(this, arguments);
+//         }
+//         else{
+//             // entity may be MemberVariableEntity but should never be an AutoEntity
+//             assert(!isA(this.entity, AutoEntity));
+//             inst.setObjectAccessedFrom(inst.childInstances.operand.evalResult);
+//             inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
+//             this.done(sim, inst);
+//             return true;
+//         }
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The dot operation itself will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
+
+
+
+// export var Arrow  = Expression.extend({
+//     _name: "Arrow",
+//     i_runtimeConstructClass : RuntimeMemberAccess,
+//     valueCategory: "lvalue",
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToConvert : {
+//         operand : Types.Pointer.instance()
+//     },
+//     i_childrenToExecute : ["operand"],
+
+//     i_createFromAST : function(ast, context) {
+//         Arrow._parent.i_createFromAST.apply(this, arguments);
+//         this.memberName = ast.member.identifier;
+//     },
+
+//     compile : function(compilationContext) {
+//         this.i_paramTypes = compilationContext && compilationContext.paramTypes;
+//         Expressions.Dot._parent.compile.apply(this, arguments);
+//     },
+
+//     typeCheck : function(){
+//         if (!isA(this.operand.type, Types.Pointer) || !isA(this.operand.type.ptrTo, Types.Class)) {
+//             this.addNote(CPPError.expr.arrow.class_pointer_type(this));
+//             return false;
+//         }
+
+//         // Find out what this identifies
+//         try{
+//             this.entity = this.operand.type.ptrTo.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.ptrTo.isConst});
+//             this.type = this.entity.type;
+//         }
+//         catch(e){
+//             if (isA(e, SemanticExceptions.BadLookup)){
+//                 this.addNote(CPPError.expr.arrow.memberLookup(this, this.operand.type.ptrTo, this.memberName));
+//                 // this.addNote(e.annotation(this));
+//             }
+//             else{
+//                 throw e;
+//             }
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         if (inst.index == "operate"){
+//             var addr = inst.childInstances.operand.evalResult;
+//             if (Types.Pointer.isNull(addr.rawValue())){
+//                 sim.crash("Ow! Your code just tried to use the arrow operator on a null pointer!");
+//             }
+//             inst.setObjectAccessedFrom(sim.memory.dereference(addr, this.operand.type.ptrTo));
+//             inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
+
+//             this.done(sim, inst);
+//             return true;
+//         }
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The arrow operation itself will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
+
+
+
+
+// export var PREDEFINED_FUNCTIONS = {
+//     rand : function(args, sim, inst){
+//         return Value.instance(Math.floor(sim.nextRandom() * 32767), Types.Int.instance());
+//     },
+//     "assert" : function(args, sim, inst){
+//         if(!args[0].evalResult.value){
+//             sim.assertionFailure("Yikes! An assert failed! <br /><span class='code'>" + inst.model.getSourceText() + "</span> on line " + inst.model.getSourceText() + ".");
+//         }
+//         return Value.instance("", Types.Void.instance());
+//     },
+//     "pause" : function(args, sim, inst){
+//         sim.pause();
+//         return Value.instance("", Types.Void.instance());
+//     },
+//     "pauseIf" : function(args, sim, inst){
+//         if(args[0].evalResult.value){
+//             sim.pause();
+//         }
+//         return Value.instance("", Types.Void.instance());
+//     }
+// };
 
 
 // TODO: move FunctionCall to its own module
@@ -2776,408 +2776,408 @@ export var FunctionCallExpression  = Expression.extend({
 });
 
 
-export var StaticCast = Unsupported.extend({
-    _name: "StaticCast",
-    englishName: "static_cast"
-});
-export var DynamicCast = Unsupported.extend({
-    _name: "DynamicCast",
-    englishName: "dynamic_cast"
-});
-export var ReinterpretCast = Unsupported.extend({
-    _name: "ReinterpretCast",
-    englishName: "reinterpret_cast"
-});
-export var ConstCast = Unsupported.extend({
-    _name: "ConstCast",
-    englishName: "const_cast"
-});
-export var Cast = Unsupported.extend({
-    _name: "Cast",
-    englishName: "C-Style Cast"
-});
+// export var StaticCast = Unsupported.extend({
+//     _name: "StaticCast",
+//     englishName: "static_cast"
+// });
+// export var DynamicCast = Unsupported.extend({
+//     _name: "DynamicCast",
+//     englishName: "dynamic_cast"
+// });
+// export var ReinterpretCast = Unsupported.extend({
+//     _name: "ReinterpretCast",
+//     englishName: "reinterpret_cast"
+// });
+// export var ConstCast = Unsupported.extend({
+//     _name: "ConstCast",
+//     englishName: "const_cast"
+// });
+// export var Cast = Unsupported.extend({
+//     _name: "Cast",
+//     englishName: "C-Style Cast"
+// });
 
 
 
 
 
-export var NewExpression = Expression.extend({
-    _name: "NewExpression",
-    valueCategory: "prvalue",
-    initIndex: "allocate",
-    compile : function(){
+// export var NewExpression = Expression.extend({
+//     _name: "NewExpression",
+//     valueCategory: "prvalue",
+//     initIndex: "allocate",
+//     compile : function(){
 
-        // Compile the type specifier
-        this.typeSpec = TypeSpecifier.instance(this.ast.specs, {parent:this});
-        this.typeSpec.compile();
+//         // Compile the type specifier
+//         this.typeSpec = TypeSpecifier.instance(this.ast.specs, {parent:this});
+//         this.typeSpec.compile();
 
-        this.heapType = this.typeSpec.type;
+//         this.heapType = this.typeSpec.type;
 
-        // Compile declarator if it exists
-        if(this.ast.declarator) {
-            this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
-            this.declarator.compile({baseType: this.heapType});
-            this.heapType = this.declarator.type;
-        }
+//         // Compile declarator if it exists
+//         if(this.ast.declarator) {
+//             this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
+//             this.declarator.compile({baseType: this.heapType});
+//             this.heapType = this.declarator.type;
+//         }
 
-        if (isA(this.heapType, Types.Array)){
-            // Note: this is Pointer, rather than ArrayPointer, since the latter should only be used in runtime contexts
-            this.type = Types.Pointer.instance(this.heapType.elemType);
-            if (this.declarator.dynamicLengthExpression){
-                this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
-                this.initIndex = "length";
-            }
-        }
-        else {
-            this.type = Types.Pointer.instance(this.heapType);
-        }
+//         if (isA(this.heapType, Types.Array)){
+//             // Note: this is Pointer, rather than ArrayPointer, since the latter should only be used in runtime contexts
+//             this.type = Types.Pointer.instance(this.heapType.elemType);
+//             if (this.declarator.dynamicLengthExpression){
+//                 this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
+//                 this.initIndex = "length";
+//             }
+//         }
+//         else {
+//             this.type = Types.Pointer.instance(this.heapType);
+//         }
 
-        var entity = NewObjectEntity.instance(this.heapType);
+//         var entity = NewObjectEntity.instance(this.heapType);
 
-        var initCode = this.ast.initializer || {args: []};
-        if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
-            this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
-            this.initializer.compile(entity);
-        }
-        else if (initCode.args.length == 0){
-            this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
-            this.initializer.compile(entity);
-        }
-        else{
-            this.addNote(CPPError.declaration.init.scalar_args(this, this.heapType));
-        }
+//         var initCode = this.ast.initializer || {args: []};
+//         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
+//             this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
+//             this.initializer.compile(entity);
+//         }
+//         else if (initCode.args.length == 0){
+//             this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
+//             this.initializer.compile(entity);
+//         }
+//         else{
+//             this.addNote(CPPError.declaration.init.scalar_args(this, this.heapType));
+//         }
 
-        this.compileTemporarires();
-    },
-
-
-    createInstance : function(sim, parent){
-        var inst = Expression.createInstance.apply(this, arguments);
-        inst.initializer = this.initializer.createInstance(sim, inst);
-        return inst;
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "length"){
-            inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
-            inst.index = "allocate";
-            return true;
-        }
-        else if (inst.index === "init"){
-            sim.push(inst.initializer);
-            inst.index = "operate";
-            return true;
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        // Dynamic memory - doesn't get added to any scope, but we create on the heap
-
-        if (inst.index === "allocate") {
-            var heapType = this.heapType;
-
-            // If it's an array, we need to use the dynamic length
-            if (this.dynamicLength) {
-                var len = inst.dynamicLength.evalResult.rawValue();
-                if (len === 0){
-                    sim.alert("Sorry, but I can't allocate a dynamic array of zero length. I know there's technically an old C-style hack that uses zero-length arrays, but hey, I'm just a lobster. I'll go ahead and allocate an array of length 1 instead.");
-                    len = 1;
-                }
-                else if (len < 0){
-                    sim.undefinedBehavior("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
-                    len = 1;
-                }
-                heapType = Types.Array.instance(this.heapType.elemType, len);
-            }
-
-            var obj = DynamicObject.instance(heapType);
-
-            sim.memory.heap.allocateNewObject(obj);
-            sim.i_pendingNews.push(obj);
-            inst.i_allocatedObject = obj;
-            inst.initializer.setAllocatedObject(obj);
-            inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
-            //if (this.initializer){
-            //    inst.index = "init";
-            //}
-            //else{
-            //    inst.index = "operate";
-            //}
-            //return true;
-        }
-        else if (inst.index === "operate") {
-            if (isA(this.heapType, Types.Array)){
-                // RTTI for array pointer
-                inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
-            }
-            else{
-                // RTTI for object pointer
-                inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
-            }
-            sim.i_pendingNews.pop();
-            this.done(sim, inst);
-        }
-
-    },
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (this.initializer){
-            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
-        }
-        else{
-            return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
-        }
-    }
-});
+//         this.compileTemporarires();
+//     },
 
 
+//     createInstance : function(sim, parent){
+//         var inst = Expression.createInstance.apply(this, arguments);
+//         inst.initializer = this.initializer.createInstance(sim, inst);
+//         return inst;
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index === "length"){
+//             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
+//             inst.index = "allocate";
+//             return true;
+//         }
+//         else if (inst.index === "init"){
+//             sim.push(inst.initializer);
+//             inst.index = "operate";
+//             return true;
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         // Dynamic memory - doesn't get added to any scope, but we create on the heap
+
+//         if (inst.index === "allocate") {
+//             var heapType = this.heapType;
+
+//             // If it's an array, we need to use the dynamic length
+//             if (this.dynamicLength) {
+//                 var len = inst.dynamicLength.evalResult.rawValue();
+//                 if (len === 0){
+//                     sim.alert("Sorry, but I can't allocate a dynamic array of zero length. I know there's technically an old C-style hack that uses zero-length arrays, but hey, I'm just a lobster. I'll go ahead and allocate an array of length 1 instead.");
+//                     len = 1;
+//                 }
+//                 else if (len < 0){
+//                     sim.undefinedBehavior("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
+//                     len = 1;
+//                 }
+//                 heapType = Types.Array.instance(this.heapType.elemType, len);
+//             }
+
+//             var obj = DynamicObject.instance(heapType);
+
+//             sim.memory.heap.allocateNewObject(obj);
+//             sim.i_pendingNews.push(obj);
+//             inst.i_allocatedObject = obj;
+//             inst.initializer.setAllocatedObject(obj);
+//             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
+//             //if (this.initializer){
+//             //    inst.index = "init";
+//             //}
+//             //else{
+//             //    inst.index = "operate";
+//             //}
+//             //return true;
+//         }
+//         else if (inst.index === "operate") {
+//             if (isA(this.heapType, Types.Array)){
+//                 // RTTI for array pointer
+//                 inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
+//             }
+//             else{
+//                 // RTTI for object pointer
+//                 inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
+//             }
+//             sim.i_pendingNews.pop();
+//             this.done(sim, inst);
+//         }
+
+//     },
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (this.initializer){
+//             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
+//         }
+//         else{
+//             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
+//         }
+//     }
+// });
 
 
-export var Delete  = Expression.extend({
-    _name: "Delete",
-    valueCategory: "prvalue",
-    type: Types.Void.instance(),
-    i_childrenToCreate : ["operand"],
-    i_childrenToConvert : {
-        "operand" : Types.Pointer.instance()
-    },
-    i_childrenToExecute : ["operand"],
-
-    typeCheck : function(){
-
-        if (isA(this.operand.type.ptrTo, Types.Class)){
-            var classType = this.operand.type.ptrTo;
-            var dest = classType.destructor;
-            //TODO not found and ambiguous
-            if (isA(dest, FunctionEntity)){
-                //this.assnOp = assnOp;
-                //this.type = noRef(assnOp.type.returnType);
-                // Attempt standard conversion of rhs to match lhs, without lvalue to rvalue
-                //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
-
-                this.funcCall = this.funcCall = FunctionCall.instance({args: []}, {parent:this});
-                this.funcCall.compile({func: dest});
-                this.type = this.funcCall.type;
-            }
-            else{
-                this.addNote(CPPError.expr.delete.no_destructor(this, classType));
-            }
-        }
-
-        // Type check
-        if (!isA(this.operand.type, Types.Pointer)) {
-            this.addNote(CPPError.expr.delete.pointer(this, this.operand.type));
-        }
-        else if (!this.operand.type.ptrTo.isObjectType){
-            this.addNote(CPPError.expr.delete.pointerToObjectType(this, this.operand.type));
-        }
-    },
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-        if (!inst.alreadyDestructed){
-            var ptr = inst.childInstances.operand.evalResult;
-            if (Types.Pointer.isNull(ptr.rawValue())){
-                this.done(sim, inst);
-                return;
-            }
-
-            // If it's an array pointer, just grab array object to delete from RTTI.
-            // Otherwise ask memory what object it's pointing to.
-            var obj;
-            if (isA(ptr.type, Types.ArrayPointer)){
-                obj = ptr.type.arrObj;
-            }
-            else{
-                obj = sim.memory.dereference(ptr);
-            }
-
-            if (!isA(obj, DynamicObject)) {
-                if (isA(obj, AutoObject)) {
-                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
-                }
-                else {
-                    sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
-                }
-                this.done(sim, inst);
-                return;
-            }
-
-            if (isA(obj.type, Types.Array)){
-                sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
-                this.done(sim, inst);
-                return;
-            }
-
-            //if (!similarType(obj.type, this.operand.type.ptrTo)) {
-            //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the type of the object I found on the heap - that's a bad thing!");
-            //    this.done(sim, inst);
-            //    return;
-            //}
-
-            if (!obj.isAlive()) {
-                DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-                this.done(sim, inst);
-                return;
-            }
-
-            inst.alreadyDestructed = true;
-            if(this.funcCall){
-                // Set obj as receiver for virtual destructor lookup
-                var dest = this.funcCall.createAndPushInstance(sim, inst, obj);
-            }
-            else{
-                return true;
-            }
-        }
-        else{
-            var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalResult.value, inst);
-            this.done(sim, inst);
-        }
-
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The delete operation will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
-
-//TODO: move to runtimeEnvironment or memory js modules?
-/**
- *
- * @param sim
- * @param inst
- * @param {Value | CPPObject} ptr
- * @returns {CPPObject?}
- */
-var deleteHeapArray = function(sim: Simulation, rtConstruct: RuntimeConstruct, ptr) {
-    if(Types.Pointer.isNull(ptr.rawValue())){
-        return;
-    }
-
-    // If it's an array pointer, just grab array object to delete from RTTI.
-    // Otherwise ask memory what object it's pointing to.
-    var obj;
-    if (isA(ptr.type, Types.ArrayPointer)){
-        obj = ptr.type.arrObj;
-        // if the address is not the same, it means we're deleting through an array pointer,
-        // but not one that is pointing to the beginning of the array. this causes undefined behavior
-        if (ptr.rawValue() !== obj.address) {
-            sim.undefinedBehavior("It looks like you used <span class='code'>delete[]</span> on a pointer to an array, but it wasn't pointing at the beginning of the array as is required for <span class='code'>delete[]</span>. This causes undefined behavior!");
-        }
-    }
-    else{
-        obj = sim.memory.dereference(ptr);
-    }
-
-    // Check to make sure we're deleting a valid heap object.
-    if (!isA(obj, DynamicObject)) {
-        if (isA(obj, AutoObject)) {
-            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
-        }
-        else {
-            sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
-        }
-        return;
-    }
-
-    if (!isA(obj.type, Types.Array)) {
-        sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
-        return;
-    }
-
-    //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
-    //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
-    //    this.done(sim, inst);
-    //    return;
-    //}
-
-    if (!obj.isAlive()) {
-        DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-        return;
-    }
-
-    return sim.memory.heap.deleteObject(ptr.rawValue(), inst);
-};
-
-// TODO: liskov suggests this shouldn't be a subtype. Use has-a instead?
-export var DeleteArray = Delete.extend({
-    _name: "DeleteArray",
-
-    stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var ptr = inst.childInstances.operand.evalResult;
-        deleteHeapArray(sim, inst, ptr);
-        this.done(sim, inst);
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The delete[] operation will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
-
-// TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
-export var ConstructExpression = Expression.extend({
-    _name: "ConstructExpression",
-    valueCategory: "prvalue",
-    initIndex: "init",
-    compile : function(){
-
-        // Compile the type specifier
-        this.typeSpec = TypeSpecifier.instance([this.ast.type], {parent:this});
-        this.typeSpec.compile();
-
-        this.type = this.typeSpec.type;
-
-        // Compile declarator if it exists
-        if(this.ast.declarator) {
-            this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
-            this.declarator.compile({baseType: this.heapType});
-            this.heapType = this.declarator.type;
-        }
-
-        this.entity = this.createTemporaryObject(this.type, "[temp " + this.type + "]");
-
-        if (isA(this.type, Types.Class) || this.ast.args.length == 1){
-            this.initializer = DirectInitializer.instance(this.ast, {parent: this});
-            this.initializer.compile(this.entity);
-        }
-        else{
-            this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
-        }
-
-        this.compileTemporarires();
-    },
-
-    createInstance : function(sim, parent){
-        var inst = Expression.createInstance.apply(this, arguments);
-        inst.tempObject = this.entity.objectInstance(inst);
-        return inst;
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "init"){
-            var initInst = this.initializer.createAndPushInstance(sim, inst);
-            inst.index = "done";
-            return true;
-        }
-        else{
-            if (isA(this.type, Types.class)){
-                inst.setEvalResult(inst.tempObject);
-            }
-            else{
-                inst.setEvalResult(inst.tempObject.readValue());
-            }
-            this.done(sim, inst);
-        }
-    }
 
 
-});
+// export var Delete  = Expression.extend({
+//     _name: "Delete",
+//     valueCategory: "prvalue",
+//     type: Types.Void.instance(),
+//     i_childrenToCreate : ["operand"],
+//     i_childrenToConvert : {
+//         "operand" : Types.Pointer.instance()
+//     },
+//     i_childrenToExecute : ["operand"],
+
+//     typeCheck : function(){
+
+//         if (isA(this.operand.type.ptrTo, Types.Class)){
+//             var classType = this.operand.type.ptrTo;
+//             var dest = classType.destructor;
+//             //TODO not found and ambiguous
+//             if (isA(dest, FunctionEntity)){
+//                 //this.assnOp = assnOp;
+//                 //this.type = noRef(assnOp.type.returnType);
+//                 // Attempt standard conversion of rhs to match lhs, without lvalue to rvalue
+//                 //this.rhs = this.sub.rhs = standardConversion(this.rhs, this.lhs.type, {suppressLTR:true});
+
+//                 this.funcCall = this.funcCall = FunctionCall.instance({args: []}, {parent:this});
+//                 this.funcCall.compile({func: dest});
+//                 this.type = this.funcCall.type;
+//             }
+//             else{
+//                 this.addNote(CPPError.expr.delete.no_destructor(this, classType));
+//             }
+//         }
+
+//         // Type check
+//         if (!isA(this.operand.type, Types.Pointer)) {
+//             this.addNote(CPPError.expr.delete.pointer(this, this.operand.type));
+//         }
+//         else if (!this.operand.type.ptrTo.isObjectType){
+//             this.addNote(CPPError.expr.delete.pointerToObjectType(this, this.operand.type));
+//         }
+//     },
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//         if (!inst.alreadyDestructed){
+//             var ptr = inst.childInstances.operand.evalResult;
+//             if (Types.Pointer.isNull(ptr.rawValue())){
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             // If it's an array pointer, just grab array object to delete from RTTI.
+//             // Otherwise ask memory what object it's pointing to.
+//             var obj;
+//             if (isA(ptr.type, Types.ArrayPointer)){
+//                 obj = ptr.type.arrObj;
+//             }
+//             else{
+//                 obj = sim.memory.dereference(ptr);
+//             }
+
+//             if (!isA(obj, DynamicObject)) {
+//                 if (isA(obj, AutoObject)) {
+//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
+//                 }
+//                 else {
+//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
+//                 }
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             if (isA(obj.type, Types.Array)){
+//                 sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             //if (!similarType(obj.type, this.operand.type.ptrTo)) {
+//             //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the type of the object I found on the heap - that's a bad thing!");
+//             //    this.done(sim, inst);
+//             //    return;
+//             //}
+
+//             if (!obj.isAlive()) {
+//                 DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             inst.alreadyDestructed = true;
+//             if(this.funcCall){
+//                 // Set obj as receiver for virtual destructor lookup
+//                 var dest = this.funcCall.createAndPushInstance(sim, inst, obj);
+//             }
+//             else{
+//                 return true;
+//             }
+//         }
+//         else{
+//             var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalResult.value, inst);
+//             this.done(sim, inst);
+//         }
+
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The delete operation will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
+
+// //TODO: move to runtimeEnvironment or memory js modules?
+// /**
+//  *
+//  * @param sim
+//  * @param inst
+//  * @param {Value | CPPObject} ptr
+//  * @returns {CPPObject?}
+//  */
+// var deleteHeapArray = function(sim: Simulation, rtConstruct: RuntimeConstruct, ptr) {
+//     if(Types.Pointer.isNull(ptr.rawValue())){
+//         return;
+//     }
+
+//     // If it's an array pointer, just grab array object to delete from RTTI.
+//     // Otherwise ask memory what object it's pointing to.
+//     var obj;
+//     if (isA(ptr.type, Types.ArrayPointer)){
+//         obj = ptr.type.arrObj;
+//         // if the address is not the same, it means we're deleting through an array pointer,
+//         // but not one that is pointing to the beginning of the array. this causes undefined behavior
+//         if (ptr.rawValue() !== obj.address) {
+//             sim.undefinedBehavior("It looks like you used <span class='code'>delete[]</span> on a pointer to an array, but it wasn't pointing at the beginning of the array as is required for <span class='code'>delete[]</span>. This causes undefined behavior!");
+//         }
+//     }
+//     else{
+//         obj = sim.memory.dereference(ptr);
+//     }
+
+//     // Check to make sure we're deleting a valid heap object.
+//     if (!isA(obj, DynamicObject)) {
+//         if (isA(obj, AutoObject)) {
+//             sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> was pointing to something on the stack!");
+//         }
+//         else {
+//             sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete[]</span> wasn't pointing to a valid heap object.");
+//         }
+//         return;
+//     }
+
+//     if (!isA(obj.type, Types.Array)) {
+//         sim.undefinedBehavior("You tried to delete a non-array object with a <span class='code'>delete[]</span> expression. Oops!");
+//         return;
+//     }
+
+//     //if (!similarType(obj.type.elemType, this.operand.type.ptrTo)) {
+//     //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the element type of the array object I found on the heap - that's a bad thing!");
+//     //    this.done(sim, inst);
+//     //    return;
+//     //}
+
+//     if (!obj.isAlive()) {
+//         DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
+//         return;
+//     }
+
+//     return sim.memory.heap.deleteObject(ptr.rawValue(), inst);
+// };
+
+// // TODO: liskov suggests this shouldn't be a subtype. Use has-a instead?
+// export var DeleteArray = Delete.extend({
+//     _name: "DeleteArray",
+
+//     stepForward: function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var ptr = inst.childInstances.operand.evalResult;
+//         deleteHeapArray(sim, inst, ptr);
+//         this.done(sim, inst);
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The delete[] operation will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
+
+// // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
+// export var ConstructExpression = Expression.extend({
+//     _name: "ConstructExpression",
+//     valueCategory: "prvalue",
+//     initIndex: "init",
+//     compile : function(){
+
+//         // Compile the type specifier
+//         this.typeSpec = TypeSpecifier.instance([this.ast.type], {parent:this});
+//         this.typeSpec.compile();
+
+//         this.type = this.typeSpec.type;
+
+//         // Compile declarator if it exists
+//         if(this.ast.declarator) {
+//             this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
+//             this.declarator.compile({baseType: this.heapType});
+//             this.heapType = this.declarator.type;
+//         }
+
+//         this.entity = this.createTemporaryObject(this.type, "[temp " + this.type + "]");
+
+//         if (isA(this.type, Types.Class) || this.ast.args.length == 1){
+//             this.initializer = DirectInitializer.instance(this.ast, {parent: this});
+//             this.initializer.compile(this.entity);
+//         }
+//         else{
+//             this.addNote(CPPError.declaration.init.scalar_args(this, this.type));
+//         }
+
+//         this.compileTemporarires();
+//     },
+
+//     createInstance : function(sim, parent){
+//         var inst = Expression.createInstance.apply(this, arguments);
+//         inst.tempObject = this.entity.objectInstance(inst);
+//         return inst;
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index === "init"){
+//             var initInst = this.initializer.createAndPushInstance(sim, inst);
+//             inst.index = "done";
+//             return true;
+//         }
+//         else{
+//             if (isA(this.type, Types.class)){
+//                 inst.setEvalResult(inst.tempObject);
+//             }
+//             else{
+//                 inst.setEvalResult(inst.tempObject.readValue());
+//             }
+//             this.done(sim, inst);
+//         }
+//     }
+
+
+// });
 
 
 
@@ -3270,24 +3270,24 @@ export class Identifier extends Expression {
 
 
 
-export var ThisExpression  = Expression.extend({
-    _name: "ThisExpression",
-    valueCategory: "prvalue",
-    compile : function(){
-        var func = this.containingFunction();
-        if (func.isMemberFunction){
-            this.type = Types.Pointer.instance(func.receiverType);
-        }
-        else{
-            this.addNote(CPPError.expr.thisExpr.memberFunc(this));
-        }
-    },
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Set this pointer with RTTI to point to receiver
-        inst.setEvalResult(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
-        this.done(sim, inst);
-    }
-});
+// export var ThisExpression  = Expression.extend({
+//     _name: "ThisExpression",
+//     valueCategory: "prvalue",
+//     compile : function(){
+//         var func = this.containingFunction();
+//         if (func.isMemberFunction){
+//             this.type = Types.Pointer.instance(func.receiverType);
+//         }
+//         else{
+//             this.addNote(CPPError.expr.thisExpr.memberFunc(this));
+//         }
+//     },
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         // Set this pointer with RTTI to point to receiver
+//         inst.setEvalResult(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
+//         this.done(sim, inst);
+//     }
+// });
 
 export var EntityExpression  = Expression.extend({
     _name: "EntityExpression",
@@ -3377,46 +3377,46 @@ export class Literal extends Expression {
 //	}
 });
 
-export class StringLiteral extends Expression {
-    public valueCategory: string;
-    public type: Type;
-    public createRuntimeExpression(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpressionBase<Expression> {
-        throw new Error("Method not implemented.");
-    }
-    public describeEvalResult(depth: number): Description {
-        throw new Error("Method not implemented.");
-    }
-    _name: "StringLiteral",
-    initIndex: false,
-    compile : function(){
+// export class StringLiteral extends Expression {
+//     public valueCategory: string;
+//     public type: Type;
+//     public createRuntimeExpression(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpressionBase<Expression> {
+//         throw new Error("Method not implemented.");
+//     }
+//     public describeEvalResult(depth: number): Description {
+//         throw new Error("Method not implemented.");
+//     }
+//     _name: "StringLiteral",
+//     initIndex: false,
+//     compile : function(){
 
-        var conv = literalJSParse[this.ast.type];
-        var val = (conv ? conv(this.ast.value) : this.ast.value);
+//         var conv = literalJSParse[this.ast.type];
+//         var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-        this.i_stringEntity = StringLiteralEntity.instance(val);
-        this.translationUnit.addStringLiteral(this.i_stringEntity);
-        this.i_isStringLiteral = true;
-        this.i_stringValue = val;
-        this.type = this.i_stringEntity.type;
-        this.valueCategory = "lvalue";
+//         this.i_stringEntity = StringLiteralEntity.instance(val);
+//         this.translationUnit.addStringLiteral(this.i_stringEntity);
+//         this.i_isStringLiteral = true;
+//         this.i_stringValue = val;
+//         this.type = this.i_stringEntity.type;
+//         this.valueCategory = "lvalue";
 
-    },
+//     },
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.evalResult = this.i_stringEntity.runtimeLookup(sim, inst);
-        this.done(sim, inst);
-        return true;
-    },
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         inst.evalResult = this.i_stringEntity.runtimeLookup(sim, inst);
+//         this.done(sim, inst);
+//         return true;
+//     },
 
-    describeEvalResult : function(depth, sim, inst){
-        return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
-    }
+//     describeEvalResult : function(depth, sim, inst){
+//         return {name: "the string literal \"" + this.i_stringValue + "\"", message: "the string literal \"" + this.i_stringValue + "\""};
+//     }
 
-//	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//		this.done(sim, inst);
-//		return true;
-//	}
-}
+// //	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+// //		this.done(sim, inst);
+// //		return true;
+// //	}
+// }
 
 export var Parentheses  = Expression.extend({
     _name: "Parentheses",
