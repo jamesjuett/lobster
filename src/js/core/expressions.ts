@@ -1,3 +1,4 @@
+import clone from "lodash/clone";
 import * as Util from "../util/util";
 import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct } from "./constructs";
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity } from "./entities";
@@ -2282,19 +2283,15 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<Compiled
 
 // TODO: move FunctionCall to its own module
 // TODO: FunctionCall should not extend Expression
+
 export class FunctionCall extends InstructionConstruct {
     
-    private readonly argInitializers: CopyInitializer[];
-    
-    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver: ObjectEntity<ClassType>) {
-        super(context);
+    public readonly func: FunctionEntity;
+    public readonly receiver: ObjectEntity<ClassType>?;
+    public readonly args: TypedExpression<ObjectType>[];
+    public readonly argInitializers: CopyInitializer[];
 
-        // Create initializers for each argument/parameter pair
-        this.argInitializers = args.map((arg, i) => {
-            return DirectInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
-        });
-        
-    }
+    public readonly isRecursive: boolean;
 
     /**
      * A FunctionEntity must be provided to specify which function is being called.
@@ -2310,29 +2307,27 @@ export class FunctionCall extends InstructionConstruct {
      * If a receiver entity is not provided here, a receiver object must be specified at runtime when
      * a runtime construct for this function call is created.
      *
-     * @param {FunctionEntity} compilationContext.func
-     * @param {CPPEntity?} compilationContext.receiver
+     * @param context 
+     * @param func Specifies which function is being called.
+     * @param args Arguments to the function.
+     * @param receiver 
      */
-    compile : function(compilationContext) {
-        this.receiver = compilationContext.receiver || null;
-        this.func = compilationContext.func;
+    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver: ObjectEntity<ClassType>? = null) {
+        super(context);
 
-        var self = this;
-        assert(isA(this.func, FunctionEntity) || isA(this.func, PointedFunctionEntity));
+        this.func = func;
+        this.args = clone(args);
+        this.receiver = receiver;
 
-        // TODO: what is this??
-        if (this.func.isMain && !this.i_isMainCall){
-            this.addNote(CPPError.expr.functionCall.numParams(this));
-        }
+        // Create initializers for each argument/parameter pair
+        this.argInitializers = args.map((arg, i) => {
+            return DirectInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
+        });
 
-        // Is the function statically bound?
-        if (this.func.isStaticallyBound()){
-            this.staticFunction = this.func;
-            // TODO: add error if main is called recursively
-            this.isRecursive = !this.i_isMainCall && this.staticFunction === this.containingFunction().entity;
-        }
+        // TODO
+        // this.isRecursive = this.func.definition === this.context.containingFunction;
 
-        this.type = this.func.type.returnType;
+        let returnType = this.func.type.returnType
 
         if (isA(this.type, Types.Reference)){
             this.returnByReference = true;

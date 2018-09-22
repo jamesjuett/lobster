@@ -846,9 +846,9 @@ export class Pointer extends AtomicType {
         return <number>value < 0;
     }
 
-    public readonly ptrTo: Type;
+    public readonly ptrTo: ObjectType;
 
-    public constructor(ptrTo: Type, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(ptrTo: ObjectType, isConst?: boolean, isVolatile?: boolean) {
         super(isConst, isVolatile);
         this.ptrTo = ptrTo;
     }
@@ -1341,8 +1341,8 @@ export class FunctionType extends Type {
         }
     );
     
-    init: function(returnType, paramTypes, isConst, isVolatile, isThisConst){
-        this.initParent(isConst, isVolatile);
+    public constructor(returnType: ObjectType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, isThisConst: boolean = false) {
+        super(isConst, isVolatile);
 
         if (isThisConst){
             this.isThisConst = true;
