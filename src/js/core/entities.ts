@@ -2,7 +2,7 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -1129,10 +1129,10 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
 }
 
-export class FunctionEntity extends DeclaredEntity<Types.FunctionType> {
+export class FunctionEntity extends DeclaredEntity<FunctionType> {
     protected static readonly _name = "FunctionEntity";
 
-    public readonly type!: Types.Function; // ! - Initialized by parent constructor
+    public readonly type!: FunctionType; // ! - Initialized by parent constructor
 
     public isStaticallyBound() {
         return true;
@@ -1155,12 +1155,12 @@ export class FunctionEntity extends DeclaredEntity<Types.FunctionType> {
     }
 
     // TODO: check on what this is here for
-    public getPointerTo() {
-        return new Value(this, this.type);
-    }
+    // public getPointerTo() {
+    //     return new Value(this, this.type);
+    // }
 
     public describe() {
-        return this.decl.describe();
+        return this.declaration.describe();
     }
 }
 
