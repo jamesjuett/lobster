@@ -1449,12 +1449,12 @@ export class FunctionType extends Type {
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
-		return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
-	}
+        return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
+    }
 
     public englishString(plural: boolean) {
-		return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
-			   (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
+        return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
+               (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
     }
 }
 export {FunctionType as Function};
