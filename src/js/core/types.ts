@@ -239,8 +239,6 @@ export function isCvConvertible(t1: Type, t2: Type){
 export class Type {
     public static readonly _name = "Type";
 
-    public abstract readonly size: number; // TODO: this should not be required for all types
-
     /**
      * Used in parenthesization of string representations of types.
      * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
@@ -351,16 +349,6 @@ export class Type {
     protected parenthesize(outside: Type, str: string) {
         return this.precedence < outside.precedence ? "(" + str + ")" : str;
     }
-
-    /**
-     * Returns a human-readable string representation of the given raw value for this Type.
-     * This is the representation that might be displayed to the user when inspecting the
-     * value of an object.
-     * Note that the value representation for the type in Lobster is just a javascript
-     * value. It is not the C++ value representation for the type.
-     * @param value
-     */
-    public abstract valueToString(value: RawValueType) : string;
 
     /**
      * Returns the string representation of the given raw value for this Type that would be
@@ -530,6 +518,9 @@ builtInTypes["void"] = VoidType;
 
 export abstract class ObjectType extends Type {
 
+
+    public abstract readonly size: number;
+
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
@@ -563,6 +554,16 @@ export abstract class ObjectType extends Type {
      * @param value
      */
     public abstract isValueValid(value: RawValueType) : boolean;
+
+    /**
+     * Returns a human-readable string representation of the given raw value for this Type.
+     * This is the representation that might be displayed to the user when inspecting the
+     * value of an object.
+     * Note that the value representation for the type in Lobster is just a javascript
+     * value. It is not the C++ value representation for the type.
+     * @param value
+     */
+    public abstract valueToString(value: RawValueType) : string;
 }
 
 export abstract class AtomicType extends ObjectType {
@@ -1121,7 +1122,7 @@ export class ClassType extends ObjectType {
         ClassType,
         {
             precedence: 0,
-            isObjectType: true,
+            isObjectType: true
         }
     );
 
@@ -1330,26 +1331,33 @@ export {ClassType as Class};
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 export class FunctionType extends Type {
-    public static readonly _name = "FunctionType";
+    
+    protected readonly precedence!: number;
+    public readonly isObjectType!: boolean;
+    public readonly size!: number;
 
-    private static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
+    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
         FunctionType,
         {
-            isObjectType: false,
             precedence: 2,
             size: 0,
         }
     );
+
+    public readonly returnType: ObjectType;
+    public readonly paramTypes: readonly ObjectType[];
+    public readonly receiverType?: ObjectType;
+
+    private paramStrType: string;
+    private paramStrEnglish: string;
     
-    public constructor(returnType: ObjectType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, isThisConst: boolean = false) {
+    public constructor(returnType: ObjectType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
         super(isConst, isVolatile);
 
-        if (isThisConst){
-            this.isThisConst = true;
-        }
+        this.receiverType = receiverType;
+
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
-        // TODO not for poitners/refrences
         if(!(returnType instanceof ClassType || returnType instanceof Pointer || returnType instanceof Reference)){
             this.returnType = returnType.cvUnqualified();
         }
@@ -1357,14 +1365,8 @@ export class FunctionType extends Type {
             this.returnType = returnType;
         }
 
-        this.paramTypes = paramTypes.map(function(ptype){
-            return ptype instanceof ClassType ? ptype : ptype.cvUnqualified();
-        });
         // Top-level const on parameter types is ignored for non-class types
-
-
-
-        this.isFunction = true;
+        this.paramTypes = paramTypes.map((ptype) => ptype instanceof ClassType ? ptype : ptype.cvUnqualified());
 
         this.paramStrType = "(";
         for (var i = 0; i < paramTypes.length; ++i){
@@ -1374,15 +1376,16 @@ export class FunctionType extends Type {
 
         this.paramStrEnglish = "(";
         for (var i = 0; i < paramTypes.length; ++i){
-            this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString();
+            this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString(false);
         }
         this.paramStrEnglish += ")";
-    },
-    sameType : function(other){
+    }
+
+    public sameType(other: Type) {
         if (!other){
             return false;
         }
-        if (!other.isA(FunctionType)){
+        if (!(other instanceof FunctionType)) {
             return false;
         }
         if (!this.sameReturnType(other)){
@@ -1391,41 +1394,67 @@ export class FunctionType extends Type {
         if (!this.sameParamTypes(other)){
             return false;
         }
+        // TODO: should this be here?
+        // if (!this.sameReceiverType(other)) {
+        //     return false;
+        // }
         return true;
-    },
-    similarType : function(other){
+    }
+
+    // TODO: Check definition of similar types for functions
+    public similarType(other: Type) {
         return this.sameType(other);
-    },
-    sameParamTypes : function(other){
-        if (other instanceof FunctionType){
-            return this.sameParamTypes(other.paramTypes);
+    }
+
+    public sameParamTypes(other: Type) {
+        if (!(other instanceof FunctionType)) {
+            return false;
         }
-        if (this.paramTypes.length !== other.length){
+        let otherParamTypes = other.paramTypes;
+        if (this.paramTypes.length !== otherParamTypes.length){
             return false;
         }
         for(var i = 0; i < this.paramTypes.length; ++i){
-            if (!this.paramTypes[i].sameType(other[i])){
+            if (!this.paramTypes[i].sameType(otherParamTypes[i])){
                 return false;
             }
         }
         return true;
-    },
-    sameReturnType : function(other){
-        return this.returnType.sameType(other.returnType);
-    },
-    sameSignature : function(other){
-        return this.isThisConst === other.isThisConst && this.sameParamTypes(other);
-    },
-    typeString : function(excludeBase, varname, decorated){
-		return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
-	},
+    }
 
-    englishString : function(plural){
-		return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
-			   (plural ? "and return " : "and returns ") + this.returnType.englishString();
-	},
-	valueToString : function(value){
-		return ""+value;
+    public sameReturnType(other: Type) {
+        if (!(other instanceof FunctionType)) {
+            return false;
+        }
+        return this.returnType.sameType(other.returnType);
+    }
+
+    public sameReceiverType(other: Type) {
+        if (!(other instanceof FunctionType)) {
+            return false;
+        }
+
+        if (!this.receiverType || !other.receiverType) {
+            // If either does not have a receiver, return true only if neither has a receiver
+            return !this.receiverType && !other.receiverType;
+        }
+
+        return this.receiverType.sameType(other.receiverType);
+    }
+
+    public sameSignature(other: Type) {
+        if (!(other instanceof FunctionType)) {
+            return this.sameReceiverType(other) && this.sameParamTypes(other);
+        }
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
+		return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
 	}
+
+    public englishString(plural: boolean) {
+		return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
+			   (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
+    }
 }
 export {FunctionType as Function};
