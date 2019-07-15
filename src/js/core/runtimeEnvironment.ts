@@ -6,7 +6,7 @@ import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 
-export type byte = number | boolean; // HACK - can be resolved if I make the memory model realistic and not hacky
+export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
 
 export class Value<T extends AtomicType = AtomicType> {

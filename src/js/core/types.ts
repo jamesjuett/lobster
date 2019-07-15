@@ -17,6 +17,7 @@ function isVowel(c: string) {
 
 
 export class TypeSpecifier extends CPPConstruct {
+    public parent?: CPPConstruct | undefined;
 
     public compile() {
 
@@ -246,24 +247,11 @@ export class Type {
     protected abstract readonly precedence: number;
 
 
-    // All these use the definite assignment assertion because they are initialized as default properties on the prototype
-    public readonly isObjectType!: boolean;
-    public readonly isArithmeticType!: boolean;
-    public readonly isIntegralType!: boolean;
-    public readonly isFloatingPointType!: boolean;
-    public readonly isComplete!: boolean;
-
-    // Set the default properties above
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Type,
-        {
-            isObjectType: false,
-            isArithmeticType: false,
-            isIntegralType: false,
-            isFloatingPointType: false,
-            isComplete: false
-        }
-    );
+    public abstract readonly isObjectType: boolean;
+    public abstract readonly isArithmeticType: boolean;
+    public abstract readonly isIntegralType: boolean;
+    public abstract readonly isFloatingPointType: boolean;
+    public abstract readonly isComplete: boolean;
 
     // regular member properties
     public readonly isConst: boolean;
@@ -351,19 +339,6 @@ export class Type {
     }
 
     /**
-     * Returns the string representation of the given raw value for this Type that would be
-     * printed to an ostream.
-     * Note that the raw value representation for the type in Lobster is just a javascript
-     * value. It is not the C++ value representation for the type.
-     * TODO: This is a hack that may eventually be removed since printing to a stream should
-     * really be handled by overloaded << operator functions.
-     * @param value
-     */
-    public valueToOstreamString(value: RawValueType) {
-        return this.valueToString(value);
-    }
-
-    /**
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
@@ -432,16 +407,6 @@ export class Type {
  */
 // export class Unknown extends Type {
 
-//     public readonly size!: number;
-//     protected readonly precedence!: number;
-
-//     protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-//         Unknown,
-//         {
-//             size: 0,
-//             precedence: 0
-//         }
-//     );
 
 //     public sameType(other: Type) : boolean {
 //         return false;
@@ -469,23 +434,19 @@ export class Type {
 //     }
 // }
 
-builtInTypes["unknown"] = Unknown;
+// builtInTypes["unknown"] = Unknown;
 
-export let UNKNOWN_TYPE = new Unknown();
+// export let UNKNOWN_TYPE = new Unknown();
 
 export class VoidType extends Type {
 
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-    protected readonly precedence!: number;
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        VoidType,
-        {
-            simpleType: "void",
-            size: 0,
-            precedence: 0
-        }
-    );
+    public readonly isObjectType = false;
+    public readonly isArithmeticType = false;
+    public readonly isIntegralType = false;
+    public readonly isFloatingPointType = false;
+    public readonly isComplete = true;
+
+    protected readonly precedence = 0;
 
     public sameType(other: Type) : boolean {
         return other instanceof VoidType
@@ -504,22 +465,21 @@ export class VoidType extends Type {
 	public englishString(plural: boolean) {
 		return "void";
     }
-    
-	public valueToString(value: RawValueType) {
-        Util.assert(false);
-        return "";
-    }
-    
-    public isValueValid(value: RawValueType) {
-        return false;
-    }
 }
 builtInTypes["void"] = VoidType;
 
-export abstract class ObjectType extends Type {
-
-
+/**
+ * Represents a type for an object that exists in memory and takes up some space.
+ * Has a size property, but NOT necessarily a value. (e.g. an array).
+ */
+export abstract class SizedType extends Type {
     public abstract readonly size: number;
+}
+
+/**
+ * Represents a type for an object that has a value.
+ */
+export abstract class ObjectType extends SizedType {
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
@@ -564,6 +524,19 @@ export abstract class ObjectType extends Type {
      * @param value
      */
     public abstract valueToString(value: RawValueType) : string;
+
+    /**
+     * Returns the string representation of the given raw value for this Type that would be
+     * printed to an ostream.
+     * Note that the raw value representation for the type in Lobster is just a javascript
+     * value. It is not the C++ value representation for the type.
+     * TODO: This is a hack that may eventually be removed since printing to a stream should
+     * really be handled by overloaded << operator functions.
+     * @param value
+     */
+    public valueToOstreamString(value: RawValueType) {
+        return this.valueToString(value);
+    }
 }
 
 export abstract class AtomicType extends ObjectType {
@@ -579,15 +552,8 @@ export abstract class SimpleType extends AtomicType {
      */
     protected abstract simpleType: string;
 
-    public readonly isComplete!: boolean;
-    protected readonly precedence!: number;
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        SimpleType,
-        {
-            isComplete: true,
-            precedence: 0
-        }
-    );
+    public readonly isComplete = true;
+    protected readonly precedence = 0;
 
     public sameType(other: Type) : boolean {
         return other instanceof SimpleType
@@ -638,31 +604,18 @@ export abstract class SimpleType extends AtomicType {
 
 export abstract class IntegralType extends SimpleType {
 
-    public readonly isIntegralType!: boolean;
-    public readonly isArithmeticType!: boolean;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        IntegralType,
-        {
-            isIntegralType: true,
-            isArithmeticType: true
-        }
-    );
+    public readonly isIntegralType = true;
+    public readonly isArithmeticType = true;
+    
 }
 
 
 export class Char extends IntegralType {
+    public isObjectType: boolean;
+    public isFloatingPointType: boolean;
     
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Char,
-        {
-            simpleType: "char",
-            size: 1
-        }
-    );
+    protected readonly simpleType = "char";
+    public readonly size = 1;
 
     public static readonly NULL_CHAR = 0;
 
@@ -690,45 +643,27 @@ export class Char extends IntegralType {
 builtInTypes["char"] = Char;
 
 export class Int extends IntegralType {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Int,
-        {
-            simpleType: "int",
-            size: 4
-        }
-    );
+    public isObjectType: boolean;
+    public isFloatingPointType: boolean;
+    protected readonly simpleType = "int";
+    public readonly size = 4;
 };
 
 builtInTypes["int"] = Int;
 
 export class Size_t extends IntegralType {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Size_t,
-        {
-            simpleType: "size_t",
-            size: 8
-        }
-    );
+    public isObjectType: boolean;
+    public isFloatingPointType: boolean;
+    protected readonly simpleType = "size_t";
+    public readonly size = 8;
 }
 builtInTypes["size_t"] = Size_t;
 
 export class Bool extends IntegralType {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Bool,
-        {
-            simpleType: "bool",
-            size: 1
-        }
-    );
+    public isObjectType: boolean;
+    public isFloatingPointType: boolean;
+    protected readonly simpleType = "bool";
+    public readonly size = 1;
 
     public static BOOL = new Bool();
 }
@@ -740,18 +675,8 @@ builtInTypes["bool"] = Bool;
 
 abstract class FloatingPointTypeBase extends SimpleType {
 
-
-
-    public readonly isFloatingPointType!: boolean;
-    public readonly isArithmeticType!: boolean;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        FloatingPointTypeBase,
-        {
-            isFloatingPointType: true,
-            isArithmeticType: true
-        }
-    );
+    public readonly isFloatingPointType = true;
+    public readonly isArithmeticType = true;
 
     public valueToString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
@@ -761,48 +686,30 @@ abstract class FloatingPointTypeBase extends SimpleType {
 }
 
 export class Float extends FloatingPointTypeBase {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Float,
-        {
-            simpleType: "float",
-            size: 4
-        }
-    );
+    public isObjectType: boolean;
+    public isIntegralType: boolean;
+    protected readonly simpleType = "float";
+    public readonly size = 4;
 }
 builtInTypes["float"] = Float;
 
 export class Double extends FloatingPointTypeBase {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Double,
-        {
-            simpleType: "double",
-            size: 8
-        }
-    );
+    public isObjectType: boolean;
+    public isIntegralType: boolean;
+    protected readonly simpleType = "double";
+    public readonly size = 8;
 }
 builtInTypes["double"] = Double;
 
+// TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 export class OStream extends SimpleType {
-    protected readonly simpleType!: string;
-    public readonly size!: number;
+    public isObjectType: boolean;
+    public isArithmeticType: boolean;
+    public isIntegralType: boolean;
+    public isFloatingPointType: boolean;
+    protected readonly simpleType = "ostream";
+    public readonly size = 4;
 
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        OStream,
-        {
-            simpleType: "ostream",
-            size: 4
-        }
-    );
-
-    // public valueToString(value: RawValueType){
-    //     return JSON.stringify(value);
-    // }
 }
 builtInTypes["ostream"] = OStream;
 
@@ -825,19 +732,14 @@ builtInTypes["ostream"] = OStream;
 //TODO: create separate function pointer type???
 
 export class Pointer extends AtomicType {
+    public isObjectType: boolean;
+    public isArithmeticType: boolean;
+    public isIntegralType: boolean;
+    public isFloatingPointType: boolean;
 
-    public readonly size!: number;
-    protected readonly precedence!: number;
-    public readonly isComplete!: boolean;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Pointer,
-        {
-            size: 8,
-            precedence: 1,
-            isComplete: true
-        }
-    );
+    public readonly size = 8;
+    protected readonly precedence = 1;
+    public readonly isComplete = true;
 
     public static isNull(value: RawValueType) {
         return <number>value === 0;
@@ -879,12 +781,13 @@ export class Pointer extends AtomicType {
     }
 
     public valueToString(value: RawValueType) {
-        if (this.ptrTo instanceof FunctionType && value) {
-            return value.name;
-        }
-        else{
+        // TODO: clean up when function pointers are reimplemented
+        // if (this.ptrTo instanceof FunctionType && value) {
+        //     return value.name;
+        // }
+        // else{
             return "0x" + value;
-        }
+        // }
     }
 
     public isObjectPointer() {
@@ -909,10 +812,14 @@ export class Pointer extends AtomicType {
 }
 
 export class ArrayPointer extends Pointer {
+    public isObjectType: boolean;
+    public isArithmeticType: boolean;
+    public isIntegralType: boolean;
+    public isFloatingPointType: boolean;
     
-    public readonly arrayObject: CPPObject;
+    public readonly arrayObject: CPPObject<ArrayType>;
 
-    public constructor(arrayObject: CPPObject, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(arrayObject: CPPObject<ArrayType>, isConst?: boolean, isVolatile?: boolean) {
         super(arrayObject.type.elemType, isConst, isVolatile);
         this.arrayObject = arrayObject;
     }
@@ -922,7 +829,7 @@ export class ArrayPointer extends Pointer {
     }
 
     public onePast() {
-        return this.arrayObject.address + this.arrayObject.type.properSize;
+        return this.arrayObject.address + this.arrayObject.type.size;
     }
 
     public isValueValid(value: RawValueType) {
@@ -930,7 +837,7 @@ export class ArrayPointer extends Pointer {
             return false;
         }
         var arrayObject = this.arrayObject;
-        return arrayObject.address <= value && value <= arrayObject.address + arrayObject.type.properSize;
+        return arrayObject.address <= value && value <= arrayObject.address + arrayObject.type.size;
     }
 
     public isValueDereferenceable(value: RawValueType) {
@@ -938,12 +845,16 @@ export class ArrayPointer extends Pointer {
     }
 
     public toIndex(addr: number) {
-        return integerDivision(addr - this.arrayObject.address, this.arrayObject.type.elemType.size);
+        return Math.trunc((addr - this.arrayObject.address) /  this.arrayObject.type.elemType.size);
     }
 
 }
 
 export class ObjectPointer extends Pointer {
+    public isObjectType: boolean;
+    public isArithmeticType: boolean;
+    public isIntegralType: boolean;
+    public isFloatingPointType: boolean;
     
     public readonly pointedObject: CPPObject;
 
@@ -963,22 +874,14 @@ export class ObjectPointer extends Pointer {
 }
 
 
-// REQUIRES: refTo must be a type
-// TODO: reference shouldn't really have a size...perhaps rework so that there's an intermediate subclass of Type for Object types with a size
 export class Reference extends Type {
+    public isObjectType: boolean;
+    public isArithmeticType: boolean;
+    public isIntegralType: boolean;
+    public isFloatingPointType: boolean;
 
-    public readonly size!: number;
-    protected readonly precedence!: number;
-    public readonly isComplete!: boolean;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        Reference,
-        {
-            size: 0,
-            precedence: 1,
-            isComplete: true
-        }
-    );
+    protected readonly precedence = 1;
+    public readonly isComplete = true;
 
     public readonly refTo: Type;
 
@@ -986,7 +889,6 @@ export class Reference extends Type {
         // References have no notion of const (they can't be re-bound anyway)
         super(false, isVolatile);
         this.refTo = refTo;
-        this.size = this.refTo.size;
     }
 
     public getCompoundNext() {
@@ -1016,42 +918,41 @@ export class Reference extends Type {
 }
 
 
-// REQUIRES: elemType must be a type
-export class ArrayType<Elem_type extends ObjectType = ObjectType> extends ObjectType {
+// Represents the type of an array. This is not an ObjectType because an array does
+// not have a value that can be read/written. The Elem_type type parameter must be
+// an ObjectType. (Note that this rules out arrays of arrays, which are currently not supported.)
+export class ArrayType<Elem_type extends ObjectType = ObjectType> extends SizedType {
     
-    public readonly size!: number;
-    protected readonly precedence!: number;
-    public readonly isComplete!: boolean;
-    public readonly isObjectType!: boolean;
+    public readonly size: number;
 
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        ArrayType,
-        {
-            precedence: 2,
-            isComplete: true,
-            isObjectType: true,
-            size: 0 // Will be overriden by instance size unless it's an array of unknown bound
-        }
-    );
+    public readonly isObjectType = false; // TODO: is an array an object type according to C++ standard definitions?
+    public readonly isArithmeticType = false;
+    public readonly isIntegralType = false;
+    public readonly isFloatingPointType = false;
+
+    protected readonly precedence = 2;
 
     public readonly elemType: Elem_type;
     public readonly length: number;
 
-    public constructor(elemType: Elem_type, length: number, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(elemType: Elem_type, length: number) {
 
-        // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be const or volatile
+        // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be volatile
         super(false, false);
 
         this.elemType = elemType;
         this.length = length;
+        this.size = elemType.size * length;
+    }
+
+    public get isComplete() {
+        // Note: this class does not currently represent "array of unknown bound" types.
+        // Should that change, additional logic would be needed here since those are considered
+        // incomplete types.
         
-        if (length !== undefined) {
-            this.size = elemType.size * length;
-        }
-        else {
-            // An array type of unknown bound is considered incomplete
-            this.isComplete = false;
-        }
+        // Completeness may change if elemType completeness changes
+        // (e.g. array of potentially (in)complete class type objects)
+        return this.elemType.isComplete;
     }
 
     public getCompoundNext() {
@@ -1079,27 +980,26 @@ export class ArrayType<Elem_type extends ObjectType = ObjectType> extends Object
         }
     }
     
-	public valueToString(value: RawValueType) {
-		return ""+value;
-    }
+	// public valueToString(value: RawValueType) {
+	// 	return ""+value;
+    // }
     
-    public bytesToValue(bytes: byte[]) : never {
-        return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
-        // var arr = [];
-        // var elemSize = this.elemType.size;
-        // for(var i = 0; i < bytes.length; i += elemSize){
-        //     arr.push(this.elemType.bytesToValue(bytes.slice(i, i + elemSize)));
-        // }
-        // return arr;
-    }
-    public valueToBytes(value: RawValueType) : never {
-        return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
-        // return flatten(value.map(
-        //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
-        // ));
-    }
+    // public bytesToValue(bytes: byte[]) : never {
+    //     return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
+    //     // var arr = [];
+    //     // var elemSize = this.elemType.size;
+    //     // for(var i = 0; i < bytes.length; i += elemSize){
+    //     //     arr.push(this.elemType.bytesToValue(bytes.slice(i, i + elemSize)));
+    //     // }
+    //     // return arr;
+    // }
+    // public valueToBytes(value: RawValueType) : never {
+    //     return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
+    //     // return flatten(value.map(
+    //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
+    //     // ));
+    // }
 }
-export {ArrayType as Array};
 
 // TODO: Add a type for an incomplete class
 
@@ -1114,235 +1014,235 @@ export {ArrayType as Array};
  */
 
 
-export class ClassType extends ObjectType {
-    protected readonly precedence!: number;
-    public readonly isObjectType!: boolean;
+// export class ClassType extends ObjectType {
+//     public isValueValid(value: number): boolean {
+//         throw new Error("Method not implemented.");
+//     }
+//     public valueToString(value: number): string {
+//         throw new Error("Method not implemented.");
+//     }
+//     public isArithmeticType = false;
+//     public isIntegralType = false;
+//     public isFloatingPointType = false;
 
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        ClassType,
-        {
-            precedence: 0,
-            isObjectType: true
-        }
-    );
+//     public englishString(plural: boolean): string {
+//         throw new Error("Method not implemented.");
+//     }
+//     protected readonly precedence = 0;
+//     public readonly isObjectType = true;
 
-    public readonly cppClass: CPPClass;
+//     public readonly cppClass: CPPClass;
 
-    public constructor(cppClass: CPPClass, isConst?: boolean, isVolatile?: boolean) {
-        super(isConst, isVolatile);
+//     public constructor(cppClass: CPPClass, isConst?: boolean, isVolatile?: boolean) {
+//         super(isConst, isVolatile);
 
-        this.cppClass = cppClass;
-    }
+//         this.cppClass = cppClass;
+//     }
 
-    public get isComplete() {
-        return this.cppClass.isComplete;
-    }
+//     public get isComplete() {
+//         return this.cppClass.isComplete;
+//     }
 
-    public get size() {
-        return this.cppClass.size;
-    }
+//     public get size() {
+//         return this.cppClass.size;
+//     }
 
-    public sameType(other: Type) {
-        //alert(other.isA(this._class));
-        return this.similarType(other)
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
-    }
+//     public sameType(other: Type) {
+//         //alert(other.isA(this._class));
+//         return this.similarType(other)
+//             && other.isConst === this.isConst
+//             && other.isVolatile === this.isVolatile;
+//     }
 
-    public similarType(other: Type) {
-        return other instanceof ClassType && other.cppClass.fullyQualifiedName === this.cppClass.fullyQualifiedName;
-    }
-    typeString : function(excludeBase, varname, decorated){
-        if (excludeBase) {
-            return varname ? varname : "";
-        }
-        else{
-            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
-        }
-    },
-    englishString : function(plural){
-        // no recursive calls to this.type.englishString() here
-        // because this.type is just a string representing the type
-        return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
-    },
-    valueToString : function(value){
-        return JSON.stringify(value, null, 2);
-    },
-    bytesToValue : function(bytes){
-        var val = {};
-        var b = 0;
-        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
-            var mem = this.memberSubobjectEntities[i];
-            val[mem.name] = mem.type.bytesToValue(bytes.slice(b, b + mem.type.size));
-            b += mem.type.size;
-        }
-        return val;
-    },
-    valueToBytes : function(value){
-        var bytes = [];
-        for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
-            var mem = this.memberSubobjectEntities[i];
-            bytes.pushAll(mem.type.valueToBytes(value[mem.name]));
-        }
-        return bytes;
-    }
-}
+//     public similarType(other: Type) {
+//         return other instanceof ClassType && other.cppClass.fullyQualifiedName === this.cppClass.fullyQualifiedName;
+//     }
+//     typeString : function(excludeBase, varname, decorated){
+//         if (excludeBase) {
+//             return varname ? varname : "";
+//         }
+//         else{
+//             return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+//         }
+//     },
+//     englishString : function(plural){
+//         // no recursive calls to this.type.englishString() here
+//         // because this.type is just a string representing the type
+//         return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
+//     },
+//     valueToString : function(value){
+//         return JSON.stringify(value, null, 2);
+//     },
+//     bytesToValue : function(bytes){
+//         var val = {};
+//         var b = 0;
+//         for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+//             var mem = this.memberSubobjectEntities[i];
+//             val[mem.name] = mem.type.bytesToValue(bytes.slice(b, b + mem.type.size));
+//             b += mem.type.size;
+//         }
+//         return val;
+//     },
+//     valueToBytes : function(value){
+//         var bytes = [];
+//         for(var i = 0; i < this.memberSubobjectEntities.length; ++i) {
+//             var mem = this.memberSubobjectEntities[i];
+//             bytes.pushAll(mem.type.valueToBytes(value[mem.name]));
+//         }
+//         return bytes;
+//     }
+// }
 
-export class CPPClass {
+// export class CPPClass {
 
-    private static nextClassId = 0;
+//     private static nextClassId = 0;
 
-    public readonly name: string;
-    public readonly fullyQualifiedName: string;
-    public readonly size: number = 1;
-    private actuallyZeroSize = true;
+//     public readonly name: string;
+//     public readonly fullyQualifiedName: string;
+//     public readonly size: number = 1;
+//     private actuallyZeroSize = true;
 
-    // TODO: there isn't really a need to store entities in here. just the types would be fine and entities for the named
-    // members would still go in the class scope. Base class entities aren't really needed at all.
-    public readonly scope: ClassScope;
-    private memberEntities : MemberVariableEntity[] = [];
-    private subobjectEntities: (MemberVariableEntity | BaseClassEntity)[] = [];
-    public readonly baseClassEntities: BaseClassEntity[] = [];
-    public readonly memberSubobjectEntities: MemberVariableEntity[] = [];
-    public ctors: ConstructorEntity[] = [];
-    public destructor?: DestructorEntity;
+//     // TODO: there isn't really a need to store entities in here. just the types would be fine and entities for the named
+//     // members would still go in the class scope. Base class entities aren't really needed at all.
+//     public readonly scope: ClassScope;
+//     private memberEntities : MemberVariableEntity[] = [];
+//     private subobjectEntities: (MemberVariableEntity | BaseClassEntity)[] = [];
+//     public readonly baseClassEntities: BaseClassEntity[] = [];
+//     public readonly memberSubobjectEntities: MemberVariableEntity[] = [];
+//     public ctors: ConstructorEntity[] = [];
+//     public destructor?: DestructorEntity;
 
-    public readonly isComplete: boolean;
+//     public readonly isComplete: boolean;
     
-    public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
-        this.fullyQualifiedName = fullyQualifiedName;
-        this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
-        this.scope = ClassScope.instance(name, parentScope, baseClass);
+//     public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
+//         this.fullyQualifiedName = fullyQualifiedName;
+//         this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
+//         this.scope = ClassScope.instance(name, parentScope, baseClass);
 
-        if (baseClass) {
-            let baseEntity = new BaseClassEntity(baseClass, this, "public");
-            this.baseClassEntities.push(baseEntity);
-            this.subobjectEntities.push(baseEntity);
-            this.size += base.type.size;
-        }
+//         if (baseClass) {
+//             let baseEntity = new BaseClassEntity(baseClass, this, "public");
+//             this.baseClassEntities.push(baseEntity);
+//             this.subobjectEntities.push(baseEntity);
+//             this.size += base.type.size;
+//         }
 
-        this.isComplete = false;
-    }
+//         this.isComplete = false;
+//     }
 
-    public getBaseClass() {
-        if (this.baseClassEntities.length > 0) {
-            return this.baseClassEntities[0];
-        }
-        else {
-            return null;
-        }
-    }
+//     public getBaseClass() {
+//         if (this.baseClassEntities.length > 0) {
+//             return this.baseClassEntities[0];
+//         }
+//         else {
+//             return null;
+//         }
+//     }
 
-    public memberLookup(memberName: string, options: LookupOptions) {
-        return this.scope.memberLookup(memberName, options);
-    }
+//     public memberLookup(memberName: string, options: LookupOptions) {
+//         return this.scope.memberLookup(memberName, options);
+//     }
 
-    public requiredMemberLookup(memberName: string, options: LookupOptions) {
-        return this.scope.requiredMemberLookup(memberName, options);
-    }
+//     public requiredMemberLookup(memberName: string, options: LookupOptions) {
+//         return this.scope.requiredMemberLookup(memberName, options);
+//     }
 
-    public hasMember(memberName: string, options: LookupOptions) {
-        return !!this.memberLookup(memberName, options);
-    }
+//     public hasMember(memberName: string, options: LookupOptions) {
+//         return !!this.memberLookup(memberName, options);
+//     }
 
-    public addMember(mem: CPPEntity) {
-        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
-        this.scope.addDeclaredEntity(mem);
-        this.memberEntities.push(mem);
-        if(mem.type.isObjectType){
-            if (this.actuallyZeroSize){
-                (<number>this.size) = 0;
-                this.actuallyZeroSize = false;
-            }
+//     public addMember(mem: CPPEntity) {
+//         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+//         this.scope.addDeclaredEntity(mem);
+//         this.memberEntities.push(mem);
+//         if(mem.type.isObjectType){
+//             if (this.actuallyZeroSize){
+//                 (<number>this.size) = 0;
+//                 this.actuallyZeroSize = false;
+//             }
             
-            this.memberSubobjectEntities.push(mem);
-            this.subobjectEntities.push(mem);
-            (<number>this.size) += mem.type.size;
-        }
-    }
+//             this.memberSubobjectEntities.push(mem);
+//             this.subobjectEntities.push(mem);
+//             (<number>this.size) += mem.type.size;
+//         }
+//     }
 
-    public addConstructor(constructor: ConstructorEntity) {
-        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
-        this.ctors.push(constructor);
-    }
+//     public addConstructor(constructor: ConstructorEntity) {
+//         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+//         this.ctors.push(constructor);
+//     }
 
-    public addDestructor(destructor: DestructorEntity) {
-        Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
-        this.destructor = destructor;
-    }
+//     public addDestructor(destructor: DestructorEntity) {
+//         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
+//         this.destructor = destructor;
+//     }
 
-    public getDefaultConstructor() {
-        return this.scope.singleLookup(this.name+"\0", {
-            own:true, noBase:true, exactMatch:true,
-            paramTypes:[]});
-    }
+//     public getDefaultConstructor() {
+//         return this.scope.singleLookup(this.name+"\0", {
+//             own:true, noBase:true, exactMatch:true,
+//             paramTypes:[]});
+//     }
 
-    public getCopyConstructor(requireConst: boolean){
-        return this.scope.singleLookup(this.name+"\0", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new Reference(new ClassType(this, true))]}) ||
-            !requireConst &&
-            this.scope.singleLookup(this.name+"\0", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new Reference(new ClassType(this))]});
-    }
+//     public getCopyConstructor(requireConst: boolean){
+//         return this.scope.singleLookup(this.name+"\0", {
+//                 own:true, noBase:true, exactMatch:true,
+//                 paramTypes:[new Reference(new ClassType(this, true))]}) ||
+//             !requireConst &&
+//             this.scope.singleLookup(this.name+"\0", {
+//                 own:true, noBase:true, exactMatch:true,
+//                 paramTypes:[new Reference(new ClassType(this))]});
+//     }
 
-    public getAssignmentOperator(requireConst: boolean, isThisConst: boolean) {
-        return this.scope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new ClassType(this)]}) ||
-            this.scope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new Reference(new ClassType(this, true))]}) ||
-            !requireConst &&
-            this.scope.singleLookup("operator=", {
-                own:true, noBase:true, exactMatch:true,
-                paramTypes:[new Reference(new ClassType(this))]})
+//     public getAssignmentOperator(requireConst: boolean, isThisConst: boolean) {
+//         return this.scope.singleLookup("operator=", {
+//                 own:true, noBase:true, exactMatch:true,
+//                 paramTypes:[new ClassType(this)]}) ||
+//             this.scope.singleLookup("operator=", {
+//                 own:true, noBase:true, exactMatch:true,
+//                 paramTypes:[new Reference(new ClassType(this, true))]}) ||
+//             !requireConst &&
+//             this.scope.singleLookup("operator=", {
+//                 own:true, noBase:true, exactMatch:true,
+//                 paramTypes:[new Reference(new ClassType(this))]})
 
-    }
+//     }
 
-    public makeComplete() {
-        (<boolean>this.isComplete) = true;
-    }
+//     public makeComplete() {
+//         (<boolean>this.isComplete) = true;
+//     }
 
-    // TODO: think about whether this is necessary (it probably is, or maybe just the class scopes would need to be merged?)
-    // merge : function(class1, class2) {
-    //     class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
-    // },
+//     // TODO: think about whether this is necessary (it probably is, or maybe just the class scopes would need to be merged?)
+//     // merge : function(class1, class2) {
+//     //     class1.i_classId = class2.i_classId = Math.min(class1.i_classId, class2.i_classId);
+//     // },
 
-    public isDerivedFrom(potentialBase: ClassEntity) {
-        var b = this.getBaseClass();
-        while(b) {
-            if (similarType(potentialBase.type, b.type)) {
-                return true;
-            }
-            b = b.base;
-        }
-        return false;
-    }
+//     public isDerivedFrom(potentialBase: ClassEntity) {
+//         var b = this.getBaseClass();
+//         while(b) {
+//             if (similarType(potentialBase.type, b.type)) {
+//                 return true;
+//             }
+//             b = b.base;
+//         }
+//         return false;
+//     }
 
 
 
-}
-export {ClassType as Class};
+// }
+// export {ClassType as Class};
 
 
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 export class FunctionType extends Type {
+    public isArithmeticType = false;
+    public isIntegralType = false;
+    public isFloatingPointType = false;
+    public isComplete = true;
+    public readonly isObjectType = false;
     
-    protected readonly precedence!: number;
-    public readonly isObjectType!: boolean;
-    public readonly size!: number;
-
-    protected static readonly _defaultProps = Util.addDefaultPropertiesToPrototype(
-        FunctionType,
-        {
-            precedence: 2,
-            size: 0,
-        }
-    );
+    protected readonly precedence = 2;
 
     public readonly returnType: ObjectType;
     public readonly paramTypes: readonly ObjectType[];
