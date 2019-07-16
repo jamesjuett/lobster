@@ -1,10 +1,10 @@
-import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer } from "./types";
+import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { Description } from "./errors";
-import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity } from "./entities";
+import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity, ObjectEntity } from "./entities";
 import { Simulation } from "./Simulation";
 
 abstract class ObjectData<T extends ObjectType> {
@@ -38,13 +38,13 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: ch
 
 }
 
-class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_type>> extends ObjectData<T> {
+class ArrayObjectData<T extends ArrayType> extends ObjectData<T> {
 
-    public static create<Elem_type extends ObjectType>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
-        return new ArrayObjectData<Elem_type, ArrayType<Elem_type>>(object, memory, address);
+    public static create<Elem_type extends ArrayElemType>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
+        return new ArrayObjectData<ArrayType>(object, memory, address);
     } 
 
-    private readonly elemObjects: ArraySubobject<Elem_type>[];
+    private readonly elemObjects: ArraySubobject<any>[];
 
     public constructor(object: CPPObject<T>, memory: Memory, address: number) {
         super(object, memory, address);
@@ -67,7 +67,7 @@ class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_typ
             return this.elemObjects[index];
         }
         else {
-            let outOfBoundsObj =  new ArraySubobject<Elem_type>(this.object, index,
+            let outOfBoundsObj =  new ArraySubobject(this.object, index,
                 this.memory, this.address + index * this.object.type.elemType.size);
             return outOfBoundsObj;
         }
@@ -86,40 +86,40 @@ class ArrayObjectData<Elem_type extends ObjectType, T extends ArrayType<Elem_typ
 
 class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
-    public readonly subobjects: Subobject[];
-    public readonly baseSubobjects: BaseSubobject[];
-    public readonly memberSubobjects: MemberSubobject[];
-    private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
+    // public readonly subobjects: Subobject[];
+    // public readonly baseSubobjects: BaseSubobject[];
+    // public readonly memberSubobjects: MemberSubobject[];
+    // private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
 
-    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
-        super(object, memory, address);
+    // public constructor(object: CPPObject<T>, memory: Memory, address: number) {
+    //     super(object, memory, address);
         
-        let subAddr = this.address;
+    //     let subAddr = this.address;
 
-        this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
-            let subObj = base.objectInstance(this.object, memory, subAddr);
-            subAddr += subObj.size;
-            return subObj;
-        });
+    //     this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
+    //         let subObj = base.objectInstance(this.object, memory, subAddr);
+    //         subAddr += subObj.size;
+    //         return subObj;
+    //     });
 
-        this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
-            let subObj = mem.objectInstance(this.object, memory, subAddr);
-            subAddr += subObj.size;
-            this.memberSubobjectMap[mem.name] = subObj;
-            return subObj;
-        });
+    //     this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
+    //         let subObj = mem.objectInstance(this.object, memory, subAddr);
+    //         subAddr += subObj.size;
+    //         this.memberSubobjectMap[mem.name] = subObj;
+    //         return subObj;
+    //     });
 
 
-        this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
-    }
+    //     this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
+    // }
 
-    public getMemberSubobject(name: string) {
-        return this.memberSubobjectMap[name];
-    }
+    // public getMemberSubobject(name: string) {
+    //     return this.memberSubobjectMap[name];
+    // }
 
-    public getBaseSubobject() : BaseSubobject | undefined {
-        return this.baseSubobjects[0];
-    }
+    // public getBaseSubobject() : BaseSubobject | undefined {
+    //     return this.baseSubobjects[0];
+    // }
 
     // TODO: Could remove? This isn't currently used and I don't think it's useful for anything
     // public getSubobjectByAddress(address: number) {
@@ -142,6 +142,57 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
     // }
 }
 
+// interface CPPObjectDescriptor<T extends ObjectType> {
+//     describe(obj: CPPObject<T>) : Description;
+// }
+
+
+// const OBJECT_DESCRIPTORS = {
+//     DEFAULT : {
+//         describe: (obj: CPPObject<ObjectType>) => {
+//             return {message: "an object at 0x" + obj.address};
+//         }
+//     },
+//     AUTO : {
+//         describe: (obj: CPPObject<ObjectType>) => {
+//             return {message: "the heap object at 0x" + obj.address};
+//         }
+//     },
+//     DYNAMIC : {
+//         describe: (obj: CPPObject<ObjectType>) => {
+//             return {message: "the heap object at 0x" + obj.address};
+//         }
+//     },
+//     INVALID : {
+//         describe: (obj: CPPObject<ObjectType>) => {
+//             return {message: "an invalid object at 0x" + obj.address};
+//         }
+//     },
+//     THIS : {
+//         describe: (obj: CPPObject<Pointer>) => {
+//             return {name: "this", message: "the this pointer"};
+//         }
+//     },
+//     STRING_LITERAL : {
+//         describe: (obj: CPPObject<ArrayType>) => {
+//             return {message: "string literal at 0x" + obj.address};
+//         }
+//     }
+// }
+
+
+// class EntityObjectDescriptor {
+//     private entity: CPPEntity;
+    
+//     constructor(entity: CPPEntity) {
+//         this.entity = entity;
+//     }
+
+//     describe(obj: CPPObject) {
+//         return this.entity.describe();
+//     }
+// }
+
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
 // template parameter. (Rather than the current awkward composition and conditional method strategy)
@@ -151,10 +202,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     public readonly type: T;
     public readonly size: number;
-
     public readonly address: number;
 
-    private readonly data: ObjectData<T>;
+    private readonly data: T extends AtomicType ? AtomicObjectData<T> :
+                           T extends ArrayType ? ArrayObjectData<T> :
+                           T extends ClassType ? ClassObjectData<T> : never;
 
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
@@ -162,14 +214,16 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     private _isValid: boolean;
 
-    public constructor(type: T, memory: Memory, address: number) {
+
+
+    protected constructor(type: T, memory: Memory, address: number) {
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
         if (this.type instanceof ArrayType) {
             // this.isArray = true;
-            this.data = <any>new ArrayObjectData(<any>this, memory, address);
+            this.data = <any>ArrayObjectData.create(<any>this, memory, address);
         }
         else if (this.type instanceof ClassType) {
             this.data = <any>new ClassObjectData(<any>this, memory, address);
@@ -179,31 +233,30 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         }
 
         this.address = address;
+
         this.isAlive = true;
         this._isValid = false;
-
-        this.observable.send("allocated");
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobject<Elem_type extends ObjectType>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
-        return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobject(index);
+    public getArrayElemSubobject<Elem_type extends ArrayElemType>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
+        return this.data.getArrayElemSubobject(index);
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjectByAddress<Elem_type extends ObjectType>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
-        return (<ArrayObjectData<Elem_type, ArrayType<Elem_type>>>this.data).getArrayElemSubobjectByAddress(address);
+    public getArrayElemSubobjectByAddress<Elem_type extends ArrayElemType>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
+        return this.data.getArrayElemSubobjectByAddress(address);
     }
 
-    // Only allowed if receiver matches CPPObject<ClassType>
-    public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
-        return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
-    }
+    // // Only allowed if receiver matches CPPObject<ClassType>
+    // public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
+    //     return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
+    // }
 
-    // Only allowed if receiver matches CPPObject<ClassType>
-    public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
-        return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
-    }
+    // // Only allowed if receiver matches CPPObject<ClassType>
+    // public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
+    //     return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
+    // }
 
     public subobjectValueWritten() {
         this.observable.send("valueWritten");
@@ -214,9 +267,9 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     // TODO: figure out precisely what this is used for and make sure overrides actually provide appropriate strings
-    public nameString() {
-        return "@" + this.address;
-    }
+    // public nameString() {
+    //     return "@" + this.address;
+    // }
 
     public deallocated(rt?: RuntimeConstruct) {
         (<boolean>this.isAlive) = false;
@@ -230,14 +283,14 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     public getValue(this: CPPObject<AtomicType>, read: boolean = false) {
-        let val = new Value(this._rawValue, this.type, this._isValid);
+        let val = new Value(this.getRawValue(), this.type, this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
         }
         return val;
     }
 
-    public get _rawValue(this: CPPObject<AtomicType>) {
+    private getRawValue(this: CPPObject<AtomicType>) {
         return this.data.rawValue();
     }
     
@@ -249,7 +302,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
         this._isValid = newValue.isValid;
 
-        // Accept new RTTI
+        // Accept new RTTI (TODO: change to use <Mutable<this>>)
         (<T_Atomic>this.type) = newValue.type;
         
         this.data.setRawValue(newValue.rawValue, write);
@@ -258,12 +311,20 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
             this.observable.send("valueWritten", newValue);
         }
         
+        this.onValueSet(write);
+    }
+
+    protected onValueSet(write: boolean) {
+
     }
 
     public writeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
         this.setValue(newValue, true);
     }
 
+    public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>) {
+        return this._isValid && this.type.isValueValid(this.getRawValue());
+    }
 
     // TODO: figure out whether this old code is worth keeping
     // originally, these functions were used to notify an object when somebody else
@@ -419,172 +480,135 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("callEnded", this);
     }
 
-    // public setValidity(valid: boolean) {
-    //     this._isValid = valid;
-    //     this.observable.send("validitySet", valid);
-    // }
-
-    public isValueValid() {
-        return this._isValid && this.type.isValueValid(this.rawValue());
+    public setValidity(valid: boolean) {
+        this._isValid = valid;
+        this.observable.send("validitySet", valid);
     }
 
     public abstract describe() : Description;
 
 };
 
-
-export class ThisObject extends CPPObject {
+// TODO: Kept some of this in a comment in case it's helpful when reintroducing leak checking
+// export class DynamicObject extends CPPObject {
     
+//     private hasBeenLeaked: boolean = false;
 
-    public nameString() {
-        return "this";
-    }
+//     public constructor(type: ObjectType, memory: Memory, address: number) {
+//         super(type, memory, address);
+//     }
 
-    public describe() {
-        return {name: "this", message: "the this pointer"};
-    }
+//     public toString() {
+//         return "Heap object at " + this.address + " (" + this.type + ")";
+//     }
 
-}
+//     public leaked(sim: Simulation) {
+//         if (!this.hasBeenLeaked){
+//             this.hasBeenLeaked = true;
+//             sim.memoryLeaked("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
+//             this.observable.send("leaked");
+//         }
+//     }
 
+//     // TODO: Why does this exist? How does something become unleaked??
+//     public unleaked(sim: Simulation) {
+//         this.observable.send("unleaked");
+//     }
 
+//     public describe() {
+//         return {message: "the heap object at 0x" + this.address};
+//     }
+// }
 
-
-export class StringLiteralObject extends CPPObject<ArrayType> {
-
-    public constructor(type: ArrayType, memory: Memory, address: number) {
-        super(type, memory, address);
-    }
-
-    public toString() {
-        return "string literal at 0x" + this.address;
-    }
-
-    public nameString() {
-        return "string literal at 0x" + this.address;
-    }
-    public describe() {
-        return {message: "string literal at 0x" + this.address};
-    }
-}
-
-export class DynamicObject extends CPPObject {
-    
-    private hasBeenLeaked: boolean = false;
-
-    public constructor(type: ObjectType, memory: Memory, address: number) {
-        super(type, memory, address);
-    }
-
-    public toString() {
-        return "Heap object at " + this.address + " (" + this.type + ")";
-    }
-
-    public leaked(sim: Simulation) {
-        if (!this.hasBeenLeaked){
-            this.hasBeenLeaked = true;
-            sim.memoryLeaked("Oh no! Some memory just got lost. It's highlighted in red in the memory display.")
-            this.observable.send("leaked");
-        }
-    }
-
-    // TODO: Why does this exist? How does something become unleaked??
-    public unleaked(sim: Simulation) {
-        this.observable.send("unleaked");
-    }
-
-    public describe() {
-        return {message: "the heap object at 0x" + this.address};
-    }
-}
-
-
-
-export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
-
-    private readonly isParameter : boolean;
-    public readonly name: string;
-
-    public constructor(autoEntity: AutoEntity, memory: Memory, address: number) {
-        super(autoEntity.type, memory, address);
-        this.name = autoEntity.name;
-        this.isParameter = (autoEntity.declaration instanceof Declarations.Parameter);
-        // this.entityId = autoObj.entityId; // TODO: is this needed?
-    }
-
-    public toString() {
-        return this.name + " (" + this.type + ")";
-    }
-
-    public nameString() {
-        return this.name;
-    }
-    
-    public describe() : Description{
-        var w1 = this.isParameter ? "parameter " : "object ";
-        return {name: this.name, message: "the " + w1 + this.name};
-    }
-}
-
-export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
-
-    public readonly name: string;
-
-    public constructor(staticEntity: StaticEntity, memory: Memory, address: number) {
-        super(staticEntity.type, memory, address);
-        this.name = staticEntity.name;
-    }
-
-    public toString() {
-        return this.name + " (" + this.type + ")";
-    }
-    
-    public nameString() {
-        return this.name;
-    }
-    
-    public describe() : Description{
-        return {name: this.name, message: "the static object" + this.name};
-    }
-}
 
 
 
 
 // TODO: remove this?
-export var EvaluationResultRuntimeEntity = CPPObject.extend({
-    _name: "EvaluationResultRuntimeEntity",
-    storage: "automatic",
-    init: function(type, inst){
-        this.initParent(null, type);
-        this.inst = inst;
-    },
-    instanceString : function(){
-        return this.name + " (" + this.type + ")";
-    },
-    runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return this.inst.evalResult.runtimeLookup(sim, inst);
-    }
-});
+// export var EvaluationResultRuntimeEntity = CPPObject.extend({
+//     _name: "EvaluationResultRuntimeEntity",
+//     storage: "automatic",
+//     init: function(type, inst){
+//         this.initParent(null, type);
+//         this.inst = inst;
+//     },
+//     instanceString : function(){
+//         return this.name + " (" + this.type + ")";
+//     },
+//     runtimeLookup :  function(sim: Simulation, rtConstruct: RuntimeConstruct) {
+//         return this.inst.evalResult.runtimeLookup(sim, inst);
+//     }
+// });
 
 
-// TODO: come up with a better name?
-export class AnonymousObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
-    public constructor(type: T, memory: Memory, address: number) {
+// public static createAutoObject<T extends ObjectType>(entity: AutoEntity<T>, memory: Memory, address: number) {
+//     return new CPPObject(entity.type, memory, address, new EntityObjectDescriptor(entity));
+// }
+
+export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public constructor(public readonly entity: AutoEntity, type: T, memory: Memory, address: number) {
         super(type, memory, address);
-        this.deallocated();
     }
 
-    public describe() : Description{
+    public describe(): Description {
+        return this.entity.describe();
+    }
+
+}
+
+export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public constructor(public readonly entity: StaticEntity, type: T, memory: Memory, address: number) {
+        super(type, memory, address);
+    }
+
+    public describe(): Description {
+        return this.entity.describe();
+    }
+
+}
+
+export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public describe(): Description {
+        return {message: "the heap object at 0x" + this.address};
+    }
+
+}
+
+export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public describe(): Description {
         return {message: "an invalid object at 0x" + this.address};
     }
-};
+}
 
+export class ThisObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-export abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+    public describe(): Description {
+        return {name: "this", message: "the this pointer"};
+    }
 
-    public readonly containingObject: CPPObject;
+}
 
-    public constructor(containingObject: CPPObject, type: T, memory: Memory, address: number) {
+export class StringLiteralObject extends CPPObject<ArrayType<Char>> {
+
+    public constructor(type: ArrayType<Char>, memory: Memory, address: number) {
+        super(type, memory, address);
+    }
+
+    public describe(): Description {
+        return {message: "string literal at 0x" + this.address}
+    }
+
+}
+
+abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public readonly containingObject: CPPObject<ArrayType | ClassType>;
+
+    public constructor(containingObject: CPPObject<ArrayType | ClassType>, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.containingObject = containingObject;
     }
@@ -596,18 +620,15 @@ export abstract class Subobject<T extends ObjectType = ObjectType> extends CPPOb
     get deallocatedBy() {
         return this.containingObject.deallocatedBy;
     }
-    
-    public setValue(newValue: Value<T>, write: boolean = false) {
-        super.setValue(newValue, write);
+
+    protected onValueSet(write: boolean) {
         if (write) {
             this.containingObject.subobjectValueWritten();
         }
     }
 }
 
-
-
-export class ArraySubobject<T extends ObjectType = ObjectType> extends Subobject<T> {
+export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
     
     public readonly containingObject!: CPPObject<ArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
     public readonly index: number;
@@ -617,16 +638,11 @@ export class ArraySubobject<T extends ObjectType = ObjectType> extends Subobject
         this.index = index;
     }
 
-    // TODO: update to have name of containing object
-    // public nameString() {
-    //     return this.name || "@" + this.address;
-    // }
-
     public getPointerTo() {
         return new Value(this.address, new ArrayPointer(this.containingObject));
     }
-
-    public describe() {
+    
+    describe() {
         var arrDesc = this.containingObject.describe();
         var desc : Description = {
             message: "element " + this.index + " of " + arrDesc.message,
@@ -639,31 +655,27 @@ export class ArraySubobject<T extends ObjectType = ObjectType> extends Subobject
 
 }
 
-
-
 export class BaseSubobject extends Subobject<ClassType> {
+    
+    public readonly containingObject!: CPPObject<ClassType>; // Handled by parent (TODO: is this a good idea?)
+
     public constructor(containingObject: CPPObject<ClassType>, type: ClassType, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
     }
-    public nameString() {
-        return this.containingObject.nameString();
-    }
-    public describe() : Description{
+
+    public describe() : Description {
         return {message: "the " + this.type.name + " base of " + this.containingObject.describe().message};
     }
 }
 
 export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobject<T> {
 
+    public readonly containingObject!: CPPObject<ClassType>; // Handled by parent (TODO: is this a good idea?)
     public readonly name: string;
 
     public constructor(containingObject: CPPObject<ClassType>, type: T, name: string, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
         this.name = name;
-    }
-
-    public nameString() {
-        return this.containingObject.nameString() + "." + this.name;
     }
     
     public describe() {
@@ -679,13 +691,13 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
     }
 }
 
-export class TemporaryObjectInstance<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    private name: string;
+    private name?: string;
 
-    public constructor(tempObjEntity: TemporaryObjectEntity<T>, memory: Memory, address: number) {
-        super(tempObjEntity.type, memory, address);
-        this.name = tempObjEntity.name;
+    public constructor(type: T, memory: Memory, address: number, name?: string) {
+        super(type, memory, address);
+        this.name = name;
         // this.entityId = tempObjEntity.entityId;
     }
 
@@ -694,6 +706,6 @@ export class TemporaryObjectInstance<T extends ObjectType = ObjectType> extends 
     }
     
     public describe() : Description{
-        return {name: this.name, message: "the temporary object" + this.name};
+        return name ? {name: this.name, message: "the temporary object " + this.name} : {message: "a temporary object"};
     }
 }
