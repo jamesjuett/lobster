@@ -1,10 +1,10 @@
 import { assert } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObjectInstance } from "./objects";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
-import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity } from "./entities";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
+import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -119,14 +119,6 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 }
 
-
-
-var createAnonymousObject = function (type: Type, memory: Memory, address: number) {
-    var obj = new AnonymousObject(type);
-    obj.allocated(memory, address);
-    return obj;
-};
-
 export class Memory {
     private static _name = "Memory";
 
@@ -202,8 +194,8 @@ export class Memory {
         this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
 
-        this.stack = MemoryStack.instance(this, this.staticEnd);
-        this.heap = MemoryHeap.instance(this, this.heapEnd);
+        this.stack = new MemoryStack(this, this.staticEnd);
+        this.heap = new MemoryHeap(this, this.heapEnd);
         this.temporaryObjects = {};
         this.observable.send("reset");
     }
@@ -330,11 +322,11 @@ export class Memory {
     public dereference(ptr: Value<Pointer>) {
         assert(ptr.type.isObjectPointer());
 
-        var addr = ptr.rawValue();
+        var addr = ptr.rawValue;
 
         // Handle special cases for pointers with RTTI
         if (ptr.type instanceof ArrayPointer) {
-            return (<ArrayObjectData>ptr.type.arrayObject.data).getSubobjectByAddress(addr);
+            return ptr.type.arrayObject.getArrayElemSubobjectByAddress(addr);
 
         }
         if (ptr.type instanceof ObjectPointer && ptr.type.isValueValid(addr)) {
@@ -350,13 +342,12 @@ export class Memory {
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
-        return createAnonymousObject(ptr.type, this, addr);
+        return new AnonymousObject(ptr.type, this, addr);
     }
     
 
-    public allocateObject(object: CPPObject, addr: number) {
-        this.objects[addr] = object;
-        object.allocated(this, addr);
+    private allocateObject(object: CPPObject) {
+        this.objects[object.address] = object;
     }
 
     /**
@@ -376,8 +367,8 @@ export class Memory {
         var str = stringLiteralEntity.str;
         if (!this.stringLiteralMap[str]) {
             // only need to allocate a string literal object if we didn't already have an identical one
-            var object = stringLiteralEntity.objectInstance();
-            this.allocateObject(object, this.staticTop);
+            var object = stringLiteralEntity.objectInstance(this, this.staticTop);
+            this.allocateObject(object);
 
             // record the string literal in case we see more that are the same in the future
             this.stringLiteralMap[str] = object;
@@ -402,22 +393,22 @@ export class Memory {
         this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
 
         // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
-        if (staticEntity.defaultValue !== undefined) {
-            object.setValue(staticEntity.defaultValue);
-        }
-        else if (staticEntity.type.defaultValue !== undefined) {
-            object.setValue(staticEntity.type.defaultValue);
-        }
+        // if (staticEntity.defaultValue !== undefined) {
+        //     object.setValue(staticEntity.defaultValue);
+        // }
+        // else if (staticEntity.type.defaultValue !== undefined) {
+        //     object.setValue(staticEntity.type.defaultValue);
+        // }
     }
 
     
 
-    public staticLookup<T extends Type>(staticEntity: StaticEntity<T>) {
+    public staticLookup<T extends ObjectType>(staticEntity: StaticEntity<T>) {
         return <StaticObject<T>>this.staticObjects[staticEntity.getFullyQualifiedName()];
     }
 
     public allocateTemporaryObject(tempEntity: TemporaryObjectEntity) {
-        var obj = new TemporaryObjectInstance(tempEntity);
+        var obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
         this.allocateObject(obj, this.temporaryBottom);
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
@@ -436,7 +427,7 @@ export class Memory {
 
 
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
-    public deallocateTemporaryObject(obj: TemporaryObjectInstance, killer?: RuntimeConstruct) {
+    public deallocateTemporaryObject(obj: TemporaryObject, killer?: RuntimeConstruct) {
         this.deallocateObject(obj.address, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj.address];

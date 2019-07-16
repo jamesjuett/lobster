@@ -476,15 +476,16 @@ export abstract class SizedType extends Type {
     public abstract readonly size: number;
 }
 
+export type ObjectType = AtomicType | ArrayType | ClassType;
+
 /**
  * Represents a type for an object that has a value.
  */
-export abstract class ObjectType extends SizedType {
+abstract class ValueType extends SizedType {
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
-     * TODO: Right now, the hack that is used is that the whole value
      * @param bytes
      */
     public bytesToValue(bytes: byte[]) : RawValueType {
@@ -539,7 +540,7 @@ export abstract class ObjectType extends SizedType {
     }
 }
 
-export abstract class AtomicType extends ObjectType {
+export abstract class AtomicType extends ValueType {
     public readonly isAtomic = true;
 
 }
@@ -623,7 +624,7 @@ export class Char extends IntegralType {
         return value === this.NULL_CHAR;
     }
 
-    public jsStringToNullTerminatedCharArray(str: string) {
+    public static jsStringToNullTerminatedCharArray(str: string) {
         var chars = str.split("").map(function(c){
             return c.charCodeAt(0);
         });
@@ -732,10 +733,10 @@ builtInTypes["ostream"] = OStream;
 //TODO: create separate function pointer type???
 
 export class Pointer extends AtomicType {
-    public isObjectType: boolean;
-    public isArithmeticType: boolean;
-    public isIntegralType: boolean;
-    public isFloatingPointType: boolean;
+    public isObjectType = false;
+    public isArithmeticType = false;
+    public isIntegralType = false;
+    public isFloatingPointType = false;
 
     public readonly size = 8;
     protected readonly precedence = 1;
@@ -812,11 +813,7 @@ export class Pointer extends AtomicType {
 }
 
 export class ArrayPointer extends Pointer {
-    public isObjectType: boolean;
-    public isArithmeticType: boolean;
-    public isIntegralType: boolean;
-    public isFloatingPointType: boolean;
-    
+
     public readonly arrayObject: CPPObject<ArrayType>;
 
     public constructor(arrayObject: CPPObject<ArrayType>, isConst?: boolean, isVolatile?: boolean) {
@@ -851,11 +848,7 @@ export class ArrayPointer extends Pointer {
 }
 
 export class ObjectPointer extends Pointer {
-    public isObjectType: boolean;
-    public isArithmeticType: boolean;
-    public isIntegralType: boolean;
-    public isFloatingPointType: boolean;
-    
+
     public readonly pointedObject: CPPObject;
 
     public constructor(obj: CPPObject, isConst?: boolean, isVolatile?: boolean) {
@@ -875,10 +868,10 @@ export class ObjectPointer extends Pointer {
 
 
 export class Reference extends Type {
-    public isObjectType: boolean;
-    public isArithmeticType: boolean;
-    public isIntegralType: boolean;
-    public isFloatingPointType: boolean;
+    public isObjectType = false;
+    public isArithmeticType = false;
+    public isIntegralType = false;
+    public isFloatingPointType = false;
 
     protected readonly precedence = 1;
     public readonly isComplete = true;
@@ -917,11 +910,12 @@ export class Reference extends Type {
 	}
 }
 
+export type ArrayElemType = AtomicType | ClassType;
 
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
-// an ObjectType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class ArrayType<Elem_type extends ObjectType = ObjectType> extends SizedType {
+// an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
+export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends SizedType {
     
     public readonly size: number;
 
@@ -1013,6 +1007,30 @@ export class ArrayType<Elem_type extends ObjectType = ObjectType> extends SizedT
  * destructor - the destructor entity for this class. might be null if doesn't have a destructor
  */
 
+
+
+    // TODO: HACK to make ClassType exist but do nothing for now
+export class ClassType extends SizedType {
+    public size: number= 0;
+    protected precedence: number = 0;
+    public isObjectType: boolean = false;
+    public isArithmeticType: boolean = false;
+    public isIntegralType: boolean = false;
+    public isFloatingPointType: boolean = false;
+    public isComplete: boolean = false;
+    public sameType(other: Type): boolean {
+        throw new Error("Method not implemented.");
+    }
+    public similarType(other: Type): boolean {
+        throw new Error("Method not implemented.");
+    }
+    public typeString(excludeBase: boolean, varname: string, decorated?: boolean | undefined): string {
+        throw new Error("Method not implemented.");
+    }
+    public englishString(plural: boolean): string {
+        throw new Error("Method not implemented.");
+    }
+}
 
 // export class ClassType extends ObjectType {
 //     public isValueValid(value: number): boolean {

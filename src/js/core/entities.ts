@@ -2,11 +2,11 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
@@ -745,14 +745,15 @@ export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectE
     // storage: "static",
 
     public readonly str: string;
+    public readonly type!: ArrayType<Char>; // handled by parent
 
     public constructor(str: string) {
-        super(Types.Array.instance(Types.Char.instance(true), str.length + 1)); // + 1 for null char
+        super(new ArrayType(new Char(true), str.length + 1)); // + 1 for null char
         this.str = str;
     }
 
-    public objectInstance() {
-        return new StringLiteralObject(this.type);
+    public objectInstance(memory: Memory, address: number) {
+        return new StringLiteralObject(this.type, memory, address);
     }
 
     public toString() {
