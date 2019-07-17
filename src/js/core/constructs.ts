@@ -101,7 +101,7 @@ export abstract class CPPConstruct {
     public readonly isLibraryUnsupported?: boolean;
 
     public abstract readonly parent?: CPPConstruct;
-    public readonly children: CPPConstruct[] = [];
+    public readonly children: readonly CPPConstruct[] = [];
     
     protected constructor(context: ConstructContext) {
         this.id = CPPConstruct.NEXT_ID++;

@@ -7,10 +7,10 @@ import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
 import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
-				
+
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
-	return vowels.indexOf(c) != -1;
+    return vowels.indexOf(c) != -1;
 };
 
 
