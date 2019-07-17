@@ -1015,11 +1015,8 @@ type t_BinaryOperators = t_ArithmeticBinaryOperators | t_LogicalBinaryOperators;
 
 const ArithmeticBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
 
-/**
- * Convenience function. Allows you to specify whatever result type is desired and hides the cast.
- */
-function binaryOperate<ResultType extends AtomicType>(op: t_BinaryOperators, left: Value<AtomicType>, right: Value<AtomicType>) {
-    return <Value<ResultType>>SIMPLE_BINARY_OPERATIONS[op](left, right);
+function binaryOperate(op: t_BinaryOperators, left: Value<AtomicType>, right: Value<AtomicType>) {
+    return SIMPLE_BINARY_OPERATIONS[op](left, right);
 }
 
 const SIMPLE_BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, right: Value<AtomicType>) => Value<AtomicType>}
@@ -1117,7 +1114,7 @@ export class RuntimeSimpleBinaryOperator<CE extends CompiledBinaryOperator = Com
     }
 
     public operate() {
-        this.setEvalResult(binaryOperate<CE["type"]>(this.model.operator, this.left.evalResult!, this.right.evalResult!));
+        this.setEvalResult(<EvalResultType<CE>>binaryOperate(this.model.operator, this.left.evalResult!, this.right.evalResult!));
     }
 }
 
