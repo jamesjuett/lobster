@@ -113,29 +113,38 @@ type SimilarTypedCompiledExpression<CE extends TypedCompiledExpression> = TypedC
 
 export type Compiled<E extends Expression> = E["_t_compiled"];
 
+type VCResultTypes<T extends Type> = 
+T extends AtomicType ? {
+    readonly prvalue: Value<T>;
+    readonly xvalue: CPPObject<T>;
+    readonly lvalue: CPPObject<T>;
+} : T extends ObjectType ? {
+    readonly prvalue: never;
+    readonly xvalue: CPPObject<T>;
+    readonly lvalue: CPPObject<T>;
+} : never;
 
-
-type VCResultTypes<T extends Type> =
-    T extends AtomicType ? {
-        readonly prvalue: Value<T>;
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
-    }
-    :
-    T extends ObjectType ? {
-        readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
-    }
-    : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        readonly prvalue: Value<AtomicType>;
-        readonly xvalue: CPPObject<ObjectType>;
-        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
-    } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
-        readonly prvalue: never;
-        readonly xvalue: never;
-        readonly lvalue: never; // TODO: add functions/arrays as possible results
-    };
+// type VCResultTypes<T extends Type> =
+//     T extends AtomicType ? {
+//         readonly prvalue: Value<T>;
+//         readonly xvalue: CPPObject<T>;
+//         readonly lvalue: CPPObject<T>;
+//     }
+//     :
+//     T extends ObjectType ? {
+//         readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
+//         readonly xvalue: CPPObject<T>;
+//         readonly lvalue: CPPObject<T>;
+//     }
+//     : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
+//         readonly prvalue: Value<AtomicType>;
+//         readonly xvalue: CPPObject<ObjectType>;
+//         readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
+//     } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
+//         readonly prvalue: never;
+//         readonly xvalue: never;
+//         readonly lvalue: never; // TODO: add functions/arrays as possible results
+//     };
 
 //     prvalue: T extends AtomicType ? Value<T> :
 //              AtomicType extends T ? Value<AtomicType> :
@@ -814,8 +823,8 @@ export interface CompiledAssignment<T extends AtomicType = AtomicType> extends T
 
 export class RuntimeAssignment<CE extends CompiledAssignment = CompiledAssignment> extends SimpleRuntimeExpression<CE> {
 
-    public readonly lhs: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "lvalue">>;
-    public readonly rhs: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>
+    public readonly lhs: RuntimeExpressionBase<TypedCompiledExpression<CE["type"], "lvalue">>;
+    public readonly rhs: RuntimeExpressionBase<TypedCompiledExpression<CE["type"], "prvalue">>
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -830,105 +839,105 @@ export class RuntimeAssignment<CE extends CompiledAssignment = CompiledAssignmen
 	}
 }
 
-var beneathConversions = function(expr){
-    while(isA(expr, Conversions.ImplicitConversion)){
-        expr = expr.from;
-    }
-    return expr;
-};
+// var beneathConversions = function(expr){
+//     while(isA(expr, Conversions.ImplicitConversion)){
+//         expr = expr.from;
+//     }
+//     return expr;
+// };
 
 // TODO: there might be a better way to implement this. currently it reuses code from BinaryOperator, but I feel
 // a little bit icky about how it does it and the way it treats the construct tree
-export var CompoundAssignment  = Expression.extend({
-    _name: "CompoundAssignment",
-    valueCategory : "lvalue",
+// export var CompoundAssignment  = Expression.extend({
+//     _name: "CompoundAssignment",
+//     valueCategory : "lvalue",
 
-    i_createFromAST: function(ast){
-        CompoundAssignment._parent.i_createFromAST.apply(this, arguments);
+//     i_createFromAST: function(ast){
+//         CompoundAssignment._parent.i_createFromAST.apply(this, arguments);
 
-        // Basically this uses a binary operator expression to do most of the work
-        // e.g. x += y should be equivalent (to a certain extent) to x = x + y
+//         // Basically this uses a binary operator expression to do most of the work
+//         // e.g. x += y should be equivalent (to a certain extent) to x = x + y
 
-        this.operator = ast.operator;
-        var binaryOp = this.operator.substring(0, this.operator.length-1); // remove the = from the operator e.g. += becomes +
-        var binAst = copyMixin(ast, {
-            left: ast.lhs,
-            right: ast.rhs,
-            operator: binaryOp
-        });
-        var binaryOpClass = BINARY_OPS[binaryOp];
-        this.i_binaryOp = binaryOpClass.instance(binAst, {parent: this});
-    },
+//         this.operator = ast.operator;
+//         var binaryOp = this.operator.substring(0, this.operator.length-1); // remove the = from the operator e.g. += becomes +
+//         var binAst = copyMixin(ast, {
+//             left: ast.lhs,
+//             right: ast.rhs,
+//             operator: binaryOp
+//         });
+//         var binaryOpClass = BINARY_OPS[binaryOp];
+//         this.i_binaryOp = binaryOpClass.instance(binAst, {parent: this});
+//     },
 
-    compile : function() {
+//     compile : function() {
 
-        //compiles left and right
-        this.i_binaryOp.compile();
+//         //compiles left and right
+//         this.i_binaryOp.compile();
 
-        if(this.hasErrors()){
-            return;
-        }
+//         if(this.hasErrors()){
+//             return;
+//         }
 
-        // left should be a standard conversion sequence
-        // we want to extract the pre-conversion expression for lhs
-        this.lhs = beneathConversions(this.i_binaryOp.left);
+//         // left should be a standard conversion sequence
+//         // we want to extract the pre-conversion expression for lhs
+//         this.lhs = beneathConversions(this.i_binaryOp.left);
 
-        // Attempt to convert rhs (a binary operation) back to type of lhs
-        this.rhs = standardConversion(this.i_binaryOp, this.lhs.type);
+//         // Attempt to convert rhs (a binary operation) back to type of lhs
+//         this.rhs = standardConversion(this.i_binaryOp, this.lhs.type);
 
-        // Type Check
-        if (this.lhs.valueCategory !== "lvalue") {
-            this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
-        }
+//         // Type Check
+//         if (this.lhs.valueCategory !== "lvalue") {
+//             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
+//         }
 
-        if (!sameType(this.rhs.type, this.lhs.type)) {
-            this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
-        }
+//         if (!sameType(this.rhs.type, this.lhs.type)) {
+//             this.addNote(CPPError.expr.assignment.convert(this, this.lhs, this.rhs));
+//         }
 
-        this.type = this.lhs.type;
+//         this.type = this.lhs.type;
 
-        this.compileTemporarires();
-    },
+//         this.compileTemporarires();
+//     },
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // Evaluate subexpressions
-        if (inst.index == "subexpressions") {
-            inst.rhs = this.rhs.createAndPushInstance(sim, inst);
-            inst.index = "operate";
-            return true;
-        }
-    },
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         // Evaluate subexpressions
+//         if (inst.index == "subexpressions") {
+//             inst.rhs = this.rhs.createAndPushInstance(sim, inst);
+//             inst.index = "operate";
+//             return true;
+//         }
+//     },
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index === "operate"){
-            // extract lvalue on lhs that may be underneath a standard conversion sequence
-            // note: this is only applicable in compound assignment. in regular lhs will never be converted
-            var findLhs = inst.rhs;
-            while(isA(findLhs.model, ImplicitConversion)){
-                findLhs = findLhs.childInstances.from; // strip conversions off result of binary op
-            }
-            findLhs = findLhs.childInstances.left; // go to left argument of binary op
-            while(isA(findLhs.model, ImplicitConversion)){
-                findLhs = findLhs.childInstances.from; // strip conversions off left operand
-            }
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index === "operate"){
+//             // extract lvalue on lhs that may be underneath a standard conversion sequence
+//             // note: this is only applicable in compound assignment. in regular lhs will never be converted
+//             var findLhs = inst.rhs;
+//             while(isA(findLhs.model, ImplicitConversion)){
+//                 findLhs = findLhs.childInstances.from; // strip conversions off result of binary op
+//             }
+//             findLhs = findLhs.childInstances.left; // go to left argument of binary op
+//             while(isA(findLhs.model, ImplicitConversion)){
+//                 findLhs = findLhs.childInstances.from; // strip conversions off left operand
+//             }
 
-            var lhs = findLhs.evalResult;
-            var rhs = inst.rhs.evalResult;
+//             var lhs = findLhs.evalResult;
+//             var rhs = inst.rhs.evalResult;
 
-            lhs.writeValue(rhs);
+//             lhs.writeValue(rhs);
 
-            inst.setEvalResult(lhs);
-            this.done(sim, inst);
-        }
-    },
+//             inst.setEvalResult(lhs);
+//             this.done(sim, inst);
+//         }
+//     },
 
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "The compound assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
-});
+//     isTailChild : function(child){
+//         return {isTail: false,
+//             reason: "The compound assignment itself will happen after the recursive call returns.",
+//             others: [this]
+//         };
+//     }
+// });
 
 
 export function add(left: number, right: number) {
@@ -1005,6 +1014,13 @@ type t_LogicalBinaryOperators = "&&" | "||";
 type t_BinaryOperators = t_ArithmeticBinaryOperators | t_LogicalBinaryOperators;
 
 const ArithmeticBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
+
+/**
+ * Convenience function. Allows you to specify whatever result type is desired and hides the cast.
+ */
+function binaryOperate<ResultType extends AtomicType>(op: t_BinaryOperators, left: Value<AtomicType>, right: Value<AtomicType>) {
+    return <Value<ResultType>>SIMPLE_BINARY_OPERATIONS[op](left, right);
+}
 
 const SIMPLE_BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, right: Value<AtomicType>) => Value<AtomicType>}
     = {
@@ -1101,7 +1117,7 @@ export class RuntimeSimpleBinaryOperator<CE extends CompiledBinaryOperator = Com
     }
 
     public operate() {
-        this.setEvalResult(SIMPLE_BINARY_OPERATIONS[this.model.operator](this.left.evalResult!, this.right.evalResult!));
+        this.setEvalResult(binaryOperate<CE["type"]>(this.model.operator, this.left.evalResult!, this.right.evalResult!));
     }
 }
 
