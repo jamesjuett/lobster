@@ -651,26 +651,25 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     }
 };
 
-export abstract class ReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    public abstract getRuntimeReference(rtConstruct : ExecutableRuntimeConstruct) : RuntimeReference<T>;
+export abstract class BoundReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
+export abstract class UnboundReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> {
+public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) : void;
+}
+
 //TODO: rename to specifically for local references
-export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends ReferenceEntity<T> {
+export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends BoundReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public getRuntimeReference(rtConstruct : ExecutableRuntimeConstruct) : RuntimeReference<T> {
-        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this);
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) {
+        rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
     }
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
-    }
-
-    public runtimeInstance(memory: Memory) {
-        return new RuntimeReference<T>(this, memory);
     }
 
     public describe() {
@@ -690,20 +689,23 @@ export class RuntimeReference<T extends ObjectType = ObjectType> {
 
     public readonly observable = new Observable(this);
 
-    public readonly entity: ReferenceEntity<T>;
+    public readonly entity: BoundReferenceEntity<T>;
     public readonly refersTo: CPPObject<T>;
 
-    public constructor(entity: ReferenceEntity<T>, memory: Memory) {
+    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
         this.entity = entity;
         
+
+        this.refersTo = refersTo;
         // Initially refers to a dead object at address 0
-        this.refersTo = new AnonymousObject(this.entity.type, memory, 0);
+        // TODO: this is a bad idea, so I removed it
+        // this.refersTo = new AnonymousObject(this.entity.type, memory, 0);
     }
 
-    public bindTo(refersTo: CPPObject) {
-        (<typeof RuntimeReference.prototype.refersTo>this.refersTo) = refersTo;
-        this.observable.send("bound");
-    }
+    // public bindTo(refersTo: CPPObject) {
+    //     (<typeof RuntimeReference.prototype.refersTo>this.refersTo) = refersTo;
+    //     this.observable.send("bound");
+    // }
 
     public describe() {
         if (this.refersTo) {
@@ -723,7 +725,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEnt
         super(decl);
     }
 
-    public objectInstance() {
+    public objectInstance(memory: Memory, address: number) {
         return new StaticObject(this);
     }
 

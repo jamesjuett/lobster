@@ -1,4 +1,4 @@
-import { assert } from "../util/util";
+import { assert, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
@@ -552,7 +552,7 @@ export class MemoryFrame {
 
     private size: number;
     private readonly localObjectsByEntityId: {[index:number]: AutoObject};
-    private readonly localReferencesByEntityId: {[index:number]: RuntimeReference};
+    private readonly localReferencesByEntityId: {[index:number]: RuntimeReference | undefined};
     
 
     public constructor(scope: FunctionBlockScope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
@@ -625,13 +625,17 @@ export class MemoryFrame {
     public getLocalObject<T extends Type>(entity: AutoEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
-    public referenceLookup<T extends Type>(entity: LocalReferenceEntity<T>) : RuntimeReference<T>{
-        return <RuntimeReference<T>>this.localReferencesByEntityId[entity.entityId];
+    public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) : RuntimeReference<T> {
+        return (<RuntimeReference<T> | undefined>this.localReferencesByEntityId[entity.entityId]) || assertFalse("Attempt to look up referred object before reference was bound.");
     }
+    public bindReference(entity: LocalReferenceEntity, obj: CPPObject) {
+        this.localReferencesByEntityId[entity.entityId] = new RuntimeReference(entity, obj);
+    }
+
     public setUpReferenceInstances() {
         var self = this;
         this.scope.referenceObjects.forEach(function (ref: LocalReferenceEntity) {
-            self.localReferencesByEntityId[ref.entityId] = ref.runtimeInstance();
+            self.localReferencesByEntityId[ref.entityId] = undefined;
             //self.memory.allocateObject(ref, addr);
             //addr += ref.type.size;
         });

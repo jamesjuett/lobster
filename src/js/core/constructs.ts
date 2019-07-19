@@ -14,6 +14,7 @@ import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import * as Util from "../util/util";
 import { Expression } from "./expressions";
+import { standardConversion } from "./standardConversions";
 
 export interface ASTNode {
     construct_type: string;
@@ -310,6 +311,14 @@ export interface ExecutableConstruct extends CPPConstruct {
     
 }
 
+export interface CompiledConstruct {
+    
+    // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled constructs
+    // from being assignable to a compiled expression type
+    // TODO: maybe better to use a symbol here?
+    readonly _t_isCompiled: never;
+}
+
 export interface ExecutableConstructContext extends ConstructContext {
     readonly containingFunction: FunctionDefinition;
 }
@@ -525,8 +534,6 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
 
         this.stepsTaken = sim.stepsTaken();
     }
-
-
 
     /**
      * REQUIRES: this instance is on the top of the execution stack

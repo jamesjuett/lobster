@@ -1,15 +1,17 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct } from "./constructs";
-import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity } from "./entities";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct } from "./constructs";
+import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, ReferenceEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier } from "./lexical";
 import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer } from "./types";
-import { CopyInitializer, DirectInitializer } from "./initializers";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef } from "./types";
+import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
+import { Mutable } from "../util/util";
+import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
     let value = obj.readValue();
@@ -59,7 +61,7 @@ export abstract class Expression extends PotentialFullExpression {
 
     public abstract readonly _t_compiled!: CompiledExpression;
 
-    public createRuntimeExpression<T extends Type = Type, VC extends ValueCategory = ValueCategory>(this: TypedCompiledExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpressionBase<TypedCompiledExpression<T,VC>>;
+    public createRuntimeExpression<T extends Type = Type, VC extends ValueCategory = ValueCategory>(this: TypedCompiledExpression<T,VC>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<TypedCompiledExpression<T,VC>>;
     public createRuntimeExpression(this: CompiledExpression, parent: ExecutableRuntimeConstruct) : RuntimeExpression {
         return this.createRuntimeExpression_impl(parent);
     }
@@ -83,14 +85,9 @@ export abstract class Expression extends PotentialFullExpression {
     // }
 }
 
-export interface CompiledExpression extends Expression {
+export interface CompiledExpression extends Expression, CompiledConstruct {
     readonly type: Type;
     readonly valueCategory: ValueCategory;
-
-    // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled expressions
-    // from being assignable to a compiled expression type
-    // TODO: maybe better to use a symbol here?
-    readonly _t_isCompiled: void;
 }
 
 
@@ -113,38 +110,38 @@ type SimilarTypedCompiledExpression<CE extends TypedCompiledExpression> = TypedC
 
 export type Compiled<E extends Expression> = E["_t_compiled"];
 
-type VCResultTypes<T extends Type> = 
-T extends AtomicType ? {
-    readonly prvalue: Value<T>;
-    readonly xvalue: CPPObject<T>;
-    readonly lvalue: CPPObject<T>;
-} : T extends ObjectType ? {
-    readonly prvalue: never;
-    readonly xvalue: CPPObject<T>;
-    readonly lvalue: CPPObject<T>;
-} : never;
+// type VCResultTypes<T extends Type> = 
+// T extends AtomicType ? {
+//     readonly prvalue: Value<T>;
+//     readonly xvalue: CPPObject<T>;
+//     readonly lvalue: CPPObject<T>;
+// } : T extends ObjectType ? {
+//     readonly prvalue: never;
+//     readonly xvalue: CPPObject<T>;
+//     readonly lvalue: CPPObject<T>;
+// } : never;
 
-// type VCResultTypes<T extends Type> =
-//     T extends AtomicType ? {
-//         readonly prvalue: Value<T>;
-//         readonly xvalue: CPPObject<T>;
-//         readonly lvalue: CPPObject<T>;
-//     }
-//     :
-//     T extends ObjectType ? {
-//         readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
-//         readonly xvalue: CPPObject<T>;
-//         readonly lvalue: CPPObject<T>;
-//     }
-//     : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-//         readonly prvalue: Value<AtomicType>;
-//         readonly xvalue: CPPObject<ObjectType>;
-//         readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
-//     } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
-//         readonly prvalue: never;
-//         readonly xvalue: never;
-//         readonly lvalue: never; // TODO: add functions/arrays as possible results
-//     };
+type VCResultTypes<T extends Type> =
+    T extends AtomicType ? {
+        readonly prvalue: Value<T>;
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
+    }
+    :
+    T extends ObjectType ? {
+        readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
+    }
+    : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
+        readonly prvalue: Value<AtomicType>;
+        readonly xvalue: CPPObject<ObjectType>;
+        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
+    } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
+        readonly prvalue: never;
+        readonly xvalue: never;
+        readonly lvalue: never; // TODO: add functions/arrays as possible results
+    };
 
 //     prvalue: T extends AtomicType ? Value<T> :
 //              AtomicType extends T ? Value<AtomicType> :
@@ -159,13 +156,13 @@ T extends AtomicType ? {
 
 type EvalResultType<E extends CompiledExpression> = VCResultTypes<E["type"]>[E["valueCategory"]];
 
-export interface RuntimeExpression<CE extends CompiledExpression = CompiledExpression> extends RuntimePotentialFullExpression<CE> {
+// export interface RuntimeExpression<CE extends CompiledExpression = CompiledExpression> extends RuntimePotentialFullExpression<CE> {
     
-    public readonly evalResult: EvalResultType<CE>?;
-}
+//     public readonly evalResult: EvalResultType<CE>?;
+// }
 
-export abstract class RuntimeExpressionBase<CE extends CompiledExpression>
-    extends RuntimePotentialFullExpression<CE> implements RuntimeExpression<CE>{
+export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression>
+    extends RuntimePotentialFullExpression<CE> {
         
     public readonly evalResult: EvalResultType<CE>? = null;
 
@@ -174,7 +171,7 @@ export abstract class RuntimeExpressionBase<CE extends CompiledExpression>
     }
 
     protected setEvalResult(value: EvalResultType<CE>) {
-        (<EvalResultType<CE>>this.evalResult) = value;
+        (<Mutable<this>>this).evalResult = value;
     }
 
 }
@@ -271,9 +268,9 @@ export class UnsupportedExpression extends Expression {
 
 
 
-export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExpression> extends RuntimeExpressionBase<CE> {
+export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExpression> extends RuntimeExpression<CE> {
 
-    private index = 0;
+    private index : 0 | 1 = 0;
 
     private subexpressions: RuntimeConstruct[] = [];
 
@@ -298,6 +295,7 @@ export class SimpleRuntimeExpression<CE extends CompiledExpression = CompiledExp
     protected stepForwardImpl() {
         this.operate();
         this.done();
+        // TODO: how do expressions pop themselves?
     }
 
     protected abstract operate() : void;
@@ -512,7 +510,7 @@ export interface CompiledComma<T extends Type = Type, V extends ValueCategory = 
 export class RuntimeComma<CE extends CompiledComma = CompiledComma> extends SimpleRuntimeExpression<CE> {
 
     public left: RuntimeExpression;
-    public right: RuntimeExpressionBase<SimilarTypedCompiledExpression<CE>>;
+    public right: RuntimeExpression<SimilarTypedCompiledExpression<CE>>;
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -624,11 +622,11 @@ export interface CompiledTernary<T extends Type = Type, V extends ValueCategory 
     readonly otherwise: CompiledExpression;
 }
 
-export class RuntimeTernary<CE extends CompiledTernary = CompiledTernary> extends RuntimeExpressionBase<CE> {
+export class RuntimeTernary<CE extends CompiledTernary = CompiledTernary> extends RuntimeExpression<CE> {
 
-    public condition: RuntimeExpressionBase<TypedCompiledExpression<Bool, "prvalue">>;
-    public then: RuntimeExpressionBase<SimilarTypedCompiledExpression<CE>>;
-    public otherwise: RuntimeExpressionBase<SimilarTypedCompiledExpression<CE>>;
+    public condition: RuntimeExpression<TypedCompiledExpression<Bool, "prvalue">>;
+    public then: RuntimeExpression<SimilarTypedCompiledExpression<CE>>;
+    public otherwise: RuntimeExpression<SimilarTypedCompiledExpression<CE>>;
 
     private index = "condition";
 
@@ -823,8 +821,8 @@ export interface CompiledAssignment<T extends AtomicType = AtomicType> extends T
 
 export class RuntimeAssignment<CE extends CompiledAssignment = CompiledAssignment> extends SimpleRuntimeExpression<CE> {
 
-    public readonly lhs: RuntimeExpressionBase<TypedCompiledExpression<CE["type"], "lvalue">>;
-    public readonly rhs: RuntimeExpressionBase<TypedCompiledExpression<CE["type"], "prvalue">>
+    public readonly lhs: RuntimeExpression<TypedCompiledExpression<CE["type"], "lvalue">>;
+    public readonly rhs: RuntimeExpression<TypedCompiledExpression<CE["type"], "prvalue">>
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -1103,8 +1101,8 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> exten
 
 export class RuntimeSimpleBinaryOperator<CE extends CompiledBinaryOperator = CompiledBinaryOperator> extends SimpleRuntimeExpression<CE> {
 
-    public left: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
-    public right: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public left: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public right: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
 
     public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -1257,15 +1255,15 @@ export interface CompiledPointerOffset extends TypedCompiledExpressionBase<Point
 }
 
 
-export class RuntimePointerOffset<CE extends CompiledPointerOffset = CompiledPointerOffset> extends SimpleRuntimeExpression<CE> {
+export class RuntimePointerOffset extends SimpleRuntimeExpression<CompiledPointerOffset> {
 
-    public left: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
-    public right: RuntimeExpressionBase<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public left: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public right: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
 
-    public pointer: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
-    public offset: RuntimeExpressionBase<TypedCompiledExpression<IntegralType, "prvalue">>;
+    public pointer: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
+    public offset: RuntimeExpression<TypedCompiledExpression<IntegralType, "prvalue">>;
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.pointer = this.model.pointer.createRuntimeExpression(this);
         this.offset = this.model.offset.createRuntimeExpression(this);
@@ -1353,15 +1351,15 @@ export interface CompiledPointerDifference extends TypedCompiledExpressionBase<P
     readonly right: TypedCompiledExpression<Pointer, "prvalue">
 }
 
-export class RuntimePointerDifference<CE extends CompiledPointerDifference = CompiledPointerDifference> extends SimpleRuntimeExpression<CE> {
+export class RuntimePointerDifference extends SimpleRuntimeExpression<CompiledPointerDifference> {
 
-    public left: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
-    public right: RuntimeExpressionBase<TypedCompiledExpression<Pointer, "prvalue">>;
+    public left: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
+    public right: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
-        this.right = this.model.right.createRuntimeExpression(this);HTMLTableDataCellElement
+        this.right = this.model.right.createRuntimeExpression(this);
         this.setSubexpressions([this.left, this.right]);
     }
 
@@ -1490,10 +1488,10 @@ export interface CompiledLogicalBinaryOperator extends TypedCompiledExpressionBa
     readonly right: TypedCompiledExpression<Bool, "prvalue">
 }
 
-export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<CompiledLogicalBinaryOperator> {
+export class RuntimeLogicalBinaryOperator extends RuntimeExpression<CompiledLogicalBinaryOperator> {
 
-    public left: RuntimeExpressionBase<TypedCompiledExpression<Bool, "prvalue">>;
-    public right: RuntimeExpressionBase<TypedCompiledExpression<Bool, "prvalue">>;
+    public left: RuntimeExpression<TypedCompiledExpression<Bool, "prvalue">>;
+    public right: RuntimeExpression<TypedCompiledExpression<Bool, "prvalue">>;
 
     private index = "left";
 
@@ -2300,12 +2298,11 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpressionBase<Compiled
 export class FunctionCall extends InstructionConstruct {
     
     public readonly func: FunctionEntity;
-    public readonly receiver: ObjectEntity<ClassType>?;
-    public readonly args: TypedExpression<ObjectType>[];
-    public readonly argInitializers: CopyInitializer[];
-
-    public readonly isRecursive: boolean;
-
+    public readonly args: readonly TypedExpression<ObjectType>[];
+    public readonly returnTarget: ObjectEntity | ReferenceEntity;
+    public readonly receiver?: ObjectEntity<ClassType>;
+    
+    public readonly argInitializers: readonly CopyInitializer[];
     /**
      * A FunctionEntity must be provided to specify which function is being called.
      *
@@ -2323,171 +2320,130 @@ export class FunctionCall extends InstructionConstruct {
      * @param context 
      * @param func Specifies which function is being called.
      * @param args Arguments to the function.
+     * @param returnTarget Entity that will be initialized with the returned result of the function call
      * @param receiver 
      */
-    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver: ObjectEntity<ClassType>? = null) {
+    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], returnTarget: ObjectEntity, receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;
         this.args = clone(args);
+        this.returnTarget = returnTarget;
         this.receiver = receiver;
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            return DirectInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
+            return CopyInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
         });
 
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
 
-        let returnType = this.func.type.returnType
+        let returnType = this.func.type.returnType;
 
-        if (isA(this.type, Types.Reference)){
-            this.returnByReference = true;
-            this.valueCategory = "lvalue";
-            // Adjust to T from reference to T
-            this.type = this.type.refTo;
-        }
-        else {
-            this.valueCategory = "prvalue";
-            if (!isA(this.type, Types.Void)){
-                this.returnByValue = true;
-            }
-        }
+        // TODO: need to check that it's not an auxiliary function call before adding these?
+        this.context.containingFunction.addCall(this);
+        this.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+    }
 
-
-        // Check that we have the right number of parameters
-        // Note: at the moment, this is not already "checked" by name lookup / overload resolution
-        // TODO: I'm pretty sure this comment no longer applies, but I guess I should check
-        if (this.argInitializers.length !== this.func.type.paramTypes.length){
-            this.addNote(CPPError.expr.functionCall.numParams(this));
-            return;
-        }
-
-        // Parameter passing is done by copy initialization, so create initializers.
-        this.argInitializers.forEach(function(argInit, i) {
-            argInit.compile(ParameterEntity.instance(self.func,i));
-            argInit.initIndex = "afterChildren"; // These initializers expect their expression to already be evaluated
-        });
-
-        if (!isA(this.func.definition, MagicFunctionDefinition)){
-            // If we are returning by value, then we need to create a temporary object to copy-initialize.
-            // If we are returning by reference, the return object for inst.func will be bound to what we return.
-            // Temporary references do not use extra space and won't be automatically destructed.
-            if (!this.returnByReference && !isA(this.type, Types.Void)){
-                this.returnObjectEntity = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
-            }
-
-            if (!this.i_isMainCall && !this.isAuxiliary()){
-                // Register as a function call in our function context
-                this.containingFunction().calls.push(this); // TODO modifying calls is rude here. Instead have the containing function attach it
-
-                // Register as a call in the translation unit (this is used during the linking process later)
-                this.i_translationUnit.registerFunctionCall(this);
-            }
-        }
-
-        return Expression.compile.apply(this, arguments);
-    },
-
-    checkLinkingProblems : function(){
-        if (!this.func.isLinked()){
+    public checkLinkingProblems() {
+        if (!this.func.isLinked()) {
             if (this.func.isLibraryUnsupported()) {
-                var note = CPPError.link.library_unsupported(this, this.func);
+                let note = CPPError.link.library_unsupported(this, this.func);
+                this.addNote(note);
+                return note;
             }
             else {
-                var note = CPPError.link.def_not_found(this, this.func);
+                let note = CPPError.link.def_not_found(this, this.func);
+                this.addNote(note);
+                return note;
             }
-            this.addNote(note);
-            return note;
         }
         return null;
-    },
+    }
 
-    tailRecursionCheck : function(){
-        if (this.isTail !== undefined) {
-            return;
-        }
+    // tailRecursionCheck : function(){
+    //     if (this.isTail !== undefined) {
+    //         return;
+    //     }
 
-        var child = this;
-        var parent = this.parent;
-        var isTail = true;
-        var reason = null;
-        var others = [];
-        var first = true;
-        while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
-            var result = parent.isTailChild(child);
-            if (!result.isTail) {
-                isTail = false;
-                reason = result.reason;
-                others = result.others || [];
-                break;
-            }
+    //     var child = this;
+    //     var parent = this.parent;
+    //     var isTail = true;
+    //     var reason = null;
+    //     var others = [];
+    //     var first = true;
+    //     while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
+    //         var result = parent.isTailChild(child);
+    //         if (!result.isTail) {
+    //             isTail = false;
+    //             reason = result.reason;
+    //             others = result.others || [];
+    //             break;
+    //         }
 
-            //if (!first && child.tempDeallocator){
-            //    isTail = false;
-            //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
-            //    others = [];
-            //    break;
-            //}
-            //first = false;
+    //         //if (!first && child.tempDeallocator){
+    //         //    isTail = false;
+    //         //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
+    //         //    others = [];
+    //         //    break;
+    //         //}
+    //         //first = false;
 
 
-            reason = reason || result.reason;
+    //         reason = reason || result.reason;
 
-            child = parent;
-            parent = child.parent;
-        }
+    //         child = parent;
+    //         parent = child.parent;
+    //     }
 
-        this.isTail = isTail;
-        this.isTailReason = reason;
-        this.isTailOthers = others;
-        //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
+    //     this.isTail = isTail;
+    //     this.isTailReason = reason;
+    //     this.isTailOthers = others;
+    //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
 
-        this.canUseTCO = this.isRecursive && this.isTail;
-    },
+    //     this.canUseTCO = this.isRecursive && this.isTail;
+    // },
+
+    public createRuntimeFunctionCall(this: CompiledFunctionCall, parent: RuntimeExpression) {
+        return new RuntimeFunctionCall(this, parent);
+    }
+
+}
+
+export interface CompiledFunctionCall extends FunctionCall, CompiledConstruct {
+
+}
+
+export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall> {
+
+    // public readonly functionDef : FunctionDefinition;
+    public readonly calledFunction : RuntimeFunction;
+    public readonly argInitializers: readonly RuntimeCopyInitializer[];
+
+    public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
+        super(model, "call", parent);
+        let functionDef = this.model.func.definition!.runtimeLookup(); // TODO
+        
+        // Create argument initializer instances
+        this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
+
+        // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+
+        // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
+        
+        this.calledFunction = functionDef.createRuntimeFunction(
+            this,
+            this.model.returnTarget.runtimeLookup(this),
+            this.model.receiver && this.model.receiver.runtimeLookup(this) // for non-member functions, receiver undefined
+            );
+        
+    }
+}
+
 
     createInstance : function(sim, parent, receiver){
         var inst = Expression.createInstance.apply(this, arguments);
-
-        // For function pointers. It's a hack!
-        if (parent && parent.pointedFunction) {
-            inst.pointedFunction = parent.pointedFunction;
-        }
-
-        var funcDecl = inst.funcDeclModel = this.func.runtimeLookup(sim, inst).definition;
-
-        if (isA(funcDecl, MagicFunctionDefinition)){
-            return inst; //nothing more to do
-        }
-
-        if (this.canUseTCO){
-            inst.func = inst.containingRuntimeFunction();
-            //funcDecl.tailCallReset(sim, inst.func); // TODO why was this ever here?
-            //inst.send("tailCalled", inst.func);
-        }
-        else{
-            inst.func = funcDecl.createInstance(sim, inst);
-            //inst.send("called", inst.func);
-        }
-
-        // Receiver should not be specified both at compile time and at runtime.
-        // (Note it may not be specified at all yet)
-        assert(!(receiver && this.receiver));
-        if (receiver) {
-            inst.func.setReceiver(receiver.runtimeLookup(sim, inst)); // TODO: remove the runtimeLookup when overloads are fixed so that they set the receiver as an object, not a runtime entity thing
-        }
-        else if (this.receiver) {
-            inst.func.setReceiver(this.receiver.runtimeLookup(sim, inst));
-        }
-        // else there is no receiver i.e. a non-member function
-
-        // Create argument initializer instances
-        inst.argInits = this.argInitializers.map(function(argInit){
-            argInit = argInit.createInstance(sim, inst);
-            return argInit;
-        });
-        inst.func.model.setArguments(sim, inst.func, inst.argInits);
 
         if (this.canUseTCO) {
             // If we are using TCO, don't create a new return object. Just use the already existing one from the function.
@@ -2576,7 +2532,7 @@ export class FunctionCall extends InstructionConstruct {
             // Handle magic functions as special case
             if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
                 var preFn = PREDEFINED_FUNCTIONS[inst.funcDeclModel.name];
-                assert(preFn, "Cannot find internal implementation of magic function.");
+                Util.assert(preFn, "Cannot find internal implementation of magic function.");
 
                 // Note: magic functions just want args, not initializers (because they're magic!)
                 inst.setEvalResult(preFn(inst.args, sim, inst));
@@ -2680,8 +2636,19 @@ export var FunctionCallExpression  = Expression.extend({
             return;
         }
 
+        // Transplanted from FunctionCall class, should be adjusted for here
+        // If we are returning by value, then we need to create a temporary object to copy-initialize.
+        // If we are returning by reference, the return object for inst.func will be bound to what we return.
+        // Temporary references do not use extra space and won't be automatically destructed.
+        if (!this.returnByReference && !isA(this.type, Types.Void)){
+            this.returnObjectEntity = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
+        }
+
         var funcCall = this.funcCall = FunctionCall.instance({args: this.ast.args}, {parent:this});
         funcCall.compile({func: this.boundFunction});
+
+
+        // Transplanted from FunctionCall class, should be adjusted for here
 
         this.type = funcCall.type;
         this.valueCategory = funcCall.valueCategory;
