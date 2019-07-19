@@ -1,5 +1,7 @@
 import assign from "lodash/assign";
 
+export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
+
 export function debug(message, category){
     if (category){
         console.log(category + ": " + message);

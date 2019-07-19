@@ -1,4 +1,4 @@
-import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression } from "./expressions";
+import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType } from "./types";
@@ -386,13 +386,18 @@ export class ReferenceDirectInitializer extends DirectInitializer {
 //     }
 // }
 
-export class RuntimeReferenceDirectInitializer extends RuntimeDirectInitializer<ReferenceDirectInitializer> {
+
+export interface CompiledReferenceDirectInitializer extends ReferenceDirectInitializer {
+    readonly args: CompiledExpression[];
+}
+
+export class RuntimeReferenceDirectInitializer extends RuntimeDirectInitializer<CompiledReferenceDirectInitializer> {
 
     public readonly args: RuntimeExpression[];
 
     private argIndex = 0;
 
-    public constructor (model: ReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.args = this.model.args.map((a) => {
             return a.createRuntimeExpression(this);
@@ -651,17 +656,18 @@ export class RuntimeClassDirectInitializer extends RuntimeDirectInitializer<Clas
 }
 
 
-
-export type CopyInitializer = DirectInitializer;
-export type RuntimeCopyInitializer = RuntimeDirectInitializer;
-export type ReferenceCopyInitializer = ReferenceDirectInitializer;
-export type RuntimeReferenceCopyInitializer = RuntimeReferenceDirectInitializer;
-export type AtomicCopyInitializer = AtomicDirectInitializer;
-export type RuntimeAtomicCopyInitializer = RuntimeAtomicDirectInitializer;
-export type ArrayCopyInitializer = ArrayDirectInitializer;
-export type RuntimeArrayCopyInitializer = RuntimeArrayDirectInitializer;
-export type ClassCopyInitializer = ClassDirectInitializer;
-export type RuntimeClassCopyInitializer = RuntimeClassDirectInitializer;
+// TODO: These should really be "class aliases" rather than derived classes, however
+// it doesn't seem like Typescript has any proper mechanism for this.
+export abstract class CopyInitializer extends DirectInitializer { };
+export abstract class RuntimeCopyInitializer extends RuntimeDirectInitializer { };
+export class ReferenceCopyInitializer extends ReferenceDirectInitializer { };
+export class RuntimeReferenceCopyInitializer extends RuntimeReferenceDirectInitializer { };
+export class AtomicCopyInitializer extends AtomicDirectInitializer { };
+export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer { };
+export class ArrayCopyInitializer extends ArrayDirectInitializer { };
+export class RuntimeArrayCopyInitializer extends RuntimeArrayDirectInitializer { };
+export class ClassCopyInitializer extends ClassDirectInitializer { };
+export class RuntimeClassCopyInitializer extends RuntimeClassDirectInitializer { };
 
 
 
