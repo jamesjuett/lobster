@@ -2330,6 +2330,9 @@ export class FunctionCall extends PotentialFullExpression {
         this.args = clone(args);
         this.receiver = receiver;
 
+        // Note that the args are NOT added as children here. Instead, they are owned by whatever
+        // construct contains the function call and are attached to the construct tree there.
+
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
             return CopyInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
@@ -2421,19 +2424,43 @@ export class FunctionCall extends PotentialFullExpression {
         return new RuntimeFunctionCall(this, parent);
     }
 
+    
+    // isTailChild : function(child){
+    //     return {isTail: false,
+    //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
+    //         others: [this]
+    //     };
+    // },
+
+    // // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
+    // describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     var desc = {};
+    //     desc.message = "a call to " + this.func.describe(sim).message;
+    //     return desc;
+    // }
+
 }
 
 export interface CompiledFunctionCall extends FunctionCall, CompiledConstruct {
 
 }
 
+const INDEX_PUSH = 0;
+const INDEX_ARGUMENTS = 1;
+const INDEX_CALL = 2;
+const INDEX_RETURN = 2;
 export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall> {
 
     // public readonly functionDef : FunctionDefinition;
     public readonly calledFunction : RuntimeFunction;
     public readonly argInitializers: readonly RuntimeCopyInitializer[];
 
+    public readonly receiver?: CPPObject<ClassType>
     public readonly returnObject?: CPPObject;
+
+    // public readonly hasBeenCalled: boolean = false;
+
+    private index : typeof INDEX_PUSH | typeof INDEX_ARGUMENTS | typeof INDEX_CALL | typeof INDEX_RETURN;
 
     public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
         super(model, "call", parent);
@@ -2449,11 +2476,11 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
 
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
         
-        this.calledFunction = functionDef.createRuntimeFunction(
-            this,
-            this.model.receiver && this.model.receiver.runtimeLookup(this) // for non-member functions, receiver undefined
-            );
+         // for non-member functions, receiver undefined
+        this.receiver = this.model.receiver && this.model.receiver.runtimeLookup(this);
+        this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
         
+        this.index = INDEX_CALL;
     }
 
     public setReturnObject(obj: CPPObject) {
@@ -2462,131 +2489,47 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
         (<Mutable<this>>this).returnObject = obj;
 
     }
+
+    protected upNextImpl(): void {
+        if (this.index === INDEX_ARGUMENTS) {
+            // Push all argument initializers. Push in reverse so they run left to right
+            // (although this is not strictly necessary given they are indeterminately sequenced)
+            for(var i = this.argInitializers.length-1; i >= 0; --i) {
+                this.sim.push(this.argInitializers[i]);
+            }
+        }
+        else if (this.index === INDEX_RETURN) {
+            this.calledFunction.loseControl();
+            this.containingRuntimeFunction.gainControl();
+            this.done();
+            this.sim.pop();
+        }
+    }
+    
+    protected stepForwardImpl(): void {
+        if (this.index === INDEX_PUSH) {
+
+            // TODO: TCO? just do a tailCallReset, send "tailCalled" message
+
+            this.calledFunction.pushStackFrame();
+            this.index = INDEX_ARGUMENTS;
+        }
+        else if (this.index === INDEX_CALL) {
+
+            this.containingRuntimeFunction.loseControl();
+            this.sim.push(this.calledFunction);
+            this.calledFunction.gainControl();
+            this.receiver && this.receiver.callReceived();
+
+            // (<Mutable<this>>this).hasBeenCalled = true;
+            this.observable.send("called", this.calledFunction);
+            
+            this.index = INDEX_RETURN;
+        }
+        
+    }
 }
 
-
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var self = this;
-        if (inst.index === "arguments"){
-
-            // If it's a magic function, just push expressions
-            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
-                inst.args = this.argInitializers.map(function(argInit){
-                    return argInit.args[0].createAndPushInstance(sim, argInit.createInstance(sim, inst));
-                });
-            }
-            else{
-                // Push the expressions that evaluate our arguments.
-                for(var i = this.argInitializers.length-1; i >= 0; --i){
-                    this.argInitializers[i].pushChildInstances(sim, inst.argInits[i]); // expressions are children of initializers
-                }
-            }
-
-            inst.index = "call";
-
-            return true;
-        }
-        else if (inst.index == "return"){
-            // Unless return type is void, we will have a return object
-            if (this.returnByReference) {
-                inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst)); // lookup here in case its a reference
-            }
-            else if (this.returnByValue){
-                if (isA(this.type, Types.Class)) {
-                    inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst));
-                }
-                else{
-                    inst.setEvalResult(inst.funcDeclModel.getReturnObject(sim, inst.func).runtimeLookup(sim, inst).getValue());
-                }
-            }
-            else {
-                // nothing to do it must be void
-                inst.setEvalResult(Value.instance("", Types.Void.instance()));
-            }
-
-            inst.func.loseControl();
-            // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
-            // That will eventually be changed, and then this won't be necessary anymore
-            if (inst.containingRuntimeFunction()) {
-                inst.containingRuntimeFunction().gainControl();
-            }
-
-            this.done(sim, inst);
-            return true;
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        //if (this.func && this.func.decl && this.func.decl.isImplicit()){
-        //    setTimeout(function(){
-        //        while (inst.isActive){
-        //            sim.stepForward();
-        //        }
-        //    },0);
-        //}
-        if (inst.index == "call"){
-
-            // Handle magic functions as special case
-            if (isA(inst.funcDeclModel, MagicFunctionDefinition)){
-                var preFn = PREDEFINED_FUNCTIONS[inst.funcDeclModel.name];
-                Util.assert(preFn, "Cannot find internal implementation of magic function.");
-
-                // Note: magic functions just want args, not initializers (because they're magic!)
-                inst.setEvalResult(preFn(inst.args, sim, inst));
-                this.done(sim, inst);
-                return false;
-            }
-
-            if (inst.func.receiver) {
-                inst.func.receiver.callReceived();
-            }
-
-
-
-            if (this.canUseTCO){
-                inst.funcDeclModel.tailCallReset(sim, inst.func, inst);
-                inst.send("tailCalled", inst.func);
-            }
-            else{
-                // Push the stack frame
-                inst.func.pushStackFrame();
-
-                sim.push(inst.func);
-
-                // TODO: for now, this if is a HACK to deal with the fact that the main function call has no containing function
-                // That will eventually be changed, and then this won't be necessary anymore
-                if (inst.containingRuntimeFunction()) {
-                    inst.containingRuntimeFunction().loseControl();
-                }
-                inst.func.gainControl();
-                inst.send("called", inst.func);
-                inst.hasBeenCalled = true;
-            }
-
-            // Push initializers for function arguments, unless magic function
-            for (var i = inst.argInits.length-1; i >= 0; --i){
-                sim.push(inst.argInits[i]);
-            }
-
-            inst.index = "return";
-        }
-    },
-
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
-            others: [this]
-        };
-    },
-
-    // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
-    describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var desc = {};
-        desc.message = "a call to " + this.func.describe(sim).message;
-        return desc;
-    }
-});
 
 export var FunctionCallExpression  = Expression.extend({
     _name: "FunctionCallExpression",

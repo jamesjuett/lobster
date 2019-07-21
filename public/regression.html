@@ -556,3 +556,63 @@ int main() {
     </script>
 </body>
 </html>
+
+
+
+<!-- MORE TESTS BELOW -->
+
+
+<!-- #include <iostream>
+
+  using namespace std;
+  
+  class A{
+  private:
+    int *data;
+  public:
+    A(int num)
+      : data(new int(num)) {
+      cout << "A ctor" << endl;
+      cout << "allocated a new " << *data << " on the heap" << endl;
+      }
+  
+    A(const A &other)
+      : data(new int(*other.data + 10)) {
+      cout << "A copy" << endl;
+      cout << "allocated a new " << *data << " on the heap" << endl;
+      throw string("explode");
+    }
+  
+    ~A() {
+      cout << "A dtor" << endl;
+      cout << "cleaning up the " << *data << endl;
+      delete data;
+    }
+  
+  };
+  
+  A & func(A &a) {
+    int x;
+    cout << "func addr: " << &x << endl;
+    cout << "arg eval" << endl;
+    return a;
+  }
+  
+  void blah(A a, A a1) {
+    cout << "blah addr: " << &a << endl;
+    cout << "blah" << endl;
+  }
+  
+  int main() {
+    try{
+      int y;
+      cout << "main addr: " << &y << endl;
+      std::cout << "Hello World!\n";
+      A a1(1);
+      A a2(2);
+      blah(func(a1), func(a2));
+    }
+    catch(const string &e) {
+      cout << "caught: " << e << endl;
+    }
+  } -->
