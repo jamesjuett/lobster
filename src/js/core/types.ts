@@ -477,6 +477,7 @@ export abstract class SizedType extends Type {
 }
 
 export type ObjectType = AtomicType | ArrayType | ClassType;
+export type PotentialReturnType = ObjectType | Reference | VoidType;
 
 /**
  * Represents a type for an object that has a value.
@@ -876,9 +877,9 @@ export class Reference extends Type {
     protected readonly precedence = 1;
     public readonly isComplete = true;
 
-    public readonly refTo: Type;
+    public readonly refTo: ObjectType;
 
-    public constructor(refTo: Type, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(refTo: ObjectType, isConst?: boolean, isVolatile?: boolean) {
         // References have no notion of const (they can't be re-bound anyway)
         super(false, isVolatile);
         this.refTo = refTo;
