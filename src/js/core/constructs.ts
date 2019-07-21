@@ -1,7 +1,7 @@
 import assign from "lodash/assign";
 import { Observable } from "../util/observe";
 import { CONSTRUCT_CLASSES } from "./constructClasses";
-import { assert } from "../util/util";
+import { assert, Mutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
 import { Scope, TemporaryObjectEntity } from "./entities";
@@ -733,7 +733,7 @@ export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
     // },
 
     public pushStackFrame() {
-        (<MemoryFrame>this.stackFrame) = this.sim.memory.stack.pushFrame(this);
+        (<Mutable<this>>this).stackFrame = this.sim.memory.stack.pushFrame(this);
     }
 
     public gainControl() {

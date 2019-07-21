@@ -149,8 +149,8 @@ export class Memory {
     private stringLiteralMap!: { [index: string]: StringLiteralObject };
     private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
-    private stack!: MemoryStack;
-    private heap!: MemoryHeap;
+    public readonly stack!: MemoryStack;
+    public readonly heap!: MemoryHeap;
 
     private staticTop!: number;
     private temporaryBottom!: number;
