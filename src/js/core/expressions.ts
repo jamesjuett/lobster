@@ -1,14 +1,14 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
 import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct } from "./constructs";
-import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, ReferenceEntity } from "./entities";
+import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier } from "./lexical";
 import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
@@ -2295,14 +2295,15 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<CompiledLogi
 // TODO: move FunctionCall to its own module
 // TODO: FunctionCall should not extend Expression
 
-export class FunctionCall extends InstructionConstruct {
+export class FunctionCall extends PotentialFullExpression {
     
     public readonly func: FunctionEntity;
     public readonly args: readonly TypedExpression<ObjectType>[];
-    public readonly returnTarget: ObjectEntity | ReferenceEntity;
     public readonly receiver?: ObjectEntity<ClassType>;
-    
+
     public readonly argInitializers: readonly CopyInitializer[];
+    
+    public readonly returnTarget: TemporaryObjectEntity | UnboundReferenceEntity | null;
     /**
      * A FunctionEntity must be provided to specify which function is being called.
      *
@@ -2320,15 +2321,13 @@ export class FunctionCall extends InstructionConstruct {
      * @param context 
      * @param func Specifies which function is being called.
      * @param args Arguments to the function.
-     * @param returnTarget Entity that will be initialized with the returned result of the function call
      * @param receiver 
      */
-    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], returnTarget: ObjectEntity, receiver?: ObjectEntity<ClassType>) {
+    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;
         this.args = clone(args);
-        this.returnTarget = returnTarget;
         this.receiver = receiver;
 
         // Create initializers for each argument/parameter pair
@@ -2340,6 +2339,19 @@ export class FunctionCall extends InstructionConstruct {
         // this.isRecursive = this.func.definition === this.context.containingFunction;
 
         let returnType = this.func.type.returnType;
+        // Transplanted from FunctionCall class, should be adjusted for here
+        // If we are returning by value, then we need to create a temporary object to copy-initialize.
+        // If we are returning by reference, the return object for inst.func will be bound to what we return.
+        // Temporary references do not use extra space and won't be automatically destructed.
+        if (returnType instanceof VoidType) {
+            this.returnTarget = null;
+        }
+        else if (returnType instanceof Reference) {
+            this.returnTarget = new ReturnReferenceEntity(returnType.refTo);
+        }
+        else {
+            this.returnTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
+        }
 
         // TODO: need to check that it's not an auxiliary function call before adding these?
         this.context.containingFunction.addCall(this);
@@ -2421,6 +2433,8 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
     public readonly calledFunction : RuntimeFunction;
     public readonly argInitializers: readonly RuntimeCopyInitializer[];
 
+    public readonly returnObject?: CPPObject;
+
     public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
         super(model, "call", parent);
         let functionDef = this.model.func.definition!.runtimeLookup(); // TODO
@@ -2429,44 +2443,28 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
 
         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+        if (this.model.returnTarget instanceof TemporaryObjectEntity) {
+            this.setReturnObject(this.model.returnTarget.objectInstance(this));
+        }
 
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
         
         this.calledFunction = functionDef.createRuntimeFunction(
             this,
-            this.model.returnTarget.runtimeLookup(this),
             this.model.receiver && this.model.receiver.runtimeLookup(this) // for non-member functions, receiver undefined
             );
         
     }
+
+    public setReturnObject(obj: CPPObject) {
+        // This should only be used once
+        Util.assert(!this.returnObject);
+        (<Mutable<this>>this).returnObject = obj;
+
+    }
 }
 
 
-    createInstance : function(sim, parent, receiver){
-        var inst = Expression.createInstance.apply(this, arguments);
-
-        if (this.canUseTCO) {
-            // If we are using TCO, don't create a new return object. Just use the already existing one from the function.
-            // NEW: since we just get it here, then assign it to our own inst.returnObject, I think this is unnecessary
-            // since in the rest of the code I'm getting rid of our own inst.returnObject and always just going to
-            // use funcDecl.getReturnObject(sim, inst.func)
-            // inst.returnObject = inst.func.model.getReturnObject(sim, inst.func);
-        }
-        else{
-            // If we are NOT using TCO, we need to create the return object.
-            if (this.returnByValue) {
-                // Return by value, create the instance of the returnObject and give it to the function we're calling.
-                funcDecl.setReturnObject(sim, inst.func, this.returnObjectEntity.objectInstance(inst));
-            }
-            else if (this.returnByReference) {
-                // UPDATE: Return by reference doesn't use a faked reference entity anymore. Instead, there is simply
-                // no return object initially and then when the ReturnInitializer does its thing, it sets the return object.
-            }
-            // else it was void, so no need to set a return object
-        }
-
-        return inst;
-    },
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
         var self = this;
@@ -2636,13 +2634,7 @@ export var FunctionCallExpression  = Expression.extend({
             return;
         }
 
-        // Transplanted from FunctionCall class, should be adjusted for here
-        // If we are returning by value, then we need to create a temporary object to copy-initialize.
-        // If we are returning by reference, the return object for inst.func will be bound to what we return.
-        // Temporary references do not use extra space and won't be automatically destructed.
-        if (!this.returnByReference && !isA(this.type, Types.Void)){
-            this.returnObjectEntity = this.createTemporaryObject(this.func.type.returnType, (this.func.name || "unknown") + "() [return]");
-        }
+        
 
         var funcCall = this.funcCall = FunctionCall.instance({args: this.ast.args}, {parent:this});
         funcCall.compile({func: this.boundFunction});

@@ -651,16 +651,16 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     }
 };
 
-export abstract class BoundReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
-export abstract class UnboundReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> {
-public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) : void;
+export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
+    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) : void;
 }
 
 //TODO: rename to specifically for local references
-export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends BoundReferenceEntity<T> {
+export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) {
@@ -679,6 +679,20 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Bou
         else{
             return {message: "the reference " + this.name};
         }
+    }
+};
+
+//TODO: rename to specifically for local references
+export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+    // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
+
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) {
+        rtConstruct.containingRuntimeFunction.caller.setReturnObject(obj);
+    }
+
+    public describe() {
+        // TODO: add info about which function? would need to be specified when the return value is created
+        return {message: "the object returned by reference"};
     }
 };
 

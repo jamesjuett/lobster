@@ -1,6 +1,6 @@
 import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression } from "./constructs";
-import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, ReferenceEntity, MemberSubobjectEntity } from "./entities";
+import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType } from "./types";
 import { CPPError, Explanation } from "./errors";
 import { assertFalse } from "../util/util"
@@ -332,6 +332,11 @@ export abstract class DirectInitializer extends Initializer {
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDirectInitializer;
 }
 
+
+export interface CompiledDirectInitializer extends DirectInitializer {
+    readonly args: CompiledExpression[];
+}
+
 export abstract class RuntimeDirectInitializer<Construct_type extends DirectInitializer = DirectInitializer>
     extends RuntimeInitializer<Construct_type> {
 
@@ -340,10 +345,10 @@ export abstract class RuntimeDirectInitializer<Construct_type extends DirectInit
 
 export class ReferenceDirectInitializer extends DirectInitializer {
 
-    public readonly target: ReferenceEntity;
+    public readonly target: UnboundReferenceEntity;
     public readonly args: Expression[];
 
-    public constructor(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) {
+    public constructor(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: Expression[]) {
         super(context);
         this.target = target;
         
@@ -369,7 +374,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeInitializer(this: CompiledReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
         return new RuntimeReferenceDirectInitializer(this, parent);
     }
 

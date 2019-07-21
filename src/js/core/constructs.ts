@@ -13,7 +13,7 @@ import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import * as Util from "../util/util";
-import { Expression } from "./expressions";
+import { Expression, RuntimeFunctionCall } from "./expressions";
 import { standardConversion } from "./standardConversions";
 
 export interface ASTNode {
@@ -404,7 +404,7 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     public createTemporaryObject<T extends ObjectType>(type: T, description: string) {
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, description);
-        this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt
+        this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;
         return tempObjEnt;
     }
 }
@@ -715,7 +715,6 @@ export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
     public readonly containingRuntimeFunction: RuntimeFunction;
 
     public readonly stackFrame?: MemoryFrame;
-    public readonly returnObject?: CPPObject;
 
     public readonly hasControl: boolean = false;
 
@@ -727,11 +726,6 @@ export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
 
         this.caller = parent;
     }
-
-    public setReturnObject(returnObject: CPPObject) {
-        (<CPPObject>this.returnObject) = returnObject;
-    }
-
     
 
     // setCaller : function(caller) {
@@ -772,16 +766,6 @@ export class RuntimeMemberFunction extends RuntimeFunction {
 
 }
 
-
-export class RuntimeFunctionCall extends RuntimeInstruction {
-
-    public readonly calledFunction: RuntimeFunction;
-}
-
-export class RuntimeMemberFunctionCall extends RuntimeFunctionCall {
-    
-    public readonly calledFunction: RuntimeMemberFunction;
-}
 
 /**
  * Represents either a dot or arrow operator at runtime.
