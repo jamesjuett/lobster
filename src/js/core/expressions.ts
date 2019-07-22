@@ -169,7 +169,7 @@ export function allWellTyped(expressions: readonly Expression[]): expressions is
 export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression>
     extends RuntimePotentialFullExpression<CE> {
         
-    public readonly evalResult: EvalResultType<CE>? = null;
+    public readonly evalResult?: EvalResultType<CE> | null;
 
     public constructor(model: CE, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
@@ -2450,10 +2450,10 @@ export interface CompiledFunctionCall extends FunctionCall, CompiledConstruct {
 
 }
 
-const INDEX_PUSH = 0;
-const INDEX_ARGUMENTS = 1;
-const INDEX_CALL = 2;
-const INDEX_RETURN = 2;
+const INDEX_FUNCTION_CALL_PUSH = 0;
+const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
+const INDEX_FUNCTION_CALL_CALL = 2;
+const INDEX_FUNCTION_CALL_RETURN = 2;
 export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall> {
 
     // public readonly functionDef : FunctionDefinition;
@@ -2461,11 +2461,17 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
     public readonly argInitializers: readonly RuntimeCopyInitializer[];
 
     public readonly receiver?: CPPObject<ClassType>
-    public readonly returnObject?: CPPObject;
+
+    /**
+     * The object returned by the function, either an original returned-by-reference or a temporary
+     * object created to hold a return-by-value. Once the function call has been executed, will be
+     * defined unless it's a void function, in which case it will be null.
+     */
+    public readonly returnObject?: CPPObject | null;
 
     // public readonly hasBeenCalled: boolean = false;
 
-    private index : typeof INDEX_PUSH | typeof INDEX_ARGUMENTS | typeof INDEX_CALL | typeof INDEX_RETURN;
+    private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
 
     public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
         super(model, "call", parent);
@@ -2485,10 +2491,10 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
         this.receiver = this.model.receiver && this.model.receiver.runtimeLookup(this);
         this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
         
-        this.index = INDEX_CALL;
+        this.index = INDEX_FUNCTION_CALL_CALL;
     }
 
-    public setReturnObject(obj: CPPObject) {
+    public setReturnObject(obj: CPPObject | null) {
         // This should only be used once
         Util.assert(!this.returnObject);
         (<Mutable<this>>this).returnObject = obj;
@@ -2496,14 +2502,17 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
     }
 
     protected upNextImpl(): void {
-        if (this.index === INDEX_ARGUMENTS) {
+        if (this.index === INDEX_FUNCTION_CALL_ARGUMENTS) {
             // Push all argument initializers. Push in reverse so they run left to right
             // (although this is not strictly necessary given they are indeterminately sequenced)
             for(var i = this.argInitializers.length-1; i >= 0; --i) {
                 this.sim.push(this.argInitializers[i]);
             }
         }
-        else if (this.index === INDEX_RETURN) {
+        else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
+            if (!this.returnObject) {
+                this.setReturnObject(null);
+            }
             this.calledFunction.loseControl();
             this.containingRuntimeFunction.gainControl();
             this.done();
@@ -2512,14 +2521,14 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
     }
     
     protected stepForwardImpl(): void {
-        if (this.index === INDEX_PUSH) {
+        if (this.index === INDEX_FUNCTION_CALL_PUSH) {
 
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
 
             this.calledFunction.pushStackFrame();
-            this.index = INDEX_ARGUMENTS;
+            this.index = INDEX_FUNCTION_CALL_ARGUMENTS;
         }
-        else if (this.index === INDEX_CALL) {
+        else if (this.index === INDEX_FUNCTION_CALL_CALL) {
 
             this.containingRuntimeFunction.loseControl();
             this.sim.push(this.calledFunction);
@@ -2529,7 +2538,7 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
             // (<Mutable<this>>this).hasBeenCalled = true;
             this.observable.send("called", this.calledFunction);
             
-            this.index = INDEX_RETURN;
+            this.index = INDEX_FUNCTION_CALL_RETURN;
         }
         
     }
@@ -2625,16 +2634,53 @@ export class FunctionCallExpression extends Expression {
     // }
 }
 
+export interface CompiledFunctionCallExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<FunctionCallExpression,T,V> {
+    public readonly operand: CompiledIdentifier | CompiledDot;
+    public readonly args: readonly CompiledExpression[];
+    public readonly call: CompiledFunctionCall;
+}
 
-export var FunctionCallExpression  = Expression.extend({
-    _name: "FunctionCallExpression",
-    initIndex: "operand",
+const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
+const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
+const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
+export class RuntimeFunctionCallExpression<CE extends CompiledFunctionCallExpression = CompiledFunctionCallExpression> extends RuntimeExpression<CE> {
 
-    compile : function() {
-        var self = this;
+    public readonly operand: RuntimeExpression<CompiledExpression>;
+    public readonly args: readonly RuntimeExpression<CompiledExpression>[];
+    public readonly call: RuntimeFunctionCall;
 
-        
-    },
+    private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.operand = this.model.operand.createRuntimeExpression(this);
+        this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
+        this.call = this.model.call.createRuntimeFunctionCall(this);
+    }
+
+	protected upNextImpl() {
+        if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_OPERAND) {
+            this.sim.push(this.operand);
+            this.index = INDEX_FUNCTION_CALL_EXPRESSION_CALL;
+        }
+        else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_CALL) {
+            this.sim.push(this.call);
+            this.index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
+            return true;
+        }
+        else if (this.index === INDEX_FUNCTION_CALL_RETURN ) {
+            if (this.model.type instanceof VoidType) {
+                // this.setEvalResult(null); // TODO: type system won't allow this currently
+            }
+            this.setEvalResult(<EvalResultType<CE>>this.call.returnObject!); // TODO: eeew cast
+            this.sim.pop();
+        }
+	}
+}
+
+// export var FunctionCallExpression  = Expression.extend({
+//     _name: "FunctionCallExpression",
+//     initIndex: "operand",
 
     // bindFunction : function(argTypes){
     //     var self = this;
@@ -2678,51 +2724,8 @@ export var FunctionCallExpression  = Expression.extend({
 
     // },
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        if (inst.index === "operand") {
-            inst.operand = this.operand.createAndPushInstance(sim, inst);
-            inst.index = "call";
-            return true;
-        }
-        else if (inst.index === "call"){
-            // If it's a function pointer, set info for evaluated operand function entity
-            // TODO: 2nd part of OR is a hack to detect functions generated from function pointers
-            // This is here because I don't have the expression attempt to implicitly convert its operand
-            // to a function pointer. A cleaner implementation might be to include the conversion, but make
-            // it not animate in most cases (since that would be annoying)
-            if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function) ||
-                    !isA(this.operand.entity, FunctionEntity)){
-                inst.pointedFunction = inst.operand.evalResult.rawValue();
-            }
-            // TODO: hack on next line has || inst.operand.evalResult
-            // TODO: remember why that's a hack and not just the right thing to do
-            if (isA(this.boundFunction, MemberFunctionEntity)) {
-                if (isA(this.operand.type, Types.Class)) {
-                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.evalResult);
-                }
-                else {
-                    inst.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.operand.contextualReceiver());
-                }
-            }
-            else {
-                inst.funcCall = this.funcCall.createAndPushInstance(sim, inst);
-            }
-            inst.wait();
-            inst.index = "done";
-            return true;
-        }
-        else {
-            inst.setEvalResult(inst.funcCall.evalResult);
-            this.done(sim, inst);
-        }
-        return true;
-    },
 
-    isTailChild : function(child){
-        return {isTail: child === this.funcCall
-        };
-    }
-});
+// });
 
 
 // export var StaticCast = Unsupported.extend({
