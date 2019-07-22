@@ -68,7 +68,7 @@ export abstract class Expression extends PotentialFullExpression {
 
     protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
-    public isWellTyped() : this is TypedExpression<Type,ValueCategory> {
+    public isWellTyped() : this is TypedExpression<Type, ValueCategory> {
         return this.type !== null && this.valueCategory !== null;
     }
 
@@ -160,6 +160,11 @@ type EvalResultType<E extends CompiledExpression> = VCResultTypes<E["type"]>[E["
     
 //     public readonly evalResult: EvalResultType<CE>?;
 // }
+export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
+    return expressions.every((expr) => { return expr.isWellTyped(); });
+}
 
 export abstract class RuntimeExpression<CE extends CompiledExpression = CompiledExpression>
     extends RuntimePotentialFullExpression<CE> {
@@ -2323,7 +2328,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    private constructor(context: ExecutableConstructContext, func: FunctionEntity, args: (TypedExpression<ObjectType>)[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: ExecutableConstructContext, func: FunctionEntity, args: readonly TypedExpression<ObjectType>[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;
@@ -2530,108 +2535,148 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
     }
 }
 
+// NOTE: when creating this from AST, operand must be created/compiled
+// with addition context including the compiled types of the arguments.
+export class FunctionCallExpression extends Expression {
+    
+    public readonly type: PotentialReturnType?;
+    public readonly valueCategory: ValueCategory?;
+
+    public readonly call: FunctionCall;
+    public readonly operand: Identifier | Dot;
+    public readonly args: readonly Expression[];
+    
+    public readonly _t_compiled!: CompiledFunctionCallExpression;
+
+    public constructor(context: ExecutableConstructContext, operand: Identifier | Dot, args: readonly Expression[]) {
+        super(context);
+        
+        if(condition.isWellTyped()) {
+            condition = this.compileCondition(condition);
+        }
+
+        if (then.isWellTyped() && otherwise.isWellTyped()) {
+            ({then, otherwise} = this.compileConsequences(then, otherwise));
+        }
+
+        this.attach(this.condition = condition);
+        this.attach(this.then = then);
+        this.attach(this.otherwise = otherwise);
+
+        this.type = then.type;
+        this.valueCategory = then.valueCategory;
+
+
+        /////////////////////////
+        let q: any;
+        // TODO: Attach operand
+
+        
+        this.attach(this.operand = operand);
+        this.args = args;
+        args.forEach((arg) => this.attach(arg))
+
+        // If any arguments are not well typed, we can't select a function.
+        if (!allWellTyped(args)) {
+            this.type = null;
+            return;
+        }
+
+        // Operand may need additional context to ensure lookup of the correct function
+        // if (operand instanceof Identifier || operand instanceof Dot) {
+            operand.setLookupContextParameterTypes(args.map((arg) => arg.type));
+        // }
+
+        if (!operand.entity) { // TODO: check if identifier/dot/arrow has an entity i.e. has it found a function
+            this.type = null;
+            return;
+        }
+
+        if (!(operand.entity instanceof FunctionEntity)) {
+            this.type = null;
+            this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
+            return;
+        }
+
+        this.type = operand.entity.type.returnType;
+        this.valueCategory = operand.entity.type.returnType instanceof Reference ? "lvalue" : "prvalue";
+
+        // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
+        // So the cast below should be fine.
+        // TODO: allow member function calls. (or make them a separate class idk)
+        this.call = new FunctionCall(context, this.operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
+    }
+
+    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionCallExpression<CompiledFunctionCallExpression<T,V>>{
+        return new RuntimeFunctionCallExpression(this, parent);
+    }
+
+    // TODO
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+    
+
+    
+    // isTailChild : function(child){
+    //     return {isTail: child === this.funcCall
+    //     };
+    // }
+}
+
 
 export var FunctionCallExpression  = Expression.extend({
     _name: "FunctionCallExpression",
     initIndex: "operand",
 
-    i_createFromAST : function(ast, context) {
-        FunctionCallExpression._parent.i_createFromAST.apply(this, arguments);
-        this.operand = this.i_createChild(ast.operand);
-    },
-
     compile : function() {
         var self = this;
 
-        // Need to select function, so have to compile auxiliary arguments
-        var auxArgs = this.ast.args.map(function(arg){
-            var auxArg = CPPConstruct.create(arg, {parent: self, auxiliary: true});
-            auxArg.tryCompile();
-            return auxArg;
-        });
-
-        // If we already have errors from any auxiliary arguments, we cannot recover
-        if (auxArgs.some(function(auxArg) {return auxArg.hasErrors()})){
-            // Add the notes from the auxiliary arguments (they weren't added normally since they were auxiliary)
-            auxArgs.forEach(function(auxArg){
-                auxArg.getNotes().forEach(function(note) {
-                    self.addNote(note);
-                });
-            });
-            return;
-        }
-
-        var argTypes = auxArgs.map(function(arg){
-            return arg.type;
-        });
-
-        this.operand.compile({paramTypes: argTypes});
-
-        if (this.hasErrors()){
-            return;
-        }
-
-        this.bindFunction(argTypes);
-
-        if (this.hasErrors()){
-            return;
-        }
-
         
-
-        var funcCall = this.funcCall = FunctionCall.instance({args: this.ast.args}, {parent:this});
-        funcCall.compile({func: this.boundFunction});
-
-
-        // Transplanted from FunctionCall class, should be adjusted for here
-
-        this.type = funcCall.type;
-        this.valueCategory = funcCall.valueCategory;
-
-        return Expression.compile.apply(this, arguments);
     },
 
-    bindFunction : function(argTypes){
-        var self = this;
-        if (isA(this.operand.type, Types.Class)){
-            // Check for function call operator and if so, find function
-            // TODO: I think this breaks given multiple overloaded function call operators?
+    // bindFunction : function(argTypes){
+    //     var self = this;
+    //     if (isA(this.operand.type, Types.Class)){
+    //         // Check for function call operator and if so, find function
+    //         // TODO: I think this breaks given multiple overloaded function call operators?
 
-            try{
-                this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
-                this.boundFunction = this.callOp;
-                this.type = noRef(this.callOp.type.returnType);
-            }
-            catch(e){
-                if (isA(e, SemanticExceptions.BadLookup)){
-                    this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
-                    this.addNote(e.annotation(this));
-                }
-                else{
-                    throw e;
-                }
-            }
-        }
-        else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
-            // If it's an identifier, dot, arrow, etc. that denote an entity - just bind that
-            this.staticFunction = this.operand.entity;
-            this.staticFunctionType = this.staticFunction.type;
-            this.boundFunction = this.operand.entity;
-        }
-        else if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
-            this.staticFunctionType = this.operand.type.ptrTo;
-            this.boundFunction = PointedFunctionEntity.instance(this.operand.type.ptrTo);
-            this.operand = convertToPRValue(this.operand);
-        }
-        else if (isA(this.operand.type, Types.Function)){
-            this.staticFunctionType = this.operand.type;
-            this.boundFunction = PointedFunctionEntity.instance(this.operand.type);
-        }
-        else{
-            this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
-        }
+    //         try{
+    //             this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
+    //             this.boundFunction = this.callOp;
+    //             this.type = noRef(this.callOp.type.returnType);
+    //         }
+    //         catch(e){
+    //             if (isA(e, SemanticExceptions.BadLookup)){
+    //                 this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
+    //                 this.addNote(e.annotation(this));
+    //             }
+    //             else{
+    //                 throw e;
+    //             }
+    //         }
+    //     }
+    //     else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
+    //         // If it's an identifier, dot, arrow, etc. that denote an entity - just bind that
+    //         this.staticFunction = this.operand.entity;
+    //         this.staticFunctionType = this.staticFunction.type;
+    //         this.boundFunction = this.operand.entity;
+    //     }
+    //     else if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
+    //         this.staticFunctionType = this.operand.type.ptrTo;
+    //         this.boundFunction = PointedFunctionEntity.instance(this.operand.type.ptrTo);
+    //         this.operand = convertToPRValue(this.operand);
+    //     }
+    //     else if (isA(this.operand.type, Types.Function)){
+    //         this.staticFunctionType = this.operand.type;
+    //         this.boundFunction = PointedFunctionEntity.instance(this.operand.type);
+    //     }
+    //     else{
+    //         this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
+    //     }
 
-    },
+    // },
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
         if (inst.index === "operand") {

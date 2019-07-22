@@ -477,6 +477,7 @@ export abstract class SizedType extends Type {
 }
 
 export type ObjectType = AtomicType | ArrayType | ClassType;
+
 export type PotentialReturnType = ObjectType | Reference | VoidType;
 
 /**
