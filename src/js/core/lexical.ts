@@ -1,4 +1,5 @@
-import {NoteHandler} from "./errors";
+import {NoteHandler, CPPError} from "./errors";
+import { CPPConstruct } from "./constructs";
 
 export const KEYWORDS = new Set([
     "alignas", "continue", "friend", "register", "true",
@@ -23,20 +24,24 @@ export const ALT_OPS = new Set([
     "not_eq", "or", "or_eq", "xor", "xor_eq"
 ]);
 
+export type UnqualifiedName = string;
+export type QualifiedName = string[];
+export type Name = UnqualifiedName | QualifiedName;
+
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
-export var checkIdentifier = function(src: CPPConstruct, iden: string, noteHandler: NoteHandler) {
-    if (Array.isArray(iden)) {
-        iden.forEach(function(elem) {
-            checkIdentifier(src, elem.identifier, noteHandler);
-        });
+export function checkIdentifier(src: CPPConstruct, name: Name, noteHandler: NoteHandler) {
+    if (typeof name === "string") {
+        // Check that identifier is not a keyword or an alternative representation for an operator
+        if (KEYWORDS.has(name)) {
+            noteHandler.addNote(CPPError.iden.keyword(src, name));
+        }
+        if (ALT_OPS.has(name)) {
+            noteHandler.addNote(CPPError.iden.alt_op(src, name));
+        }
+        return;
     }
-    // Check that identifier is not a keyword or an alternative representation for an operator
-    if (KEYWORDS.has(iden)) {
-        noteHandler.addNote(CPPError.iden.keyword(src, iden));
-    }
-    if (ALT_OPS.has(iden)) {
-        noteHandler.addNote(CPPError.iden.alt_op(src, iden));
-    }
+
+    name.forEach((elem) => checkIdentifier(src, elem, noteHandler));
 };
 
 export function createFullyQualifiedName(...names : string[]) {
