@@ -8,7 +8,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, NumericType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
@@ -3255,6 +3255,7 @@ export class RuntimeObjectIdentifier<CE extends CompiledObjectIdentifier = Compi
 
 	protected upNextImpl() {
         this.setEvalResult(<EvalResultType<CE>>this.model.entity.runtimeLookup(this));
+        this.sim.pop();
     }
 
     protected stepForwardImpl(): void {
@@ -3333,58 +3334,86 @@ export class RuntimeFunctionIdentifier<CE extends CompiledFunctionIdentifier = C
 
 
 
-var parseCPPChar = function(litValue){
+function parseCPPChar(litValue: string){
     return Util.escapeString(litValue).charCodeAt(0);
 };
 
-var literalJSParse = {
+var literalJSParse : {[index:string]: (a: any) => RawValueType}= {
 	"int": parseInt,
 	"float": parseFloat,
     "double": parseFloat,
     "bool" : function(b) {return b ? 1 : 0;},
-    "char": parseCPPChar,
-    "string": Util.escapeString // TODO: is this still used?
+    "char": parseCPPChar
 };
+
 var literalTypes = {
-	"int": Types.Int.instance(),
-	"float": Types.Double.instance(),
-	"double": Types.Double.instance(),
-    "bool": Types.Bool.instance(),
-    "char" : Types.Char.instance()
+	"int": Int,
+	"float": Float,
+	"double": Double,
+    "bool": Bool,
+    "char" : Char
 };
 
-export class Literal extends Expression {
-    _name: "Literal",
-    initIndex: false,
-    compile : function(){
+export class NumericLiteral<T extends NumericType = NumericType> extends Expression implements CompiledExpression {
+    
 
-		
-		var conv = literalJSParse[this.ast.type];
-		var val = (conv ? conv(this.ast.value) : this.ast.value);
-		
-		var typeClass = literalTypes[this.ast.type];
-        this.type = typeClass;
+    public readonly type: T;
+    public readonly valueCategory = "prvalue";
 
-        this.value = Value.instance(val, this.type);  //TODO fix this (needs type?)
-        this.valueCategory = "prvalue";
-	},
+    public readonly _t_compiled!: NumericLiteral<T>;
+    
+    public readonly _t_isCompiled: never;
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.evalResult = this.value;
-        this.done(sim, inst);
-        return true;
-    },
 
-    describeEvalResult : function(depth, sim, inst){
-        var str = this.value.toString();
-        return {name: str, message: str};
+    
+    public readonly value: Value<T>;
+
+    // create from ast code:
+    // TODO: are there some literal types without conversion functions? There shouldn't be...
+
+    // var conv = literalJSParse[this.ast.type];
+    // var val = (conv ? conv(this.ast.value) : this.ast.value);
+
+
+    constructor(context: ExecutableConstructContext, type: T, value: RawValueType) {
+        super(context);
+
+        this.type = type;
+
+        this.value = new Value(value, this.type);  //TODO fix this (needs type?)
+	}
+
+    protected createRuntimeExpression_impl(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression<CompiledExpression> {
+        throw new Error("Method not implemented.");
     }
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+
+    // describeEvalResult : function(depth, sim, inst){
+    //     var str = this.value.toString();
+    //     return {name: str, message: str};
+    // }
 	
 //	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //		this.done(sim, inst);
 //		return true;
 //	}
-});
+}
+
+export class RuntimeNumericLiteral<CE extends NumericLiteral = NumericLiteral> extends RuntimeExpression<CE> {
+
+	protected upNextImpl() {
+        this.setEvalResult(<EvalResultType<CE>>this.model.value);
+        this.sim.pop();
+        return true;
+	}
+	
+	protected stepForwardImpl() {
+        // Do nothing
+	}
+}
 
 // export class StringLiteral extends Expression {
 //     public valueCategory: string;

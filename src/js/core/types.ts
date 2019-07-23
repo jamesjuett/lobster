@@ -678,7 +678,7 @@ builtInTypes["bool"] = Bool;
 
 
 
-abstract class FloatingPointTypeBase extends SimpleType {
+export abstract class FloatingPointType extends SimpleType {
 
     public readonly isFloatingPointType = true;
     public readonly isArithmeticType = true;
@@ -690,7 +690,7 @@ abstract class FloatingPointTypeBase extends SimpleType {
     }
 }
 
-export class Float extends FloatingPointTypeBase {
+export class Float extends FloatingPointType {
     public isObjectType: boolean;
     public isIntegralType: boolean;
     protected readonly simpleType = "float";
@@ -698,7 +698,7 @@ export class Float extends FloatingPointTypeBase {
 }
 builtInTypes["float"] = Float;
 
-export class Double extends FloatingPointTypeBase {
+export class Double extends FloatingPointType {
     public isObjectType: boolean;
     public isIntegralType: boolean;
     protected readonly simpleType = "double";
@@ -732,7 +732,7 @@ builtInTypes["ostream"] = OStream;
 
 
 
-
+export type NumericType = IntegralType | FloatingPointType;
 
 //TODO: create separate function pointer type???
 
