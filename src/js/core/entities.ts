@@ -2,7 +2,7 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -933,7 +933,7 @@ export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntit
 
 };
 
-export class ArraySubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public readonly arrayEntity: ObjectEntity<ArrayType<T>>;
     public readonly index: number;

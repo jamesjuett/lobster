@@ -3,18 +3,18 @@ import * as Util from "../util/util";
 import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct } from "./constructs";
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
-import { checkIdentifier } from "./lexical";
+import { checkIdentifier, Name } from "./lexical";
 import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
-    let value = obj.readValue();
+    let value = obj.readVa lue();
     if(!value.isValid) {
         let objDesc = obj.describe();
         var msg = "The value you just got out of " + (objDesc.name || objDesc.message) + " isn't valid. It might be uninitialized or it could have come from a dead object.";
@@ -133,14 +133,20 @@ type VCResultTypes<T extends Type> =
         readonly xvalue: CPPObject<T>;
         readonly lvalue: CPPObject<T>;
     }
+    :
+    T extends FunctionType ? {
+        readonly prvalue: never;
+        readonly xvalue: never;
+        readonly lvalue: FunctionEntity;
+    }
     : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
         readonly prvalue: Value<AtomicType>;
         readonly xvalue: CPPObject<ObjectType>;
-        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
+        readonly lvalue: CPPObject<ObjectType>;
     } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
         readonly prvalue: never;
         readonly xvalue: never;
-        readonly lvalue: never; // TODO: add functions/arrays as possible results
+        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
     };
 
 //     prvalue: T extends AtomicType ? Value<T> :
@@ -2560,27 +2566,6 @@ export class FunctionCallExpression extends Expression {
     public constructor(context: ExecutableConstructContext, operand: Identifier | Dot, args: readonly Expression[]) {
         super(context);
         
-        if(condition.isWellTyped()) {
-            condition = this.compileCondition(condition);
-        }
-
-        if (then.isWellTyped() && otherwise.isWellTyped()) {
-            ({then, otherwise} = this.compileConsequences(then, otherwise));
-        }
-
-        this.attach(this.condition = condition);
-        this.attach(this.then = then);
-        this.attach(this.otherwise = otherwise);
-
-        this.type = then.type;
-        this.valueCategory = then.valueCategory;
-
-
-        /////////////////////////
-        let q: any;
-        // TODO: Attach operand
-
-        
         this.attach(this.operand = operand);
         this.args = args;
         args.forEach((arg) => this.attach(arg))
@@ -2678,6 +2663,7 @@ export class RuntimeFunctionCallExpression<CE extends CompiledFunctionCallExpres
 	}
 }
 
+// OLD stuff kept in case it's relevant for operator overloads, but probably won't be needed
 // export var FunctionCallExpression  = Expression.extend({
 //     _name: "FunctionCallExpression",
 //     initIndex: "operand",
@@ -3133,44 +3119,60 @@ export class RuntimeFunctionCallExpression<CE extends CompiledFunctionCallExpres
 
 
 
-var identifierToText = function(qualId){
-    if (Array.isArray(qualId)){ // If it's actually a qualified id
+function identifierToText(unqualifiedId: string) : string;
+function identifierToText(qualId: readonly {identifier: string}[]) : string;
+    function identifierToText(qualId: string | readonly {identifier: string}[]) : string {
+    if (typeof qualId === "string") {
+        return qualId; // If it's an unqualified id
+    }
+    else {
         return qualId.reduce(function(str,id,i){
             return str + (i > 0 ? "::" : "") + id.identifier;
         },"");
     }
-    else{
-        return qualId; // If it's an unqualified id
-    }
 };
 
+function qualifiedNameString(names) {
+    if (!Array.isArray(names)){
+        return names;
+    }
+    return names.map(function(id){return id.identifier}).join("::")
+}
+
+// TODO: maybe Identifier should be a non-executable construct and then have a 
+// TODO: make separate classes for qualified and unqualified IDs?
 export class Identifier extends Expression {
 
-    public readonly entity: CPPEntity; // TODO: should this be NamedEntity? Does it make a difference?
+    public readonly type: Type?;
+    public readonly valueCategory = "lvalue";
+    
+    public readonly entity: ObjectEntity | FunctionEntity | null; // TODO: should this be NamedEntity? Does it make a difference?
+    public readonly name: Name;
 
-    _name: "Identifier",
-    valueCategory: "lvalue",
-    initIndex: false,
-    qualifiedNameString : function(names){
-        if (!Array.isArray(names)){
-            return names;
-        }
-        return names.map(function(id){return id.identifier}).join("::")
-    },
-    i_createFromAST: function(ast, context){
+    public _t_compiled!: CompiledObjectIdentifier | CompiledFunctionIdentifier;
 
-        Identifier._parent.i_createFromAST.apply(this, arguments);
-        this.identifier = this.ast.identifier;
-        this.identifierText = identifierToText(this.identifier);
-    },
+    // i_createFromAST: function(ast, context){
 
-    compile : function(compilationContext) {
-        this.i_paramTypes = compilationContext && compilationContext.paramTypes;
-        Expressions.Identifier._parent.compile.apply(this, arguments);
-    },
+    //     Identifier._parent.i_createFromAST.apply(this, arguments);
+    //     this.identifier = this.ast.identifier;
+    //     this.identifierText = qualifiedNameString(this.identifier);
+    // },
 
-    typeCheck : function(){
-        checkIdentifier(this, this.identifier, this);
+    public constructor(context: ExecutableConstructContext, name: Name) {
+        super(context);
+        this.name = name;
+        checkIdentifier(this, name, this);
+
+        this.entity = this.attemptLookup();
+        this.type = this.entity && this.entity.type;
+    }
+
+    public setLookupContextParameterTypes(paramTypes: readonly PotentialParameterType[]) {
+        (<Mutable<this>>this).entity = this.attemptLookup();
+        (<Mutable<this>>this).type = this.entity && this.entity.type;
+    }
+
+    private attemptLookup() : ObjectEntity | FunctionEntity | null {
 
 		try{
             this.entity = this.contextualScope.requiredLookup(this.identifier, {paramTypes: this.i_paramTypes, isThisConst:this.containingFunction().type.isThisConst});
@@ -3195,31 +3197,86 @@ export class Identifier extends Expression {
             }
         }
 
-	},
+	}
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
+    // protected createRuntimeExpression_impl(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression> {
+    //     throw new Error("Method not implemented.");
+    // }
+    
 
-        this.done(sim, inst);
-        return true;
-    },
-
-    describeEvalResult : function(depth, sim, inst){
-        if (inst && inst.evalResult){
-            return inst.evalResult.describe();
+    public createRuntimeExpression_impl<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeObjectIdentifier<CompiledObjectIdentifier<T>>;
+    public createRuntimeExpression_impl<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionIdentifier<CompiledFunctionIdentifier<T>>;
+    public createRuntimeExpression_impl<T extends FunctionType>(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
+    public createRuntimeExpression_impl<T extends FunctionType>(parent: ExecutableRuntimeConstruct) {
+        if (this.entity instanceof FunctionEntity) {
+            return new RuntimeFunctionIdentifier(<any>this, parent);
         }
-        // Note don't care about depth since we always just use identifier
-        else{
-            return this.entity.describe(sim, inst);
+        else {
+            return new RuntimeObjectIdentifier(<any>this, parent);
         }
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return {message: this.entity.name};
     }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+    // describeEvalResult : function(depth, sim, inst){
+    //     if (inst && inst.evalResult){
+    //         return inst.evalResult.describe();
+    //     }
+    //     // Note don't care about depth since we always just use identifier
+    //     else{
+    //         return this.entity.describe(sim, inst);
+    //     }
+    // },
+
+    // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
+    //     return {message: this.entity.name};
+    // }
+}
+
+export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends TypedCompiledExpressionBase<Identifier, T, "lvalue"> {
+    public readonly type: T;
+    public readonly entity: ObjectEntity;
+}
+
+export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends TypedCompiledExpressionBase<Identifier, T, "lvalue"> {
+    public readonly type: T;
+    public readonly entity: FunctionEntity;
 }
 
 
+export class RuntimeObjectIdentifier<CE extends CompiledObjectIdentifier = CompiledObjectIdentifier> extends RuntimeExpression<CE> {
+
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+
+	protected upNextImpl() {
+        this.setEvalResult(<EvalResultType<CE>>this.model.entity.runtimeLookup(this));
+    }
+
+    protected stepForwardImpl(): void {
+        // do nothing
+    }
+}
+
+export class RuntimeFunctionIdentifier<CE extends CompiledFunctionIdentifier = CompiledFunctionIdentifier> extends RuntimeExpression<CE> {
+
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+
+	protected upNextImpl() {
+        this.setEvalResult(<EvalResultType<CE>>this.model.entity);
+    }
+
+    protected stepForwardImpl(): void {
+        // do nothing
+    }
+}
 
 
 // export var ThisExpression  = Expression.extend({
@@ -3241,36 +3298,36 @@ export class Identifier extends Expression {
 //     }
 // });
 
-export var EntityExpression  = Expression.extend({
-    _name: "EntityExpression",
-    valueCategory: "lvalue",
-    init : function(entity, ast, context){
-        this.initParent(ast, context);
-        this.entity = entity;
-        this.type = this.entity.type;
-    },
-    compile : function(){
+// export var EntityExpression  = Expression.extend({
+//     _name: "EntityExpression",
+//     valueCategory: "lvalue",
+//     init : function(entity, ast, context){
+//         this.initParent(ast, context);
+//         this.entity = entity;
+//         this.type = this.entity.type;
+//     },
+//     compile : function(){
 
-    },
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
-        this.done(sim, inst);
-    }
-});
+//     },
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
+//         this.done(sim, inst);
+//     }
+// });
 
 
 
-export var AuxiliaryExpression  = Expression.extend({
-    _name: "AuxiliaryExpression",
-    valueCategory: "prvalue",
-    init : function(type){
-        this.initParent(null, null);
-        this.type = type
-    },
-    compile : function(){
-        // Do nothing
-    }
-});
+// export var AuxiliaryExpression  = Expression.extend({
+//     _name: "AuxiliaryExpression",
+//     valueCategory: "prvalue",
+//     init : function(type){
+//         this.initParent(null, null);
+//         this.type = type
+//     },
+//     compile : function(){
+//         // Do nothing
+//     }
+// });
 
 
 

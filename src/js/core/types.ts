@@ -480,6 +480,8 @@ export type ObjectType = AtomicType | ArrayType | ClassType;
 
 export type PotentialReturnType = ObjectType | Reference | VoidType;
 
+export type PotentialParameterType = ObjectType | Reference;
+
 /**
  * Represents a type for an object that has a value.
  */

@@ -794,14 +794,8 @@ export var CPPError = {
     }
 };
 
-var NoteHandler = Class.extend({
-    _name : "NoteHandler",
-
-    /**
-     *
-     * @param {Note} note
-     */
-    addNote : function() {}
+interface NoteHandler { 
+    addNote(note: Note) : void;
 
 
-});
+}
