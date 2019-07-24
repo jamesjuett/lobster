@@ -629,8 +629,8 @@ export class Ternary extends Expression {
 
 export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<Ternary,T,V> {
     readonly condition: TypedCompiledExpression<Bool, "prvalue">;
-    readonly then: CompiledExpression;
-    readonly otherwise: CompiledExpression;
+    readonly then: TypedCompiledExpression<T,V>;
+    readonly otherwise: TypedCompiledExpression<T,V>;
 }
 
 export class RuntimeTernary<CE extends CompiledTernary = CompiledTernary> extends RuntimeExpression<CE> {
@@ -3407,7 +3407,6 @@ export class RuntimeNumericLiteral<CE extends NumericLiteral = NumericLiteral> e
 	protected upNextImpl() {
         this.setEvalResult(<EvalResultType<CE>>this.model.value);
         this.sim.pop();
-        return true;
 	}
 	
 	protected stepForwardImpl() {
@@ -3456,36 +3455,69 @@ export class RuntimeNumericLiteral<CE extends NumericLiteral = NumericLiteral> e
 // //	}
 // }
 
-export var Parentheses  = Expression.extend({
-    _name: "Parentheses",
-    i_childrenToCreate : ["subexpression"],
-    i_childrenToExecute : ["subexpression"],
+export class Parentheses extends Expression {
 
-    typeCheck : function(){
-        this.type = this.subexpression.type;
-        this.valueCategory = this.subexpression.valueCategory;
+    public readonly type: Type?;
+    public readonly valueCategory: ValueCategory?;
 
-    },
+    public readonly subexpression: Expression;
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        if (inst.index == "subexpressions") {
-            this.pushChildInstances(sim, inst);
-            inst.index = "done";
-            return true;
+    public readonly _t_compiled!: CompiledParentheses;
+
+    public constructor(context: ExecutableConstructContext, subexpression: Expression) {
+        super(context);
+
+        this.attach(this.subexpression = subexpression);
+        this.type = subexpression.type;
+        this.valueCategory = subexpression.valueCategory;
+
+    }
+
+    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<CompiledParentheses<T,V>>{
+        return new RuntimeParentheses(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+    // isTailChild : function(child){
+    //     return {isTail: true};
+    // }
+}
+
+export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<Parentheses,T,V> {
+    public subexpression: TypedCompiledExpression<T,V>;
+}
+
+const INDEX_PARENTHESES_SUBEXPRESSIONS = 0;
+const INDEX_PARENTHESES_DONE = 1;
+export class RuntimeParentheses<CE extends CompiledParentheses = CompiledParentheses> extends RuntimeExpression<CE> {
+
+    public subexpression: RuntimeExpression<SimilarTypedCompiledExpression<CE>>;
+
+    private index : typeof INDEX_PARENTHESES_SUBEXPRESSIONS | typeof INDEX_PARENTHESES_DONE = INDEX_PARENTHESES_SUBEXPRESSIONS;
+
+    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.subexpression = this.model.subexpression.createRuntimeExpression(this);
+    }
+
+	protected upNextImpl() {
+        if (this.index === INDEX_PARENTHESES_SUBEXPRESSIONS) {
+            this.sim.push(this.subexpression);
+            this.index = INDEX_PARENTHESES_DONE;
         }
         else {
-            inst.setEvalResult(inst.childInstances.subexpression.evalResult);
-            this.done(sim, inst);
+            this.setEvalResult(this.subexpression.evalResult!);
+            this.sim.pop();
         }
-        return true;
-    },
-
-    isTailChild : function(child){
-        return {isTail: true};
-    }
-});
-
-
+	}
+	
+	protected stepForwardImpl() {
+        // Do nothing
+	}
+}
 
 // OLD EXPRESSION JUNK BELOW
 
