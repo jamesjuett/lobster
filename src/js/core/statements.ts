@@ -18,9 +18,11 @@ export abstract class Statement extends InstructionConstruct {
 
 }
 
-export abstract class RuntimeStatement<Construct_type extends Statement = Statement> extends RuntimeInstruction<Construct_type> {
+export abstract class RuntimeStatement extends RuntimeInstruction {
     
-    public constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+    public readonly model!: Statement; // narrows type of member in base class
+
+    public constructor (model: Statement, parent: ExecutableRuntimeConstruct) {
         super(model, "statement", parent);
     }
 
@@ -88,8 +90,10 @@ export class ExpressionStatement extends Statement {
     }
 }
 
-export class RuntimeExpressionStatement extends RuntimeStatement<ExpressionStatement> {
+export class RuntimeExpressionStatement extends RuntimeStatement {
 
+    public readonly model!: ExpressionStatement; // narrows type of member in base class
+    
     public expression: RuntimeExpression;
     private index = "expr";
 
@@ -123,7 +127,9 @@ export class NullStatement extends Statement {
     }
 }
 
-export class RuntimeNullStatement extends RuntimeStatement<NullStatement> {
+export class RuntimeNullStatement extends RuntimeStatement {
+
+    public readonly model!: NullStatement; // narrows type of member in base class
 
     public constructor (model: NullStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -173,7 +179,9 @@ export class DeclarationStatement extends Statement {
     }
 }
 
-export class RuntimeDeclarationStatement extends RuntimeStatement<DeclarationStatement> {
+export class RuntimeDeclarationStatement extends RuntimeStatement {
+
+    public readonly model!: DeclarationStatement; // narrows type of member in base class
 
     private index = 0;
 
