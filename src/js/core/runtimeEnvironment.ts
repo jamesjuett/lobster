@@ -155,7 +155,7 @@ export class Memory {
     private staticTop!: number;
     private temporaryBottom!: number;
 
-    constructor(capacity: number, staticCapacity: number, stackCapacity: number) {
+    constructor(capacity?: number, staticCapacity?: number, stackCapacity?: number) {
         this.capacity = capacity || 10000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
         this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);

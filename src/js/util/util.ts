@@ -93,3 +93,35 @@ export function unescapeString(text){
     }
     return newStr;
 };
+
+export namespace MatlabMath {
+
+    // the initial seed
+    let seed = 0;
+
+    export function setRandomSeed(newSeed: number) {
+        seed = newSeed;
+    }
+
+    export function random(min: number = 0, max: number = 1) {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seededRandom(seed, min, max);
+    }
+
+    export function seededRandom(seed: number, min: number = 0, max: number = 1) {
+        var rnd = seed % 233280 / 233280;
+    
+        rnd = min + rnd * (max - min);
+        rnd = Math.max(min, Math.min(max, rnd));
+        return rnd;
+    }
+
+    export function range(start: number, end: number, step: number = 1) {
+        let arr = [];
+        while(start <= end) {
+            arr.push(start);
+            start += step;
+        }
+        return arr;
+    }
+}
