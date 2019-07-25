@@ -1,120 +1,90 @@
 import { Observable } from "../util/observe";
-import { Memory } from "./runtimeEnvironment";
-import { ExecutableRuntimeConstruct } from "./constructs";
+import { Memory, Value } from "./runtimeEnvironment";
+import { ExecutableRuntimeConstruct, RuntimeFunction } from "./constructs";
+import { Mutable } from "../util/util";
+import { FunctionCall } from "./expressions";
+import { Initializer } from "./initializers";
+import { CPPObject, DynamicObject } from "./objects";
+import { FunctionDefinition } from "./declarations";
+
+enum SimulationEvent {
+    UNDEFINED_BEHAVIOR = "undefined_behavior",
+    UNSPECIFIED_BEHAVIOR = "unspecified_behavior",
+    IMPLEMENTATION_DEFINED_BEHAVIOR = "implementation_defined_behavior",
+    MEMORY_LEAK = "memory_leak",
+    ASSERTION_FAILURE = "assertion_failure",
+    CRASH = "crash",
+}
 
 // TODO: add observer stuff
 export class Simulation {
 
     public readonly observable = new Observable(this);
 
+    public readonly program: Program;
+
     public readonly memory: Memory;
 
+    private readonly _execStack: ExecutableRuntimeConstruct[];
+    public readonly execStack: readonly ExecutableRuntimeConstruct[];
 
-	public push(rt: ExecutableRuntimeConstruct) {
-		this.i_execStack.push(codeInstance);
-		codeInstance.pushed(this);
-		this.send("pushed", codeInstance, this);
-    }
-    
-    public pop() {
-        
-    }
+    public readonly console : ValueEntity;
 
-	// REQUIRES: query is either a string indicating a stackType
-	//           or an instance on the stack.
-	// pop : function(query, returnArray){
-	// 	if (query){
-	// 		var poppedArr = [];
-	// 		var popped;
-	// 		while (this.i_execStack.length > 0){
-	// 			popped = this.i_execStack.pop();
-	// 			popped.popped(this);
-    //             if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
-    //                 this.leakCheck();
-    //             }
+    public readonly stepsTaken : number;
 
-	// 			poppedArr.push(popped);
-	// 			var current = (typeof query == "string" ? popped.stackType : popped);
-	// 			if (current == query){
-	// 				break;
-	// 			}
-	// 		}
-	// 		return (returnArray ? poppedArr : popped);
-	// 	}
-	// 	else{
-	// 		var popped = this.i_execStack.pop();
-    //         popped.popped(this);
-    //         if (isA(popped.model, Statements.Statement) || isA(popped.model, FunctionDefinition)){
-    //             this.leakCheck();
-    //         }
-	// 		return popped;
-	// 	}
-	// }
+    private pendingNews : DynamicObject[];
+    private leakCheckIndex : number;
 
-    _name: "Simulation",
+    public readonly eventsOccurred : {
+        [index: SimulationEvent]: readonly string[];
+    } = {};
 
-    MAX_SPEED: -13445, // lol
-    EVENT_UNDEFINED_BEHAVIOR : "undefined_behavior",
-    EVENT_UNSPECIFIED_BEHAVIOR : "unspecified_behavior",
-    EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR : "implementation_defined_behavior",
-    EVENT_MEMORY_LEAK : "memory_leak",
-    EVENT_ASSERTION_FAILURE : "assertion_failure",
-    EVENT_CRASH : "crash",
+    // MAX_SPEED: -13445, // lol TODO
 
-    init: function(program){
-        this.initParent();
+    constructor(program: Program) {
+        this.program = program;
 
-        this.speed = Simulation.MAX_SPEED;
+        // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;
 
         this.i_program = program;
 
         // These things need be reset when the simulation is reset
-        this.memory = Memory.instance();
+        this.memory = new Memory();
         this.console = ValueEntity.instance("console", "");
-        this.i_execStack = [];
-        this.i_pendingNews = [];
-        this.i_leakCheckIndex = 0;
 
+        this.execStack = this._execStack = [];
 
-        if (this.i_program.getMainEntity() && !this.i_program.hasErrors()){
+        this.pendingNews = [];
+        this.leakCheckIndex = 0;
+
+        this.isPaused = true;
+        this.stepsTaken = 0;
+
+        if (this.program.getMainEntity() && !this.program.hasErrors()) {
             this.start();
         }
-    },
+    }
 
-    getProgram : function() {
-        return this.i_program;
-    },
 
-    setProgram : function(program) {
-        this.i_program = program;
-    },
+    public readonly isPaused = true;
 
-    clear : function(){
-    },
 
-    stepsTaken : function() {
-        return this.i_stepsTaken;
-    },
+    public start() {
 
-	start : function(){
-        this.i_paused = true;
-		this.i_stepsTaken = 0;
-		this.i_eventsOccurred = {};
         this.seedRandom("random seed");
 
-        this.send("cleared");
-        this.memory.reset();
-        this.i_execStack.clear();
-        this.console.setValue("");
-
-
-        this.i_pendingNews = [];
-        this.i_leakCheckIndex = 0;
 
         // TODO change this to just call runtime library functions in order to create the runtime construct for
         // the main function definition, initialize arguments (i.e. argc and argv) if present, etc.
         // This will avoid the awkwardness of some of the runtime constructs like the call to main having no
         // containing function.
+        let mainCall = new MainCall();
+        this.rtMainCall = mainCall.createRuntimeFunctionCall();
+        this.mainFunction : RuntimeFunction = this.program.mainEntity.definition.createRuntimeFunction();
+
+
+
+
         var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
         mainCall.compile({func: this.i_program.getMainEntity()});
         this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
@@ -141,7 +111,7 @@ export class Simulation {
         this.upNext();
 
         // Get through all static initializers and stuff before main
-        if (anyStaticInits){
+        if (anyStaticInits) {
             this.i_mainCallInst.setPauseWhenUpNext();
             this.i_paused = false;
             while (!this.i_paused){
@@ -155,7 +125,31 @@ export class Simulation {
         this.stepForward(); // To call main
         this.i_stepsTaken = 0;
 
-	},
+    }
+    
+    private seedRandom(seed) {
+        Math.seedrandom(""+seed);
+    }
+    
+    public push(rt: ExecutableRuntimeConstruct) {
+        this._execStack.push(rt);
+        rt.pushed();
+        this.observable.send("pushed", rt);
+    }
+    
+    /**
+     * Removes the top runtime construct from the execution stack.
+     * Does nothing if there's nothing on the execution stack.
+     */
+    public pop() {
+        let popped = this._execStack.pop();
+        if (popped) {
+            popped.popped();
+            if (popped.stackType === "statement" || popped.stackType === "function") {
+                this.leakCheck();
+            }
+        }
+    }
 
     i_allocateStringLiterals : function() {
         var self = this;
@@ -506,10 +500,6 @@ export class Simulation {
     },
     pause : function(){
         this.i_paused = true;
-    },
-
-    seedRandom : function(seed){
-        Math.seedrandom(""+seed);
     },
 
     nextRandom : function(){

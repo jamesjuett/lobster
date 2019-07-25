@@ -328,7 +328,7 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
     public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
 
-    // public readonly containingFunction: FunctionDefinition;
+    public readonly containingFunction: FunctionDefinition;
     
     protected constructor(context: ExecutableConstructContext) {
         super(context);
@@ -493,6 +493,7 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
     }
 }
 
+export type StackType = "statement" | "expression" | "initializer" | "function";
 
 export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruct = ExecutableConstruct> {
 
@@ -500,7 +501,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
 
     public readonly sim: Simulation;
     public readonly model: Construct_type;
-    public readonly stackType: string;
+    public readonly stackType: StackType;
 
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
 
@@ -515,7 +516,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: Construct_type, stackType: string, parent: RuntimeConstruct) {
+    public constructor (model: Construct_type, stackType: StackType, parent: RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
