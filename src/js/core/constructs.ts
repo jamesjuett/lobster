@@ -495,12 +495,12 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
 
 export type StackType = "statement" | "expression" | "initializer" | "function";
 
-export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruct = ExecutableConstruct> {
+export abstract class RuntimeConstruct {
 
     public readonly observable = new Observable(this);
 
     public readonly sim: Simulation;
-    public readonly model: Construct_type;
+    public readonly model: ExecutableConstruct;
     public readonly stackType: StackType;
 
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
@@ -516,7 +516,7 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: Construct_type, stackType: StackType, parent: RuntimeConstruct) {
+    public constructor (model: ExecutableConstruct, stackType: StackType, parent: RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
@@ -630,24 +630,26 @@ export abstract class RuntimeConstruct<Construct_type extends ExecutableConstruc
 // TODO: this is just the same as RuntimeConstruct right now
 export type ExecutableRuntimeConstruct = RuntimeConstruct;// = RuntimeFunction | RuntimeInstruction;
 
-export abstract class RuntimeInstruction<Construct_type extends InstructionConstruct = InstructionConstruct>
-    extends RuntimeConstruct<Construct_type> {
+export abstract class RuntimeInstruction extends RuntimeConstruct {
     
+    public readonly model!: InstructionConstruct; // narrows type of member in base class
+
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (model: Construct_type, stackType: string, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: InstructionConstruct, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
 }
 
 
-export abstract class RuntimePotentialFullExpression<Construct_type extends PotentialFullExpression = PotentialFullExpression>
-    extends RuntimeInstruction<Construct_type> {
+export abstract class RuntimePotentialFullExpression extends RuntimeInstruction {
+
+    public readonly model!: PotentialFullExpression; // narrows type of member in base class
 
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
 
-    public constructor(model: Construct_type, stackType: string, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: PotentialFullExpression, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
             this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
@@ -662,7 +664,9 @@ export abstract class RuntimePotentialFullExpression<Construct_type extends Pote
     }
 }
 
-export class RuntimeTemporaryDeallocator extends RuntimeInstruction<TemporaryDeallocator> {
+export class RuntimeTemporaryDeallocator extends RuntimeInstruction {
+
+    public readonly model!: TemporaryDeallocator; // narrows type of member in base class
 
     private index = 0;
     private justDestructed: boolean = false;
@@ -710,7 +714,9 @@ export class RuntimeTemporaryDeallocator extends RuntimeInstruction<TemporaryDea
 
 
 
-export class RuntimeFunction extends RuntimeConstruct<FunctionDefinition> {
+export class RuntimeFunction extends RuntimeConstruct {
+
+    public readonly model!: FunctionDefinition; // narrows type of member in base class
 
     public readonly caller: RuntimeFunctionCall;
     public readonly containingRuntimeFunction: RuntimeFunction;
