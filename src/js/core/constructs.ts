@@ -716,7 +716,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeInstruction {
 
 export class RuntimeFunction extends RuntimeConstruct {
 
-    public readonly model!: FunctionDefinition; // narrows type of member in base class
+    public readonly model!: CompiledFunctionDefinition; // narrows type of member in base class
 
     public readonly caller: RuntimeFunctionCall;
     public readonly containingRuntimeFunction: RuntimeFunction;
