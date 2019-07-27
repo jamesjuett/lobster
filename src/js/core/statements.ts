@@ -20,7 +20,7 @@ export abstract class Statement extends InstructionConstruct {
 
 export abstract class RuntimeStatement extends RuntimeInstruction {
     
-    public readonly model!: Statement; // narrows type of member in base class
+    public readonly model!: CompiledStatement; // narrows type of member in base class
 
     public constructor (model: Statement, parent: ExecutableRuntimeConstruct) {
         super(model, "statement", parent);
@@ -92,7 +92,7 @@ export class ExpressionStatement extends Statement {
 
 export class RuntimeExpressionStatement extends RuntimeStatement {
 
-    public readonly model!: ExpressionStatement; // narrows type of member in base class
+    public readonly model!: CompiledExpressionStatement; // narrows type of member in base class
     
     public expression: RuntimeExpression;
     private index = "expr";
