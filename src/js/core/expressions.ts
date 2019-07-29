@@ -4,11 +4,11 @@ import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, Executabl
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
-import { CPPObject } from "./objects";
-import { Value, RawValueType } from "./runtimeEnvironment";
+import { CPPObject, CPPObjectType } from "./objects";
+import { Value, RawValueType, ValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, NumericType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, NumericType, ArithmeticType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
@@ -136,8 +136,8 @@ type VCResultTypes<T extends Type> =
     :
     T extends ObjectType ? {
         readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
+        readonly xvalue: CPPObjectType<T>;
+        readonly lvalue: CPPObjectType<T>;
     }
     :
     T extends FunctionType ? {
@@ -609,8 +609,10 @@ export class Ternary extends Expression {
         return {then, otherwise};
     }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<T,V> {
-        return new RuntimeTernary(<CompiledTernary<T,V>>this, parent);
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<T,V>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<T,V> {
+        return new RuntimeTernary(this, parent);
     }
 
     // TODO
@@ -2408,11 +2410,10 @@ export class FunctionCall extends PotentialFullExpression {
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
 
+        // No returns for void functions, of course.
+        // If return by reference, the return object already exists and no need to create a temporary.
+        // Else, for a return by value, we do need to create a temporary object.
         let returnType = this.func.type.returnType;
-        // Transplanted from FunctionCall class, should be adjusted for here
-        // If we are returning by value, then we need to create a temporary object to copy-initialize.
-        // If we are returning by reference, the return object for inst.func will be bound to what we return.
-        // Temporary references do not use extra space and won't be automatically destructed.
         if (returnType instanceof VoidType) {
             this.returnTarget = null;
         }
@@ -2508,15 +2509,17 @@ export class FunctionCall extends PotentialFullExpression {
 
 }
 
-export interface CompiledFunctionCall extends FunctionCall, CompiledConstruct {
-
+export interface CompiledFunctionCall<T extends PotentialReturnType, V extends ValueCategory> extends FunctionCall, CompiledConstruct {
+    
 }
 
 const INDEX_FUNCTION_CALL_PUSH = 0;
 const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 const INDEX_FUNCTION_CALL_CALL = 2;
 const INDEX_FUNCTION_CALL_RETURN = 2;
-export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall> {
+export class RuntimeFunctionCall extends RuntimeInstruction {
+
+    public readonly model!: CompiledFunctionCall; // narrows type of member in base class
 
     // public readonly functionDef : FunctionDefinition;
     public readonly calledFunction : RuntimeFunction;
@@ -2529,7 +2532,7 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function, in which case it will be null.
      */
-    public readonly returnObject?: CPPObject | null;
+    public readonly returnObject?: CPPObjectType<ObjectType> | null;
 
     // public readonly hasBeenCalled: boolean = false;
 
@@ -2556,7 +2559,7 @@ export class RuntimeFunctionCall extends RuntimeInstruction<CompiledFunctionCall
         this.index = INDEX_FUNCTION_CALL_CALL;
     }
 
-    public setReturnObject(obj: CPPObject | null) {
+    public setReturnObject(obj: CPPObjectType<ObjectType> | null) {
         // This should only be used once
         Util.assert(!this.returnObject);
         (<Mutable<this>>this).returnObject = obj;
@@ -2613,13 +2616,13 @@ export class FunctionCallExpression extends Expression {
     public readonly type: PotentialReturnType?;
     public readonly valueCategory: ValueCategory?;
 
-    public readonly call: FunctionCall;
-    public readonly operand: Identifier | Dot;
+    public readonly operand: Identifier | Dot | Arrow;
     public readonly args: readonly Expression[];
+    public readonly call: FunctionCall?;
     
     public readonly _t_compiled!: CompiledFunctionCallExpression;
 
-    public constructor(context: ExecutableConstructContext, operand: Identifier | Dot, args: readonly Expression[]) {
+    public constructor(context: ExecutableConstructContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2628,7 +2631,7 @@ export class FunctionCallExpression extends Expression {
 
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
-            this.type = null;
+            this.type = this.valueCategory = this.call = null;
             return;
         }
 
@@ -2638,12 +2641,12 @@ export class FunctionCallExpression extends Expression {
         // }
 
         if (!operand.entity) { // TODO: check if identifier/dot/arrow has an entity i.e. has it found a function
-            this.type = null;
+            this.type = this.valueCategory = this.call = null;
             return;
         }
 
         if (!(operand.entity instanceof FunctionEntity)) {
-            this.type = null;
+            this.type = this.valueCategory = this.call = null;
             this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
             return;
         }
@@ -2675,8 +2678,12 @@ export class FunctionCallExpression extends Expression {
     // }
 }
 
-export interface CompiledFunctionCallExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<FunctionCallExpression,T,V> {
-    public readonly operand: CompiledIdentifier | CompiledDot;
+export interface CompiledFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCallExpression, CompiledConstruct {
+    
+    public readonly type: T;
+    public readonly valueCategory: V;
+    
+    public readonly operand: CompiledIdentifier | CompiledDot | CompiledArrow;
     public readonly args: readonly CompiledExpression[];
     public readonly call: CompiledFunctionCall;
 }
@@ -2684,15 +2691,17 @@ export interface CompiledFunctionCallExpression<T extends Type = Type, V extends
 const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
 const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-export class RuntimeFunctionCallExpression<CE extends CompiledFunctionCallExpression = CompiledFunctionCallExpression> extends RuntimeExpression<CE> {
+export class RuntimeFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
 
-    public readonly operand: RuntimeExpression<CompiledExpression>;
-    public readonly args: readonly RuntimeExpression<CompiledExpression>[];
+    public readonly model!: CompiledFunctionCallExpression<T,V>; // narrows type of member in base class
+
+    public readonly operand: RuntimeFunctionIdentifier | RuntimeDot | RuntimeArrow;
+    public readonly args: readonly RuntimeExpression[];
     public readonly call: RuntimeFunctionCall;
 
     private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledFunctionCallExpression<T,V>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.operand = this.model.operand.createRuntimeExpression(this);
         this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
@@ -2713,7 +2722,7 @@ export class RuntimeFunctionCallExpression<CE extends CompiledFunctionCallExpres
             if (this.model.type instanceof VoidType) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
-            this.setEvalResult(<EvalResultType<CE>>this.call.returnObject!); // TODO: eeew cast
+            this.setEvalResult(this.call.returnObject!); // TODO: eeew cast
             this.sim.pop();
         }
 	}
@@ -3260,10 +3269,10 @@ export class Identifier extends Expression {
     // }
     
 
-    public createRuntimeExpression_impl<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeObjectIdentifier<CompiledObjectIdentifier<T>>;
-    public createRuntimeExpression_impl<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionIdentifier<CompiledFunctionIdentifier<T>>;
-    public createRuntimeExpression_impl<T extends FunctionType>(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
-    public createRuntimeExpression_impl<T extends FunctionType>(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeObjectIdentifier<T>;
+    public createRuntimeExpression<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionIdentifier<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends FunctionType>(parent: ExecutableRuntimeConstruct) {
         if (this.entity instanceof FunctionEntity) {
             return new RuntimeFunctionIdentifier(<any>this, parent);
         }
@@ -3291,26 +3300,29 @@ export class Identifier extends Expression {
     // }
 }
 
-export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends TypedCompiledExpressionBase<Identifier, T, "lvalue"> {
+export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, CompiledConstruct {
     public readonly type: T;
+    public readonly valueCategory: "lvalue";
     public readonly entity: ObjectEntity;
 }
 
-export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends TypedCompiledExpressionBase<Identifier, T, "lvalue"> {
+export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, CompiledConstruct {
     public readonly type: T;
+    public readonly valueCategory: "lvalue";
     public readonly entity: FunctionEntity;
 }
 
 
-export class RuntimeObjectIdentifier<CE extends CompiledObjectIdentifier = CompiledObjectIdentifier> extends RuntimeExpression<CE> {
+export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpression<T, "lvalue"> {
 
+    public readonly model!: CompiledObjectIdentifier<T>; // narrows type of member in base class
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
 	protected upNextImpl() {
-        this.setEvalResult(<EvalResultType<CE>>this.model.entity.runtimeLookup(this));
+        this.setEvalResult(this.model.entity.runtimeLookup(this));
         this.sim.pop();
     }
 
@@ -3319,15 +3331,16 @@ export class RuntimeObjectIdentifier<CE extends CompiledObjectIdentifier = Compi
     }
 }
 
-export class RuntimeFunctionIdentifier<CE extends CompiledFunctionIdentifier = CompiledFunctionIdentifier> extends RuntimeExpression<CE> {
+export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeExpression<T, "lvalue"> {
 
+    public readonly model!: CompiledFunctionIdentifier<T>; // narrows type of member in base class
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
 	protected upNextImpl() {
-        this.setEvalResult(<EvalResultType<CE>>this.model.entity);
+        this.setEvalResult(this.model.entity);
     }
 
     protected stepForwardImpl(): void {
@@ -3410,19 +3423,17 @@ var literalTypes = {
     "char" : Char
 };
 
-export class NumericLiteral<T extends NumericType = NumericType> extends Expression implements CompiledExpression {
+export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression implements CompiledConstruct {
     
 
     public readonly type: T;
     public readonly valueCategory = "prvalue";
 
     public readonly _t_compiled!: NumericLiteral<T>;
-    
-    public readonly _t_isCompiled: never;
 
 
     
-    public readonly value: Value<T>;
+    public readonly value: ValueType<T>;
 
     // create from ast code:
     // TODO: are there some literal types without conversion functions? There shouldn't be...
@@ -3436,12 +3447,15 @@ export class NumericLiteral<T extends NumericType = NumericType> extends Express
 
         this.type = type;
 
-        this.value = new Value(value, this.type);  //TODO fix this (needs type?)
+        this.value = new Value(value, this.type);  //TODO fix this (maybe with a factory function for values?)
 	}
 
-    protected createRuntimeExpression_impl(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression<CompiledExpression> {
-        throw new Error("Method not implemented.");
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) : RuntimeNumericLiteral<T>;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) : RuntimeNumericLiteral<T> {
+        return new RuntimeNumericLiteral(this, parent);
     }
+
     public describeEvalResult(depth: number): Description {
         throw new Error("Method not implemented.");
     }
@@ -3458,10 +3472,20 @@ export class NumericLiteral<T extends NumericType = NumericType> extends Express
 //	}
 }
 
-export class RuntimeNumericLiteral<CE extends NumericLiteral = NumericLiteral> extends RuntimeExpression<CE> {
+export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticType> extends NumericLiteral<T>, CompiledConstruct {
+
+}
+
+export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> extends RuntimeExpression<T, "prvalue"> {
+
+    public readonly model!: CompiledNumericLiteral<T>; // narrows type of member in base class
+
+    public constructor (model: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
 
 	protected upNextImpl() {
-        this.setEvalResult(<EvalResultType<CE>>this.model.value);
+        this.setEvalResult(this.model.value);
         this.sim.pop();
 	}
 	
@@ -3529,7 +3553,10 @@ export class Parentheses extends Expression {
 
     }
 
-    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<CompiledParentheses<T,V>>{
+
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<T,V>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<T,V> {
         return new RuntimeParentheses(this, parent);
     }
 
@@ -3542,19 +3569,26 @@ export class Parentheses extends Expression {
     // }
 }
 
-export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedCompiledExpressionBase<Parentheses,T,V> {
-    public subexpression: TypedCompiledExpression<T,V>;
+
+// TODO: should these interface definitions have "public" in them? what is best style?
+export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Parentheses, CompiledConstruct {
+    public readonly type: T;
+    public readonly valueCategory: V;
+
+    public readonly subexpression: CompiledExpression<T,V>;
 }
 
 const INDEX_PARENTHESES_SUBEXPRESSIONS = 0;
 const INDEX_PARENTHESES_DONE = 1;
-export class RuntimeParentheses<CE extends CompiledParentheses = CompiledParentheses> extends RuntimeExpression<CE> {
+export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
 
-    public subexpression: RuntimeExpression<SimilarTypedCompiledExpression<CE>>;
+    public readonly model!: CompiledParentheses<T,V>; // narrows type of member in base class
+
+    public subexpression: RuntimeExpression<T,V>;
 
     private index : typeof INDEX_PARENTHESES_SUBEXPRESSIONS | typeof INDEX_PARENTHESES_DONE = INDEX_PARENTHESES_SUBEXPRESSIONS;
 
-    public constructor (model: CE, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.subexpression = this.model.subexpression.createRuntimeExpression(this);
     }

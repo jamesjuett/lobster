@@ -193,6 +193,12 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 //     }
 // }
 
+
+// Distributes the object type over the object class.
+// e.g. CPPObjectType<AtomicType | ClassType> = CPPObject<AtomicType> | CPPObject<ClassType>
+// TODO, should this have a default for the type parameter T?
+export type CPPObjectType<T extends ObjectType> = T extends ObjectType ? CPPObject<T> : never;
+
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
 // template parameter. (Rather than the current awkward composition and conditional method strategy)

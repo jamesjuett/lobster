@@ -1,6 +1,6 @@
 import { assert, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject, CPPObjectType } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
@@ -8,6 +8,8 @@ import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
+
+export type ValueType<T extends AtomicType> = T extends AtomicType ? Value<T> : never;
 
 export class Value<T extends AtomicType = AtomicType> {
     private static _name = "Value";
@@ -145,7 +147,7 @@ export class Memory {
     // Definite assignment assertions with ! are for properties initialized in the reset function called
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
-    private objects!: { [index: number]: CPPObject };
+    private objects!: { [index: number]: CPPObjectType<ObjectType> };
     private stringLiteralMap!: { [index: string]: StringLiteralObject };
     private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
@@ -346,7 +348,7 @@ export class Memory {
     }
     
 
-    private allocateObject(object: CPPObject) {
+    private allocateObject(object: CPPObjectType<ObjectType>) {
         this.objects[object.address] = object;
     }
 
@@ -628,7 +630,7 @@ export class MemoryFrame {
     public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) : RuntimeReference<T> {
         return (<RuntimeReference<T> | undefined>this.localReferencesByEntityId[entity.entityId]) || assertFalse("Attempt to look up referred object before reference was bound.");
     }
-    public bindReference(entity: LocalReferenceEntity, obj: CPPObject) {
+    public bindReference(entity: LocalReferenceEntity, obj: CPPObjectType<ObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = new RuntimeReference(entity, obj);
     }
 
