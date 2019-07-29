@@ -3,7 +3,7 @@ import {CPPConstruct} from "./constructs";
 import {CPPError} from "./errors";
 import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
-import { CPPObject, Subobject } from "./objects";
+import { CPPObject, Subobject, CPPObjectType } from "./objects";
 import flatten from "lodash/flatten";
 import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
@@ -853,9 +853,9 @@ export class ArrayPointer extends Pointer {
 
 export class ObjectPointer extends Pointer {
 
-    public readonly pointedObject: CPPObject;
+    public readonly pointedObject: CPPObjectType<ObjectType>;
 
-    public constructor(obj: CPPObject, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(obj: CPPObjectType<ObjectType>, isConst?: boolean, isVolatile?: boolean) {
         super(obj.type, isConst, isVolatile);
         this.pointedObject = obj;
     }

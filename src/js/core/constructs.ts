@@ -493,7 +493,7 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
     }
 }
 
-export type StackType = "statement" | "expression" | "initializer" | "function";
+export type StackType = "statement" | "expression" |  "function" | "initializer" |"call";
 
 export abstract class RuntimeConstruct {
 

@@ -6,7 +6,7 @@ import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Cha
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, CPPObjectType } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
@@ -508,14 +508,14 @@ export abstract class CPPEntity<T extends Type = Type> {
 };
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T>;
 }
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
     protected static _name = "NamedEntity";
 
     // public static linkage: "none", // TODO NEW make this abstract
-
+    
     public readonly name: string;
 
     /**
@@ -652,22 +652,22 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 };
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T>;
 }
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) : void;
+    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) : void;
 }
 
 //TODO: rename to specifically for local references
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) {
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
     }
@@ -686,7 +686,7 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
 export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject) {
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) {
         rtConstruct.containingRuntimeFunction.caller.setReturnObject(obj);
     }
 
@@ -704,9 +704,9 @@ export class RuntimeReference<T extends ObjectType = ObjectType> {
     public readonly observable = new Observable(this);
 
     public readonly entity: BoundReferenceEntity<T>;
-    public readonly refersTo: CPPObject<T>;
+    public readonly refersTo: CPPObjectType<T>;
 
-    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
+    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObjectType<T>) {
         this.entity = entity;
         
 
