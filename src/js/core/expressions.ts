@@ -1126,12 +1126,17 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> exten
     readonly right: CompiledExpression<AtomicType, "prvalue">
 }
 
-export class RuntimeSimpleBinaryOperator<T extends AtomicType> extends SimpleRuntimeExpression<T, "prvalue"> {
-    
+// TODO: I think this class shouldn't exist. It should probably just be RuntimeSimpleBinaryOperator
+// (which itself should perhaps just be RuntimeArithmeticBinaryOperator). It gives the impression
+// that this would be a base for all Runtime classes for binary operators, but it isn't for
+// RuntimeLogicalBinaryOperator since that one runs differently to handle short-circuit behavior
+// correctly.
+export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T, "prvalue"> {
+
     public readonly model!: CompiledBinaryOperator<T>; // narrows type of member in base class
 
-    public left: RuntimeExpression<AtomicType, "prvalue">;
-    public right: RuntimeExpression<AtomicType, "prvalue">;
+    public readonly left: RuntimeExpression<AtomicType, "prvalue">;
+    public readonly right: RuntimeExpression<AtomicType, "prvalue">;
 
     public constructor (model: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -1139,14 +1144,24 @@ export class RuntimeSimpleBinaryOperator<T extends AtomicType> extends SimpleRun
         this.right = this.model.right.createRuntimeExpression(this);
         this.setSubexpressions([this.left, this.right]);
     }
+}
 
+// TODO: rename this or maybe create two separate classes for Arithmetic and Logical
+export class RuntimeSimpleBinaryOperator<T extends AtomicType> extends RuntimeBinaryOperator<T> {
     public operate() {
         this.setEvalResult(binaryOperate(this.model.operator, this.left.evalResult!, this.right.evalResult!));
     }
 }
 
-
-
+// TODO: make types more specific. ArithmeticBinaryOperator should only be used in cases where it has
+// already been determined that both operands have arithmetic type. Either that or it should be used
+// in cases where an operator requires arithmetic operands, but not sure. For example, what if someone
+// tries to add a pointer type and a class type with the + operator (assuming overloads already checked
+// and none found). What TS class do we want to get used, s that the error messages are as good as possible?
+// Considering thie and LogicalBinaryOperator together, it actually seems best to create this in a way that
+// is based on the operator used and actually allows for improper types. That should result in the most relevant
+// error messages. (Of course, overloads are still checked for first, and the specific pointer offset and
+// pointer difference cases should also be checked for first. So these are the fallback options.)
 class ArithmeticBinaryOperator extends BinaryOperator {
     
     public readonly type: AtomicType?;
@@ -1201,6 +1216,7 @@ class ArithmeticBinaryOperator extends BinaryOperator {
         this.attach(this.left = left);
         this.attach(this.right = right);
     }
+
     public createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<T>;
     public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
     public createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<T> {
@@ -1212,15 +1228,15 @@ class ArithmeticBinaryOperator extends BinaryOperator {
     }
 }
 
-
+// TODO: Add CompiledArithmeticBinaryOperator?
 
 
 class PointerOffset extends BinaryOperator {
     
     public readonly type: Pointer?;
 
-    public readonly left: Expression;
-    public readonly right: Expression;
+    public readonly left: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
+    public readonly right: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
 
     public readonly pointer?: TypedExpression<Pointer, "prvalue">;
     public readonly offset?: TypedExpression<IntegralType, "prvalue">;
@@ -1229,13 +1245,14 @@ class PointerOffset extends BinaryOperator {
 
     public readonly operator! : "+"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+    protected constructor(context: ExecutableConstructContext, left: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
         super(context, "+");
 
-        if (left.isWellTyped() && right.isWellTyped()) {
-            left = convertToPRValue(left);
-            right = convertToPRValue(right);
-        }
+        // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
+        // if (left.isWellTyped() && right.isWellTyped()) {
+        //     left = convertToPRValue(left);
+        //     right = convertToPRValue(right);
+        // }
 
         this.attach(this.left = left);
         this.attach(this.right = right);
@@ -1264,7 +1281,9 @@ class PointerOffset extends BinaryOperator {
         }
     }
 
-    public createRuntimeExpression_impl(this: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerOffset> {
+    public createRuntimeExpression<T extends Pointer>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T>;
+    public createRuntimeExpression<T extends Pointer, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends Pointer>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T> {
         return new RuntimePointerOffset(this, parent);
     }
 
@@ -1273,26 +1292,31 @@ class PointerOffset extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerOffset extends TypedCompiledExpressionBase<PointerOffset,Pointer,"prvalue"> {
-    readonly left: TypedCompiledExpression<AtomicType, "prvalue">
-    readonly right: TypedCompiledExpression<AtomicType, "prvalue">
+export interface CompiledPointerOffset<T extends Pointer = Pointer> extends PointerOffset, CompiledConstruct {
+
+    readonly type: T;
+
+    readonly left: CompiledExpression<Pointer, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
+    readonly right: CompiledExpression<Pointer, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
     
-    public readonly pointer: TypedCompiledExpression<Pointer, "prvalue">;
-    public readonly offset: TypedCompiledExpression<IntegralType, "prvalue">;
+    readonly pointer: CompiledExpression<Pointer, "prvalue">;
+    readonly offset: CompiledExpression<IntegralType, "prvalue">;
     
-    public readonly pointerOnLeft?: boolean;
+    readonly pointerOnLeft?: boolean;
 }
 
 
-export class RuntimePointerOffset extends SimpleRuntimeExpression<CompiledPointerOffset> {
+export class RuntimePointerOffset<T extends Pointer = Pointer> extends RuntimeBinaryOperator<T> {
 
-    public left: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
-    public right: RuntimeExpression<TypedCompiledExpression<AtomicType, "prvalue">>;
+    public readonly model!: CompiledPointerOffset<T>; // narrows type of member in base class
 
-    public pointer: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
-    public offset: RuntimeExpression<TypedCompiledExpression<IntegralType, "prvalue">>;
+    public readonly left: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
+    public readonly right: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
 
-    public constructor (model: CompiledPointerOffset, parent: ExecutableRuntimeConstruct) {
+    public readonly pointer: RuntimeExpression<Pointer, "prvalue">;
+    public readonly offset: RuntimeExpression<IntegralType, "prvalue">;
+
+    public constructor (model: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.pointer = this.model.pointer.createRuntimeExpression(this);
         this.offset = this.model.offset.createRuntimeExpression(this);
@@ -1333,40 +1357,48 @@ export class RuntimePointerOffset extends SimpleRuntimeExpression<CompiledPointe
 
 class PointerDifference extends BinaryOperator {
     
-    public readonly type: IntegralType?;
+    public readonly type: Int;
+    public readonly valueCategory = "prvalue";
 
-    public readonly left: Expression;
-    public readonly right: Expression;
+    public readonly left: TypedExpression<Pointer, "prvalue">;
+    public readonly right: TypedExpression<Pointer, "prvalue">;
 
     public readonly operator! : "-"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+    protected constructor(context: ExecutableConstructContext, left: TypedExpression<Pointer, "prvalue">, right: TypedExpression<Pointer, "prvalue">) {
         super(context, "-");
 
-        if (left.isWellTyped() && right.isWellTyped()) {
-            left = convertToPRValue(left);
-            right = convertToPRValue(right);
-        }
+        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
+        // if (left.isWellTyped() && right.isWellTyped()) {
+        //     left = convertToPRValue(left);
+        //     right = convertToPRValue(right);
+        // }
 
         this.attach(this.left = left);
         this.attach(this.right = right);
 
-        if (left.isWellTyped() && right.isWellTyped()) {
+        this.type = new Int();
+
+        
+        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
+        // if (left.isWellTyped() && right.isWellTyped()) {
             
-            if (left.type.isType(Pointer) && right.type.isType(Pointer)) {
-                this.type = new Int();
-            }
-            else {
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
-                this.type = null;
-            }
-        }
-        else {
-            this.type = null;
-        }
+        //     if (left.type.isType(Pointer) && right.type.isType(Pointer)) {
+        //         this.type = new Int();
+        //     }
+        //     else {
+        //         this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
+        //         this.type = null;
+        //     }
+        // }
+        // else {
+        //     this.type = null;
+        // }
     }
 
-    public createRuntimeExpression_impl(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledPointerDifference> {
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference;
+    public createRuntimeExpression<T extends Pointer, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference {
         return new RuntimePointerDifference(this, parent);
     }
 
@@ -1375,15 +1407,17 @@ class PointerDifference extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerDifference extends TypedCompiledExpressionBase<PointerDifference,IntegralType,"prvalue"> {
-    readonly left: TypedCompiledExpression<Pointer, "prvalue">
-    readonly right: TypedCompiledExpression<Pointer, "prvalue">
+export interface CompiledPointerDifference extends PointerDifference, CompiledConstruct {
+    public readonly left: CompiledExpression<Pointer, "prvalue">;
+    public readonly right: CompiledExpression<Pointer, "prvalue">;
 }
 
-export class RuntimePointerDifference extends SimpleRuntimeExpression<CompiledPointerDifference> {
+export class RuntimePointerDifference extends RuntimeBinaryOperator<Int> {
 
-    public left: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
-    public right: RuntimeExpression<TypedCompiledExpression<Pointer, "prvalue">>;
+    public readonly model!: CompiledPointerDifference; // narrows type of member in base class
+
+    public left: RuntimeExpression<Pointer, "prvalue">;
+    public right: RuntimeExpression<Pointer, "prvalue">;
 
     public constructor (model: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -1460,7 +1494,7 @@ export class RuntimePointerDifference extends SimpleRuntimeExpression<CompiledPo
 
 class LogicalBinaryOperator extends BinaryOperator {
     
-    public readonly type: Bool = new Bool();
+    public readonly type = new Bool();
 
     public readonly left: Expression;
     public readonly right: Expression;
@@ -1488,8 +1522,10 @@ class LogicalBinaryOperator extends BinaryOperator {
         return subexpr;
     }
     
-    public createRuntimeExpression_impl<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<CompiledBinaryOperator<T>> {
-        return new RuntimeSimpleBinaryOperator(this, parent);
+    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: ExecutableRuntimeConstruct) : RuntimeLogicalBinaryOperator;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: ExecutableRuntimeConstruct) : RuntimeLogicalBinaryOperator {
+        return new RuntimeLogicalBinaryOperator(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1512,15 +1548,17 @@ class LogicalBinaryOperator extends BinaryOperator {
 }
 
 
-export interface CompiledLogicalBinaryOperator extends TypedCompiledExpressionBase<LogicalBinaryOperator,Bool,"prvalue">{
-    readonly left: TypedCompiledExpression<Bool, "prvalue">
-    readonly right: TypedCompiledExpression<Bool, "prvalue">
+export interface CompiledLogicalBinaryOperator extends LogicalBinaryOperator, CompiledConstruct {
+    readonly left: CompiledExpression<Bool, "prvalue">
+    readonly right: CompiledExpression<Bool, "prvalue">
 }
 
-export class RuntimeLogicalBinaryOperator extends RuntimeExpression<CompiledLogicalBinaryOperator> {
+export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prvalue"> {
 
-    public left: RuntimeExpression<TypedCompiledExpression<Bool, "prvalue">>;
-    public right: RuntimeExpression<TypedCompiledExpression<Bool, "prvalue">>;
+    public readonly model!: CompiledLogicalBinaryOperator; // narrows type of member in base class
+
+    public left: RuntimeExpression<Bool, "prvalue">;
+    public right: RuntimeExpression<Bool, "prvalue">;
 
     private index = "left";
 
