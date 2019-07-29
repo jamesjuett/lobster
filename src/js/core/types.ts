@@ -237,7 +237,7 @@ export function isCvConvertible(t1: Type, t2: Type){
 //     isComplete?: boolean;
 // }
 
-export class Type {
+export abstract class Type {
     public static readonly _name = "Type";
 
     /**
@@ -732,7 +732,7 @@ builtInTypes["ostream"] = OStream;
 
 
 
-export type NumericType = IntegralType | FloatingPointType;
+export type ArithmeticType = IntegralType | FloatingPointType;
 
 //TODO: create separate function pointer type???
 

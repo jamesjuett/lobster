@@ -69,7 +69,7 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public pointerDifference(this: Value<Pointer>, otherValue: Value<Pointer>) {
-        return new Value<IntegralType>(
+        return new Value<Int>(
             (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,
             new Int(),
             this.isValid && otherValue.isValid);
