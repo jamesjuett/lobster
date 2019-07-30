@@ -4,17 +4,19 @@ import { CONSTRUCT_CLASSES } from "./constructClasses";
 import { assert, Mutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
-import { Scope, TemporaryObjectEntity } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, ParameterEntity, ReturnReferenceEntity } from "./entities";
 import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Type, ClassType, ObjectType } from "./types";
+import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType } from "./types";
 import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
-import { CPPObject } from "./objects";
+import { CPPObject, CPPObjectType } from "./objects";
 import * as Util from "../util/util";
-import { Expression, RuntimeFunctionCall } from "./expressions";
+import { Expression, TypedExpression, RuntimeExpression, ValueCategory } from "./expressions";
 import { standardConversion } from "./standardConversions";
+import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
+import { clone } from "lodash";
 
 export interface ASTNode {
     construct_type: string;
@@ -771,6 +773,251 @@ export class RuntimeMemberFunction extends RuntimeFunction {
         this.receiver = receiver;
     }
 
+}
+
+export class FunctionCall extends PotentialFullExpression {
+    
+    public readonly func: FunctionEntity;
+    public readonly args: readonly TypedExpression<ObjectType>[];
+    public readonly receiver?: ObjectEntity<ClassType>;
+
+    public readonly argInitializers: readonly CopyInitializer[];
+    
+    public readonly returnTarget: TemporaryObjectEntity | UnboundReferenceEntity | null;
+    /**
+     * A FunctionEntity must be provided to specify which function is being called.
+     *
+     * A receiver entity may be provided here, and if it is, the function call guarantees it will
+     * be looked up in a runtime context BEFORE the function has been "called" (i.e. before a new
+     * stack frame has been pushed and control has been given over to the called function). This in
+     * particular is important for e.g. a ParameterEntity used as the receiver of a constructor call
+     * when a class-type parameter is passed by value to some function. If it were looked up instead
+     * after the call, it would try to find a parameter of the constructor rather than of the function,
+     * which isn't right.
+     *
+     * If a receiver entity is not provided here, a receiver object must be specified at runtime when
+     * a runtime construct for this function call is created.
+     *
+     * @param context 
+     * @param func Specifies which function is being called.
+     * @param args Arguments to the function.
+     * @param receiver 
+     */
+    public constructor(context: ExecutableConstructContext, func: FunctionEntity, args: readonly TypedExpression<ObjectType>[], receiver?: ObjectEntity<ClassType>) {
+        super(context);
+
+        this.func = func;
+        this.args = clone(args);
+        this.receiver = receiver;
+
+        // Note that the args are NOT added as children here. Instead, they are owned by whatever
+        // construct contains the function call and are attached to the construct tree there.
+
+        // Create initializers for each argument/parameter pair
+        this.argInitializers = args.map((arg, i) => {
+            return CopyInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
+        });
+
+        // TODO
+        // this.isRecursive = this.func.definition === this.context.containingFunction;
+
+        // No returns for void functions, of course.
+        // If return by reference, the return object already exists and no need to create a temporary.
+        // Else, for a return by value, we do need to create a temporary object.
+        let returnType = this.func.type.returnType;
+        if (returnType instanceof VoidType) {
+            this.returnTarget = null;
+        }
+        else if (returnType instanceof Reference) {
+            this.returnTarget = new ReturnReferenceEntity(returnType.refTo);
+        }
+        else {
+            this.returnTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
+        }
+
+        // TODO: need to check that it's not an auxiliary function call before adding these?
+        this.context.containingFunction.addCall(this);
+        this.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+    }
+
+    public checkLinkingProblems() {
+        if (!this.func.isLinked()) {
+            if (this.func.isLibraryUnsupported()) {
+                let note = CPPError.link.library_unsupported(this, this.func);
+                this.addNote(note);
+                return note;
+            }
+            else {
+                let note = CPPError.link.def_not_found(this, this.func);
+                this.addNote(note);
+                return note;
+            }
+        }
+        return null;
+    }
+
+    // tailRecursionCheck : function(){
+    //     if (this.isTail !== undefined) {
+    //         return;
+    //     }
+
+    //     var child = this;
+    //     var parent = this.parent;
+    //     var isTail = true;
+    //     var reason = null;
+    //     var others = [];
+    //     var first = true;
+    //     while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
+    //         var result = parent.isTailChild(child);
+    //         if (!result.isTail) {
+    //             isTail = false;
+    //             reason = result.reason;
+    //             others = result.others || [];
+    //             break;
+    //         }
+
+    //         //if (!first && child.tempDeallocator){
+    //         //    isTail = false;
+    //         //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
+    //         //    others = [];
+    //         //    break;
+    //         //}
+    //         //first = false;
+
+
+    //         reason = reason || result.reason;
+
+    //         child = parent;
+    //         parent = child.parent;
+    //     }
+
+    //     this.isTail = isTail;
+    //     this.isTailReason = reason;
+    //     this.isTailOthers = others;
+    //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
+
+    //     this.canUseTCO = this.isRecursive && this.isTail;
+    // },
+
+    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimeExpression) {
+        return new RuntimeFunctionCall<T,V>(this, parent);
+    }
+
+    
+    // isTailChild : function(child){
+    //     return {isTail: false,
+    //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
+    //         others: [this]
+    //     };
+    // },
+
+    // // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
+    // describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     var desc = {};
+    //     desc.message = "a call to " + this.func.describe(sim).message;
+    //     return desc;
+    // }
+
+}
+
+export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCall, CompiledConstruct {
+    
+}
+
+const INDEX_FUNCTION_CALL_PUSH = 0;
+const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
+const INDEX_FUNCTION_CALL_CALL = 2;
+const INDEX_FUNCTION_CALL_RETURN = 2;
+export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeInstruction {
+
+    public readonly model!: CompiledFunctionCall<T,V>; // narrows type of member in base class
+
+    // public readonly functionDef : FunctionDefinition;
+    public readonly calledFunction : RuntimeFunction;
+    public readonly argInitializers: readonly RuntimeCopyInitializer[];
+
+    public readonly receiver?: CPPObject<ClassType>
+
+    /**
+     * The object returned by the function, either an original returned-by-reference or a temporary
+     * object created to hold a return-by-value. Once the function call has been executed, will be
+     * defined unless it's a void function, in which case it will be null.
+     */
+    public readonly returnObject?: CPPObjectType<ObjectType> | null;
+
+    // public readonly hasBeenCalled: boolean = false;
+
+    private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
+
+    public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
+        super(model, "call", parent);
+        let functionDef = this.model.func.definition!.runtimeLookup(); // TODO
+        
+        // Create argument initializer instances
+        this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
+
+        // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+        if (this.model.returnTarget instanceof TemporaryObjectEntity) {
+            this.setReturnObject(this.model.returnTarget.objectInstance(this));
+        }
+
+        // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
+        
+         // for non-member functions, receiver undefined
+        this.receiver = this.model.receiver && this.model.receiver.runtimeLookup(this);
+        this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
+        
+        this.index = INDEX_FUNCTION_CALL_CALL;
+    }
+
+    public setReturnObject(obj: CPPObjectType<ObjectType> | null) {
+        // This should only be used once
+        Util.assert(!this.returnObject);
+        (<Mutable<this>>this).returnObject = obj;
+
+    }
+
+    protected upNextImpl(): void {
+        if (this.index === INDEX_FUNCTION_CALL_ARGUMENTS) {
+            // Push all argument initializers. Push in reverse so they run left to right
+            // (although this is not strictly necessary given they are indeterminately sequenced)
+            for(var i = this.argInitializers.length-1; i >= 0; --i) {
+                this.sim.push(this.argInitializers[i]);
+            }
+        }
+        else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
+            if (!this.returnObject) {
+                this.setReturnObject(null);
+            }
+            this.calledFunction.loseControl();
+            this.containingRuntimeFunction.gainControl();
+            this.done();
+            this.sim.pop();
+        }
+    }
+    
+    protected stepForwardImpl(): void {
+        if (this.index === INDEX_FUNCTION_CALL_PUSH) {
+
+            // TODO: TCO? just do a tailCallReset, send "tailCalled" message
+
+            this.calledFunction.pushStackFrame();
+            this.index = INDEX_FUNCTION_CALL_ARGUMENTS;
+        }
+        else if (this.index === INDEX_FUNCTION_CALL_CALL) {
+
+            this.containingRuntimeFunction.loseControl();
+            this.sim.push(this.calledFunction);
+            this.calledFunction.gainControl();
+            this.receiver && this.receiver.callReceived();
+
+            // (<Mutable<this>>this).hasBeenCalled = true;
+            this.observable.send("called", this.calledFunction);
+            
+            this.index = INDEX_FUNCTION_CALL_RETURN;
+        }
+        
+    }
 }
 
 
