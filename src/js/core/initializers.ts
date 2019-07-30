@@ -22,9 +22,11 @@ export abstract class Initializer extends PotentialFullExpression {
 
 }
 
-export abstract class RuntimeInitializer<Construct_type extends Initializer = Initializer> extends RuntimeInstruction<Construct_type> {
+export abstract class RuntimeInitializer extends RuntimeInstruction {
     
-    protected constructor (model: Construct_type, parent: ExecutableRuntimeConstruct) {
+    public readonly model!: Initializer; // narrows type of member in base class
+
+    protected constructor (model: Initializer, parent: ExecutableRuntimeConstruct) {
         super(model, "initializer", parent);
     }
 
@@ -61,9 +63,13 @@ export abstract class DefaultInitializer extends Initializer {
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer;
 }
 
-export abstract class RuntimeDefaultInitializer<Construct_type extends DefaultInitializer = DefaultInitializer>
-    extends RuntimeInitializer<Construct_type> {
+export abstract class RuntimeDefaultInitializer extends RuntimeInitializer {
+    
+    public readonly model!: DefaultInitializer; // narrows type of member in base class
 
+    protected constructor (model: DefaultInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
 }
 
 export class ReferenceDefaultInitializer extends DefaultInitializer {
@@ -106,7 +112,9 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer<AtomicDefaultInitializer> {
+export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer {
+
+    public readonly model!: AtomicDefaultInitializer; // narrows type of member in base class
 
     public readonly target: CPPObject<AtomicType>;
 
@@ -178,7 +186,9 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
 }
 
-export class RuntimeArrayDefaultInitializer extends RuntimeDefaultInitializer<ArrayDefaultInitializer> {
+export class RuntimeArrayDefaultInitializer extends RuntimeDefaultInitializer {
+
+    public readonly model!: ArrayDefaultInitializer; // narrows type of member in base class
 
     public readonly target: CPPObject<ArrayType>;
     public readonly elementInitializers?: RuntimeDefaultInitializer[];
@@ -246,7 +256,10 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer<ClassDefaultInitializer> {
+export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer {
+
+
+    public readonly model!: ClassDefaultInitializer; // narrows type of member in base class
 
     public readonly target: CPPObject<ClassType>;
     public readonly ctorCall: RuntimeMemberFunctionCall;
@@ -337,8 +350,13 @@ export interface CompiledDirectInitializer extends DirectInitializer {
     readonly args: CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer<Construct_type extends DirectInitializer = DirectInitializer>
-    extends RuntimeInitializer<Construct_type> {
+export abstract class RuntimeDirectInitializer extends RuntimeInitializer {
+
+    public readonly model!: DirectInitializer; // narrows type of member in base class
+
+    protected constructor (model: DirectInitializer, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
 
 }
 

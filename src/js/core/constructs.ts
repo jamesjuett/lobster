@@ -321,6 +321,10 @@ export interface CompiledConstruct {
     readonly _t_isCompiled: never;
 }
 
+export interface CompiledExecutableConstruct extends ExecutableConstruct, CompiledConstruct {
+
+}
+
 export interface ExecutableConstructContext extends ConstructContext {
     readonly containingFunction: FunctionDefinition;
 }
@@ -339,6 +343,10 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
     }
 
     public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
+}
+
+export interface CompiledInstructionConstruct extends InstructionConstruct, CompiledConstruct {
+
 }
 
 export abstract class PotentialFullExpression extends InstructionConstruct {
@@ -411,6 +419,10 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     }
 }
 
+export interface CompiledPotentialFullExpression extends PotentialFullExpression, CompiledConstruct {
+
+}
+
 export class TemporaryDeallocator extends InstructionConstruct {
 
     public readonly parent?: PotentialFullExpression;
@@ -455,6 +467,12 @@ export class TemporaryDeallocator extends InstructionConstruct {
     }
 }
 
+export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, CompiledConstruct {
+
+    readonly dtors: (CompiledMemberFunctionCall | null)[];
+
+}
+
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
 //     _name : "FakeConstruct",
@@ -497,12 +515,12 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
 
 export type StackType = "statement" | "expression" |  "function" | "initializer" |"call";
 
-export abstract class RuntimeConstruct {
+export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = CompiledExecutableConstruct> {
 
     public readonly observable = new Observable(this);
 
     public readonly sim: Simulation;
-    public readonly model: ExecutableConstruct;
+    public readonly model: C;
     public readonly stackType: StackType;
 
     public readonly pushedChildren: {[index: string]: RuntimeConstruct};
@@ -518,7 +536,7 @@ export abstract class RuntimeConstruct {
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: ExecutableConstruct, stackType: StackType, parent: RuntimeConstruct) {
+    public constructor (model: C, stackType: StackType, parent: RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
@@ -632,26 +650,22 @@ export abstract class RuntimeConstruct {
 // TODO: this is just the same as RuntimeConstruct right now
 export type ExecutableRuntimeConstruct = RuntimeConstruct;// = RuntimeFunction | RuntimeInstruction;
 
-export abstract class RuntimeInstruction extends RuntimeConstruct {
-    
-    public readonly model!: InstructionConstruct; // narrows type of member in base class
+export abstract class RuntimeInstruction<C extends CompiledInstructionConstruct = CompiledInstructionConstruct> extends RuntimeConstruct<C> {
 
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (model: InstructionConstruct, stackType: StackType, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         this.containingRuntimeFunction = parent.containingRuntimeFunction;
     }
 }
 
 
-export abstract class RuntimePotentialFullExpression extends RuntimeInstruction {
-
-    public readonly model!: PotentialFullExpression; // narrows type of member in base class
+export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeInstruction<C> {
 
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
 
-    public constructor(model: PotentialFullExpression, stackType: StackType, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
             this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
@@ -666,14 +680,12 @@ export abstract class RuntimePotentialFullExpression extends RuntimeInstruction 
     }
 }
 
-export class RuntimeTemporaryDeallocator extends RuntimeInstruction {
-
-    public readonly model!: TemporaryDeallocator; // narrows type of member in base class
+export class RuntimeTemporaryDeallocator extends RuntimeInstruction<CompiledTemporaryDeallocator> {
 
     private index = 0;
     private justDestructed: boolean = false;
 
-    public constructor (model: TemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+    public constructor (model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
         super(model, "expression", parent);
     }
 	
@@ -716,9 +728,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeInstruction {
 
 
 
-export class RuntimeFunction extends RuntimeConstruct {
-
-    public readonly model!: CompiledFunctionDefinition; // narrows type of member in base class
+export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition> {
 
     public readonly caller: RuntimeFunctionCall;
     public readonly containingRuntimeFunction: RuntimeFunction;
@@ -727,7 +737,7 @@ export class RuntimeFunction extends RuntimeConstruct {
 
     public readonly hasControl: boolean = false;
 
-    public constructor (model: FunctionDefinition, parent: RuntimeFunctionCall) {
+    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall) {
         super(model, "function", parent);
   
         // A function is its own containing function context
@@ -899,11 +909,10 @@ export class FunctionCall extends PotentialFullExpression {
     //     this.canUseTCO = this.isRecursive && this.isTail;
     // },
 
-    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimeExpression) {
+    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimeExpression) : RuntimeFunctionCall<T,V> {
         return new RuntimeFunctionCall<T,V>(this, parent);
     }
 
-    
     // isTailChild : function(child){
     //     return {isTail: false,
     //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
