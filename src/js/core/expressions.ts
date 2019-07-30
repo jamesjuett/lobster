@@ -172,19 +172,17 @@ type VCResultTypes<T extends Type> =
     
 //     public readonly evalResult: EvalResultType<CE>?;
 // }
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: Expression<T,V>[]): expressions is Expression<NonNullable<T>,NonNullable<V>>[];
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly Expression<NonNullable<T>,NonNullable<V>>[];
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly Expression<NonNullable<T>,NonNullable<V>>[] {
+export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: Expression[]): expressions is TypedExpression[];
+export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
+export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
     return expressions.every((expr) => { return expr.isWellTyped(); });
 }
 
-export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimePotentialFullExpression {
-    
-    public readonly model!: CompiledExpression<T,V>;
+export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
     
     public readonly evalResult?: VCResultTypes<T>[V];
 
-    public constructor(model: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
@@ -284,15 +282,13 @@ export class UnsupportedExpression extends Expression {
 
 
 
-export class SimpleRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
-
-    public readonly model!: CompiledExpression<T,V>; // narrows type of member in base class
+export abstract class SimpleRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimeExpression<T,V,C> {
 
     private index : 0 | 1 = 0;
 
     private subexpressions: RuntimeExpression[] = [];
 
-    public constructor (model: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -522,9 +518,7 @@ export interface CompiledComma<T extends Type = Type, V extends ValueCategory = 
     readonly right: CompiledExpression<T,V>;
 }
 
-export class RuntimeComma<T extends Type, V extends ValueCategory> extends SimpleRuntimeExpression<T,V> {
-
-    public readonly model!: CompiledComma<T,V>; // narrows type of member in base class
+export class RuntimeComma<T extends Type, V extends ValueCategory> extends SimpleRuntimeExpression<T,V,CompiledComma<T,V>> {
 
     public left: RuntimeExpression;
     public right: RuntimeExpression<T,V>;
@@ -643,9 +637,7 @@ export interface CompiledTernary<T extends Type = Type, V extends ValueCategory 
     readonly otherwise: CompiledExpression<T,V>;
 }
 
-export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
-
-    public readonly model!: CompiledTernary<T,V>; // narrows type of member in base class
+export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V,CompiledTernary<T,V>> {
 
     public condition: RuntimeExpression<Bool, "prvalue">;
     public then: RuntimeExpression<T,V>;
@@ -845,9 +837,7 @@ export interface CompiledAssignment<T extends AtomicType = AtomicType> extends A
 }
 
 
-export class RuntimeAssignment<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T,"lvalue"> {
-
-    public readonly model!: CompiledAssignment<T>; // narrows type of member in base class
+export class RuntimeAssignment<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T,"lvalue", CompiledAssignment<T>> {
 
     public readonly lhs: RuntimeExpression<T, "lvalue">;
     public readonly rhs: RuntimeExpression<T, "prvalue">;
@@ -1128,31 +1118,13 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> exten
     readonly right: CompiledExpression<AtomicType, "prvalue">
 }
 
-// TODO: I think this class shouldn't exist. It should probably just be RuntimeSimpleBinaryOperator
-// (which itself should perhaps just be RuntimeArithmeticBinaryOperator). It gives the impression
+// TODO: I think this class shouldn't exist. It should probably just be RuntimeArithmeticBinaryOperator.
+// It gives the impression
 // that this would be a base for all Runtime classes for binary operators, but it isn't for
 // RuntimeLogicalBinaryOperator since that one runs differently to handle short-circuit behavior
 // correctly.
-export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T, "prvalue"> {
+export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C extends CompiledBinaryOperator<T> = CompiledBinaryOperator<T>> extends SimpleRuntimeExpression<T, "prvalue", C> {
 
-    public readonly model!: CompiledBinaryOperator<T>; // narrows type of member in base class
-
-    public readonly left: RuntimeExpression<AtomicType, "prvalue">;
-    public readonly right: RuntimeExpression<AtomicType, "prvalue">;
-
-    public constructor (model: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) {
-        super(model, parent);
-        this.left = this.model.left.createRuntimeExpression(this);
-        this.right = this.model.right.createRuntimeExpression(this);
-        this.setSubexpressions([this.left, this.right]);
-    }
-}
-
-// TODO: rename this or maybe create two separate classes for Arithmetic and Logical
-export class RuntimeSimpleBinaryOperator<T extends AtomicType> extends RuntimeBinaryOperator<T> {
-    public operate() {
-        this.setEvalResult(binaryOperate(this.model.operator, this.left.evalResult!, this.right.evalResult!));
-    }
 }
 
 // TODO: make types more specific. ArithmeticBinaryOperator should only be used in cases where it has
@@ -1219,10 +1191,10 @@ class ArithmeticBinaryOperator extends BinaryOperator {
         this.attach(this.right = right);
     }
 
-    public createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<T>;
-    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeSimpleBinaryOperator<T> {
-        return new RuntimeSimpleBinaryOperator(this, parent);
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeArithmeticBinaryOperator<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeArithmeticBinaryOperator<T> {
+        return new RuntimeArithmeticBinaryOperator(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1232,6 +1204,31 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
 // TODO: Add CompiledArithmeticBinaryOperator?
 
+export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperator, CompiledConstruct {
+    
+    public readonly type: T;
+
+    public readonly left: CompiledExpression<T,"prvalue">;
+    public readonly right: CompiledExpression<T,"prvalue">;
+}
+
+// TODO: rename this or maybe create two separate classes for Arithmetic and Logical
+export class RuntimeArithmeticBinaryOperator<T extends AtomicType> extends RuntimeBinaryOperator<T, CompiledArithmeticBinaryOperator<T>> {
+    
+    public readonly left: RuntimeExpression<AtomicType, "prvalue">;
+    public readonly right: RuntimeExpression<AtomicType, "prvalue">;
+
+    public constructor (model: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+        this.setEvalResult(binaryOperate(this.model.operator, this.left.evalResult!, this.right.evalResult!));
+    }
+}
 
 class PointerOffset extends BinaryOperator {
     
@@ -1308,9 +1305,7 @@ export interface CompiledPointerOffset<T extends Pointer = Pointer> extends Poin
 }
 
 
-export class RuntimePointerOffset<T extends Pointer = Pointer> extends RuntimeBinaryOperator<T> {
-
-    public readonly model!: CompiledPointerOffset<T>; // narrows type of member in base class
+export class RuntimePointerOffset<T extends Pointer = Pointer> extends RuntimeBinaryOperator<T, CompiledPointerOffset<T>> {
 
     public readonly left: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
     public readonly right: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
@@ -1414,9 +1409,7 @@ export interface CompiledPointerDifference extends PointerDifference, CompiledCo
     public readonly right: CompiledExpression<Pointer, "prvalue">;
 }
 
-export class RuntimePointerDifference extends RuntimeBinaryOperator<Int> {
-
-    public readonly model!: CompiledPointerDifference; // narrows type of member in base class
+export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
 
     public left: RuntimeExpression<Pointer, "prvalue">;
     public right: RuntimeExpression<Pointer, "prvalue">;
@@ -1555,9 +1548,7 @@ export interface CompiledLogicalBinaryOperator extends LogicalBinaryOperator, Co
     readonly right: CompiledExpression<Bool, "prvalue">
 }
 
-export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prvalue"> {
-
-    public readonly model!: CompiledLogicalBinaryOperator; // narrows type of member in base class
+export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prvalue", CompiledLogicalBinaryOperator> {
 
     public left: RuntimeExpression<Bool, "prvalue">;
     public right: RuntimeExpression<Bool, "prvalue">;
@@ -2446,9 +2437,7 @@ export interface CompiledFunctionCallExpression<T extends PotentialReturnType = 
 const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
 const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-export class RuntimeFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
-
-    public readonly model!: CompiledFunctionCallExpression<T,V>; // narrows type of member in base class
+export class RuntimeFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V, CompiledFunctionCallExpression<T,V>> {
 
     public readonly operand: RuntimeFunctionIdentifier | RuntimeDot | RuntimeArrow;
     public readonly args: readonly RuntimeExpression[];
@@ -3068,9 +3057,7 @@ export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionTyp
 }
 
 
-export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpression<T, "lvalue"> {
-
-    public readonly model!: CompiledObjectIdentifier<T>; // narrows type of member in base class
+export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpression<T, "lvalue", CompiledObjectIdentifier<T>> {
 
     public constructor (model: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -3086,9 +3073,7 @@ export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpres
     }
 }
 
-export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeExpression<T, "lvalue"> {
-
-    public readonly model!: CompiledFunctionIdentifier<T>; // narrows type of member in base class
+export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeExpression<T, "lvalue", CompiledFunctionIdentifier<T>> {
 
     public constructor (model: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -3178,13 +3163,11 @@ var literalTypes = {
     "char" : Char
 };
 
-export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression implements CompiledConstruct {
+export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression {
     
 
     public readonly type: T;
     public readonly valueCategory = "prvalue";
-
-    public readonly _t_compiled!: NumericLiteral<T>;
 
 
     
@@ -3231,9 +3214,7 @@ export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticTyp
 
 }
 
-export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> extends RuntimeExpression<T, "prvalue"> {
-
-    public readonly model!: CompiledNumericLiteral<T>; // narrows type of member in base class
+export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> extends RuntimeExpression<T, "prvalue", CompiledNumericLiteral<T>> {
 
     public constructor (model: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -3335,9 +3316,7 @@ export interface CompiledParentheses<T extends Type = Type, V extends ValueCateg
 
 const INDEX_PARENTHESES_SUBEXPRESSIONS = 0;
 const INDEX_PARENTHESES_DONE = 1;
-export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V> {
-
-    public readonly model!: CompiledParentheses<T,V>; // narrows type of member in base class
+export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V, CompiledParentheses<T,V>> {
 
     public subexpression: RuntimeExpression<T,V>;
 
