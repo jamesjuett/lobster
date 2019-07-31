@@ -409,7 +409,7 @@ export class Memory {
         return <StaticObject<T>>this.staticObjects[staticEntity.getFullyQualifiedName()];
     }
 
-    public allocateTemporaryObject(tempEntity: TemporaryObjectEntity) {
+    public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) : TemporaryObjectType<T>{
         var obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
         this.allocateObject(obj, this.temporaryBottom);
         this.temporaryBottom += tempEntity.type.size;
@@ -417,12 +417,12 @@ export class Memory {
         this.observable.send("temporaryObjectAllocated", obj);
 
         // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
-        if (tempEntity.defaultValue !== undefined) {
-            obj.setValue(tempEntity.defaultValue);
-        }
-        else if (tempEntity.type.defaultValue !== undefined) {
-            obj.setValue(tempEntity.type.defaultValue);
-        }
+        // if (tempEntity.defaultValue !== undefined) {
+        //     obj.setValue(tempEntity.defaultValue);
+        // }
+        // else if (tempEntity.type.defaultValue !== undefined) {
+        //     obj.setValue(tempEntity.type.defaultValue);
+        // }
 
         return obj;
     }

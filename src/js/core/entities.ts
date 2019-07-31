@@ -6,7 +6,7 @@ import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Cha
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, CPPObjectType } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, CPPObjectType, TemporaryObject, TemporaryObjectType } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
@@ -687,7 +687,7 @@ export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CP
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) {
-        rtConstruct.containingRuntimeFunction.caller.setReturnObject(obj);
+        rtConstruct.containingRuntimeFunction.setReturnObject(obj);
     }
 
     public describe() {
@@ -1118,8 +1118,8 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
         (<PotentialFullExpression>this.owner) = newOwner;
     }
 
-    public objectInstance(creatorRt: RuntimeConstruct){
-        var obj = creatorRt.sim.memory.allocateTemporaryObject(this);
+    public objectInstance(creatorRt: RuntimeConstruct) {
+        let objInst : TemporaryObject<T> = creatorRt.sim.memory.allocateTemporaryObject(this);
 
         var inst = creatorRt;
         while (inst.model !== this.owner){
@@ -1128,7 +1128,7 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
         inst.temporaryObjects = inst.temporaryObjects || {};
         inst.temporaryObjects[obj.entityId] = obj;
-        return obj;
+        return objInst;
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
