@@ -735,6 +735,13 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
 
     public readonly stackFrame?: MemoryFrame;
 
+    /**
+     * The object returned by the function, either an original returned-by-reference or a temporary
+     * object created to hold a return-by-value. Once the function call has been executed, will be
+     * defined unless it's a void function.
+     */
+    public readonly returnObject?: CPPObjectType<ObjectType>;
+
     public readonly hasControl: boolean = false;
 
     public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall) {
@@ -753,6 +760,21 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
 
     public pushStackFrame() {
         (<Mutable<this>>this).stackFrame = this.sim.memory.stack.pushFrame(this);
+    }
+
+    /**
+     * Sets the return object for this function. May only be invoked once.
+     * e.g.
+     *  - return-by-value: The caller should set the return object to a temporary object, whose value
+     *                     may be initialized by a return statement.
+     *  - return-by-reference: When the function is finished, is set to the object returned.
+     *  - 
+     */
+    public setReturnObject(obj: CPPObjectType<ObjectType>) {
+        // This should only be used once
+        Util.assert(!this.returnObject);
+        (<Mutable<this>>this).returnObject = obj;
+
     }
 
     public gainControl() {
@@ -947,13 +969,6 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     public readonly receiver?: CPPObject<ClassType>
 
-    /**
-     * The object returned by the function, either an original returned-by-reference or a temporary
-     * object created to hold a return-by-value. Once the function call has been executed, will be
-     * defined unless it's a void function, in which case it will be null.
-     */
-    public readonly returnObject?: CPPObjectType<ObjectType> | null;
-
     // public readonly hasBeenCalled: boolean = false;
 
     private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
@@ -965,25 +980,20 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
 
-        // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
-        if (this.model.returnTarget instanceof TemporaryObjectEntity) {
-            this.setReturnObject(this.model.returnTarget.objectInstance(this));
-        }
+
 
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
         
          // for non-member functions, receiver undefined
         this.receiver = this.model.receiver && this.model.receiver.runtimeLookup(this);
         this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
-        
+
+                // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+        if (this.model.returnTarget instanceof TemporaryObjectEntity) {
+            // If return-by-value, set return object to temporary
+            this.calledFunction.setReturnObject(this.model.returnTarget.objectInstance(this));
+        }
         this.index = INDEX_FUNCTION_CALL_CALL;
-    }
-
-    public setReturnObject(obj: CPPObjectType<ObjectType> | null) {
-        // This should only be used once
-        Util.assert(!this.returnObject);
-        (<Mutable<this>>this).returnObject = obj;
-
     }
 
     protected upNextImpl(): void {
@@ -1028,6 +1038,231 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
         
     }
 }
+
+
+// export class MainCall extends CPPConstruct {
+    
+//     public readonly mainFunc: FunctionEntity;
+
+//     public readonly returnTarget: TemporaryObjectEntity | UnboundReferenceEntity | null;
+   
+//     public constructor(context: ConstructContext) {
+//         super(context);
+
+//         this.func = func;
+//         this.args = clone(args);
+//         this.receiver = receiver;
+
+//         // Note that the args are NOT added as children here. Instead, they are owned by whatever
+//         // construct contains the function call and are attached to the construct tree there.
+
+//         // Create initializers for each argument/parameter pair
+//         this.argInitializers = args.map((arg, i) => {
+//             return CopyInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
+//         });
+
+//         // TODO
+//         // this.isRecursive = this.func.definition === this.context.containingFunction;
+
+//         // No returns for void functions, of course.
+//         // If return by reference, the return object already exists and no need to create a temporary.
+//         // Else, for a return by value, we do need to create a temporary object.
+//         let returnType = this.func.type.returnType;
+//         if (returnType instanceof VoidType) {
+//             this.returnTarget = null;
+//         }
+//         else if (returnType instanceof Reference) {
+//             this.returnTarget = new ReturnReferenceEntity(returnType.refTo);
+//         }
+//         else {
+//             this.returnTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
+//         }
+
+//         // TODO: need to check that it's not an auxiliary function call before adding these?
+//         this.context.containingFunction.addCall(this);
+//         this.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+//     }
+
+//     public checkLinkingProblems() {
+//         if (!this.func.isLinked()) {
+//             if (this.func.isLibraryUnsupported()) {
+//                 let note = CPPError.link.library_unsupported(this, this.func);
+//                 this.addNote(note);
+//                 return note;
+//             }
+//             else {
+//                 let note = CPPError.link.def_not_found(this, this.func);
+//                 this.addNote(note);
+//                 return note;
+//             }
+//         }
+//         return null;
+//     }
+
+//     // tailRecursionCheck : function(){
+//     //     if (this.isTail !== undefined) {
+//     //         return;
+//     //     }
+
+//     //     var child = this;
+//     //     var parent = this.parent;
+//     //     var isTail = true;
+//     //     var reason = null;
+//     //     var others = [];
+//     //     var first = true;
+//     //     while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
+//     //         var result = parent.isTailChild(child);
+//     //         if (!result.isTail) {
+//     //             isTail = false;
+//     //             reason = result.reason;
+//     //             others = result.others || [];
+//     //             break;
+//     //         }
+
+//     //         //if (!first && child.tempDeallocator){
+//     //         //    isTail = false;
+//     //         //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
+//     //         //    others = [];
+//     //         //    break;
+//     //         //}
+//     //         //first = false;
+
+
+//     //         reason = reason || result.reason;
+
+//     //         child = parent;
+//     //         parent = child.parent;
+//     //     }
+
+//     //     this.isTail = isTail;
+//     //     this.isTailReason = reason;
+//     //     this.isTailOthers = others;
+//     //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
+
+//     //     this.canUseTCO = this.isRecursive && this.isTail;
+//     // },
+
+//     public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimeExpression) : RuntimeFunctionCall<T,V> {
+//         return new RuntimeFunctionCall<T,V>(this, parent);
+//     }
+
+//     // isTailChild : function(child){
+//     //     return {isTail: false,
+//     //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
+//     //         others: [this]
+//     //     };
+//     // },
+
+//     // // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
+//     // describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //     var desc = {};
+//     //     desc.message = "a call to " + this.func.describe(sim).message;
+//     //     return desc;
+//     // }
+
+// }
+
+// export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCall, CompiledConstruct {
+    
+// }
+
+// const INDEX_FUNCTION_CALL_PUSH = 0;
+// const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
+// const INDEX_FUNCTION_CALL_CALL = 2;
+// const INDEX_FUNCTION_CALL_RETURN = 2;
+// export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeInstruction {
+
+//     public readonly model!: CompiledFunctionCall<T,V>; // narrows type of member in base class
+
+//     // public readonly functionDef : FunctionDefinition;
+//     public readonly calledFunction : RuntimeFunction;
+//     public readonly argInitializers: readonly RuntimeCopyInitializer[];
+
+//     public readonly receiver?: CPPObject<ClassType>
+
+//     /**
+//      * The object returned by the function, either an original returned-by-reference or a temporary
+//      * object created to hold a return-by-value. Once the function call has been executed, will be
+//      * defined unless it's a void function, in which case it will be null.
+//      */
+//     public readonly returnObject?: CPPObjectType<ObjectType> | null;
+
+//     // public readonly hasBeenCalled: boolean = false;
+
+//     private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
+
+//     public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
+//         super(model, "call", parent);
+//         let functionDef = this.model.func.definition!.runtimeLookup(); // TODO
+        
+//         // Create argument initializer instances
+//         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
+
+//         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+//         if (this.model.returnTarget instanceof TemporaryObjectEntity) {
+//             this.setReturnObject(this.model.returnTarget.objectInstance(this));
+//         }
+
+//         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
+        
+//          // for non-member functions, receiver undefined
+//         this.receiver = this.model.receiver && this.model.receiver.runtimeLookup(this);
+//         this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
+        
+//         this.index = INDEX_FUNCTION_CALL_CALL;
+//     }
+
+//     public setReturnObject(obj: CPPObjectType<ObjectType> | null) {
+//         // This should only be used once
+//         Util.assert(!this.returnObject);
+//         (<Mutable<this>>this).returnObject = obj;
+
+//     }
+
+//     protected upNextImpl(): void {
+//         if (this.index === INDEX_FUNCTION_CALL_ARGUMENTS) {
+//             // Push all argument initializers. Push in reverse so they run left to right
+//             // (although this is not strictly necessary given they are indeterminately sequenced)
+//             for(var i = this.argInitializers.length-1; i >= 0; --i) {
+//                 this.sim.push(this.argInitializers[i]);
+//             }
+//         }
+//         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
+//             if (!this.returnObject) {
+//                 this.setReturnObject(null);
+//             }
+//             this.calledFunction.loseControl();
+//             this.containingRuntimeFunction.gainControl();
+//             this.done();
+//             this.sim.pop();
+//         }
+//     }
+    
+//     protected stepForwardImpl(): void {
+//         if (this.index === INDEX_FUNCTION_CALL_PUSH) {
+
+//             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
+
+//             this.calledFunction.pushStackFrame();
+//             this.index = INDEX_FUNCTION_CALL_ARGUMENTS;
+//         }
+//         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
+
+//             this.containingRuntimeFunction.loseControl();
+//             this.sim.push(this.calledFunction);
+//             this.calledFunction.gainControl();
+//             this.receiver && this.receiver.callReceived();
+
+//             // (<Mutable<this>>this).hasBeenCalled = true;
+//             this.observable.send("called", this.calledFunction);
+            
+//             this.index = INDEX_FUNCTION_CALL_RETURN;
+//         }
+        
+//     }
+// }
+
+
 
 
 /**

@@ -199,6 +199,7 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 // TODO, should this have a default for the type parameter T?
 export type CPPObjectType<T extends ObjectType> = T extends ObjectType ? CPPObject<T> : never;
 
+
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
 // template parameter. (Rather than the current awkward composition and conditional method strategy)
@@ -219,8 +220,6 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
 
     private _isValid: boolean;
-
-
 
     protected constructor(type: T, memory: Memory, address: number) {
         this.type = type;
@@ -697,11 +696,18 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
     }
 }
 
+
+// export type TemporaryObjectType<T extends ObjectType> = T extends ObjectType ? TemporaryObject<T> : never;
+
 export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     private name?: string;
 
-    public constructor(type: T, memory: Memory, address: number, name?: string) {
+    public static create<T extends ObjectType>(type: T, memory: Memory, address: number, name?: string) : T extends ObjectType ? TemporaryObject<T> : never {
+        return <any> new TemporaryObject(type, memory, address, name);
+    }
+
+    protected constructor(type: T, memory: Memory, address: number, name?: string) {
         super(type, memory, address);
         this.name = name;
         // this.entityId = tempObjEntity.entityId;
