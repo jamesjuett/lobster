@@ -1,6 +1,6 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct } from "./constructs";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
@@ -8,14 +8,14 @@ import { CPPObject, CPPObjectType } from "./objects";
 import { Value, RawValueType, ValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, NumericType, ArithmeticType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
 import { Omit } from "lodash";
 
 export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
-    let value = obj.readVa lue();
+    let value = obj.readValue();
     if(!value.isValid) {
         let objDesc = obj.describe();
         var msg = "The value you just got out of " + (objDesc.name || objDesc.message) + " isn't valid. It might be uninitialized or it could have come from a dead object.";
@@ -128,32 +128,35 @@ export interface CompiledExpression<T extends Type = Type, V extends ValueCatego
 // } : never;
 
 type VCResultTypes<T extends Type> =
-    T extends AtomicType ? {
-        readonly prvalue: Value<T>;
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
-    }
-    :
-    T extends ObjectType ? {
-        readonly prvalue: AtomicType extends T ? Value<AtomicType> : never; // Still possible it's an Atomic Type
-        readonly xvalue: CPPObjectType<T>;
-        readonly lvalue: CPPObjectType<T>;
-    }
-    :
     T extends FunctionType ? {
         readonly prvalue: never;
         readonly xvalue: never;
         readonly lvalue: FunctionEntity;
     }
-    : ObjectType extends T ? { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        readonly prvalue: Value<AtomicType>;
+    : T extends AtomicType ? {
+        readonly prvalue: Value<T>;
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
+    }
+    : T extends ObjectType ? {
+        
+        // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
+        //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
+        readonly prvalue: AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T>;
+        
+        readonly xvalue: CPPObject<T>;
+        readonly lvalue: CPPObject<T>;
+    }
+    : /*ObjectType extends T ?*/ { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
+        readonly prvalue: Value<AtomicType> | CPPObject<ObjectType>;
         readonly xvalue: CPPObject<ObjectType>;
         readonly lvalue: CPPObject<ObjectType>;
-    } : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
-        readonly prvalue: never;
-        readonly xvalue: never;
-        readonly lvalue: CPPObject<ObjectType>; // TODO: add functions/arrays as possible results
-    };
+    }
+    // : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
+    //     readonly prvalue: number;
+    //     readonly xvalue: number;
+    //     readonly lvalue: number;
+    // };
 
 //     prvalue: T extends AtomicType ? Value<T> :
 //              AtomicType extends T ? Value<AtomicType> :
@@ -286,13 +289,15 @@ export abstract class SimpleRuntimeExpression<T extends Type = Type, V extends V
 
     private index : 0 | 1 = 0;
 
-    private subexpressions: RuntimeExpression[] = [];
+    // Note: this is RuntimeConstruct rather than RuntimeExpression, because RuntimeExpression is implicitly
+    //       RuntimeExpression<Type, ValueCategory> and particular instantiations may not
+    private subexpressions: RuntimeConstruct[] = [];
 
     public constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
-    protected setSubexpressions(subexpressions: RuntimeExpression[]) {
+    protected setSubexpressions(subexpressions: RuntimeConstruct[]) {
         this.subexpressions = subexpressions;
     }
 
@@ -456,7 +461,10 @@ export class OperatorOverload extends Expression {
 
 }
 
-export interface CompiledOperatorOverload<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CompiledExpressionBase<OperatorOverload,T,V> {
+export interface CompiledOperatorOverload<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends OperatorOverload, CompiledConstruct {
+    
+    public readonly type: T;
+    public readonly valueCategory: V;
 
     public readonly operands: CompiledExpression[];
     
@@ -525,8 +533,8 @@ export class RuntimeComma<T extends Type, V extends ValueCategory> extends Simpl
 
     public constructor (model: CompiledComma<T,V>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
-        this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
+        this.left = this.model.left.createRuntimeExpression(this);
         this.setSubexpressions([this.left, this.right]);
     }
 
@@ -1213,10 +1221,10 @@ export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> exte
 }
 
 // TODO: rename this or maybe create two separate classes for Arithmetic and Logical
-export class RuntimeArithmeticBinaryOperator<T extends AtomicType> extends RuntimeBinaryOperator<T, CompiledArithmeticBinaryOperator<T>> {
+export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<T, CompiledArithmeticBinaryOperator<T>> {
     
-    public readonly left: RuntimeExpression<AtomicType, "prvalue">;
-    public readonly right: RuntimeExpression<AtomicType, "prvalue">;
+    public readonly left: RuntimeExpression<T, "prvalue">;
+    public readonly right: RuntimeExpression<T, "prvalue">;
 
     public constructor (model: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -1226,6 +1234,7 @@ export class RuntimeArithmeticBinaryOperator<T extends AtomicType> extends Runti
     }
 
     public operate() {
+        // TODO: fix binaryOperate so that it returns an ArithmeticType
         this.setEvalResult(binaryOperate(this.model.operator, this.left.evalResult!, this.right.evalResult!));
     }
 }
@@ -2406,7 +2415,7 @@ export class FunctionCallExpression extends Expression {
         this.call = new FunctionCall(context, this.operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }
 
-    public createRuntimeExpression_impl<T extends Type, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionCallExpression<CompiledFunctionCallExpression<T,V>>{
+    public createRuntimeExpression_impl<T extends PotentialReturnType, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionCallExpression<T,V>{
         return new RuntimeFunctionCallExpression(this, parent);
     }
 
