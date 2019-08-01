@@ -252,6 +252,7 @@ export abstract class Type {
     public abstract readonly isIntegralType: boolean;
     public abstract readonly isFloatingPointType: boolean;
     public abstract readonly isComplete: boolean;
+    public abstract readonly isFunctionType: boolean;
 
     // regular member properties
     public readonly isConst: boolean;
@@ -445,6 +446,7 @@ export class VoidType extends Type {
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
     public readonly isComplete = true;
+    public readonly isFunctionType = false;
 
     protected readonly precedence = 0;
 
@@ -472,11 +474,10 @@ builtInTypes["void"] = VoidType;
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
-export abstract class SizedType extends Type {
+export abstract class ObjectType extends Type {
+    public readonly isFunctionType = false;
     public abstract readonly size: number;
 }
-
-export type ObjectType = AtomicType | ArrayType | ClassType;
 
 export type PotentialReturnType = ObjectType | Reference | VoidType;
 
@@ -485,7 +486,7 @@ export type PotentialParameterType = ObjectType | Reference;
 /**
  * Represents a type for an object that has a value.
  */
-abstract class ValueType extends SizedType {
+abstract class ValueType extends ObjectType {
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
@@ -543,6 +544,8 @@ abstract class ValueType extends SizedType {
         return this.valueToString(value);
     }
 }
+
+
 
 export abstract class AtomicType extends ValueType {
     public readonly isAtomic = true;
@@ -732,7 +735,9 @@ builtInTypes["ostream"] = OStream;
 
 
 
-export type ArithmeticType = IntegralType | FloatingPointType;
+export interface ArithmeticType extends SimpleType {
+    readonly isArithmeticType: true;
+}
 
 //TODO: create separate function pointer type???
 
@@ -872,10 +877,11 @@ export class ObjectPointer extends Pointer {
 
 
 export class Reference extends Type {
-    public isObjectType = false;
-    public isArithmeticType = false;
-    public isIntegralType = false;
-    public isFloatingPointType = false;
+    public readonly isObjectType = false;
+    public readonly isArithmeticType = false;
+    public readonly isIntegralType = false;
+    public readonly isFloatingPointType = false;
+    public readonly isFunctionType = false;
 
     protected readonly precedence = 1;
     public readonly isComplete = true;
@@ -919,7 +925,7 @@ export type ArrayElemType = AtomicType | ClassType;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends SizedType {
+export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectType {
     
     public readonly size: number;
 
@@ -1014,7 +1020,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
 
 
     // TODO: HACK to make ClassType exist but do nothing for now
-export class ClassType extends SizedType {
+export class ClassType extends ObjectType {
     public size: number= 0;
     protected precedence: number = 0;
     public isObjectType: boolean = false;
@@ -1263,6 +1269,7 @@ export class FunctionType extends Type {
     public isFloatingPointType = false;
     public isComplete = true;
     public readonly isObjectType = false;
+    public readonly isFunctionType = true;
     
     protected readonly precedence = 2;
 

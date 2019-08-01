@@ -703,9 +703,9 @@ export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObjec
 
     private name?: string;
 
-    public static create<T extends ObjectType>(type: T, memory: Memory, address: number, name?: string) : T extends ObjectType ? TemporaryObject<T> : never {
-        return <any> new TemporaryObject(type, memory, address, name);
-    }
+    // public static create<T extends ObjectType>(type: T, memory: Memory, address: number, name?: string) : T extends ObjectType ? TemporaryObject<T> : never {
+    //     return <any> new TemporaryObject(type, memory, address, name);
+    // }
 
     protected constructor(type: T, memory: Memory, address: number, name?: string) {
         super(type, memory, address);
