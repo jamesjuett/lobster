@@ -154,7 +154,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
             for(let i = 0; i < type.length; ++i){
                 let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.target, i));
                 this.elementInitializers.push(elemInit);
-                this.addChild(elemInit);
+                this.attach(elemInit);
                 if (elemInit.hasErrors) {
                     this.addNote(CPPError.declaration.init.array_default_init(this));
                     break;
@@ -241,7 +241,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         
         //MemberFunctionCall args are: context, function to call, receiver, ctor args
         this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, []);
-        this.addChild(this.ctorCall);
+        this.attach(this.ctorCall);
         // this.args = this.ctorCall.args;
     }
 
@@ -371,7 +371,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         this.target = target;
         
         this.args = args;
-        args.forEach((a) => {this.addChild(a);});
+        args.forEach((a) => {this.attach(a);});
 
         // Note: With a reference, no conversions are done
         if (this.args.length > 1){
@@ -469,7 +469,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
         
         args[0] = arg;
         this.args = args;
-        args.forEach((a) => {this.addChild(a);});
+        args.forEach((a) => {this.attach(a);});
         
     }
 
@@ -541,7 +541,7 @@ export class ArrayDirectInitializer extends DirectInitializer {
         }
 
         this.args = args;
-        args.forEach((a) => {this.addChild(a);});
+        args.forEach((a) => {this.attach(a);});
         
     }
 
@@ -632,7 +632,7 @@ export class ClassDirectInitializer extends DirectInitializer {
         
         this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, args);
         this.args = this.ctorCall.args;
-        this.addChild(this.ctorCall);
+        this.attach(this.ctorCall);
         // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
     }
 
@@ -727,7 +727,7 @@ export class ArrayMemberInitializer extends Initializer {
                     [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))]);
             }
 
-            this.addChild(elemInit);
+            this.attach(elemInit);
 
             if(elemInit.hasErrors) {
                 this.addNote(CPPError.declaration.init.array_direct_init(this));

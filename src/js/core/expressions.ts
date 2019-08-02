@@ -5,7 +5,7 @@ import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, Objec
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
 import { CPPObject, CPPObjectType } from "./objects";
-import { Value, RawValueType, ValueType } from "./runtimeEnvironment";
+import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
 import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType } from "./types";
@@ -2475,7 +2475,7 @@ export class RuntimeFunctionCallExpression<T extends PotentialReturnType = Poten
             if (this.model.type instanceof VoidType) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
-            this.setEvalResult(this.call.returnObject!); // TODO: eeew cast
+            this.setEvalResult(this.call.returnObject!);
             this.sim.pop();
         }
 	}
@@ -3180,7 +3180,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 
 
     
-    public readonly value: ValueType<T>;
+    public readonly value: Value<T>;
 
     // create from ast code:
     // TODO: are there some literal types without conversion functions? There shouldn't be...
