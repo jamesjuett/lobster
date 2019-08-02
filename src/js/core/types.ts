@@ -403,9 +403,9 @@ export abstract class Type {
     }
 };
 
-/**
- * Used when a compilation error causes an unknown type.
- */
+// /**
+//  * Used when a compilation error causes an unknown type.
+//  */
 // export class Unknown extends Type {
 
 
@@ -1273,7 +1273,7 @@ export class FunctionType extends Type {
     
     protected readonly precedence = 2;
 
-    public readonly returnType: ObjectType;
+    public readonly returnType: ObjectType | VoidType;
     public readonly paramTypes: readonly ObjectType[];
     public readonly receiverType?: ObjectType;
 

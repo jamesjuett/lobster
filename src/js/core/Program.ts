@@ -169,7 +169,7 @@ var NoteRecorder = NoteHandler.extend({
  *  linkingStarted
  *  linkingFinished
  */
-export var Program = Class.extend(Observable, Observer, NoteRecorder, {
+export class Program = Class.extend(Observable, Observer, NoteRecorder, {
     _name : "Program",
 
     init : function () {

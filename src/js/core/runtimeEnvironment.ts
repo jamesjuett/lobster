@@ -9,7 +9,7 @@ import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
 
-export type ValueType<T extends AtomicType> = T extends AtomicType ? Value<T> : never;
+// export type ValueType<T extends AtomicType> = T extends AtomicType ? Value<T> : never;
 
 export class Value<T extends AtomicType = AtomicType> {
     private static _name = "Value";
@@ -409,8 +409,8 @@ export class Memory {
         return <StaticObject<T>>this.staticObjects[staticEntity.getFullyQualifiedName()];
     }
 
-    public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) : TemporaryObjectType<T>{
-        var obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
+    public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) {
+        let obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
         this.allocateObject(obj, this.temporaryBottom);
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
