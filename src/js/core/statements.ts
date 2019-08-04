@@ -4,8 +4,8 @@ import { addDefaultPropertiesToPrototype } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
-import { CopyInitializer, DirectInitializer } from "./initializers";
-import { ReturnReferenceEntity } from "./entities";
+import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import { ReturnReferenceEntity, ReturnObjectEntity } from "./entities";
 import { VoidType, Reference, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
@@ -224,7 +224,9 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
 export class ReturnStatement extends Statement {
 
     public readonly expression?: Expression;
-    public readonly returnInitializer?: CopyInitializer;
+
+    // TODO: Technically, this should be CopyInitializer
+    public readonly returnInitializer?: DirectInitializer;
 
     public static createFromAST(ast: ReturnStatementASTNode, context: ExecutableConstructContext) {
         return ast.expression
@@ -255,27 +257,15 @@ export class ReturnStatement extends Statement {
         }
 
         if (returnType instanceof Reference) {
-            // TODO: Technically, this should be CopyInitializer
             this.returnInitializer = DirectInitializer.create(context, new ReturnReferenceEntity(returnType.refTo), [expression]);
         }
         else {
-            this.returnInitializer = DirectInitializer.create(context, )
+            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression]);
 
         }
 
-
-        
-
-        //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
-        //    
-        //    return;
-        //}
-
-
-            // If there is an expression, use it in an initializer for the current return object
-            
-        }
-        expression && this.attach(this.expression = expression);
+        // Note: The expression is NOT attached directly here, since it's attached under the initializer.
+        this.attach(this.returnInitializer);
     }
 
     public createRuntimeStatement(this: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
@@ -288,97 +278,52 @@ export class ReturnStatement extends Statement {
 }
 
 export interface CompiledReturnStatement extends ReturnStatement, CompiledConstruct {
-    public readonly expression?: CompiledExpression;
+    readonly expression?: CompiledExpression;
+    readonly returnInitializer?: CompiledDirectInitializer;
+}
+
+enum RuntimeReturnStatementIndices {
+    PUSH_INITIALIZER,
+    RETURN
 }
 
 export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnStatement> {
 
-    private index = 0;
+    public readonly returnInitializer?: RuntimeDirectInitializer;
 
-    public constructor (model: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
+    private index = RuntimeReturnStatementIndices.PUSH_INITIALIZER;
+
+    public constructor (model: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
+        if(model.returnInitializer) {
+            this.returnInitializer = model.returnInitializer.createRuntimeInitializer(this);
+        }
     }
 	
     protected upNextImpl() {
-
+        if(this.index === RuntimeReturnStatementIndices.PUSH_INITIALIZER) {
+            if (this.returnInitializer) {
+                this.sim.push(this.returnInitializer);
+            }
+            this.index = RuntimeReturnStatementIndices.RETURN;
+        }
     }
 
     public stepForwardImpl() {
-
+        if (this.index === RuntimeReturnStatementIndices.RETURN) {
+            let func = this.containingRuntimeFunction;
+            this.observable.send("returned", {call: func.caller})
+            this.sim.popUntil(func);
+        }
     }
+
+    
+    // isTailChild : function(child){
+    //     return {isTail: true,
+    //         reason: "The recursive call is immediately followed by a return."};
+    // }
 }
 
-export class ReturnStatement extends Statement {
-    _name: "Return",
-
-    i_createFromAST : function(ast) {
-        Statements.Return._parent.i_createFromAST.apply(this, arguments);
-
-        // If we have a return expression, create an initializer with that expression
-        if (ast.expression) {
-
-            // Create a detatched expression to pass to the initializer. The initializer will then
-            // attach it at the right place in the construct tree, but this will allow us to hold on
-            // to a reference to it here. :)
-            this.expression = Expression.create(ast.expression, null); // the null context indicates detatched
-            this.returnInitializer = ReturnInitializer.instance({
-                args: [this.expression]
-            }, {parent: this});
-            this.i_childrenToExecute = ["returnInitializer"];
-        }
-        else {
-            this.expression = null;
-        }
-    },
-
-    compile : function() {
-
-        // Find function to which this return corresponds
-        var returnType = this.returnType = this.containingFunction().type.returnType;
-
-        if (this.expression){
-            this.returnInitializer.compile(ReturnEntity.instance(returnType));
-        }
-
-
-
-	},
-
-	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var func = inst.containingRuntimeFunction();
-        func.encounterReturnStatement();
-
-		if (inst.index === "afterChildren") {
-            inst.send("returned", {call: func.parent});
-            inst.index = "returned";
-            return true; // go again to returned
-        }
-        else if (inst.index === "returned"){
-            sim.popUntil(func);
-			//func.done(sim);
-			// return true;
-		}
-		//nothing to do
-		// sim.push("expr", this.expression.createAndPushInstance());
-		// sim.pop(inst);
-		// sim.stepForward();
-	},
-    isTailChild : function(child){
-        return {isTail: true,
-            reason: "The recursive call is immediately followed by a return."};
-    }
-});
-
-
-/**
- * @property {BlockScope} blockScope
- * @property {Number} length - The number of statements within the block
- * @property {Statement[]} statements
- *
- * When creating an instance, specify these
- *  - statements
- *
- */
 export var Block = Statement.extend({
     _name: "Block",
     initIndex: 0,

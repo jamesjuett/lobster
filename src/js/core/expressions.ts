@@ -75,6 +75,7 @@ export interface ExpressionASTNode extends ASTNode {
 export abstract class Expression extends PotentialFullExpression {
 
     public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
+        // TODO: implement this. Should not just call super
         return super.createFromAST(ast, context);
     }
 
