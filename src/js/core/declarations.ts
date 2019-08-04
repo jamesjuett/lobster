@@ -1,5 +1,6 @@
 import {checkIdentifier} from "lexical";
 import { CPPConstruct, ExecutableConstruct } from "./constructs";
+import { FunctionEntity } from "./entities";
 
 // A POD type
 export var StorageSpecifier = CPPConstruct.extend({
@@ -495,7 +496,7 @@ var OVERLOADABLE_OPS = {};
 export class FunctionDefinition extends CPPConstruct implements ExecutableConstruct {
 
     public readonly parent?: ExecutableConstruct;
-    public readonly containingFunction: FunctionDefinition = this;
+    public readonly containingFunction: FunctionEntity = this;
 
     _name: "FunctionDefinition",
     isDefinition: true,

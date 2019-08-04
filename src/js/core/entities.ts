@@ -2,11 +2,11 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType} from "./types";
 import {Declaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, CPPObjectType, TemporaryObject, TemporaryObjectType } from "./objects";
+import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, TemporaryObject, TemporaryObjectType } from "./objects";
 import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
@@ -508,7 +508,7 @@ export abstract class CPPEntity<T extends Type = Type> {
 };
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T>;
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
@@ -652,22 +652,22 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 };
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T>;
+    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) : void;
+    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) : void;
 }
 
 //TODO: rename to specifically for local references
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) {
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObjectType<T> {
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
     }
@@ -682,11 +682,9 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 };
 
-//TODO: rename to specifically for local references
 export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
-    // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
-
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObjectType<T>) {
+    
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.setReturnObject(obj);
     }
 
@@ -696,17 +694,43 @@ export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CP
     }
 };
 
+/**
+ * Looking this entity up at runtime yields the return object of the containing runtime function.
+ * Note this is generally only something you would want in the context of a return-by-value
+ * function, in which case the return object is a temporary object created to eventually be initialized
+ * with the returned value. In a pass-by-reference function, the return object will only exist once the
+ * return has been processed and it is set to the returned object. In void function, there is no return
+ * object.
+ * @throws Throws an exception if the return object does not exist.
+ */
+export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectEntity<ObjectType> {
+    
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<ObjectType> {
+        let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
+        if (!returnObject) {
+            throw "Error: Runtime lookup performed for the return object of a function, but the return object does not currently exist.";
+        }
+        return returnObject;
+    }
+    
+    public describe() {
+        // TODO: add info about which function? would need to be specified when the return value is created
+        return {message: "the return object"};
+    }
+};
+
 // TODO: determine what should actually be the base class here
 // TODO: I think this should be an object?
-// TOOD: I don't think this should be an object! Move to runtimeEnvironment.ts?
+// TODO: I don't think this should be an object! Move to runtimeEnvironment.ts?
+// TODO: Is this needed? Can wherever uses it just keep track of the actual objects?
 export class RuntimeReference<T extends ObjectType = ObjectType> {
 
     public readonly observable = new Observable(this);
 
     public readonly entity: BoundReferenceEntity<T>;
-    public readonly refersTo: CPPObjectType<T>;
+    public readonly refersTo: CPPObject<T>;
 
-    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObjectType<T>) {
+    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
         this.entity = entity;
         
 
@@ -1145,6 +1169,8 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     }
 
 }
+
+
 
 export class FunctionEntity extends DeclaredEntity<FunctionType> {
     protected static readonly _name = "FunctionEntity";

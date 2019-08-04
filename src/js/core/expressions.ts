@@ -4,7 +4,7 @@ import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, Executabl
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
-import { CPPObject, CPPObjectType } from "./objects";
+import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";

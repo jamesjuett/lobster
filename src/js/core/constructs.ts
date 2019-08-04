@@ -1,7 +1,7 @@
 import assign from "lodash/assign";
 import { Observable } from "../util/observe";
 import { CONSTRUCT_CLASSES } from "./constructClasses";
-import { assert, Mutable } from "../util/util";
+import { assert, Mutable, makeMutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
 import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, ParameterEntity, ReturnReferenceEntity } from "./entities";
@@ -11,8 +11,7 @@ import { Simulation } from "./Simulation";
 import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType } from "./types";
 import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
-import { CPPObject, CPPObjectType } from "./objects";
-import * as Util from "../util/util";
+import { CPPObject } from "./objects";
 import { Expression, TypedExpression, RuntimeExpression, ValueCategory } from "./expressions";
 import { standardConversion } from "./standardConversions";
 import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
@@ -45,10 +44,6 @@ export class GlobalProgramConstruct {
     //     // Do nothing lol we don't care to collect them here
     // }
 }
-
-interface Attachable<T> {
-    attachTo : (parent: T) => void;
-};
 
 export abstract class CPPConstruct {
 
@@ -141,10 +136,13 @@ export abstract class CPPConstruct {
         // }
     }
 
-    public attach<T extends CPPConstruct>(this: T, child: Attachable<T> ) {
-        child.attachTo(this);
+    public attach(child: CPPConstruct) {
+        makeMutable(this.children).push(child); // rudeness approved here
+        child.onAttach(this);
         // TODO: add notes from child?
     }
+
+    public abstract onAttach(parent: CPPConstruct) : void;
 
     // public addChild(child: CPPConstruct) {
     //     this.children.push(child);
@@ -309,7 +307,7 @@ export abstract class CPPConstruct {
 
 export interface ExecutableConstruct extends CPPConstruct {
     // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
-    // readonly containingFunction: FunctionDefinition;
+    // readonly containingFunction: FunctionEntity;
     readonly context: ExecutableConstructContext;
     
 }
@@ -327,7 +325,7 @@ export interface CompiledExecutableConstruct extends ExecutableConstruct, Compil
 }
 
 export interface ExecutableConstructContext extends ConstructContext {
-    readonly containingFunction: FunctionDefinition;
+    readonly containingFunction: FunctionEntity;
 }
 
 export abstract class InstructionConstruct extends CPPConstruct implements ExecutableConstruct {
@@ -335,7 +333,7 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
     public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
 
-    public readonly containingFunction: FunctionDefinition;
+    public readonly containingFunction: FunctionEntity;
     
     protected constructor(context: ExecutableConstructContext) {
         super(context);
@@ -358,9 +356,8 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     public readonly temporaryDeallocator?: TemporaryDeallocator;
 
 
-    public attachTo(parent: InstructionConstruct) {
-        (<InstructionConstruct>this.parent) = parent;
-        parent.children.push(this); // rudeness approved here
+    public onAttach(parent: InstructionConstruct) {
+        (<Mutable<this>>this).parent = parent;
 
         // This may no longer be a full expression. If so, move temporary entities to
         // their new full expression.
@@ -456,9 +453,12 @@ export class TemporaryDeallocator extends InstructionConstruct {
         return new RuntimeTemporaryDeallocator(this, parent);
     }
 
-    public attachTo(parent: InstructionConstruct) {
+    /**
+     * DO NOT CALL THIS FUNCTION. Instead, call parent.attach(child), which in turn calls this.
+     * @param parent 
+     */
+    public onAttach(parent: InstructionConstruct) {
         (<InstructionConstruct>this.parent) = parent;
-        parent.children.push(this); // rudeness approved here
 
     }
 
@@ -507,6 +507,8 @@ export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, Comp
 
 
 export abstract class UnsupportedConstruct extends CPPConstruct {
+
+    public readonly parent?: ExecutableConstruct; // Narrows type of property in base class
 
     public constructor(context: ConstructContext, unsupportedName: string) {
         super(context);
@@ -745,11 +747,11 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: CPPObjectType<ObjectType>;
+    public readonly returnObject?: CPPObject<ObjectType>;
 
     public readonly hasControl: boolean = false;
 
-    public readonly body: 
+    public readonly body: RuntimeBlock;
 
     public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall) {
         super(model, "function", parent);
@@ -776,7 +778,7 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject(obj: CPPObjectType<ObjectType>) {
+    public setReturnObject(obj: CPPObject<ObjectType>) {
         // This should only be used once
         Util.assert(!this.returnObject);
         (<Mutable<this>>this).returnObject = obj;
