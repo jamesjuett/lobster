@@ -1,11 +1,11 @@
 
 import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext, CompiledConstruct } from "./constructs";
-import { addDefaultPropertiesToPrototype } from "../util/util";
+import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { ReturnReferenceEntity, ReturnObjectEntity } from "./entities";
+import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope } from "./entities";
 import { VoidType, Reference, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
@@ -14,7 +14,7 @@ export abstract class Statement extends InstructionConstruct {
     public readonly parent?: ExecutableConstruct;
 
     public onAttach(parent: ExecutableConstruct) {
-        (<ExecutableConstruct>this.parent) = parent;
+        (<Mutable<this>>this).parent = parent;
     }
 
     public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
@@ -271,10 +271,11 @@ export class ReturnStatement extends Statement {
     public createRuntimeStatement(this: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
         return new RuntimeReturnStatement(this, parent);
     }
-
-    public isTailChild(child: CPPConstruct) {
-        return {isTail: true};
-    }
+    
+    // isTailChild : function(child){
+    //     return {isTail: true,
+    //         reason: "The recursive call is immediately followed by a return."};
+    // }
 }
 
 export interface CompiledReturnStatement extends ReturnStatement, CompiledConstruct {
@@ -316,6 +317,97 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
             this.sim.popUntil(func);
         }
     }
+}
+
+export class Block extends Statement {
+
+    public readonly statements: readonly Statement[];
+
+    public readonly scope: BlockScope;
+
+    public static createFromAST(ast: BlockASTNode, context: ExecutableConstructContext) {
+
+        let blockScope = new BlockScope(context.contextualScope);
+        
+        let newContext = Object.assign({}, context, {contextualScope: blockScope});
+
+        let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, newContext));
+        
+        return new Block(newContext, blockScope, statements);
+    }
+
+    public constructor(context: ExecutableConstructContext, blockScope: BlockScope, statements: readonly Statement[]) {
+        super(context);
+
+        this.scope = blockScope;
+
+        this.statements = statements;        
+    }
+
+    public createRuntimeStatement(this: CompiledBlock, parent: ExecutableRuntimeConstruct) {
+        return new RuntimeBlock(this, parent);
+    }
+
+    // isTailChild : function(child){
+    //     var last = this.statements.last();
+    //     if (child !== last){
+    //         if (child === this.statements[this.statements.length-2] && isA(last, Statements.Return) && !last.hasExpression){
+    //             return {isTail: true,
+    //                 reason: "The only thing after the recursive call is an empty return.",
+    //                 others: [last]
+    //             }
+    //         }
+    //         else{
+    //             var others = [];
+    //             for (var otherIndex = this.statements.length-1; this.statements[otherIndex] !== child && otherIndex >= 0; --otherIndex){
+    //                 var other = this.statements[otherIndex];
+    //                 if (!(isA(other, Statements.Return) && !other.expression)){
+    //                     others.unshift(other);
+    //                 }
+    //             }
+    //             return {isTail: false,
+    //                 reason: "There are other statements in this block that will execute after the recursive call.",
+    //                 others: others
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         return {isTail: true};
+    //     }
+    // }
+
+}
+
+export interface CompiledBlock extends Block, CompiledConstruct {
+    readonly statements: readonly CompiledStatement[];
+}
+
+export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends RuntimeStatement<C> {
+
+    public readonly statements: readonly RuntimeStatement[];
+
+    private index = 0;
+
+    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.statements = model.statements.map((stmt) => stmt.createRuntimeStatement(this));
+    }
+	
+    protected upNextImpl() {
+        if(this.index < this.statements.length) {
+            this.observable.send("index", this.index);
+            this.sim.push(this.statements[this.index++]);
+        }
+        else {
+            this.sim.pop();
+        }
+    }
+
+    public stepForwardImpl() {
+        // Nothing to do here, block doesn't actually do anything but run individual statements.
+        // TODO: However, something will ultimately need to be added to run destructors when a
+        // block finishes, rather than just when a function finishes.
+    }
 
     
     // isTailChild : function(child){
@@ -324,412 +416,328 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
     // }
 }
 
-export var Block = Statement.extend({
-    _name: "Block",
-    initIndex: 0,
+export class FunctionBodyBlock extends Block {
 
-    i_createFromAST : function(ast){
-        Statements.Block._parent.i_createFromAST.apply(this, arguments);
-
-        this.blockScope = this.i_createBlockScope();
-
-        var self = this;
-        this.statements = ast.statements.map(function(stmt){
-            return self.i_createChild(stmt, {scope: self.blockScope});
-        });
-
-        this.length = this.statements.length;
-
-    },
-
-    i_createBlockScope : function() {
-        return BlockScope.instance(this.contextualScope);
-    },
-
-    compile : function(){
-        this.statements.forEach(function(stmt){
-            stmt.compile();
-        });
-    },
-
-    createInstance : function(){
-        var inst = Statement.createInstance.apply(this, arguments);
-        inst.childInstances = {};
-        inst.childInstances.statements = [];
-        return inst;
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index >= this.statements.length){
-            this.done(sim, inst);
-        }
-        else{
-            inst.send("index", inst.index);
-            var nextStmt = this.statements[inst.index++];
-            inst.childInstances.statements.push(nextStmt.createAndPushInstance(sim, inst));
-        }
-        return true;
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // No work to be done here? Should be enough to delegate to statements
-        // via upNext.
-    },
-
-    isTailChild : function(child){
-        var last = this.statements.last();
-        if (child !== last){
-            if (child === this.statements[this.statements.length-2] && isA(last, Statements.Return) && !last.hasExpression){
-                return {isTail: true,
-                    reason: "The only thing after the recursive call is an empty return.",
-                    others: [last]
-                }
-            }
-            else{
-                var others = [];
-                for (var otherIndex = this.statements.length-1; this.statements[otherIndex] !== child && otherIndex >= 0; --otherIndex){
-                    var other = this.statements[otherIndex];
-                    if (!(isA(other, Statements.Return) && !other.expression)){
-                        others.unshift(other);
-                    }
-                }
-                return {isTail: false,
-                    reason: "There are other statements in this block that will execute after the recursive call.",
-                    others: others
-                }
-            }
-        }
-        else{
-            return {isTail: true};
-        }
+    public constructor(context: ExecutableConstructContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
+        super(context, functionBlockScope, statements);
     }
-});
-export {Block as Compound};
+}
 
-export var FunctionBodyBlock = Statements.Block.extend({
-    _name: "FunctionBodyBlock",
+// export var OpaqueFunctionBodyBlock = Statement.extend({
+//     _name: "OpaqueFunctionBodyBlock",
 
-    i_createBlockScope : function() {
-        return FunctionBlockScope.instance(this.contextualScope);
-    }
-});
+//     i_createFromAST : function(ast){
+//         Statements.OpaqueFunctionBodyBlock._parent.i_createFromAST.apply(this, arguments);
 
-export var OpaqueFunctionBodyBlock = Statement.extend({
-    _name: "OpaqueFunctionBodyBlock",
+//         this.blockScope = FunctionBlockScope.instance(this.contextualScope);
+//         this.effects = ast.effects;
+//     },
 
-    i_createFromAST : function(ast){
-        Statements.OpaqueFunctionBodyBlock._parent.i_createFromAST.apply(this, arguments);
+//     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //     if (inst.index >= this.statements.length){
+//     //         this.done(sim, inst);
+//     //     }
+//     //     else{
+//     //         inst.send("index", inst.index);
+//     //         var nextStmt = this.statements[inst.index++];
+//     //         inst.childInstances.statements.push(nextStmt.createAndPushInstance(sim, inst));
+//     //     }
+//     //     return true;
+//     // },
 
-        this.blockScope = FunctionBlockScope.instance(this.contextualScope);
-        this.effects = ast.effects;
-    },
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         // No work to be done here? Should be enough to delegate to statements
+//         // via upNext.
+//         this.effects(sim, inst);
+//         this.done(sim,inst);
+//         return true;
+//     },
 
-    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //     if (inst.index >= this.statements.length){
-    //         this.done(sim, inst);
-    //     }
-    //     else{
-    //         inst.send("index", inst.index);
-    //         var nextStmt = this.statements[inst.index++];
-    //         inst.childInstances.statements.push(nextStmt.createAndPushInstance(sim, inst));
-    //     }
-    //     return true;
-    // },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // No work to be done here? Should be enough to delegate to statements
-        // via upNext.
-        this.effects(sim, inst);
-        this.done(sim,inst);
-        return true;
-    },
-
-    isTailChild : function(){
-        return {isTail: true};
-    }
-});
+//     isTailChild : function(){
+//         return {isTail: true};
+//     }
+// });
 
 
+// export var Selection = Statement.extend({
+//     _name: "Selection",
+//     initIndex: "condition",
 
-export var Selection = Statement.extend({
-    _name: "Selection",
-    initIndex: "condition",
+//     i_childrenToCreate : ["condition", "then", "otherwise"],
 
-    i_childrenToCreate : ["condition", "then", "otherwise"],
+//     compile : function(){
 
-    compile : function(){
+//         // Compile condition, convert to bool if not already, error if can't convert
+//         this.condition.compile();
+//         this.condition = standardConversion(this.condition, Types.Bool.instance());
+//         if (!isA(this.condition.type, Types.Bool)){
+//             this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
+//         }
 
-        // Compile condition, convert to bool if not already, error if can't convert
-        this.condition.compile();
-        this.condition = standardConversion(this.condition, Types.Bool.instance());
-        if (!isA(this.condition.type, Types.Bool)){
-            this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
-        }
+//         this.then.compile();
 
-        this.then.compile();
+//         // else branch may not be specified, so only compile if it is
+//         this.otherwise && this.otherwise.compile();
+//     },
 
-        // else branch may not be specified, so only compile if it is
-        this.otherwise && this.otherwise.compile();
-    },
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if(inst.index == "condition"){
+//             inst.condition = this.condition.createAndPushInstance(sim, inst);
+//             inst.index = "body";
+//             return true;
+//         }
+//         else if (inst.index == "body"){
+//             if(inst.condition.evalResult.value){
+//                 inst.then = this.then.createAndPushInstance(sim, inst);
+//                 inst.index = "done";
+//                 return true;
+//             }
+//             else{
+//                 if (this.otherwise) {
+//                     inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
+//                 }
+//                 inst.index = "done";
+//                 return true;
+//             }
+//         }
+//         else{
+//             this.done(sim, inst);
+//             return true;
+//         }
+//     },
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if(inst.index == "condition"){
-            inst.condition = this.condition.createAndPushInstance(sim, inst);
-            inst.index = "body";
-            return true;
-        }
-        else if (inst.index == "body"){
-            if(inst.condition.evalResult.value){
-                inst.then = this.then.createAndPushInstance(sim, inst);
-                inst.index = "done";
-                return true;
-            }
-            else{
-                if (this.otherwise) {
-                    inst.otherwise = this.otherwise.createAndPushInstance(sim, inst);
-                }
-                inst.index = "done";
-                return true;
-            }
-        }
-        else{
-            this.done(sim, inst);
-            return true;
-        }
-    },
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     },
 
-    },
-
-    isTailChild : function(child){
-        if (child === this.condition){
-            return {isTail: false,
-                reason: "After the function returns, one of the branches will run.",
-                others: [this.then, this.otherwise]
-            }
-        }
-        else{
-            if (this.otherwise){
-                //if (child === this.then){
-                    return {isTail: true,
-                        reason: "Only one branch in a selection structure (i.e. if/else) can ever execute, so don't worry about the code in the other branches."
-                    };
-                //}
-                //else{
-                //    return {isTail: true,
-                //        reason: "Don't worry about the code in the if branch - if the recursive call even happened it means we took the else branch."
-                //    };
-                //}
-            }
-            else{
-                return {isTail: true
-                };
-            }
-        }
-    }
-});
-
-
-export var Iteration = Statement.extend({
-    isTailChild : function(child){
-        return {
-            isTail: false,
-            reason: "If the loop goes around again, then that would be more work after the recursive call.",
-            others: [this]
-        };
-    }
-});
-
-export var While = Iteration.extend({
-    _name: "While",
-    initIndex: "condition",
-
-    i_createFromAST : function(ast) {
-        Statements.While._parent.i_createFromAST.apply(this, arguments);
-
-        this.body = this.i_createChild(ast.body);
-
-        // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
-        // This appears to be currently impossible in Lobster, but when implemented it will require
-        // special implementation of the scope of the body if it's not already a block.
-        // Or maybe we could just decide to parse it correctly (will still require some changes), but
-        // then simply say it's not supported since it's such a rare thing.
-        this.condition = this.i_createChild(ast.condition, {
-            scope : (isA(this.body, Statements.Block) ? this.body.blockScope : this.contextualScope)
-        });
-
-    },
-
-    compile : function(){
-
-        this.condition.compile();
-        this.condition = standardConversion(this.condition, Types.Bool.instance());
-        if (!isA(this.condition.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
-        }
-
-        this.body.compile();
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index == "wait"){
-            return false;
-        }
-        else if(inst.index == "condition"){
-            inst.send("reset");
-            inst.condition = this.condition.createAndPushInstance(sim, inst);
-            inst.index = "checkCond";
-            return true;
-        }
-        else if (inst.index == "checkCond"){
-            if(inst.condition.evalResult.value) {
-                inst.index = "body";
-            }
-            else{
-                this.done(sim, inst);
-            }
-            return true;
-        }
-        else if (inst.index == "body"){
-            inst.body = this.body.createAndPushInstance(sim, inst);
-            inst.index = "wait";
-            return true;
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index == "wait") {
-            inst.index = "condition"; // remove the wait index on iterations after the first
-        }
-    }
-});
+//     isTailChild : function(child){
+//         if (child === this.condition){
+//             return {isTail: false,
+//                 reason: "After the function returns, one of the branches will run.",
+//                 others: [this.then, this.otherwise]
+//             }
+//         }
+//         else{
+//             if (this.otherwise){
+//                 //if (child === this.then){
+//                     return {isTail: true,
+//                         reason: "Only one branch in a selection structure (i.e. if/else) can ever execute, so don't worry about the code in the other branches."
+//                     };
+//                 //}
+//                 //else{
+//                 //    return {isTail: true,
+//                 //        reason: "Don't worry about the code in the if branch - if the recursive call even happened it means we took the else branch."
+//                 //    };
+//                 //}
+//             }
+//             else{
+//                 return {isTail: true
+//                 };
+//             }
+//         }
+//     }
+// });
 
 
-export var DoWhile = While.extend({
-    _name: "DoWhile",
-    initIndex: "body"
-});
+// export var Iteration = Statement.extend({
+//     isTailChild : function(child){
+//         return {
+//             isTail: false,
+//             reason: "If the loop goes around again, then that would be more work after the recursive call.",
+//             others: [this]
+//         };
+//     }
+// });
+
+// export var While = Iteration.extend({
+//     _name: "While",
+//     initIndex: "condition",
+
+//     i_createFromAST : function(ast) {
+//         Statements.While._parent.i_createFromAST.apply(this, arguments);
+
+//         this.body = this.i_createChild(ast.body);
+
+//         // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
+//         // This appears to be currently impossible in Lobster, but when implemented it will require
+//         // special implementation of the scope of the body if it's not already a block.
+//         // Or maybe we could just decide to parse it correctly (will still require some changes), but
+//         // then simply say it's not supported since it's such a rare thing.
+//         this.condition = this.i_createChild(ast.condition, {
+//             scope : (isA(this.body, Statements.Block) ? this.body.blockScope : this.contextualScope)
+//         });
+
+//     },
+
+//     compile : function(){
+
+//         this.condition.compile();
+//         this.condition = standardConversion(this.condition, Types.Bool.instance());
+//         if (!isA(this.condition.type, Types.Bool)){
+//             this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
+//         }
+
+//         this.body.compile();
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index == "wait"){
+//             return false;
+//         }
+//         else if(inst.index == "condition"){
+//             inst.send("reset");
+//             inst.condition = this.condition.createAndPushInstance(sim, inst);
+//             inst.index = "checkCond";
+//             return true;
+//         }
+//         else if (inst.index == "checkCond"){
+//             if(inst.condition.evalResult.value) {
+//                 inst.index = "body";
+//             }
+//             else{
+//                 this.done(sim, inst);
+//             }
+//             return true;
+//         }
+//         else if (inst.index == "body"){
+//             inst.body = this.body.createAndPushInstance(sim, inst);
+//             inst.index = "wait";
+//             return true;
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index == "wait") {
+//             inst.index = "condition"; // remove the wait index on iterations after the first
+//         }
+//     }
+// });
 
 
-export var For = Iteration.extend({
-    _name: "For",
-    initIndex: "init",
-
-    init : function(ast, context) {
-        this.initParent(ast, context);
-
-        this.body = this.i_createChild(ast.body);
-
-        // If the body is already a block, we can just use its scope. Otherwise, create one for the for loop.
-        this.bodyScope = (isA(this.body, Statements.Block) ? this.body.blockScope : BlockScope.instance(this.contextualScope));
-
-        // Note: grammar ensures this will be an expression or declaration statement
-        this.initial = this.i_createChild(ast.initial, {scope: this.bodyScope});
-
-        this.condition = this.i_createChild(ast.condition, {scope : this.bodyScope});
-
-        this.post = this.i_createChild(ast.post, {scope : this.bodyScope});
-
-    },
-
-    compile : function(){
-        this.initial.compile();
-
-        this.condition.compile();
-        this.condition = standardConversion(this.condition, Types.Bool.instance());
-        if (!isA(this.condition.type, Types.Bool)){
-            this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
-        }
-
-        this.body.compile();
-
-        this.post.compile();
-    },
+// export var DoWhile = While.extend({
+//     _name: "DoWhile",
+//     initIndex: "body"
+// });
 
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index == "wait"){
-            return false;
-        }
-        else if (inst.index == "init"){
-            inst.initial = this.initial.createAndPushInstance(sim, inst);
-            inst.index = "condition";
-            return true;
-        }
-        else if(inst.index == "condition"){
-            inst.send("reset");
-            inst.condition = this.condition.createAndPushInstance(sim, inst);
-            inst.index = "body";
-            return true;
-        }
-        else if (inst.index == "body"){
-            if(inst.condition.evalResult.value){
-                inst.body = this.body.createAndPushInstance(sim, inst);
-                inst.index = "post";
-                return true;
-            }
-            else{
-                this.done(sim, inst);
-                return true;
-            }
-        }
-        else if (inst.index == "post"){
-            inst.post = this.post.createAndPushInstance(sim, inst);
-            inst.index = "wait";
-            return true;
-        }
-    },
+// export var For = Iteration.extend({
+//     _name: "For",
+//     initIndex: "init",
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.index = "condition"; // remove the wait index on iterations after the first
-    }
-});
+//     init : function(ast, context) {
+//         this.initParent(ast, context);
+
+//         this.body = this.i_createChild(ast.body);
+
+//         // If the body is already a block, we can just use its scope. Otherwise, create one for the for loop.
+//         this.bodyScope = (isA(this.body, Statements.Block) ? this.body.blockScope : BlockScope.instance(this.contextualScope));
+
+//         // Note: grammar ensures this will be an expression or declaration statement
+//         this.initial = this.i_createChild(ast.initial, {scope: this.bodyScope});
+
+//         this.condition = this.i_createChild(ast.condition, {scope : this.bodyScope});
+
+//         this.post = this.i_createChild(ast.post, {scope : this.bodyScope});
+
+//     },
+
+//     compile : function(){
+//         this.initial.compile();
+
+//         this.condition.compile();
+//         this.condition = standardConversion(this.condition, Types.Bool.instance());
+//         if (!isA(this.condition.type, Types.Bool)){
+//             this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
+//         }
+
+//         this.body.compile();
+
+//         this.post.compile();
+//     },
+
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index == "wait"){
+//             return false;
+//         }
+//         else if (inst.index == "init"){
+//             inst.initial = this.initial.createAndPushInstance(sim, inst);
+//             inst.index = "condition";
+//             return true;
+//         }
+//         else if(inst.index == "condition"){
+//             inst.send("reset");
+//             inst.condition = this.condition.createAndPushInstance(sim, inst);
+//             inst.index = "body";
+//             return true;
+//         }
+//         else if (inst.index == "body"){
+//             if(inst.condition.evalResult.value){
+//                 inst.body = this.body.createAndPushInstance(sim, inst);
+//                 inst.index = "post";
+//                 return true;
+//             }
+//             else{
+//                 this.done(sim, inst);
+//                 return true;
+//             }
+//         }
+//         else if (inst.index == "post"){
+//             inst.post = this.post.createAndPushInstance(sim, inst);
+//             inst.index = "wait";
+//             return true;
+//         }
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         inst.index = "condition"; // remove the wait index on iterations after the first
+//     }
+// });
 
 
 
-export var Break = Statement.extend({
-    _name: "Break",
+// export var Break = Statement.extend({
+//     _name: "Break",
 
-    compile : function() {
-        // Theoretically this could be put into the i_createFromAST function since it only uses
-        // syntactic information to determine whether the break is inside an iteration statement,
-        // but it would feel weird to add an error note before the compile function even runs... :/
+//     compile : function() {
+//         // Theoretically this could be put into the i_createFromAST function since it only uses
+//         // syntactic information to determine whether the break is inside an iteration statement,
+//         // but it would feel weird to add an error note before the compile function even runs... :/
 
-        var container = this.parent;
-        while(container && !isA(container, Statements.Iteration)){
-            container = container.parent;
-        }
+//         var container = this.parent;
+//         while(container && !isA(container, Statements.Iteration)){
+//             container = container.parent;
+//         }
 
-        this.container = container;
+//         this.container = container;
 
-        // container should exist, otherwise this break is somewhere it shouldn't be
-        if (!container || !isA(container, Statements.Iteration)){
-            this.addNote(CPPError.stmt.breakStatement.location(this, this.condition));
-        }
-    },
+//         // container should exist, otherwise this break is somewhere it shouldn't be
+//         if (!container || !isA(container, Statements.Iteration)){
+//             this.addNote(CPPError.stmt.breakStatement.location(this, this.condition));
+//         }
+//     },
 
-    createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
-        sim.push(inst);
-        return inst;
-    },
+//     createAndPushInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var inst = RuntimeConstruct.instance(sim, this, "break", "stmt", inst);
+//         sim.push(inst);
+//         return inst;
+//     },
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index == "break"){
-            var containerInst = inst.findParentByModel(this.container);
-//            inst.send("returned", {call: func.parent});
-            containerInst.done(sim); // TODO: should be done with simulation stack instead of parent
-            // return true;
-        }
-    }
-});
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index == "break"){
+//             var containerInst = inst.findParentByModel(this.container);
+// //            inst.send("returned", {call: func.parent});
+//             containerInst.done(sim); // TODO: should be done with simulation stack instead of parent
+//             // return true;
+//         }
+//     }
+// });
 
 
-export var Continue = Unsupported.extend({
-    _name: "Statements.Continue",
-    englishName: "continue statement"
-});
+// export var Continue = Unsupported.extend({
+//     _name: "Statements.Continue",
+//     englishName: "continue statement"
+// });
 
 
 
