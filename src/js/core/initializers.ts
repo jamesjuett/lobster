@@ -312,12 +312,12 @@ export abstract class DirectInitializer extends Initializer {
     //     )
     // }
 
-    public static create(context: ExecutableConstructContext, target: ReferenceEntity, args: Expression[]) : ReferenceDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: Expression[]) : ReferenceDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) : AtomicDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) : ArrayDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer {
+    public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: Expression[]) : DirectInitializer {
         if (target instanceof ReferenceEntity) {
             return new ReferenceDirectInitializer(context, target, args);
         }

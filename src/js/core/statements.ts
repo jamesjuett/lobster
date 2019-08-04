@@ -1,31 +1,35 @@
 
-import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext } from "./constructs";
+import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext, CompiledConstruct } from "./constructs";
 import { addDefaultPropertiesToPrototype } from "../util/util";
-import { Expression, RuntimeExpression } from "./expressions";
+import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
+import { CopyInitializer, DirectInitializer } from "./initializers";
+import { ReturnReferenceEntity } from "./entities";
+import { VoidType, Reference, ObjectType } from "./types";
+import { CPPError } from "./errors";
 
 export abstract class Statement extends InstructionConstruct {
 
     public readonly parent?: ExecutableConstruct;
 
-    public attachTo(parent: ExecutableConstruct) {
+    public onAttach(parent: ExecutableConstruct) {
         (<ExecutableConstruct>this.parent) = parent;
-        parent.children.push(this); // rudeness approved here
     }
 
     public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
 
 }
 
-export abstract class RuntimeStatement extends RuntimeInstruction {
-    
-    public readonly model!: CompiledStatement; // narrows type of member in base class
+export interface CompiledStatement extends Statement, CompiledConstruct {
 
-    public constructor (model: Statement, parent: ExecutableRuntimeConstruct) {
+}
+
+export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeInstruction<C> {
+
+    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "statement", parent);
     }
-
 
     public popped() {
         super.popped();
@@ -81,7 +85,7 @@ export class ExpressionStatement extends Statement {
         this.attach(this.expression = expression);
     }
 
-    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledExpressionStatement, parent: ExecutableRuntimeConstruct) {
         return new RuntimeExpressionStatement(this, parent);
     }
 
@@ -90,14 +94,16 @@ export class ExpressionStatement extends Statement {
     }
 }
 
-export class RuntimeExpressionStatement extends RuntimeStatement {
+export interface CompiledExpressionStatement extends ExpressionStatement, CompiledConstruct {
+    readonly expression: CompiledExpression;
+}
 
-    public readonly model!: CompiledExpressionStatement; // narrows type of member in base class
+export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpressionStatement> {
     
     public expression: RuntimeExpression;
     private index = "expr";
 
-    public constructor (model: ExpressionStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledExpressionStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.expression = this.model.expression.createRuntimeExpression(this);
     }
@@ -122,16 +128,22 @@ export class RuntimeExpressionStatement extends RuntimeStatement {
 
 export class NullStatement extends Statement {
 
-    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledNullStatement, parent: ExecutableRuntimeConstruct) {
         return new RuntimeNullStatement(this, parent);
+    }
+
+    public isTailChild(child: CPPConstruct) {
+        return {isTail: true}; // Note: NullStatement will never actually have children, so this isn't used
     }
 }
 
-export class RuntimeNullStatement extends RuntimeStatement {
+export interface CompiledNullStatement extends NullStatement, CompiledConstruct {
+    foo: number;
+}
 
-    public readonly model!: NullStatement; // narrows type of member in base class
+export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement> {
 
-    public constructor (model: NullStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledNullStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -144,12 +156,6 @@ export class RuntimeNullStatement extends RuntimeStatement {
     }
 
 }
-
-
-
-
-
-
 
 export interface DeclarationStatementASTNode extends ASTNode {
     declaration: DeclarationASTNode;
@@ -170,7 +176,7 @@ export class DeclarationStatement extends Statement {
         this.attach(this.declaration = declaration);
     }
 
-    public createRuntimeStatement(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
         return new RuntimeDeclarationStatement(this, parent);
     }
 
@@ -179,13 +185,15 @@ export class DeclarationStatement extends Statement {
     }
 }
 
-export class RuntimeDeclarationStatement extends RuntimeStatement {
+export interface CompiledDeclarationStatement extends DeclarationStatement, CompiledConstruct {
+    readonly declaration: CompiledDeclaration;
+}
 
-    public readonly model!: DeclarationStatement; // narrows type of member in base class
+export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
 
     private index = 0;
 
-    public constructor (model: DeclarationStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 	
@@ -213,18 +221,94 @@ export class RuntimeDeclarationStatement extends RuntimeStatement {
     }
 }
 
+export class ReturnStatement extends Statement {
+
+    public readonly expression?: Expression;
+    public readonly returnInitializer?: CopyInitializer;
+
+    public static createFromAST(ast: ReturnStatementASTNode, context: ExecutableConstructContext) {
+        return ast.expression
+            ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context))
+            : new ReturnStatement(context);
+    }
+
+    public constructor(context: ExecutableConstructContext, expression?: Expression) {
+        super(context);
+        this.expression = expression;
+
+        let returnType = this.containingFunction.type.returnType;
+
+        if (returnType instanceof VoidType) {
+            if (expression) {
+                // We have an expression to return, but the type is void, so that's bad
+                this.addNote(CPPError.stmt.returnStatement.exprVoid(this));
+            }
+            return;
+        }
+
+        // A return statement with no expression is only allowed in void functions.
+        // At the moment, constructors/destructors are hacked to have void return type,
+        // so this check is ok for return statements in a constructor.
+        if (!expression) {
+            this.addNote(CPPError.stmt.returnStatement.empty(this));
+            return;
+        }
+
+        if (returnType instanceof Reference) {
+            // TODO: Technically, this should be CopyInitializer
+            this.returnInitializer = DirectInitializer.create(context, new ReturnReferenceEntity(returnType.refTo), [expression]);
+        }
+        else {
+            this.returnInitializer = DirectInitializer.create(context, )
+
+        }
 
 
-/**
- * @property {ReturnInitializer} returnInitializer
- * @property {?Expression} expression
- * @property {Type} returnType
- *
- * When creating an instance, specify these options
- *  - expression (optional)
- *
- */
-export var Return = Statement.extend({
+        
+
+        //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
+        //    
+        //    return;
+        //}
+
+
+            // If there is an expression, use it in an initializer for the current return object
+            
+        }
+        expression && this.attach(this.expression = expression);
+    }
+
+    public createRuntimeStatement(this: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
+        return new RuntimeReturnStatement(this, parent);
+    }
+
+    public isTailChild(child: CPPConstruct) {
+        return {isTail: true};
+    }
+}
+
+export interface CompiledReturnStatement extends ReturnStatement, CompiledConstruct {
+    public readonly expression?: CompiledExpression;
+}
+
+export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnStatement> {
+
+    private index = 0;
+
+    public constructor (model: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+    }
+	
+    protected upNextImpl() {
+
+    }
+
+    public stepForwardImpl() {
+
+    }
+}
+
+export class ReturnStatement extends Statement {
     _name: "Return",
 
     i_createFromAST : function(ast) {
@@ -256,19 +340,8 @@ export var Return = Statement.extend({
             this.returnInitializer.compile(ReturnEntity.instance(returnType));
         }
 
-        // A return statement with no expression is only allowed in void functions.
-        // At the moment, constructors/destructors are hacked to have void return type,
-        // so this check is ok for return statements in a constructor.
-        if (!this.expression && !isA(returnType, Types.Void)){
-            this.addNote(CPPError.stmt.returnStatement.empty(this))
-        }
 
-        // TODO maybe put this back in. pretty sure return initializer will give some kind of error for this anyway
-        //// A return statement with a non-void expression can only be used in functions that return a value (i.e. non-void)
-        //if (this.expression && !isA(this.expression.type, Types.Void) && isA(returnType, Types.Void)){
-        //    this.addNote(CPPError.stmt.returnStatement.exprVoid(this));
-        //    return;
-        //}
+
 	},
 
 	stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
