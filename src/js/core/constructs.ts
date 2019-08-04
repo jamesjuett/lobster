@@ -341,7 +341,7 @@ export abstract class InstructionConstruct extends CPPConstruct implements Execu
         this.containingFunction = context.containingFunction;
     }
 
-    public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
+    // public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
 }
 
 export interface CompiledInstructionConstruct extends InstructionConstruct, CompiledConstruct {
@@ -513,6 +513,10 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
     public constructor(context: ConstructContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported(this, unsupportedName));
+    }
+
+    public onAttach(parent: ExecutableConstruct) {
+        (<Mutable<this>>this).parent = parent;
     }
 }
 
