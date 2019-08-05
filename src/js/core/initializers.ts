@@ -1,5 +1,5 @@
 import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression } from "./constructs";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType } from "./types";
 import { CPPError, Explanation } from "./errors";
@@ -12,7 +12,7 @@ import { standardConversion } from "./standardConversions";
 
 export abstract class Initializer extends PotentialFullExpression {
 
-    public abstract readonly target: ObjectEntity;
+    public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
 
@@ -22,11 +22,13 @@ export abstract class Initializer extends PotentialFullExpression {
 
 }
 
-export abstract class RuntimeInitializer extends RuntimeInstruction {
-    
-    public readonly model!: Initializer; // narrows type of member in base class
+export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, CompiledConstruct {
+    readonly target: ObjectEntity<T>;
+} 
 
-    protected constructor (model: Initializer, parent: ExecutableRuntimeConstruct) {
+export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimeInstruction<C> {
+
+    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "initializer", parent);
     }
 
@@ -63,20 +65,22 @@ export abstract class DefaultInitializer extends Initializer {
     public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer;
 }
 
-export abstract class RuntimeDefaultInitializer extends RuntimeInitializer {
-    
-    public readonly model!: DefaultInitializer; // narrows type of member in base class
+export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, CompiledConstruct {
+    readonly target: ObjectEntity<T>;
+}
 
-    protected constructor (model: DefaultInitializer, parent: ExecutableRuntimeConstruct) {
+export abstract class RuntimeDefaultInitializer<C extends CompiledDefaultInitializer = CompiledDefaultInitializer> extends RuntimeInitializer<C> {
+
+    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 }
 
 export class ReferenceDefaultInitializer extends DefaultInitializer {
 
-    public readonly target: ReferenceEntity<AtomicType>;
+    public readonly target: UnboundReferenceEntity;
 
-    public constructor(context: ExecutableConstructContext, target: ReferenceEntity<AtomicType>) {
+    public constructor(context: ExecutableConstructContext, target: UnboundReferenceEntity) {
         super(context);
         this.target = target;
 
@@ -92,6 +96,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
         return assertFalse("A default initializer for a reference is not allowed.");
     }
 }
+
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
 
