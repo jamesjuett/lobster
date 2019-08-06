@@ -128,31 +128,30 @@ export interface CompiledExpression<T extends Type = Type, V extends ValueCatego
 //     readonly lvalue: CPPObject<T>;
 // } : never;
 
-type VCResultTypes<T extends Type> =
-    T extends FunctionType ? {
-        readonly prvalue: never;
-        readonly xvalue: never;
-        readonly lvalue: FunctionEntity;
-    }
-    : T extends AtomicType ? {
-        readonly prvalue: Value<T>;
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
-    }
-    : T extends ObjectType ? {
+type VCResultTypes<T extends Type, V extends ValueCategory> =
+    T extends FunctionType ? (
+        V extends "prvalue" ? never :
+        V extends "xvalue" ? never :
+        FunctionEntity // lvalue
+    )
+    : T extends AtomicType ? (
+        V extends "prvalue" ? Value<T> :
+        V extends "xvalue" ? CPPObject<T> :
+        CPPObject<T> // lvalue
+    )
+    : T extends ObjectType ? (
         
         // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
         //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
-        readonly prvalue: AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T>;
-        
-        readonly xvalue: CPPObject<T>;
-        readonly lvalue: CPPObject<T>;
-    }
-    : /*ObjectType extends T ?*/ { // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        readonly prvalue: Value<AtomicType> | CPPObject<ObjectType>;
-        readonly xvalue: CPPObject<ObjectType>;
-        readonly lvalue: CPPObject<ObjectType>;
-    }
+        V extends "prvalue" ? AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T> :
+        V extends "xvalue" ? CPPObject<T> :
+        CPPObject<T> // lvalue
+    )
+    : /*ObjectType extends T ?*/ ( // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
+        V extends "prvalue" ? Value<AtomicType> | CPPObject<ObjectType> :
+        V extends "xvalue" ? CPPObject<ObjectType> :
+        CPPObject<ObjectType> // lvalue
+    )
     // : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
     //     readonly prvalue: number;
     //     readonly xvalue: number;
@@ -184,13 +183,13 @@ export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressi
 
 export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
     
-    public readonly evalResult?: VCResultTypes<T>[V];
+    public readonly evalResult?: VCResultTypes<T,V>;
 
     public constructor(model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
     }
 
-    protected setEvalResult(value: VCResultTypes<T>[V]) {
+    protected setEvalResult(value: VCResultTypes<T,V>) {
         (<Mutable<this>>this).evalResult = value;
     }
 

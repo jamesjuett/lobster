@@ -265,8 +265,8 @@ export class ClassDefaultInitializer extends DefaultInitializer {
 
     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
-        return new RuntimeClassDefaultInitializer(this, parent);
+    public createRuntimeInitializer<T extends ClassType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
+        return new RuntimeClassDefaultInitializer(<CompiledClassDefaultInitializer<T>>this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -359,7 +359,7 @@ export abstract class DirectInitializer extends Initializer {
         }
     }
 
-    public abstract readonly args: Expression[];
+    public abstract readonly args: readonly Expression[];
 
     // NOTE: this isn't redundant - it's here to make it protected rather than the public inherited one
     protected constructor(context: ExecutableConstructContext) {
@@ -386,7 +386,8 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType, C extends C
 export class ReferenceDirectInitializer extends DirectInitializer {
 
     public readonly target: UnboundReferenceEntity;
-    public readonly args: Expression[];
+    public readonly args: readonly Expression[];
+    public readonly arg?: Expression;
 
     public constructor(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: Expression[]) {
         super(context);
@@ -401,68 +402,66 @@ export class ReferenceDirectInitializer extends DirectInitializer {
             return;
         }
         
-        let targetType = target.type;
-        let arg = this.args[0];
-        if (!referenceCompatible(arg.type, targetType)) {
-            this.addNote(CPPError.declaration.init.referenceType(this, arg, targetType));
+        this.arg = this.args[0];
+        if (!this.arg.isWellTyped()) {
+            return;
         }
-        else if (arg.valueCategory === "prvalue" && !targetType.isConst){
+
+        let targetType = target.type;
+        if (!referenceCompatible(this.arg.type, targetType)) {
+            this.addNote(CPPError.declaration.init.referenceType(this, this.arg, targetType));
+        }
+        else if (this.arg.valueCategory === "prvalue" && !targetType.isConst){
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
         }
-        else if (arg.valueCategory === "prvalue"){
+        else if (this.arg.valueCategory === "prvalue"){
             this.addNote(CPPError.lobster.referencePrvalue(this));
         }
     }
 
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T>;
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
-        return new RuntimeReferenceDirectInitializer(this, parent);
+    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
+        return new RuntimeReferenceDirectInitializer(<CompiledReferenceDirectInitializer<T>>this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let targetDesc = this.target.describe();
         let rhsDesc = this.args[0].describeEvalResult(0);
         return {message: (targetDesc.name || targetDesc.message) + " will be bound to " + (rhsDesc.name || rhsDesc.message) + "."};
     }
 }
 
-// export namespace ReferenceDirectInitializer {
-//     export interface Compiled extends ReferenceDirectInitializer {
-//         args: RuntimeExpression.LValue[];
-//     }
-// }
-
-
 export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, CompiledConstruct {
     readonly target: UnboundReferenceEntity<T>;
-    readonly args: CompiledExpression[];
+    readonly args: readonly CompiledExpression[];
+
+    // Note: Compilation of the initializer checks for reference compatibility, which should ensure
+    // that the expression actually has the same type T as the reference to be bound. (For subtypes
+    // that are reference compatible, this is fine, since T will still be ClassType for both.)
+    readonly arg: CompiledExpression<T, "lvalue">;
 }
 
 export class RuntimeReferenceDirectInitializer<T extends ObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
 
-    public readonly args: RuntimeExpression[];
+    public readonly arg: RuntimeExpression<T, "lvalue">;
 
-    private argIndex = 0;
+    private alreadyPushed = false;
 
     public constructor (model: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
-        this.args = this.model.args.map((a) => {
-            return a.createRuntimeExpression(this);
-        });
+        this.arg = this.model.arg.createRuntimeExpression(this);
     }
 
     protected upNextImpl() {
-        if (this.argIndex < this.args.length) {
-            this.sim.push(this.args[this.argIndex++]);
+        if (!this.alreadyPushed) {
+            this.sim.push(this.arg);
+            this.alreadyPushed = true;
         }
     }
     
     public stepForwardImpl() {
-        let rtRef = this.model.target.getRuntimeReference(this);
-        rtRef.bindTo(
-            <CPPObject>this.args[0].evalResult
-        );
+        let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult!);  //TODO remove cast
         this.observable.send("initialized", rtRef);
         this.sim.pop();
     }
@@ -472,7 +471,8 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType> extends Run
 export class AtomicDirectInitializer extends DirectInitializer {
 
     public readonly target: ObjectEntity<AtomicType>;
-    public readonly args: Expression[];
+    public readonly args: readonly Expression[];
+    public readonly arg?: Expression;
 
     public constructor(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) {
         super(context);
@@ -481,25 +481,37 @@ export class AtomicDirectInitializer extends DirectInitializer {
         
         let targetType = target.type;
 
-        if (args.length > 1){
-            this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
-        }
-
-        //Attempt standard conversion to declared type, including lvalue to rvalue conversions
-        let arg = standardConversion(args[0], targetType);
-
-        if (!sameType(arg.type, targetType)) {
-            this.addNote(CPPError.declaration.init.convert(this, arg.type, targetType));
-        }
-        
-        args[0] = arg;
         this.args = args;
         args.forEach((a) => {this.attach(a);});
+
+        if (args.length > 1){
+            this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
+            return;
+        }
+        
+        this.arg = args[0];
+
+        //Attempt standard conversion to declared type, including lvalue to rvalue conversions
+        if (!this.arg.isWellTyped()) {
+            return;
+        }
+
+        let typedArg = standardConversion(this.arg, targetType);
+        this.arg = typedArg;
+
+        if (!sameType(typedArg.type, targetType)) {
+            this.addNote(CPPError.declaration.init.convert(this, typedArg.type, targetType));
+        }
+        
+        // TODO: need to check that the arg is a prvalue
+        
         
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
-        return new RuntimeAtomicDirectInitializer(this, parent);
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends AtomicType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDirectInitializer<T> {
+        return new RuntimeAtomicDirectInitializer(<CompiledAtomicDirectInitializer<T>>this, parent);
     }
 
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
@@ -510,29 +522,34 @@ export class AtomicDirectInitializer extends DirectInitializer {
     }
 }
 
-export class RuntimeAtomicDirectInitializer extends RuntimeDirectInitializer<AtomicDirectInitializer> {
+export interface CompiledAtomicDirectInitializer<T extends AtomicType> extends AtomicDirectInitializer, CompiledConstruct {
+    readonly target: ObjectEntity<T>;
+    readonly args: readonly CompiledExpression[];
+    readonly arg: CompiledExpression<T, "prvalue">;
+}
+
+export class RuntimeAtomicDirectInitializer<T extends AtomicType> extends RuntimeDirectInitializer<T, CompiledAtomicDirectInitializer<T>> {
 
     public readonly target: CPPObject<AtomicType>;
-    public readonly args: RuntimeExpression[];
+    public readonly arg: RuntimeExpression<T, "prvalue">;
 
-    private argIndex = 0;
+    private alreadyPushed = false;
 
-    public constructor (model: AtomicDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledAtomicDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
-        this.args = this.model.args.map((a) => {
-            return a.createRuntimeExpression(this);
-        });
+        this.arg = this.model.arg.createRuntimeExpression(this);
     }
 
     protected upNextImpl() {
-        if (this.argIndex < this.args.length) {
-            this.sim.push(this.args[this.argIndex++]);
+        if (!this.alreadyPushed) {
+            this.sim.push(this.arg);
+            this.alreadyPushed = true;
         }
     }
 
     public stepForwardImpl() {
-        this.target.writeValue(<Value<AtomicType>>this.args[0].evalResult);
+        this.target.writeValue(this.arg.evalResult!);
         this.observable.send("initialized", this.target);
         this.sim.pop();
     }
