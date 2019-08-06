@@ -230,7 +230,7 @@ export function isCvConvertible(t1: Type, t2: Type){
 // interface DefaultTypeProperties {
 //     size: number;
 //     precedence: number;
-//     isObjectType?: boolean;
+//     _isObjectType?: boolean;
 //     isArithmeticType?: boolean;
 //     isIntegralType?: boolean;
 //     isFloatingPointType?: boolean;
@@ -247,7 +247,7 @@ export abstract class Type {
     protected abstract readonly precedence: number;
 
 
-    public abstract readonly isObjectType: boolean;
+    public abstract readonly _isObjectType: boolean;
     public abstract readonly isArithmeticType: boolean;
     public abstract readonly isIntegralType: boolean;
     public abstract readonly isFloatingPointType: boolean;
@@ -277,6 +277,10 @@ export abstract class Type {
      */
     public isType<T extends Type>(ctor: Util.Constructor<T>) : this is InstanceType<typeof ctor> {
         return this instanceof ctor;
+    }
+
+    public isObjectType() : this is ObjectType {
+        return this._isObjectType;
     }
     
     /**
@@ -441,7 +445,7 @@ export abstract class Type {
 
 export class VoidType extends Type {
 
-    public readonly isObjectType = false;
+    public readonly _isObjectType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -549,6 +553,7 @@ abstract class ValueType extends ObjectType {
 
 export abstract class AtomicType extends ValueType {
     public readonly isAtomic = true;
+    public readonly _isObjectType = true;
 
 }
 
@@ -611,7 +616,7 @@ export abstract class SimpleType extends AtomicType {
 // builtInTypes["_universal_data"] = _Universal_data;
 
 export abstract class IntegralType extends SimpleType {
-
+    public readonly isFloatingPointType = false;
     public readonly isIntegralType = true;
     public readonly isArithmeticType = true;
     
@@ -619,8 +624,6 @@ export abstract class IntegralType extends SimpleType {
 
 
 export class Char extends IntegralType {
-    public isObjectType: boolean;
-    public isFloatingPointType: boolean;
     
     protected readonly simpleType = "char";
     public readonly size = 1;
@@ -651,8 +654,6 @@ export class Char extends IntegralType {
 builtInTypes["char"] = Char;
 
 export class Int extends IntegralType {
-    public isObjectType: boolean;
-    public isFloatingPointType: boolean;
     protected readonly simpleType = "int";
     public readonly size = 4;
 };
@@ -660,16 +661,12 @@ export class Int extends IntegralType {
 builtInTypes["int"] = Int;
 
 export class Size_t extends IntegralType {
-    public isObjectType: boolean;
-    public isFloatingPointType: boolean;
     protected readonly simpleType = "size_t";
     public readonly size = 8;
 }
 builtInTypes["size_t"] = Size_t;
 
 export class Bool extends IntegralType {
-    public isObjectType: boolean;
-    public isFloatingPointType: boolean;
     protected readonly simpleType = "bool";
     public readonly size = 1;
 
@@ -683,6 +680,7 @@ builtInTypes["bool"] = Bool;
 
 export abstract class FloatingPointType extends SimpleType {
 
+    public readonly isIntegralType = false;
     public readonly isFloatingPointType = true;
     public readonly isArithmeticType = true;
 
@@ -694,32 +692,28 @@ export abstract class FloatingPointType extends SimpleType {
 }
 
 export class Float extends FloatingPointType {
-    public isObjectType: boolean;
-    public isIntegralType: boolean;
     protected readonly simpleType = "float";
     public readonly size = 4;
 }
 builtInTypes["float"] = Float;
 
 export class Double extends FloatingPointType {
-    public isObjectType: boolean;
-    public isIntegralType: boolean;
     protected readonly simpleType = "double";
     public readonly size = 8;
 }
 builtInTypes["double"] = Double;
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
-export class OStream extends SimpleType {
-    public isObjectType: boolean;
-    public isArithmeticType: boolean;
-    public isIntegralType: boolean;
-    public isFloatingPointType: boolean;
-    protected readonly simpleType = "ostream";
-    public readonly size = 4;
+// export class OStream extends SimpleType {
+//     public _isObjectType: boolean;
+//     public isArithmeticType: boolean;
+//     public isIntegralType: boolean;
+//     public isFloatingPointType: boolean;
+//     protected readonly simpleType = "ostream";
+//     public readonly size = 4;
 
-}
-builtInTypes["ostream"] = OStream;
+// }
+// builtInTypes["ostream"] = OStream;
 
 // TODO: add support for istream
 // export class IStream = SimpleType.extend({
@@ -742,7 +736,6 @@ export interface ArithmeticType extends SimpleType {
 //TODO: create separate function pointer type???
 
 export class Pointer extends AtomicType {
-    public isObjectType = false;
     public isArithmeticType = false;
     public isIntegralType = false;
     public isFloatingPointType = false;
@@ -801,7 +794,7 @@ export class Pointer extends AtomicType {
     }
 
     public isObjectPointer() {
-        return this.ptrTo.isObjectType || this.ptrTo instanceof VoidType;
+        return this.ptrTo._isObjectType || this.ptrTo instanceof VoidType;
     }
 
     /**
@@ -877,7 +870,7 @@ export class ObjectPointer extends Pointer {
 
 
 export class Reference extends Type {
-    public readonly isObjectType = false;
+    public readonly _isObjectType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -929,7 +922,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     
     public readonly size: number;
 
-    public readonly isObjectType = false; // TODO: is an array an object type according to C++ standard definitions?
+    public readonly _isObjectType = true;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -1023,11 +1016,11 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
 export class ClassType extends ObjectType {
     public size: number= 0;
     protected precedence: number = 0;
-    public isObjectType: boolean = false;
-    public isArithmeticType: boolean = false;
-    public isIntegralType: boolean = false;
-    public isFloatingPointType: boolean = false;
-    public isComplete: boolean = false;
+    public readonly _isObjectType = true;
+    public readonly isArithmeticType: boolean = false;
+    public readonly isIntegralType: boolean = false;
+    public readonly isFloatingPointType: boolean = false;
+    public readonly isComplete: boolean = false;
     public sameType(other: Type): boolean {
         throw new Error("Method not implemented.");
     }
@@ -1057,7 +1050,7 @@ export class ClassType extends ObjectType {
 //         throw new Error("Method not implemented.");
 //     }
 //     protected readonly precedence = 0;
-//     public readonly isObjectType = true;
+//     public readonly _isObjectType = true;
 
 //     public readonly cppClass: CPPClass;
 
@@ -1182,7 +1175,7 @@ export class ClassType extends ObjectType {
 //         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
 //         this.scope.addDeclaredEntity(mem);
 //         this.memberEntities.push(mem);
-//         if(mem.type.isObjectType){
+//         if(mem.type._isObjectType){
 //             if (this.actuallyZeroSize){
 //                 (<number>this.size) = 0;
 //                 this.actuallyZeroSize = false;
@@ -1268,7 +1261,7 @@ export class FunctionType extends Type {
     public isIntegralType = false;
     public isFloatingPointType = false;
     public isComplete = true;
-    public readonly isObjectType = false;
+    public readonly _isObjectType = false;
     public readonly isFunctionType = true;
     
     protected readonly precedence = 2;

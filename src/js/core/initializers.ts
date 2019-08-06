@@ -1,5 +1,5 @@
-import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
+import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped } from "./expressions";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall, RuntimePotentialFullExpression, FunctionCall } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
 import { CPPError, Explanation } from "./errors";
@@ -23,10 +23,10 @@ export abstract class Initializer extends PotentialFullExpression {
 }
 
 export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, CompiledConstruct {
-    readonly target: ObjectEntity<T>;
+    readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
 } 
 
-export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimeInstruction<C> {
+export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimePotentialFullExpression<C> {
 
     protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "initializer", parent);
@@ -336,12 +336,12 @@ export abstract class DirectInitializer extends Initializer {
     //     )
     // }
 
-    public static create(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: Expression[]) : ReferenceDirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) : AtomicDirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) : ArrayDirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: Expression[]) : DirectInitializer {
+    public static create(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) : ClassDirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity, args: readonly Expression[]) : DirectInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]) : DirectInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args);
         }
@@ -371,7 +371,7 @@ export abstract class DirectInitializer extends Initializer {
 
 export interface CompiledDirectInitializer<T extends ObjectType> extends DirectInitializer, CompiledConstruct {
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
-    readonly args: CompiledExpression[];
+    readonly args: readonly CompiledExpression[];
 }
 
 export abstract class RuntimeDirectInitializer<T extends ObjectType, C extends CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
@@ -389,7 +389,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: Expression[]) {
+    public constructor(context: ExecutableConstructContext, target: UnboundReferenceEntity, args: readonly Expression[]) {
         super(context);
         this.target = target;
         
@@ -474,7 +474,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: Expression[]) {
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) {
         super(context);
         
         this.target = target;
@@ -557,14 +557,18 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType> extends Runtim
 
 
 /**
- * Note: Only allowed use is to initialize a char array from a string literal
+ * Note: Only allowed use is to initialize a char array from a string literal, but this can readily be
+ * created in the course of compiling a program if the code attempts to directly initialize an array. That's
+ * desirable, because this class will give the appropriate error messages if it's anything other than a
+ * char array initialized from a string literal.
  */
 export class ArrayDirectInitializer extends DirectInitializer {
 
     public readonly target: ObjectEntity<ArrayType>;
-    public readonly args: Expression[];
+    public readonly args: readonly Expression[];
+    public readonly arg?: StringLiteral;
 
-    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: Expression[]) {
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>, args: readonly Expression[]) {
         super(context);
         
         this.target = target;
@@ -572,7 +576,7 @@ export class ArrayDirectInitializer extends DirectInitializer {
 
         // TS type system ensures target is array type, need to check element type and that args are a single string literal
         if (targetType.elemType instanceof Char && args.length === 1 && args[0] instanceof StringLiteral) {
-            let arg = <StringLiteral>args[0];
+            let arg = this.arg = <StringLiteral>args[0];
             
             if (arg.type.length > targetType.length){
                 this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, targetType.length));
@@ -599,30 +603,35 @@ export class ArrayDirectInitializer extends DirectInitializer {
     }
 }
 
-export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<ArrayDirectInitializer> {
+export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, CompiledConstruct {
+    readonly target: ObjectEntity<ArrayType<Char>>;
+    readonly args: CompiledExpression[];
+    readonly arg: CompiledStringLiteral;
+}
+
+export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<ArrayType<Char>, CompiledArrayDirectInitializer> {
 
     public readonly target: CPPObject<ArrayType>;
-    public readonly args: RuntimeExpression[];
+    public readonly arg: RuntimeStringLiteral;
 
-    private argIndex = 0;
+    private alreadyPushed = false;
 
-    public constructor (model: ArrayDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledArrayDirectInitializer, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
-        this.args = this.model.args.map((a) => {
-            return a.createRuntimeExpression(this);
-        });
+        this.arg = this.model.arg.createRuntimeExpression(this);
     }
 
     protected upNextImpl() {
-        if (this.argIndex < this.args.length) {
-            this.sim.push(this.args[this.argIndex++]);
+        if (!this.alreadyPushed) {
+            this.sim.push(this.arg);
+            this.alreadyPushed = true;
         }
     }
 
     public stepForwardImpl() {
         
-        var charsToWrite = this.args[0].evalResult.rawValue();
+        var charsToWrite = this.arg.evalResult.rawValue();
 
         // pad with zeros
         while (charsToWrite.length < this.target.type.length) {
@@ -639,12 +648,12 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Arra
 export class ClassDirectInitializer extends DirectInitializer {
 
     public readonly target: ObjectEntity<ClassType>;
-    public readonly args: Expression[];
+    public readonly args: readonly Expression[];
 
     public readonly ctor: ConstructorEntity?;
     public readonly ctorCall: MemberFunctionCall?;
 
-    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) {
+    public constructor(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) {
         super(context);
         
         this.target = target;
@@ -652,7 +661,12 @@ export class ClassDirectInitializer extends DirectInitializer {
         let targetType = target.type;
 
         
-
+        if (!allWellTyped(args)) {
+            // If arguments are not well-typed, we can't continue onward to select a function
+            // and create a function call, so instead just give up attach arguments here.
+            this.attachAll(args);
+            return;
+        }
 
         // Need to select constructor, so have to compile auxiliary arguments
         this.ctor = overloadResolution(targetType.cppClass.ctors, args);
@@ -672,14 +686,16 @@ export class ClassDirectInitializer extends DirectInitializer {
         }
 
         
-        this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, args);
+        this.ctorCall = new FunctionCall(context, this.ctor, args, this.target);
         this.args = this.ctorCall.args;
         this.attach(this.ctorCall);
         // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
-        return new RuntimeClassDirectInitializer(this, parent);
+    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends ClassType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeClassDirectInitializer<T> {
+        return new RuntimeClassDirectInitializer(<CompiledClassDirectInitializer<T>>this, parent);
     }
 
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
@@ -690,18 +706,28 @@ export class ClassDirectInitializer extends DirectInitializer {
     }
 }
 
-export class RuntimeClassDirectInitializer extends RuntimeDirectInitializer<ClassDirectInitializer> {
+export interface CompiledClassDirectInitializer<T extends ClassType> extends ClassDirectInitializer, CompiledConstruct {
+    
+    
+    readonly target: ObjectEntity<T>;
+    readonly args: readonly Expression[];
+
+    readonly ctor: ConstructorEntity<T>;
+    readonly ctorCall: CompiledFunctionCall<VoidType, "prvalue">;
+}
+
+export class RuntimeClassDirectInitializer<T extends ClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
 
     public readonly target: CPPObject<ClassType>;
     
-    public readonly ctorCall: RuntimeMemberFunctionCall;
+    public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
     private index = "callCtor";
 
-    public constructor (model: ClassDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledClassDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
-        this.ctorCall = this.model.ctorCall.createRuntimeMemberFunctionCall(this);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
     }
 
     protected upNextImpl() {
@@ -885,60 +911,60 @@ export class RuntimeArrayMemberInitializer extends RuntimeInitializer<ArrayMembe
 
 
 
-export var InitializerList = CPPConstruct.extend({
-    _name : "InitializerList",
-    init: function(ast, context) {
-        this.initParent(ast, context);
-        this.initializerListLength = ast.args.length;
-    },
-    compile : function(entity){
-        assert(entity, "Initializer context must specify entity to be initialized!");
-        this.i_entityToInitialize = entity;
-        var ast = this.ast;
-        var type = this.i_entityToInitialize.type;
+// export var InitializerList = CPPConstruct.extend({
+//     _name : "InitializerList",
+//     init: function(ast, context) {
+//         this.initParent(ast, context);
+//         this.initializerListLength = ast.args.length;
+//     },
+//     compile : function(entity){
+//         assert(entity, "Initializer context must specify entity to be initialized!");
+//         this.i_entityToInitialize = entity;
+//         var ast = this.ast;
+//         var type = this.i_entityToInitialize.type;
 
-        if (!isA(type, Types.Array)){
-            this.addNote(CPPError.declaration.init.list_array(this));
-        }
-        else if (type.length !== ast.args.length){
-            this.addNote(CPPError.declaration.init.list_length(this, type.length));
-        }
+//         if (!isA(type, Types.Array)){
+//             this.addNote(CPPError.declaration.init.list_array(this));
+//         }
+//         else if (type.length !== ast.args.length){
+//             this.addNote(CPPError.declaration.init.list_length(this, type.length));
+//         }
 
-        if (this.hasErrors()){ return; }
+//         if (this.hasErrors()){ return; }
 
-        var list = ast.args;
-        //this.initializerList = [];
-        this.i_childrenToExecute = [];
-        for(var i = 0; i < list.length; ++i){
-            var initListElem = this["arg"+i] = this.i_createAndCompileChildExpr(list[i], type.elemType);
-            this.i_childrenToExecute.push("arg"+i);
+//         var list = ast.args;
+//         //this.initializerList = [];
+//         this.i_childrenToExecute = [];
+//         for(var i = 0; i < list.length; ++i){
+//             var initListElem = this["arg"+i] = this.i_createAndCompileChildExpr(list[i], type.elemType);
+//             this.i_childrenToExecute.push("arg"+i);
 
-            if(!sameType(initListElem.type, type.elemType)){
-                this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));
-            }
-            else if (initListElem.isNarrowingConversion){
-                // TODO: as of now, still need to add code that identifies certain conversions as narrowing
-                this.addNote(CPPError.declaration.init.list_narrowing(initListElem, initListElem.from.type, type.elemType));
-            }
-            //this.initializerList.push(initListElem);
-        }
+//             if(!sameType(initListElem.type, type.elemType)){
+//                 this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));
+//             }
+//             else if (initListElem.isNarrowingConversion){
+//                 // TODO: as of now, still need to add code that identifies certain conversions as narrowing
+//                 this.addNote(CPPError.declaration.init.list_narrowing(initListElem, initListElem.from.type, type.elemType));
+//             }
+//             //this.initializerList.push(initListElem);
+//         }
 
-        return;
-    },
+//         return;
+//     },
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if (inst.index !== "afterChildren"){
-            return;
-        }
-        var obj = this.i_entityToInitialize.runtimeLookup(sim, inst);
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst.index !== "afterChildren"){
+//             return;
+//         }
+//         var obj = this.i_entityToInitialize.runtimeLookup(sim, inst);
 
-        var arr = [];
-        for(var i = 0; i < this.initializerListLength; ++i){
-            arr[i] = inst.childInstances["arg"+i].evalResult.getValue();
-        }
-        obj.writeValue(arr);
+//         var arr = [];
+//         for(var i = 0; i < this.initializerListLength; ++i){
+//             arr[i] = inst.childInstances["arg"+i].evalResult.getValue();
+//         }
+//         obj.writeValue(arr);
 
-        inst.index = "done";
-        this.done(sim, inst);
-    }
-});
+//         inst.index = "done";
+//         this.done(sim, inst);
+//     }
+// });

@@ -142,6 +142,10 @@ export abstract class CPPConstruct {
         // TODO: add notes from child?
     }
 
+    public attachAll(children: readonly CPPConstruct[]) {
+        children.forEach((child) => this.attach(child));
+    }
+
     public abstract onAttach(parent: CPPConstruct) : void;
 
     // public addChild(child: CPPConstruct) {

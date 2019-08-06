@@ -175,9 +175,9 @@ type VCResultTypes<T extends Type, V extends ValueCategory> =
     
 //     public readonly evalResult: EvalResultType<CE>?;
 // }
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: Expression[]): expressions is TypedExpression[];
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
-export function allWellTyped<T extends Type?, V extends ValueCategory?>(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
+export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
     return expressions.every((expr) => { return expr.isWellTyped(); });
 }
 
