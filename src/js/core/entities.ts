@@ -457,7 +457,6 @@ export var ClassScope = NamespaceScope.extend({
 
 
 export abstract class CPPEntity<T extends Type = Type> {
-    protected static _name = "CPPEntity";
     private static _nextEntityId = 0;
 
     public readonly observable = new Observable(this);
@@ -465,6 +464,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     public readonly entityId: number;
     public readonly type: T;
 
+    
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
      * the type will be null.
@@ -652,11 +652,11 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 };
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    public abstract runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+    runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public abstract bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) : void;
+    bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) : void;
 }
 
 //TODO: rename to specifically for local references

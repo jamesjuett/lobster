@@ -40,13 +40,13 @@ export abstract class RuntimeInitializer<C extends CompiledInitializer = Compile
 
 export abstract class DefaultInitializer extends Initializer {
 
-    public static create(context: ExecutableConstructContext, target: ReferenceEntity) : ReferenceDefaultInitializer;
+    public static create(context: ExecutableConstructContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>) : ArrayDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
-    public static create(context: ExecutableConstructContext, target: ObjectEntity) : DefaultInitializer {
-        if (target instanceof ReferenceEntity) {
-            return new ReferenceDefaultInitializer(context, <ReferenceEntity> target);
+    public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
+        if ((<UnboundReferenceEntity>target).bindTo) {
+            return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);
         }
         else if (target.type instanceof AtomicType) {
             return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>> target);
@@ -62,14 +62,14 @@ export abstract class DefaultInitializer extends Initializer {
         }
     }
     
-    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer<T>;
 }
 
 export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, CompiledConstruct {
     readonly target: ObjectEntity<T>;
 }
 
-export abstract class RuntimeDefaultInitializer<T extends ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
+export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
 
     protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -110,6 +110,8 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
         this.target = target;
     }
 
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
     public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
     }
@@ -174,6 +176,8 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
     }
 
+    public createRuntimeInitializer<T extends ArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
     public createRuntimeInitializer<T extends ArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
@@ -259,6 +263,8 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         // this.args = this.ctorCall.args;
     }
 
+    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
         return new RuntimeClassDefaultInitializer(this, parent);
     }
@@ -336,8 +342,8 @@ export abstract class DirectInitializer extends Initializer {
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>, args: Expression[]) : ClassDirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity, args: Expression[]) : DirectInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: Expression[]) : DirectInitializer {
-        if (target instanceof ReferenceEntity) {
-            return new ReferenceDirectInitializer(context, target, args);
+        if ((<UnboundReferenceEntity>target).bindTo) {
+            return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args);
         }
         else if (target.type instanceof AtomicType) {
             return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args);
@@ -359,20 +365,18 @@ export abstract class DirectInitializer extends Initializer {
     protected constructor(context: ExecutableConstructContext) {
         super(context);
     }
-    
-    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeDirectInitializer;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeDirectInitializer<T>;
 }
 
 
-export interface CompiledDirectInitializer extends DirectInitializer {
+export interface CompiledDirectInitializer<T extends ObjectType> extends DirectInitializer, CompiledConstruct {
+    readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
     readonly args: CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer extends RuntimeInitializer {
+export abstract class RuntimeDirectInitializer<T extends ObjectType, C extends CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
 
-    public readonly model!: DirectInitializer; // narrows type of member in base class
-
-    protected constructor (model: DirectInitializer, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
@@ -410,7 +414,9 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer(this: CompiledReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
         return new RuntimeReferenceDirectInitializer(this, parent);
     }
 
@@ -428,17 +434,18 @@ export class ReferenceDirectInitializer extends DirectInitializer {
 // }
 
 
-export interface CompiledReferenceDirectInitializer extends ReferenceDirectInitializer {
+export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, CompiledConstruct {
+    readonly target: UnboundReferenceEntity<T>;
     readonly args: CompiledExpression[];
 }
 
-export class RuntimeReferenceDirectInitializer extends RuntimeDirectInitializer<CompiledReferenceDirectInitializer> {
+export class RuntimeReferenceDirectInitializer<T extends ObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
 
     public readonly args: RuntimeExpression[];
 
     private argIndex = 0;
 
-    public constructor (model: CompiledReferenceDirectInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.args = this.model.args.map((a) => {
             return a.createRuntimeExpression(this);
