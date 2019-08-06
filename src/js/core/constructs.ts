@@ -1004,7 +1004,7 @@ export class FunctionCall extends PotentialFullExpression {
     //     this.canUseTCO = this.isRecursive && this.isTail;
     // },
 
-    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimeExpression) : RuntimeFunctionCall<T,V> {
+    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimePotentialFullExpression) : RuntimeFunctionCall<T,V> {
         return new RuntimeFunctionCall<T,V>(this, parent);
     }
 

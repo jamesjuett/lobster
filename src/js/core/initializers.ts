@@ -1,7 +1,7 @@
 import { Expression, FunctionCall, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression } from "./expressions";
-import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct } from "./constructs";
+import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
-import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType } from "./types";
+import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
 import { CPPError, Explanation } from "./errors";
 import { assertFalse } from "../util/util"
 import { CPPObject } from "./objects";
@@ -69,7 +69,7 @@ export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> e
     readonly target: ObjectEntity<T>;
 }
 
-export abstract class RuntimeDefaultInitializer<C extends CompiledDefaultInitializer = CompiledDefaultInitializer> extends RuntimeInitializer<C> {
+export abstract class RuntimeDefaultInitializer<T extends ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
 
     protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -97,6 +97,9 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
     }
 }
 
+// Note: No CompiledReferenceDefaultInitializer or RuntimeReferenceDefaultInitializer classes since
+//       default initialization of a reference is always ill-formed.
+
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
 
@@ -107,7 +110,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
         this.target = target;
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
     }
 
@@ -117,13 +120,15 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export class RuntimeAtomicDefaultInitializer extends RuntimeDefaultInitializer {
+export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends AtomicDefaultInitializer, CompiledConstruct {
+    readonly target: ObjectEntity<T>;
+}
 
-    public readonly model!: AtomicDefaultInitializer; // narrows type of member in base class
+export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends RuntimeDefaultInitializer<T, CompiledAtomicDefaultInitializer<T>> {
 
-    public readonly target: CPPObject<AtomicType>;
+    public readonly target: CPPObject<T>;
 
-    public constructor (model: AtomicDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
     }
@@ -169,7 +174,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeInitializer<T extends ArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
 
@@ -191,16 +196,20 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
 }
 
-export class RuntimeArrayDefaultInitializer extends RuntimeDefaultInitializer {
+export interface CompiledArrayDefaultInitializer<T extends ArrayType = ArrayType> extends ArrayDefaultInitializer, CompiledConstruct {
+    
+    readonly target: ObjectEntity<T>;
+    readonly elementInitializers?: CompiledDefaultInitializer<T["elemType"]>[];
+}
 
-    public readonly model!: ArrayDefaultInitializer; // narrows type of member in base class
+export class RuntimeArrayDefaultInitializer<T extends ArrayType = ArrayType> extends RuntimeDefaultInitializer<T, CompiledArrayDefaultInitializer<T>> {
 
-    public readonly target: CPPObject<ArrayType>;
-    public readonly elementInitializers?: RuntimeDefaultInitializer[];
+    public readonly target: CPPObject<T>;
+    public readonly elementInitializers?: RuntimeDefaultInitializer<T["elemType"]>[];
 
     private index = 0;
 
-    public constructor (model: ArrayDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
         if (this.model.elementInitializers) {
@@ -250,7 +259,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         // this.args = this.ctorCall.args;
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
         return new RuntimeClassDefaultInitializer(this, parent);
     }
 
@@ -261,20 +270,24 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export class RuntimeClassDefaultInitializer extends RuntimeDefaultInitializer {
+export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, CompiledConstruct {
 
+    readonly target: ObjectEntity<T>;
+    readonly ctor: ConstructorEntity<T>;
+    readonly ctorCall: CompiledFunctionCall<VoidType, "prvalue">;
+}
 
-    public readonly model!: ClassDefaultInitializer; // narrows type of member in base class
+export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
 
     public readonly target: CPPObject<ClassType>;
-    public readonly ctorCall: RuntimeMemberFunctionCall;
+    public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
     private index = "callCtor";
     
-    public constructor (model: ClassDefaultInitializer, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
         this.target = model.target.runtimeLookup(this);
-        this.ctorCall = this.model.ctorCall.createRuntimeMemberFunctionCall(this);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
     }
 	
     protected upNextImpl() {
