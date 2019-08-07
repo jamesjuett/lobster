@@ -1,4 +1,4 @@
-import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char } from "./types";
+import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -552,6 +552,19 @@ export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> 
 
     public describe(): Description {
         return this.entity.describe();
+    }
+
+}
+
+
+export class MainReturnObject extends CPPObject<Int> {
+
+    public constructor(memory: Memory) {
+        super(Int.INT, memory, 0); // HACK: put it at address 0. probably won't cause any issues since it's not allocated
+    }
+
+    public describe(): Description {
+        return {message: "The value returned from main."}
     }
 
 }

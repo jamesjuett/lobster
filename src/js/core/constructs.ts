@@ -8,7 +8,7 @@ import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundRefe
 import { TranslationUnit } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType } from "./types";
+import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType, noRef, noRefType } from "./types";
 import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
@@ -534,9 +534,9 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
     public readonly model: C;
     public readonly stackType: StackType;
 
-    public readonly pushedChildren: {[index: string]: RuntimeConstruct};
+    public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
 
-    private readonly parent: RuntimeConstruct;
+    public readonly parent?: RuntimeConstruct;
     public abstract readonly containingRuntimeFunction: RuntimeFunction;
 
     public readonly stepsTaken: number;
@@ -547,23 +547,26 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: C, stackType: StackType, parent: RuntimeConstruct) {
+    public constructor (model: C, stackType: StackType, parent: RuntimeConstruct);
+    public constructor (model: C, stackType: StackType, sim: Simulation);
+    public constructor (model: C, stackType: StackType, parentOrSim: Simulation | RuntimeConstruct) {
         this.model = model;
 
         this.stackType = stackType;
 
-        this.parent = parent;
-        this.sim = parent.sim;
-        this.pushedChildren = {}; // TODO: change name (the children are not necessarily pushed)
+        if (parentOrSim instanceof Simulation) {
+            // no parent specified
+            this.sim = parentOrSim;
+        }
+        else {
+            // parent specified, get sim from parent
+            this.parent = parentOrSim
+            this.sim = parentOrSim.sim;
+            this.parent.addChild(this);
+        }
+
         assert(this.parent !== this, "Code instance may not be its own parent");
         
-        // if (this.parent) {
-
-            this.parent.addChild(this);
-
-
-        // }
-
         this.stepsTaken = sim.stepsTaken();
     }
 
@@ -664,6 +667,7 @@ export type ExecutableRuntimeConstruct = RuntimeConstruct;// = RuntimeFunction |
 export abstract class RuntimeInstruction<C extends CompiledInstructionConstruct = CompiledInstructionConstruct> extends RuntimeConstruct<C> {
 
     public readonly containingRuntimeFunction: RuntimeFunction;
+    private readonly parent: RuntimeConstruct!; // narrows type from base class
 
     public constructor (model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
@@ -741,9 +745,9 @@ enum RuntimeFunctionIndices {
 
 }
 
-export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition> {
+export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionDefinition> {
 
-    public readonly caller: RuntimeFunctionCall;
+    public readonly caller?: RuntimeFunctionCall;
     public readonly containingRuntimeFunction: RuntimeFunction;
 
     public readonly stackFrame?: MemoryFrame;
@@ -761,13 +765,16 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
 
     public readonly body: RuntimeBlock;
 
-    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall) {
-        super(model, "function", parent);
-  
+    public constructor (model: InstructionConstruct, parent: RuntimeFunctionCall);
+    public constructor (model: InstructionConstruct, sim: Simulation);
+    public constructor (model: InstructionConstruct, parentOrSim: RuntimeFunctionCall | Simulation ) {
+        super(model, "function", <any>parentOrSim);
+        if (parentOrSim instanceof RuntimeFunctionCall) {
+            this.caller = parentOrSim;
+        }
+
         // A function is its own containing function context
         this.containingRuntimeFunction = this;
-
-        this.caller = parent;
     }
     
 
@@ -786,10 +793,10 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject(obj: CPPObject<ObjectType>) {
+    public setReturnObject<T extends ObjectType | Reference>(this: RuntimeFunction<noRefType<T>>, obj: CPPObject<noRefType<T>>) {
         // This should only be used once
         Util.assert(!this.returnObject);
-        (<Mutable<this>>this).returnObject = obj;
+        (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<Reference>>>this).returnObject = obj;
 
     }
 
@@ -880,6 +887,7 @@ export class RuntimeFunction extends RuntimeConstruct<CompiledFunctionDefinition
 
 }
 
+// TODO: is this needed? I think RuntimeFunction may be able to handle all of it.
 export class RuntimeMemberFunction extends RuntimeFunction {
 
     public readonly receiver: CPPObject<ClassType>;
@@ -891,10 +899,11 @@ export class RuntimeMemberFunction extends RuntimeFunction {
 
 }
 
+
 export class FunctionCall extends PotentialFullExpression {
     
     public readonly func: FunctionEntity;
-    public readonly args: readonly TypedExpression<ObjectType>[];
+    public readonly args: readonly TypedExpression[];
     public readonly receiver?: ObjectEntity<ClassType>;
 
     public readonly argInitializers: readonly CopyInitializer[];
@@ -919,18 +928,18 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    public constructor(context: ExecutableConstructContext, func: FunctionEntity, args: readonly TypedExpression<ObjectType>[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: ExecutableConstructContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;
         this.args = clone(args);
         this.receiver = receiver;
 
-        // Note that the args are NOT attached as children here. Instead, they are owned by the initializers.
+        // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            return CopyInitializer.create(context, new ParameterEntity(arg.type, i), [arg]);
+            return CopyInitializer.create(context, new ParameterEntity(this.func.type.paramTypes[i], i), [arg]);
         });
 
         // TODO
@@ -940,7 +949,7 @@ export class FunctionCall extends PotentialFullExpression {
         // If return by reference, the return object already exists and no need to create a temporary.
         // Else, for a return by value, we do need to create a temporary object.
         let returnType = this.func.type.returnType;
-        if ( !(returnType instanceof VoidType) ) {
+        if ( !(returnType instanceof VoidType) && !(returnType instanceof Reference)) {
             this.returnByValueTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
         }
 

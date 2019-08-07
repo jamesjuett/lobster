@@ -2,10 +2,11 @@ import { Observable } from "../util/observe";
 import { Memory, Value } from "./runtimeEnvironment";
 import { ExecutableRuntimeConstruct, RuntimeFunction } from "./constructs";
 import { Mutable } from "../util/util";
-import { FunctionCall } from "./expressions";
+import { FunctionCall, RuntimeExpression } from "./expressions";
 import { Initializer } from "./initializers";
-import { CPPObject, DynamicObject } from "./objects";
+import { CPPObject, DynamicObject, MainReturnObject } from "./objects";
 import { FunctionDefinition } from "./declarations";
+import { Int } from "./types";
 
 enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
@@ -31,6 +32,7 @@ export class Simulation {
     public readonly console : ValueEntity;
 
     public readonly stepsTaken : number;
+    public readonly atEnd: boolean;
 
     private pendingNews : DynamicObject[];
     private leakCheckIndex : number;
@@ -41,12 +43,13 @@ export class Simulation {
 
     // MAX_SPEED: -13445, // lol TODO
 
+    public readonly mainReturnObject: MainReturnObject;
+    public readonly mainFunction: RuntimeFunction<Int>;
+
     constructor(program: Program) {
         this.program = program;
 
         // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;
-
-        this.i_program = program;
 
         // These things need be reset when the simulation is reset
         this.memory = new Memory();
@@ -59,6 +62,8 @@ export class Simulation {
 
         this.isPaused = true;
         this.stepsTaken = 0;
+        this.atEnd = false;
+
 
         if (this.program.getMainEntity() && !this.program.hasErrors()) {
             this.start();
@@ -73,23 +78,14 @@ export class Simulation {
 
         this.seedRandom("random seed");
 
+        // TODO: probably remove this in favor of other ways of ensuring a simulation with no main is ever started
+        if (!this.program.mainEntity.definition) {
+            throw "Cannot start simulation with no main function.";
+        }
 
-        // TODO change this to just call runtime library functions in order to create the runtime construct for
-        // the main function definition, initialize arguments (i.e. argc and argv) if present, etc.
-        // This will avoid the awkwardness of some of the runtime constructs like the call to main having no
-        // containing function.
-        let mainCall = new MainCall();
-        this.rtMainCall = mainCall.createRuntimeFunctionCall();
-        this.mainFunction : RuntimeFunction = this.program.mainEntity.definition.createRuntimeFunction();
-
-
-
-
-        var mainCall = FunctionCall.instance({args: []}, {parent: null, isMainCall:true, scope: this.i_program.getGlobalScope()});
-        mainCall.compile({func: this.i_program.getMainEntity()});
-        this.i_mainCallInst = mainCall.createAndPushInstance(this, null);
-
-        this.i_allocateStringLiterals();
+        
+        this.allocateStringLiterals();
+        
 
         for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
             this.memory.allocateStatic(this.i_program.staticEntities[i]);
@@ -104,7 +100,8 @@ export class Simulation {
             }
         }
 
-        this.i_atEnd = false;
+        this.callMain();
+
         this.send("started");
 
         // Needed for whatever is first on the execution stack
@@ -137,6 +134,12 @@ export class Simulation {
         this.observable.send("pushed", rt);
     }
     
+    public top() {
+        if (this.execStack.length > 0) {
+            return this.execStack[this.execStack.length - 1];
+        }
+    }
+
     /**
      * Removes the top runtime construct from the execution stack.
      * Does nothing if there's nothing on the execution stack.
@@ -149,79 +152,218 @@ export class Simulation {
                 this.leakCheck();
             }
         }
+        return popped;
     }
 
-    i_allocateStringLiterals : function() {
-        var self = this;
-        var tus = this.i_program.getTranslationUnits();
-        for(var tuName in tus) {
-            tus[tuName].stringLiterals.forEach(function (lit) {
-                self.memory.allocateStringLiteral(lit);
-            });
-        };
-    },
-
-    popUntil : function(inst){
-        while(this.i_execStack.length > 0 && this.i_execStack.last() !== inst){
+    //TODO: this may be dangerous depending on whether there are cases this could skip temporary deallocators or destructors
+    public popUntil(rt: ExecutableRuntimeConstruct) {
+        while(this._execStack.length > 0 && this._execStack[this._execStack.length - 1] !== rt) {
             this.pop();
         }
-    },
-	
-	
-	
-	peek : function(query, returnArray, offset){
-        if (this.i_execStack.length === 0){
-            return null;
-        }
-		offset = offset || 0;
-		if (query){
-			var peekedArr = [];
-			var peeked;
-			for (var i = this.i_execStack.length - 1 - offset; i >= 0; --i){
-				peeked = this.i_execStack[i];
-				peekedArr.unshift(peeked);
-                if (typeof query === "function"){
-                    if (query(peeked)){
-                        break;
-                    }
-                }
-                else{
-                    var current = (typeof query == "string" ? peeked.stackType : peeked);
-                    if (current == query){
-                        break;
-                    }
-                }
-			}
-			return (returnArray ? peekedArr : peeked);
-		}
-		else{
-			return this.i_execStack.last();
-		}
-	},
-	
-	peeks : function(query, returnArray){
-		var results = [];
-		var offset = 0;
-		while (offset < this.i_execStack.length){
-			var p = this.peek(query, true, offset);
-			offset += p.length;
-			results.unshift(returnArray ? p : p[0]);
-		}
-		return results;
-	},
+    }
 
-
-    topFunction : function() {
-        for (var i = this.i_execStack.length - 1; i >= 0; --i){
-            var runtimeConstruct = this.i_execStack[i];
-            if (isA(runtimeConstruct, RuntimeFunction)) {
+    public topFunction() : RuntimeFunction | undefined {
+        for (let i = this.execStack.length - 1; i >= 0; --i) {
+            let runtimeConstruct = this.execStack[i];
+            if (runtimeConstruct instanceof RuntimeFunction) {
                 return runtimeConstruct;
             }
         }
+    }
 
-        // If there were no functions or the execution stack is empty
-        return null;
+    private callMain() {
+        (<Mutable<this>>this).mainReturnObject = new MainReturnObject(this.memory);
+        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainEntity.definition, this);
+        this.mainFunction.setReturnObject(this.mainReturnObject);
+        this.mainFunction.pushStackFrame();
+        this.push(this.mainFunction);
+        this.mainFunction.gainControl();
+    }
+
+    private allocateStringLiterals() {
+        let tus = this.program.translationUnits;
+        for(let tuName in tus) {
+            tus[tuName].stringLiterals.forEach((lit) => { this.memory.allocateStringLiteral(lit); });
+        };
+    }
+
+	public stepForward(n?: number = 1) {
+
+        for(var i = 0; !this.atEnd && i < n; ++i){
+            this._stepForward();
+        }
+
+        this.observable.send("afterFullStep", this.execStack.length > 0 && this.execStack[this.execStack.length - 1]);
+	}
+
+    private _stepForward() {
+        if (this.execStack.length === 0) {
+            return;
+        }
+
+        // Top rt construct will do stuff
+        let rt = this.top();
+
+        // Step forward on the rt construct
+        this.observable.send("beforeStepForward", {rt: rt});
+        rt.stepForward();
+        this.observable.send("afterStepForward", {rt: rt});
+
+        ++(<Mutable<this>>this).stepsTaken;
+
+        // After each step call upNext. Note that the "up next" construct may
+        // be different if rt popped itself off the stack. upNext also checks
+        // to see if the simulation is done.
+        this.upNext();
+
+    }
+
+	private upNext() {
+
+        while(true) {
+
+            // Grab the rt construct that is on top of the execution stack and up next
+            let rt = this.top();
+
+            // Check to see if simulation is done
+            if (!rt) {
+                (<Mutable<this>>this).atEnd = true;
+                this.observable.send("atEnded");
+                return;
+            }
+
+
+            // up next on the rt construct
+            this.observable.send("beforeUpNext", {rt: rt});
+            rt.upNext();
+            this.observable.send("afterUpNext", {inst: rt});
+
+            // If the rt construct on top of the execution stack has changed, it needs
+            // to be notified that it is now up next, so we should let the loop go again.
+            // However, if rt is still on top, we presume it is waiting for the next
+            // stepForward (and it hasn't added any children), so we just break the loop.
+            // Note that if the execution stack becomes empty, we do not hit the break (because
+            // we can assume at this point it was not empty previously) and will loop back to
+            // the top where the check for an empty stack is performed.
+            if(rt === this.top()) {
+                break; // Note this will not occur when then 
+            }
+        }
+    }
+    
+    runToEnd : function() {
+        while (!this.i_atEnd) {
+            this.stepForward();
+        }
     },
+
+    stepOver: function(options){
+        var target = this.peek(function(inst){
+            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
+        });
+
+        if (target) {
+            this.autoRun(copyMixin(options, {
+                pauseIf: function(){
+                    return !target.isActive;
+                }
+            }));
+        }
+        else{
+            this.stepForward();
+            options.after && options.after();
+        }
+    },
+
+    stepOut: function(options){
+        var target = this.i_execStack.last().containingFunction();
+
+        if (target) {
+            this.autoRun(copyMixin(options, {
+                pauseIf: function(){
+                    return !target.isActive;
+                }
+            }));
+        }
+        else{
+            this.stepForward();
+            options.after && options.after();
+        }
+    },
+
+
+	stepBackward : function(n){
+        if (n === 0){
+            return;
+        }
+        n = n || 1;
+		$.fx.off = true;
+		Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
+        this.i_alertsOff = true;
+        this.i_explainOff = true;
+        $("body").addClass("noTransitions").height(); // .height() is to force reflow
+        //RuntimeConstruct.prototype.silent = true;
+		if (this.i_stepsTaken > 0){
+			this.clear();
+			var steps = this.i_stepsTaken-n;
+			this.start();
+			for(var i = 0; i < steps; ++i){
+                this.stepForward();
+			}
+		}
+        //RuntimeConstruct.prototype.silent = false;
+        $("body").removeClass("noTransitions").height(); // .height() is to force reflow
+        this.i_alertsOff = false;
+        this.i_explainOff = false;
+        Outlets.CPP.CPP_ANIMATIONS = true;
+		$.fx.off = false;
+
+	},
+	
+	
+	
+	
+	// peek : function(query, returnArray, offset){
+    //     if (this.i_execStack.length === 0){
+    //         return null;
+    //     }
+	// 	offset = offset || 0;
+	// 	if (query){
+	// 		var peekedArr = [];
+	// 		var peeked;
+	// 		for (var i = this.i_execStack.length - 1 - offset; i >= 0; --i){
+	// 			peeked = this.i_execStack[i];
+	// 			peekedArr.unshift(peeked);
+    //             if (typeof query === "function"){
+    //                 if (query(peeked)){
+    //                     break;
+    //                 }
+    //             }
+    //             else{
+    //                 var current = (typeof query == "string" ? peeked.stackType : peeked);
+    //                 if (current == query){
+    //                     break;
+    //                 }
+    //             }
+	// 		}
+	// 		return (returnArray ? peekedArr : peeked);
+	// 	}
+	// 	else{
+	// 		return this.i_execStack.last();
+	// 	}
+	// },
+	
+	// peeks : function(query, returnArray){
+	// 	var results = [];
+	// 	var offset = 0;
+	// 	while (offset < this.i_execStack.length){
+	// 		var p = this.peek(query, true, offset);
+	// 		offset += p.length;
+	// 		results.unshift(returnArray ? p : p[0]);
+	// 	}
+	// 	return results;
+	// },
+
 
     clearRunThread: function(){
         if (this.runThread){
@@ -288,140 +430,6 @@ export class Simulation {
         this.startRunThread(func);
     },
 
-    runToEnd : function() {
-        while (!this.i_atEnd) {
-            this.stepForward();
-        }
-    },
-
-    stepOver: function(options){
-        var target = this.peek(function(inst){
-            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
-        });
-
-        if (target) {
-            this.autoRun(copyMixin(options, {
-                pauseIf: function(){
-                    return !target.isActive;
-                }
-            }));
-        }
-        else{
-            this.stepForward();
-            options.after && options.after();
-        }
-    },
-
-    stepOut: function(options){
-        var target = this.i_execStack.last().containingFunction();
-
-        if (target) {
-            this.autoRun(copyMixin(options, {
-                pauseIf: function(){
-                    return !target.isActive;
-                }
-            }));
-        }
-        else{
-            this.stepForward();
-            options.after && options.after();
-        }
-    },
-
-	stepForward : function(n){
-        n = n || 1;
-
-        for(var i = 0; !this.i_atEnd && i < n; ++i){
-            this._stepForward();
-        }
-
-        this.send("afterFullStep", this.i_execStack.length > 0 && this.i_execStack.last());
-	},
-
-    _stepForward : function(){
-        if(this.i_execStack.length > 0) {
-            ++this.i_stepsTaken;
-        }
-
-        // Loop indefinitely until we find something that counts as a "step"
-        var keepGoing = true;
-        while(keepGoing){
-            if (this.i_execStack.length > 0){
-                // There are things to do, pop top instance
-                var inst = this.i_execStack.last();
-
-                // Call stepForward on inst, if returns truthy value it means keep going
-                this.send("beforeStepForward", {inst: inst});
-                keepGoing = inst.stepForward(this);
-                this.send("afterStepForward", {inst: inst, keepGoing: keepGoing});
-
-                // After each step call upNext
-                this.upNext();
-            }
-            else{
-                // We're done
-                this.atEnded();
-                break;
-            }
-        }
-    },
-
-	stepBackward : function(n){
-        if (n === 0){
-            return;
-        }
-        n = n || 1;
-		$.fx.off = true;
-		Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-        this.i_alertsOff = true;
-        this.i_explainOff = true;
-        $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //RuntimeConstruct.prototype.silent = true;
-		if (this.i_stepsTaken > 0){
-			this.clear();
-			var steps = this.i_stepsTaken-n;
-			this.start();
-			for(var i = 0; i < steps; ++i){
-                this.stepForward();
-			}
-		}
-        //RuntimeConstruct.prototype.silent = false;
-        $("body").removeClass("noTransitions").height(); // .height() is to force reflow
-        this.i_alertsOff = false;
-        this.i_explainOff = false;
-        Outlets.CPP.CPP_ANIMATIONS = true;
-		$.fx.off = false;
-
-	},
-	
-	upNext : function(){
-        var inst = false;
-		while(this.i_execStack.length > 0){
-            if (this.i_execStack.last() === inst){
-                break;
-            }
-            inst = this.i_execStack.last();
-//            debug("calling upNext for " + inst.instanceString(), "Simulation");
-            this.send("beforeUpNext", {inst: inst});
-            var skip = inst.upNext(this);
-            //this.explain(inst.explain());
-            //debug(this.i_execStack.map(function(elem){return elem.model._name + ", " + elem.index;}).join("\n"), "execStack");
-            this.send("afterUpNext", {inst: inst, skip: skip});
-
-            if(!skip){
-                break;
-            }
-		// else if (this.stmtStack.length > 0){
-			// this.stmtStack.last().upNext(this);
-		// }
-		// else if (this.controlStack.length > 0){
-			// this.controlStack.last().upNext(this);
-		// }
-		// else if (this.callStack.length > 0){
-			// this.callStack.last().upNext(this);
-		// }
-		}
-	},
     cout : function(value){
         if(isA(value.type, Types.Pointer) && isA(value.type.ptrTo, Types.Char)){
             var text = "";
@@ -637,11 +645,6 @@ export class Simulation {
             }
         }
         return true;
-    },
-    atEnded : function(){
-        this.i_atEnd = true;
-        this.send("atEnded");
-        //console.log("done!");
     },
     _act : {
         sourceCode : "codeSet"

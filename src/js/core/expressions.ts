@@ -95,7 +95,11 @@ export abstract class Expression extends PotentialFullExpression {
     // protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
     public isWellTyped() : this is TypedExpression<Type,ValueCategory> {
-        return this.type !== null && this.valueCategory !== null;
+        return !!this.type && !!this.valueCategory;
+    }
+
+    public isObjectTyped() : this is TypedExpression<ObjectType, ValueCategory> {
+        return !!this.type && this.type.isObjectType();
     }
 
     // public isSuccessfullyCompiled() : this is Compiled<this> {
@@ -116,6 +120,17 @@ export interface CompiledExpression<T extends Type = Type, V extends ValueCatego
     readonly valueCategory: V;
 }
 
+export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
+    return expressions.every((expr) => { return expr.isWellTyped(); });
+}
+
+export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<ObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[] {
+    return expressions.every((expr) => { return expr.isObjectTyped(); });
+}
 
 // type VCResultTypes<T extends Type> = 
 // T extends AtomicType ? {
@@ -175,11 +190,6 @@ type VCResultTypes<T extends Type, V extends ValueCategory> =
     
 //     public readonly evalResult: EvalResultType<CE>?;
 // }
-export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
-export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
-export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
-    return expressions.every((expr) => { return expr.isWellTyped(); });
-}
 
 export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
     

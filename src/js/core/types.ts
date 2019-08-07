@@ -186,14 +186,14 @@ export function referenceCompatible(from: Type, to: Type){
     return from && to && from.isReferenceCompatible(to);
 };
 
-export function noRef(type : Type){
-    if(type instanceof Reference){
-        return type.refTo;
-    }
-    else{
-        return type;
-    }
-};
+// export function noRef<T extends ObjectType | Reference>(type : T) : ObjectType {
+//     if(type instanceof Reference) {
+//         return type.refTo;
+//     }
+//     else{
+//         return type;
+//     }
+// };
 
 export function isCvConvertible(t1: Type, t2: Type){
 
@@ -480,6 +480,7 @@ builtInTypes["void"] = VoidType;
  */
 export abstract class ObjectType extends Type {
     public readonly isFunctionType = false;
+    public readonly _isObjectType = true;
     public abstract readonly size: number;
 }
 
@@ -553,7 +554,6 @@ abstract class ValueType extends ObjectType {
 
 export abstract class AtomicType extends ValueType {
     public readonly isAtomic = true;
-    public readonly _isObjectType = true;
 
 }
 
@@ -654,6 +654,7 @@ export class Char extends IntegralType {
 builtInTypes["char"] = Char;
 
 export class Int extends IntegralType {
+    public static readonly INT = new Int();
     protected readonly simpleType = "int";
     public readonly size = 4;
 };
@@ -670,7 +671,7 @@ export class Bool extends IntegralType {
     protected readonly simpleType = "bool";
     public readonly size = 1;
 
-    public static BOOL = new Bool();
+    public static readonly BOOL = new Bool();
 }
 builtInTypes["bool"] = Bool;
 
@@ -912,6 +913,8 @@ export class Reference extends Type {
 		return ""+value;
 	}
 }
+
+export type noRefType<T> = T extends Reference ? T["refTo"] : T;
 
 export type ArrayElemType = AtomicType | ClassType;
 

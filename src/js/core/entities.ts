@@ -860,13 +860,19 @@ export class ParameterEntity<T extends ObjectType = ObjectType> extends CPPEntit
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
+        // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
+        // in the context of the calling function.
         var func = rtConstruct.sim.topFunction();
+
+        if (!func) {
+            return Util.assertFalse("ParameterEntity lookup failed because there were no functions on the execution stack.");
+        }
 
         // Now we can look up object entity associated with this parameter
         var objEntity = func.model.params[this.num].entity;
 
         // Look it up in the context of the top function on the stack.
-        return objEntity.runtimeLookup(sim, func);
+        return objEntity.runtimeLookup(rtConstruct.sim, func);
     }
 
     public describe() {
@@ -1220,7 +1226,6 @@ export class MagicFunctionEntity extends FunctionEntity {
 
 
 export class MemberFunctionEntity extends FunctionEntity {
-    protected static readonly _name = "MemberFunctionEntity";
 
     public readonly containingClass: Types.Class;
     public readonly isVirtual: boolean;
@@ -1370,6 +1375,26 @@ var convLen = function(args: Expression[]) {
 
 // TODO: Update this so it does not modify the arguments passed in. This is essential.
 export function overloadResolution<T extends FunctionEntity>(candidates: T[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
+
+    // TODO: add these checks, and send errors back to construct that calls this if they aren't met
+    // Should return the function selected as well as an array of object-typed params that contain
+    // any implicit conversions necessary.
+    
+    // if (!allWellTyped(args)) {
+    //     // If arguments are not well-typed, we can't continue onward to select a function
+    //     // and create a function call, so instead just give up attach arguments here.
+    //     this.attachAll(args);
+    //     return;
+    // }
+
+    // if (!allObjectTyped(args)) {
+    //     // Only object types may be passed as arguments to functions.
+    //     this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target)); // TODO: fix
+    //     this.attachAll(args);
+    //     return;
+    // }
+
+
     // Find the constructor
     let viable = [];
     for(var c = 0; c < candidates.length; ++c){
