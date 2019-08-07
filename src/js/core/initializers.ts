@@ -1,4 +1,4 @@
-import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped } from "./expressions";
+import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped, allObjectTyped } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, RuntimeInstruction, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall, RuntimePotentialFullExpression, FunctionCall } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
 import { Reference, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
@@ -660,36 +660,25 @@ export class ClassDirectInitializer extends DirectInitializer {
         
         let targetType = target.type;
 
-        
-        if (!allWellTyped(args)) {
-            // If arguments are not well-typed, we can't continue onward to select a function
-            // and create a function call, so instead just give up attach arguments here.
-            this.attachAll(args);
-            return;
-        }
-
         // Need to select constructor, so have to compile auxiliary arguments
-        this.ctor = overloadResolution(targetType.cppClass.ctors, args);
+        let {ctor, problems} = overloadResolution(targetType.cppClass.ctors, args);
 
-        if (!this.ctor) {
-            if (args.length == 0) {
-                this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
-            }
-            else {
-                this.addNote(CPPError.declaration.init.matching_constructor(this, this.target,
-                    args.map(function (aa) {
-                        return aa.type;
-                    })));
-            }
+        if (ctor) {
+            this.ctor = ctor;
             this.args = args;
+            this.ctorCall = new FunctionCall(context, ctor, args, this.target);
+            this.attach(this.ctorCall);
+            // Note: in the case a suitable function call can be constructed, arguments are not
+            // attached here since they are attached under the function call.
+        }
+        else {
+            this.addNote(CPPError.declaration.init.matching_constructor(this, this.target,
+                args.map(function (arg) {return arg.type;})));
+            this.attachAll(this.args = args);
             return;
         }
 
         
-        this.ctorCall = new FunctionCall(context, this.ctor, args, this.target);
-        this.args = this.ctorCall.args;
-        this.attach(this.ctorCall);
-        // NOTE: we do NOT add funcCall to i_childrenToExecute here. it's added manually in stepForward
     }
 
     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDirectInitializer<T>;
