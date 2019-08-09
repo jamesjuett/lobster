@@ -1,3 +1,7 @@
+import { Note, NoteHandler, NoteKind, SyntaxNote } from "./errors";
+import { Mutable } from "../util/util";
+import { Observable } from "../util/observe";
+import { StaticEntity } from "./entities";
 
 
 
@@ -63,92 +67,44 @@
  * @class
  * @extends NoteHandler
  */
-var NoteRecorder = NoteHandler.extend({
-    _name : "NoteRecorder",
+export class NoteRecorder implements NoteHandler {
+    
+    private readonly _allNotes: Note[] = [];
+    public readonly allNotes: readonly Note[] = this._allNotes;
 
-    init : function() {
-        // this.i_preprocessorNotes = [];
-        // this.i_compilerNotes = [];
-        // this.i_linkerNotes = [];
-        this.i_allNotes = [];
-        this.i_hasErrors = false;
-        this.i_hasSyntaxErrors = false;
-        this.i_hasWarnings = false;
-    },
+    public readonly hasErrors: boolean = false;
+    public readonly hasSyntaxErrors: boolean = false;
+    public readonly hasWarnings: boolean = false;
 
-    /**
-     *
-     * @param {Note} note
-     */
-    addNote : function(note) {
-        this.i_allNotes.push(note);
-        if (note.getType() === Note.TYPE_ERROR) {
-            this.i_hasErrors = true;
-            if (isA(note, SyntaxNote)) {
-                this.i_hasSyntaxErrors = true;
+    public addNote(note: Note) {
+        this._allNotes.push(note);
+
+        let _this = (<Mutable<this>>this);
+
+        if (note.kind === NoteKind.ERROR) {
+            _this.hasErrors = true;
+
+            if (note instanceof SyntaxNote) {
+                _this.hasSyntaxErrors = true;
             }
         }
-        else if (note.getType() === Note.TYPE_WARNING) {
-            this.i_hasWarnings = true;
+        else if (note.kind === NoteKind.WARNING) {
+            _this.hasWarnings = true;
         }
-        // this.i_preprocessorNotes.push(note);
-    },
-
-    addNotes : function(notes) {
-        for(var i = 0; i < notes.length; ++i) {
-            this.addNote(notes[i]);
-        }
-    },
-
-    // /**
-    //  * @returns {PreprocessorNote[]}
-    //  */
-    // getPreprocessorNotes : function() {
-    //     return this.i_preprocessorNotes;
-    // },
-    //
-    //
-    // /**
-    //  * @returns {CompilerNote[]}
-    //  */
-    // getCompilerNotes : function() {
-    //     return this.i_compilerNotes;
-    // },
-    //
-    //
-    // /**
-    //  * @returns {LinkerNote[]}
-    //  */
-    // getLinkerNotes : function() {
-    //     return this.i_linkerNotes;
-    // },
-
-    /**
-     * @returns {LinkerNote[]}
-     */
-    getNotes : function() {
-        return this.i_allNotes;
-    },
-
-    clearNotes : function() {
-        this.i_allNotes = [];
-        this.i_hasErrors = false;
-        this.i_hasSyntaxErrors = false;
-        this.i_hasWarnings = false;
-        // this.i_preprocessorNotes = [];
-        // this.i_compilerNotes = [];
-        // this.i_linkerNotes = [];
-    },
-    hasErrors : function() {
-        return this.i_hasErrors;
-    },
-    hasSyntaxErrors : function() {
-        return this.i_hasSyntaxErrors;
-    },
-    hasWarnings : function() {
-        return this.i_hasWarnings;
     }
-});
+
+    public addNotes(notes: readonly Note[]) {
+        notes.forEach((note) => this.addNote(note));
+    }
+
+    public clearNotes() {
+        this._allNotes.length = 0;
+        let _this = (<Mutable<this>>this);
+        _this.hasErrors = false;
+        _this.hasSyntaxErrors = false;
+        _this.hasWarnings = false;
+    }
+}
 
 /**
  *
@@ -168,17 +124,21 @@ var NoteRecorder = NoteHandler.extend({
  *  linkingStarted
  *  linkingFinished
  */
-export class Program = Class.extend(Observable, Observer, NoteRecorder, {
-    _name : "Program",
+export class Program {
+    
+    public readonly observable = new Observable(this);
 
-    init : function () {
-        NoteRecorder.init.apply(this, arguments);
+    public readonly notes = new NoteRecorder();
 
-        this.staticEntities = [];
+    private readonly _staticEntities: StaticEntity[] = [];
+    public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
+
+    public constructor() {
+        
         this.i_isCompilationUpToDate = false;
 
         this.reset();
-    },
+    }
 
     reset : function () {
         this.i_translationUnits = {};
@@ -426,7 +386,7 @@ export var SourceFile = Class.extend(Observable, {
 
 });
 
-export var SourceReference = Class.extend({
+export class SourceReference {
 
     _name : "SourceReference",
 
@@ -481,7 +441,7 @@ export var SourceReference = Class.extend({
     //     });
     // }
 
-});
+}
 
 
 /**

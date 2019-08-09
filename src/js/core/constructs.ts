@@ -19,7 +19,7 @@ import { clone } from "lodash";
 
 export interface ASTNode {
     construct_type: string;
-    code?: SourceCode;
+    code?: SourceReference;
     library_id?: number;
     library_unsupported?: boolean;
 };
@@ -28,7 +28,7 @@ export interface ConstructContext {
     program: Program;
     translationUnit: TranslationUnit;
     contextualScope: Scope;
-    source?: SourceCode;
+    sourceReference?: SourceReference;
     implicit?: boolean;
     libraryId?: number;
     libraryUnsupported?: boolean;
@@ -83,7 +83,7 @@ export abstract class CPPConstruct {
     public readonly context: ConstructContext;
     public readonly translationUnit: TranslationUnit;
     public readonly contextualScope: Scope;
-    public readonly source?: SourceCode;
+    public readonly sourceReference?: SourceReference;
     public readonly isImplicit?: boolean;
     public readonly libraryId?: number;
     public readonly isLibraryUnsupported?: boolean;
@@ -97,7 +97,7 @@ export abstract class CPPConstruct {
         this.context = context;
         this.translationUnit = context.translationUnit;
         this.contextualScope = context.contextualScope
-        if (context.source) { this.source = context.source; }
+        if (context.sourceReference) { this.sourceReference = context.sourceReference; }
         if (context.implicit) { this.isImplicit = true; }
 
         // TODO: figure out library stuff
