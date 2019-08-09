@@ -34,17 +34,6 @@ export interface ConstructContext {
     libraryUnsupported?: boolean;
 }
 
-export class GlobalProgramConstruct {
-    // public readonly contextualScope: Scope;
-    // public readonly translationUnit: TranslationUnit;
-    // public readonly isImplicit = false;
-    // public readonly isAuxiliary = false;
-
-    // public addChild(child: CPPConstruct) {
-    //     // Do nothing lol we don't care to collect them here
-    // }
-}
-
 export abstract class CPPConstruct {
 
     public static readonly constructKind : symbol = Symbol("CPPConstruct");
@@ -324,7 +313,7 @@ export interface CompiledConstruct {
     readonly _t_isCompiled: never;
 }
 
-export interface CompiledExecutableConstruct extends ExecutableConstruct, CompiledConstruct {
+export interface CompiledExecutableConstruct extends CPPConstruct, CompiledConstruct {
 
 }
 
@@ -537,9 +526,9 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
     public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
 
     public readonly parent?: RuntimeConstruct;
-    public abstract readonly containingRuntimeFunction: RuntimeFunction;
+    public readonly containingRuntimeFunction?: RuntimeFunction;
 
-    public readonly stepsTaken: number;
+    public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
 
     public isDone: boolean = false;
@@ -547,27 +536,28 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
     
-    public constructor (model: C, stackType: StackType, parent: RuntimeConstruct);
-    public constructor (model: C, stackType: StackType, sim: Simulation);
-    public constructor (model: C, stackType: StackType, parentOrSim: Simulation | RuntimeConstruct) {
+    public constructor (model: C, stackType: StackType, parentOrSim: RuntimeConstruct | Simulation) {
         this.model = model;
-
         this.stackType = stackType;
+        
+        if (parentOrSim instanceof RuntimeConstruct) {
+            assert(this.parent !== this, "Code instance may not be its own parent");
 
-        if (parentOrSim instanceof Simulation) {
-            // no parent specified
-            this.sim = parentOrSim;
+            this.sim = parentOrSim.sim;
+            assert(parentOrSim.sim === this.sim, "Runtime construct may not belong to a different simulation than its parent.")
+            
+            this.parent = parentOrSim;
+            this.parent.addChild(this);
+
+            if (parentOrSim.containingRuntimeFunction) {
+                this.containingRuntimeFunction = parentOrSim.containingRuntimeFunction;
+            }
         }
         else {
-            // parent specified, get sim from parent
-            this.parent = parentOrSim
-            this.sim = parentOrSim.sim;
-            this.parent.addChild(this);
+            this.sim = parentOrSim;
         }
 
-        assert(this.parent !== this, "Code instance may not be its own parent");
-        
-        this.stepsTaken = sim.stepsTaken();
+        this.stepsTakenAtStart = this.sim.stepsTaken;
     }
 
     /**
@@ -662,21 +652,21 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
 }
 
 // TODO: this is just the same as RuntimeConstruct right now
-export type ExecutableRuntimeConstruct = RuntimeConstruct;// = RuntimeFunction | RuntimeInstruction;
+export type ExecutableRuntimeConstruct = RuntimeConstruct; // RuntimeFunction | RuntimeInstruction;
 
-export abstract class RuntimeInstruction<C extends CompiledInstructionConstruct = CompiledInstructionConstruct> extends RuntimeConstruct<C> {
+// export abstract class RuntimeInstruction<C extends CompiledInstructionConstruct = CompiledInstructionConstruct> extends RuntimeConstruct<C> {
 
-    public readonly containingRuntimeFunction: RuntimeFunction;
-    private readonly parent: RuntimeConstruct!; // narrows type from base class
+//     public readonly containingRuntimeFunction: RuntimeFunction;
+//     public readonly parent!: ExecutableRuntimeConstruct; // narrows type from base class to be for sure defined
 
-    public constructor (model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
-        super(model, stackType, parent);
-        this.containingRuntimeFunction = parent.containingRuntimeFunction;
-    }
-}
+//     public constructor (model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
+//         super(model, stackType, parent);
+//         this.containingRuntimeFunction = parent.containingRuntimeFunction;
+//     }
+// }
 
 
-export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeInstruction<C> {
+export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
 
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
 
@@ -695,13 +685,13 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
     }
 }
 
-export class RuntimeTemporaryDeallocator extends RuntimeInstruction<CompiledTemporaryDeallocator> {
+export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTemporaryDeallocator> {
 
     private index = 0;
     private justDestructed: boolean = false;
 
     public constructor (model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
-        super(model, "expression", parent);
+        super(model, "expression", parent.sim, parent);
     }
 	
     protected upNextImpl() {
@@ -1045,7 +1035,7 @@ const INDEX_FUNCTION_CALL_PUSH = 0;
 const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 const INDEX_FUNCTION_CALL_CALL = 2;
 const INDEX_FUNCTION_CALL_RETURN = 2;
-export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeInstruction {
+export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeConstruct {
 
     public readonly model!: CompiledFunctionCall<T,V>; // narrows type of member in base class
 
@@ -1157,3 +1147,34 @@ export var RuntimeNewInitializer = RuntimeConstruct.extend({
     }
 });
 
+
+
+// TODO: change this to a static initialization construct that properly checks
+//       whether all static initializers are compiled.
+export class GlobalExecutionConstruct extends CPPConstruct implements CompiledConstruct {
+    
+    public parent: undefined;
+    public _t_isCompiled!: never;
+
+    public onAttach(parent: CPPConstruct) {
+        throw new Error("GlobalExecutionConstruct should never be attached as a child of another construct.");
+    }
+
+    public createRuntimeGlobalExecution() {
+
+    }
+
+}
+
+export class RuntimeGlobalExecution extends RuntimeConstruct<GlobalExecutionConstruct> {
+
+    protected stepForwardImpl(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    protected upNextImpl(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    
+}

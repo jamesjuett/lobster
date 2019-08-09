@@ -1,12 +1,12 @@
 import { Observable } from "../util/observe";
 import { Memory, Value } from "./runtimeEnvironment";
 import { ExecutableRuntimeConstruct, RuntimeFunction } from "./constructs";
-import { Mutable } from "../util/util";
+import { Mutable, escapeString, CPPMath, CPPRandom } from "../util/util";
 import { FunctionCall, RuntimeExpression } from "./expressions";
 import { Initializer } from "./initializers";
 import { CPPObject, DynamicObject, MainReturnObject } from "./objects";
 import { FunctionDefinition } from "./declarations";
-import { Int } from "./types";
+import { Int, Pointer, Char } from "./types";
 
 enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
@@ -29,7 +29,9 @@ export class Simulation {
     private readonly _execStack: ExecutableRuntimeConstruct[];
     public readonly execStack: readonly ExecutableRuntimeConstruct[];
 
-    public readonly console : ValueEntity;
+    private readonly console : ValueEntity;
+
+    public readonly random = new CPPRandom();
 
     public readonly stepsTaken : number;
     public readonly atEnd: boolean;
@@ -37,9 +39,23 @@ export class Simulation {
     private pendingNews : DynamicObject[];
     private leakCheckIndex : number;
 
+    // TODO: is this actually set anwhere?
+    private alertsOff = false;
+
+    private readonly _eventsOccurred : {
+        [p in SimulationEvent]: string[];
+    } = {
+        "undefined_behavior" : [],
+        "unspecified_behavior" : [],
+        "implementation_defined_behavior" : [],
+        "memory_leak" : [],
+        "assertion_failure" : [],
+        "crash" : []
+    };
+    
     public readonly eventsOccurred : {
-        [index: SimulationEvent]: readonly string[];
-    } = {};
+        [p in SimulationEvent]: readonly string[];
+    } = this._eventsOccurred;
 
     // MAX_SPEED: -13445, // lol TODO
 
@@ -76,8 +92,6 @@ export class Simulation {
 
     public start() {
 
-        this.seedRandom("random seed");
-
         // TODO: probably remove this in favor of other ways of ensuring a simulation with no main is ever started
         if (!this.program.mainEntity.definition) {
             throw "Cannot start simulation with no main function.";
@@ -87,22 +101,27 @@ export class Simulation {
         this.allocateStringLiterals();
         
 
-        for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
-            this.memory.allocateStatic(this.i_program.staticEntities[i]);
+        // Change static initialization so it is wrapped up in its own construct and
+        // runtime construct pair specifically for that purpose. That construct could
+        // also optionally create and push the main call taking over what is currently
+        // in this.callMain()
+
+        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
+            this.memory.allocateStatic(this.program.staticEntities[i]);
         }
         var anyStaticInits = false;
-        for(var i = this.i_program.staticEntities.length - 1; i >= 0; --i){
+        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
 
-            var init = this.i_program.staticEntities[i].initializer;
+            var init : Initializer = this.program.staticEntities[i].initializer;
             if(init) {
-                init.createAndPushInstance(this, this.i_mainCallInst);
+                init.createRuntimeInitializer();
                 anyStaticInits = true;
             }
         }
 
         this.callMain();
 
-        this.send("started");
+        this.observable.send("started");
 
         // Needed for whatever is first on the execution stack
         this.upNext();
@@ -118,14 +137,16 @@ export class Simulation {
             this.i_paused = false;
         }
 
-        this.i_stepsTaken = 0; // this is needed here as well since stepForward right below may spawn some instances that capture stepsTaken from simulation
         this.stepForward(); // To call main
-        this.i_stepsTaken = 0;
-
     }
-    
-    private seedRandom(seed) {
-        Math.seedrandom(""+seed);
+
+    private callMain() {
+        (<Mutable<this>>this).mainReturnObject = new MainReturnObject(this.memory);
+        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainEntity.definition, this);
+        this.mainFunction.setReturnObject(this.mainReturnObject);
+        this.mainFunction.pushStackFrame();
+        this.push(this.mainFunction);
+        this.mainFunction.gainControl();
     }
     
     public push(rt: ExecutableRuntimeConstruct) {
@@ -171,15 +192,6 @@ export class Simulation {
         }
     }
 
-    private callMain() {
-        (<Mutable<this>>this).mainReturnObject = new MainReturnObject(this.memory);
-        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainEntity.definition, this);
-        this.mainFunction.setReturnObject(this.mainReturnObject);
-        this.mainFunction.pushStackFrame();
-        this.push(this.mainFunction);
-        this.mainFunction.gainControl();
-    }
-
     private allocateStringLiterals() {
         let tus = this.program.translationUnits;
         for(let tuName in tus) {
@@ -197,12 +209,13 @@ export class Simulation {
 	}
 
     private _stepForward() {
-        if (this.execStack.length === 0) {
-            return;
-        }
 
         // Top rt construct will do stuff
         let rt = this.top();
+
+        if (!rt) {
+            return;
+        }
 
         // Step forward on the rt construct
         this.observable.send("beforeStepForward", {rt: rt});
@@ -251,74 +264,74 @@ export class Simulation {
         }
     }
     
-    runToEnd : function() {
-        while (!this.i_atEnd) {
+    public stepToEnd() {
+        while (!this.atEnd) {
             this.stepForward();
         }
-    },
+    }
 
-    stepOver: function(options){
-        var target = this.peek(function(inst){
-            return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
-        });
+    // stepOver: function(options){
+    //     var target = this.peek(function(inst){
+    //         return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);
+    //     });
 
-        if (target) {
-            this.autoRun(copyMixin(options, {
-                pauseIf: function(){
-                    return !target.isActive;
-                }
-            }));
-        }
-        else{
-            this.stepForward();
-            options.after && options.after();
-        }
-    },
+    //     if (target) {
+    //         this.autoRun(copyMixin(options, {
+    //             pauseIf: function(){
+    //                 return !target.isActive;
+    //             }
+    //         }));
+    //     }
+    //     else{
+    //         this.stepForward();
+    //         options.after && options.after();
+    //     }
+    // },
 
-    stepOut: function(options){
-        var target = this.i_execStack.last().containingFunction();
+    // stepOut: function(options){
+    //     var target = this.i_execStack.last().containingFunction();
 
-        if (target) {
-            this.autoRun(copyMixin(options, {
-                pauseIf: function(){
-                    return !target.isActive;
-                }
-            }));
-        }
-        else{
-            this.stepForward();
-            options.after && options.after();
-        }
-    },
+    //     if (target) {
+    //         this.autoRun(copyMixin(options, {
+    //             pauseIf: function(){
+    //                 return !target.isActive;
+    //             }
+    //         }));
+    //     }
+    //     else{
+    //         this.stepForward();
+    //         options.after && options.after();
+    //     }
+    // },
 
 
-	stepBackward : function(n){
-        if (n === 0){
-            return;
-        }
-        n = n || 1;
-		$.fx.off = true;
-		Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-        this.i_alertsOff = true;
-        this.i_explainOff = true;
-        $("body").addClass("noTransitions").height(); // .height() is to force reflow
-        //RuntimeConstruct.prototype.silent = true;
-		if (this.i_stepsTaken > 0){
-			this.clear();
-			var steps = this.i_stepsTaken-n;
-			this.start();
-			for(var i = 0; i < steps; ++i){
-                this.stepForward();
-			}
-		}
-        //RuntimeConstruct.prototype.silent = false;
-        $("body").removeClass("noTransitions").height(); // .height() is to force reflow
-        this.i_alertsOff = false;
-        this.i_explainOff = false;
-        Outlets.CPP.CPP_ANIMATIONS = true;
-		$.fx.off = false;
+	// stepBackward : function(n){
+    //     if (n === 0){
+    //         return;
+    //     }
+    //     n = n || 1;
+	// 	$.fx.off = true;
+	// 	Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
+    //     this.i_alertsOff = true;
+    //     this.i_explainOff = true;
+    //     $("body").addClass("noTransitions").height(); // .height() is to force reflow
+    //     //RuntimeConstruct.prototype.silent = true;
+	// 	if (this.i_stepsTaken > 0){
+	// 		this.clear();
+	// 		var steps = this.i_stepsTaken-n;
+	// 		this.start();
+	// 		for(var i = 0; i < steps; ++i){
+    //             this.stepForward();
+	// 		}
+	// 	}
+    //     //RuntimeConstruct.prototype.silent = false;
+    //     $("body").removeClass("noTransitions").height(); // .height() is to force reflow
+    //     this.i_alertsOff = false;
+    //     this.i_explainOff = false;
+    //     Outlets.CPP.CPP_ANIMATIONS = true;
+	// 	$.fx.off = false;
 
-	},
+	// },
 	
 	
 	
@@ -365,288 +378,277 @@ export class Simulation {
 	// },
 
 
-    clearRunThread: function(){
-        if (this.runThread){
-            this.runThreadClearedFlag = true;
-            clearTimeout(this.runThread);
-            this.runThread = null;
-        }
-    },
+    // clearRunThread: function(){
+    //     if (this.runThread){
+    //         this.runThreadClearedFlag = true;
+    //         clearTimeout(this.runThread);
+    //         this.runThread = null;
+    //     }
+    // },
 
-    startRunThread: function(func){
-        this.runThread = setTimeout(func, 0);
-    },
+    // startRunThread: function(func){
+    //     this.runThread = setTimeout(func, 0);
+    // },
 
-    autoRun : function(options){
-        options = options || {};
+    // autoRun : function(options){
+    //     options = options || {};
 
-        // Clear old thread
-        this.clearRunThread();
+    //     // Clear old thread
+    //     this.clearRunThread();
 
-        this.i_paused = false;
+    //     this.i_paused = false;
 
-        var self = this;
-        var func = function(){
+    //     var self = this;
+    //     var func = function(){
 
-            // Try to complete this.speed number of steps in 10ms.
-            var startTime = Date.now();
-            for(var num = 0; self.speed === Simulation.MAX_SPEED || num < self.speed; ++num){
+    //         // Try to complete this.speed number of steps in 10ms.
+    //         var startTime = Date.now();
+    //         for(var num = 0; self.speed === Simulation.MAX_SPEED || num < self.speed; ++num){
 
-                // Did we finish?
-                if (self.i_atEnd){
-                    self.send("finished");
-                    options.onFinish && options.onFinish();
-                    options.after && options.after();
-                    return; // do not renew timeout
-                }
+    //             // Did we finish?
+    //             if (self.i_atEnd){
+    //                 self.send("finished");
+    //                 options.onFinish && options.onFinish();
+    //                 options.after && options.after();
+    //                 return; // do not renew timeout
+    //             }
 
-                // Did we pause?
-                if (self.i_paused || (options.pauseIf && options.pauseIf(self))){
-                    self.send("paused");
-                    options.onPause && options.onPause();
-                    options.after && options.after();
-                    return; // do not renew timeout
-                }
+    //             // Did we pause?
+    //             if (self.i_paused || (options.pauseIf && options.pauseIf(self))){
+    //                 self.send("paused");
+    //                 options.onPause && options.onPause();
+    //                 options.after && options.after();
+    //                 return; // do not renew timeout
+    //             }
 
-                // Abort if we run out of time
-                if (Date.now() - startTime >= (self.speed === Simulation.MAX_SPEED ? 10 : 100) ){
-                    break; // will renew timeout
-                }
+    //             // Abort if we run out of time
+    //             if (Date.now() - startTime >= (self.speed === Simulation.MAX_SPEED ? 10 : 100) ){
+    //                 break; // will renew timeout
+    //             }
 
-                self.stepForward();
+    //             self.stepForward();
+    //         }
+
+    //         // Renew timeout
+    //         if (self.speed === Simulation.MAX_SPEED){
+    //             self.runThread = setTimeout(func, 0);
+    //         }
+    //         else{
+    //             self.runThread = setTimeout(func, Math.max(0,100-(Date.now() - startTime)));
+    //         }
+
+    //     };
+
+    //     // Start timeout
+    //     this.startRunThread(func);
+    // },
+
+    public cout(value: Value) {
+        // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
+        let text = "";
+        if(value.type instanceof Pointer && value.type.ptrTo instanceof Char) {
+            let addr = value.rawValue;
+            let c = this.memory.getByte(addr);
+            while (!Char.isNullChar(c)) {
+                text += value.type.ptrTo.valueToOstreamString(c);
+                c = this.memory.getByte(++addr);
             }
-
-            // Renew timeout
-            if (self.speed === Simulation.MAX_SPEED){
-                self.runThread = setTimeout(func, 0);
-            }
-            else{
-                self.runThread = setTimeout(func, Math.max(0,100-(Date.now() - startTime)));
-            }
-
-        };
-
-        // Start timeout
-        this.startRunThread(func);
-    },
-
-    cout : function(value){
-        if(isA(value.type, Types.Pointer) && isA(value.type.ptrTo, Types.Char)){
-            var text = "";
-            var addr = value.value;
-            var c = this.memory.bytes[addr];
-            while (c){
-                text += Types.Char.valueToOstreamString(c);
-                c = this.memory.bytes[++addr];
-            }
-        }
-        else{
-            var text = Util.escapeString(value.valueToOstreamString());
-        }
-        this.console.setValue(this.console.value() + text);
-    },
-    cin : function(object){
-        object.value = 4;
-    },
-    exception : function(message) {
-        // TODO: change to actually do exception stuff some day
-        this.undefinedBehavior(message);
-    },
-    undefinedBehavior : function(message) {
-        this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
-
-    },
-    implementationDefinedBehavior : function(message) {
-        this.eventOccurred(Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR, message, true);
-
-    },
-    unspecifiedBehavior : function(message) {
-        this.eventOccurred(Simulation.EVENT_UNSPECIFIED_BEHAVIOR, message, true);
-
-    },
-    memoryLeaked : function(message) {
-        this.eventOccurred(Simulation.EVENT_MEMORY_LEAK, message, true);
-    },
-    assertionFailure : function(message) {
-        this.eventOccurred(Simulation.EVENT_ASSERTION_FAILURE, message, true);
-    },
-    crash : function(message){
-        this.eventOccurred(Simulation.EVENT_CRASH, message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)", true);
-    },
-    eventOccurred : function(event, message, alertShown) {
-        if (this.i_eventsOccurred[event]) {
-            this.i_eventsOccurred[event].push(message);
         }
         else {
-            this.i_eventsOccurred[event] = [message];
+            text = escapeString(value.valueToOstreamString());
         }
-        if (alertShown) {
+        this.console.setValue(this.console.value() + text);
+    }
+    
+    // public undefinedBehavior : function(message) {
+    //     this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
+
+    // },
+    // implementationDefinedBehavior : function(message) {
+    //     this.eventOccurred(Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR, message, true);
+
+    // },
+    // unspecifiedBehavior : function(message) {
+    //     this.eventOccurred(Simulation.EVENT_UNSPECIFIED_BEHAVIOR, message, true);
+
+    // },
+    // memoryLeaked : function(message) {
+    //     this.eventOccurred(Simulation.EVENT_MEMORY_LEAK, message, true);
+    // },
+    // assertionFailure : function(message) {
+    //     this.eventOccurred(Simulation.EVENT_ASSERTION_FAILURE, message, true);
+    // },
+    // crash : function(message){
+    //     this.eventOccurred(Simulation.EVENT_CRASH, message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)", true);
+    // }
+
+    public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
+        this._eventsOccurred[event].push(message);
+        
+        if (showAlert) {
             this.alert(message);
         }
-    },
-    getEventsOccurred : function(event) {
-        return this.i_eventsOccurred[event] || [];
-    },
-    hasEventOccurred : function(event) {
-        return this.getEventsOccurred(event).length > 0;
-    },
-    alert : function(message){
-        if (!this.i_alertsOff){
-            this.send("alert", message);
-        }
-    },
-    explain : function(exp){
-        //alert(exp.ignore);
-        if (!this.i_explainOff){
-            if (!exp.ignore) {
-                this.send("explain", exp.message);
-            }
-        }
-    },
-    closeMessage : function(){
-        this.send("closeMessage");
-    },
-    pause : function(){
-        this.i_paused = true;
-    },
-
-    nextRandom : function(){
-        return Math.random();
-    },
-
-    mainCallInstance : function(){
-        return this.i_mainCallInst;
-    },
-
-    leakCheckChildren : function(obj){
-
-
-        // If it's a pointer into an array, hypothetically we can get to anything else in the array,
-        // so we need to add the whole thing to the frontier.
-        // This also covers dynamic arrays - we never have a pointer to the array, but to elements in it.
-        if (isA(obj.type, Types.ArrayPointer)){
-            return [obj.type.arrObj];
-        }
-        else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
-            var pointsTo = this.memory.dereference(obj);
-            if (pointsTo && !isA(pointsTo, AnonymousObject)){
-                return [pointsTo];
-            }
-        }
-        else if (isA(obj.type, Types.Array)){
-            return obj.elemObjects;
-            //children.push(obj.elemObjects);
-            //var elems = obj.rawValue();
-            //var children = [];
-            //for(var i = 0; i < elems.length; ++i){
-            //    children.push(Value.instance(elems[i], obj.type.elemType));
-            //}
-            //return children;
-        }
-        else if (isA(obj.type, Types.Class)){
-            return obj.subobjects;
-            //var members = obj.subObjects;
-            //var children = [];
-            //for(var i = 0; i < members.length; ++i){
-            //    children.push(Value.instance(elems[i]));
-            //}
-            //return children;
-        }
-        return [];
-    },
-    leakCheck : function(){
-        //console.log("leak check running!");
-        // Temporary place for testing leak check
-        var heapObjectsMap = this.memory.heap.objectMap;
-        for (var addr in heapObjectsMap) {
-            var obj = heapObjectsMap[addr];
-            if(this.leakCheckObj(obj)){
-                obj.leaked(this);
-            }
-            else{
-                obj.unleaked(this);
-            }
-        }
-    },
-    leakCheckObj : function(query) {
-        ++this.i_leakCheckIndex;
-        var frontier = [];
-        var globalScope = this.i_program.getGlobalScope();
-        for (var key in globalScope.entities) {
-            var ent = globalScope.entities[key];
-            if (isA(ent, CPPObject)){
-                ent.i_leakCheckIndex = this.i_leakCheckIndex;
-                frontier.push(ent);
-            }
-        }
-
-        for(var i = 0; i < this.memory.stack.frames.length; ++i){
-            var frameObjs = this.memory.stack.frames[i].objects;
-            for (var key in frameObjs) {
-                var ent = frameObjs[key];
-                if (isA(ent, CPPObject)){
-                    ent.i_leakCheckIndex = this.i_leakCheckIndex;
-                    frontier.push(ent);
-                }
-            }
-        }
-
-        for(var i = 0; i < this.i_pendingNews.length; ++i){
-            var obj = this.i_pendingNews[i];
-            obj.i_leakCheckIndex = this.i_leakCheckIndex;
-            frontier.push(obj);
-        }
-
-        for(var i = 0; i < this.i_execStack.length; ++i){
-            var inst = this.i_execStack[i];
-            if (inst.evalResult) {
-                obj = inst.evalResult;
-            }
-            else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
-                if (isA(inst.func.model.type.returnType, Types.Reference)) {
-                    obj = inst.func.model.getReturnObject(this, inst.func);
-                }
-                else {
-                    obj = inst.func.model.getReturnObject(this, inst.func).getValue();
-                }
-            }
-
-            if (obj && isA(obj, CPPObject)){
-                obj.i_leakCheckIndex = this.i_leakCheckIndex;
-                frontier.push(obj);
-            }
-            else if (obj && isA(obj, Value)){
-                frontier.push(obj);
-            }
-        }
-
-        for (var key in this.memory.temporaryObjects){
-            var obj = this.memory.temporaryObjects[key];
-            obj.i_leakCheckIndex = this.i_leakCheckIndex;
-            frontier.push(obj);
-        }
-
-        while (frontier.length > 0) {
-            var obj = frontier.shift();
-
-            // Check if found
-            if (obj === query){
-                return false;
-            }
-
-            // Mark as visited
-            obj.i_leakCheckIndex = this.i_leakCheckIndex;
-            var children = this.leakCheckChildren(obj);
-            for(var i = 0; i < children.length; ++i){
-                var child = children[i];
-                if (child.i_leakCheckIndex !== this.i_leakCheckIndex){
-                    frontier.push(child);
-                }
-            }
-        }
-        return true;
-    },
-    _act : {
-        sourceCode : "codeSet"
     }
+
+    public hasEventOccurred(event: SimulationEvent) {
+        return this.eventsOccurred[event].length > 0;
+    }
+    
+    private alert(message: string) {
+        if (!this.alertsOff){
+            this.observable.send("alert", message);
+        }
+    }
+
+    // explain : function(exp){
+    //     //alert(exp.ignore);
+    //     if (!this.i_explainOff){
+    //         if (!exp.ignore) {
+    //             this.send("explain", exp.message);
+    //         }
+    //     }
+    // },
+    // closeMessage : function(){
+    //     this.send("closeMessage");
+    // },
+    // pause : function(){
+    //     this.i_paused = true;
+    // },
+
+    // nextRandom : function(){
+    //     return Math.random();
+    // },
+
+    // mainCallInstance : function(){
+    //     return this.i_mainCallInst;
+    // },
+
+    // leakCheckChildren : function(obj){
+
+
+    //     // If it's a pointer into an array, hypothetically we can get to anything else in the array,
+    //     // so we need to add the whole thing to the frontier.
+    //     // This also covers dynamic arrays - we never have a pointer to the array, but to elements in it.
+    //     if (isA(obj.type, Types.ArrayPointer)){
+    //         return [obj.type.arrObj];
+    //     }
+    //     else if (isA(obj.type, Types.Pointer) && obj.type.isObjectPointer()){
+    //         var pointsTo = this.memory.dereference(obj);
+    //         if (pointsTo && !isA(pointsTo, AnonymousObject)){
+    //             return [pointsTo];
+    //         }
+    //     }
+    //     else if (isA(obj.type, Types.Array)){
+    //         return obj.elemObjects;
+    //         //children.push(obj.elemObjects);
+    //         //var elems = obj.rawValue();
+    //         //var children = [];
+    //         //for(var i = 0; i < elems.length; ++i){
+    //         //    children.push(Value.instance(elems[i], obj.type.elemType));
+    //         //}
+    //         //return children;
+    //     }
+    //     else if (isA(obj.type, Types.Class)){
+    //         return obj.subobjects;
+    //         //var members = obj.subObjects;
+    //         //var children = [];
+    //         //for(var i = 0; i < members.length; ++i){
+    //         //    children.push(Value.instance(elems[i]));
+    //         //}
+    //         //return children;
+    //     }
+    //     return [];
+    // },
+    // leakCheck : function(){
+    //     //console.log("leak check running!");
+    //     // Temporary place for testing leak check
+    //     var heapObjectsMap = this.memory.heap.objectMap;
+    //     for (var addr in heapObjectsMap) {
+    //         var obj = heapObjectsMap[addr];
+    //         if(this.leakCheckObj(obj)){
+    //             obj.leaked(this);
+    //         }
+    //         else{
+    //             obj.unleaked(this);
+    //         }
+    //     }
+    // },
+    // leakCheckObj : function(query) {
+    //     ++this.i_leakCheckIndex;
+    //     var frontier = [];
+    //     var globalScope = this.i_program.getGlobalScope();
+    //     for (var key in globalScope.entities) {
+    //         var ent = globalScope.entities[key];
+    //         if (isA(ent, CPPObject)){
+    //             ent.i_leakCheckIndex = this.i_leakCheckIndex;
+    //             frontier.push(ent);
+    //         }
+    //     }
+
+    //     for(var i = 0; i < this.memory.stack.frames.length; ++i){
+    //         var frameObjs = this.memory.stack.frames[i].objects;
+    //         for (var key in frameObjs) {
+    //             var ent = frameObjs[key];
+    //             if (isA(ent, CPPObject)){
+    //                 ent.i_leakCheckIndex = this.i_leakCheckIndex;
+    //                 frontier.push(ent);
+    //             }
+    //         }
+    //     }
+
+    //     for(var i = 0; i < this.i_pendingNews.length; ++i){
+    //         var obj = this.i_pendingNews[i];
+    //         obj.i_leakCheckIndex = this.i_leakCheckIndex;
+    //         frontier.push(obj);
+    //     }
+
+    //     for(var i = 0; i < this.i_execStack.length; ++i){
+    //         var inst = this.i_execStack[i];
+    //         if (inst.evalResult) {
+    //             obj = inst.evalResult;
+    //         }
+    //         else if (inst.func && !isA(inst.func.model.type.returnType, Types.Void)) {
+    //             if (isA(inst.func.model.type.returnType, Types.Reference)) {
+    //                 obj = inst.func.model.getReturnObject(this, inst.func);
+    //             }
+    //             else {
+    //                 obj = inst.func.model.getReturnObject(this, inst.func).getValue();
+    //             }
+    //         }
+
+    //         if (obj && isA(obj, CPPObject)){
+    //             obj.i_leakCheckIndex = this.i_leakCheckIndex;
+    //             frontier.push(obj);
+    //         }
+    //         else if (obj && isA(obj, Value)){
+    //             frontier.push(obj);
+    //         }
+    //     }
+
+    //     for (var key in this.memory.temporaryObjects){
+    //         var obj = this.memory.temporaryObjects[key];
+    //         obj.i_leakCheckIndex = this.i_leakCheckIndex;
+    //         frontier.push(obj);
+    //     }
+
+    //     while (frontier.length > 0) {
+    //         var obj = frontier.shift();
+
+    //         // Check if found
+    //         if (obj === query){
+    //             return false;
+    //         }
+
+    //         // Mark as visited
+    //         obj.i_leakCheckIndex = this.i_leakCheckIndex;
+    //         var children = this.leakCheckChildren(obj);
+    //         for(var i = 0; i < children.length; ++i){
+    //             var child = children[i];
+    //             if (child.i_leakCheckIndex !== this.i_leakCheckIndex){
+    //                 frontier.push(child);
+    //             }
+    //         }
+    //     }
+    //     return true;
+    // },
 }

@@ -1,5 +1,5 @@
 
-import { InstructionConstruct, RuntimeInstruction, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext, CompiledConstruct } from "./constructs";
+import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext, CompiledConstruct } from "./constructs";
 import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
@@ -25,10 +25,10 @@ export interface CompiledStatement extends Statement, CompiledConstruct {
 
 }
 
-export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeInstruction<C> {
+export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeConstruct<C> {
 
     public constructor (model: C, parent: ExecutableRuntimeConstruct) {
-        super(model, "statement", parent);
+        super(model, "statement", parent.sim, parent);
     }
 
     public popped() {

@@ -1,6 +1,6 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeInstruction, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
