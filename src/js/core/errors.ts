@@ -66,46 +66,37 @@ export var DeadObjectMessage = RuntimeMessage.extend({
     }
 });
 
+
+enum NoteKind {
+    ERROR = "error",
+    WARNING = "warning",
+    STYLE = "style",
+    OTHER = "other"
+}
+
 export class Note {
-    _name: "Note",
 
-    TYPE_ERROR: "error",
-    TYPE_WARNING: "warning",
-    TYPE_STYLE: "style",
-    TYPE_OTHER: "other",
-
-    init : function(type, id) {
-        this.i_type = type;
-        this.i_id = id;
-    },
+    public readonly kind: NoteKind;
+    public readonly id: number;
+    
+    /**
+     * The primary source reference for this note, although more than one may exist.
+     * Use the allSourceReferences property to retrieve an array of all source references.
+     * May be null if the note doesn't concern any particular part of the source.
+     */
+    public readonly primarySourceReference: SourceReference | null;
 
     /**
-     * Returns the primary source reference for this note, although more than one may exist.
-     * Use the getAllSourceReferences function to retrieve an array of all source references.
-     * If the note doesn't concern any particular part of the source (i.e. no source references exist), returns null.
-     * @returns {?SourceReference}
+     * An array of all source references for this note.
+     * May be empty if the note doesn't concern any particular part of the source.
      */
-    getSourceReference : Class._ABSTRACT,
+    public readonly allSourceReferences: readonly SourceReference[] = [];
 
-    /**
-     * Returns an array of all source references for this note.
-     * If the note doesn't concern any particular part of the source (i.e. no source references exist),
-     * returns an empty array.
-     */
-    getAllSourceReferences : Class._ABSTRACT,
+    public readonly message: string;
 
-    /**
-     *
-     * @returns {String}
-     */
-    getMessage : Class._ABSTRACT,
-
-    getType : function() {
-        return this.i_type;
-    },
-
-    getId : function() {
-        return this.i_id;
+    public constructor(kind: NoteKind, id: number) {
+        this.kind = kind;
+        this.id = id;
     }
 }
 
