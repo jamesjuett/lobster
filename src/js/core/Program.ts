@@ -1,7 +1,8 @@
 import { Note, NoteHandler, NoteKind, SyntaxNote } from "./errors";
 import { Mutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { StaticEntity } from "./entities";
+import { StaticEntity, NamespaceScope } from "./entities";
+import { FunctionCall } from "./constructs";
 
 
 
@@ -127,154 +128,138 @@ export class NoteRecorder implements NoteHandler {
 export class Program {
     
     public readonly observable = new Observable(this);
+    
+    public readonly isCompilationUpToDate: boolean = true;
+
+    public readonly translationUnits : { [index: string]: TranslationUnit | undefined } = {};
+    public readonly originalSourceFiles : { [index: string]: SourceFile | undefined } = {};
+    public readonly includedSourceFiles : { [index: string]: SourceFile | undefined } = {};
+    
+    private readonly _staticEntities: StaticEntity[] = [];
+    public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
+    
+    public readonly globalScope = new NamespaceScope("GLOBAL_SCOPE", null);
+    
+    private readonly functionCalls: FunctionCall[] = [];
 
     public readonly notes = new NoteRecorder();
 
-    private readonly _staticEntities: StaticEntity[] = [];
-    public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
 
-    public constructor() {
-        
-        this.i_isCompilationUpToDate = false;
+    public constructor(translationUnits: readonly TranslationUnit[]) {
+        translationUnits.forEach((tu) => {this.translationUnits[tu.name] = tu;});
 
-        this.reset();
+        this.fullCompile();
     }
 
-    reset : function () {
-        this.i_translationUnits = {};
+    // addSourceFile : function(sourceFile) {
+    //     assert(!this.i_sourceFiles[sourceFile.getName()]);
+    //     this.i_sourceFiles[sourceFile.getName()] = sourceFile;
+    //     this.listenTo(sourceFile);
+    //     this.send("sourceFileAdded", sourceFile);
+    // },
 
-        for (var fileName in this.i_sourceFiles) {
-            this.stopListeningTo(this.i_sourceFiles[fileName]);
-        }
+    // removeSourceFile : function(sourceFile) {
+    //     if (typeof sourceFile !== "string"){
+    //         sourceFile = sourceFile.getName();
+    //     }
+    //     if(this.i_sourceFiles[sourceFile]){
+    //         delete this.i_sourceFiles[sourceFile];
+    //     }
 
-        this.i_sourceFiles = {};
+    //     this.stopListeningTo(sourceFile);
 
-        this.staticEntities.clear();
-        this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.i_functionCalls = [];
+    //     // Also remove any associated translation unit (if it exists)
+    //     this.removeTranslationUnit(sourceFile);
+    //     this.send("sourceFileRemoved", sourceFile);
+    // },
 
-        this.i_includedSourceFiles = {};
+    // getSourceFile : function(name) {
+    //     return this.i_sourceFiles[name];
+    // },
 
-        this.i_setCompilationUpToDate(true);
-        this.send("reset");
-    },
+    // getSourceFiles : function() {
+    //     return this.i_sourceFiles;
+    // },
 
-    addSourceFile : function(sourceFile) {
-        assert(!this.i_sourceFiles[sourceFile.getName()]);
-        this.i_sourceFiles[sourceFile.getName()] = sourceFile;
-        this.listenTo(sourceFile);
-        this.send("sourceFileAdded", sourceFile);
-    },
+    // createTranslationUnitForSourceFile : function(sourceFileName) {
+    //     if (typeof sourceFileName !== "string") {
+    //         sourceFileName = sourceFileName.getName();
+    //     }
+    //     assert(this.i_sourceFiles[sourceFileName]);
+    //     assert(!this.i_translationUnits[sourceFileName]);
 
-    removeSourceFile : function(sourceFile) {
-        if (typeof sourceFile !== "string"){
-            sourceFile = sourceFile.getName();
-        }
-        if(this.i_sourceFiles[sourceFile]){
-            delete this.i_sourceFiles[sourceFile];
-        }
+    //     var tu = TranslationUnit.instance(this, this.i_sourceFiles[sourceFileName]);
+    //     this.i_translationUnits[tu.getName()] = tu;
 
-        this.stopListeningTo(sourceFile);
+    //     this.i_setCompilationUpToDate(false);
 
-        // Also remove any associated translation unit (if it exists)
-        this.removeTranslationUnit(sourceFile);
-        this.send("sourceFileRemoved", sourceFile);
-    },
+    //     this.send("translationUnitCreated", tu);
+    //     return tu;
+    // },
 
-    getSourceFile : function(name) {
-        return this.i_sourceFiles[name];
-    },
+    // removeTranslationUnit : function(translationUnit) {
+    //     if (typeof translationUnit !== "string"){
+    //         translationUnit = translationUnit.getName();
+    //     }
+    //     if(this.i_translationUnits[translationUnit]){
+    //         delete this.i_translationUnits[translationUnit];
+    //     }
 
-    getSourceFiles : function() {
-        return this.i_sourceFiles;
-    },
+    //     this.i_setCompilationUpToDate(false);
 
-    createTranslationUnitForSourceFile : function(sourceFileName) {
-        if (typeof sourceFileName !== "string"){
-            sourceFileName = sourceFileName.getName();
-        }
-        assert(this.i_sourceFiles[sourceFileName]);
-        assert(!this.i_translationUnits[sourceFileName]);
+    //     this.send("translationUnitRemoved", translationUnit);
+    // },
 
-        var tu = TranslationUnit.instance(this, this.i_sourceFiles[sourceFileName]);
-        this.i_translationUnits[tu.getName()] = tu;
+    // getTranslationUnit : function(name) {
+    //     return this.i_translationUnits[name];
+    // },
 
-        this.i_setCompilationUpToDate(false);
+    // getTranslationUnits : function() {
+    //     return this.i_translationUnits;
+    // },
 
-        this.send("translationUnitCreated", tu);
-        return tu;
-    },
-
-    removeTranslationUnit : function(translationUnit) {
-        if (typeof translationUnit !== "string"){
-            translationUnit = translationUnit.getName();
-        }
-        if(this.i_translationUnits[translationUnit]){
-            delete this.i_translationUnits[translationUnit];
-        }
-
-        this.i_setCompilationUpToDate(false);
-
-        this.send("translationUnitRemoved", translationUnit);
-    },
-
-    getTranslationUnit : function(name) {
-        return this.i_translationUnits[name];
-    },
-
-    getTranslationUnits : function() {
-        return this.i_translationUnits;
-    },
-
-    addStaticEntity : function(ent){
-        this.staticEntities.push(ent);
-    },
+    // addStaticEntity : function(ent){
+    //     this.staticEntities.push(ent);
+    // },
 
     /**
-     * Compiles all translation units that are part of this program and then links the program.
+     * Links compiled translation units together.
      */
-    fullCompile : function() {
-        this.send("fullCompilationStarted");
-        this.compile();
+    private fullCompile() {
+        this.observable.send("fullCompilationStarted");
+        this.compilationProper();
 
-        if (!this.hasSyntaxErrors()) {
+        if (!this.notes.hasSyntaxErrors) {
             this.link();
         }
 
 
-        this.i_setCompilationUpToDate(true);
+        (<Mutable<this>>this).isCompilationUpToDate = true;
 
-        this.send("fullCompilationFinished");
-    },
+        this.observable.send("fullCompilationFinished");
+    }
 
     /**
-     * Compiles all translation units that are part of this program.
+     * Presumes translation units are already compiled (not necessarily successfully).
      */
-    compile : function () {
-        this.send("compilationStarted");
-        this.clearNotes();
-        this.i_functionCalls = [];
-        this.i_includedSourceFiles = {};
+    private compilationProper() {
+        this.observable.send("compilationStarted");
 
-        for(var name in this.i_translationUnits) {
-            var tu = this.i_translationUnits[name];
+        for(let tuName in this.translationUnits) {
+            let tu = this.translationUnits[tuName];
 
-            tu.fullCompile();
-            mixin(this.i_includedSourceFiles, tu.getIncludedSourceFiles(), true);
-            this.addNotes(tu.getNotes());
+            Object.assign(this.includedSourceFiles, tu.includedSourceFiles);
+            this.notes.addAll(tu.notes);
 
-            if (this.hasSyntaxErrors()) {
+            if (this.notes.hasSyntaxErrors) {
                 break;
             }
         }
-        this.send("compilationFinished");
-    },
+        this.observable.send("compilationFinished");
+    }
 
     link : function() {
         this.send("linkingStarted");
-
-        this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.staticEntities.clear();
 
         // Bring together stuff from all translation units
         // TODO NEW: Make reporting of linker errors more elegant
@@ -330,29 +315,8 @@ export class Program {
 
     },
 
-    getMainEntity : function() {
-        return this.i_main;
-    },
-
-    getGlobalScope : function() {
-        return this.i_globalScope;
-    },
-
-    getFunctionCalls : function(call) {
-        return this.i_functionCalls;
-    },
-
     registerFunctionCall : function(call) {
         this.i_functionCalls.push(call);
-    },
-
-    isCompilationUpToDate : function() {
-        return this.i_isCompilationUpToDate;
-    },
-
-    i_setCompilationUpToDate : function(isUpToDate) {
-        this.i_isCompilationUpToDate = isUpToDate;
-        this.send("isCompilationUpToDate", isUpToDate);
     },
 
     _act : {
@@ -364,41 +328,33 @@ export class Program {
     }
 });
 
-export var SourceFile = Class.extend(Observable, {
+export class SourceFile {
 
-    init : function(name, text) {
-        this.i_name = name;
-        this.setText(text);
-    },
+    public readonly observable = new Observable(this);
 
-    getName : function() {
-        return this.i_name;
-    },
+    public readonly name: string;
+    public readonly text: string;
 
-    setText : function(text) {
-        this.i_text = text;
-        this.send("textChanged");
-    },
-
-    getText : function() {
-        return this.i_text;
+    public constructor(name: string, text: string) {
+        this.name = name;
+        this.text = text;
     }
 
-});
+
+    // setText : function(text) {
+    //     this.i_text = text;
+    //     this.send("textChanged");
+    // },
+
+}
 
 export class SourceReference {
 
-    _name : "SourceReference",
-
     /**
      * Creates a wrapper to represent a reference to source code that has been included in another file.
-     * @param {SourceFile} sourceFile
-     * @param {Number} lineIncluded
-     * @param {SourceReference} originalReference
-     * @returns {SourceReference}
      */
-    instanceIncluded : function(sourceFile, lineIncluded, originalReference) {
-        var obj = this.instance(originalReference.sourceFile, originalReference.line, originalReference.column,
+    public static createIncluded(sourceFile: SourceFile, lineIncluded: number, originalReference: SourceReference) {
+        var obj = new SourceReference(originalReference.sourceFile, originalReference.line, originalReference.column,
             originalReference.start, originalReference.end);
         obj.i_includes.pushAll(originalReference.i_includes);
         obj.i_includes.unshift({
@@ -406,7 +362,13 @@ export class SourceReference {
             lineIncluded: lineIncluded
         });
         return obj;
-    },
+    }
+
+    public readonly sourceFile: SourceFile;
+    public readonly lines: number;
+    public readonly column: number;
+    public readonly start: number;
+    public readonly end: number;
 
     /**
      * @param {SourceFile} sourceFile
