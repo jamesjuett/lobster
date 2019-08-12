@@ -343,7 +343,7 @@ export class FunctionBlockScope extends BlockScope {
     }
 }
 
-export var NamespaceScope = Scope.extend({
+export class NamespaceScope = Scope.extend({
 
     init: function(name, parent, sim){
         assert(!parent || parent instanceof NamespaceScope);

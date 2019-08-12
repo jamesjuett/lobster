@@ -2,7 +2,7 @@ import assign from "lodash/assign";
 
 export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
-export function makeMutable<T>(obj: T) : Mutable<T> {
+export function asMutable<T>(obj: T) : Mutable<T> {
     return <Mutable<T>>obj;
 }
 

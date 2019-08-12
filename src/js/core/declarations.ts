@@ -1,10 +1,25 @@
 import {checkIdentifier} from "lexical";
-import { CPPConstruct, ExecutableConstruct } from "./constructs";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct } from "./constructs";
 import { FunctionEntity } from "./entities";
 
-// A POD type
-export var StorageSpecifier = CPPConstruct.extend({
-    _name: "StorageSpecifier",
+
+// TODO:
+export type StorageSpecifierASTNode = ReadonlyArray<{}>;
+
+export class StorageSpecifier extends BasicCPPConstruct<Declaration> {
+
+    // TODO: just here as an example. change to remove Block stuff
+    // public static createFromAST(ast: StorageSpecifierASTNode, context: ExecutableConstructContext) {
+
+    //     let blockScope = new BlockScope(context.contextualScope);
+        
+    //     let newContext = Object.assign({}, context, {contextualScope: blockScope});
+
+    //     let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, newContext));
+        
+    //     return new Block(newContext, blockScope, statements);
+    // }
+
     compile : function(){
 
 
@@ -30,7 +45,7 @@ export var StorageSpecifier = CPPConstruct.extend({
             this.addNote(CPPError.declaration.storage.incompatible(this, this.ast));
         }
     }
-});
+}
 
 
 var BaseDeclarationMixin = {
@@ -72,10 +87,8 @@ var BaseDeclarationMixin = {
 };
 
 // TODO: add base declaration mixin stuff
-export class Declaration extends CPPConstruct {
-    _name: "Declaration",
-    instType: "stmt",
-    initIndex: 0,
+export class Declaration extends BasicCPPConstruct<CPPConstruct> {
+
     init: function(ast, context){
         this.initParent(ast, context);
         this.initializers = [];

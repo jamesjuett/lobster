@@ -1,8 +1,9 @@
 import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError } from "./errors";
-import { Mutable } from "../util/util";
+import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { StaticEntity, NamespaceScope } from "./entities";
-import { FunctionCall } from "./constructs";
+import { StaticEntity, NamespaceScope, StringLiteralEntity } from "./entities";
+import { FunctionCall, CPPConstruct } from "./constructs";
+import { Declaration } from "./declarations";
 
 
 
@@ -112,22 +113,10 @@ export class NoteRecorder implements NoteHandler {
  * The program also needs to know about all source files involved so that #include preprocessor
  * directives can be processed.
  *
- * Events:
- *  reset
- *  sourceFileAdded
- *  sourceFileRemoved
- *  translationUnitCreated
- *  translationUnitRemoved
- *  fullCompilationStarted
- *  fullCompilationFinished
- *  compilationStarted
- *  compilationFinished
- *  linkingStarted
- *  linkingFinished
  */
 export class Program {
     
-    public readonly observable = new Observable(this);
+    // public readonly observable = new Observable(this);
     
     public readonly isCompilationUpToDate: boolean = true;
 
@@ -137,8 +126,6 @@ export class Program {
     
     private readonly _staticEntities: StaticEntity[] = [];
     public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
-    
-    public readonly globalScope = new NamespaceScope("GLOBAL_SCOPE", null);
     
     private readonly functionCalls: FunctionCall[] = [];
 
@@ -226,17 +213,13 @@ export class Program {
      * Links compiled translation units together.
      */
     private fullCompile() {
-        this.observable.send("fullCompilationStarted");
         this.compilationProper();
 
         if (!this.notes.hasSyntaxErrors) {
             this.link();
         }
 
-
         (<Mutable<this>>this).isCompilationUpToDate = true;
-
-        this.observable.send("fullCompilationFinished");
     }
 
     /**
@@ -311,10 +294,15 @@ export class Program {
         // }
     },
 
-    i_defineIntrinsics : function() {
+    private defineIntrinsics() {
 
-    },
+    }
 
+    //TODO: Program itself should just register all the function calls in its translation units.
+    //      However, don't spend time on this until figuring out where the list of function calls
+    //      is used. I think it was used as part of linking to ensure all function calls are defined,
+    //      but when linking is more properly implemented, I really need to check that everything with
+    //      linkage (that is odr-used) actually has a definition.
     registerFunctionCall : function(call) {
         this.i_functionCalls.push(call);
     },
@@ -414,8 +402,11 @@ interface IncludeMapping {
 
 class PreprocessedSource {
 
-    public readonly translationUnit: TranslationUnit;
     public readonly sourceFile: SourceFile;
+    public readonly name: string;
+    public readonly availableToInclude: {[index: string]: SourceFile};
+
+    public readonly notes = new NoteRecorder();
 
     private readonly _includes: IncludeMapping[] = [];
     public readonly includes: readonly IncludeMapping[] = this._includes;
@@ -426,9 +417,10 @@ class PreprocessedSource {
     public readonly numLines: number;
     public readonly length: number;
 
-    public constructor(translationUnit: TranslationUnit, sourceFile: SourceFile, alreadyIncluded: {[index: string]: boolean} = {}) {
-        this.translationUnit = translationUnit;
+    public constructor(sourceFile: SourceFile, availableToInclude: {[index: string]: SourceFile}, alreadyIncluded: {[index: string]: boolean} = {}) {
         this.sourceFile = sourceFile;
+        this.name = sourceFile.name;
+        this.availableToInclude = availableToInclude;
 
         alreadyIncluded[this.sourceFile.name] = true;
 
@@ -471,7 +463,7 @@ class PreprocessedSource {
 
                 // check for self inclusion
                 if (alreadyIncluded[filename]) {
-                    this.translationUnit.notes.addNote(CPPError.preprocess.recursiveInclude(
+                    this.notes.addNote(CPPError.preprocess.recursiveInclude(
                         new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
 
                     // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
@@ -479,9 +471,10 @@ class PreprocessedSource {
                 }
 
                 // Recursively preprocess the included file
-                var includedSourceFile = translationUnit.program.getSourceFile(filename);
+                var includedSourceFile = this.availableToInclude[filename];
+                //TODO: what happens if the file doesn't exist?
 
-                var included = new PreprocessedSource(translationUnit, includedSourceFile,
+                var included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
                     Object.assign({}, alreadyIncluded));
 
                 Object.assign(this.sourceFilesIncluded, included.sourceFilesIncluded);
@@ -558,7 +551,7 @@ class PreprocessedSource {
         return codeStr;
     }
 
-    public getSourceReference(line: number, column: number, start: number, end: number) {
+    public getSourceReference(line: number, column: number, start: number, end: number) : SourceReference {
 
         // Iterate through all includes and check if any would contain
         let offset = 0;
@@ -593,134 +586,103 @@ class PreprocessedSource {
  */
 export class TranslationUnit {
     
-    public readonly observable = new Observable(this);
+    // public readonly observable = new Observable(this);
     public readonly notes = new NoteRecorder();
 
+    public readonly name: string;
+    public readonly source: PreprocessedSource;
+
+    public readonly globalScope: NamespaceScope;
+    
+    public readonly topLevelDeclarations: readonly Declaration[] = [];
+    public readonly staticEntities: readonly StaticEntity[] = [];
+    public readonly stringLiterals: readonly StringLiteralEntity[] = [];
+    public readonly functionCalls: readonly FunctionCall[] = [];
+
+    public readonly parsedAST?: TranslationUnitASTNode;
+
     /**
-     * An internal ADT used to make the code a bit more organized. TranslationUnit will delegate work here.
+     * Attempts to compiled the given primary source file as a translation unit for a C++ program.
+     * The compilation is attempted given the **current** state of the source files. If the primary
+     * source or any of the files included via the preprocessor are changed in any way, a new `TranslationUnit`
+     * should be constructed (it is not possible to "re-compile" a TranslationUnit object.)
+     * @param primarySourceFile Contains the source code for this translation unit.
+     * @param sourceFiles The set of files to be available for inclusion via #include directives.
      */
-    i_PreprocessedSource : 
-    // *** end i_PreprocessedSource ***
+    public constructor(preprocessedSource: PreprocessedSource) {
+        this.source = preprocessedSource;
+        this.globalScope = new NamespaceScope(primarySourceFile.name + "_GLOBAL_SCOPE", null);
+        this.name = preprocessedSource.name;
 
-    init: function(program, sourceFile){
-        NoteRecorder.init.apply(this, arguments);
-
-        this.i_originalSourceFile = sourceFile;
-
-        this.i_program = program;
-
-        this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.topLevelDeclarations = [];
-        this.staticEntities = [];
-        this.stringLiterals = [];
-        this.i_functionCalls = [];
-
-        this.i_main = false;
-
-
-        return this;
-    },
-
-    getName : function() {
-        return this.i_originalSourceFile.getName();
-    },
-
-    addStaticEntity : function(obj){
-        this.staticEntities.push(obj);
-    },
-
-    addStringLiteral : function(lit) {
-        this.stringLiterals.push(lit);
-    },
-
-    fullCompile : function() {
-        this.send("tuFullCompilationStarted");
-        // codeStr += "\n"; // TODO NEW why was this needed?
-		try{
-
-
-            this.clearNotes();
-
-            this.i_preprocess();
-
+        try{
             // This is kind of a hack to communicate with the PEG.js generated parsing code.
             // This both "resets" the user-defined type names that exist for each translation
             // unit (e.g. so that Class names declared in another translation unit aren't hanging
             // around), and also ensures "default" user-defined type names like ostream, etc. are
-            // recognized as such. The copyMixin is important so that we don't modify the original
+            // recognized as such. Making a copy is important so that we don't modify the original
             // which will potentially be used by other translation units.
-            Types.userTypeNames = copyMixin(Types.defaultUserTypeNames);
+            Types.userTypeNames = Object.assign({}, Types.defaultUserTypeNames);
 
-            var parsed = Lobster.cPlusPlusParser.parse(this.i_preprocessedSource.preprocessedText);
+            let parsedAST = Lobster.cPlusPlusParser.parse(this.source.preprocessedText);
+            this.parsedAST = parsedAST;
 
-            this.send("parsed");
-
-            this.i_compile(parsed);
-
+            this.createBuiltInGlobals();
+            this.compileTopLevelDeclarations(parsedAST);
 		}
-		catch(err){
+		catch(err) {
 			if (err.name == "SyntaxError"){
-			    var note = SyntaxNote.instance(this.getSourceReference(err.location.start.line, err.location.start.column, err.location.start.offset, err.location.start.offset + 1), Note.TYPE_ERROR, "syntax", err.message);
-				this.addNote(note);
+				this.notes.addNote(new SyntaxNote(this.getSourceReference(err.location.start.line, err.location.start.column, err.location.start.offset, err.location.start.offset + 1), Note.TYPE_ERROR, "syntax", err.message););
 			}
-			else{
-                this.send("unknownError");
+			else {
                 console.log(err.stack);
 				throw err;
 			}
 		}
-        this.send("tuFullCompilationFinished");
-	},
+    }
 
-    i_preprocess : function(codeStr) {
+    // TODO: figure out where this stuff should really go between here and the program creating
+    // compiler intrinsics. Something will need to be done at the TranslationUnit level to ensure
+    // the appropriate names are declared and in the right scopes, but that might just be a matter
+    // of having library #includes actually implemented in a reasonable way.
+    private createBuiltInGlobals() {
+	    // if (Types.userTypeNames["ostream"]) {
+        //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
+        //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
+        // }
 
-        this.i_preprocessedSource = this.i_PreprocessedSource.instance(this, this.i_originalSourceFile);
-
-    },
-
-    getIncludedSourceFiles : function() {
-        if (!this.i_preprocessedSource) { return {}; }
-
-        return this.i_preprocessedSource.i_sourceFilesIncluded;
-    },
-
-    getSourceReferenceForConstruct : function(construct) {
-        assert(this.i_preprocessedSource, "Can't get source references until preprocessing has been done.");
-
-        var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
-        var trackedCode = trackedConstruct.code;
-        return this.i_preprocessedSource.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
-    },
-
-    getSourceReference : function(line, column, start, end) {
-        return this.i_preprocessedSource.getSourceReference(line, column, start, end);
-    },
-
-	i_compile : function(ast){
-
-        // Program.currentProgram = this;
-
-        var self = this;
-        //console.log("compiling");
-		this.topLevelDeclarations.clear();
-		this.i_globalScope = NamespaceScope.instance("", null, this);
-        this.staticEntities.clear();
-        this.stringLiterals.clear();
-        this.i_functionCalls = [];
-
-        // TODO NEW change
-        this.send("clearAnnotations");
-
-        this.i_createBuiltInGlobals();
+        // // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
+        // this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
+        // this.endlEntity.defaultValue = 10; // 10 is ascii code for \n
+        // this.i_globalScope.addEntity(this.endlEntity);
 
 
+        // var cassert = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
+        //     "assert",
+        //     Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
+        // ));
+        // this.i_globalScope.addEntity(cassert);
 
-        // TODO NEW the globalFunctionContext thing seems a bit hacky. why was this needed? (i.e. why can't it be null?)
-        var globalFunctionContext = MagicFunctionDefinition.instance("globalFuncContext", Types.Function.instance(Types.Void.instance(), []));
+        // var pause = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
+        //     "pause",
+        //     Types.Function.instance(Types.Void.instance(), [])
+        // ));
+        // this.i_globalScope.addEntity(pause);
 
 
+        // var pauseIf = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
+        //     "pauseIf",
+        //     Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
+        // ));
+        // this.i_globalScope.addEntity(pauseIf);
 
-        // First, compile ALL the declarations
+
+        // this.i_globalScope.addEntity(MagicFunctionEntity.instance(
+        //     MagicFunctionDefinition.instance("rand",
+        //         Types.Function.instance(Types.Int.instance(), []))));
+
+    }
+    
+    private compileTopLevelDeclarations(ast: TranslationUnitASTNode) {
         for(var i = 0; i < ast.length; ++i){
             var decl = Declaration.create(ast[i], {
                 parent: null,
@@ -730,143 +692,30 @@ export class TranslationUnit {
             });
             decl.tryCompileDeclaration();
             decl.tryCompileDefinition();
-            this.topLevelDeclarations.push(decl);
-            this.addNotes(decl.getNotes());
+            asMutable(this.topLevelDeclarations).push(decl);
+            this.notes.addNotes(decl.getNotes());
         }
+    }
 
-        // Linking
-        // TODO Just get rid of this??
-        // this.i_calls.forEach(function(call){
-        //     linkingProblems.pushAll(call.checkLinkingProblems());
-        // });
-        // this.i_semanticProblems.pushAll(linkingProblems);
+    public addStaticEntity(ent: StaticEntity) {
+        asMutable(this.staticEntities).push(ent);
+    }
 
-        // TODO: move to Program level
-        // Tail Recursion Analysis
-        // for(var i = 0; i < this.topLevelDeclarations.length; ++i){
-        //     decl = this.topLevelDeclarations[i];
-        //     if (isA(decl, FunctionDefinition)){
-        //         decl.tailRecursionAnalysis(annotatedCalls);
-        //     }
-        // }
-	},
+    public addStringLiteral(literal: StringLiteralEntity) {
+        asMutable(this.stringLiterals).push(literal);
+    }
 
-    i_createBuiltInGlobals : function() {
-	    if (Types.userTypeNames["ostream"]) {
-            this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
-            this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
-        }
+    public registerFunctionCall(call: Function) {
+        asMutable(this.functionCalls).push(call);
+    }
 
-        // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
-        this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
-        this.endlEntity.defaultValue = 10; // 10 is ascii code for \n
-        this.i_globalScope.addEntity(this.endlEntity);
+    public getSourceReferenceForConstruct(construct: CPPConstruct) {
+        var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
+        var trackedCode = trackedConstruct.code;
+        return this.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
+    }
 
-
-        var cassert = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
-            "assert",
-            Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
-        ));
-        this.i_globalScope.addEntity(cassert);
-
-        var pause = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
-            "pause",
-            Types.Function.instance(Types.Void.instance(), [])
-        ));
-        this.i_globalScope.addEntity(pause);
-
-
-        var pauseIf = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
-            "pauseIf",
-            Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
-        ));
-        this.i_globalScope.addEntity(pauseIf);
-
-
-        this.i_globalScope.addEntity(MagicFunctionEntity.instance(
-            MagicFunctionDefinition.instance("rand",
-                Types.Function.instance(Types.Int.instance(), []))));
-
-
-
-        // BELOW THIS LINE IS RANDOM 280 STUFF
-
-
-        // for(var i = 0; i < Types.Rank.values.length; ++i){
-        //     var enumLit = Types.Rank.values[i];
-        //     var ent = StaticEntity.instance({name:enumLit, type:Types.Rank.instance()});
-        //     ent.defaultValue = Types.Rank.valueMap[enumLit];
-        //     this.i_globalScope.addEntity(ent);
-        // }
-        //
-        // for(var i = 0; i < Types.Suit.values.length; ++i){
-        //     var enumLit = Types.Suit.values[i];
-        //     var ent = StaticEntity.instance({name:enumLit, type:Types.Suit.instance()});
-        //     ent.defaultValue = Types.Suit.valueMap[enumLit];
-        //     this.i_globalScope.addEntity(ent);
-        // }
-        //
-        // var make_face = FunctionEntity.instance(MagicFunctionDefinition.instance(
-        //     "make_face",
-        //     Types.Function.instance(Types.Void.instance(), [Types.Pointer.instance(Types.Int.instance())])
-        // ));
-        // this.i_globalScope.addEntity(make_face);
-        //
-        //
-        //
-        // var list_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [])));
-        // var list_make = FunctionEntity.instance(MagicFunctionDefinition.instance("list_make", Types.Function.instance(Types.List_t.instance(), [Types.Int.instance(), Types.List_t.instance()])));
-        // var list_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("list_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.List_t.instance()])));
-        // var list_first = FunctionEntity.instance(MagicFunctionDefinition.instance("list_first", Types.Function.instance(Types.Int.instance(), [Types.List_t.instance()])));
-        // var list_rest = FunctionEntity.instance(MagicFunctionDefinition.instance("list_rest", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        // var list_print = FunctionEntity.instance(MagicFunctionDefinition.instance("list_print", Types.Function.instance(Types.Void.instance(), [Types.List_t.instance()])));
-        // var list_magic_reverse = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_reverse", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance()])));
-        // var list_magic_append = FunctionEntity.instance(MagicFunctionDefinition.instance("list_magic_append", Types.Function.instance(Types.List_t.instance(), [Types.List_t.instance(), Types.List_t.instance()])));
-        //
-        // this.i_globalScope.addEntity(list_make_empty);
-        // this.i_globalScope.addEntity(list_make);
-        // this.i_globalScope.addEntity(list_isEmpty);
-        // this.i_globalScope.addEntity(list_first);
-        // this.i_globalScope.addEntity(list_rest);
-        // this.i_globalScope.addEntity(list_print);
-        // this.i_globalScope.addEntity(list_magic_reverse);
-        // this.i_globalScope.addEntity(list_magic_append);
-        //
-        //
-        //
-        // var emptyList = StaticEntity.instance({name:"EMPTY", type:Types.List_t.instance()});
-        // emptyList.defaultValue = [];
-        // this.i_globalScope.addEntity(emptyList);
-        // this.addStaticEntity(emptyList);
-        //
-        //
-        // var tree_make_empty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [])));
-        // var tree_make = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_make", Types.Function.instance(Types.Tree_t.instance(), [Types.Int.instance(), Types.Tree_t.instance(), Types.Tree_t.instance()])));
-        // var tree_isEmpty = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_isEmpty", Types.Function.instance(Types.Bool.instance(), [Types.Tree_t.instance()])));
-        // var tree_elt = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_elt", Types.Function.instance(Types.Int.instance(), [Types.Tree_t.instance()])));
-        // var tree_left = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_left", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        // var tree_right = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_right", Types.Function.instance(Types.Tree_t.instance(), [Types.Tree_t.instance()])));
-        // var tree_print = FunctionEntity.instance(MagicFunctionDefinition.instance("tree_print", Types.Function.instance(Types.Void.instance(), [Types.Tree_t.instance()])));
-        //
-        // this.i_globalScope.addEntity(tree_make_empty);
-        // this.i_globalScope.addEntity(tree_make);
-        // this.i_globalScope.addEntity(tree_isEmpty);
-        // this.i_globalScope.addEntity(tree_elt);
-        // this.i_globalScope.addEntity(tree_left);
-        // this.i_globalScope.addEntity(tree_right);
-        // this.i_globalScope.addEntity(tree_print);
-    },
-
-    getGlobalScope : function() {
-	    return this.i_globalScope;
-    },
-
-    getFunctionCalls : function(call) {
-	    return this.i_functionCalls;
-    },
-
-    registerFunctionCall : function(call) {
-	    this.i_functionCalls.push(call);
-	    this.i_program.registerFunctionCall(call);
+    public getSourceReference(line: number, column: number, start: number, end: number) {
+        return this.source.getSourceReference(line, column, start, end);
     }
 }

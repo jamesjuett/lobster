@@ -1,7 +1,7 @@
 import assign from "lodash/assign";
 import { Observable } from "../util/observe";
 import { CONSTRUCT_CLASSES } from "./constructClasses";
-import { assert, Mutable, makeMutable } from "../util/util";
+import { assert, Mutable, asMutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
 import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, ParameterEntity, ReturnReferenceEntity } from "./entities";
@@ -126,7 +126,7 @@ export abstract class CPPConstruct {
     }
 
     public attach(child: CPPConstruct) {
-        makeMutable(this.children).push(child); // rudeness approved here
+        asMutable(this.children).push(child); // rudeness approved here
         child.onAttach(this);
         // TODO: add notes from child?
     }
@@ -296,6 +296,28 @@ export abstract class CPPConstruct {
     // getNotes : function() {
     //     return this.i_notes;
     // },
+}
+
+export interface CompiledConstruct {
+    
+    // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled constructs
+    // from being assignable to a compiled expression type
+    // TODO: maybe better to use a symbol here?
+    readonly _t_isCompiled: never;
+}
+
+export class BasicCPPConstruct<ParentT extends CPPConstruct> extends CPPConstruct {
+    
+    public parent: ParentT;
+
+    public constructor(context: ConstructContext, parent: ParentT) {
+        super(context);
+        this.parent = parent;
+    }
+
+    public onAttach(parent: CPPConstruct) {
+        // Nothing to do here
+    }
 }
 
 export interface ExecutableConstruct extends CPPConstruct {
