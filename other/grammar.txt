@@ -38,7 +38,7 @@
   }
 
   function track(obj, location, text){
-    obj.code = {
+    obj.sourceReference = {
       location : location,
       start : location.start.offset,
       text : text,
@@ -403,9 +403,9 @@ declarator_postfixes
 
 declarator_postfix
   = "(" ws args:argument_declaration_list ws ")" ws cv:cv_qualifier?
-    { return absorb({type:"function", args:args}, cv); }
+    { return absorb({kind:"function", args:args}, cv); }
   / "[" ws size:exp_const? ws "]"
-    { return {type:"array", size:size}; }
+    { return {kind:"array", size:size}; }
 
 
 

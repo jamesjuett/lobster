@@ -1,5 +1,5 @@
 import {NoteHandler, CPPError} from "./errors";
-import { CPPConstruct } from "./constructs";
+import { CPPConstruct, ASTNode } from "./constructs";
 
 export const KEYWORDS = new Set([
     "alignas", "continue", "friend", "register", "true",
@@ -64,4 +64,8 @@ export interface SourceCode {
     column: number;
     start: number;
     end: number;
+}
+
+export interface IdentifierASTNode extends ASTNode {
+    readonly identifier: string;
 }
