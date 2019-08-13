@@ -62,7 +62,7 @@ export abstract class CPPConstruct {
         //     }
         //     return ast;
         // }
-
+        TODO this //needs to be a separate function that calls createFromAST on individual types based on the AST
         var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
         assert(constructCtor !== undefined, "Unrecognized construct_type.");
         return new constructCtor(ast, context);
@@ -126,7 +126,7 @@ export abstract class CPPConstruct {
     }
 
     public attach(child: CPPConstruct) {
-        asMutable(this.children).push(child); // rudeness approved here
+        asMutable(this.children).push(child);
         child.onAttach(this);
         // TODO: add notes from child?
     }
@@ -306,17 +306,16 @@ export interface CompiledConstruct {
     readonly _t_isCompiled: never;
 }
 
-export class BasicCPPConstruct<ParentT extends CPPConstruct> extends CPPConstruct {
-    
-    public parent: ParentT;
+export class BasicCPPConstruct extends CPPConstruct {
 
-    public constructor(context: ConstructContext, parent: ParentT) {
+    public parent?: CPPConstruct;
+
+    public constructor(context: ConstructContext) {
         super(context);
-        this.parent = parent;
     }
 
     public onAttach(parent: CPPConstruct) {
-        // Nothing to do here
+        (<Mutable<this>>this).parent = parent;
     }
 }
 
@@ -371,7 +370,12 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     public readonly temporaryDeallocator?: TemporaryDeallocator;
 
 
-    public onAttach(parent: InstructionConstruct) {
+    public onAttach(parent: CPPConstruct) {
+
+        if (!(parent instanceof InstructionConstruct)) {
+            throw new Error("A PotentialFullExpression may only be attached to a parent that is an InstructionConstruct.");
+        }
+
         (<Mutable<this>>this).parent = parent;
 
         // This may no longer be a full expression. If so, move temporary entities to
