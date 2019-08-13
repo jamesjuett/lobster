@@ -1,6 +1,9 @@
 import {checkIdentifier} from "lexical";
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct } from "./constructs";
-import { FunctionEntity } from "./entities";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext } from "./constructs";
+import { FunctionEntity, CPPEntity, BlockScope } from "./entities";
+import { Initializer } from "./initializers";
+import { TypeSpecifier } from "./types";
+import { CPPError } from "./errors";
 
 
 // TODO:
@@ -86,68 +89,75 @@ var BaseDeclarationMixin = {
     }
 };
 
+interface OtherSpecifiers {
+    readonly virtual? : boolean;
+    readonly typedef? : boolean;
+    readonly friend? : boolean;
+}
+
 // TODO: add base declaration mixin stuff
-export class Declaration extends BasicCPPConstruct<CPPConstruct> {
+export class Declaration extends BasicCPPConstruct {
 
-    init: function(ast, context){
-        this.initParent(ast, context);
-        this.initializers = [];
-        this.entities = [];
-        return this;
-    },
+    public readonly initializers: readonly Initializer[];
+    public readonly entities: readonly CPPEntity[];
 
-    i_createFromAST : function () {
-        Declaration._parent.i_createFromAST.apply(this, arguments);
-        this.typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
-        this.storageSpec = StorageSpecifier.instance(this.ast.specs.storageSpecs, {parent:this});
-        var self = this;
-        this.declarators = this.ast.declarators.map(function(declAst){
-            return Declarator.instance(declAst, {parent: self});
-        });
-    },
+    public readonly typeSpecifier: TypeSpecifier;
+    public readonly storageSpecifier: StorageSpecifier;
 
-    compile : function(){
-        this.compileDeclaration();
-        this.compileDefinition();
-    },
+    public readonly isVirtual: boolean;
+    public readonly isTypedef: boolean;
+    public readonly isFriend: boolean;
 
-    compileDeclaration : function() {
-        var ast = this.ast;
+    public readonly storageDuration: "static" | "automatic";
 
-        this.typeSpec.compile();
-        this.storageSpec.compile();
+    public readonly declarators: readonly Declarator[];
 
-        // TODO, if storage is specified, declarators cannot be empty (classes and such)
-        if (this.hasErrors()) {
-            return;
-        }
+    public static createFromAST(ast: DeclarationASTNode, context: ConstructContext) {
 
-        this.typedef = !!ast.specs.typedef;
-        this.friend = !!ast.specs.friend;
-        this.virtual = !!ast.specs.virtual;
+        // Need to create TypeSpecifier first to get the base type first for the declarators
+        let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
 
-        if (this.storageSpec.numSpecs > 0 && this.typedef) {
+        return new Declaration(context,
+            typeSpec,
+            StorageSpecifier.createFromAST(ast.specs.storageSpecs, context),
+            ast.declarators.map((declAST) => Declarator.createFromAST(declAST, context, typeSpec.type)),
+            ast.specs
+        );
+    }
+
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarators: readonly Declarator[], otherSpecs: OtherSpecifiers) {
+        super(context);
+
+        this.typeSpecifier = typeSpec;
+        this.storageSpecifier = storageSpec;
+
+        this.isVirtual = !!otherSpecs.virtual;
+        this.isTypedef = !!otherSpecs.typedef;
+        this.isFriend = !!otherSpecs.friend;
+
+        if (this.storageSpecifier.numSpecs > 0 && this.isTypedef) {
             this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
         }
 
-        this.i_determineStorage();
+        this.storageDuration = this.determineStorage();
 
-
-        // Compile each declarator with respect to the type specifier
-        for (var i = 0; i < this.declarators.length; ++i) {
-            var decl = this.declarators[i];
-            decl.compile({baseType: this.typeSpec.type});
-
-            // If there are errors in the declarator, don't create an entity or anything.
-            if (decl.hasErrors()){
-                continue;
-            }
-
-            this.makeEntity(decl);
+        this.declarators = declarators;
+        this.declarators.forEach((decl) => !decl.hasErrors && this.makeEntity(decl));
+    }
+    
+    private determineStorage() {
+        // Determine storage duration based on the kind of scope in which the declaration
+        // occurs and any storage specifiers.
+        if(!this.storageSpec.static && !this.storageSpec.extern && this.contextualScope instanceof BlockScope) {
+            return "automatic";
         }
-    },
+        else{
+            return "static";
+        }
+    }
 
-    compileDefinition : function(){
+    compileDefinition : function() {
         if (!this.isDefinition){
             return;
         }
@@ -187,16 +197,6 @@ export class Declaration extends BasicCPPConstruct<CPPConstruct> {
         }
     },
 
-    i_determineStorage : function(){
-        // Determine storage duration based on the kind of scope in which the declaration
-        // occurs and any storage specifiers.
-        if(!this.storageSpec.static && !this.storageSpec.extern && isA(this.contextualScope, BlockScope)){
-            this.storageDuration = "automatic";
-        }
-        else{
-            this.storageDuration = "static";
-        }
-    },
 
     makeEntity: function(declarator){
 
