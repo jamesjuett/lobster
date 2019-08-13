@@ -5,7 +5,7 @@ import { assert, Mutable, asMutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
 import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, ParameterEntity, ReturnReferenceEntity } from "./entities";
-import { TranslationUnit } from "./Program";
+import { TranslationUnit, SourceReference } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
 import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType, noRef, noRefType } from "./types";
@@ -18,8 +18,8 @@ import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
 
 export interface ASTNode {
-    construct_type: string;
-    code?: SourceReference;
+    construct_type?: string;
+    sourceReference?: SourceReference;
     library_id?: number;
     library_unsupported?: boolean;
 };
@@ -28,11 +28,34 @@ export interface ConstructContext {
     program: Program;
     translationUnit: TranslationUnit;
     contextualScope: Scope;
-    sourceReference?: SourceReference;
     implicit?: boolean;
     libraryId?: number;
     libraryUnsupported?: boolean;
 }
+
+
+// export function createConstructFromAST(ast: ASTNode, context: ConstructContext) {
+
+//     // TODO: Determine if allowing detacted constructs is actually necessary
+//     // if ast is actually already a (detatched) construct, just attach it to the
+//     // provided context rather than creating a new one.
+//     // if (isA(ast, CPPConstruct)) {
+//     //     assert(!ast.isAttached());
+//     //     if (context) {
+//     //         if (context.auxiliary) {
+//     //             return this.create(ast.ast, context);
+//     //         }
+//     //         else {
+//     //             ast.attach(context);
+//     //         }
+//     //     }
+//     //     return ast;
+//     // }
+//     TODO this //needs to be a separate function that calls createFromAST on individual types based on the AST
+//     var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
+//     assert(constructCtor !== undefined, "Unrecognized construct_type.");
+//     return new constructCtor(ast, context);
+// }
 
 export abstract class CPPConstruct {
 
@@ -44,29 +67,6 @@ export abstract class CPPConstruct {
     // i_childrenToCreate : [],
     // i_childrenToConvert : {},
     // i_childrenToExecute : [],
-
-    public static createFromAST(ast: ASTNode, context: ConstructContext) {
-
-        // TODO: Determine if allowing detacted constructs is actually necessary
-        // if ast is actually already a (detatched) construct, just attach it to the
-        // provided context rather than creating a new one.
-        // if (isA(ast, CPPConstruct)) {
-        //     assert(!ast.isAttached());
-        //     if (context) {
-        //         if (context.auxiliary) {
-        //             return this.create(ast.ast, context);
-        //         }
-        //         else {
-        //             ast.attach(context);
-        //         }
-        //     }
-        //     return ast;
-        // }
-        TODO this //needs to be a separate function that calls createFromAST on individual types based on the AST
-        var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
-        assert(constructCtor !== undefined, "Unrecognized construct_type.");
-        return new constructCtor(ast, context);
-    }
     //
     // createWithChildren : function(children, context) {
     //     var construct = this.instance(context);
@@ -83,7 +83,10 @@ export abstract class CPPConstruct {
     public readonly context: ConstructContext;
     public readonly translationUnit: TranslationUnit;
     public readonly contextualScope: Scope;
+
+    public readonly ast?: ASTNode;
     public readonly sourceReference?: SourceReference;
+
     public readonly isImplicit?: boolean;
     public readonly libraryId?: number;
     public readonly isLibraryUnsupported?: boolean;
@@ -173,7 +176,18 @@ export abstract class CPPConstruct {
         
     // }
 
-    public getSourceReference() {
+    /**
+     * Used by "createFromAST" static "named constructor" functions in derived classes
+     * to set the AST from which a construct was created. Returns `this` for convenience.
+     */
+    protected setAST(ast: ASTNode) {
+        (<Mutable<this>>this).ast = ast;
+        if (ast.sourceReference) {
+            this.sourceReference = this.sourceReference;
+        }
+    }
+
+    public get sourceReference() {
         return this.translationUnit.getSourceReferenceForConstruct(this);
     }
 

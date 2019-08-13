@@ -77,7 +77,7 @@ export class ExpressionStatement extends Statement {
     public static createFromAST(ast: ExpressionStatementASTNode, context: ExecutableConstructContext) {
         return new ExpressionStatement(context,
             Expression.createFromAST(ast.expression, context)
-        );
+        ).setAST(ast);
     }
 
     public constructor(context: ExecutableConstructContext, expression: Expression) {
