@@ -7,6 +7,7 @@ import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
 import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
+import { ExpressionASTNode } from "./expressions";
 
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -146,11 +147,11 @@ export var covariantType = function(derived: Type, base: Type){
 
     var dc;
     var bc;
-    if (derived instanceof Pointer && base instanceof Pointer){
+    if (derived instanceof PointerType && base instanceof PointerType){
         dc = derived.ptrTo;
         bc = base.ptrTo;
     }
-    else if (derived instanceof Reference && base instanceof Reference){
+    else if (derived instanceof ReferenceType && base instanceof ReferenceType){
         dc = derived.refTo;
         bc = base.refTo;
     }
@@ -282,6 +283,26 @@ export abstract class Type {
     public isObjectType() : this is ObjectType {
         return this._isObjectType;
     }
+
+    public isPointer() : this is PointerType {
+        return this instanceof PointerType;
+    }
+
+    public isReference() : this is ReferenceType {
+        return this instanceof ReferenceType;
+    }
+
+    public isArrayElemType() : this is ArrayElemType {
+        return this instanceof AtomicType || this instanceof ClassType;
+    }
+
+    public isArrayType() : this is ArrayType | ArrayOfUnknownBoundType {
+        return this instanceof ArrayType || this instanceof ArrayOfUnknownBoundType;
+    }
+
+    public isVoidType() : this is VoidType {
+        return this instanceof VoidType;
+    }
     
     /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
@@ -399,6 +420,7 @@ export abstract class Type {
             return this;
         }
         else{
+            TODO // rework this. Maybe create an abstract clone function? or use a typescript-ish proxy
             var proxy = Object.create(this);
             proxy.isConst = isConst;
             proxy.isVolatile = isVolatile;
@@ -484,9 +506,9 @@ export abstract class ObjectType extends Type {
     public abstract readonly size: number;
 }
 
-export type PotentialReturnType = ObjectType | Reference | VoidType;
+export type PotentialReturnType = ObjectType | ReferenceType | VoidType;
 
-export type PotentialParameterType = ObjectType | Reference;
+export type PotentialParameterType = ObjectType | ReferenceType;
 
 /**
  * Represents a type for an object that has a value.
@@ -736,7 +758,7 @@ export interface ArithmeticType extends SimpleType {
 
 //TODO: create separate function pointer type???
 
-export class Pointer extends AtomicType {
+export class PointerType extends AtomicType {
     public isArithmeticType = false;
     public isIntegralType = false;
     public isFloatingPointType = false;
@@ -765,14 +787,14 @@ export class Pointer extends AtomicType {
     }
 
     public sameType(other: Type) : boolean {
-        return other instanceof Pointer
+        return other instanceof PointerType
             && this.ptrTo.sameType(other.ptrTo)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
     public similarType(other: Type) : boolean {
-        return other instanceof Pointer
+        return other instanceof PointerType
             && this.ptrTo.similarType(other.ptrTo);
     }
 
@@ -815,7 +837,7 @@ export class Pointer extends AtomicType {
     }
 }
 
-export class ArrayPointer extends Pointer {
+export class ArrayPointer extends PointerType {
 
     public readonly arrayObject: CPPObject<ArrayType>;
 
@@ -850,7 +872,7 @@ export class ArrayPointer extends Pointer {
 
 }
 
-export class ObjectPointer extends Pointer {
+export class ObjectPointer extends PointerType {
 
     public readonly pointedObject: CPPObject<ObjectType>;
 
@@ -870,7 +892,7 @@ export class ObjectPointer extends Pointer {
 }
 
 
-export class Reference extends Type {
+export class ReferenceType extends Type {
     public readonly _isObjectType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
@@ -893,12 +915,12 @@ export class Reference extends Type {
     }
 
     public sameType(other: Type) : boolean {
-        return other instanceof Reference && this.refTo.sameType(other.refTo);
+        return other instanceof ReferenceType && this.refTo.sameType(other.refTo);
     }
 
     //Note: I don't think similar types even make sense with references. See standard 4.4
     public similarType(other: Type) : boolean {
-        return other instanceof Reference && this.refTo.similarType(other.refTo);
+        return other instanceof ReferenceType && this.refTo.similarType(other.refTo);
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
@@ -914,7 +936,7 @@ export class Reference extends Type {
 	}
 }
 
-export type noRefType<T> = T extends Reference ? T["refTo"] : T;
+export type noRefType<T> = T extends ReferenceType ? T["refTo"] : T;
 
 export type ArrayElemType = AtomicType | ClassType;
 
@@ -925,7 +947,6 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     
     public readonly size: number;
 
-    public readonly _isObjectType = true;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -968,16 +989,11 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-		return this.elemType.typeString(excludeBase, varname +  "["+(this.length !== undefined ? this.length : "")+"]", decorated);
+		return this.elemType.typeString(excludeBase, varname +  "["+this.length+"]", decorated);
     }
     
 	public englishString(plural: boolean) {
-        if (this.length) {
-            return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
-        }
-        else {
-            return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
-        }
+        return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
     }
     
 	// public valueToString(value: RawValueType) {
@@ -999,6 +1015,50 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
+}
+
+
+export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends Type {
+    
+    public readonly _isObjectType = false;
+    public readonly isFunctionType = false;
+    public readonly isArithmeticType = false;
+    public readonly isIntegralType = false;
+    public readonly isFloatingPointType = false;
+
+    protected readonly precedence = 2;
+
+    public readonly elemType: Elem_type;
+
+    public readonly isComplete = false;
+
+    public readonly sizeExpressionAST?: ExpressionASTNode;
+
+    public constructor(elemType: Elem_type, sizeExpressionAST?: ExpressionASTNode) {
+        super(false, false);
+        this.elemType = elemType;
+        this.sizeExpressionAST = sizeExpressionAST;
+    }
+
+    public getCompoundNext() {
+        return this.elemType;
+    }
+
+    public sameType(other: Type) : boolean {
+        return other instanceof ArrayOfUnknownBoundType && this.elemType.sameType(other.elemType);
+    }
+
+    public similarType(other: Type) : boolean {
+        return other instanceof ArrayOfUnknownBoundType && this.elemType.similarType(other.elemType);
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+		return this.elemType.typeString(excludeBase, varname +  "[]", decorated);
+    }
+    
+	public englishString(plural: boolean) {
+        return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
+    }
 }
 
 // TODO: Add a type for an incomplete class
@@ -1276,14 +1336,14 @@ export class FunctionType extends Type {
     private paramStrType: string;
     private paramStrEnglish: string;
     
-    public constructor(returnType: ObjectType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
+    public constructor(returnType: PotentialReturnType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
         super(isConst, isVolatile);
 
         this.receiverType = receiverType;
 
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
-        if(!(returnType instanceof ClassType || returnType instanceof Pointer || returnType instanceof Reference)){
+        if(!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)){
             this.returnType = returnType.cvUnqualified();
         }
         else{

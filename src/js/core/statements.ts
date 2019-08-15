@@ -6,7 +6,7 @@ import { Simulation } from "./Simulation";
 import { Declaration } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope } from "./entities";
-import { VoidType, Reference, ObjectType } from "./types";
+import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
 export abstract class Statement extends InstructionConstruct {
@@ -256,7 +256,7 @@ export class ReturnStatement extends Statement {
             return;
         }
 
-        if (returnType instanceof Reference) {
+        if (returnType instanceof ReferenceType) {
             this.returnInitializer = DirectInitializer.create(context, new ReturnReferenceEntity(returnType.refTo), [expression]);
         }
         else {

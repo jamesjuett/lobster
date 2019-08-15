@@ -8,7 +8,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, Pointer, Int, IntegralType, ArrayPointer, Reference, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
@@ -1251,19 +1251,19 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends R
 
 class PointerOffset extends BinaryOperator {
     
-    public readonly type: Pointer?;
+    public readonly type: PointerType?;
 
-    public readonly left: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
-    public readonly right: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
+    public readonly left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
+    public readonly right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
 
-    public readonly pointer?: TypedExpression<Pointer, "prvalue">;
+    public readonly pointer?: TypedExpression<PointerType, "prvalue">;
     public readonly offset?: TypedExpression<IntegralType, "prvalue">;
 
     public readonly pointerOnLeft?: boolean;
 
     public readonly operator! : "+"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<Pointer, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
+    protected constructor(context: ExecutableConstructContext, left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
         super(context, "+");
 
         // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
@@ -1277,15 +1277,15 @@ class PointerOffset extends BinaryOperator {
 
         if (left.isWellTyped() && right.isWellTyped()) {
             
-            if (left.type.isType(Pointer) && right.type.isIntegralType) {
+            if (left.type.isType(PointerType) && right.type.isIntegralType) {
                 this.pointerOnLeft = true;
-                this.pointer = <TypedExpression<Pointer, "prvalue">> left;
+                this.pointer = <TypedExpression<PointerType, "prvalue">> left;
                 this.offset = <TypedExpression<IntegralType, "prvalue">> right;
                 this.type = this.pointer.type;
             }
-            else if (left.type.isIntegralType && right.type.isType(Pointer)) {
+            else if (left.type.isIntegralType && right.type.isType(PointerType)) {
                 this.pointerOnLeft = false;
-                this.pointer = <TypedExpression<Pointer, "prvalue">> right;
+                this.pointer = <TypedExpression<PointerType, "prvalue">> right;
                 this.offset = <TypedExpression<IntegralType, "prvalue">> left;
                 this.type = this.pointer.type;
             }
@@ -1299,9 +1299,9 @@ class PointerOffset extends BinaryOperator {
         }
     }
 
-    public createRuntimeExpression<T extends Pointer>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T>;
-    public createRuntimeExpression<T extends Pointer, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends Pointer>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T> {
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T>;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T> {
         return new RuntimePointerOffset(this, parent);
     }
 
@@ -1310,26 +1310,26 @@ class PointerOffset extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerOffset<T extends Pointer = Pointer> extends PointerOffset, CompiledConstruct {
+export interface CompiledPointerOffset<T extends PointerType = PointerType> extends PointerOffset, CompiledConstruct {
 
     readonly type: T;
 
-    readonly left: CompiledExpression<Pointer, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
-    readonly right: CompiledExpression<Pointer, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
+    readonly left: CompiledExpression<PointerType, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
+    readonly right: CompiledExpression<PointerType, "prvalue"> | CompiledExpression<IntegralType, "prvalue">;
     
-    readonly pointer: CompiledExpression<Pointer, "prvalue">;
+    readonly pointer: CompiledExpression<PointerType, "prvalue">;
     readonly offset: CompiledExpression<IntegralType, "prvalue">;
     
     readonly pointerOnLeft?: boolean;
 }
 
 
-export class RuntimePointerOffset<T extends Pointer = Pointer> extends RuntimeBinaryOperator<T, CompiledPointerOffset<T>> {
+export class RuntimePointerOffset<T extends PointerType = PointerType> extends RuntimeBinaryOperator<T, CompiledPointerOffset<T>> {
 
-    public readonly left: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
-    public readonly right: RuntimeExpression<Pointer, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
+    public readonly left: RuntimeExpression<PointerType, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
+    public readonly right: RuntimeExpression<PointerType, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
 
-    public readonly pointer: RuntimeExpression<Pointer, "prvalue">;
+    public readonly pointer: RuntimeExpression<PointerType, "prvalue">;
     public readonly offset: RuntimeExpression<IntegralType, "prvalue">;
 
     public constructor (model: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) {
@@ -1376,12 +1376,12 @@ class PointerDifference extends BinaryOperator {
     public readonly type: Int;
     public readonly valueCategory = "prvalue";
 
-    public readonly left: TypedExpression<Pointer, "prvalue">;
-    public readonly right: TypedExpression<Pointer, "prvalue">;
+    public readonly left: TypedExpression<PointerType, "prvalue">;
+    public readonly right: TypedExpression<PointerType, "prvalue">;
 
     public readonly operator! : "-"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: TypedExpression<Pointer, "prvalue">, right: TypedExpression<Pointer, "prvalue">) {
+    protected constructor(context: ExecutableConstructContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
         super(context, "-");
 
         // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
@@ -1413,7 +1413,7 @@ class PointerDifference extends BinaryOperator {
     }
 
     public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference;
-    public createRuntimeExpression<T extends Pointer, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
     public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference {
         return new RuntimePointerDifference(this, parent);
     }
@@ -1424,14 +1424,14 @@ class PointerDifference extends BinaryOperator {
 }
 
 export interface CompiledPointerDifference extends PointerDifference, CompiledConstruct {
-    public readonly left: CompiledExpression<Pointer, "prvalue">;
-    public readonly right: CompiledExpression<Pointer, "prvalue">;
+    public readonly left: CompiledExpression<PointerType, "prvalue">;
+    public readonly right: CompiledExpression<PointerType, "prvalue">;
 }
 
 export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
 
-    public left: RuntimeExpression<Pointer, "prvalue">;
-    public right: RuntimeExpression<Pointer, "prvalue">;
+    public left: RuntimeExpression<PointerType, "prvalue">;
+    public right: RuntimeExpression<PointerType, "prvalue">;
 
     public constructor (model: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
@@ -2417,7 +2417,7 @@ export class FunctionCallExpression extends Expression {
         }
 
         this.type = operand.entity.type.returnType;
-        this.valueCategory = operand.entity.type.returnType instanceof Reference ? "lvalue" : "prvalue";
+        this.valueCategory = operand.entity.type.returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
         // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
         // So the cast below should be fine.
@@ -3181,6 +3181,10 @@ var literalTypes = {
     "bool": Bool,
     "char" : Char
 };
+
+export interface NumericLiteralASTNode extends ExpressionASTNode {
+    value: number
+}
 
 export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression {
     

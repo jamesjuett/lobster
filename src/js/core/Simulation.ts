@@ -6,7 +6,7 @@ import { FunctionCall, RuntimeExpression } from "./expressions";
 import { Initializer } from "./initializers";
 import { CPPObject, DynamicObject, MainReturnObject } from "./objects";
 import { FunctionDefinition } from "./declarations";
-import { Int, Pointer, Char } from "./types";
+import { Int, PointerType, Char } from "./types";
 
 enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
@@ -446,7 +446,7 @@ export class Simulation {
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
         let text = "";
-        if(value.type instanceof Pointer && value.type.ptrTo instanceof Char) {
+        if(value.type instanceof PointerType && value.type.ptrTo instanceof Char) {
             let addr = value.rawValue;
             let c = this.memory.getByte(addr);
             while (!Char.isNullChar(c)) {

@@ -1,5 +1,5 @@
 import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression} from "./expressions";
-import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, Pointer, Int, subType, Bool} from "./types";
+import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool} from "./types";
 import { assertFalse } from "../util/util";
 
 export var ImplicitConversion = Expression.extend({
@@ -374,13 +374,13 @@ var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">,
         return from;
     }
 
-    if (isType(toType, Pointer) && (from instanceof Literal) && isType(from.type, Int) && from.value.rawValue() == 0){
+    if (isType(toType, PointerType) && (from instanceof Literal) && isType(from.type, Int) && from.value.rawValue() == 0){
         return NullPointerConversion.instance(from, toType);
     }
 
-    if (isType(toType, Pointer)) {
-        if (isType(from.type, Pointer) && subType(from.type.ptrTo, toType.ptrTo)) {
-            toType = new Pointer(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
+    if (isType(toType, PointerType)) {
+        if (isType(from.type, PointerType) && subType(from.type.ptrTo, toType.ptrTo)) {
+            toType = new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
             return PointerConversion.instance(from, toType);
         }
     }
@@ -392,7 +392,7 @@ var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">,
     }
 
     if (isType(toType, Bool)) {
-        if (isType(from.type, Pointer)) {
+        if (isType(from.type, PointerType)) {
             return PointerToBooleanConversion.instance(from);
         }
     }
