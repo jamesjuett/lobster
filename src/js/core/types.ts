@@ -403,30 +403,16 @@ export abstract class Type {
             return this;
         }
         else {
-            var proxy = Object.create(this);
-            proxy.isConst = false;
-            proxy.isVolatile = false;
-            return proxy;
+            return this.cvQualified(false, false);
         }
     }
 
     /**
-     * Returns a proxy object for this type with the specified cv-qualifications, unless this type already matches
+     * Returns a copy of this type with the specified cv-qualifications, unless this type already matches
      * the given cv-qualifications, in which case just returns this object.
      * @returns {Type}
      */
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
-        if (this.isConst == isConst && this.isVolatile == isVolatile){
-            return this;
-        }
-        else{
-            TODO // rework this. Maybe create an abstract clone function? or use a typescript-ish proxy
-            var proxy = Object.create(this);
-            proxy.isConst = isConst;
-            proxy.isVolatile = isVolatile;
-            return proxy;
-        }
-    }
+    public abstract cvQualified(isConst: boolean, isVolatile: boolean): Type;
 };
 
 // /**
@@ -492,6 +478,10 @@ export class VoidType extends Type {
     
 	public englishString(plural: boolean) {
 		return "void";
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new VoidType(isConst, isVolatile);
     }
 }
 builtInTypes["void"] = VoidType;
@@ -672,6 +662,10 @@ export class Char extends IntegralType {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
         return String.fromCharCode(<number>value);
     }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Char(isConst, isVolatile);
+    }
 }
 builtInTypes["char"] = Char;
 
@@ -679,6 +673,10 @@ export class Int extends IntegralType {
     public static readonly INT = new Int();
     protected readonly simpleType = "int";
     public readonly size = 4;
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Int(isConst, isVolatile);
+    }
 };
 
 builtInTypes["int"] = Int;
@@ -686,6 +684,10 @@ builtInTypes["int"] = Int;
 export class Size_t extends IntegralType {
     protected readonly simpleType = "size_t";
     public readonly size = 8;
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Size_t(isConst, isVolatile);
+    }
 }
 builtInTypes["size_t"] = Size_t;
 
@@ -694,6 +696,10 @@ export class Bool extends IntegralType {
     public readonly size = 1;
 
     public static readonly BOOL = new Bool();
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Bool(isConst, isVolatile);
+    }
 }
 builtInTypes["bool"] = Bool;
 
@@ -717,12 +723,20 @@ export abstract class FloatingPointType extends SimpleType {
 export class Float extends FloatingPointType {
     protected readonly simpleType = "float";
     public readonly size = 4;
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Float(isConst, isVolatile);
+    }
 }
 builtInTypes["float"] = Float;
 
 export class Double extends FloatingPointType {
     protected readonly simpleType = "double";
     public readonly size = 8;
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new Double(isConst, isVolatile);
+    }
 }
 builtInTypes["double"] = Double;
 
@@ -835,6 +849,10 @@ export class PointerType extends AtomicType {
     public isValueValid(value: RawValueType) {
         return true;
     }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new PointerType(this.ptrTo, isConst, isVolatile);
+    }
 }
 
 export class ArrayPointer extends PointerType {
@@ -870,6 +888,9 @@ export class ArrayPointer extends PointerType {
         return Math.trunc((addr - this.arrayObject.address) /  this.arrayObject.type.elemType.size);
     }
 
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new ArrayPointer(this.arrayObject, isConst, isVolatile);
+    }
 }
 
 export class ObjectPointer extends PointerType {
@@ -889,6 +910,9 @@ export class ObjectPointer extends PointerType {
         return this.pointedObject.isAlive && this.pointedObject.address === value;
     }
 
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new ObjectPointer(this.pointedObject, isConst, isVolatile);
+    }
 }
 
 
@@ -933,7 +957,11 @@ export class ReferenceType extends Type {
     
 	public valueToString(value: RawValueType){
 		return ""+value;
-	}
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new ReferenceType(this.refTo, isConst, isVolatile);
+    }
 }
 
 export type noRefType<T> = T extends ReferenceType ? T["refTo"] : T;
@@ -994,6 +1022,10 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     
 	public englishString(plural: boolean) {
         return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new ArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
     
 	// public valueToString(value: RawValueType) {
@@ -1059,6 +1091,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 	public englishString(plural: boolean) {
         return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
     }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
+    }
 }
 
 // TODO: Add a type for an incomplete class
@@ -1095,6 +1131,11 @@ export class ClassType extends ObjectType {
     }
     public englishString(plural: boolean): string {
         throw new Error("Method not implemented.");
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        // TODO
+        return new ClassType(isConst, isVolatile);
     }
 }
 
@@ -1336,7 +1377,7 @@ export class FunctionType extends Type {
     private paramStrType: string;
     private paramStrEnglish: string;
     
-    public constructor(returnType: PotentialReturnType, paramTypes: ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
+    public constructor(returnType: PotentialReturnType, paramTypes: readonly ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
         super(isConst, isVolatile);
 
         this.receiverType = receiverType;
@@ -1364,6 +1405,10 @@ export class FunctionType extends Type {
             this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString(false);
         }
         this.paramStrEnglish += ")";
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean) {
+        return new FunctionType(this.returnType, this.paramTypes, isConst, isVolatile, this.receiverType);
     }
 
     public sameType(other: Type) {
