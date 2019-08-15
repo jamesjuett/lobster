@@ -1,7 +1,7 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope } from "./entities";
 import { Initializer } from "./initializers";
-import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType } from "./types";
+import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType } from "./types";
 import { CPPError } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
@@ -320,13 +320,14 @@ export var Parameter = CPPConstruct.extend({
 
 
 interface ArrayPostfixDeclaratorASTNode {
-    readonly kind: "function";
+    readonly kind: "array";
     readonly args: ArgumentListASTNode;
 }
 
 interface FunctionPostfixDeclaratorASTNode {
-    readonly kind: "array";
+    readonly kind: "function";
     readonly size: ExpressionASTNode;
+    readonly const?: boolean;
 }
 
 interface DeclaratorASTNode extends ASTNode {
@@ -334,6 +335,8 @@ interface DeclaratorASTNode extends ASTNode {
     readonly sub?: DeclaratorASTNode; // parentheses
     readonly pointer?: DeclaratorASTNode;
     readonly reference?: DeclaratorASTNode;
+    readonly const?: boolean;
+    readonly volatile?: boolean;
     readonly name?: IdentifierASTNode;
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
@@ -388,7 +391,7 @@ export class Declarator extends BasicCPPConstruct {
         let type = this.baseType;
 
         let first = true;
-        let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
+        // let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
         
         let decl = ast; // AST will always be present on Declarators
         while (decl){
@@ -419,8 +422,7 @@ export class Declarator extends BasicCPPConstruct {
                     isInnermost = arePostfixesInnermost && i === 0;
 
                     if(postfix.kind === "array") {
-                        prevKind = "array";
-                        if (type.isArrayType) {
+                        if (type.isArrayType()) {
                             this.addNote(CPPError.declaration.array.multidimensional_arrays_unsupported(this));
                             return;
                         }
@@ -474,19 +476,24 @@ export class Declarator extends BasicCPPConstruct {
                     }
                     else if (postfix.kind === "function") {
 
-                        if (prevKind === "function") {
-                            this.addNote(CPPError.declaration.func.return_func(this));
+                        if (!type.isPotentialReturnType()) {
+                            if (type.isFunctionType()) {
+                                this.addNote(CPPError.declaration.func.return_func(this));
+                            }
+                            else if (type.isArrayType()){
+                                this.addNote(CPPError.declaration.func.return_array(this));
+                            }
+                            else {
+                                this.addNote(CPPError.declaration.func.invalid_return_type(this, type));
+                            }
+                            return;
                         }
-                        if (prevKind === "array"){
-                            this.addNote(CPPError.declaration.func.return_array(this));
-                        }
-                        prevKind = "function";
 
                         let params : Parameter[] = [];
-                        let paramTypes : Type[] = [];
+                        let paramTypes : PotentialParameterType[] = [];
 
-                        postfix.args.forEach((arg) => {
-                            let paramDecl = Parameter.instance(arg, {parent:this});
+                        postfix.args.forEach((argAST) => {
+                            let paramDecl = Parameter.instance(argAST, {parent:this});
                             paramDecl.compile();
                             params.push(paramDecl);
                             paramTypes.push(paramDecl.type);
@@ -511,12 +518,13 @@ export class Declarator extends BasicCPPConstruct {
                         // for the last function encountered are recorded, with the end result that a declarator
                         // that specifies a function
                         (<Mutable<this>>this).params = params;
-                        type = new FunctionType(type, paramTypes, decl["const"], decl["volatile"], postfix.const);
+                        type = new FunctionType(type, paramTypes, decl.const, decl.volatile, postfix.const);
 
-                        if (isParam && innermost && i == decl.postfixes.length - 1) {
-                            prev = "pointer"; // Don't think this is necessary
-                            type = Types.Pointer.instance(type);
-                        }
+                        TODO // move this out to Parameter class just like array to pointer adjustment
+                        // if (isParam && innermost && i == decl.postfixes.length - 1) {
+                        //     prev = "pointer"; // Don't think this is necessary
+                        //     type = Types.Pointer.instance(type);
+                        // }
                     }
 
                     first = false;
