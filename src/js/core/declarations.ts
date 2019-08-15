@@ -1,10 +1,11 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope } from "./entities";
 import { Initializer } from "./initializers";
-import { TypeSpecifier, Type } from "./types";
+import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType } from "./types";
 import { CPPError } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { ExpressionASTNode } from "./expressions";
+import { ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
+import { Mutable } from "../util/util";
 
 
 // TODO:
@@ -210,6 +211,8 @@ export class Declaration extends BasicCPPConstruct {
         // TODO: Allow class declarations (although it might be parsed differently and end up in a different
         // class, I'm just putting the note here for now)
 
+        TODO // verify object has a size. if not, e.g. array of unknown bound, add this note: this.addNote(CPPError.declaration.array.length_required(this));
+
         this.isDefinition = !isA(declarator.type, Types.Function)
         && !(this.storageSpec.extern && !(declarator.initializer))
         && !this.typedef;
@@ -275,6 +278,12 @@ export var Parameter = CPPConstruct.extend({
         this.name = this.declarator.name;
         this.type = this.declarator.type;
 
+        // if (isParam && innermost && i == decl.postfixes.length - 1) {
+        //     prev = "pointer"; // Don't think this is necessary
+        //     type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
+        // }
+        TODO // adjust array type to pointer see above code taken out of declarator
+
         // Errors related to parameters of void type are handled elsewhere in function declarator part
         // TODO: Check this mysterious comment that was here ^^^
 
@@ -329,16 +338,29 @@ interface DeclaratorASTNode extends ASTNode {
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
 
+interface DeclaratorOptions {
+    readonly isParameter?: boolean;
+    readonly isNewExpression?: boolean;
+}
+
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct {
 
-    public readonly name: string;
-    public readonly type: Type;
+    public readonly name?: string;
+    public readonly type?: Type;
+
+    // The innermost set of parameters found in this declarator. Only useful if the
+    // declarator is used to specify a function type, in which cases this is an array
+    // of the function's Parameters. (However, it may technically still be defined in
+    // other cases, e.g. an array of function pointers.)
+    public readonly params? : readonly Parameter[];
 
     public readonly baseType: Type;
     public readonly isPureVirtual?: boolean;
 
-    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type) {
+    private readonly options: DeclaratorOptions; // TODO: this isn't used, remove it
+
+    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type, options: DeclaratorOptions = {}) {
         return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
     }
     
@@ -348,21 +370,27 @@ export class Declarator extends BasicCPPConstruct {
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type) {
+    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type, options: DeclaratorOptions) {
         super(context);
         this.setAST(ast);
-
         this.baseType = baseType;
-        let type = baseType;
-
-        let first = true;
+        this.options = options;
         
         // let isMember = isA(this.parent, Declarations.Member);
 
         if (ast.pureVirtual) { this.isPureVirtual = true; }
 
+        this.determineNameAndType(ast);
+    }
+
+    private determineNameAndType(ast: DeclaratorASTNode) {
+        
+        let type = this.baseType;
+
+        let first = true;
         let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
-        let decl = ast;
+        
+        let decl = ast; // AST will always be present on Declarators
         while (decl){
 
             // We want to check whether this is the innermost thing, but first we need to loop
@@ -375,8 +403,8 @@ export class Declarator extends BasicCPPConstruct {
             let isInnermost = !(tempDecl.pointer || tempDecl.reference || tempDecl.sub);
 
             if (decl.name) {
-                this.name = decl.name.identifier;
-                checkIdentifier(this, this.name, this);
+                (<Mutable<this>>this).name = decl.name.identifier;
+                this.name && checkIdentifier(this, this.name, this);
             }
 
             if (decl.postfixes) {
@@ -391,12 +419,17 @@ export class Declarator extends BasicCPPConstruct {
                     isInnermost = arePostfixesInnermost && i === 0;
 
                     if(postfix.kind === "array") {
-                        if (prevKind === "function") {
-                            this.addNote(CPPError.declaration.func.array(this));
+                        prevKind = "array";
+                        if (type.isArrayType) {
+                            this.addNote(CPPError.declaration.array.multidimensional_arrays_unsupported(this));
+                            return;
                         }
-                        if (prevKind === "reference"){
-                            this.addNote(CPPError.declaration.ref.array(this));
+
+                        if (!type.isArrayElemType()) {
+                            this.addNote(CPPError.declaration.array.invalid_element_type(this, type));
+                            return;
                         }
+                        
                         // If it's a parameter and it's an array, adjust to pointer
                         // TODO: move this to Parameter Declaration class instead of here so that a Declarator
                         // doesn't need information about its context (i.e. whether it's in a parameter) to do its job.
@@ -404,23 +437,38 @@ export class Declarator extends BasicCPPConstruct {
                         //     prev = "pointer"; // Don't think this is necessary
                         //     type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
                         // }
+                        
+                        if (postfix.size) {
 
-                        //TODO need to evaluate size of array if it's a constant expression
-                        if (!postfix.size) {
-                            this.addNote(CPPError.declaration.array.length_required(this));
-                        }
-                        else if (postfix.size.construct_type !== "literal" && !(isInnermost && isA(this.parent, Expressions.NewExpression))){
-                            this.addNote(CPPError.declaration.array.literal_length_only(this));
-                        }
-                        else if (postfix.size.construct_type === "literal" && postfix.size.value == 0 && !(innermost && isA(this.parent, Expressions.NewExpression))){
-                            this.addNote(CPPError.declaration.array.zero_length(this));
-                        }
+                            if (postfix.size.construct_type === "literal") {
+                                // If the size specified is a literal, just use its value as array length
+                                type = new ArrayType(type, (<NumericLiteralASTNode>postfix.size).value);
+                            }
+                            else {
+                                // If a size is specified, that is not a literal, it must be an expression (via the grammar).
+                                // This size expression could e.g. be used for a dynamically allocated array. In that case,
+                                // we provide the AST of the size expression as part of the type so it can be used later by
+                                // a new expression to construct the size subexpression for the allocated array.
+                                type = new ArrayOfUnknownBoundType(type, postfix.size);
+                                
+                                // TODO: It is also possible the size is a compile-time constant expression, in which case
+                                // it should be evaluated to determine the size.
+                            }
 
-                        prevKind = "array";
-                        type = Types.Array.instance(type, (postfix.size ? postfix.size.value : undefined)); //Note: grammar doesn't allow const or volatile on array
-                        if(innermost && isA(this.parent, Expressions.NewExpression) && postfix.size/* && postfix.size.construct_type !== "literal"*/){
-                            this.dynamicLengthExpression = postfix.size;
+                            // TODO: move these errors elsewhere
+                            // if (postfix.size.construct_type !== "literal" && !(isInnermost && isA(this.parent, Expressions.NewExpression))){
+                            // //TODO need to evaluate size of array if it's a compile-time constant expression
+                            //     this.addNote(CPPError.declaration.array.literal_length_only(this));
+                            // }
+                            // else if (postfix.size.construct_type === "literal" && postfix.size.value == 0 && !(innermost && isA(this.parent, Expressions.NewExpression))){
+                            //     this.addNote(CPPError.declaration.array.zero_length(this));
+                            // }
+                            // else size was fine and nothing needs to be done
                         }
+                        else {
+                            type = new ArrayOfUnknownBoundType(type);
+                        }
+                        
                         
 
                     }
@@ -437,34 +485,33 @@ export class Declarator extends BasicCPPConstruct {
                         let params : Parameter[] = [];
                         let paramTypes : Type[] = [];
 
-                        for (let a = 0; a < postfix.args.length; ++a) {
-                            let arg = postfix.args[a];
+                        postfix.args.forEach((arg) => {
                             let paramDecl = Parameter.instance(arg, {parent:this});
                             paramDecl.compile();
-                            params[a] = paramDecl;
-                            paramTypes[a] = paramDecl.declarator.type;
-                        }
+                            params.push(paramDecl);
+                            paramTypes.push(paramDecl.type);
+                        });
 
                         // A parameter list of just (void) specifies no parameters
-                        if (paramTypes.length == 1 && isA(paramTypes[0], Types.Void)) {
+                        if (paramTypes.length == 1 && paramTypes[0].isVoidType()) {
                             params = [];
                             paramTypes = [];
                         }
                         else {
                             // Otherwise void parameters are bad
                             for (let j = 0; j < paramTypes.length; ++j) {
-                                if (isA(paramTypes[j], Types.Void)) {
+                                if (paramTypes[j].isVoidType()) {
                                     this.addNote(CPPError.declaration.func.void_param(params[j]));
                                 }
                             }
                         }
 
 
-                        // If a function is the first thing we encounter, record parameters
-                        if (isA(this.parent, Declarations.FunctionDefinition)) {
-                            this.params = params;
-                        }
-                        type = Types.Function.instance(type, paramTypes, decl["const"], decl["volatile"], postfix.const);
+                        // Record the parameters for functions we encounter. The effect is that the parameters
+                        // for the last function encountered are recorded, with the end result that a declarator
+                        // that specifies a function
+                        (<Mutable<this>>this).params = params;
+                        type = new FunctionType(type, paramTypes, decl["const"], decl["volatile"], postfix.const);
 
                         if (isParam && innermost && i == decl.postfixes.length - 1) {
                             prev = "pointer"; // Don't think this is necessary
@@ -477,7 +524,9 @@ export class Declarator extends BasicCPPConstruct {
             }
 
             // Process pointers/references next
-            if (decl.hasOwnProperty("pointer")){
+            // NOTE: this line should NOT be else if since the same AST node may
+            // have both postfixes and a pointer/reference
+            if (decl.hasOwnProperty("pointer")) {
                 if (prev && prev == "reference"){
                     this.addNote(CPPError.declaration.ref.pointer(this));
                 }
@@ -493,7 +542,7 @@ export class Declarator extends BasicCPPConstruct {
                 decl = decl.reference;
                 prev = "reference";
             }
-            else if (decl.hasOwnProperty("sub")){
+            else if (decl.hasOwnProperty("sub")) {
                 decl = decl.sub;
             }
             else{
@@ -510,9 +559,7 @@ export class Declarator extends BasicCPPConstruct {
         if (!isParam && !isMember && isA(this.type, Types.reference) && !ast.initializer) {
             this.addNote(CPPError.declaration.init.referenceBind(this));
         }
-
     }
-
 }
 
 

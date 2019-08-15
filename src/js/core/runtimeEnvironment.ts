@@ -1,7 +1,7 @@
 import { assert, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, Pointer, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
+import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
 import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
@@ -61,8 +61,8 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && otherValue.isValid);
     }
 
-    public pointerOffset(this: Value<Pointer>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
-        return new Value<Pointer>(
+    public pointerOffset(this: Value<PointerType>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
+        return new Value<PointerType>(
             (subtract ?
                 this.rawValue - this.type.ptrTo.size * offsetValue.rawValue :
                 this.rawValue + this.type.ptrTo.size * offsetValue.rawValue),
@@ -70,7 +70,7 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && offsetValue.isValid);
     }
 
-    public pointerDifference(this: Value<Pointer>, otherValue: Value<Pointer>) {
+    public pointerDifference(this: Value<PointerType>, otherValue: Value<PointerType>) {
         return new Value<Int>(
             (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,
             new Int(),
@@ -321,7 +321,7 @@ export class Memory {
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
     // TODO: prevent writing to zero or negative address objects?
-    public dereference(ptr: Value<Pointer>) {
+    public dereference(ptr: Value<PointerType>) {
         assert(ptr.type.isObjectPointer());
 
         var addr = ptr.rawValue;

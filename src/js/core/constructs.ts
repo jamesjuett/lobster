@@ -8,7 +8,7 @@ import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundRefe
 import { TranslationUnit, SourceReference } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Type, ClassType, ObjectType, VoidType, Reference, PotentialReturnType, noRef, noRefType } from "./types";
+import { Type, ClassType, ObjectType, VoidType, ReferenceType, PotentialReturnType, noRef, noRefType } from "./types";
 import { Note, CPPError, Description, Explanation } from "./errors";
 import { Value, MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
@@ -823,10 +823,10 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends ObjectType | Reference>(this: RuntimeFunction<noRefType<T>>, obj: CPPObject<noRefType<T>>) {
+    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<noRefType<T>>, obj: CPPObject<noRefType<T>>) {
         // This should only be used once
         Util.assert(!this.returnObject);
-        (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<Reference>>>this).returnObject = obj;
+        (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
 
     }
 
@@ -979,7 +979,7 @@ export class FunctionCall extends PotentialFullExpression {
         // If return by reference, the return object already exists and no need to create a temporary.
         // Else, for a return by value, we do need to create a temporary object.
         let returnType = this.func.type.returnType;
-        if ( !(returnType instanceof VoidType) && !(returnType instanceof Reference)) {
+        if ( !(returnType instanceof VoidType) && !(returnType instanceof ReferenceType)) {
             this.returnByValueTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
         }
 

@@ -1,4 +1,4 @@
-import { Type, ArrayType, ClassType, AtomicType, Pointer, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
+import { Type, ArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -277,7 +277,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("deallocated");
     }
 
-    public getPointerTo() : Value<Pointer> {
+    public getPointerTo() : Value<PointerType> {
         return new Value(this.address, new ObjectPointer(this));
     }
 

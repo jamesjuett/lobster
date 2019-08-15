@@ -1,6 +1,6 @@
 import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { Reference, ObjectType, ClassType } from "./types";
+import { ReferenceType, ObjectType, ClassType, Type } from "./types";
 import { CPPEntity } from "./entities";
 
 export interface Description {
@@ -206,7 +206,7 @@ export const CPPError = {
         ctor : {
             copy : {
                 pass_by_value : function(construct: CPPConstruct, type: ObjectType, name: string) {
-                    var constRef = new Reference(type, true);
+                    var constRef = new ReferenceType(type, true);
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.copy.pass_by_value", "A copy constructor cannot take its parameter by value. Because pass-by-value itself uses the copy constructor, this would cause infinite recursion if it were allowed. Try passing by const reference instead! (i.e. " + constRef.typeString(false, name, false) + ")");
                 }
             },
@@ -310,6 +310,12 @@ export const CPPError = {
             },
             zero_length : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.zero_length", "Although technically allowed in C++, arrays with zero length are prohibited in Lobster.");
+            },
+            multidimensional_arrays_unsupported : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.multidimensional_arrays_unsupported", "Sorry, Lobster currently doesn't support multidimensional arrays.");
+            },
+            invalid_element_type : function(construct: CPPConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.invalid_element_type", `The type ${type.toString()} is not allowed as an array parameter.` );
             }
         },
         init : {
