@@ -231,7 +231,6 @@ export function isCvConvertible(t1: Type, t2: Type){
 // interface DefaultTypeProperties {
 //     size: number;
 //     precedence: number;
-//     _isObjectType?: boolean;
 //     isArithmeticType?: boolean;
 //     isIntegralType?: boolean;
 //     isFloatingPointType?: boolean;
@@ -247,13 +246,10 @@ export abstract class Type {
      */
     protected abstract readonly precedence: number;
 
-
-    public abstract readonly _isObjectType: boolean;
     public abstract readonly isArithmeticType: boolean;
     public abstract readonly isIntegralType: boolean;
     public abstract readonly isFloatingPointType: boolean;
     public abstract readonly isComplete: boolean;
-    public abstract readonly isFunctionType: boolean;
 
     // regular member properties
     public readonly isConst: boolean;
@@ -281,7 +277,7 @@ export abstract class Type {
     }
 
     public isObjectType() : this is ObjectType {
-        return this._isObjectType;
+        return this instanceof ObjectType;
     }
 
     public isPointer() : this is PointerType {
@@ -292,18 +288,30 @@ export abstract class Type {
         return this instanceof ReferenceType;
     }
 
-    public isArrayElemType() : this is ArrayElemType {
-        return this instanceof AtomicType || this instanceof ClassType;
-    }
-
     public isArrayType() : this is ArrayType | ArrayOfUnknownBoundType {
         return this instanceof ArrayType || this instanceof ArrayOfUnknownBoundType;
+    }
+
+    public isFunctionType() : this is FunctionType {
+        return this instanceof FunctionType;
+    }
+
+    public isArrayElemType() : this is ArrayElemType {
+        return this instanceof AtomicType || this instanceof ClassType;
     }
 
     public isVoidType() : this is VoidType {
         return this instanceof VoidType;
     }
     
+    public isPotentialReturnType() : this is PotentialReturnType {
+        return this instanceof ObjectType || this instanceof ReferenceType || this instanceof VoidType;
+    }
+
+    public isPotentialParameterType() : this is PotentialParameterType {
+        return this instanceof ObjectType || this instanceof ReferenceType;
+    }
+
     /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
      */
@@ -396,23 +404,20 @@ export abstract class Type {
     /**
      * Returns a cv-unqualified proxy object for this type, unless this type was already cv-unqualified,
      * in which case just returns this object.
-     * @returns {Type}
      */
     public cvUnqualified() {
-        if (!this.isCVQualified()){
-            return this;
-        }
-        else {
-            return this.cvQualified(false, false);
-        }
+        return this.cvQualified(false, false);
     }
 
     /**
      * Returns a copy of this type with the specified cv-qualifications, unless this type already matches
      * the given cv-qualifications, in which case just returns this object.
-     * @returns {Type}
      */
-    public abstract cvQualified(isConst: boolean, isVolatile: boolean): Type;
+    public cvQualified(isConst: boolean, isVolatile: boolean): this {
+        return <this>this.cvQualifiedImpl(isConst, isVolatile);
+    }
+
+    protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Type;
 };
 
 // /**
@@ -453,12 +458,10 @@ export abstract class Type {
 
 export class VoidType extends Type {
 
-    public readonly _isObjectType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
     public readonly isComplete = true;
-    public readonly isFunctionType = false;
 
     protected readonly precedence = 0;
 
@@ -480,7 +483,7 @@ export class VoidType extends Type {
 		return "void";
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new VoidType(isConst, isVolatile);
     }
 }
@@ -491,8 +494,6 @@ builtInTypes["void"] = VoidType;
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
 export abstract class ObjectType extends Type {
-    public readonly isFunctionType = false;
-    public readonly _isObjectType = true;
     public abstract readonly size: number;
 }
 
@@ -663,7 +664,7 @@ export class Char extends IntegralType {
         return String.fromCharCode(<number>value);
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Char(isConst, isVolatile);
     }
 }
@@ -674,7 +675,7 @@ export class Int extends IntegralType {
     protected readonly simpleType = "int";
     public readonly size = 4;
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Int(isConst, isVolatile);
     }
 };
@@ -685,7 +686,7 @@ export class Size_t extends IntegralType {
     protected readonly simpleType = "size_t";
     public readonly size = 8;
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Size_t(isConst, isVolatile);
     }
 }
@@ -697,7 +698,7 @@ export class Bool extends IntegralType {
 
     public static readonly BOOL = new Bool();
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
     }
 }
@@ -724,7 +725,7 @@ export class Float extends FloatingPointType {
     protected readonly simpleType = "float";
     public readonly size = 4;
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Float(isConst, isVolatile);
     }
 }
@@ -734,7 +735,7 @@ export class Double extends FloatingPointType {
     protected readonly simpleType = "double";
     public readonly size = 8;
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
     }
 }
@@ -742,7 +743,6 @@ builtInTypes["double"] = Double;
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
-//     public _isObjectType: boolean;
 //     public isArithmeticType: boolean;
 //     public isIntegralType: boolean;
 //     public isFloatingPointType: boolean;
@@ -789,7 +789,7 @@ export class PointerType extends AtomicType {
         return <number>value < 0;
     }
 
-    public readonly ptrTo: ObjectType;
+    public readonly ptrTo: ObjectType; // TODO: add | VoidType for void pointers? or just make that a whole separate VoidPointer class?
 
     public constructor(ptrTo: ObjectType, isConst?: boolean, isVolatile?: boolean) {
         super(isConst, isVolatile);
@@ -831,7 +831,7 @@ export class PointerType extends AtomicType {
     }
 
     public isObjectPointer() {
-        return this.ptrTo._isObjectType || this.ptrTo instanceof VoidType;
+        return this.ptrTo.isObjectType();
     }
 
     /**
@@ -850,7 +850,7 @@ export class PointerType extends AtomicType {
         return true;
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new PointerType(this.ptrTo, isConst, isVolatile);
     }
 }
@@ -888,7 +888,7 @@ export class ArrayPointer extends PointerType {
         return Math.trunc((addr - this.arrayObject.address) /  this.arrayObject.type.elemType.size);
     }
 
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayPointer(this.arrayObject, isConst, isVolatile);
     }
 }
@@ -910,18 +910,16 @@ export class ObjectPointer extends PointerType {
         return this.pointedObject.isAlive && this.pointedObject.address === value;
     }
 
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ObjectPointer(this.pointedObject, isConst, isVolatile);
     }
 }
 
 
 export class ReferenceType extends Type {
-    public readonly _isObjectType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
-    public readonly isFunctionType = false;
 
     protected readonly precedence = 1;
     public readonly isComplete = true;
@@ -959,7 +957,7 @@ export class ReferenceType extends Type {
 		return ""+value;
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ReferenceType(this.refTo, isConst, isVolatile);
     }
 }
@@ -1024,7 +1022,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
         return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
     
@@ -1052,8 +1050,6 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
 
 export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends Type {
     
-    public readonly _isObjectType = false;
-    public readonly isFunctionType = false;
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -1092,7 +1088,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
         return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
     }
 }
@@ -1115,7 +1111,6 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 export class ClassType extends ObjectType {
     public size: number= 0;
     protected precedence: number = 0;
-    public readonly _isObjectType = true;
     public readonly isArithmeticType: boolean = false;
     public readonly isIntegralType: boolean = false;
     public readonly isFloatingPointType: boolean = false;
@@ -1133,7 +1128,7 @@ export class ClassType extends ObjectType {
         throw new Error("Method not implemented.");
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         // TODO
         return new ClassType(isConst, isVolatile);
     }
@@ -1154,7 +1149,6 @@ export class ClassType extends ObjectType {
 //         throw new Error("Method not implemented.");
 //     }
 //     protected readonly precedence = 0;
-//     public readonly _isObjectType = true;
 
 //     public readonly cppClass: CPPClass;
 
@@ -1279,7 +1273,7 @@ export class ClassType extends ObjectType {
 //         Util.assert(!this.isComplete, "May not modify a class definition once it has been completed.");
 //         this.scope.addDeclaredEntity(mem);
 //         this.memberEntities.push(mem);
-//         if(mem.type._isObjectType){
+//         if(mem.type.isObjectType()){
 //             if (this.actuallyZeroSize){
 //                 (<number>this.size) = 0;
 //                 this.actuallyZeroSize = false;
@@ -1365,19 +1359,17 @@ export class FunctionType extends Type {
     public isIntegralType = false;
     public isFloatingPointType = false;
     public isComplete = true;
-    public readonly _isObjectType = false;
-    public readonly isFunctionType = true;
     
     protected readonly precedence = 2;
 
     public readonly returnType: PotentialReturnType;
-    public readonly paramTypes: readonly ObjectType[];
-    public readonly receiverType?: ObjectType;
+    public readonly paramTypes: readonly PotentialParameterType[];
+    public readonly receiverType?: ClassType;
 
     private paramStrType: string;
     private paramStrEnglish: string;
     
-    public constructor(returnType: PotentialReturnType, paramTypes: readonly ObjectType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ObjectType) {
+    public constructor(returnType: PotentialReturnType, paramTypes: readonly PotentialParameterType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ClassType) {
         super(isConst, isVolatile);
 
         this.receiverType = receiverType;
@@ -1407,7 +1399,7 @@ export class FunctionType extends Type {
         this.paramStrEnglish += ")";
     }
     
-    public cvQualified(isConst: boolean, isVolatile: boolean) {
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new FunctionType(this.returnType, this.paramTypes, isConst, isVolatile, this.receiverType);
     }
 

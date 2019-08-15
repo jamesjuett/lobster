@@ -258,7 +258,10 @@ export const CPPError = {
 			},
 			return_func : function(construct: CPPConstruct) {
 				return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.return_func", "Cannot declare a function that returns a function. Try returning a function pointer?");
-			},
+            },
+            invalid_return_type : function(construct: CPPConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.invalid_return_type", `The type ${type.toString()} is not allowed as a return type.`);
+            },
             array : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.array", "Cannot declare an array of functions.");
             },
