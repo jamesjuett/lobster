@@ -657,9 +657,8 @@ export const CPPError = {
         }
     },
     stmt : {
-        // TODO: when would this ever be used?
-        declaration : function(construct: CPPConstruct, decl) {
-            return new CompilerNote(construct, NoteKind.ERROR, "stmt.declaration", "Sorry, this kind of declaration (" + decl.describe().message + ") is not allowed here.");
+        function_definition_prohibited : function(construct: CPPConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "stmt.function_definition_prohibited", "A function definition is prohibited here (i.e. inside a statement).");
         },
         selection : {
             condition_bool : function(construct: CPPConstruct, expr) {

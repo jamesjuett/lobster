@@ -3,7 +3,7 @@ import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruc
 import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
-import { Declaration } from "./declarations";
+import { Declaration, FunctionDefinition } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope } from "./entities";
 import { VoidType, ReferenceType, ObjectType } from "./types";
@@ -163,17 +163,26 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement {
 
-    public readonly declaration: Declaration;
+    public readonly declaration: Declaration | FunctionDefinition | ClassDefinition;
 
+    // TODO: a quirk of the C++ grammar allows the declaration in a decl-stmt to be a function-definition.
+    // Thus, the ctor for this class should be adjusted to also allow a function definition - if one is provided,
+    // the class just 
     public static createFromAST(ast: DeclarationStatementASTNode, context: ExecutableConstructContext) {
         return new DeclarationStatement(context,
             Declaration.createFromAST(ast.declaration, context)
         );
     }
 
-    public constructor(context: ExecutableConstructContext, declaration: Declaration) {
+    public constructor(context: ExecutableConstructContext, declaration: Declaration | FunctionDefinition | ClassDefinition) {
         super(context);
         this.attach(this.declaration = declaration);
+        if (declaration instanceof FunctionDefinition) {
+            this.addNote(CPPError.stmt.function_definition_prohibited(this));
+        }
+        else if (declaration instanceof FunctionDefinition) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
+        }
     }
 
     public createRuntimeStatement(this: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
@@ -186,6 +195,8 @@ export class DeclarationStatement extends Statement {
 }
 
 export interface CompiledDeclarationStatement extends DeclarationStatement, CompiledConstruct {
+    
+    // narrows to compiled version and rules out a FunctionDefinition or ClassDefinition
     readonly declaration: CompiledDeclaration;
 }
 
