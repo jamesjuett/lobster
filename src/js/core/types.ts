@@ -280,11 +280,11 @@ export abstract class Type {
         return this instanceof ObjectType;
     }
 
-    public isPointer() : this is PointerType {
+    public isPointerType() : this is PointerType {
         return this instanceof PointerType;
     }
 
-    public isReference() : this is ReferenceType {
+    public isReferenceType() : this is ReferenceType {
         return this instanceof ReferenceType;
     }
 
@@ -413,7 +413,7 @@ export abstract class Type {
      * Returns a copy of this type with the specified cv-qualifications, unless this type already matches
      * the given cv-qualifications, in which case just returns this object.
      */
-    public cvQualified(isConst: boolean, isVolatile: boolean): this {
+    public cvQualified(isConst: boolean, isVolatile: boolean = false): this {
         return <this>this.cvQualifiedImpl(isConst, isVolatile);
     }
 

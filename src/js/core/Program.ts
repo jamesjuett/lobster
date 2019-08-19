@@ -684,7 +684,7 @@ export class TranslationUnit {
     
     private compileTopLevelDeclarations(ast: TranslationUnitASTNode) {
         for(var i = 0; i < ast.length; ++i){
-            var decl = Declaration.create(ast[i], {
+            var decl = Declaration.createFromAST(ast[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,

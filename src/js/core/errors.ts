@@ -283,22 +283,34 @@ export const CPPError = {
             no_return_type : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.no_return_type", "You must specify a return type for this function. (Or if you meant it to be a constructor, did you misspell the name?)");
             },
-            virtual_member : function(construct: CPPConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.virtual_member", "Only member functions may be declared as virtual.");
+            virtual_not_allowed : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.virtual_not_allowed", "Only member functions may be declared as virtual.");
             },
             nonCovariantReturnType : function(construct: CPPConstruct, derived, base) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
             }
-		},
+        },
+        pointer: {
+            reference : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.pointer.reference", "Cannot declare a pointer to a reference.");
+            },
+            void : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.pointer.void", "Sorry, Lobster does not support void pointers.");
+            },
+            invalid_pointed_type : function(construct: CPPConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.pointer.invalid_pointed_type", `A pointer to type ${type.toString()} is not allowed.`);
+            }
+        },
 		ref : {
 			ref : function(construct: CPPConstruct) {
-				return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.ref", "Cannot declare a reference to a reference.");
-			},
+				return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.ref", "A reference to a reference is not allowed.");
+            },
+            // TODO: move this to array section instead
             array : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.array", "Cannot declare an array of references.");
             },
-            pointer : function(construct: CPPConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.pointer", "Cannot declare a pointer to a reference.");
+            invalid_referred_type : function(construct: CPPConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.invalid_referred_type", `A reference to type ${type.toString()} is not allowed.`);
             },
             memberNotSupported : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ref.memberNotSupported", "Sorry, reference members are not supported at the moment.");
@@ -735,8 +747,8 @@ export const CPPError = {
         }
     },
     lobster : {
-        unsupported : function(construct: CPPConstruct, expressionName) {
-            return new CompilerNote(construct, NoteKind.ERROR, "lobster.unsupported", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
+        unsupported_feature : function(construct: CPPConstruct, feature_name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "lobster.unsupported_feature", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
         },
         referencePrvalue : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.referencePrvalue", "Sorry, Lobster does not yet support binding references (even if they are reference-to-const) to prvalues (e.g. temporary objects).");

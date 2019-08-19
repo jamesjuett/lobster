@@ -1,8 +1,8 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode } from "./constructs";
-import { FunctionEntity, CPPEntity, BlockScope } from "./entities";
+import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity } from "./entities";
 import { Initializer } from "./initializers";
-import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType } from "./types";
-import { CPPError } from "./errors";
+import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType } from "./types";
+import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
 import { Mutable } from "../util/util";
@@ -27,6 +27,7 @@ export class StorageSpecifier extends BasicCPPConstruct {
 
     compile : function(){
 
+        // TODO: ADD UNSUPPORTED_FEATURE ERROR FOR EXTERN
 
         this.numSpecs = 0;
         for(var i = 0; i < this.ast.length; ++i){
@@ -97,11 +98,20 @@ interface OtherSpecifiers {
     readonly friend? : boolean;
 }
 
+
+interface DeclarationASTNode extends ASTNode {
+    readonly pureVirtual?: boolean;
+    readonly sub?: DeclaratorASTNode; // parentheses
+    readonly pointer?: DeclaratorASTNode;
+    readonly reference?: DeclaratorASTNode;
+    readonly const?: boolean;
+    readonly volatile?: boolean;
+    readonly name?: IdentifierASTNode;
+    readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+}
+
 // TODO: add base declaration mixin stuff
 export class Declaration extends BasicCPPConstruct {
-
-    public readonly initializers: readonly Initializer[];
-    public readonly entities: readonly CPPEntity[];
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -110,25 +120,34 @@ export class Declaration extends BasicCPPConstruct {
     public readonly isTypedef: boolean;
     public readonly isFriend: boolean;
 
-    public readonly storageDuration: "static" | "automatic";
+    // public readonly storageDuration: "static" | "automatic"; // TODO: remove if not used
+    // public readonly isDefinition: boolean; // TODO: remove if not used
 
-    public readonly declarators: readonly Declarator[];
+    public readonly declarator: Declarator;
+    public abstract readonly declaredEntity?: DeclaredEntity;
+    public abstract readonly isDefinition: boolean;
+    public abstract readonly initializer?: Initializer;
 
     public static createFromAST(ast: DeclarationASTNode, context: ConstructContext) {
 
         // Need to create TypeSpecifier first to get the base type first for the declarators
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
+        
+        // Determine the appropriate kind of declaration based on the contextual scope
+        let ctor = context.contextualScope instanceof BlockScope ? LocalDeclaration : StaticDeclaration;
 
-        return new Declaration(context,
+        return ast.declarators.map((declAST) => new ctor(
+            context,
             typeSpec,
             StorageSpecifier.createFromAST(ast.specs.storageSpecs, context),
-            ast.declarators.map((declAST) => Declarator.createFromAST(declAST, context, typeSpec.type)),
+            Declarator.createFromAST(declAST, context, typeSpec.type),
             ast.specs
-        ).setAST(ast);
+         ).setAST(ast)
+        );
     }
 
-    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarators: readonly Declarator[], otherSpecs: OtherSpecifiers) {
+    protected constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context);
 
         this.typeSpecifier = typeSpec;
@@ -138,27 +157,37 @@ export class Declaration extends BasicCPPConstruct {
         this.isTypedef = !!otherSpecs.typedef;
         this.isFriend = !!otherSpecs.friend;
 
-        if (this.storageSpecifier.numSpecs > 0 && this.isTypedef) {
-            this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
+        if (this.isTypedef) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "typedef"));
         }
 
-        this.storageDuration = this.determineStorage();
+        // ADD THIS BACK IN WHEN TYPEDEFS ARE SUPPORTED
+        // if (this.storageSpecifier.numSpecs > 0 && this.isTypedef) {
+        //     this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
+        // }
+
+        if (this.isTypedef) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "friend"));
+        }
 
         this.declarators = declarators;
         this.declarators.forEach((decl) => !decl.hasErrors && this.makeEntity(decl));
 
         //TODO: if this is a parameter declaration, adjust array types from declarators to pointer types instead
-    }
-    
-    private determineStorage() {
-        // Determine storage duration based on the kind of scope in which the declaration
-        // occurs and any storage specifiers.
-        if(!this.storageSpec.static && !this.storageSpec.extern && this.contextualScope instanceof BlockScope) {
-            return "automatic";
-        }
-        else{
-            return "static";
-        }
+
+        // Note: Due to the mapping from the grammar to constructs, all function definitions go
+        // to the FunctionDefinition class.  Thus any functions we encounter here are declarations,
+        // not definitions. We also know we're not dealing with member functions here, for similar reasons.
+        // TODO: could member declarations end up here?
+        // this.isDefinition = !declarator.type.isFunctionType() &&
+        // && !(this.storageSpec.extern && !(declarator.initializer))
+        // && !this.typedef;
+
+        let {type, entity} = this.makeEntity();
+        this.type = type;
+        this.entity = entity;
+
+        this.initializers = this.createInitializers();
     }
 
     compileDefinition : function() {
@@ -204,23 +233,18 @@ export class Declaration extends BasicCPPConstruct {
 
     makeEntity: function(declarator){
 
-        // Note: Due to the mapping from the grammar to constructs, all function definitions go
-        // to the FunctionDefinition class.  Thus any functions we encounter here are declarations,
-        // not definitions. We also know we're not dealing with member functions here, for similar reasons.
+
 
         // TODO: Allow class declarations (although it might be parsed differently and end up in a different
         // class, I'm just putting the note here for now)
 
         TODO // verify object has a size. if not, e.g. array of unknown bound, add this note: this.addNote(CPPError.declaration.array.length_required(this));
 
-        this.isDefinition = !isA(declarator.type, Types.Function)
-        && !(this.storageSpec.extern && !(declarator.initializer))
-        && !this.typedef;
 
         var entity;
         if (isA(declarator.type, Types.Function)){
             if (this.virtual){
-                this.addNote(CPPError.declaration.func.virtual_member(this));
+                this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
             }
             entity = FunctionEntity.instance(declarator);
         }
@@ -252,13 +276,108 @@ export class Declaration extends BasicCPPConstruct {
                 throw e;
             }
         }
-    },
+    }
 
-    isTailChild : function(child){
-        return {isTail: false, reason: "The variable must still be initialized with the return value of the function."};
-    },
+}
 
-};
+export class LocalDeclaration extends Declaration {
+    
+    public readonly isDefinition: boolean;
+    public readonly declaredEntity?: DeclaredEntity<Type>;
+    public readonly initializer?: Initializer;
+    
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+
+        if (this.isVirtual) {
+            this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
+        }
+
+        let type = this.declarator.type;
+
+        if (!type) {
+            return;
+        }
+
+        let declaredEntity = 
+            type.isFunctionType() ? new FunctionEntity(declarator) :
+            type.isReferenceType() ? new LocalReferenceEntity(declarator) :
+            new AutoEntity(declarator);
+
+        // Local declarations of functions are not currently supported by Lobster
+        if (type.isFunctionType()) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "local function declarations"));
+        }
+
+        // Note extern unsupported error is added in the base Declaration class, so no need to add here
+
+        // All local declarations are also definitions, with the exception of a local declaration of a function
+        // or a local declaration with the extern storage specifier, but those are not currently supported by Lobster.
+        // This means a locally declared variable does not have linkage, and we don't need to do any linking stuff here.
+        this.isDefinition = true;
+
+        // Attempt to add the declared entity to the scope. If it fails, note the error.
+        // (e.g. an entity with the same name was already declared in the same scope)
+        try{
+            this.contextualScope.addDeclaredEntity(declaredEntity);
+            this.declaredEntity = declaredEntity
+        }
+        catch(e) {
+            if (e instanceof Note) {
+                this.addNote(e);
+            }
+            else{
+                throw e;
+            }
+        }
+
+        declarator.ini
+        if (!this.isDefinition){
+            return;
+        }
+        for (var i = 0; i < this.entities.length; ++i) {
+            var ent = this.entities[i];
+            var decl = ent.decl;
+            var initCode = decl.ast.initializer;
+
+            // Compile initializer
+            var init;
+            if (initCode){
+                // TODO: move these to pre-compile phase
+                if (initCode.construct_type === "initializer_list"){
+                    init = InitializerList.instance(initCode, {parent: this});
+                    init.compile(ent);
+                }
+                else if (initCode.construct_type === "direct_initializer"){
+                    init = DirectInitializer.instance(initCode, {parent: this});
+                    init.compile(ent);
+                }
+                else if (initCode.construct_type === "copy_initializer"){
+                    init = CopyInitializer.instance(initCode, {parent: this});
+                    init.compile(ent);
+                }
+                else{
+                    assert(false, "Corrupt initializer :(");
+                }
+            }
+            else{
+                if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
+                    init = DefaultInitializer.instance(initCode, {parent: this});
+                    init.compile(ent, []);
+                }
+            }
+            this.initializers.push(init);
+            ent.setInitializer(init);
+        }
+    }
+}
+
+
+export class StaticDeclaration extends Declaration {
+            // this.context.translationUnit.registerDefinition(entity, this);
+}
 
 
 export var Parameter = CPPConstruct.extend({
@@ -341,11 +460,6 @@ interface DeclaratorASTNode extends ASTNode {
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
 
-interface DeclaratorOptions {
-    readonly isParameter?: boolean;
-    readonly isNewExpression?: boolean;
-}
-
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct {
 
@@ -361,9 +475,7 @@ export class Declarator extends BasicCPPConstruct {
     public readonly baseType: Type;
     public readonly isPureVirtual?: boolean;
 
-    private readonly options: DeclaratorOptions; // TODO: this isn't used, remove it
-
-    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type, options: DeclaratorOptions = {}) {
+    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type) {
         return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
     }
     
@@ -373,11 +485,10 @@ export class Declarator extends BasicCPPConstruct {
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type, options: DeclaratorOptions) {
+    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type) {
         super(context);
         this.setAST(ast);
         this.baseType = baseType;
-        this.options = options;
         
         // let isMember = isA(this.parent, Declarations.Member);
 
@@ -393,8 +504,8 @@ export class Declarator extends BasicCPPConstruct {
         let first = true;
         // let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
         
-        let decl = ast; // AST will always be present on Declarators
-        while (decl){
+        let decl: DeclaratorASTNode | undefined = ast; // AST will always be present on Declarators
+        while (decl) {
 
             // We want to check whether this is the innermost thing, but first we need to loop
             // to descend through any AST representation of parentheses within the declarator.
@@ -518,7 +629,9 @@ export class Declarator extends BasicCPPConstruct {
                         // for the last function encountered are recorded, with the end result that a declarator
                         // that specifies a function
                         (<Mutable<this>>this).params = params;
-                        type = new FunctionType(type, paramTypes, decl.const, decl.volatile, postfix.const);
+
+                        // TODO ensure testing this.context.containingClass will also work for out of line function definitions
+                        type = new FunctionType(type, paramTypes, decl.const, decl.volatile, this.context.containingClass && this.context.containingClass.cvQualified(!!postfix.const));
 
                         TODO // move this out to Parameter class just like array to pointer adjustment
                         // if (isParam && innermost && i == decl.postfixes.length - 1) {
@@ -534,21 +647,34 @@ export class Declarator extends BasicCPPConstruct {
             // Process pointers/references next
             // NOTE: this line should NOT be else if since the same AST node may
             // have both postfixes and a pointer/reference
-            if (decl.hasOwnProperty("pointer")) {
-                if (prev && prev == "reference"){
-                    this.addNote(CPPError.declaration.ref.pointer(this));
+            if (decl.pointer) {
+                if (!type.isObjectType()) {
+                    if (type.isReferenceType()){
+                        this.addNote(CPPError.declaration.pointer.reference(this));
+                    }
+                    else if (type.isVoidType()) {
+                        this.addNote(CPPError.declaration.pointer.void(this))
+                    }
+                    else {
+                        this.addNote(CPPError.declaration.pointer.invalid_pointed_type(this, type));
+                    }
+                    return;
                 }
-                type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
+                type = new PointerType(type, decl["const"], decl["volatile"]);
                 decl = decl.pointer;
-                prev = "pointer";
             }
-            else if (decl.hasOwnProperty("reference")){
-                if (prev && prev == "reference"){
-                    this.addNote(CPPError.declaration.ref.ref(this));
+            else if (decl.reference) {
+                if (!type.isObjectType()) {
+                    if (type.isReferenceType()){
+                        this.addNote(CPPError.declaration.ref.ref(this));
+                    }
+                    else {
+                        this.addNote(CPPError.declaration.ref.invalid_referred_type(this, type));
+                    }
+                    return;
                 }
-                type = Types.Reference.instance(type, decl["const"], decl["volatile"]);
+                type = new ReferenceType(type, decl["const"], decl["volatile"]);
                 decl = decl.reference;
-                prev = "reference";
             }
             else if (decl.hasOwnProperty("sub")) {
                 decl = decl.sub;
@@ -559,34 +685,20 @@ export class Declarator extends BasicCPPConstruct {
 
             first = false;
         }
-        this.type = type;
 
+        (<Mutable<this>>this).type = type;
+    
+        TODO // move this error somewhere else
         if (isMember && isA(this.type, Types.reference)){
             this.addNote(CPPError.declaration.ref.memberNotSupported(this));
         }
+
+        TODO // move this error somewhere else
         if (!isParam && !isMember && isA(this.type, Types.reference) && !ast.initializer) {
             this.addNote(CPPError.declaration.init.referenceBind(this));
         }
     }
 }
-
-
-// NOTE: Any MagicFunctionDefinitions will be exempt from the ODR during linking
-export var MagicFunctionDefinition = Class.extend({
-    _name: "MagicFunctionDefinition",
-    isDefinition: true,
-    init : function(name, type){
-        this.initParent();
-        this.name = name;
-        this.type = type;
-        this.calls = [];
-        this.context = {};
-    },
-
-    compile : function(){
-
-    }
-});
 
 var OVERLOADABLE_OPS = {};
 
@@ -677,7 +789,7 @@ export class FunctionDefinition extends CPPConstruct implements ExecutableConstr
 
 
             if (!this.isMemberFunction && this.virtual){
-                this.addNote(CPPError.declaration.func.virtual_member(this));
+                this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
             }
 
             this.checkOverloadSemantics();
