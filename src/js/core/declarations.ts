@@ -98,16 +98,20 @@ interface OtherSpecifiers {
     readonly friend? : boolean;
 }
 
+type DeclarationASTNode = SimpleDeclarationASTNode; // TODO: | FunctionDefinitionASTNode | ClassDefinitionASTNode
 
-interface DeclarationASTNode extends ASTNode {
-    readonly pureVirtual?: boolean;
-    readonly sub?: DeclaratorASTNode; // parentheses
-    readonly pointer?: DeclaratorASTNode;
-    readonly reference?: DeclaratorASTNode;
-    readonly const?: boolean;
-    readonly volatile?: boolean;
-    readonly name?: IdentifierASTNode;
-    readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+interface SimpleDeclarationASTNode extends ASTNode {
+    readonly construct_type: "simple_declaration";
+    readonly specs: {
+        readonly typeSpecs: TypeSpecifierASTNode;
+        readonly storageSpecs: StorageSpecifierASTNode;
+        readonly friend?: boolean;
+        readonly typedef?: boolean;
+        readonly inline?: boolean;
+        readonly explicit?: boolean;
+        readonly virtual?: boolean;
+    };
+    readonly declarators: readonly DeclaratorASTNode[];
 }
 
 // TODO: add base declaration mixin stuff
@@ -333,7 +337,9 @@ export class LocalDeclaration extends Declaration {
             }
         }
 
-        declarator.ini
+        if (declarator.ast.init)
+        // let
+        // declarator.ini
         if (!this.isDefinition){
             return;
         }
@@ -458,6 +464,7 @@ interface DeclaratorASTNode extends ASTNode {
     readonly volatile?: boolean;
     readonly name?: IdentifierASTNode;
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+    readonly initializer?: InitializerASTNode;
 }
 
 // TODO: take baseType as a parameter to compile rather than init
