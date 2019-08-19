@@ -212,7 +212,7 @@ export class UnsupportedExpression extends Expression {
 
     public constructor(context: ExecutableConstructContext, unsupportedName: string) {
         super(context);
-        this.addNote(CPPError.lobster.unsupported(this, unsupportedName));
+        this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
 
     // public isSuccessfullyCompiled(): this is CompiledExpression {

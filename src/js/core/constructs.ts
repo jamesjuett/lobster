@@ -28,6 +28,7 @@ export interface ConstructContext {
     program: Program;
     translationUnit: TranslationUnit;
     contextualScope: Scope;
+    containingClass?: ClassType;
     implicit?: boolean;
     libraryId?: number;
     libraryUnsupported?: boolean;
@@ -545,7 +546,7 @@ export abstract class UnsupportedConstruct extends CPPConstruct {
 
     public constructor(context: ConstructContext, unsupportedName: string) {
         super(context);
-        this.addNote(CPPError.lobster.unsupported(this, unsupportedName));
+        this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
 
     public onAttach(parent: ExecutableConstruct) {

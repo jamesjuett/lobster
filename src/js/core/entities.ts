@@ -103,7 +103,7 @@ export class Scope {
                 if (entity.type.sameSignature(otherFunc.type)) {
 
                     // If they have mismatched return types, that's a problem.
-                    if (!entity.type.sameReturnType(otherFunc.type)){
+                    if (!entity.type.sameReturnType(otherFunc.type)) {
                         throw CPPError.declaration.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
                     }
 
