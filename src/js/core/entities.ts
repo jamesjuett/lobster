@@ -614,7 +614,6 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 
     public readonly declaration: Declaration;
     public readonly definition?: Declaration;
-    public readonly initializer?: Initializer;
 
     public constructor(decl: Declaration) {
         super(decl.type, decl.name);
@@ -640,14 +639,6 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 
     public isLibraryUnsupported() {
         return this.decl.isLibraryUnsupported();
-    }
-
-    // TODO: these can be removed if declaration/definition classes are reworked such that
-    //       the initializer can be easily retrieved from the definition. e.g. if multiple definitions
-    //       from several declarators on a single line are actually treated as several definitions (as they
-    //       really should be)
-    public setInitializer(init: Initializer) {
-        (<Initializer>this.initializer) = init;
     }
 };
 

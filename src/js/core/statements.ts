@@ -165,13 +165,10 @@ export class DeclarationStatement extends Statement {
 
     public readonly declaration: Declaration | FunctionDefinition | ClassDefinition;
 
-    // TODO: a quirk of the C++ grammar allows the declaration in a decl-stmt to be a function-definition.
-    // Thus, the ctor for this class should be adjusted to also allow a function definition - if one is provided,
-    // the class just 
     public static createFromAST(ast: DeclarationStatementASTNode, context: ExecutableConstructContext) {
         return new DeclarationStatement(context,
             Declaration.createFromAST(ast.declaration, context)
-        );
+        ).setAST(ast);
     }
 
     public constructor(context: ExecutableConstructContext, declaration: Declaration | FunctionDefinition | ClassDefinition) {
