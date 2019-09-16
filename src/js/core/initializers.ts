@@ -1,4 +1,4 @@
-import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped, allObjectTyped } from "./expressions";
+import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped, allObjectTyped, ExpressionASTNode } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableConstructContext, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall, RuntimePotentialFullExpression, FunctionCall } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
 import { ReferenceType, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
@@ -9,6 +9,10 @@ import { Simulation } from "./Simulation";
 import { Value } from "./runtimeEnvironment";
 import { standardConversion } from "./standardConversions";
 
+
+export interface InitializerASTNode extends ASTNode {
+    args: readonly ExpressionASTNode[];
+}
 
 export abstract class Initializer extends PotentialFullExpression {
 
@@ -44,6 +48,7 @@ export abstract class DefaultInitializer extends Initializer {
     public static create(context: ExecutableConstructContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ArrayType>) : ArrayDefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
+    public static create(context: ExecutableConstructContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
     public static create(context: ExecutableConstructContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);

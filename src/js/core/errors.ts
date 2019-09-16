@@ -260,7 +260,10 @@ export const CPPError = {
 				return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.return_func", "Cannot declare a function that returns a function. Try returning a function pointer?");
             },
             invalid_return_type : function(construct: CPPConstruct, type: Type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.invalid_return_type", `The type ${type.toString()} is not allowed as a return type.`);
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.invalid_return_type", `The type ${type.toString()} is not allowed as a return type.`);
+            },
+            some_invalid_parameter_types : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.some_invalid_parameter_types", `This function type contains some invalid parameter types.`);
             },
             array : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.array", "Cannot declare an array of functions.");
@@ -407,6 +410,9 @@ export const CPPError = {
             unsupported : function(construct: CPPConstruct, spec) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.unsupported", "Sorry, the " + spec + " storage specifier is not currently supported.");
             }
+        },
+        friend_outside_class : function(construct: CPPConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend_outside_class", "Friend declarations are not allowed here.");
         }
 	},
 	type : {

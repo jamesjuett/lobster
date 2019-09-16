@@ -1,11 +1,14 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode } from "./constructs";
-import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity } from "./entities";
-import { Initializer } from "./initializers";
-import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType } from "./types";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext } from "./constructs";
+import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity } from "./entities";
+import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
+import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType } from "./types";
 import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
-import { Mutable } from "../util/util";
+import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
+import { Mutable, assert } from "../util/util";
+import { SemanticException } from "./semanticExceptions";
+import { Simulation } from "./Simulation";
+import { type } from "jquery";
 
 
 // TODO:
@@ -98,41 +101,45 @@ interface OtherSpecifiers {
     readonly friend? : boolean;
 }
 
-type DeclarationASTNode = SimpleDeclarationASTNode; // TODO: | FunctionDefinitionASTNode | ClassDefinitionASTNode
+export interface DeclarationSpecifiersASTNode {
+    readonly typeSpecs: TypeSpecifierASTNode;
+    readonly storageSpecs: StorageSpecifierASTNode;
+    readonly friend?: boolean;
+    readonly typedef?: boolean;
+    readonly inline?: boolean;
+    readonly explicit?: boolean;
+    readonly virtual?: boolean;
+}
+
+export type DeclarationASTNode = SimpleDeclarationASTNode; // TODO: | FunctionDefinitionASTNode | ClassDefinitionASTNode
 
 interface SimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
-    readonly specs: {
-        readonly typeSpecs: TypeSpecifierASTNode;
-        readonly storageSpecs: StorageSpecifierASTNode;
-        readonly friend?: boolean;
-        readonly typedef?: boolean;
-        readonly inline?: boolean;
-        readonly explicit?: boolean;
-        readonly virtual?: boolean;
-    };
-    readonly declarators: readonly DeclaratorASTNode[];
+    readonly specs: DeclarationSpecifiersASTNode;
+    readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
 // TODO: add base declaration mixin stuff
-export class Declaration extends BasicCPPConstruct {
+export class Declaration extends BasicCPPConstruct implements ExecutableConstruct {
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
 
-    public readonly isVirtual: boolean;
     public readonly isTypedef: boolean;
-    public readonly isFriend: boolean;
 
     // public readonly storageDuration: "static" | "automatic"; // TODO: remove if not used
     // public readonly isDefinition: boolean; // TODO: remove if not used
 
     public readonly declarator: Declarator;
-    public abstract readonly declaredEntity?: DeclaredEntity;
-    public abstract readonly isDefinition: boolean;
-    public abstract readonly initializer?: Initializer;
+    public readonly type?: Type;
 
-    public static createFromAST(ast: DeclarationASTNode, context: ConstructContext) {
+    public abstract readonly declaredEntity?: ObjectEntity;
+    public abstract readonly isDefinition: boolean;
+    public readonly initializer?: Initializer;
+    
+    public readonly context!: ExecutableConstructContext; // See ctor. This declaration needed to narrow type from base class.
+
+    public static createFromAST(ast: DeclarationASTNode, context: ExecutableConstructContext) {
 
         // Need to create TypeSpecifier first to get the base type first for the declarators
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
@@ -140,26 +147,40 @@ export class Declaration extends BasicCPPConstruct {
         // Determine the appropriate kind of declaration based on the contextual scope
         let ctor = context.contextualScope instanceof BlockScope ? LocalDeclaration : StaticDeclaration;
 
-        return ast.declarators.map((declAST) => new ctor(
-            context,
-            typeSpec,
-            StorageSpecifier.createFromAST(ast.specs.storageSpecs, context),
-            Declarator.createFromAST(declAST, context, typeSpec.type),
-            ast.specs
-         ).setAST(ast)
-        );
+        return ast.declarators.map((declAST) => {
+            let decl = new ctor(
+                context,
+                typeSpec,
+                StorageSpecifier.createFromAST(ast.specs.storageSpecs, context),
+                Declarator.createFromAST(declAST, context, typeSpec.type),
+                ast.specs
+            ).setAST(ast);
+
+            let init = declAST.initializer;
+            if (!init) {
+                decl.setDefaultInitializer();
+            }
+            else if (init.construct_type == "direct_initializer") {
+                decl.setDirectInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+            }
+            else if (init.construct_type == "copy_initializer") {
+                decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+            }
+            else if (init.construct_type == "initializer_list") {
+                decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+            }
+            return decl;
+        });
     }
 
-    protected constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    protected constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context);
 
         this.typeSpecifier = typeSpec;
         this.storageSpecifier = storageSpec;
 
-        this.isVirtual = !!otherSpecs.virtual;
         this.isTypedef = !!otherSpecs.typedef;
-        this.isFriend = !!otherSpecs.friend;
 
         if (this.isTypedef) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "typedef"));
@@ -170,28 +191,46 @@ export class Declaration extends BasicCPPConstruct {
         //     this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
         // }
 
-        if (this.isTypedef) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "friend"));
+        if (otherSpecs.friend) {
+            this.addNote(CPPError.declaration.friend_outside_class(this));
         }
 
-        this.declarators = declarators;
-        this.declarators.forEach((decl) => !decl.hasErrors && this.makeEntity(decl));
+        if (otherSpecs.virtual) {
+            this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
+        }
 
+        this.declarator = declarator;
+
+        this.type = declarator.type && this.adjustType(declarator.type);
         //TODO: if this is a parameter declaration, adjust array types from declarators to pointer types instead
+    }
 
-        // Note: Due to the mapping from the grammar to constructs, all function definitions go
-        // to the FunctionDefinition class.  Thus any functions we encounter here are declarations,
-        // not definitions. We also know we're not dealing with member functions here, for similar reasons.
-        // TODO: could member declarations end up here?
-        // this.isDefinition = !declarator.type.isFunctionType() &&
-        // && !(this.storageSpec.extern && !(declarator.initializer))
-        // && !this.typedef;
+    protected adjustType(type: Type) {
+        return type;
+    }
 
-        let {type, entity} = this.makeEntity();
-        this.type = type;
-        this.entity = entity;
+    public setDefaultInitializer() {
+        assert(!this.initializer);
+        (<Mutable<this>>this).initializer = DefaultInitializer.create(this.context, this.declaredEntity!);
+        return this;
+    }
 
-        this.initializers = this.createInitializers();
+    public setDirectInitializer(args: readonly Expression[]) {
+        assert(!this.initializer);
+        (<Mutable<this>>this).initializer = DirectInitializer.create(this.context, this.declaredEntity!, args);
+        return this;
+    }
+
+    public setCopyInitializer(args: readonly Expression[]) {
+        assert(!this.initializer);
+        (<Mutable<this>>this).initializer = CopyInitializer.create(this.context, this.declaredEntity!, args);
+        return this;
+    }
+
+    public setInitializerList(args: readonly Expression[]) {
+        assert(!this.initializer);
+        this.addNote(CPPError.lobster.unsupported_feature(this, "initializer lists"));
+        return this;
     }
 
     compileDefinition : function() {
@@ -285,48 +324,48 @@ export class Declaration extends BasicCPPConstruct {
 }
 
 export class LocalDeclaration extends Declaration {
+
+    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly isDefinition = true;
     
-    public readonly isDefinition: boolean;
-    public readonly declaredEntity?: DeclaredEntity<Type>;
-    public readonly initializer?: Initializer;
-    
-    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
-        if (this.isVirtual) {
-            this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
+        if (!this.type) {
+            return;
         }
 
-        let type = this.declarator.type;
+        if (this.type.isReferenceType && !this.initializer) {
+            // TODO: initializer will need to be passed into ctors rather than added later via createFromAST for this to work
+            //       (otherwise the error will always be added because the initializer isn't here yet)
+            this.addNote(CPPError.declaration.init.referenceBind(this));
+        }
 
-        if (!type) {
+        // Local declarations of functions are not currently supported by Lobster
+        if (this.type.isFunctionType()) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "local function declarations"));
             return;
         }
 
         let declaredEntity = 
-            type.isFunctionType() ? new FunctionEntity(declarator) :
-            type.isReferenceType() ? new LocalReferenceEntity(declarator) :
-            new AutoEntity(declarator);
+            // type.isFunctionType() ? new FunctionEntity(declarator) :
+            this.type.isReferenceType() ? new LocalReferenceEntity(this) :
+            new AutoEntity(this);
 
-        // Local declarations of functions are not currently supported by Lobster
-        if (type.isFunctionType()) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "local function declarations"));
-        }
 
         // Note extern unsupported error is added in the base Declaration class, so no need to add here
 
         // All local declarations are also definitions, with the exception of a local declaration of a function
         // or a local declaration with the extern storage specifier, but those are not currently supported by Lobster.
         // This means a locally declared variable does not have linkage, and we don't need to do any linking stuff here.
-        this.isDefinition = true;
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
             this.contextualScope.addDeclaredEntity(declaredEntity);
-            this.declaredEntity = declaredEntity
+            this.declaredEntity = declaredEntity;
         }
         catch(e) {
             if (e instanceof Note) {
@@ -335,47 +374,6 @@ export class LocalDeclaration extends Declaration {
             else{
                 throw e;
             }
-        }
-
-        if (declarator.ast.init)
-        // let
-        // declarator.ini
-        if (!this.isDefinition){
-            return;
-        }
-        for (var i = 0; i < this.entities.length; ++i) {
-            var ent = this.entities[i];
-            var decl = ent.decl;
-            var initCode = decl.ast.initializer;
-
-            // Compile initializer
-            var init;
-            if (initCode){
-                // TODO: move these to pre-compile phase
-                if (initCode.construct_type === "initializer_list"){
-                    init = InitializerList.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else if (initCode.construct_type === "direct_initializer"){
-                    init = DirectInitializer.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else if (initCode.construct_type === "copy_initializer"){
-                    init = CopyInitializer.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else{
-                    assert(false, "Corrupt initializer :(");
-                }
-            }
-            else{
-                if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
-                    init = DefaultInitializer.instance(initCode, {parent: this});
-                    init.compile(ent, []);
-                }
-            }
-            this.initializers.push(init);
-            ent.setInitializer(init);
         }
     }
 }
@@ -386,72 +384,31 @@ export class StaticDeclaration extends Declaration {
 }
 
 
-export var Parameter = CPPConstruct.extend({
-    _name: "Parameter",
-
-    i_createFromAST : function() {
-        Parameter._parent.i_createFromAST.apply(this, arguments);
-        this.typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
-        this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
-    },
-
-    compile : function(){
-
-        this.typeSpec.compile();
-        this.declarator.compile({baseType: this.typeSpec.type});
-
-        this.name = this.declarator.name;
-        this.type = this.declarator.type;
-
-        // if (isParam && innermost && i == decl.postfixes.length - 1) {
-        //     prev = "pointer"; // Don't think this is necessary
-        //     type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
-        // }
-        TODO // adjust array type to pointer see above code taken out of declarator
-
-        // Errors related to parameters of void type are handled elsewhere in function declarator part
-        // TODO: Check this mysterious comment that was here ^^^
-
-        if (isA(this.parent.parent, FunctionDefinition) ||
-            isA(this.parent, ConstructorDefinition)){ // TODO this is way too hacky....or is it :p
-            // TODO: ^^^ yes it is way too hacky. fix will be to make it the responsibility of the enclosing
-            // FunctionDefinition (or ConstructorDefinition, etc.) to check its declarator for parameters
-            // that have entities that need to be added.
-
-
-            if (isA(this.type, Types.Reference)){
-                this.entity = LocalReferenceEntity.instance(this);
-            }
-            else{
-                this.entity = AutoEntity.instance(this);
-                this.entity.setDefinition(this);
-            }
-
-
-            try {
-                this.contextualScope.addDeclaredEntity(this.entity);
-            }
-            catch(e) {
-                this.addNote(e);
-            }
-        }
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        assert(false, "Do I ever use this?");
-        this.done(sim, inst);
+export class Parameter extends LocalDeclaration {
+    
+    protected adjustType(type: Type) {
+        return type.isArrayType() ? new PointerType(type.elemType, type.isConst, type.isVolatile) : type;
     }
-});
+
+}
 
 
 interface ArrayPostfixDeclaratorASTNode {
     readonly kind: "array";
+    readonly size: ExpressionASTNode;
     readonly args: ArgumentListASTNode;
+}
+
+export interface ArgumentDeclarationASTNode {
+    readonly declarator: DeclaratorASTNode;
+    readonly specs: DeclarationSpecifiersASTNode;
+    readonly initializer?: InitializerASTNode;
 }
 
 interface FunctionPostfixDeclaratorASTNode {
     readonly kind: "function";
     readonly size: ExpressionASTNode;
+    readonly args: readonly ArgumentDeclarationASTNode[];
     readonly const?: boolean;
 }
 
@@ -464,6 +421,9 @@ interface DeclaratorASTNode extends ASTNode {
     readonly volatile?: boolean;
     readonly name?: IdentifierASTNode;
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+}
+
+interface DeclaratorInitASTNode extends DeclaratorASTNode {
     readonly initializer?: InitializerASTNode;
 }
 
@@ -607,44 +567,37 @@ export class Declarator extends BasicCPPConstruct {
                             return;
                         }
 
-                        let params : Parameter[] = [];
-                        let paramTypes : PotentialParameterType[] = [];
-
-                        postfix.args.forEach((argAST) => {
-                            let paramDecl = Parameter.instance(argAST, {parent:this});
-                            paramDecl.compile();
-                            params.push(paramDecl);
-                            paramTypes.push(paramDecl.type);
+                        let paramDeclarators = postfix.args.map((argAST) => {
+                            
+                            // Need to create TypeSpecifier first to get the base type first for the declarators
+                            let typeSpec = TypeSpecifier.createFromAST(argAST.specs.typeSpecs, this.context);
+                            
+                            // Compile declarator for each parameter (of the function-type argument itself)
+                            return Declarator.createFromAST(argAST.declarator, this.context, typeSpec.type);
                         });
+                        
+                        let paramTypes = paramDeclarators.map(decl => decl.type);
 
                         // A parameter list of just (void) specifies no parameters
-                        if (paramTypes.length == 1 && paramTypes[0].isVoidType()) {
-                            params = [];
+                        if (paramTypes.length == 1 && paramTypes[0] && paramTypes[0].isVoidType()) {
                             paramTypes = [];
                         }
                         else {
                             // Otherwise void parameters are bad
                             for (let j = 0; j < paramTypes.length; ++j) {
-                                if (paramTypes[j].isVoidType()) {
-                                    this.addNote(CPPError.declaration.func.void_param(params[j]));
+                                let paramType = paramTypes[j];
+                                if (paramType && paramType.isVoidType()) {
+                                    this.addNote(CPPError.declaration.func.void_param(paramDeclarators[j]));
                                 }
                             }
                         }
 
+                        if (!paramTypes.every(paramType => paramType && paramType.isPotentialParameterType())) {
+                            this.addNote(CPPError.declaration.func.some_invalid_parameter_types(this));
+                        }
 
-                        // Record the parameters for functions we encounter. The effect is that the parameters
-                        // for the last function encountered are recorded, with the end result that a declarator
-                        // that specifies a function
-                        (<Mutable<this>>this).params = params;
-
-                        // TODO ensure testing this.context.containingClass will also work for out of line function definitions
-                        type = new FunctionType(type, paramTypes, decl.const, decl.volatile, this.context.containingClass && this.context.containingClass.cvQualified(!!postfix.const));
-
-                        TODO // move this out to Parameter class just like array to pointer adjustment
-                        // if (isParam && innermost && i == decl.postfixes.length - 1) {
-                        //     prev = "pointer"; // Don't think this is necessary
-                        //     type = Types.Pointer.instance(type);
-                        // }
+                        // TODO clean up error immediately above and get rid of yucky cast below
+                        type = new FunctionType(type, <PotentialParameterType[]>paramTypes, decl.const, decl.volatile, this.context.containingClass && this.context.containingClass.cvQualified(!!postfix.const));
                     }
 
                     first = false;
@@ -698,11 +651,6 @@ export class Declarator extends BasicCPPConstruct {
         TODO // move this error somewhere else
         if (isMember && isA(this.type, Types.reference)){
             this.addNote(CPPError.declaration.ref.memberNotSupported(this));
-        }
-
-        TODO // move this error somewhere else
-        if (!isParam && !isMember && isA(this.type, Types.reference) && !ast.initializer) {
-            this.addNote(CPPError.declaration.init.referenceBind(this));
         }
     }
 }

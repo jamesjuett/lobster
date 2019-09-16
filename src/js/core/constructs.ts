@@ -186,6 +186,7 @@ export abstract class CPPConstruct {
         if (ast.sourceReference) {
             this.sourceReference = this.sourceReference;
         }
+        return this;
     }
 
     public get sourceReference() {
