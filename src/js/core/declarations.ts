@@ -1,5 +1,5 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext } from "./constructs";
-import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity } from "./entities";
+import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity, ClassScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
 import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType } from "./types";
 import { CPPError, Note } from "./errors";
@@ -124,52 +124,90 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
+    public readonly declarator: Declarator;
+    public readonly initializer?: Initializer;
+    public readonly otherSpecifiers: OtherSpecifiers;
 
-    public readonly isTypedef: boolean;
+    public readonly type?: Type;
 
     // public readonly storageDuration: "static" | "automatic"; // TODO: remove if not used
     // public readonly isDefinition: boolean; // TODO: remove if not used
 
-    public readonly declarator: Declarator;
-    public readonly type?: Type;
-
-    public abstract readonly declaredEntity?: ObjectEntity;
-    public abstract readonly isDefinition: boolean;
-    public readonly initializer?: Initializer;
     
     public readonly context!: ExecutableConstructContext; // See ctor. This declaration needed to narrow type from base class.
+    
+    // Allow subclasses to customize behavior
+    protected abstract readonly initializerAllowed: boolean;
+    public abstract readonly isDefinition: boolean;
 
     public static createFromAST(ast: DeclarationASTNode, context: ExecutableConstructContext) {
 
         // Need to create TypeSpecifier first to get the base type first for the declarators
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
-        
-        // Determine the appropriate kind of declaration based on the contextual scope
-        let ctor = context.contextualScope instanceof BlockScope ? LocalDeclaration : StaticDeclaration;
+        let baseType = typeSpec.type;
+        let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
+        // Use map to create an array of the individual declarations (since multiple on the same line
+        // will result in a single AST node and need to be broken up)
         return ast.declarators.map((declAST) => {
-            let decl = new ctor(
-                context,
-                typeSpec,
-                StorageSpecifier.createFromAST(ast.specs.storageSpecs, context),
-                Declarator.createFromAST(declAST, context, typeSpec.type),
-                ast.specs
-            ).setAST(ast);
 
+            // Create declarator and determine declared type
+            let declarator = Declarator.createFromAST(declAST, context, baseType);
+            let declaredType = declarator.type;
+
+            // Create the declaration itself. Which kind depends on the declared type
+            let declaration: Declaration;
+            if (!declaredType) {
+                declaration = new UnknownTypeDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else if (ast.specs.friend) {
+                declaration = new FriendDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else if (ast.specs.typedef) {
+                declaration = new TypedefDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else if (declaredType.isVoidType()) {
+                declaration = new VoidDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else if (declaredType.isFunctionType()) {
+                declaration = new FunctionDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else if (declaredType.isArrayOfUnknownBoundType()) {
+                // TODO: it may be possible to determine the bound from the initializer
+                declaration = new UnknownBoundArrayDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            }
+            else {
+                // Determine the appropriate kind of declaration based on the contextual scope
+                let ctor = context.contextualScope instanceof BlockScope ? LocalObjectDefinition : GlobalDeclaration;
+
+                declaration = new ctor(
+                    context,
+                    typeSpec,
+                    storageSpec,
+                    declarator,
+                    ast.specs
+                )
+            }
+
+            // Set AST
+            declaration.setAST(ast);
+
+            // Set initializer
             let init = declAST.initializer;
             if (!init) {
-                decl.setDefaultInitializer();
+                declaration.setDefaultInitializer();
             }
             else if (init.construct_type == "direct_initializer") {
-                decl.setDirectInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+                declaration.setDirectInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
             }
             else if (init.construct_type == "copy_initializer") {
-                decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+                declaration.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
             }
             else if (init.construct_type == "initializer_list") {
-                decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+                declaration.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
             }
-            return decl;
+
+            return declaration;
         });
     }
 
@@ -179,154 +217,164 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
 
         this.typeSpecifier = typeSpec;
         this.storageSpecifier = storageSpec;
-
-        this.isTypedef = !!otherSpecs.typedef;
-
-        if (this.isTypedef) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "typedef"));
-        }
-
-        // ADD THIS BACK IN WHEN TYPEDEFS ARE SUPPORTED
-        // if (this.storageSpecifier.numSpecs > 0 && this.isTypedef) {
-        //     this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
-        // }
-
-        if (otherSpecs.friend) {
-            this.addNote(CPPError.declaration.friend_outside_class(this));
-        }
-
-        if (otherSpecs.virtual) {
-            this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
-        }
+        this.otherSpecifiers = otherSpecs;
 
         this.declarator = declarator;
 
         this.type = declarator.type && this.adjustType(declarator.type);
-        //TODO: if this is a parameter declaration, adjust array types from declarators to pointer types instead
+
+        // None of the simple declarations are member function declarations
+        // and thus none support the virtual keyword
+        if (otherSpecs.virtual) {
+            this.addNote(CPPError.declaration.virtual_prohibited(this));
+        }
     }
 
     protected adjustType(type: Type) {
         return type;
     }
 
-    public setDefaultInitializer() {
+    protected setInitializer(init: Initializer) {
         assert(!this.initializer);
-        (<Mutable<this>>this).initializer = DefaultInitializer.create(this.context, this.declaredEntity!);
+        (<Mutable<this>>this).initializer = init;
         return this;
+    }
+
+    public setDefaultInitializer() {
+        return this.setInitializer(DefaultInitializer.create(this.context, this.declaredEntity!));
     }
 
     public setDirectInitializer(args: readonly Expression[]) {
-        assert(!this.initializer);
-        (<Mutable<this>>this).initializer = DirectInitializer.create(this.context, this.declaredEntity!, args);
-        return this;
+        return this.setInitializer(DirectInitializer.create(this.context, this.declaredEntity!, args));
     }
 
     public setCopyInitializer(args: readonly Expression[]) {
-        assert(!this.initializer);
-        (<Mutable<this>>this).initializer = CopyInitializer.create(this.context, this.declaredEntity!, args);
-        return this;
+        return this.setInitializer(CopyInitializer.create(this.context, this.declaredEntity!, args));
     }
 
     public setInitializerList(args: readonly Expression[]) {
-        assert(!this.initializer);
+        // TODO implement initializer lists
         this.addNote(CPPError.lobster.unsupported_feature(this, "initializer lists"));
         return this;
     }
-
-    compileDefinition : function() {
-        if (!this.isDefinition){
-            return;
-        }
-        for (var i = 0; i < this.entities.length; ++i) {
-            var ent = this.entities[i];
-            var decl = ent.decl;
-            var initCode = decl.ast.initializer;
-
-            // Compile initializer
-            var init;
-            if (initCode){
-                // TODO: move these to pre-compile phase
-                if (initCode.construct_type === "initializer_list"){
-                    init = InitializerList.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else if (initCode.construct_type === "direct_initializer"){
-                    init = DirectInitializer.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else if (initCode.construct_type === "copy_initializer"){
-                    init = CopyInitializer.instance(initCode, {parent: this});
-                    init.compile(ent);
-                }
-                else{
-                    assert(false, "Corrupt initializer :(");
-                }
-            }
-            else{
-                if (isA(ent, AutoEntity) && !isA(this, MemberDeclaration)) {
-                    init = DefaultInitializer.instance(initCode, {parent: this});
-                    init.compile(ent, []);
-                }
-            }
-            this.initializers.push(init);
-            ent.setInitializer(init);
-        }
-    },
-
-
-    makeEntity: function(declarator){
-
-
-
-        // TODO: Allow class declarations (although it might be parsed differently and end up in a different
-        // class, I'm just putting the note here for now)
-
-        TODO // verify object has a size. if not, e.g. array of unknown bound, add this note: this.addNote(CPPError.declaration.array.length_required(this));
-
-
-        var entity;
-        if (isA(declarator.type, Types.Function)){
-            if (this.virtual){
-                this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
-            }
-            entity = FunctionEntity.instance(declarator);
-        }
-        else if (isA(declarator.type, Types.Reference)) {
-            entity = LocalReferenceEntity.instance(declarator);
-        }
-        else if (this.storageDuration === "static"){
-            entity = StaticEntity.instance(declarator);
-        }
-        else{
-            entity = AutoEntity.instance(declarator);
-        }
-
-        if (this.isDefinition) {
-            entity.setDefinition(this);
-        }
-
-        try{
-            this.contextualScope.addDeclaredEntity(entity);
-            this.entities.push(entity);
-            declarator.entity = entity;
-            return entity;
-        }
-        catch(e){
-            if (isA(e, Note)){
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
-        }
-    }
-
 }
 
-export class LocalDeclaration extends Declaration {
 
-    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+export class UnknownTypeDeclaration extends Declaration {
+
+    // If the declared type cannot be determined, we don't want to give
+    // a meaningless error that an initializer is not allowed, so we set
+    // this to true.
+    protected readonly initializerAllowed = true;
+
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.declaration.unknown_type(this));
+    }
+    
+}
+
+export class VoidDeclaration extends Declaration {
+
+    // Suppress meaningless error, since a void declaration is
+    // always ill-formed, whether or not it has an initializer.
+    protected readonly initializerAllowed = true;
+
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.declaration.void_prohibited(this));
+    }
+    
+}
+
+export class TypedefDeclaration extends Declaration {
+
+    protected readonly initializerAllowed = false;
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.lobster.unsupported_feature(this, "typedef"));
+
+
+        // ADD THIS BACK IN WHEN TYPEDEFS ARE SUPPORTED
+        // if (this.storageSpecifier.numSpecs > 0 && this.isTypedef) {
+        //     this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
+        // }
+    }
+    
+}
+
+export class FriendDeclaration extends Declaration {
+
+    protected readonly initializerAllowed = false;
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.lobster.unsupported_feature(this, "friend"));
+
+        if (!(this.contextualScope instanceof ClassScope)) {
+            this.addNote(CPPError.declaration.friend.outside_class(this));
+        }
+
+        if (otherSpecs.virtual) {
+            this.addNote(CPPError.declaration.friend.virtual_prohibited(this));
+        }
+    }
+    
+}
+
+export class UnknownBoundArrayDeclaration extends Declaration {
+
+    // This class should only be created in cases where the size of
+    // the array cannot be determined from its initializer, which is
+    // problematic, but the initializer itself is not prohibited.
+    protected readonly initializerAllowed = true;
+
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.declaration.array.length_required(this));
+    }
+    
+}
+
+export class FunctionDeclaration extends Declaration {
+
+    protected readonly initializerAllowed = false;
+    public readonly isDefinition = false;
+    
+    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        this.addNote(CPPError.lobster.unsupported_feature(this, "function declaration"));
+    }
+    
+}
+
+export class LocalObjectDefinition extends Declaration {
+
+    protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
+
+    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType> | StaticEntity<ObjectType>;
     
     public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -334,18 +382,6 @@ export class LocalDeclaration extends Declaration {
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
         if (!this.type) {
-            return;
-        }
-
-        if (this.type.isReferenceType && !this.initializer) {
-            // TODO: initializer will need to be passed into ctors rather than added later via createFromAST for this to work
-            //       (otherwise the error will always be added because the initializer isn't here yet)
-            this.addNote(CPPError.declaration.init.referenceBind(this));
-        }
-
-        // Local declarations of functions are not currently supported by Lobster
-        if (this.type.isFunctionType()) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "local function declarations"));
             return;
         }
 
@@ -379,12 +415,16 @@ export class LocalDeclaration extends Declaration {
 }
 
 
-export class StaticDeclaration extends Declaration {
+export class GlobalDeclaration extends Declaration {
+    protected initializerAllowed: boolean;
+    public isDefinition: boolean;
+
             // this.context.translationUnit.registerDefinition(entity, this);
 }
 
 
-export class Parameter extends LocalDeclaration {
+export class Parameter extends LocalObjectDefinition {
+    protected initializerAllowed: boolean;
     
     protected adjustType(type: Type) {
         return type.isArrayType() ? new PointerType(type.elemType, type.isConst, type.isVolatile) : type;
@@ -395,8 +435,7 @@ export class Parameter extends LocalDeclaration {
 
 interface ArrayPostfixDeclaratorASTNode {
     readonly kind: "array";
-    readonly size: ExpressionASTNode;
-    readonly args: ArgumentListASTNode;
+    readonly size?: ExpressionASTNode;
 }
 
 export interface ArgumentDeclarationASTNode {
@@ -673,6 +712,9 @@ var OVERLOADABLE_OPS = {};
 
     // TODO: Add BaseDeclarationMixin stuff
 export class FunctionDefinition extends CPPConstruct implements ExecutableConstruct {
+    public onAttach(parent: CPPConstruct): void {
+        throw new Error("Method not implemented.");
+    }
 
     public readonly parent?: ExecutableConstruct;
     public readonly containingFunction: FunctionEntity = this;

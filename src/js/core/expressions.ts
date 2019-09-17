@@ -8,7 +8,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, Type, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType, Type } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";

@@ -237,7 +237,7 @@ export function isCvConvertible(t1: Type, t2: Type){
 //     isComplete?: boolean;
 // }
 
-export abstract class Type {
+abstract class TypeBase {
     public static readonly _name = "Type";
 
     /**
@@ -290,6 +290,10 @@ export abstract class Type {
 
     public isArrayType() : this is ArrayType | ArrayOfUnknownBoundType {
         return this instanceof ArrayType || this instanceof ArrayOfUnknownBoundType;
+    }
+
+    public isArrayOfUnknownBoundType() : this is ArrayOfUnknownBoundType {
+        return this instanceof ArrayOfUnknownBoundType;
     }
 
     public isFunctionType() : this is FunctionType {
@@ -456,7 +460,9 @@ export abstract class Type {
 
 // export let UNKNOWN_TYPE = new Unknown();
 
-export class VoidType extends Type {
+export type Type = VoidType | ObjectType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
+
+export class VoidType extends TypeBase {
 
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
@@ -493,7 +499,7 @@ builtInTypes["void"] = VoidType;
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
-export abstract class ObjectType extends Type {
+export abstract class ObjectType extends TypeBase {
     public abstract readonly size: number;
 }
 
@@ -916,7 +922,7 @@ export class ObjectPointer extends PointerType {
 }
 
 
-export class ReferenceType extends Type {
+export class ReferenceType extends TypeBase {
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
@@ -1048,7 +1054,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
 }
 
 
-export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends Type {
+export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase {
     
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;
@@ -1354,7 +1360,7 @@ export class ClassType extends ObjectType {
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-export class FunctionType extends Type {
+export class FunctionType extends TypeBase {
     public isArithmeticType = false;
     public isIntegralType = false;
     public isFloatingPointType = false;
