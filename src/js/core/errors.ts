@@ -2,6 +2,7 @@ import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type } from "./types";
 import { CPPEntity } from "./entities";
+import { VoidDeclaration } from "./declarations";
 
 export interface Description {
     name?: string;
@@ -286,9 +287,6 @@ export const CPPError = {
             no_return_type : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.no_return_type", "You must specify a return type for this function. (Or if you meant it to be a constructor, did you misspell the name?)");
             },
-            virtual_not_allowed : function(construct: CPPConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.virtual_not_allowed", "Only member functions may be declared as virtual.");
-            },
             nonCovariantReturnType : function(construct: CPPConstruct, derived, base) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
             }
@@ -321,10 +319,7 @@ export const CPPError = {
 		},
         array : {
             length_required : function(construct: CPPConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.length_required", "Must specify length when declaring an array. (Sorry, but Lobster requires this for now even if it could hypothetically be deduced from the initializer.)");
-            },
-            literal_length_only : function(construct: CPPConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.literal_length_only", "At the moment, only literal array lengths are supported for non-dynamic arrays.");
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.length_required", "Must specify length as an integer literal when declaring an array. (Sorry, but Lobster requires this for now even if it could hypothetically be deduced from the initializer.)");
             },
             zero_length : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.zero_length", "Although technically allowed in C++, arrays with zero length are prohibited in Lobster.");
@@ -411,9 +406,23 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.unsupported", "Sorry, the " + spec + " storage specifier is not currently supported.");
             }
         },
-        friend_outside_class : function(construct: CPPConstruct) {
-            return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend_outside_class", "Friend declarations are not allowed here.");
-        }
+        friend : {
+            outside_class : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.outside_class", "Friend declarations are not allowed here.");
+            },
+            virtual_prohibited : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
+            },
+        },
+        unknown_type : function(construct: CPPConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.unknown_type", "Unable to determine the type declared here.");
+        },
+        void_prohibited : function(construct: VoidDeclaration) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.void_prohibited", `The variable ${construct.declarator.name || "here"} may not be declared as type void.`);
+        },
+        virtual_prohibited : function(construct: CPPConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.virtual_prohibited", "The virtual keyword may only be used in member function declarations.");
+        },
 	},
 	type : {
 		const_once : function(construct: CPPConstruct) {
