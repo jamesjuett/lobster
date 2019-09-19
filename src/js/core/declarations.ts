@@ -5,53 +5,71 @@ import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, 
 import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
-import { Mutable, assert } from "../util/util";
+import { Mutable, assert, asMutable } from "../util/util";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { type } from "jquery";
 
+export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
-// TODO:
-export type StorageSpecifierASTNode = ReadonlyArray<{}>;
+export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
 export class StorageSpecifier extends BasicCPPConstruct {
 
+    public readonly register?: true;
+    public readonly static?: true;
+    public readonly thread_local?: true;
+    public readonly extern?: true;
+    public readonly mutable?: true;
+
     // TODO: just here as an example. change to remove Block stuff
-    // public static createFromAST(ast: StorageSpecifierASTNode, context: ExecutableConstructContext) {
-
-    //     let blockScope = new BlockScope(context.contextualScope);
+    public static createFromAST(ast: StorageSpecifierASTNode, context: ConstructContext) {
+        return new StorageSpecifier(context, ast);
         
-    //     let newContext = Object.assign({}, context, {contextualScope: blockScope});
+    }
 
-    //     let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, newContext));
-        
-    //     return new Block(newContext, blockScope, statements);
-    // }
-
-    compile : function(){
+    public constructor(context: ConstructContext, specs: readonly StorageSpecifierKey[]) {
+        super(context)
 
         // TODO: ADD UNSUPPORTED_FEATURE ERROR FOR EXTERN
-
-        this.numSpecs = 0;
-        for(var i = 0; i < this.ast.length; ++i){
-            if (this[this.ast[i]]){
-                this.addNote(CPPError.declaration.storage.once(this, this.ast[i]));
+        
+        let numSpecs = 0; // count specs separately to get a count without duplicates
+        specs.forEach((spec) => {
+            if (this[spec]) {
+                // If it was already true, we must be processing a duplicate
+                this.addNote(CPPError.declaration.storage.once(this, spec));
             }
             else {
-                this[this.ast[i]] = true;
-                ++this.numSpecs;
-                if (this.ast[i] != "static"){
-                    this.addNote(CPPError.declaration.storage.unsupported(this, this.ast[i]));
-                }
+                asMutable(this)[spec] = true;
+                ++numSpecs;
             }
+        });
 
+        if (this.extern) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "extern"));
         }
-        if (this.ast.length < 2 ||
-            this.ast.length == 2 && this.thread_local && (this.static || this.extern)){
+        
+        if (this.thread_local) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "thread_local"));
+        }
+
+        if (this.register) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "register"));
+        }
+
+        if (this.mutable) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "mutable"));
+        }
+
+        // 0 specifiers is ok
+        // 1 specifier is ok
+        // 2 specifiers only ok if one is thread_local and the other is static/extern
+        // 3 or more specifiers are always incompatible
+        if (numSpecs < 2 ||
+            numSpecs == 2 && this.thread_local && (this.static || this.extern)){
             //ok
         }
         else{
-            this.addNote(CPPError.declaration.storage.incompatible(this, this.ast));
+            this.addNote(CPPError.declaration.storage.incompatible(this, specs));
         }
     }
 }
