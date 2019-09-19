@@ -325,7 +325,8 @@ _simple_type_name
   / id:identifier &{return isUserTypeName(id.identifier);} {return id.identifier;}
 
 enum_specifier
-  = "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }
+  /*= "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }*/
+  = "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return "enum"; }
 
 enumerator
   = name:identifier value:(ws "=" ws e:exp_const {return e;}) {return {name:name, value:value}; }

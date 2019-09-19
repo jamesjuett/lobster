@@ -1,7 +1,7 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity, ClassScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
-import { TypeSpecifier, Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType } from "./types";
+import { Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType } from "./types";
 import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
@@ -21,7 +21,6 @@ export class StorageSpecifier extends BasicCPPConstruct {
     public readonly extern?: true;
     public readonly mutable?: true;
 
-    // TODO: just here as an example. change to remove Block stuff
     public static createFromAST(ast: StorageSpecifierASTNode, context: ConstructContext) {
         return new StorageSpecifier(context, ast);
         
@@ -29,8 +28,6 @@ export class StorageSpecifier extends BasicCPPConstruct {
 
     public constructor(context: ConstructContext, specs: readonly StorageSpecifierKey[]) {
         super(context)
-
-        // TODO: ADD UNSUPPORTED_FEATURE ERROR FOR EXTERN
         
         let numSpecs = 0; // count specs separately to get a count without duplicates
         specs.forEach((spec) => {
@@ -73,6 +70,100 @@ export class StorageSpecifier extends BasicCPPConstruct {
         }
     }
 }
+
+export type SimpleTypeName = string;
+export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
+
+export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName)[];
+
+export class TypeSpecifier extends BasicCPPConstruct {
+
+    public readonly const?: true;
+    public readonly volatile?: true;
+    public readonly signed?: true;
+    public readonly unsigned?: true;
+    public readonly enum?: true;
+    
+    public readonly typeName: string;
+
+    public static createFromAST(ast: TypeSpecifierASTNode, context: ConstructContext) {
+        return new TypeSpecifier(context, ast);
+        
+    }
+
+    public constructor(context: ConstructContext, specs: readonly (TypeSpecifierKey | SimpleTypeName)[]) {
+        super(context);
+
+        let constCount = 0;
+        let volatileCount = 0;
+
+        specs.forEach((spec) => {
+            if (spec === "enum") {
+                asMutable(this).enum = true;
+                this.addNote(CPPError.lobster.unsupported_feature(this, "mutable"));
+                return;
+            }
+
+            // check to see if it's one of the possible type specifiers
+            let possibleSpecs : readonly TypeSpecifierKey[] = ["const", "volatile", "signed", "unsigned", "enum"];
+            let matchedSpec = possibleSpecs.find(s => s === spec);
+
+            if (matchedSpec) { // found a type specifier
+                if (this[matchedSpec]) {
+                    // it was a duplicate
+                    this.addNote(CPPError.declaration.typeSpecifier.once(this, matchedSpec));
+                }
+                else {
+                    // first time this spec seen, set to true
+                    asMutable(this)[matchedSpec] = true;
+                }
+            }
+            else { // It's a typename
+                if (this.typeName) { // already had a typename, this is a duplicate
+                    this.addNote(CPPError.declaration.typeSpecifier.one_type(this, [this.typeName, spec]));
+                }
+                else{
+                    asMutable(this).typeName = spec;
+                }
+            }
+        })
+
+
+        // If we don't have a typeName by now, it means there wasn't a type specifier
+        if (!this.typeName){
+            this.addNote(CPPError.declaration.func.no_return_type(this));
+            return;
+        }
+
+        if (this.unsigned){
+            if (!this.typeName){
+                this.typeName = "int";
+            }
+            this.addNote(CPPError.type.unsigned_not_supported(this));
+        }
+        if (this.signed){
+            if (!this.typeName){
+                this.typeName = "int";
+            }
+        }
+
+        if (builtInTypes[this.typeName]){
+			this.type = builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
+            return;
+		}
+
+        var scopeType;
+        if (scopeType = this.contextualScope.lookup(this.typeName)){
+            if (scopeType instanceof TypeEntity){
+                this.type = scopeType.type.instance(this.isConst, this.isVolatile);
+                return;
+            }
+        }
+
+        this.type = Unknown.instance();
+        this.addNote(CPPError.type.typeNotFound(this, this.typeName));
+	}
+};
 
 
 var BaseDeclarationMixin = {
