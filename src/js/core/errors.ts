@@ -2,7 +2,7 @@ import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type } from "./types";
 import { CPPEntity } from "./entities";
-import { VoidDeclaration } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey } from "./declarations";
 
 export interface Description {
     name?: string;
@@ -393,11 +393,11 @@ export const CPPError = {
 
         },
         storage : {
-            once : function(construct: CPPConstruct, spec) {
+            once : function(construct: CPPConstruct, spec: StorageSpecifierKey) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.once", "Storage specifier (" + spec + ") may only be used once.");
             },
-            incompatible : function(construct: CPPConstruct, specs) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.incompatible", "Storage specifiers (" + specs + ") are incompatible with each other.");
+            incompatible : function(construct: CPPConstruct, specs: readonly StorageSpecifierKey[]) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.incompatible", "Storage specifiers ( " + specs.join(" ") + ") are incompatible with each other.");
             },
             typedef : function(construct: CPPConstruct, specs) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.typedef", "Storage specifiers may not be used in a typedef. (" + specs + " were found.)");
