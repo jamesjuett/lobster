@@ -1,13 +1,14 @@
 import * as Util from "../util/util";
-import {CPPConstruct} from "./constructs";
+import {CPPConstruct, BasicCPPConstruct, ConstructContext} from "./constructs";
 import {CPPError} from "./errors";
 import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity } from "./entities";
+import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity, TypeEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 import { ExpressionASTNode } from "./expressions";
+import { StorageSpecifier, StorageSpecifierKey } from "./declarations";
 
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -17,102 +18,7 @@ function isVowel(c: string) {
 
 
 
-export class TypeSpecifier extends CPPConstruct {
-    public parent?: CPPConstruct | undefined;
 
-    public compile() {
-
-        let constCount = 0;
-        let volatileCount = 0;
-
-        let specs = this.ast;
-
-        for(var i = 0; i < specs.length; ++i){
-            var spec = specs[i];
-            if(spec === "const"){
-                if(this.isConst) {
-                    this.addNote(CPPError.type.const_once(this));
-                }
-                else{
-                    this.isConst = true;
-                }
-            }
-            else if(spec === "volatile"){
-                if (this.volatile){
-                    this.addNote(CPPError.type.volatile_once(this));
-                }
-                else{
-                    this.volatile = true;
-                }
-            }
-            else if (spec === "unsigned"){
-                if (this.unsigned){
-                    this.addNote(CPPError.type.unsigned_once(this));
-                }
-                else if (this.signed){
-                    this.addNote(CPPError.type.signed_unsigned(this));
-                }
-                else{
-                    this.unsigned = true;
-                }
-            }
-            else if (spec === "signed"){
-                if (this.signed){
-                    this.addNote(CPPError.type.signed_once(this));
-                }
-                else if (this.unsigned){
-                    this.addNote(CPPError.type.signed_unsigned(this));
-                }
-                else{
-                    this.signed = true;
-                }
-            }
-            else{ // It's a typename
-                if (this.typeName){
-                    this.addNote(CPPError.type.one_type(this));
-                }
-                else{
-                    // TODO will need to look up the typename in scope to check it
-                    this.typeName = spec;
-                }
-            }
-        }
-
-        // If we don't have a typeName by now, it means there wasn't a type specifier
-        if (!this.typeName){
-            this.addNote(CPPError.declaration.func.no_return_type(this));
-            return;
-        }
-
-        if (this.unsigned){
-            if (!this.typeName){
-                this.typeName = "int";
-            }
-            this.addNote(CPPError.type.unsigned_not_supported(this));
-        }
-        if (this.signed){
-            if (!this.typeName){
-                this.typeName = "int";
-            }
-        }
-
-        if (builtInTypes[this.typeName]){
-			this.type = builtInTypes[this.typeName].instance(this.isConst, this.isVolatile);
-            return;
-		}
-
-        var scopeType;
-        if (scopeType = this.contextualScope.lookup(this.typeName)){
-            if (scopeType instanceof TypeEntity){
-                this.type = scopeType.type.instance(this.isConst, this.isVolatile);
-                return;
-            }
-        }
-
-        this.type = Unknown.instance();
-        this.addNote(CPPError.type.typeNotFound(this, this.typeName));
-	}
-};
 
 export var userTypeNames = {};
 export var builtInTypes : {[index:string]: Util.Constructor} = {};

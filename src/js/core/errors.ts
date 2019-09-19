@@ -2,7 +2,7 @@ import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type } from "./types";
 import { CPPEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "./declarations";
 
 export interface Description {
     name?: string;
@@ -406,13 +406,21 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.unsupported", "Sorry, the " + spec + " storage specifier is not currently supported.");
             }
         },
+        typeSpecifier : {
+            once : function(construct: CPPConstruct, spec: TypeSpecifierKey) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.typeSpecifier.once", "Type specifier (" + spec + ") may only be used once.");
+            },
+            one_type : function(construct: CPPConstruct, typeNames: readonly SimpleTypeName[]) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.typeSpecifier.one_type", `Type specifier must only specify one type. Found: ${typeNames}.`);
+            }
+        },
         friend : {
             outside_class : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.outside_class", "Friend declarations are not allowed here.");
             },
             virtual_prohibited : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
-            },
+            }
         },
         unknown_type : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.unknown_type", "Unable to determine the type declared here.");
@@ -425,27 +433,12 @@ export const CPPError = {
         },
 	},
 	type : {
-		const_once : function(construct: CPPConstruct) {
-			return new CompilerNote(construct, NoteKind.ERROR, "type.const_once", "Type specifier may only include const once.");
-		},
-        volatile_once : function(construct: CPPConstruct) {
-            return new CompilerNote(construct, NoteKind.ERROR, "type.volatile_once", "Type specifier may only include volatile once.");
-        },
-        unsigned_once : function(construct: CPPConstruct) {
-            return new CompilerNote(construct, NoteKind.ERROR, "type.unsigned_once", "Type specifier may only include unsigned once.");
-        },
-        signed_once : function(construct: CPPConstruct) {
-            return new CompilerNote(construct, NoteKind.ERROR, "type.signed_once", "Type specifier may only include signed once.");
-        },
         signed_unsigned : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "type.signed_unsigned", "Type specifier may not indicate both signed and unsigned.");
         },
         unsigned_not_supported : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.WARNING, "type.unsigned_not_supported", "Sorry, unsigned integral types are not supported yet. It will just be treated like a normal int.");
         },
-		one_type : function(construct: CPPConstruct, typeNames) {
-			return new CompilerNote(construct, NoteKind.ERROR, "type.one_type", "Type specifier must only specify one type.");//  Found: [" + typeNames + "].");
-		},
         storage : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.WARNING, "type.storage", "Because of the way Lobster works, storage class specifiers (e.g. static) have no effect.");
         },
