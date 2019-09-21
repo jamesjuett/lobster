@@ -1,4 +1,4 @@
-import { assert, assertFalse } from "../util/util";
+import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
 import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
@@ -196,8 +196,8 @@ export class Memory {
         this.staticObjects = {};
         this.temporaryBottom = this.temporaryStart;
 
-        this.stack = new MemoryStack(this, this.staticEnd);
-        this.heap = new MemoryHeap(this, this.heapEnd);
+        (<Mutable<this>>this).stack = new MemoryStack(this, this.staticEnd);
+        (<Mutable<this>>this).heap = new MemoryHeap(this, this.heapEnd);
         this.temporaryObjects = {};
         this.observable.send("reset");
     }
@@ -554,7 +554,7 @@ export class MemoryFrame {
 
     private size: number;
     private readonly localObjectsByEntityId: {[index:number]: AutoObject};
-    private readonly localReferencesByEntityId: {[index:number]: RuntimeReference | undefined};
+    private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined};
     
 
     public constructor(scope: FunctionBlockScope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
@@ -581,8 +581,6 @@ export class MemoryFrame {
             this.localObjectsByEntityId[obj.entityId] = obj;
             this.size += obj.size;
         }
-
-        this.setUpReferenceInstances();
 
         // Push objects for all entities in the frame
         var autos = scope.automaticObjects;
@@ -624,23 +622,22 @@ export class MemoryFrame {
         return str;
     }
 
-    public getLocalObject<T extends Type>(entity: AutoEntity<T>) {
+    public getLocalObject<T extends ObjectType>(entity: AutoEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
-    public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) : RuntimeReference<T> {
-        return (<RuntimeReference<T> | undefined>this.localReferencesByEntityId[entity.entityId]) || assertFalse("Attempt to look up referred object before reference was bound.");
+    public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
+        return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }
     public bindReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
-        this.localReferencesByEntityId[entity.entityId] = new RuntimeReference(entity, obj);
+        this.localReferencesByEntityId[entity.entityId] = obj;
     }
 
-    public setUpReferenceInstances() {
-        var self = this;
-        this.scope.referenceObjects.forEach(function (ref: LocalReferenceEntity) {
-            self.localReferencesByEntityId[ref.entityId] = undefined;
-            //self.memory.allocateObject(ref, addr);
-            //addr += ref.type.size;
-        });
-    }
+    // public setUpReferenceInstances() {
+    //     this.scope.referenceObjects.forEach((ref: LocalReferenceEntity) => {
+    //         this.localReferencesByEntityId[ref.entityId] = undefined;
+    //         //self.memory.allocateObject(ref, addr);
+    //         //addr += ref.type.size;
+    //     });
+    // }
 
 };

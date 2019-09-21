@@ -349,7 +349,7 @@ export class Block extends Statement {
 
         this.scope = blockScope;
 
-        this.statements = statements;        
+        this.statements = statements;
     }
 
     public createRuntimeStatement(this: CompiledBlock, parent: ExecutableRuntimeConstruct) {
