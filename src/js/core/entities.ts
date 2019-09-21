@@ -650,9 +650,7 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
     bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) : void;
 }
 
-//TODO: rename to specifically for local references
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
-    // storage: "automatic", // TODO: is this correct? No. It's not, because references may not even require storage at all, but I'm not sure if taking it out will break something.
 
     public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
@@ -660,7 +658,7 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this).refersTo;
+        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup<T>(this);
     }
 
     public describe() {
@@ -672,6 +670,27 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
         }
     }
 };
+
+// export class GlobalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+
+//     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+//         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
+//     }
+
+//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
+//         // TODO: revisit the non-null assertion below
+//         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this);
+//     }
+
+//     public describe() {
+//         if (this.decl instanceof Declarations.Parameter){
+//             return {message: "the reference parameter " + this.name};
+//         }
+//         else{
+//             return {message: "the reference " + this.name};
+//         }
+//     }
+// };
 
 export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
     
@@ -714,37 +733,37 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
 // TODO: I think this should be an object?
 // TODO: I don't think this should be an object! Move to runtimeEnvironment.ts?
 // TODO: Is this needed? Can wherever uses it just keep track of the actual objects?
-export class RuntimeReference<T extends ObjectType = ObjectType> {
+// export class RuntimeReference<T extends ObjectType = ObjectType> {
 
-    public readonly observable = new Observable(this);
+//     public readonly observable = new Observable(this);
 
-    public readonly entity: BoundReferenceEntity<T>;
-    public readonly refersTo: CPPObject<T>;
+//     public readonly entity: BoundReferenceEntity<T>;
+//     public readonly refersTo: CPPObject<T>;
 
-    public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
-        this.entity = entity;
+//     public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
+//         this.entity = entity;
         
 
-        this.refersTo = refersTo;
-        // Initially refers to a dead object at address 0
-        // TODO: this is a bad idea, so I removed it
-        // this.refersTo = new AnonymousObject(this.entity.type, memory, 0);
-    }
+//         this.refersTo = refersTo;
+//         // Initially refers to a dead object at address 0
+//         // TODO: this is a bad idea, so I removed it
+//         // this.refersTo = new AnonymousObject(this.entity.type, memory, 0);
+//     }
 
-    // public bindTo(refersTo: CPPObject) {
-    //     (<typeof RuntimeReference.prototype.refersTo>this.refersTo) = refersTo;
-    //     this.observable.send("bound");
-    // }
+//     // public bindTo(refersTo: CPPObject) {
+//     //     (<typeof RuntimeReference.prototype.refersTo>this.refersTo) = refersTo;
+//     //     this.observable.send("bound");
+//     // }
 
-    public describe() {
-        if (this.refersTo) {
-            return {message: "the reference " + this.entity.name + " (which is bound to " + this.refersTo.describe().message + ")"};
-        }
-        else {
-            return {message: "the reference " + this.entity.name + " (which has not yet been bound to an object)"};
-        }
-    }
-};
+//     public describe() {
+//         if (this.refersTo) {
+//             return {message: "the reference " + this.entity.name + " (which is bound to " + this.refersTo.describe().message + ")"};
+//         }
+//         else {
+//             return {message: "the reference " + this.entity.name + " (which has not yet been bound to an object)"};
+//         }
+//     }
+// };
 
 export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     protected static _name =  "StaticEntity";

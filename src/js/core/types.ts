@@ -21,7 +21,7 @@ function isVowel(c: string) {
 
 
 export var userTypeNames = {};
-export var builtInTypes : {[index:string]: Util.Constructor} = {};
+export const builtInTypes : {[index:string]: Util.Constructor<Type>} = {};
 
 export var defaultUserTypeNames = {
     ostream : true,
@@ -369,6 +369,8 @@ abstract class TypeBase {
 export type Type = VoidType | ObjectType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
 
 export class VoidType extends TypeBase {
+    
+    public static readonly VOID = new VoidType();
 
     public readonly isArithmeticType = false;
     public readonly isIntegralType = false;

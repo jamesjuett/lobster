@@ -412,7 +412,10 @@ export const CPPError = {
             },
             one_type : function(construct: CPPConstruct, typeNames: readonly SimpleTypeName[]) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.typeSpecifier.one_type", `Type specifier must only specify one type. Found: ${typeNames}.`);
-            }
+            },
+            signed_unsigned : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "type.signed_unsigned", "Type specifier may not indicate both signed and unsigned.");
+            },
         },
         friend : {
             outside_class : function(construct: CPPConstruct) {
@@ -433,9 +436,7 @@ export const CPPError = {
         },
 	},
 	type : {
-        signed_unsigned : function(construct: CPPConstruct) {
-            return new CompilerNote(construct, NoteKind.ERROR, "type.signed_unsigned", "Type specifier may not indicate both signed and unsigned.");
-        },
+        
         unsigned_not_supported : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.WARNING, "type.unsigned_not_supported", "Sorry, unsigned integral types are not supported yet. It will just be treated like a normal int.");
         },
