@@ -1218,6 +1218,10 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
     //     return new Value(this, this.type);
     // }
 
+    public isMain() {
+        return this.getFullyQualifiedName() === "::main";
+    }
+
     public describe() {
         return this.declaration.describe();
     }
