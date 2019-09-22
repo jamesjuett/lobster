@@ -1,4 +1,4 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext } from "./constructs";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext, InvalidConstruct } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
 import { Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
@@ -440,7 +440,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
     public readonly isDefinition = false;
 
     public readonly type: FunctionType;
-    public readonly declaredEntity?: FunctionEntity;
+    public readonly declaredEntity: FunctionEntity;
     
     public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -448,9 +448,53 @@ export class FunctionDeclaration extends SimpleDeclaration {
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
-        this.addNote(CPPError.lobster.unsupported_feature(this, "function declaration"));
+        this.declaredEntity = new FunctionEntity(this);
+
+        
+        // If main, should have no parameters
+        if (this.declaredEntity.isMain() && this.type.paramTypes.length > 0) {
+            this.addNote(CPPError.declaration.func.mainParams(this.declarator));
+        }
+
+        
+        // if (this.isMemberFunction){
+        //     this.i_containingClass.addMember(this.entity);
+        // }
+
+
+        // if (!this.isMemberFunction && this.virtual){
+        //     this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
+        // }
+
+        // this.checkOverloadSemantics();
+
+        try{
+            this.contextualScope.addDeclaredEntity(this.declaredEntity);
+        }
+        catch(e) {
+            if (e instanceof Note) {
+                this.addNote(e);
+            }
+            else{
+                throw e;
+            }
+        }
     }
     
+
+
+    // checkOverloadSemantics : function(){
+    //     if (this.name === "operator=" || this.name === "operator()" || this.name === "operator[]"){
+    //         if (!this.isMemberFunction){
+    //             this.addNote(CPPError.declaration.func.op_member(this));
+    //         }
+    //     }
+
+    //     if (this.name === "operator[]" && this.params.length !== 1){
+    //         this.addNote(CPPError.declaration.func.op_subscript_one_param(this));
+    //     }
+    // },
+
 }
 
 export class LocalObjectDefinition extends SimpleDeclaration {
@@ -459,7 +503,7 @@ export class LocalObjectDefinition extends SimpleDeclaration {
     public readonly isDefinition = true;
 
     public readonly type : ObjectType | ReferenceType;
-    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType> | StaticEntity<ObjectType>;
+    public readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType> | StaticEntity<ObjectType>;
     
     public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
@@ -468,7 +512,7 @@ export class LocalObjectDefinition extends SimpleDeclaration {
 
         this.type = type;
 
-        let declaredEntity = 
+        this.declaredEntity = 
             this.type.isReferenceType() ? new LocalReferenceEntity(this) :
             new AutoEntity(this);
 
@@ -482,8 +526,7 @@ export class LocalObjectDefinition extends SimpleDeclaration {
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.contextualScope.addDeclaredEntity(declaredEntity);
-            this.declaredEntity = declaredEntity;
+            this.contextualScope.addDeclaredEntity(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -503,7 +546,7 @@ export class GlobalObjectDefinition extends SimpleDeclaration {
     public readonly isDefinition = true;
 
     public readonly type : ObjectType | ReferenceType;
-    public readonly declaredEntity?: StaticEntity<ObjectType>;
+    public readonly declaredEntity: StaticEntity<ObjectType>;
     
     public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
@@ -517,13 +560,12 @@ export class GlobalObjectDefinition extends SimpleDeclaration {
             return;
         }
 
-        let declaredEntity = new StaticEntity(this);
+        this.declaredEntity = new StaticEntity(this);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.contextualScope.addDeclaredEntity(declaredEntity);
-            this.declaredEntity = declaredEntity;
+            this.contextualScope.addDeclaredEntity(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -859,9 +901,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 export class FunctionDefinition extends BasicCPPConstruct {
 
     public readonly declaration: SimpleDeclaration;
-
-    public readonly declaredFunction: FunctionEntity;
-    public readonly implementation?: FunctionImplementation;
+    public readonly implementation: FunctionImplementation;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) {
         
@@ -869,30 +909,27 @@ export class FunctionDefinition extends BasicCPPConstruct {
             construct_type: "simple_declaration",
             declarators: [ast.declarator],
             specs: ast.specs
-        }, context);
+        }, context)[0];
         
-        if (declaration instanceof FunctionDeclaration) {
-            declaration.
+        if (!(declaration instanceof FunctionDeclaration)) {
+            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
         }
 
-        let functionDef = new FunctionDefinition(context, typeSpec, storageSpec, declarator, ast.specs);
-
-        let body = FunctionBodyBlock.createFromAST(ast.body, Object.assign({}, context, {containingFunction: functionDef.declaredFunction}));
-        functionDef.setImplementation(new FunctionImplementation(context, functionDef.declaredFunction, body));
+        let funcContext = Object.assign({}, context, {containingFunction: declaration.declaredEntity});
+        let body = FunctionBodyBlock.createFromAST(ast.body, funcContext);
+        let functionDef = new FunctionDefinition(context, declaration, body);
 
         return functionDef;
     }
 
-    public constructor(context: ConstructContext, declaration: FunctionDeclaration) {
-
+    public constructor(context: ConstructContext, declaration: FunctionDeclaration, body: FunctionBodyBlock) {
         super(context);
+        this.declaration = declaration;
 
-    }
-    
-    private setImplementation(impl: FunctionImplementation) {
-        assert(!this.implementation);
-        (<Mutable<this>>this).implementation = impl;
-        return this;
+        let funcContext = Object.assign({}, context, {containingFunction: declaration.declaredEntity});
+        this.implementation = new FunctionImplementation(funcContext, declaration.declaredEntity, body);
+
+        // TODO: register definition or implementation with the entity or with the linker somehow
     }
 }
 
@@ -906,7 +943,7 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
     
     public readonly body: FunctionBodyBlock;
 
-    public readonly localObjects: AutoEntity; 
+    public readonly localObjects: AutoEntity;
 
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
@@ -916,360 +953,249 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
 
         this.containingFunction = func;
         this.body = body;
-    }
-    
-    i_createFromAST : function(ast, context) {
-        // Check if it's a member function
-        // if (context.containingClass) {
-        //     this.isMemberFunction = true;
-        //     this.isInlineMemberFunction = true;
-        //     this.i_containingClass = context.containingClass;
-        //     this.receiverType = this.parent.type.instance();
-        // }
-        // this.memberInitializers = [];
 
-    },
+        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
+        //     return isA(obj.type, Types.Class);
+        // });
 
-    compile : function(){
-        this.compileDeclaration();
-        this.compileDefinition();
-    },
+        // this.bodyScope.automaticObjects.filter(function(obj){
+        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
+        // }).map(function(arr){
+        //   for(var i = 0; i < arr.type.length; ++i){
+        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
+        //   }
+        // });
 
-    // EFFECTS: returns an array of errors
-    compileDeclaration : function(){
-        var ast = this.ast;
+        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
+        //     var dest = entityToDestruct.type.destructor;
+        //     if (dest){
+        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
+        //         call.compile({
+        //             func: dest,
+        //             receiver: entityToDestruct});
+        //         return call;
+        //     }
+        //     else{
+        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
+        //     }
 
-        // Add entity to scope
-        try{
-            if (!this.makeEntity()) {
-                return;
-            }
-
-            // If main, should have no parameters
-            if (this.isMain && this.params.length > 0){
-                this.addNote(CPPError.declaration.func.mainParams(this.params[0]));
-            }
-
-            if (this.isMemberFunction){
-                this.i_containingClass.addMember(this.entity);
-            }
-
-
-            if (!this.isMemberFunction && this.virtual){
-                this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
-            }
-
-            this.checkOverloadSemantics();
-
-        }
-        catch(e){
-            if (isA(e, SemanticException)){
-                this.addNote(e.annotation(this));
-                return;
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
+        // });
     }
 
-    compileDefinition : function(){
-        var self = this;
-        if (this.hasErrors()){
-            return;
-        }
+    // callSearch : function(callback, options){
+    //     options = options || {};
+    //     // this.calls will be filled when the body is being compiled
+    //     // We assume this has already been done for all functions.
 
-        // Compile the body
-        this.body.compile();
+    //     this.callClosure = {};
 
-        if (this.hasErrors()){return;}
+    //     var queue = [];
+    //     queue.unshiftAll(this.calls.map(function(call){
+    //         return {call: call, from: null};
+    //     }));
 
-        // this.semanticProblems.addWidget(DeclarationAnnotation.instance(this));
+    //     var search = {
+    //         chain: []
+    //     };
+    //     while (queue.length > 0){
+    //         var next = (options.searchType === "dfs" ? queue.pop() : queue.shift());
+    //         var call = next.call;
+    //         search.chain = next;
+    //         if (search.stop){
+    //             break;
+    //         }
+    //         else if (search.skip){
 
-        this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-            return isA(obj.type, Types.Class);
-        });
+    //         }
+    //         else if (call.func.isLinked() && call.func.isStaticallyBound()){
 
-        this.bodyScope.automaticObjects.filter(function(obj){
-          return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-        }).map(function(arr){
-          for(var i = 0; i < arr.type.length; ++i){
-            self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-          }
-        });
+    //             if (call.staticFunction.decl === this){
+    //                 search.cycle = true;
+    //             }
+    //             else{
+    //                 search.cycle = false;
+    //                 for(var c = next.from; c; c = c.from){
+    //                     if (c.call.staticFunction.entityId === call.staticFunction.entityId){
+    //                         search.cycle = true;
+    //                         break;
+    //                     }
+    //                 }
+    //             }
 
-        this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-            var dest = entityToDestruct.type.destructor;
-            if (dest){
-                var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-                call.compile({
-                    func: dest,
-                    receiver: entityToDestruct});
-                return call;
-            }
-            else{
-                self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-            }
+    //             callback && callback(search);
 
-        });
-    },
+    //             // If there's no cycle, we can push children
+    //             if (!search.cycle && isA(call.staticFunction.decl, FunctionDefinition)) {
+    //                 for(var i = call.staticFunction.decl.calls.length-1; i >= 0; --i){
+    //                     queue.push({call: call.staticFunction.decl.calls[i], from: next});
+    //                 }
+    //             }
 
-    checkOverloadSemantics : function(){
-        if (this.name === "operator=" || this.name === "operator()" || this.name === "operator[]"){
-            if (!this.isMemberFunction){
-                this.addNote(CPPError.declaration.func.op_member(this));
-            }
-        }
+    //             this.callClosure[call.staticFunction.entityId] = true;
+    //         }
 
-        if (this.name === "operator[]" && this.params.length !== 1){
-            this.addNote(CPPError.declaration.func.op_subscript_one_param(this));
-        }
-    },
+    //     }
+    // },
 
-    emptyBody : function(){
-        return this.ast.body.statements.length === 0;
-    },
+    // tailRecursionAnalysis : function(annotatedCalls){
 
-    callSearch : function(callback, options){
-        options = options || {};
-        // this.calls will be filled when the body is being compiled
-        // We assume this has already been done for all functions.
+    //     // Assume not recursive at first, will be set to true if it is
+    //     this.isRecursive = false;
 
-        this.callClosure = {};
+    //     // Assume we can use constant stack space at first, will be set to false if not
+    //     this.constantStackSpace = true;
 
-        var queue = [];
-        queue.unshiftAll(this.calls.map(function(call){
-            return {call: call, from: null};
-        }));
+    //     //from = from || {start: this, from: null};
 
-        var search = {
-            chain: []
-        };
-        while (queue.length > 0){
-            var next = (options.searchType === "dfs" ? queue.pop() : queue.shift());
-            var call = next.call;
-            search.chain = next;
-            if (search.stop){
-                break;
-            }
-            else if (search.skip){
-
-            }
-            else if (call.func.isLinked() && call.func.isStaticallyBound()){
-
-                if (call.staticFunction.decl === this){
-                    search.cycle = true;
-                }
-                else{
-                    search.cycle = false;
-                    for(var c = next.from; c; c = c.from){
-                        if (c.call.staticFunction.entityId === call.staticFunction.entityId){
-                            search.cycle = true;
-                            break;
-                        }
-                    }
-                }
-
-                callback && callback(search);
-
-                // If there's no cycle, we can push children
-                if (!search.cycle && isA(call.staticFunction.decl, FunctionDefinition)) {
-                    for(var i = call.staticFunction.decl.calls.length-1; i >= 0; --i){
-                        queue.push({call: call.staticFunction.decl.calls[i], from: next});
-                    }
-                }
-
-                this.callClosure[call.staticFunction.entityId] = true;
-            }
-
-        }
-    },
-
-    tailRecursionAnalysis : function(annotatedCalls){
-
-        // Assume not recursive at first, will be set to true if it is
-        this.isRecursive = false;
-
-        // Assume we can use constant stack space at first, will be set to false if not
-        this.constantStackSpace = true;
-
-        //from = from || {start: this, from: null};
-
-        // The from parameter sort of represents all functions which, if seen again, constitute recursion
+    //     // The from parameter sort of represents all functions which, if seen again, constitute recursion
 
 
-        //console.log("tail recursion analysis for: " + this.name);
-        var self = this;
-        this.callSearch(function(search){
+    //     //console.log("tail recursion analysis for: " + this.name);
+    //     var self = this;
+    //     this.callSearch(function(search){
 
-            // Ignore non-cycles
-            if (!search.cycle){
-                return;
-            }
+    //         // Ignore non-cycles
+    //         if (!search.cycle){
+    //             return;
+    //         }
 
-            var str = " )";
-            var chain = search.chain;
-            var cycleStart = chain.call;
-            var first = true;
-            var inCycle = true;
-            var tailCycle = true;
-            var nonTailCycleCalls = [];
-            var firstCall = chain.call;
-            while (chain){
-                var call = chain.call;
+    //         var str = " )";
+    //         var chain = search.chain;
+    //         var cycleStart = chain.call;
+    //         var first = true;
+    //         var inCycle = true;
+    //         var tailCycle = true;
+    //         var nonTailCycleCalls = [];
+    //         var firstCall = chain.call;
+    //         while (chain){
+    //             var call = chain.call;
 
-                // Mark all calls in the cycle as part of a cycle, except the original
-                if (chain.from || first){
-                    call.isPartOfCycle = true;
-                }
+    //             // Mark all calls in the cycle as part of a cycle, except the original
+    //             if (chain.from || first){
+    //                 call.isPartOfCycle = true;
+    //             }
 
-                // Make sure we know whether it's a tail call
-                call.tailRecursionCheck();
+    //             // Make sure we know whether it's a tail call
+    //             call.tailRecursionCheck();
 
-                // At time of writing, this will always be true due to the way call search works
-                if (call.staticFunction){
-                    // If we know what the call is calling
-
-
-                    str = (call.staticFunction.name + ", ") + str;
-                    if (call.isTail){
-                        str = "t-" + str;
-                    }
-                    if (!first && call.staticFunction === cycleStart.staticFunction){
-                        inCycle = false;
-                        str = "( " + str;
-                    }
-
-                    // This comes after possible change in inCycle because first part of cycle doesn't have to be tail
-                    if (inCycle){
-                        if (!annotatedCalls[call.id]){
-                            // TODO: fix this to not use semanticProblems
-                            // self.semanticProblems.addWidget(RecursiveCallAnnotation.instance(call, call.isTail, call.isTailReason, call.isTailOthers));
-                            annotatedCalls[call.id] = true;
-                        }
-                    }
-                    if (inCycle && !call.isTail){
-                        tailCycle = false;
-                        nonTailCycleCalls.push(call);
-                    }
-                }
-                else if (call.staticFunctionType){
-                    // Ok at least we know the type we're calling
-
-                }
-                else{
-                    // Uhh we don't know anything. This really shouldn't happen.
-                }
-                first = false;
-                chain = chain.from;
-            }
-            //console.log(str + (tailCycle ? " tail" : " non-tail"));
-
-            // We found a cycle so it's certainly recursive
-            self.isRecursive = true;
-
-            // If we found a non-tail cycle, it's not tail recursive
-            if (!tailCycle){
-                self.constantStackSpace = false;
-                if (!self.nonTailCycles){
-                    self.nonTailCycles = [];
-                }
-                self.nonTailCycles.push(search.chain);
-                self.nonTailCycle = search.chain;
-                self.nonTailCycleReason = str;
-
-                if(!self.nonTailCycleCalls){
-                    self.nonTailCycleCalls = [];
-                }
-                self.nonTailCycleCalls.pushAll(nonTailCycleCalls);
-            }
-        },{
-            searchType: "dfs"
-        });
-        //console.log("");
-        //console.log("");
-
-        self.tailRecursionAnalysisDone = true;
+    //             // At time of writing, this will always be true due to the way call search works
+    //             if (call.staticFunction){
+    //                 // If we know what the call is calling
 
 
-        // TODO: fix this to not use semanticProblems
-        // this.semanticProblems.addWidget(RecursiveFunctionAnnotation.instance(this));
-    },
+    //                 str = (call.staticFunction.name + ", ") + str;
+    //                 if (call.isTail){
+    //                     str = "t-" + str;
+    //                 }
+    //                 if (!first && call.staticFunction === cycleStart.staticFunction){
+    //                     inCycle = false;
+    //                     str = "( " + str;
+    //                 }
 
-    makeEntity : function(){
-        var entity;
-        if (this.isMemberFunction){
-            entity = MemberFunctionEntity.instance(this, this.i_containingClass, this.virtual);
-        }
-        else{
-            entity = FunctionEntity.instance(this);
-        }
+    //                 // This comes after possible change in inCycle because first part of cycle doesn't have to be tail
+    //                 if (inCycle){
+    //                     if (!annotatedCalls[call.id]){
+    //                         // TODO: fix this to not use semanticProblems
+    //                         // self.semanticProblems.addWidget(RecursiveCallAnnotation.instance(call, call.isTail, call.isTailReason, call.isTailOthers));
+    //                         annotatedCalls[call.id] = true;
+    //                     }
+    //                 }
+    //                 if (inCycle && !call.isTail){
+    //                     tailCycle = false;
+    //                     nonTailCycleCalls.push(call);
+    //                 }
+    //             }
+    //             else if (call.staticFunctionType){
+    //                 // Ok at least we know the type we're calling
+
+    //             }
+    //             else{
+    //                 // Uhh we don't know anything. This really shouldn't happen.
+    //             }
+    //             first = false;
+    //             chain = chain.from;
+    //         }
+    //         //console.log(str + (tailCycle ? " tail" : " non-tail"));
+
+    //         // We found a cycle so it's certainly recursive
+    //         self.isRecursive = true;
+
+    //         // If we found a non-tail cycle, it's not tail recursive
+    //         if (!tailCycle){
+    //             self.constantStackSpace = false;
+    //             if (!self.nonTailCycles){
+    //                 self.nonTailCycles = [];
+    //             }
+    //             self.nonTailCycles.push(search.chain);
+    //             self.nonTailCycle = search.chain;
+    //             self.nonTailCycleReason = str;
+
+    //             if(!self.nonTailCycleCalls){
+    //                 self.nonTailCycleCalls = [];
+    //             }
+    //             self.nonTailCycleCalls.pushAll(nonTailCycleCalls);
+    //         }
+    //     },{
+    //         searchType: "dfs"
+    //     });
+    //     //console.log("");
+    //     //console.log("");
+
+    //     self.tailRecursionAnalysisDone = true;
 
 
-        entity.setDefinition(this);
+    //     // TODO: fix this to not use semanticProblems
+    //     // this.semanticProblems.addWidget(RecursiveFunctionAnnotation.instance(this));
+    // },
 
-        this.entity = entity;
-
-        if (!this.isMemberFunction) {
-            try {
-                this.contextualScope.addDeclaredEntity(entity);
-            }
-            catch(e) {
-                this.addNote(e);
-                return null;
-            }
-        }
-        return entity;
-    },
-
+      
     setArguments : function(sim: Simulation, rtConstruct: RuntimeConstruct, args){
         inst.argInitializers = args;
     },
 
 
-    isTailChild : function(child){
-        if (child !== this.body){
-            return {isTail: false};
-        }
-        else if (this.autosToDestruct.length > 0){
-            return {
-                isTail: false,
-                reason: "The highlighted local variables ("
+    // isTailChild : function(child){
+    //     if (child !== this.body){
+    //         return {isTail: false};
+    //     }
+    //     else if (this.autosToDestruct.length > 0){
+    //         return {
+    //             isTail: false,
+    //             reason: "The highlighted local variables ("
 
-                +
-                this.bodyScope.automaticObjects.filter(function(obj){
-                    return isA(obj.type, Types.Class);
-                }).map(function(obj){
+    //             +
+    //             this.bodyScope.automaticObjects.filter(function(obj){
+    //                 return isA(obj.type, Types.Class);
+    //             }).map(function(obj){
 
-                    return obj.name;
+    //                 return obj.name;
 
-                }).join(",")
-                    +
+    //             }).join(",")
+    //                 +
 
-                ") have destructors that will run at the end of the function body (i.e. after any possible recursive call).",
-                others: this.bodyScope.automaticObjects.filter(function(obj){
-                    return isA(obj.type, Types.Class);
-                }).map(function(obj){
+    //             ") have destructors that will run at the end of the function body (i.e. after any possible recursive call).",
+    //             others: this.bodyScope.automaticObjects.filter(function(obj){
+    //                 return isA(obj.type, Types.Class);
+    //             }).map(function(obj){
 
-                    var decl = obj.decl;
-                    if (isA(decl, Declarator)){
-                        decl = decl.parent;
-                    }
-                    return decl;
+    //                 var decl = obj.decl;
+    //                 if (isA(decl, Declarator)){
+    //                     decl = decl.parent;
+    //                 }
+    //                 return decl;
 
-                })
-            }
-        }
-        else {
-            return {isTail: true};
-        }
-    },
-    describe : function(){
-        var exp = {};
-        exp.message = "a function definition";
-        return exp;
-    }
+    //             })
+    //         }
+    //     }
+    //     else {
+    //         return {isTail: true};
+    //     }
+    // },
+    // describe : function(){
+    //     var exp = {};
+    //     exp.message = "a function definition";
+    //     return exp;
+    // }
 }
 
 // TODO: this should be called ClassDefinition

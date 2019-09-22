@@ -58,7 +58,7 @@ export interface ConstructContext {
 //     return new constructCtor(ast, context);
 // }
 
-export abstract class CPPConstruct {
+export abstract class CPPConstruct<ASTType = ASTNode> {
 
     public static readonly constructKind : symbol = Symbol("CPPConstruct");
 
@@ -85,7 +85,7 @@ export abstract class CPPConstruct {
     public readonly translationUnit: TranslationUnit;
     public readonly contextualScope: Scope;
 
-    public readonly ast?: ASTNode;
+    public readonly ast?: ASTType;
     public readonly sourceReference?: SourceReference;
 
     public readonly isImplicit?: boolean;
@@ -181,7 +181,7 @@ export abstract class CPPConstruct {
      * Used by "createFromAST" static "named constructor" functions in derived classes
      * to set the AST from which a construct was created. Returns `this` for convenience.
      */
-    protected setAST(ast: ASTNode) {
+    protected setAST(ast: ASTType) {
         (<Mutable<this>>this).ast = ast;
         if (ast.sourceReference) {
             this.sourceReference = this.sourceReference;
@@ -333,6 +333,17 @@ export class BasicCPPConstruct extends CPPConstruct {
     public onAttach(parent: CPPConstruct) {
         (<Mutable<this>>this).parent = parent;
     }
+}
+
+export class InvalidConstruct extends BasicCPPConstruct {
+
+    public readonly note: Note;
+
+    public constructor(context: ConstructContext, errorFn: (construct: CPPConstruct) => Note) {
+        super(context);
+        this.addNote(this.note = errorFn(this));
+    }
+
 }
 
 export interface ExecutableConstruct extends CPPConstruct {
