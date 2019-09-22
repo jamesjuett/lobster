@@ -3,7 +3,7 @@ import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruc
 import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
-import { Declaration, FunctionDefinition } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope } from "./entities";
 import { VoidType, ReferenceType, ObjectType } from "./types";
@@ -163,15 +163,15 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement {
 
-    public readonly declaration: Declaration | FunctionDefinition | ClassDefinition;
+    public readonly declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: ExecutableConstructContext) {
         return new DeclarationStatement(context,
-            Declaration.createFromAST(ast.declaration, context)
+            SimpleDeclaration.createFromAST(ast.declaration, context)
         ).setAST(ast);
     }
 
-    public constructor(context: ExecutableConstructContext, declaration: Declaration | FunctionDefinition | ClassDefinition) {
+    public constructor(context: ExecutableConstructContext, declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition) {
         super(context);
         this.attach(this.declaration = declaration);
         if (declaration instanceof FunctionDefinition) {
@@ -325,6 +325,11 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
             this.sim.popUntil(func);
         }
     }
+}
+
+export interface BlockASTNode {
+    readonly construct_type: "compound_statement";
+    readonly statements: readonly StatementASTNode[];
 }
 
 export class Block extends Statement {

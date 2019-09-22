@@ -3,7 +3,7 @@ import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { StaticEntity, NamespaceScope, StringLiteralEntity } from "./entities";
 import { FunctionCall, CPPConstruct } from "./constructs";
-import { Declaration } from "./declarations";
+import { SimpleDeclaration } from "./declarations";
 
 
 
@@ -594,7 +594,7 @@ export class TranslationUnit {
 
     public readonly globalScope: NamespaceScope;
     
-    public readonly topLevelDeclarations: readonly Declaration[] = [];
+    public readonly topLevelDeclarations: readonly SimpleDeclaration[] = [];
     public readonly staticEntities: readonly StaticEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralEntity[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
@@ -684,7 +684,7 @@ export class TranslationUnit {
     
     private compileTopLevelDeclarations(ast: TranslationUnitASTNode) {
         for(var i = 0; i < ast.length; ++i){
-            var decl = Declaration.createFromAST(ast[i], {
+            var decl = SimpleDeclaration.createFromAST(ast[i], {
                 parent: null,
                 scope : this.i_globalScope,
                 translationUnit : this,

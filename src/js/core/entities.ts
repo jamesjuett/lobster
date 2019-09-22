@@ -3,7 +3,7 @@ import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
 import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType} from "./types";
-import {Declaration} from "./declarations";
+import {SimpleDeclaration} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
 import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, TemporaryObject, TemporaryObjectType } from "./objects";
@@ -612,16 +612,16 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
         }
     }
 
-    public readonly declaration: Declaration;
-    public readonly definition?: Declaration;
+    public readonly declaration: SimpleDeclaration;
+    public readonly definition?: SimpleDeclaration;
 
-    public constructor(decl: Declaration) {
+    public constructor(decl: SimpleDeclaration) {
         super(decl.type, decl.name);
         this.declaration = decl;
     }
 
-    public setDefinition(definition: Declaration) {
-        (<Declaration>this.definition) = definition;
+    public setDefinition(definition: SimpleDeclaration) {
+        (<SimpleDeclaration>this.definition) = definition;
     }
 
     public isDefined() {
@@ -769,7 +769,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEnt
     protected static _name =  "StaticEntity";
 
     // storage: "static",
-    constructor(decl: Declaration) {
+    constructor(decl: SimpleDeclaration) {
         super(decl);
     }
 
@@ -825,7 +825,7 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntit
 
     // storage: "automatic",
     
-    public constructor(decl: Declaration) {
+    public constructor(decl: SimpleDeclaration) {
         super(decl);
     }
 
@@ -1094,7 +1094,7 @@ export class MemberVariableEntity<T extends ObjectType = ObjectType> extends Dec
     public readonly access: string;
     public readonly memberOfType: Types.Class;
 
-    public constructor(decl: Declaration, memberOfType: Types.Class) {
+    public constructor(decl: SimpleDeclaration, memberOfType: Types.Class) {
         super(decl);
         this.memberOfType = memberOfType;
         this.access = decl.access;
@@ -1224,7 +1224,7 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
 }
 
 export class MagicFunctionEntity extends FunctionEntity {
-    public constructor(decl: Declaration) {
+    public constructor(decl: SimpleDeclaration) {
         super(decl);
         this.setDefinition(decl);
     }
@@ -1241,7 +1241,7 @@ export class MemberFunctionEntity extends FunctionEntity {
     public readonly isVirtual: boolean;
     public readonly pureVirtual: boolean;
 
-    constructor(decl: Declaration, containingClass: Types.Class, isVirtual: boolean) {
+    constructor(decl: SimpleDeclaration, containingClass: Types.Class, isVirtual: boolean) {
         super(decl);
         this.containingClass = containingClass;
         this.isVirtual = isVirtual;

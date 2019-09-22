@@ -8,7 +8,7 @@ import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressi
 import { Mutable, assert, asMutable } from "../util/util";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { FunctionBodyBlock, Statement } from "./statements";
+import { FunctionBodyBlock, Statement, BlockASTNode } from "./statements";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -198,7 +198,7 @@ interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export class Declaration extends BasicCPPConstruct implements ExecutableConstruct {
+export class SimpleDeclaration extends BasicCPPConstruct implements CPPConstruct {
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -207,14 +207,12 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
     public readonly otherSpecifiers: OtherSpecifiers;
 
     public abstract readonly type?: Type;
-    
-    public readonly context!: ExecutableConstructContext; // See ctor. This declaration needed to narrow type from base class.
-    
+     
     // Allow subclasses to customize behavior
     protected abstract readonly initializerAllowed: boolean;
     public abstract readonly isDefinition: boolean;
 
-    public static createFromAST(ast: DeclarationASTNode, context: ExecutableConstructContext) {
+    public static createFromAST(ast: SimpleDeclarationASTNode, context: ConstructContext) {
 
         // Need to create TypeSpecifier first to get the base type first for the declarators
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
@@ -230,7 +228,7 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
             let declaredType = declarator.type;
 
             // Create the declaration itself. Which kind depends on the declared type
-            let declaration: Declaration;
+            let declaration: SimpleDeclaration;
             if (!declaredType) {
                 declaration = new UnknownTypeDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
             }
@@ -286,7 +284,7 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
         });
     }
 
-    protected constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    protected constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context);
 
@@ -329,7 +327,7 @@ export class Declaration extends BasicCPPConstruct implements ExecutableConstruc
 }
 
 
-export class UnknownTypeDeclaration extends Declaration {
+export class UnknownTypeDeclaration extends SimpleDeclaration {
 
     // If the declared type cannot be determined, we don't want to give
     // a meaningless error that an initializer is not allowed, so we set
@@ -340,7 +338,7 @@ export class UnknownTypeDeclaration extends Declaration {
 
     public readonly type: undefined;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -349,7 +347,7 @@ export class UnknownTypeDeclaration extends Declaration {
     
 }
 
-export class VoidDeclaration extends Declaration {
+export class VoidDeclaration extends SimpleDeclaration {
 
     // Suppress meaningless error, since a void declaration is
     // always ill-formed, whether or not it has an initializer.
@@ -359,7 +357,7 @@ export class VoidDeclaration extends Declaration {
 
     public readonly type = VoidType.VOID;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -368,14 +366,14 @@ export class VoidDeclaration extends Declaration {
     
 }
 
-export class TypedefDeclaration extends Declaration {
+export class TypedefDeclaration extends SimpleDeclaration {
 
     protected readonly initializerAllowed = false;
     public readonly isDefinition = false;
 
     public readonly type: undefined; // will change when typedef is implemented
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -390,14 +388,14 @@ export class TypedefDeclaration extends Declaration {
     
 }
 
-export class FriendDeclaration extends Declaration {
+export class FriendDeclaration extends SimpleDeclaration {
 
     protected readonly initializerAllowed = false;
     public readonly isDefinition = false;
     
     public readonly type: undefined; // will change when friend is implemented
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -414,7 +412,7 @@ export class FriendDeclaration extends Declaration {
     
 }
 
-export class UnknownBoundArrayDeclaration extends Declaration {
+export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 
     // This class should only be created in cases where the size of
     // the array cannot be determined from its initializer, which is
@@ -425,7 +423,7 @@ export class UnknownBoundArrayDeclaration extends Declaration {
 
     public readonly type: ArrayOfUnknownBoundType;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ArrayOfUnknownBoundType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -436,14 +434,15 @@ export class UnknownBoundArrayDeclaration extends Declaration {
     
 }
 
-export class FunctionDeclaration extends Declaration {
+export class FunctionDeclaration extends SimpleDeclaration {
 
     protected readonly initializerAllowed = false;
     public readonly isDefinition = false;
 
     public readonly type: FunctionType;
+    public readonly declaredEntity?: FunctionEntity;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -454,7 +453,7 @@ export class FunctionDeclaration extends Declaration {
     
 }
 
-export class LocalObjectDefinition extends Declaration {
+export class LocalObjectDefinition extends SimpleDeclaration {
 
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
@@ -462,7 +461,7 @@ export class LocalObjectDefinition extends Declaration {
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType> | StaticEntity<ObjectType>;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -498,7 +497,7 @@ export class LocalObjectDefinition extends Declaration {
 }
 
 
-export class GlobalObjectDefinition extends Declaration {
+export class GlobalObjectDefinition extends SimpleDeclaration {
 
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
@@ -506,7 +505,7 @@ export class GlobalObjectDefinition extends Declaration {
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity?: StaticEntity<ObjectType>;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -541,7 +540,7 @@ export class GlobalObjectDefinition extends Declaration {
 }
 
 
-export class ParameterDefinition extends Declaration {
+export class ParameterDefinition extends SimpleDeclaration {
 
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
@@ -549,7 +548,7 @@ export class ParameterDefinition extends Declaration {
     public readonly type : PotentialParameterType;
     public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
-    public constructor(context: ExecutableConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -617,10 +616,10 @@ export class Declarator extends BasicCPPConstruct {
     public readonly name?: string;
     public readonly type?: Type;
 
-    public readonly baseType: Type;
+    public readonly baseType?: Type;
     public readonly isPureVirtual?: boolean;
 
-    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type) {
+    public static createFromAST(ast: DeclaratorASTNode, context: ConstructContext, baseType: Type | undefined) {
         return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
     }
     
@@ -630,7 +629,7 @@ export class Declarator extends BasicCPPConstruct {
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type) {
+    private constructor(context: ConstructContext, ast: DeclaratorASTNode, baseType: Type | undefined) {
         super(context);
         this.setAST(ast);
         this.baseType = baseType;
@@ -644,6 +643,10 @@ export class Declarator extends BasicCPPConstruct {
 
     private determineNameAndType(ast: DeclaratorASTNode) {
         
+        if (!this.baseType) { // If there's no base type, we really can't do much
+            return;
+        }
+
         let type = this.baseType;
 
         let first = true;
@@ -844,27 +847,45 @@ var OVERLOADABLE_OPS : {[index:string]: true?} = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-export class FunctionDefinition extends BasicCPPConstruct {
+export type FunctionBodyASTNode = BlockASTNode;
     
+export interface FunctionDefinitionASTNode extends ASTNode {
+    readonly construct_type: "function_definition";
+    readonly specs: DeclarationSpecifiersASTNode;
+    readonly declarator: DeclaratorASTNode;
+    readonly body: FunctionBodyASTNode;
+}
 
-    public readonly declaredFunction?: FunctionEntity;
+export class FunctionDefinition extends BasicCPPConstruct {
+
+    public readonly declaration: SimpleDeclaration;
+
+    public readonly declaredFunction: FunctionEntity;
     public readonly implementation?: FunctionImplementation;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) {
-
-        let bodyScope = new FunctionBlockScope(context.contextualScope);
         
-        let newContext : ExecutableConstructContext = Object.assign({}, context, {contextualScope: FunctionBlockScope, containingFunction: this});
-
-        let functionDef = new FunctionDefinition()
+        let declaration = SimpleDeclaration.createFromAST({
+            construct_type: "simple_declaration",
+            declarators: [ast.declarator],
+            specs: ast.specs
+        }, context);
         
-        return new FunctionDefinition(newContext, blockScope, statements);
+        if (declaration instanceof FunctionDeclaration) {
+            declaration.
+        }
+
+        let functionDef = new FunctionDefinition(context, typeSpec, storageSpec, declarator, ast.specs);
+
+        let body = FunctionBodyBlock.createFromAST(ast.body, Object.assign({}, context, {containingFunction: functionDef.declaredFunction}));
+        functionDef.setImplementation(new FunctionImplementation(context, functionDef.declaredFunction, body));
+
+        return functionDef;
     }
-    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers) {
-        super(context);
 
-        
+    public constructor(context: ConstructContext, declaration: FunctionDeclaration) {
+
+        super(context);
 
     }
     
@@ -881,7 +902,7 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
 
     public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
     
-    public readonly func: FunctionEntity;
+    public readonly containingFunction: FunctionEntity;
     
     public readonly body: FunctionBodyBlock;
 
@@ -890,27 +911,14 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    // public static create(context: ConstructContext, ) {
-
-    //     let bodyScope = new FunctionBlockScope(context.contextualScope);
-        
-    //     let newContext : ExecutableConstructContext = Object.assign({}, context, {contextualScope: FunctionBlockScope, containingFunction: this});
-
-        
-    //     return new FunctionDefinition(newContext, blockScope, statements);
-    // }
-
-    public constructor(context: ConstructContext, func: FunctionEntity, body: FunctionBodyBlock) {
+    public constructor(context: ExecutableConstructContext, func: FunctionEntity, body: FunctionBodyBlock) {
         super(context);
 
-        this.func = func;
+        this.containingFunction = func;
         this.body = body;
     }
     
     i_createFromAST : function(ast, context) {
-        FunctionDefinition._parent.i_createFromAST.apply(this, arguments);
-        this.calls = [];
-
         // Check if it's a member function
         // if (context.containingClass) {
         //     this.isMemberFunction = true;
@@ -920,7 +928,6 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
         // }
         // this.memberInitializers = [];
 
-        this.body = CPPConstruct.create(this.ast.body, {func: this, parent: this}, Statements.FunctionBodyBlock);
     },
 
     compile : function(){
@@ -931,15 +938,6 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
     // EFFECTS: returns an array of errors
     compileDeclaration : function(){
         var ast = this.ast;
-
-
-        // This function's scope (actually scope used for its body block)
-        this.bodyScope = this.body.blockScope;
-
-        this.compileDeclarator();
-        if (this.hasErrors()){
-            return;
-        }
 
         // Add entity to scope
         try{
@@ -974,31 +972,7 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
                 throw e;
             }
         }
-    },
-
-    // Responsible for setting the type, params, and paramTypes properties
-    compileDeclarator : function(){
-        // Compile the type specifier
-        var typeSpec = TypeSpecifier.instance(this.ast.specs.typeSpecs, {parent: this});
-        typeSpec.compile();
-        if (this.hasErrors()){
-            return;
-        }
-
-        this.virtual = !!this.ast.specs.virtual;
-
-        // Compile the declarator
-        var decl = this.declarator = Declarator.instance(this.ast.declarator, {parent: this, scope: this.bodyScope});
-        decl.compile({baseType: typeSpec.type});
-        this.name = decl.name;
-        this.isMain = this.name === "main";
-        this.type = decl.type;
-
-        this.params = this.declarator.params || [];
-        this.paramTypes = this.params.map(function(param){
-            return param.type;
-        });
-    },
+    }
 
     compileDefinition : function(){
         var self = this;
@@ -1386,7 +1360,7 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
             var access = spec.access || "private";
             for(var j = 0; j < spec.members.length; ++j){
                 spec.members[j].access = access;
-                var memDecl = Declaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
+                var memDecl = SimpleDeclaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
 
                 // Within member function definitions, class is considered as complete even though it isn't yet
                 if (isA(memDecl, FunctionDefinition)){
@@ -1648,7 +1622,7 @@ export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {
     }
 });
 
-export var MemberDeclaration = Declaration.extend({
+export var MemberDeclaration = SimpleDeclaration.extend({
     _name: "MemberDeclaration",
     init: function(ast, context){
         assert(context);
