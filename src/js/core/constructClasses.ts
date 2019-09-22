@@ -24,7 +24,7 @@ export const CONSTRUCT_CLASSES: {[index:string]: any} = {
     continue_statement : Statements.Continue,
     return_statement : Statements.Return,
     declaration_statement : Statements.DeclarationStatement,
-    simple_declaration : Declarations.Declaration,
+    simple_declaration : Declarations.SimpleDeclaration,
     class_declaration : Declarations.ClassDeclaration,
     function_definition : Declarations.FunctionDefinition,
     constructor_definition : Declarations.ConstructorDefinition,
