@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, ExecutableConstruct, ExecutableConstructContext, RuntimeConstruct, InstructionConstruct, PotentialFullExpression, RuntimePotentialFullExpression, CompiledConstruct, ExecutableRuntimeConstruct } from "./constructs";
+import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, InstructionConstruct, PotentialFullExpression, RuntimePotentialFullExpression, CompiledConstruct, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, ParameterEntity } from "./entities";
 import { FunctionBodyBlock, RuntimeBlock, CompiledFunctionBodyBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType } from "./types";
@@ -12,10 +12,14 @@ import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
 import { CPPError } from "./errors";
 
+export function createFunctionContext(context: ConstructContext, containingFunction: FunctionEntity) : FunctionContext {
+    return Object.assign({}, context, {containingFunction: containingFunction});
+}
+
 export class FunctionImplementation extends BasicCPPConstruct implements ExecutableConstruct {
 
     public readonly parent?: ExecutableConstruct;
-    public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
+    public readonly context!: FunctionContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
     public readonly containingFunction: FunctionEntity;
     public readonly body: FunctionBodyBlock;
 
@@ -24,7 +28,7 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: ExecutableConstructContext, func: FunctionEntity, body: FunctionBodyBlock) {
+    public constructor(context: FunctionContext, func: FunctionEntity, body: FunctionBodyBlock) {
         super(context);
 
         this.containingFunction = func;
@@ -460,7 +464,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    public constructor(context: ExecutableConstructContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: FunctionContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;

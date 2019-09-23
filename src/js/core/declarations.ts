@@ -1,4 +1,4 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, ExecutableConstructContext, InvalidConstruct } from "./constructs";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ReceiverEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
 import { Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
@@ -8,8 +8,8 @@ import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressi
 import { Mutable, assert, asMutable } from "../util/util";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { FunctionBodyBlock, Statement, BlockASTNode } from "./statements";
-import { FunctionImplementation } from "./functions";
+import { Statement, BlockASTNode, createBlockContext, Block, BlockContext } from "./statements";
+import { FunctionImplementation, createFunctionContext } from "./functions";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -22,6 +22,8 @@ export class StorageSpecifier extends BasicCPPConstruct {
     public readonly thread_local?: true;
     public readonly extern?: true;
     public readonly mutable?: true;
+
+    public readonly isEmpty: boolean;
 
     public static createFromAST(ast: StorageSpecifierASTNode, context: ConstructContext) {
         return new StorageSpecifier(context, ast);
@@ -74,6 +76,8 @@ export class StorageSpecifier extends BasicCPPConstruct {
         else{
             this.addNote(CPPError.declaration.storage.incompatible(this, specs));
         }
+
+        this.isEmpty = (numSpecs === 0);
     }
 }
 
@@ -444,6 +448,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
+
+    public readonly parameterDeclarators: readonly Declarator[]; // defined if this is a declarator of function type
     
     public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -453,7 +459,9 @@ export class FunctionDeclaration extends SimpleDeclaration {
         this.type = type;
         this.declaredEntity = new FunctionEntity(this);
 
-        
+        assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
+        this.parameterDeclarators = this.declarator.parameters!;
+
         // If main, should have no parameters
         if (this.declaredEntity.isMain() && this.type.paramTypes.length > 0) {
             this.addNote(CPPError.declaration.func.mainParams(this.declarator));
@@ -593,8 +601,8 @@ export class ParameterDefinition extends SimpleDeclaration {
     public readonly type : PotentialParameterType;
     public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
-    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
+    public constructor(context: FunctionContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: PotentialParameterType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -797,8 +805,16 @@ export class Declarator extends BasicCPPConstruct {
 
                         let paramDeclarators = postfix.args.map((argAST) => {
                             
+                            let storageSpec = StorageSpecifier.createFromAST(argAST.specs.storageSpecs, this.context);
+                            this.attach(storageSpec);
+
+                            if (!storageSpec.isEmpty) {
+                                storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(this));
+                            }
+
                             // Need to create TypeSpecifier first to get the base type first for the declarators
                             let typeSpec = TypeSpecifier.createFromAST(argAST.specs.typeSpecs, this.context);
+                            this.attach(typeSpec);
                             
                             // Compile declarator for each parameter (of the function-type argument itself)
                             return Declarator.createFromAST(argAST.declarator, this.context, typeSpec.type);
@@ -809,6 +825,7 @@ export class Declarator extends BasicCPPConstruct {
                             if (!decl.type) { return decl.type; }
                             if (!decl.type.isArrayType()) { return decl.type; }
                             else { return decl.type.adjustToPointerType();}
+                        });
 
                         // A parameter list of just (void) specifies no parameters
                         if (paramTypes.length == 1 && paramTypes[0] && paramTypes[0].isVoidType()) {
@@ -879,10 +896,16 @@ export class Declarator extends BasicCPPConstruct {
         }
 
         (<Mutable<this>>this).type = type;
+
+        // If it's not a function type, the recorded parameters aren't meaningful
+        if (!type.isFunctionType()) {
+            delete (<Mutable<this>>this).parameters;
+        }
     }
 }
 
-var OVERLOADABLE_OPS : {[index:string]: true | undefined} = {};
+
+let OVERLOADABLE_OPS : {[index:string]: true | undefined} = {};
 
 ["new[]"
     , "delete[]"
@@ -924,19 +947,23 @@ export class FunctionDefinition extends BasicCPPConstruct {
             return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
         }
 
-        let funcContext = Object.assign({}, context, {containingFunction: declaration.declaredEntity});
-        let body = FunctionBodyBlock.createFromAST(ast.body, funcContext);
-        let functionDef = new FunctionDefinition(context, declaration, body);
-
-        return functionDef;
+        let newContext = createBlockContext(createFunctionContext(context, declaration.declaredEntity));
+        let parameters = declaration.parameterDeclarators.map((paramDeclarator) => {
+            return new ParameterDefinition(newContext,
+                TypeSpecifier.createFromAST([], newContext),
+                StorageSpecifier.createFromAST([], newContext),
+                paramDeclarator,
+                {}, <PotentialParameterType>paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
+        })
+        let body = Block.createFromAST(ast.body, newContext);
+        let implementation = new FunctionImplementation(newContext, declaration.declaredEntity, body);
+        return new FunctionDefinition(newContext, declaration, implementation);
     }
 
-    public constructor(context: ConstructContext, declaration: FunctionDeclaration, body: FunctionBodyBlock) {
+    public constructor(context: FunctionContext, declaration: FunctionDeclaration, implementation: FunctionImplementation) {
         super(context);
         this.attach(this.declaration = declaration);
-
-        let funcContext = Object.assign({}, context, {containingFunction: declaration.declaredEntity});
-        this.attach(this.implementation = new FunctionImplementation(funcContext, declaration.declaredEntity, body));
+        this.attach(this.implementation = implementation);
 
         // TODO: register definition or implementation with the entity or with the linker somehow
     }

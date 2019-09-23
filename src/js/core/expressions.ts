@@ -1,6 +1,6 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, ExecutableConstructContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
+import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, FunctionContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
 import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
@@ -83,7 +83,7 @@ export abstract class Expression extends PotentialFullExpression {
     public abstract readonly valueCategory: ValueCategory?;
     public readonly conversionLength: number = 0;
 
-    protected constructor(context: ExecutableConstructContext) {
+    protected constructor(context: FunctionContext) {
         super(context);
     }
 
@@ -210,7 +210,7 @@ export class UnsupportedExpression extends Expression {
     public readonly type = null;
     public readonly valueCategory = null;
 
-    public constructor(context: ExecutableConstructContext, unsupportedName: string) {
+    public constructor(context: FunctionContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
@@ -358,7 +358,7 @@ export class OperatorOverload extends Expression {
     public readonly isMemberOverload?: boolean;
     public readonly overloadFunctionCall?: FunctionCall;
 
-    private constructor(context: ExecutableConstructContext, operands: Expression[], operator: t_OverloadableOperators) {
+    private constructor(context: FunctionContext, operands: Expression[], operator: t_OverloadableOperators) {
         super(context);
 
         this.operator = operator;
@@ -493,7 +493,7 @@ export class Comma extends Expression {
     public readonly left: Expression;
     public readonly right: Expression;
 
-    public constructor(context: ExecutableConstructContext, left: Expression, right: Expression) {
+    public constructor(context: FunctionContext, left: Expression, right: Expression) {
         super(context);
         this.type = right.type;
         this.valueCategory = right.valueCategory;
@@ -570,7 +570,7 @@ export class Ternary extends Expression {
     //     return !this.hasErrors;
     // }
 
-    public constructor(context: ExecutableConstructContext, condition: Expression, then: Expression, otherwise: Expression) {
+    public constructor(context: FunctionContext, condition: Expression, then: Expression, otherwise: Expression) {
         super(context);
         
         if(condition.isWellTyped()) {
@@ -709,7 +709,7 @@ export class Assignment extends Expression {
     
     // public readonly _t_compiled!: CompiledAssignment;
 
-    private constructor(context: ExecutableConstructContext, lhs: Expression, rhs: Expression) {
+    private constructor(context: FunctionContext, lhs: Expression, rhs: Expression) {
         super(context);
 
         // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
@@ -1124,7 +1124,7 @@ export abstract class BinaryOperator extends Expression {
     
     public readonly _t_compiled!: CompiledBinaryOperator;
 
-    protected constructor(context: ExecutableConstructContext, operator: t_BinaryOperators) {
+    protected constructor(context: FunctionContext, operator: t_BinaryOperators) {
         super(context)
         this.operator = operator;
     }
@@ -1163,7 +1163,7 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
     public readonly operator!: t_ArithmeticBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
+    protected constructor(context: FunctionContext, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
         super(context, operator);
 
         if (!left.isWellTyped() || !right.isWellTyped()) {
@@ -1263,7 +1263,7 @@ class PointerOffset extends BinaryOperator {
 
     public readonly operator! : "+"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
+    protected constructor(context: FunctionContext, left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
         super(context, "+");
 
         // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
@@ -1381,7 +1381,7 @@ class PointerDifference extends BinaryOperator {
 
     public readonly operator! : "-"; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
+    protected constructor(context: FunctionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
         super(context, "-");
 
         // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
@@ -1515,7 +1515,7 @@ class LogicalBinaryOperator extends BinaryOperator {
 
     public readonly operator!: t_LogicalBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExecutableConstructContext, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
+    protected constructor(context: FunctionContext, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
         super(context, operator);
 
         if (left.isWellTyped() && right.isWellTyped()) {
@@ -2387,7 +2387,7 @@ export class FunctionCallExpression extends Expression {
     
     public readonly _t_compiled!: CompiledFunctionCallExpression;
 
-    public constructor(context: ExecutableConstructContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
+    public constructor(context: FunctionContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2986,7 +2986,7 @@ export class Identifier extends Expression {
     //     this.identifierText = qualifiedNameString(this.identifier);
     // },
 
-    public constructor(context: ExecutableConstructContext, name: Name) {
+    public constructor(context: FunctionContext, name: Name) {
         super(context);
         this.name = name;
         checkIdentifier(this, name, this);
@@ -3203,7 +3203,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
 
-    constructor(context: ExecutableConstructContext, type: T, value: RawValueType) {
+    constructor(context: FunctionContext, type: T, value: RawValueType) {
         super(context);
 
         this.type = type;
@@ -3303,7 +3303,7 @@ export class Parentheses extends Expression {
 
     public readonly _t_compiled!: CompiledParentheses;
 
-    public constructor(context: ExecutableConstructContext, subexpression: Expression) {
+    public constructor(context: FunctionContext, subexpression: Expression) {
         super(context);
 
         this.attach(this.subexpression = subexpression);

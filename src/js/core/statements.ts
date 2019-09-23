@@ -1,5 +1,5 @@
 
-import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, ExecutableConstructContext, CompiledConstruct } from "./constructs";
+import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, FunctionContext, CompiledConstruct } from "./constructs";
 import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
 import { Simulation } from "./Simulation";
@@ -74,13 +74,13 @@ export class ExpressionStatement extends Statement {
 
     public readonly expression: Expression;
 
-    public static createFromAST(ast: ExpressionStatementASTNode, context: ExecutableConstructContext) {
+    public static createFromAST(ast: ExpressionStatementASTNode, context: FunctionContext) {
         return new ExpressionStatement(context,
             Expression.createFromAST(ast.expression, context)
         ).setAST(ast);
     }
 
-    public constructor(context: ExecutableConstructContext, expression: Expression) {
+    public constructor(context: FunctionContext, expression: Expression) {
         super(context);
         this.attach(this.expression = expression);
     }
@@ -165,13 +165,13 @@ export class DeclarationStatement extends Statement {
 
     public readonly declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition;
 
-    public static createFromAST(ast: DeclarationStatementASTNode, context: ExecutableConstructContext) {
+    public static createFromAST(ast: DeclarationStatementASTNode, context: FunctionContext) {
         return new DeclarationStatement(context,
             SimpleDeclaration.createFromAST(ast.declaration, context)
         ).setAST(ast);
     }
 
-    public constructor(context: ExecutableConstructContext, declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition) {
+    public constructor(context: FunctionContext, declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition) {
         super(context);
         this.attach(this.declaration = declaration);
         if (declaration instanceof FunctionDefinition) {
@@ -236,13 +236,13 @@ export class ReturnStatement extends Statement {
     // TODO: Technically, this should be CopyInitializer
     public readonly returnInitializer?: DirectInitializer;
 
-    public static createFromAST(ast: ReturnStatementASTNode, context: ExecutableConstructContext) {
+    public static createFromAST(ast: ReturnStatementASTNode, context: FunctionContext) {
         return ast.expression
             ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context))
             : new ReturnStatement(context);
     }
 
-    public constructor(context: ExecutableConstructContext, expression?: Expression) {
+    public constructor(context: FunctionContext, expression?: Expression) {
         super(context);
         this.expression = expression;
 
@@ -332,27 +332,27 @@ export interface BlockASTNode {
     readonly statements: readonly StatementASTNode[];
 }
 
+export function createBlockContext(context: FunctionContext) : BlockContext {
+    return Object.assign({}, context, {contextualScope: new BlockScope(context.contextualScope)});
+}
+
+export interface BlockContext extends FunctionContext {
+    contextualScope: BlockScope;
+}
+
 export class Block extends Statement {
 
     public readonly statements: readonly Statement[];
 
-    public readonly scope: BlockScope;
+    public static createFromAST(ast: BlockASTNode, context: BlockContext) {
 
-    public static createFromAST(ast: BlockASTNode, context: ExecutableConstructContext) {
-
-        let blockScope = new BlockScope(context.contextualScope);
+        let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, context));
         
-        let newContext = Object.assign({}, context, {contextualScope: blockScope});
-
-        let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, newContext));
-        
-        return new Block(newContext, blockScope, statements);
+        return new Block(context, statements);
     }
 
-    public constructor(context: ExecutableConstructContext, blockScope: BlockScope, statements: readonly Statement[]) {
+    public constructor(context: BlockContext, statements: readonly Statement[]) {
         super(context);
-
-        this.scope = blockScope;
 
         this.statements = statements;
     }
@@ -429,17 +429,17 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
     // }
 }
 
-export class FunctionBodyBlock extends Block {
+// export class FunctionBodyBlock extends Block {
 
-    public constructor(context: ExecutableConstructContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
-        super(context, functionBlockScope, statements);
-    }
+//     public constructor(context: ExecutableConstructContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
+//         super(context, functionBlockScope, statements);
+//     }
 
-}
+// }
 
-export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, CompiledConstruct {
-    readonly statements: readonly CompiledStatement[];
-}
+// export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, CompiledConstruct {
+//     readonly statements: readonly CompiledStatement[];
+// }
 
 // export var OpaqueFunctionBodyBlock = Statement.extend({
 //     _name: "OpaqueFunctionBodyBlock",
