@@ -434,6 +434,11 @@ export class FunctionBodyBlock extends Block {
     public constructor(context: ExecutableConstructContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
         super(context, functionBlockScope, statements);
     }
+
+}
+
+export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, CompiledConstruct {
+    readonly statements: readonly CompiledStatement[];
 }
 
 // export var OpaqueFunctionBodyBlock = Statement.extend({

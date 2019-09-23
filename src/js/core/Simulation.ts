@@ -1,12 +1,13 @@
 import { Observable } from "../util/observe";
+import { Program } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { ExecutableRuntimeConstruct, RuntimeFunction } from "./constructs";
-import { Mutable, escapeString, CPPMath, CPPRandom } from "../util/util";
-import { FunctionCall, RuntimeExpression } from "./expressions";
-import { Initializer } from "./initializers";
-import { CPPObject, DynamicObject, MainReturnObject } from "./objects";
-import { FunctionDefinition } from "./declarations";
+import { RuntimeConstruct, ExecutableRuntimeConstruct } from "./constructs";
+import { CPPRandom, Mutable, escapeString } from "../util/util";
+import { DynamicObject, MainReturnObject } from "./objects";
+import { RuntimeFunction } from "./functions";
 import { Int, PointerType, Char } from "./types";
+import { Initializer } from "./initializers";
+
 
 enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
@@ -26,8 +27,8 @@ export class Simulation {
 
     public readonly memory: Memory;
 
-    private readonly _execStack: ExecutableRuntimeConstruct[];
-    public readonly execStack: readonly ExecutableRuntimeConstruct[];
+    private readonly _execStack: RuntimeConstruct[];
+    public readonly execStack: readonly RuntimeConstruct[];
 
     private readonly console : ValueEntity;
 
@@ -149,7 +150,7 @@ export class Simulation {
         this.mainFunction.gainControl();
     }
     
-    public push(rt: ExecutableRuntimeConstruct) {
+    public push(rt: RuntimeConstruct) {
         this._execStack.push(rt);
         rt.pushed();
         this.observable.send("pushed", rt);
