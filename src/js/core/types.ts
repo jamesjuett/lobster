@@ -940,6 +940,10 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
         return new ArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
     
+    public adjustToPointerType() {
+        return new PointerType(this.elemType, false, false);
+    }
+
 	// public valueToString(value: RawValueType) {
 	// 	return ""+value;
     // }
@@ -1004,6 +1008,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
+    }
+    
+    public adjustToPointerType() {
+        return new PointerType(this.elemType, false, false);
     }
 }
 

@@ -705,7 +705,7 @@ export class TranslationUnit {
         asMutable(this.stringLiterals).push(literal);
     }
 
-    public registerFunctionCall(call: Function) {
+    public registerFunctionCall(call: FunctionCall) {
         asMutable(this.functionCalls).push(call);
     }
 
