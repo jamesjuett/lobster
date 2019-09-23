@@ -350,7 +350,7 @@ export class InvalidConstruct extends BasicCPPConstruct {
 export interface ExecutableConstruct extends CPPConstruct {
     // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
     readonly containingFunction: FunctionEntity;
-    readonly context: ExecutableConstructContext;
+    readonly context: FunctionContext;
     
 }
 
@@ -366,7 +366,7 @@ export interface CompiledExecutableConstruct extends CPPConstruct, CompiledConst
 
 }
 
-export interface ExecutableConstructContext extends ConstructContext {
+export interface FunctionContext extends ConstructContext {
     readonly containingFunction: FunctionEntity;
 }
 
@@ -475,7 +475,7 @@ export class TemporaryDeallocator extends InstructionConstruct {
 
     public readonly dtors: (MemberFunctionCall | null)[];
 
-    public constructor(context: ExecutableConstructContext, temporaryObjects: TemporaryObjectEntity[] ) {
+    public constructor(context: FunctionContext, temporaryObjects: TemporaryObjectEntity[] ) {
         super(context);
         this.temporaryObjects = temporaryObjects;
 

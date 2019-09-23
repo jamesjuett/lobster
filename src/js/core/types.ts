@@ -413,7 +413,7 @@ export abstract class ObjectType extends TypeBase {
 
 export type PotentialReturnType = ObjectType | ReferenceType | VoidType;
 
-export type PotentialParameterType = ObjectType | ReferenceType;
+export type PotentialParameterType = AtomicType | ClassType | ReferenceType; // Does not include arrays
 
 /**
  * Represents a type for an object that has a value.
@@ -1009,7 +1009,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
     }
-    
+
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }

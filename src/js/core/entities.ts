@@ -304,7 +304,7 @@ export class Scope {
 
 });
 
-export var BlockScope = Scope.extend({
+export class BlockScope extends Scope {
     _name: "BlockScope",
     addAutomaticEntity : function(obj){
         assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");

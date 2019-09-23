@@ -428,6 +428,14 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
             }
         },
+        parameter : {
+            storage_prohibited : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.storage_prohibited", "Storage specifiers are not permitted in parameter declarations.");
+            },
+            virtual_prohibited : function(construct: CPPConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
+            }
+        },
         unknown_type : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.unknown_type", "Unable to determine the type declared here.");
         },
