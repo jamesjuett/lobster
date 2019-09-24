@@ -1,7 +1,7 @@
 import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type } from "./types";
-import { CPPEntity } from "./entities";
+import { CPPEntity, DeclaredEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "./declarations";
 
 export interface Description {
@@ -444,6 +444,9 @@ export const CPPError = {
         },
         virtual_prohibited : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.virtual_prohibited", "The virtual keyword may only be used in member function declarations.");
+        },
+        type_mismatch : function(construct: CPPConstruct, newEntity: DeclaredEntity, existingEntity: DeclaredEntity) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.type_mismatch", `Type mismatch. This declaration for ${newEntity.name} has type ${newEntity.type}, but a previous declaration of ${existingEntity.name} has type ${existingEntity.type}`);
         },
 	},
 	type : {

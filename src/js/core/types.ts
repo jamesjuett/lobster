@@ -1350,10 +1350,7 @@ export class FunctionType extends TypeBase {
         return this.sameType(other);
     }
 
-    public sameParamTypes(other: Type) {
-        if (!(other instanceof FunctionType)) {
-            return false;
-        }
+    public sameParamTypes(other: FunctionType) {
         let otherParamTypes = other.paramTypes;
         if (this.paramTypes.length !== otherParamTypes.length){
             return false;
@@ -1366,18 +1363,11 @@ export class FunctionType extends TypeBase {
         return true;
     }
 
-    public sameReturnType(other: Type) {
-        if (!(other instanceof FunctionType)) {
-            return false;
-        }
+    public sameReturnType(other: FunctionType) {
         return this.returnType.sameType(other.returnType);
     }
 
-    public sameReceiverType(other: Type) {
-        if (!(other instanceof FunctionType)) {
-            return false;
-        }
-
+    public sameReceiverType(other: FunctionType) {
         if (!this.receiverType || !other.receiverType) {
             // If either does not have a receiver, return true only if neither has a receiver
             return !this.receiverType && !other.receiverType;
@@ -1386,10 +1376,8 @@ export class FunctionType extends TypeBase {
         return this.receiverType.sameType(other.receiverType);
     }
 
-    public sameSignature(other: Type) {
-        if (!(other instanceof FunctionType)) {
-            return this.sameReceiverType(other) && this.sameParamTypes(other);
-        }
+    public sameSignature(other: FunctionType) {
+        return this.sameReceiverType(other) && this.sameParamTypes(other);
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {

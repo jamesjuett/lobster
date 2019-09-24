@@ -26,17 +26,17 @@ export class Scope {
     private static HIDDEN = Symbol("HIDDEN");
     private static NO_MATCH = Symbol("NO_MATCH");
 
-    private readonly entities: {[index:string]: CPPEntity | FunctionOverloadGroup};
-    private parent: Scope?;
+    private readonly entities: {[index:string]: DeclaredEntity | FunctionEntity[] | undefined};
+    private parent?: Scope;
 
-    public constructor(parent: Scope | null) {
+    public constructor(parent?: Scope) {
         this.entities = {};
         this.parent = parent;
     }
 
     public toString() {
-        var str = "";
-        for(var key in this.entities){
+        let str = "";
+        for(let key in this.entities) {
             str += this.entities[key] + "\n";
         }
         return str;
@@ -81,51 +81,69 @@ export class Scope {
         return ents;
     }
 
-    // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
-    /**
-     * Attempts to add a new entity to this scope.
-     * @param {DeclaredEntity} entity - The entity to attempt to add.
-     * @returns {DeclaredEntity} Either the entity that was added, or an existing one already there, assuming it was compatible.
-     * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. Function declarations with
-     * the same signature but a mismatch of return types, duplicate definition)
-     */
-    public addDeclaredEntity(entity: DeclaredEntity) {
-        var otherEnt = this.ownEntity(entity.name);
-
-        if (!otherEnt) { // No previous entity with this name, so just add it
-            this.addEntity(entity);
+    private addDeclaredNonFunctionEntity<T extends Type>(newEntity: DeclaredEntity<T>, existingEntity: DeclaredEntity | FunctionEntity[]) {
+        if (Array.isArray(existingEntity)) { // an array indicates a function overload group was found
+            throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity[0]);
         }
-        else if (Array.isArray(otherEnt)){ // Array means a set of functions, check each one
-            for (var i = 0; i < otherEnt.length; ++i){
-                var otherFunc = otherEnt[i];
+        else {
+            // both are non-functions, so attempt to merge
+            DeclaredEntity.merge(newEntity, existingEntity);
+            return existingEntity;
+        }
+    }
 
+    private addDeclaredFunctionEntity<T extends Type>(newEntity: FunctionEntity, existingEntity: DeclaredEntity | FunctionEntity[]) {
+        if (!Array.isArray(existingEntity)) { // It's not a function overload group
+            DeclaredEntity.merge(newEntity, existingEntity);
+            return existingEntity;
+        }
+        else { // It is a function overload group, check each other function found
+            existingEntity.forEach((otherFunc) => {
                 // Look for any function with the same signature
-                if (entity.type.sameSignature(otherFunc.type)) {
+                // Functions with different signatures are different overloads and are fine
+                if (newEntity.type.sameSignature(otherFunc.type)) {
 
                     // If they have mismatched return types, that's a problem.
-                    if (!entity.type.sameReturnType(otherFunc.type)) {
-                        throw CPPError.declaration.func.returnTypesMatch([entity.decl, otherFunc.decl], entity.name);
+                    if (!newEntity.type.sameReturnType(otherFunc.type)) {
+                        throw CPPError.declaration.func.returnTypesMatch([newEntity.decl, otherFunc.decl], newEntity.name);
                     }
 
-                    DeclaredEntity.merge(entity, otherFunc);
+                    DeclaredEntity.merge(newEntity, otherFunc);
 
                     // Terminates early when the first match is found. It's not possible there would be more than one match.
                     return otherFunc;
                 }
-            }
+            });
 
             // If none were found with the same signature, this is an overload, so go ahead and add it
-            this.addEntity(entity);
-
+            this.addEntity(newEntity);
+            return newEntity;
         }
-        else{
-            DeclaredEntity.merge(entity, otherEnt);
-            return otherEnt;
-        }
-    },
 
-    public ownEntity(name: string) {
-        return this.entities[name];
+    }
+
+    // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
+    /**
+     * Attempts to add a new entity to this scope.
+     * @param {DeclaredEntity} newEntity - The entity to attempt to add.
+     * @returns {DeclaredEntity} Either the entity that was added, or an existing one already there, assuming it was compatible.
+     * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. Function declarations with
+     * the same signature but a mismatch of return types, duplicate definition)
+     */
+    public addDeclaredEntity<T extends Type>(newEntity: DeclaredEntity<T>) {
+        let existingEntity = this.entities[newEntity.name];
+
+        if (!existingEntity) { // No previous entity with this name, so just add it
+            this.addEntity(newEntity);
+            return newEntity;
+        }
+        
+        if (newEntity instanceof FunctionEntity) {
+            return this.addDeclaredFunctionEntity(newEntity, existingEntity);
+        }
+        else {
+            return this.addDeclaredNonFunctionEntity(newEntity, existingEntity);
+        }
     }
 
     singleLookup : function(name, options){
@@ -613,7 +631,7 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     }
 
     public readonly declaration: SimpleDeclaration;
-    public readonly definition?: SimpleDeclaration;
+    // public readonly definition?: SimpleDeclaration;
 
     public constructor(decl: SimpleDeclaration) {
         super(decl.type, decl.name);
