@@ -1,7 +1,7 @@
 import clone from "lodash/clone";
 import * as Util from "../util/util";
 import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, FunctionContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
-import { CPPEntity, FunctionEntity, MemberFunctionEntity, ParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
+import { CPPEntity, FunctionEntity, MemberFunctionEntity, PassByValueParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { CPPError, Description } from "./errors";
 import { checkIdentifier, Name } from "./lexical";
 import { CPPObject } from "./objects";
