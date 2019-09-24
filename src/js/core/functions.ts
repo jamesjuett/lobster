@@ -1,12 +1,11 @@
-import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, InstructionConstruct, PotentialFullExpression, RuntimePotentialFullExpression, CompiledConstruct, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
-import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, ParameterEntity } from "./entities";
-import { FunctionBodyBlock, RuntimeBlock, CompiledFunctionBodyBlock } from "./statements";
+import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, CompiledConstruct, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
+import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity } from "./entities";
+import { RuntimeBlock, Block, CompiledBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType } from "./types";
 import { MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
 import { Mutable, assert } from "../util/util";
-import { FunctionDefinition } from "./declarations";
 import { TypedExpression, ValueCategory } from "./expressions";
 import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
@@ -16,22 +15,25 @@ export function createFunctionContext(context: ConstructContext, containingFunct
     return Object.assign({}, context, {containingFunction: containingFunction});
 }
 
-export class FunctionImplementation extends BasicCPPConstruct implements ExecutableConstruct {
+export class FunctionImplementation extends BasicCPPConstruct {
 
-    public readonly parent?: ExecutableConstruct;
     public readonly context!: FunctionContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
-    public readonly containingFunction: FunctionEntity;
-    public readonly body: FunctionBodyBlock;
+
+    public readonly func: FunctionEntity;
+    public readonly parameters: readonly LocalVariableEntity[];
+
+    public readonly body: Block;
 
     // public readonly localObjects: AutoEntity;
 
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, func: FunctionEntity, body: FunctionBodyBlock) {
+    public constructor(context: FunctionContext, func: FunctionEntity, parameters: readonly LocalVariableEntity[], body: Block) {
         super(context);
 
-        this.containingFunction = func;
+        this.func = func;
+        this.parameters = clone(parameters); // parameter definitions are already attached elsewhere
         this.attach(this.body = body);
 
         // TODO: need to create ParameterDefinitions for each parameter
@@ -275,7 +277,7 @@ export class FunctionImplementation extends BasicCPPConstruct implements Executa
 }
 
 export interface CompiledFunctionImplementation extends FunctionImplementation, CompiledConstruct {
-    readonly body: CompiledFunctionBodyBlock;
+    readonly body: CompiledBlock;
 }
 
 enum RuntimeFunctionIndices {
@@ -475,7 +477,7 @@ export class FunctionCall extends PotentialFullExpression {
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            return CopyInitializer.create(context, new ParameterEntity(this.func.type.paramTypes[i], i), [arg]);
+            return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, this.func.definition), [arg]);
         });
 
         // TODO

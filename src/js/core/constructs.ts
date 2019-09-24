@@ -4,7 +4,7 @@ import { CONSTRUCT_CLASSES } from "./constructClasses";
 import { assert, Mutable, asMutable } from "../util/util";
 import { SourceCode } from "./lexical";
 import { FunctionDefinition } from "./declarations";
-import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, ParameterEntity, ReturnReferenceEntity } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, PassByValueParameterEntity, ReturnReferenceEntity } from "./entities";
 import { TranslationUnit, SourceReference } from "./Program";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
