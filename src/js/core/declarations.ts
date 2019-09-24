@@ -956,7 +956,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
                 {}, <PotentialParameterType>paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
         })
         let body = Block.createFromAST(ast.body, newContext);
-        let implementation = new FunctionImplementation(newContext, declaration.declaredEntity, body);
+        let implementation = new FunctionImplementation(newContext, declaration.declaredEntity, parameters, body);
         return new FunctionDefinition(newContext, declaration, implementation);
     }
 

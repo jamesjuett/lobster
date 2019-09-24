@@ -2,8 +2,8 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType} from "./types";
-import {SimpleDeclaration} from "./declarations";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType} from "./types";
+import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
 import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, TemporaryObject, TemporaryObjectType } from "./objects";
@@ -12,6 +12,7 @@ import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 import { Value, Memory } from "./runtimeEnvironment";
 import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression } from "./constructs";
+import { FunctionImplementation } from "./functions";
 
 export interface LookupOptions {
     own?: boolean;
@@ -22,14 +23,13 @@ export interface LookupOptions {
 
 export class Scope {
 
-    private static _name = "Scope";
     private static HIDDEN = Symbol("HIDDEN");
     private static NO_MATCH = Symbol("NO_MATCH");
 
-    private readonly entities: {[index:string]: CPPEntity | CPPEntity[]};
+    private readonly entities: {[index:string]: CPPEntity | FunctionOverloadGroup};
     private parent: Scope?;
 
-    constructor(parent: Scope | null) {
+    public constructor(parent: Scope | null) {
         this.entities = {};
         this.parent = parent;
     }
@@ -671,6 +671,8 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 };
 
+export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<T> | LocalReferenceEntity<T>;
+
 // export class GlobalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
 
 //     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
@@ -853,19 +855,28 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntit
 };
 
 // TODO: will need to add a class for ReferenceParameterEntity
-export class ParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    protected readonly _name = "ParameterEntity";
-    // storage: "automatic",
+export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
+    public readonly calledFunction: FunctionEntity;
+    public readonly type: T;
     public readonly num: number;
 
-    public constructor(type: T, num: number) {
+    public constructor(calledFunction: FunctionEntity, type: T, num: number) {
         super(type);
+        this.calledFunction = calledFunction;
+        this.type = type;
         this.num = num;
+        Util.assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for ParameterEntity.");
     }
 
     public toString() {
-        return "parameter " + this.num + " of the called function";
+        let definition = this.calledFunction.definition;
+        if (definition) {
+            return `The parameter ${definition.implementation.parameters[this.num].name} of the called function ${this.calledFunction.name}`
+        }
+        else {
+            return `Parameter #${this.num+1} of the called function`;
+        }
     }
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
@@ -878,15 +889,19 @@ export class ParameterEntity<T extends ObjectType = ObjectType> extends CPPEntit
             return Util.assertFalse("ParameterEntity lookup failed because there were no functions on the execution stack.");
         }
 
-        // Now we can look up object entity associated with this parameter
-        var objEntity = func.model.params[this.num].entity;
+        if (func.model.func !== this.calledFunction) {
+            return Util.assertFalse("ParameterEntity looked up, but its corresponding function does not match the top function on the stack at runtime.");
+        }
 
-        // Look it up in the context of the top function on the stack.
-        return objEntity.runtimeLookup(rtConstruct.sim, func);
+        // Look up the parameter (as a local variable) in the context of the top function on the stack.
+        let paramObj = func.model.parameters[this.num].runtimeLookup(func);
+        
+        Util.assert(sameType(paramObj.type, this.type));
+        return <CPPObject<T>>paramObj;
     }
 
     public describe() {
-        return {message: "parameter " + this.num + " of " + this.func.describe().message};
+        return {message: "parameter " + this.num + " of " + this.calledFunction.describe().message};
     }
 
 };
@@ -1192,6 +1207,8 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
     protected static readonly _name = "FunctionEntity";
 
     public readonly type!: FunctionType; // ! - Initialized by parent constructor
+
+    public readonly definition?: FunctionDefinition; //TODO narrows type from base class, should be made abstract?
 
     public isStaticallyBound() {
         return true;
