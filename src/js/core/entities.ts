@@ -101,8 +101,10 @@ export class Scope {
             throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity[0]);
         }
         else {
-            // both are non-functions, so attempt to merge
-            DeclaredEntity.merge(newEntity, existingEntity);
+            // both are non-functions, so check that the types are the same
+            if (!sameType(newEntity.type, existingEntity.type)) { // an array indicates a function overload group was found
+                throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity);
+            }
             return existingEntity;
         }
     }
@@ -123,9 +125,15 @@ export class Scope {
                         throw CPPError.declaration.func.returnTypesMatch([newEntity.decl, otherFunc.decl], newEntity.name);
                     }
 
-                    DeclaredEntity.merge(newEntity, otherFunc);
+                    // As a sanity check, make sure they're the same type.
+                    // But this should already be true, given that they have the same signature and return type.
+                    if (!sameType(newEntity.type, otherFunc.type)) { // an array indicates a function overload group was found
+                        throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, otherFunc);
+                    }
 
-                    // Terminates early when the first match is found. It's not possible there would be more than one match.
+                    // Terminates early when the first match is found.
+                    // It's not possible there would be more than one match, since only one
+                    // FunctionEntity with the same signature would be allowed in the array.
                     return true;
                 }
             });
@@ -134,7 +142,7 @@ export class Scope {
                 return matchingFunction;
             }
 
-            // If none were found with the same signature, this is an overload, so go ahead and add it
+            // If none were found with the same signature, this is a new overload, so go ahead and add it
             existingEntity.push(newEntity);
             // this.declaredEntityAdded(newEntity);
             return newEntity;
@@ -413,55 +421,55 @@ export class NamespaceScope extends Scope {
 }
 
 
-export var ClassScope = NamespaceScope.extend({
-    _name: "ClassScope",
+// export var ClassScope = NamespaceScope.extend({
+//     _name: "ClassScope",
 
-    init: function(name, parent, base, sim){
-        this.initParent(name, parent, sim);
-        if(base){
-            assert(base instanceof ClassScope);
-            this.base = base;
-        }
-    },
+//     init: function(name, parent, base, sim){
+//         this.initParent(name, parent, sim);
+//         if(base){
+//             assert(base instanceof ClassScope);
+//             this.base = base;
+//         }
+//     },
 
-    lookup : function(name, options){
-        options = options || {};
-        // If specified, will not look up in base class scopes
-        if (options.noBase){
-            return Scope.lookup.apply(this, arguments);
-        }
+//     lookup : function(name, options){
+//         options = options || {};
+//         // If specified, will not look up in base class scopes
+//         if (options.noBase){
+//             return Scope.lookup.apply(this, arguments);
+//         }
 
-        return this.memberLookup(name, options) || Scope.lookup.apply(this, arguments);
-    },
+//         return this.memberLookup(name, options) || Scope.lookup.apply(this, arguments);
+//     },
 
-    requiredMemberLookup : function(name, options){
-        return this.i_requiredLookupImpl(this.memberLookup(name, options), name, options);
-    },
-    memberLookup : function(name, options){
-        var own = Scope.lookup.call(this, name, copyMixin(options, {own:true}));
-        if (!own){
-            return !options.noBase && this.base && this.base.memberLookup(name, options);
-        }
-        if (Array.isArray(own) && own.length === 0){
-            // Check to see if we could have found it except for name hiding
-            // (If we ever got an array, rather than just null, it means we found a match
-            // with the name for a set of overloaded functions, but none were viable)
-            if (!options.noBase && this.base){
-                var couldHave = this.base.memberLookup(name, options);
-                if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
-                    if (options.noNameHiding){
-                        return couldHave;
-                    }
-                    else{
-                        return Scope.HIDDEN;
-                    }
-                }
-            }
-            return Scope.NO_MATCH;
-        }
-        return own;
-    }
-});
+//     requiredMemberLookup : function(name, options){
+//         return this.i_requiredLookupImpl(this.memberLookup(name, options), name, options);
+//     },
+//     memberLookup : function(name, options){
+//         var own = Scope.lookup.call(this, name, copyMixin(options, {own:true}));
+//         if (!own){
+//             return !options.noBase && this.base && this.base.memberLookup(name, options);
+//         }
+//         if (Array.isArray(own) && own.length === 0){
+//             // Check to see if we could have found it except for name hiding
+//             // (If we ever got an array, rather than just null, it means we found a match
+//             // with the name for a set of overloaded functions, but none were viable)
+//             if (!options.noBase && this.base){
+//                 var couldHave = this.base.memberLookup(name, options);
+//                 if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
+//                     if (options.noNameHiding){
+//                         return couldHave;
+//                     }
+//                     else{
+//                         return Scope.HIDDEN;
+//                     }
+//                 }
+//             }
+//             return Scope.NO_MATCH;
+//         }
+//         return own;
+//     }
+// });
 
 
 export abstract class CPPEntity<T extends Type = Type> {
@@ -536,89 +544,88 @@ export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
 }
 
 export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
-    protected static _name = "DeclaredEntity";
 
-    /**
-     * If neither entity is defined, does nothing.
-     * If exactly one entity is defined, gives that definition to the other one as well.
-     * If both entities are defined, throws an exception. If the entities are functions with
-     * the same signature and different return types, throws an exception.
-     * REQUIRES: Both entities should have the same type. (for functions, the same signature)
-     * @param entity1 - An entity already present in a scope.
-     * @param entity2 - A new entity matching the original one.
-     * @throws {Note}
-     */
-    public static merge(entity1: DeclaredEntity, entity2: DeclaredEntity) {
+    // /**
+    //  * If neither entity is defined, does nothing.
+    //  * If exactly one entity is defined, gives that definition to the other one as well.
+    //  * If both entities are defined, throws an exception. If the entities are functions with
+    //  * the same signature and different return types, throws an exception.
+    //  * REQUIRES: Both entities should have the same type. (for functions, the same signature)
+    //  * @param entity1 - An entity already present in a scope.
+    //  * @param entity2 - A new entity matching the original one.
+    //  * @throws {Note}
+    //  */
+    // public static merge(entity1: DeclaredEntity, entity2: DeclaredEntity) {
 
-        // TODO: Add support for "forward declarations" of a class/struct
+    //     // TODO: Add support for "forward declarations" of a class/struct
 
-        // Special case: ignore magic functions
-        if (entity1 instanceof MagicFunctionEntity || entity2 instanceof MagicFunctionEntity) {
-            return;
-        }
+    //     // Special case: ignore magic functions
+    //     if (entity1 instanceof MagicFunctionEntity || entity2 instanceof MagicFunctionEntity) {
+    //         return;
+    //     }
 
-        // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
-        if (entity1.decl instanceof ClassDeclaration && entity2.decl instanceof ClassDeclaration
-            && entity1.type.className === entity2.type.className) {
-            if (entity1.decl.isLibraryConstruct() && entity2.decl.isLibraryConstruct() !== undefined
-                && entity1.decl.getLibraryId() === entity2.decl.getLibraryId() ||
-                entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
-                entity1.decl.getSourceText().replace(/\s/g,'') === entity2.decl.getSourceText().replace(/\s/g,'')) {
-                // exactly same tokens, so it's fine
+    //     // Special case: if both are definitions for the same class, it's ok ONLY if they have exactly the same tokens
+    //     if (entity1.decl instanceof ClassDeclaration && entity2.decl instanceof ClassDeclaration
+    //         && entity1.type.className === entity2.type.className) {
+    //         if (entity1.decl.isLibraryConstruct() && entity2.decl.isLibraryConstruct() !== undefined
+    //             && entity1.decl.getLibraryId() === entity2.decl.getLibraryId() ||
+    //             entity1.decl.hasSourceCode() && entity2.decl.hasSourceCode() &&
+    //             entity1.decl.getSourceText().replace(/\s/g,'') === entity2.decl.getSourceText().replace(/\s/g,'')) {
+    //             // exactly same tokens, so it's fine
 
-                // merge the types too, so that the type system recognizes them as the same
-                Types.Class.merge(entity1.type, entity2.type);
+    //             // merge the types too, so that the type system recognizes them as the same
+    //             Types.Class.merge(entity1.type, entity2.type);
 
-                return;
-            }
-            else {
-                throw CPPError.link.class_same_tokens([entity1.decl, entity2.decl], entity1, entity2);
-            }
-        }
+    //             return;
+    //         }
+    //         else {
+    //             throw CPPError.link.class_same_tokens([entity1.decl, entity2.decl], entity1, entity2);
+    //         }
+    //     }
 
-        // If they're not the same type, that's a problem
-        if (!sameType(entity1.type, entity2.type)) {
-            throw CPPError.link.type_mismatch(entity1.decl, entity1, entity2);
-        }
+    //     // If they're not the same type, that's a problem
+    //     if (!sameType(entity1.type, entity2.type)) {
+    //         throw CPPError.link.type_mismatch(entity1.decl, entity1, entity2);
+    //     }
 
-        // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
-        // have already been checked above and must be the same at this point, so it's pointless and will cause errors
-        // to try to merge them.)
-        if (entity1.decl instanceof MemberDeclaration) {
-            return;
-        }
-        if (entity1.decl instanceof FunctionDefinition && entity1.decl.isInlineMemberFunction) {
-            return; // TODO: Should we be checking this?
-        }
+    //     // Special case: if both are definitions of a member inside the same class, ignore them. (The class definitions
+    //     // have already been checked above and must be the same at this point, so it's pointless and will cause errors
+    //     // to try to merge them.)
+    //     if (entity1.decl instanceof MemberDeclaration) {
+    //         return;
+    //     }
+    //     if (entity1.decl instanceof FunctionDefinition && entity1.decl.isInlineMemberFunction) {
+    //         return; // TODO: Should we be checking this?
+    //     }
 
-        // Attempt to merge the two
-        if (!entity2.isDefined() && !entity1.isDefined()) {
-            // If both are declarations, just keep the old one
-        }
-        else if (entity2.isDefined() && entity1.isDefined()) {
-            // If both are definitions, that's a problem.
-            throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
-        }
-        else { // one of them is defined and one is undefined
-            var undefinedEntity = entity1;
-            var definedEntity = entity2;
-            if (entity1.isDefined()) {
-                undefinedEntity = entity2;
-                definedEntity = entity1;
-            }
+    //     // Attempt to merge the two
+    //     if (!entity2.isDefined() && !entity1.isDefined()) {
+    //         // If both are declarations, just keep the old one
+    //     }
+    //     else if (entity2.isDefined() && entity1.isDefined()) {
+    //         // If both are definitions, that's a problem.
+    //         throw CPPError.link.multiple_def([entity1.decl, entity2.decl], entity1.name);
+    //     }
+    //     else { // one of them is defined and one is undefined
+    //         var undefinedEntity = entity1;
+    //         var definedEntity = entity2;
+    //         if (entity1.isDefined()) {
+    //             undefinedEntity = entity2;
+    //             definedEntity = entity1;
+    //         }
 
-            // Check return types for functions
-            if (entity1 instanceof FunctionEntity) {
-                // If they have mismatched return types, that's a problem.
-                if (!entity1.type.sameReturnType(entity2.type)){
-                    throw CPPError.link.func.returnTypesMatch([entity1.decl, entity2.decl], entity1.name);
-                }
-            }
+    //         // Check return types for functions
+    //         if (entity1 instanceof FunctionEntity) {
+    //             // If they have mismatched return types, that's a problem.
+    //             if (!entity1.type.sameReturnType(entity2.type)){
+    //                 throw CPPError.link.func.returnTypesMatch([entity1.decl, entity2.decl], entity1.name);
+    //             }
+    //         }
 
-            // If a previous declaration, and now a new definition, merge
-            undefinedEntity.setDefinition(definedEntity.definition);
-        }
-    }
+    //         // If a previous declaration, and now a new definition, merge
+    //         undefinedEntity.setDefinition(definedEntity.definition);
+    //     }
+    // }
 
     public readonly declaration: SimpleDeclaration;
     // public readonly definition?: SimpleDeclaration;
