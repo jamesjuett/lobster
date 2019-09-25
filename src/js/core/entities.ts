@@ -2,7 +2,7 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType} from "./types";
 import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -13,21 +13,34 @@ import {Expression} from "./expressions";
 import { Value, Memory } from "./runtimeEnvironment";
 import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression } from "./constructs";
 import { FunctionImplementation } from "./functions";
+import { Program } from "./Program";
+import { assert } from "../util/util";
 
-export interface LookupOptions {
-    own?: boolean;
-    noBase?: boolean;
-    exactMatch?: boolean;
-    paramTypes?: Type[]
+interface NormalLookupOptions {
+    readonly kind: "normal";
+    readonly own?: boolean;
+    readonly noBase?: boolean;
+    readonly paramTypes?: PotentialParameterType[]
+    readonly receiverType? : ClassType;
 }
+
+interface ExactLookupOptions {
+    readonly kind: "exact";
+    readonly own?: boolean;
+    readonly noBase?: boolean;
+    readonly paramTypes: PotentialParameterType[]
+    readonly receiverType?: ClassType;
+}
+
+export type NameLookupOptions = NormalLookupOptions | ExactLookupOptions;
 
 export class Scope {
 
-    private static HIDDEN = Symbol("HIDDEN");
-    private static NO_MATCH = Symbol("NO_MATCH");
+    // private static HIDDEN = Symbol("HIDDEN");
+    // private static NO_MATCH = Symbol("NO_MATCH");
 
     private readonly entities: {[index:string]: DeclaredEntity | FunctionEntity[] | undefined};
-    private parent?: Scope;
+    public readonly parent?: Scope;
 
     public constructor(parent?: Scope) {
         this.entities = {};
@@ -40,29 +53,6 @@ export class Scope {
             str += this.entities[key] + "\n";
         }
         return str;
-    }
-
-    // TODO: refactor so that you always call one of the more specific functions?
-    private addEntity(ent: DeclaredEntity) {
-        if (ent instanceof StaticEntity) {
-            this.addStaticEntity(ent);
-        }
-        else if (ent instanceof AutoEntity) {
-            this.addAutomaticEntity(ent);
-        }
-        else if (ent instanceof ReferenceEntity){
-            this.addReferenceEntity(ent);
-        }
-
-        if (ent instanceof FunctionEntity){
-            if (!this.entities[ent.name]) {
-                this.entities[ent.name] = [];
-            }
-            this.entities[ent.name].push(ent);
-        }
-        else{
-            this.entities[ent.name] = ent;
-        }
     }
 
     public allEntities() {
@@ -81,47 +71,6 @@ export class Scope {
         return ents;
     }
 
-    private addDeclaredNonFunctionEntity<T extends Type>(newEntity: DeclaredEntity<T>, existingEntity: DeclaredEntity | FunctionEntity[]) {
-        if (Array.isArray(existingEntity)) { // an array indicates a function overload group was found
-            throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity[0]);
-        }
-        else {
-            // both are non-functions, so attempt to merge
-            DeclaredEntity.merge(newEntity, existingEntity);
-            return existingEntity;
-        }
-    }
-
-    private addDeclaredFunctionEntity<T extends Type>(newEntity: FunctionEntity, existingEntity: DeclaredEntity | FunctionEntity[]) {
-        if (!Array.isArray(existingEntity)) { // It's not a function overload group
-            DeclaredEntity.merge(newEntity, existingEntity);
-            return existingEntity;
-        }
-        else { // It is a function overload group, check each other function found
-            existingEntity.forEach((otherFunc) => {
-                // Look for any function with the same signature
-                // Functions with different signatures are different overloads and are fine
-                if (newEntity.type.sameSignature(otherFunc.type)) {
-
-                    // If they have mismatched return types, that's a problem.
-                    if (!newEntity.type.sameReturnType(otherFunc.type)) {
-                        throw CPPError.declaration.func.returnTypesMatch([newEntity.decl, otherFunc.decl], newEntity.name);
-                    }
-
-                    DeclaredEntity.merge(newEntity, otherFunc);
-
-                    // Terminates early when the first match is found. It's not possible there would be more than one match.
-                    return otherFunc;
-                }
-            });
-
-            // If none were found with the same signature, this is an overload, so go ahead and add it
-            this.addEntity(newEntity);
-            return newEntity;
-        }
-
-    }
-
     // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
     /**
      * Attempts to add a new entity to this scope.
@@ -134,19 +83,70 @@ export class Scope {
         let existingEntity = this.entities[newEntity.name];
 
         if (!existingEntity) { // No previous entity with this name, so just add it
-            this.addEntity(newEntity);
+            this.entities[newEntity.name] = newEntity;
+            // this.declaredEntityAdded(newEntity);
             return newEntity;
         }
         
         if (newEntity instanceof FunctionEntity) {
-            return this.addDeclaredFunctionEntity(newEntity, existingEntity);
+            return this.mergeDeclaredFunctionEntity(newEntity, existingEntity);
         }
         else {
-            return this.addDeclaredNonFunctionEntity(newEntity, existingEntity);
+            return this.mergeDeclaredNonFunctionEntity(newEntity, existingEntity);
+        }
+    }
+    
+    private mergeDeclaredNonFunctionEntity<T extends Type>(newEntity: DeclaredEntity<T>, existingEntity: DeclaredEntity | FunctionEntity[]) {
+        if (Array.isArray(existingEntity)) { // an array indicates a function overload group was found
+            throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity[0]);
+        }
+        else {
+            // both are non-functions, so attempt to merge
+            DeclaredEntity.merge(newEntity, existingEntity);
+            return existingEntity;
         }
     }
 
-    singleLookup : function(name, options){
+    private mergeDeclaredFunctionEntity<T extends Type>(newEntity: FunctionEntity, existingEntity: DeclaredEntity | FunctionEntity[]) {
+        if (!Array.isArray(existingEntity)) { // It's not a function overload group
+            DeclaredEntity.merge(newEntity, existingEntity);
+            return existingEntity;
+        }
+        else { // It is a function overload group, check each other function found
+            let matchingFunction = existingEntity.find((otherFunc) => {
+                // Look for any function with the same signature
+                // Functions with different signatures are different overloads and are fine
+                if (newEntity.type.sameSignature(otherFunc.type)) {
+
+                    // If they have mismatched return types, that's a problem.
+                    if (!newEntity.type.sameReturnType(otherFunc.type)) {
+                        throw CPPError.declaration.func.returnTypesMatch([newEntity.decl, otherFunc.decl], newEntity.name);
+                    }
+
+                    DeclaredEntity.merge(newEntity, otherFunc);
+
+                    // Terminates early when the first match is found. It's not possible there would be more than one match.
+                    return true;
+                }
+            });
+            
+            if (matchingFunction) {
+                return matchingFunction;
+            }
+
+            // If none were found with the same signature, this is an overload, so go ahead and add it
+            existingEntity.push(newEntity);
+            // this.declaredEntityAdded(newEntity);
+            return newEntity;
+        }
+
+    }
+
+    // protected declaredEntityAdded(ent: DeclaredEntity) {
+        
+    // }
+
+    public singleLookup(name: string, options: NameLookupOptions) {
         var result = this.lookup(name, options);
         if (Array.isArray(result)){
             return result[0];
@@ -154,229 +154,219 @@ export class Scope {
         else{
             return result;
         }
-    },
-    requiredLookup : function(name, options){
-        return this.i_requiredLookupImpl(this.lookup(name, options), name, options);
-    },
-    i_requiredLookupImpl : function(res, name, options) {
+    }
+
+    // public requiredLookup(name, options){
+    //     return this.i_requiredLookupImpl(this.lookup(name, options), name, options);
+    // }
+    // private i_requiredLookupImpl(res, name, options) {
+    //     options = options || {};
+    //     if (!res){
+    //         if (options.paramTypes || options.params){
+    //             throw SemanticExceptions.NoMatch.instance(this, name,
+    //                 options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
+    //                 options.isThisConst
+    //             );
+    //         }
+    //         else{
+    //             throw SemanticExceptions.NotFound.instance(this, name);
+    //         }
+    //     }
+    //     else if(Array.isArray(res)){
+    //         if (res === Scope.HIDDEN){
+    //             throw SemanticExceptions.Hidden.instance(this, name,
+    //                 options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
+    //                 options.isThisConst);
+    //         }
+    //         if (res.length === 0){
+    //             throw SemanticExceptions.NoMatch.instance(this, name,
+    //                 options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
+    //                 options.isThisConst
+    //             );
+    //         }
+    //         if (res.length > 1){
+    //             throw SemanticExceptions.Ambiguity.instance(this, name);
+    //         }
+    //         return res[0];
+    //     }
+
+    //     return res;
+    // }
+
+    // // TODO: this should be a member function of the Program class
+    // public qualifiedLookup(names, options){
+    //     assert(Array.isArray(names) && names.length > 0);
+    //     var scope = this.sim.getGlobalScope();
+    //     for(var i = 0; scope && i < names.length - 1; ++i){
+    //         scope = scope.children[names[i].identifier];
+    //     }
+
+    //     if (!scope){
+    //         return null;
+    //     }
+
+    //     var name = names.last().identifier;
+    //     var result = scope.lookup(name, copyMixin(options, {qualified:true}));
+
+    //     // Qualified lookup suppresses virtual function call mechanism, so if we
+    //     // just looked up a MemberFunctionEntity, we create a proxy to do that.
+    //     if (Array.isArray(result)){
+    //         result = result.map(function(elem){
+    //             return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
+    //         });
+    //     }
+    //     return result;
+    // }
+
+    public lookup(name: string, options: NameLookupOptions) : DeclaredEntity | FunctionEntity[] | undefined {
         options = options || {};
-        if (!res){
-            if (options.paramTypes || options.params){
-                throw SemanticExceptions.NoMatch.instance(this, name,
-                    options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
-                    options.isThisConst
-                );
-            }
-            else{
-                throw SemanticExceptions.NotFound.instance(this, name);
-            }
-        }
-        else if(Array.isArray(res)){
-            if (res === Scope.HIDDEN){
-                throw SemanticExceptions.Hidden.instance(this, name,
-                    options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
-                    options.isThisConst);
-            }
-            if (res.length === 0){
-                throw SemanticExceptions.NoMatch.instance(this, name,
-                    options.paramTypes || options.params && options.params.map(function(p){return p.type;}),
-                    options.isThisConst
-                );
-            }
-            if (res.length > 1){
-                throw SemanticExceptions.Ambiguity.instance(this, name);
-            }
-            return res[0];
-        }
 
-        return res;
-    },
+        Util.assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
 
-    // TODO: this should be a member function of the Program class
-    qualifiedLookup : function(names, options){
-        assert(Array.isArray(names) && names.length > 0);
-        var scope = this.sim.getGlobalScope();
-        for(var i = 0; scope && i < names.length - 1; ++i){
-            scope = scope.children[names[i].identifier];
-        }
-
-        if (!scope){
-            return null;
-        }
-
-        var name = names.last().identifier;
-        var result = scope.lookup(name, copyMixin(options, {qualified:true}));
-
-        // Qualified lookup suppresses virtual function call mechanism, so if we
-        // just looked up a MemberFunctionEntity, we create a proxy to do that.
-        if (Array.isArray(result)){
-            result = result.map(function(elem){
-                return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
-            });
-        }
-        return result;
-    },
-
-    lookup : function(name, options){
-        options = options || {};
-
-        // TODO: remove this. it seems much cleaner to force elsewhere to explicitly
-        // user either regular (i.e. unqualified) or qualified lookup
-        // Handle qualified lookup specially
-        if (Array.isArray(name)){
-            return this.qualifiedLookup(name, options);
-        }
-
-        var ent = this.entities[name];
+        let ent = this.entities[name];
 
         // If we don't have an entity in this scope and we didn't specify we
         // wanted an own entity, look in parent scope (if there is one)
-        if (!ent && !options.own && this.parent){
+        if (!ent && !options.own && this.parent) {
             return this.parent.lookup(name, options);
         }
 
         // If we didn't find anything, return null
-        if (!ent){
-            return null;
+        if (!ent) {
+            return undefined;
         }
 
-        // If it's an array, that means its a set of functions
-        if (Array.isArray(ent)){
-
-            var viable = ent;
+        if (!Array.isArray(ent)) {
+            // If it's not an array, it's a single entity so return it
+            return ent;
+        }
+        else {
+            let viable = ent; // a set of potentially viable function overloads
 
             // If we're looking for an exact match of parameter types
-            if (options.exactMatch){
-                var paramTypes = options.paramTypes || options.params.map(function(p){return p.type});
-                viable =  ent.filter(function(cand){
-                    if (options.isThisConst && isA(cand.MemberFunctionEntity) && !cand.type.isThisConst){
-                        return false;
+            if (options.kind === "exact") {
+                const paramTypes = options.paramTypes;
+                viable = ent.filter((cand) => {
+
+                    // Check that parameter types match
+                    if (!cand.type.sameParamTypes(paramTypes))
+
+                    if (options.receiverType) {
+                        // if receiver type is defined, candidate must also have
+                        // a receiver and the presence/absence of const must match
+                        // NOTE: the actual receiver type does not need to match, just the constness
+                        return cand.type.receiverType && options.receiverType.isConst === cand.type.isConst;
+                    }
+                    else {
+                        // if no receiver type is defined, candidate must not have a receiver
+                        return !cand.type.receiverType;
                     }
                     return cand.type.sameParamTypes(paramTypes);
                 });
-            }
 
-            // If we're looking for something that could be called with given parameter types
-            else if (options.params || options.paramTypes){
-                var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
-                viable = overloadResolution(ent, params, options.isThisConst) || [];
-            }
-
-            // Hack to get around overloadResolution sometimes returning not an array
-            if (viable && !Array.isArray(viable)){
-                viable = [viable];
-            }
-
-            // If viable is empty, not found.
-            if (viable && viable.length === 0){
-                // Check to see if we could have found it except for name hiding
-                if (!options.own && this.parent){
-                    var couldHave = this.parent.lookup(name, options);
-                    if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
-                        if (options.noNameHiding){
-                            return couldHave;
-                        }
-                        else{
-                            return Scope.HIDDEN;
-                        }
-                    }
-                }
-                return Scope.NO_MATCH;
-            }
-            else{
                 return viable;
             }
 
+            // If we're looking for something that could be called with given parameter types, including conversions
+            else if (options.paramTypes) {
+                // var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
+                viable = overloadResolution(ent, options.paramTypes, options.receiverType) || [];
+            }
+
+            // // Hack to get around overloadResolution sometimes returning not an array
+            // if (viable && !Array.isArray(viable)){
+            //     viable = [viable];
+            // }
+
+            // // If viable is empty, not found.
+            // if (viable && viable.length === 0){
+            //     // Check to see if we could have found it except for name hiding
+            //     if (!options.own && this.parent){
+            //         var couldHave = this.parent.lookup(name, options);
+            //         if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
+            //             if (options.noNameHiding){
+            //                 return couldHave;
+            //             }
+            //             else{
+            //                 return Scope.HIDDEN;
+            //             }
+            //         }
+            //     }
+            //     return Scope.NO_MATCH;
+            // }
+            // else{
+            //     return viable;
+            // }
+
         }
-
-        // If it's not an array, just return it
-        return ent;
-    },
-
-    // Don't use from outside >:(
-    //lookupFunctions : function(name, context){
-    //    if (this.entities.hasOwnProperty(name)){
-    //        var own = this.entities[name];
-    //        if (Array.isArray(own)){
-    //            if (this.parent){
-    //                return own.clone().pushAll(this.parent.lookupFunctions(name, context));
-    //            }
-    //            else{
-    //                return own.clone();
-    //            }
-    //        }
-    //    }
-    //
-    //    if (this.parent){
-    //        return this.parent.lookupFunctions(name, context);
-    //    }
-    //    else{
-    //        return [];
-    //    }
-    //},
-    addAutomaticEntity : Class._ABSTRACT,
-    addReferenceEntity : Class._ABSTRACT,
-    addStaticEntity : Class._ABSTRACT,
-    merge : Class._ABSTRACT
-
-
-});
-
-export class BlockScope extends Scope {
-    _name: "BlockScope",
-    addAutomaticEntity : function(obj){
-        assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
-        this.parent.addAutomaticEntity(obj);
-    },
-    addReferenceEntity : function(obj){
-        assert(this.parent);
-        this.parent.addReferenceEntity(obj);
-    },
-    addStaticEntity : function(ent) {
-        this.sim.addStaticEntity(ent);
-    },
-    merge : function() {
-        // Nothing in here should have linkage, right?
-        // Unless I allow function/class declarations, etc. inside blocks, which I currently don't
-    }
-
-
-});
-
-export class FunctionBlockScope extends BlockScope {
-    _name: "FunctionBlockScope",
-    init: function(parent, sim){
-        this.initParent(parent, sim);
-        this.automaticObjects = [];
-        this.referenceObjects = [];
-    },
-    addAutomaticEntity : function(obj){
-        this.automaticObjects.push(obj);
-    },
-    addReferenceEntity : function(obj){
-        this.referenceObjects.push(obj);
-    },
-    addStaticEntity : function(ent) {
-        this.sim.addStaticEntity(ent);
     }
 }
 
-export class NamespaceScope = Scope.extend({
+export class BlockScope extends Scope {
 
-    init: function(name, parent, sim){
+    // protected declaredEntityAdded(ent: DeclaredEntity) {
+    //     if (ent instanceof AutoEntity) {
+            
+    //     }
+    // }
+
+    // private addAutomaticEntity : function(obj){
+    //     assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
+    //     this.parent.addAutomaticEntity(obj);
+    // },
+    // private addReferenceEntity : function(obj){
+    //     assert(this.parent);
+    //     this.parent.addReferenceEntity(obj);
+    // },
+    // private addStaticEntity : function(ent) {
+    //     this.sim.addStaticEntity(ent);
+    // },
+    // merge : function() {
+        // Nothing in here should have linkage, right?
+        // Unless I allow function/class declarations, etc. inside blocks, which I currently don't
+    // }
+
+
+}
+
+// export class FunctionBlockScope extends BlockScope {
+//     _name: "FunctionBlockScope",
+//     init: function(parent, sim){
+//         this.initParent(parent, sim);
+//         this.automaticObjects = [];
+//         this.referenceObjects = [];
+//     },
+//     addAutomaticEntity : function(obj){
+//         this.automaticObjects.push(obj);
+//     },
+//     addReferenceEntity : function(obj){
+//         this.referenceObjects.push(obj);
+//     },
+//     addStaticEntity : function(ent) {
+//         this.sim.addStaticEntity(ent);
+//     }
+// }
+
+export class NamespaceScope extends Scope {
+
+    public readonly name: string;
+    private readonly children: {[index:string]: NamespaceScope | undefined};
+
+    public constructor(name: string, program: Program, parent?: NamespaceScope) {
+        super(parent);
         assert(!parent || parent instanceof NamespaceScope);
-        this.initParent(parent, sim);
         this.name = name;
         this.children = {};
-        if(this.parent){
-            this.parent.addChild(this);
+        if(parent) {
+            parent.addChild(this);
         }
-    },
-    addChild : function(child){
-        if(child.name){
+    }
+
+    private addChild(child: NamespaceScope) {
+        if(child.name) {
             this.children[child.name] = child;
         }
-    },
+    }
     addAutomaticEntity : function(obj){
         assert(false, "Can't add an automatic entity to a namespace scope.");
     },
@@ -387,40 +377,40 @@ export class NamespaceScope = Scope.extend({
         this.sim.addStaticEntity(ent);
     },
 
-    merge : function (otherScope, onErr) {
-        for(var name in otherScope.entities){
-            var otherEntity = otherScope.entities[name];
-            if (Array.isArray(otherEntity)) {
-                for(var i = 0; i < otherEntity.length; ++i) {
-                    try {
-                        this.addDeclaredEntity(otherEntity[i]);
-                    }
-                    catch (e) {
-                        onErr(e);
-                    }
-                }
-            }
-            else{
-                try {
-                    this.addDeclaredEntity(otherEntity);
-                }
-                catch (e) {
-                    onErr(e);
-                }
-            }
-        }
+    // merge : function (otherScope, onErr) {
+    //     for(var name in otherScope.entities){
+    //         var otherEntity = otherScope.entities[name];
+    //         if (Array.isArray(otherEntity)) {
+    //             for(var i = 0; i < otherEntity.length; ++i) {
+    //                 try {
+    //                     this.addDeclaredEntity(otherEntity[i]);
+    //                 }
+    //                 catch (e) {
+    //                     onErr(e);
+    //                 }
+    //             }
+    //         }
+    //         else{
+    //             try {
+    //                 this.addDeclaredEntity(otherEntity);
+    //             }
+    //             catch (e) {
+    //                 onErr(e);
+    //             }
+    //         }
+    //     }
 
-        // Merge in all child scopes from the other
-        for(var childName in otherScope.children) {
-            if (!this.children[childName]) {
-                // If a matching child scope doesn't already exist, create it
-                this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
-            }
+    //     // Merge in all child scopes from the other
+    //     for(var childName in otherScope.children) {
+    //         if (!this.children[childName]) {
+    //             // If a matching child scope doesn't already exist, create it
+    //             this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
+    //         }
 
-            this.children[childName].merge(otherScope.children[childName], onErr);
-        }
-    }
-});
+    //         this.children[childName].merge(otherScope.children[childName], onErr);
+    //     }
+    // }
+}
 
 
 export var ClassScope = NamespaceScope.extend({
@@ -1423,7 +1413,7 @@ var convLen = function(args: Expression[]) {
 };
 
 // TODO: Update this so it does not modify the arguments passed in. This is essential.
-export function overloadResolution<T extends FunctionEntity>(candidates: T[], args: Expression[], isThisConst?: boolean = false, candidateProblems?: Note[]){
+export function overloadResolution<T extends FunctionEntity>(candidates: readonly T[], paramTypes: readonly PotentialParameterType[], receiverType?: ClassType) {
 
     // TODO: add these checks, and send errors back to construct that calls this if they aren't met
     // Should return the function selected as well as an array of object-typed params that contain
