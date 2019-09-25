@@ -5,7 +5,7 @@ import {Value, RawValueType, byte} from "./runtimeEnvironment";
 import {Description} from "./errors";
 import { CPPObject, Subobject } from "./objects";
 import flatten from "lodash/flatten";
-import { LookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity, TypeEntity } from "./entities";
+import { NameLookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity, TypeEntity } from "./entities";
 import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
 import { ExpressionASTNode } from "./expressions";
 import { StorageSpecifier, StorageSpecifierKey } from "./declarations";
@@ -1179,15 +1179,15 @@ export class ClassType extends ObjectType {
 //         }
 //     }
 
-//     public memberLookup(memberName: string, options: LookupOptions) {
+//     public memberLookup(memberName: string, options: NameLookupOptions) {
 //         return this.scope.memberLookup(memberName, options);
 //     }
 
-//     public requiredMemberLookup(memberName: string, options: LookupOptions) {
+//     public requiredMemberLookup(memberName: string, options: NameLookupOptions) {
 //         return this.scope.requiredMemberLookup(memberName, options);
 //     }
 
-//     public hasMember(memberName: string, options: LookupOptions) {
+//     public hasMember(memberName: string, options: NameLookupOptions) {
 //         return !!this.memberLookup(memberName, options);
 //     }
 
@@ -1350,8 +1350,8 @@ export class FunctionType extends TypeBase {
         return this.sameType(other);
     }
 
-    public sameParamTypes(other: FunctionType) {
-        let otherParamTypes = other.paramTypes;
+    public sameParamTypes(other: FunctionType | readonly PotentialParameterType[]) {
+        let otherParamTypes = other instanceof FunctionType ? other.paramTypes : other;
         if (this.paramTypes.length !== otherParamTypes.length){
             return false;
         }
@@ -1378,6 +1378,10 @@ export class FunctionType extends TypeBase {
 
     public sameSignature(other: FunctionType) {
         return this.sameReceiverType(other) && this.sameParamTypes(other);
+    }
+
+    public isPotentialOverriderOf(other: FunctionType) {
+        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
