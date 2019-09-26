@@ -5,7 +5,7 @@ import { Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParame
 import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
-import { Mutable, assert, asMutable } from "../util/util";
+import { Mutable, assert, asMutable, assertFalse } from "../util/util";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
 import { Statement, BlockASTNode, createBlockContext, Block, BlockContext } from "./statements";
@@ -212,6 +212,7 @@ export abstract class SimpleDeclaration extends BasicCPPConstruct implements CPP
     public readonly otherSpecifiers: OtherSpecifiers;
 
     public abstract readonly type?: Type;
+    public readonly name: string;
      
     // Allow subclasses to customize behavior
     protected abstract readonly initializerAllowed: boolean;
@@ -298,6 +299,10 @@ export abstract class SimpleDeclaration extends BasicCPPConstruct implements CPP
         this.otherSpecifiers = otherSpecs;
 
         this.declarator = declarator;
+        if (!declarator.name) {
+            return assertFalse("Simple declarations must have a name.");
+        }
+        this.name = declarator.name;
 
         // None of the simple declarations are member function declarations
         // and thus none support the virtual keyword
