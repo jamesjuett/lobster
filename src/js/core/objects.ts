@@ -215,7 +215,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     private _isValid: boolean;
 
-    protected constructor(type: T, memory: Memory, address: number) {
+    public constructor(type: T, memory: Memory, address: number) {
         this.type = type;
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY

@@ -1,10 +1,12 @@
 import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, AnonymousObject, DynamicObject, ThisObject } from "./objects";
-import { Type, Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject } from "./objects";
+import { Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
-import { RuntimeReference, Scope, FunctionBlockScope, StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct, RuntimeFunction } from "./constructs";
+import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
+import { RuntimeConstruct } from "./constructs";
+import { Block } from "./statements";
+import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -393,14 +395,6 @@ export class Memory {
         this.allocateObject(object, this.staticTop);
         this.staticTop += object.size;
         this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
-
-        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
-        // if (staticEntity.defaultValue !== undefined) {
-        //     object.setValue(staticEntity.defaultValue);
-        // }
-        // else if (staticEntity.type.defaultValue !== undefined) {
-        //     object.setValue(staticEntity.type.defaultValue);
-        // }
     }
 
     
@@ -415,15 +409,6 @@ export class Memory {
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
         this.observable.send("temporaryObjectAllocated", obj);
-
-        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
-        // if (tempEntity.defaultValue !== undefined) {
-        //     obj.setValue(tempEntity.defaultValue);
-        // }
-        // else if (tempEntity.type.defaultValue !== undefined) {
-        //     obj.setValue(tempEntity.type.defaultValue);
-        // }
-
         return obj;
     }
 
@@ -518,14 +503,6 @@ class MemoryHeap {
         this.memory.allocateObject(obj, this.bottom);
         this.objectMap[obj.address] = obj;
         this.memory.observable.send("heapObjectAllocated", obj);
-
-        // TODO: Consider removing this? I think it's used in some hacks, but it's not semantically correct
-        if (obj.defaultValue !== undefined) {
-            obj.setValue(obj.defaultValue);
-        }
-        else if (obj.type.defaultValue !== undefined) {
-            obj.setValue(obj.type.defaultValue);
-        }
     }
 
     public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
@@ -546,74 +523,57 @@ export class MemoryFrame {
     
     public readonly observable = new Observable(this);
 
-    public readonly scope: FunctionBlockScope;
+    public readonly block: Block;
     private readonly start: number;
     private readonly end: number;
     private readonly memory: Memory;
     private readonly func: RuntimeFunction;
 
     private size: number;
-    private readonly localObjectsByEntityId: {[index:number]: AutoObject};
-    private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined};
+    private readonly localObjectsByName: {[index:string]: AutoObject} = {};
+    private readonly localReferencesByName: {[index:string]: CPPObject | undefined} = {};
     
 
-    public constructor(scope: FunctionBlockScope, memory: Memory, start: number, rtFunc: RuntimeFunction) {
-        var self = this;
-        this.scope = scope;
+    public constructor(block: Block, memory: Memory, start: number, rtFunc: RuntimeFunction) {
+        this.block = block;
         this.memory = memory;
         this.start = start;
         this.func = rtFunc;
 
         this.size = 0;
-        this.localObjectsByEntityId = {};
-        this.localReferencesByEntityId = {};
 
-        var addr = this.start;
+        let addr = this.start;
 
-        if (this.func.model.isMemberFunction) {
-            var obj = new ThisObject("this", Types.ObjectPointer.instance(rtFunc.receiver));
+        // TODO: add this pointer back in
+        // if (this.func.model.isMemberFunction) {
+        //     let obj = new ThisObject(new ObjectPointer(rtFunc.receiver), memory, addr);
+        //     obj.setValue(rtFunc.receiver.getPointerTo());
+        //     addr += obj.size;
 
-            // Allocate object
-            this.memory.allocateObject(obj, addr);
-            obj.setValue(rtFunc.receiver.getPointerTo());
+        //     this.localObjectsByEntityId[obj.entityId] = obj;
+        //     this.size += obj.size;
+        // }
+
+        // Push objects for all entities in the block
+        block.localObjects.forEach((objEntity) => {
+
+            // Create and allocate the object
+            let obj = new AutoObject(objEntity, objEntity.type, memory, addr);
+            this.localObjectsByName[objEntity.name] = obj;
+
+            // Move on to next address afterward
             addr += obj.size;
-
-            this.localObjectsByEntityId[obj.entityId] = obj;
             this.size += obj.size;
-        }
-
-        // Push objects for all entities in the frame
-        var autos = scope.automaticObjects;
-        for (var i = 0; i < autos.length; ++i) {
-            var objEntity = autos[i];
-
-            // Create instance of the object
-            obj = objEntity.objectInstance();
-
-            // Allocate object
-            this.memory.allocateObject(obj, addr);
-            addr += obj.size;
-
-            this.localObjectsByEntityId[obj.entityId] = obj;
-            this.size += obj.size;
-
-            if (objEntity.defaultValue !== undefined) {
-                obj.setValue(objEntity.defaultValue);
-            }
-            else if (objEntity.type.defaultValue !== undefined) {
-                obj.setValue(objEntity.type.defaultValue);
-            }
-            //                console.log("----" + key);
-        }
-
+        });
 
         this.end = this.start + this.size;
     }
 
+    // TODO: is this ever used?
     public toString() {
         var str = "";
-        for (var key in this.localObjectsByEntityId) {
-            var obj = this.localObjectsByEntityId[key];
+        for (var key in this.localObjectsByName) {
+            var obj = this.localObjectsByName[key];
             //			if (!obj.type){
             // str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
             str += "<span>" + obj + "</span>\n";
@@ -623,13 +583,13 @@ export class MemoryFrame {
     }
 
     public getLocalObject<T extends ObjectType>(entity: AutoEntity<T>) {
-        return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
+        return <AutoObject<T>>this.localObjectsByName[entity.name];
     }
     public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
-        return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
+        return <CPPObject<T>>this.localReferencesByName[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }
     public bindReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
-        this.localReferencesByEntityId[entity.entityId] = obj;
+        this.localReferencesByName[entity.name] = obj;
     }
 
     // public setUpReferenceInstances() {
