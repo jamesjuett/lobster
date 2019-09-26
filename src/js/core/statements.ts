@@ -5,7 +5,7 @@ import { Expression, RuntimeExpression, CompiledExpression } from "./expressions
 import { Simulation } from "./Simulation";
 import { SimpleDeclaration, FunctionDefinition } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope } from "./entities";
+import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
 import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
@@ -343,6 +343,8 @@ export interface BlockContext extends FunctionContext {
 export class Block extends Statement {
 
     public readonly statements: readonly Statement[];
+    public readonly localObjects: readonly AutoEntity[];
+    public readonly localReferences: readonly LocalReferenceEntity[];
 
     public static createFromAST(ast: BlockASTNode, context: BlockContext) {
 

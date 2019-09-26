@@ -493,15 +493,15 @@ export abstract class CPPEntity<T extends Type = Type> {
 
     public abstract describe() : Description;
 
-    // TODO: does this belong here?
-    public isLibraryConstruct() {
-        return false
-    }
+    // // TODO: does this belong here?
+    // public isLibraryConstruct() {
+    //     return false
+    // }
 
-    // TODO: does this belong here?
-    public isLibraryUnsupported() {
-        return false;
-    }
+    // // TODO: does this belong here?
+    // public isLibraryUnsupported() {
+    //     return false;
+    // }
 
     //TODO: function for isOdrUsed()?
 };
@@ -611,26 +611,26 @@ export abstract class DeclaredEntity<T extends Type = Type> extends NamedEntity<
         this.declaration = decl;
     }
 
-    public setDefinition(definition: SimpleDeclaration) {
-        (<SimpleDeclaration>this.definition) = definition;
-    }
+    // public setDefinition(definition: SimpleDeclaration) {
+    //     (<SimpleDeclaration>this.definition) = definition;
+    // }
 
-    public isDefined() {
-        return !!this.definition;
-    }
+    // public isDefined() {
+    //     return !!this.definition;
+    // }
 
     // TODO: when namespaces are implemented, need to fix this function
     public getFullyQualifiedName() {
         return "::" + this.name;
     }
 
-    public isLibraryConstruct() {
-        return this.decl.isLibraryConstruct();
-    }
+    // public isLibraryConstruct() {
+    //     return this.decl.isLibraryConstruct();
+    // }
 
-    public isLibraryUnsupported() {
-        return this.decl.isLibraryUnsupported();
-    }
+    // public isLibraryUnsupported() {
+    //     return this.decl.isLibraryUnsupported();
+    // }
 };
 
 
