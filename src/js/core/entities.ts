@@ -2,7 +2,7 @@ import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType} from "./types";
 import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -375,15 +375,15 @@ export class NamespaceScope extends Scope {
             this.children[child.name] = child;
         }
     }
-    addAutomaticEntity : function(obj){
-        assert(false, "Can't add an automatic entity to a namespace scope.");
-    },
-    addReferenceEntity : function(obj){
-        assert(false, "TODO");
-    },
-    addStaticEntity : function(ent) {
-        this.sim.addStaticEntity(ent);
-    },
+    // addAutomaticEntity : function(obj){
+    //     assert(false, "Can't add an automatic entity to a namespace scope.");
+    // },
+    // addReferenceEntity : function(obj){
+    //     assert(false, "TODO");
+    // },
+    // addStaticEntity : function(ent) {
+    //     this.sim.addStaticEntity(ent);
+    // },
 
     // merge : function (otherScope, onErr) {
     //     for(var name in otherScope.entities){
@@ -491,23 +491,6 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
-    // TODO: typescript - commenting this out and seeing how much chaos it creates
-    /**
-     * Default behavior - no runtime object associated with this entity. Just return ourselves.
-     * Derived classes may override and return either a more specific entity (e.g. a dynamically
-     * bound derived class version of a virtual function) or an object that exists at runtime (e.g.
-     * getting the object named by a variable in some context).
-     *
-     * The context for the lookup is provided by two parameters. The first is the Simulation object,
-     * which can be used e.g. to query memory for an object. The second is a RuntimeConstruct instance
-     * relevant to the lookup.
-     * @param sim
-     * @param inst
-     */
-    // runtimeLookup : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-    //     return this;
-    // }
-
     public abstract describe() : Description;
 
     // TODO: does this belong here?
@@ -523,27 +506,20 @@ export abstract class CPPEntity<T extends Type = Type> {
     //TODO: function for isOdrUsed()?
 };
 
-export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
-}
-
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
-    protected static _name = "NamedEntity";
-
-    // public static linkage: "none", // TODO NEW make this abstract
     
     public readonly name: string;
 
     /**
      * All NamedEntitys will have a name, but in some cases this might be "". e.g. an unnamed namespace.
      */
-    public constructor(type: Type, name: string) {
+    public constructor(type: T, name: string) {
         super(type);
         this.name = name;
     }
 }
 
-export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
+export abstract class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
 
     // /**
     //  * If neither entity is defined, does nothing.
@@ -630,8 +606,8 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     public readonly declaration: SimpleDeclaration;
     // public readonly definition?: SimpleDeclaration;
 
-    public constructor(decl: SimpleDeclaration) {
-        super(decl.type, decl.name);
+    public constructor(type: T, decl: SimpleDeclaration) {
+        super(type, decl.name);
         this.declaration = decl;
     }
 
@@ -657,7 +633,44 @@ export class DeclaredEntity<T extends Type = Type> extends NamedEntity<T> {
     }
 };
 
-export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+
+
+export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
+    runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+}
+
+export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+    
+    public constructor(type: T, decl: SimpleDeclaration) {
+        super(type, decl);
+    }
+
+    public toString() {
+        return this.name + " (" + this.type + ")";
+    }
+
+    public objectInstance() {
+        return new AutoObject(this);
+    }
+
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : AutoObject<T> {
+        // TODO: revisit the non-null assertion below
+        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
+    }
+
+    public describe() {
+        if (this.decl instanceof Declarations.Parameter){  // TODO: can this ever be a parameter??
+            return {message: "the parameter " + this.name};
+        }
+        else{
+            return {message: "the local variable " + this.name};
+        }
+    }
+};
+
+
+
+export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T>, ObjectEntity<T> {
     runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
 }
 
@@ -666,6 +679,10 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+
+    public constructor(type: T, decl: SimpleDeclaration) {
+        super(type, decl);
+    }
 
     public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
@@ -677,12 +694,12 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 
     public describe() {
-        if (this.decl instanceof Declarations.Parameter){
-            return {message: "the reference parameter " + this.name};
-        }
-        else{
+        // if (this.declaration instanceof Declarations.Parameter){
+        //     return {message: "the reference parameter " + this.name};
+        // }
+        // else{
             return {message: "the reference " + this.name};
-        }
+        // }
     }
 };
 
@@ -833,39 +850,6 @@ export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectE
 
     public describe() {
         return {message: "the string literal \"" + Util.unescapeString(this.str) + "\""};
-    }
-};
-
-
-export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected readonly _name = "AutoEntity";
-
-    // storage: "automatic",
-    
-    public constructor(decl: SimpleDeclaration) {
-        super(decl);
-    }
-
-    public toString() {
-        return this.name + " (" + this.type + ")";
-    }
-
-    public objectInstance() {
-        return new AutoObject(this);
-    }
-
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : AutoObject<T> {
-        // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
-    }
-
-    public describe() {
-        if (this.decl instanceof Declarations.Parameter){  // TODO: can this ever be a parameter??
-            return {message: "the parameter " + this.name};
-        }
-        else{
-            return {message: "the local variable " + this.name};
-        }
     }
 };
 
