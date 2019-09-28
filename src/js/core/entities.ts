@@ -1,8 +1,7 @@
-import * as Util from "../util/util";
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType} from "./types";
+import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType, referenceCompatible} from "./types";
 import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -11,10 +10,10 @@ import {standardConversion} from "./standardConversions";
 import * as Expressions from "./expressions";
 import {Expression} from "./expressions";
 import { Value, Memory } from "./runtimeEnvironment";
-import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression } from "./constructs";
+import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
 import { FunctionImplementation } from "./functions";
 import { Program } from "./Program";
-import { assert } from "../util/util";
+import { assert, Mutable, assertFalse } from "../util/util";
 
 interface NormalLookupOptions {
     readonly kind: "normal";
@@ -641,16 +640,15 @@ export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEnti
 
 export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
     
-    public constructor(type: T, decl: SimpleDeclaration) {
+    public readonly isParameter: boolean;
+
+    public constructor(type: T, decl: SimpleDeclaration, isParameter?: boolean) {
         super(type, decl);
+        this.isParameter = !!isParameter;
     }
 
     public toString() {
         return this.name + " (" + this.type + ")";
-    }
-
-    public objectInstance() {
-        return new AutoObject(this);
     }
 
     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : AutoObject<T> {
@@ -659,12 +657,7 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntit
     }
 
     public describe() {
-        if (this.decl instanceof Declarations.Parameter){  // TODO: can this ever be a parameter??
-            return {message: "the parameter " + this.name};
-        }
-        else{
-            return {message: "the local variable " + this.name};
-        }
+        return {message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}`};
     }
 };
 
@@ -680,8 +673,11 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
 
-    public constructor(type: T, decl: SimpleDeclaration) {
+    public readonly isParameter: boolean;
+
+    public constructor(type: T, decl: SimpleDeclaration, isParameter?: boolean) {
         super(type, decl);
+        this.isParameter = !!isParameter;
     }
 
     public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
@@ -694,17 +690,38 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 
     public describe() {
-        // if (this.declaration instanceof Declarations.Parameter){
-        //     return {message: "the reference parameter " + this.name};
-        // }
-        // else{
-            return {message: "the reference " + this.name};
-        // }
+        return {message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}`};
     }
 };
 
 export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<T> | LocalReferenceEntity<T>;
 
+export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+    protected static _name =  "StaticEntity";
+
+    // storage: "static",
+    constructor(decl: SimpleDeclaration) {
+        super(decl);
+    }
+
+    public objectInstance(memory: Memory, address: number) {
+        return new StaticObject(this);
+    }
+
+    public toString() {
+        return this.name + " (" + this.type + ")";
+    }
+
+    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : StaticObject<T> {
+        return rtConstruct.sim.memory.staticLookup(this);
+    }
+    
+    public describe() {
+        return {name: this.name, message: "the variable " + this.name};
+    }
+};
+
+// TODO: implement global references
 // export class GlobalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
 
 //     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
@@ -725,18 +742,6 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<
 //         }
 //     }
 // };
-
-export class ReturnReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
-    
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
-        rtConstruct.containingRuntimeFunction.setReturnObject(obj);
-    }
-
-    public describe() {
-        // TODO: add info about which function? would need to be specified when the return value is created
-        return {message: "the object returned by reference"};
-    }
-};
 
 /**
  * Looking this entity up at runtime yields the return object of the containing runtime function.
@@ -760,6 +765,18 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
         return {message: "the return object"};
+    }
+};
+
+export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+    
+    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
+        rtConstruct.containingRuntimeFunction.setReturnObject(obj);
+    }
+
+    public describe() {
+        // TODO: add info about which function? would need to be specified when the return value is created
+        return {message: "the object returned by reference"};
     }
 };
 
@@ -799,34 +816,7 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
 //     }
 // };
 
-export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected static _name =  "StaticEntity";
-
-    // storage: "static",
-    constructor(decl: SimpleDeclaration) {
-        super(decl);
-    }
-
-    public objectInstance(memory: Memory, address: number) {
-        return new StaticObject(this);
-    }
-
-    public toString() {
-        return this.name + " (" + this.type + ")";
-    }
-
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : StaticObject<T> {
-        return rtConstruct.sim.memory.staticLookup(this);
-    }
-    
-    public describe() {
-        return {name: this.name, message: "the variable " + this.name};
-    }
-};
-
 export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectEntity<ArrayType> {
-    protected static _name = "StringLiteralEntity";
-    // storage: "static",
 
     public readonly str: string;
     public readonly type!: ArrayType<Char>; // handled by parent
@@ -905,87 +895,54 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
 
 };
 
-export class ReturnEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    protected static _name = "ReturnEntity";
+// export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+//     protected static readonly _name: "ReceiverEntity";
 
-    // storage: "automatic",
-
-    public toString() {
-        return "return value (" + this.type + ")";
-    }
+//     // storage: "automatic",
     
-    /**
-     * REQUIRES: This function assumes the return object for the containing runtime function has already been set.
-     * If this is return-by-value (i.e. non-reference type), that is the temporary return object for the currently
-     * executing function. If it is return-by-reference, there is only a return object if the return has already been
-     * processed and the returned object has been set. If so, this function returns that object, otherwise null.
-     * If the return type is void, returns null.
-     */
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
-        // TODO: consider again the stuff that got commented. shouldn't it be the case that if a ReturnEntity exists, it's not a void function?
-        // if (this.type instanceof Types.Void) {
-        //     return null;
-        // }
-        // else {
-            // TODO: revisit non-null assertion below
-            return <CPPObject<T>>rtConstruct.containingRuntimeFunction.returnObject!;
-        // }
-    }
+//     constructor(type: T) {
+//         super(type);
+//     }
 
-    public describe() {
-        // TODO: add info about which function? would need to be specified when the return value is created
-        return {message: "the return value"};
-    }
-};
+//     public toString() {
+//         return "function receiver (" + this.type + ")";
+//     }
 
-export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
-    protected static readonly _name: "ReceiverEntity";
+//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//         return rtConstruct.contextualReceiver();
+//     }
 
-    // storage: "automatic",
+//     public describe() {
+//         // if (rtConstruct){
+//         //     return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
+//         // }
+//         // else {
+//             return {message: "the receiver of this call (i.e. *this)"};
+//         // }
+//     }
+// };
+
+
+
+// export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+//     protected static readonly _name = "NewObjectEntity";
+
+//     // storage: "automatic",
     
-    constructor(type: T) {
-        super(type);
-    }
+//     public toString() {
+//         return "object (" + this.type + ")";
+//     }
 
-    public toString() {
-        return "function receiver (" + this.type + ")";
-    }
+//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//         // no additional runtimeLookup() needed on the object since it will never be a reference
+//         return rtConstruct.getAllocatedObject();
+//     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
-        return rtConstruct.contextualReceiver();
-    }
+//     public describe() {
+//         return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
+//     }
 
-    public describe() {
-        // if (rtConstruct){
-        //     return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
-        // }
-        // else {
-            return {message: "the receiver of this call (i.e. *this)"};
-        // }
-    }
-};
-
-
-
-export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    protected static readonly _name = "NewObjectEntity";
-
-    // storage: "automatic",
-    
-    public toString() {
-        return "object (" + this.type + ")";
-    }
-
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
-        // no additional runtimeLookup() needed on the object since it will never be a reference
-        return rtConstruct.getAllocatedObject();
-    }
-
-    public describe() {
-        return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
-    }
-
-};
+// };
 
 export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
 
@@ -1014,144 +971,144 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
     }
 }
 
-export class BaseSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+// export class BaseSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
 
-    public readonly containingEntity: ObjectEntity<ClassType>;
+//     public readonly containingEntity: ObjectEntity<ClassType>;
 
-    constructor(containingEntity: ObjectEntity<ClassType>, type: ClassType) {
-        super(type);
-        this.containingEntity = containingEntity;
-    }
+//     constructor(containingEntity: ObjectEntity<ClassType>, type: ClassType) {
+//         super(type);
+//         this.containingEntity = containingEntity;
+//     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
-        // TODO: check on non-null assertion below
-        return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
-    }
+//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//         // TODO: check on non-null assertion below
+//         return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
+//     }
 
-    public describe() {
-        return {message: "the " + this.type.cppClass.name + " base class subobject of " + this.containingEntity.describe()};
-    }
-}
+//     public describe() {
+//         return {message: "the " + this.type.cppClass.name + " base class subobject of " + this.containingEntity.describe()};
+//     }
+// }
 
 
 
-export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+// export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
-    public readonly containingEntity: ObjectEntity<ClassType>;
-    public readonly name: string;
+//     public readonly containingEntity: ObjectEntity<ClassType>;
+//     public readonly name: string;
 
-    constructor(containingEntity: ObjectEntity<ClassType>, type: T, name: string) {
-        super(type);
-        this.containingEntity = containingEntity;
-        this.name = name;
-    }
+//     constructor(containingEntity: ObjectEntity<ClassType>, type: T, name: string) {
+//         super(type);
+//         this.containingEntity = containingEntity;
+//         this.name = name;
+//     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
-        // TODO: check on cast below
-        return <MemberSubobject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberSubobject(this.name);
-    }
+//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//         // TODO: check on cast below
+//         return <MemberSubobject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberSubobject(this.name);
+//     }
 
-    public describe() {
-        let containingObjectDesc = this.containingEntity.describe();
-        let desc : Description = {
-            message: "the " + this.name + " member of " + containingObjectDesc.message
-        }
-        if (containingObjectDesc.name) {
-            desc.name = containingObjectDesc.name + "." + this.name
-        }
-        return desc;
-    }
-}
+//     public describe() {
+//         let containingObjectDesc = this.containingEntity.describe();
+//         let desc : Description = {
+//             message: "the " + this.name + " member of " + containingObjectDesc.message
+//         }
+//         if (containingObjectDesc.name) {
+//             desc.name = containingObjectDesc.name + "." + this.name
+//         }
+//         return desc;
+//     }
+// }
 
-export class BaseClassEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
-    protected static readonly _name = "BaseClassEntity";
-    // storage: "none",
+// export class BaseClassEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+//     protected static readonly _name = "BaseClassEntity";
+//     // storage: "none",
 
-    public readonly access: string;
-    public readonly memberOfType: ClassType;
+//     public readonly access: string;
+//     public readonly memberOfType: ClassType;
 
-    constructor(type: ClassType, memberOfType: ClassType, access: string) {
-        super(type);
-        this.memberOfType = memberOfType;
-        this.access = access;
-    }
+//     constructor(type: ClassType, memberOfType: ClassType, access: string) {
+//         super(type);
+//         this.memberOfType = memberOfType;
+//         this.access = access;
+//     }
 
-    public toString() {
-        return "the " + this.type.className + " base object of " + this.memberOfType.className;
-    }
+//     public toString() {
+//         return "the " + this.type.className + " base object of " + this.memberOfType.className;
+//     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        var recObj = rtConstruct.contextualReceiver();
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
+//         var recObj = rtConstruct.contextualReceiver();
 
-        while(recObj && !(recObj.type instanceof this.type)){ // TODO: this isA should probably be changed to a type function
-            recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
-        }
-        Util.assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
+//         while(recObj && !(recObj.type instanceof this.type)){ // TODO: this isA should probably be changed to a type function
+//             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
+//         }
+//         Util.assert(recObj, "Internal lookup failed to find subobject in class or base classes.");
 
-        return recObj;
-    }
+//         return recObj;
+//     }
     
-    public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
-        return new BaseSubobject(parentObj, this.type, memory, address);
-    }
+//     public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
+//         return new BaseSubobject(parentObj, this.type, memory, address);
+//     }
 
-    public describe() {
-        return {message: "the " + this.type.className + " base object of " + this.memberOfType.className};
-    }
-};
+//     public describe() {
+//         return {message: "the " + this.type.className + " base object of " + this.memberOfType.className};
+//     }
+// };
 
-// TODO: need class for reference members
-export class MemberVariableEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected static readonly _name = "MemberVariableEntity";
-    // storage: "none",
+// // TODO: need class for reference members
+// export class MemberVariableEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
+//     protected static readonly _name = "MemberVariableEntity";
+//     // storage: "none",
 
-    public readonly access: string;
-    public readonly memberOfType: Types.Class;
+//     public readonly access: string;
+//     public readonly memberOfType: Types.Class;
 
-    public constructor(decl: SimpleDeclaration, memberOfType: Types.Class) {
-        super(decl);
-        this.memberOfType = memberOfType;
-        this.access = decl.access;
-    }
+//     public constructor(decl: SimpleDeclaration, memberOfType: Types.Class) {
+//         super(decl);
+//         this.memberOfType = memberOfType;
+//         this.access = decl.access;
+//     }
 
-    public toString() {
-        return this.name + " (" + this.type + ")";
-    }
+//     public toString() {
+//         return this.name + " (" + this.type + ")";
+//     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        var recObj = rtConstruct.contextualReceiver();
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
+//         var recObj = rtConstruct.contextualReceiver();
 
-        while(recObj && !recObj.type.similarType(this.memberOfType)) {
-            recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
-        }
+//         while(recObj && !recObj.type.similarType(this.memberOfType)) {
+//             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
+//         }
 
-        assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
+//         assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
 
-        return recObj.getMemberSubobject(this.name);
-    }
+//         return recObj.getMemberSubobject(this.name);
+//     }
 
-    public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
-        return new MemberSubobject(parentObj, this.type, this.name, memory, address);
-    }
+//     public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
+//         return new MemberSubobject(parentObj, this.type, this.name, memory, address);
+//     }
 
-    public describe() {
-        if (rtConstruct){
-            var recObj = rtConstruct.contextualReceiver();
-            if (recObj.name){
-                return {message: recObj.name + "." + this.name};
-            }
-            else{
-                return {message: "the member " + this.name + " of " + recObj.describe().message};
-            }
-        }
-        else{
-            return {
-                name: this.memberOfType.className + "." + this.name,
-                message: "the " + this.name + " member of the " + this.memberOfType.className + " class"
-            };
-        }
-    }
-}
+//     public describe() {
+//         if (rtConstruct){
+//             var recObj = rtConstruct.contextualReceiver();
+//             if (recObj.name){
+//                 return {message: recObj.name + "." + this.name};
+//             }
+//             else{
+//                 return {message: "the member " + this.name + " of " + recObj.describe().message};
+//             }
+//         }
+//         else{
+//             return {
+//                 name: this.memberOfType.className + "." + this.name,
+//                 message: "the " + this.name + " member of the " + this.memberOfType.className + " class"
+//             };
+//         }
+//     }
+// }
 
 export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";
@@ -1164,34 +1121,29 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     constructor(type: T, creator: PotentialFullExpression, owner: PotentialFullExpression, description: string) {
         super(type);
         this.creator = creator;
-        this.setOwner(owner);
+        this.owner = owner;
         this.name = name; // TODO: change when I check over usages of .name and replace with description or something
     }
 
     public setOwner(newOwner: PotentialFullExpression) {
-        (<PotentialFullExpression>this.owner) = newOwner;
+        (<Mutable<this>>this).owner = newOwner;
     }
 
-    public objectInstance(creatorRt: RuntimeConstruct) {
+    public objectInstance(creatorRt: RuntimePotentialFullExpression) {
+
         let objInst : TemporaryObject<T> = creatorRt.sim.memory.allocateTemporaryObject(this);
 
-        var inst = creatorRt;
-        while (inst.model !== this.owner){
-            inst = inst.parent;
-        }
-
-        inst.temporaryObjects = inst.temporaryObjects || {};
-        inst.temporaryObjects[obj.entityId] = obj;
+        let owner = creatorRt.containingFullExpression;
+        owner.temporaryObjects[this.entityId] = objInst;
         return objInst;
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        var ownerInst = rtConstruct;
-        while (ownerInst.model !== this.owner){
-            ownerInst = ownerInst.parent;
+        // Some hacky casts and assertions in this implementation
+        if (!(rtConstruct instanceof RuntimePotentialFullExpression)) {
+            return assertFalse();
         }
-        var tempObjInst = ownerInst.temporaryObjects[this.entityId];
-        return tempObjInst && tempObjInst;
+        return <TemporaryObject<T>>rtConstruct.containingFullExpression.temporaryObjects[this.entityId];
     }
 
     public describe() {
@@ -1243,147 +1195,152 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
     }
 }
 
-export class MagicFunctionEntity extends FunctionEntity {
-    public constructor(decl: SimpleDeclaration) {
-        super(decl);
-        this.setDefinition(decl);
-    }
+// export class MagicFunctionEntity extends FunctionEntity {
+//     public constructor(decl: SimpleDeclaration) {
+//         super(decl);
+//         this.setDefinition(decl);
+//     }
 
-    public describe() {
-        return {message: "no description available"};
-    }
-}
-
-
-export class MemberFunctionEntity extends FunctionEntity {
-
-    public readonly containingClass: Types.Class;
-    public readonly isVirtual: boolean;
-    public readonly pureVirtual: boolean;
-
-    constructor(decl: SimpleDeclaration, containingClass: Types.Class, isVirtual: boolean) {
-        super(decl);
-        this.containingClass = containingClass;
-        this.isVirtual = isVirtual;
-        this.pureVirtual = decl.pureVirtual;
-        // May also be set to virtual later if it's discovered to be an overrider
-        // for a virtual function in a base class
-
-        this.checkForOverride();
-    }
-
-    private checkForOverride() {
-        if (!this.containingClass.getBaseClass()) {
-            return;
-        }
-
-        // Find the nearest overrider of a hypothetical virtual function.
-        // If any are virtual, this one would have already been set to be
-        // also virtual by this same procedure, so checking this one is sufficient.
-        // If we override any virtual function, this one is too.
-        var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
-            paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
-            exactMatch:true, own:true, noNameHiding:true});
-
-        if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
-            (<boolean>this.isVirtual) = true;
-            // Check to make sure that the return types are covariant
-            if (!covariantType(this.type.returnType, overridden.type.returnType)){
-                throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
-            }
-        }
-    }
-
-    public isStaticallyBound() {
-        return !this.isVirtual;
-    }
-
-    public isLinked() {
-        return this.virtual && this.pureVirtual || this.isDefined();
-    }
-
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        if (this.isVirtual){
-            // If it's a virtual function start from the class scope of the dynamic type
-            var receiver = rtConstruct.contextualReceiver();
-            Util.assert(receiver, "dynamic function lookup requires receiver");
-            var dynamicType = receiver.type;
-
-            // Sorry this is hacky :(
-            // If it's a destructor, we look instead for the destructor of the dynamic type
-            var func;
-            if (this.definition instanceof DestructorDefinition) {
-                func = dynamicType.destructor;
-            }
-            else{
-                func = dynamicType.classScope.singleLookup(this.name, {
-                    paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
-                    exactMatch:true, own:true, noNameHiding:true});
-            }
-            Util.assert(func, "Failed to find virtual function implementation during lookup.");
-            return func;
-        }
-        else{
-            return this;
-        }
-    }
-
-    public suppressedVirtualProxy() : MemberFunctionEntity {
-        var proxy = Object.create(this);
-        proxy.isVirtual = false;
-        return proxy;
-    }
-
-};
-
-export class ConstructorEntity extends MemberFunctionEntity {
-
-}
+//     public describe() {
+//         return {message: "no description available"};
+//     }
+// }
 
 
-export class PointedFunctionEntity extends CPPEntity {
-    protected static readonly _name = "FunctionEntity";
+// export class MemberFunctionEntity extends FunctionEntity {
 
-    private readonly desc: string;
+//     public readonly containingClass: Types.Class;
+//     public readonly isVirtual: boolean;
+//     public readonly pureVirtual: boolean;
 
-    constructor(type: Type) {
-        super(type);
-        this.desc = "Unknown function of type " + type;
-    }
+//     constructor(decl: SimpleDeclaration, containingClass: Types.Class, isVirtual: boolean) {
+//         super(decl);
+//         this.containingClass = containingClass;
+//         this.isVirtual = isVirtual;
+//         this.pureVirtual = decl.pureVirtual;
+//         // May also be set to virtual later if it's discovered to be an overrider
+//         // for a virtual function in a base class
 
-    public isStaticallyBound() {
-        return true;
-    }
+//         this.checkForOverride();
+//     }
 
-    public toString() {
-        return this.desc;
-    }
+//     private checkForOverride() {
+//         if (!this.containingClass.getBaseClass()) {
+//             return;
+//         }
 
-    public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        return rtConstruct.pointedFunction.runtimeLookup(sim, rtConstruct);
-    }
+//         // Find the nearest overrider of a hypothetical virtual function.
+//         // If any are virtual, this one would have already been set to be
+//         // also virtual by this same procedure, so checking this one is sufficient.
+//         // If we override any virtual function, this one is too.
+//         var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
+//             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+//             exactMatch:true, own:true, noNameHiding:true});
 
-    public isLinked() {
-        return true;
-    }
+//         if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
+//             (<boolean>this.isVirtual) = true;
+//             // Check to make sure that the return types are covariant
+//             if (!covariantType(this.type.returnType, overridden.type.returnType)){
+//                 throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
+//             }
+//         }
+//     }
 
-    public describe() {
-        return {message: "no description available"};
-    }
-}
+//     public isStaticallyBound() {
+//         return !this.isVirtual;
+//     }
+
+//     public isLinked() {
+//         return this.virtual && this.pureVirtual || this.isDefined();
+//     }
+
+//     public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+//         if (this.isVirtual){
+//             // If it's a virtual function start from the class scope of the dynamic type
+//             var receiver = rtConstruct.contextualReceiver();
+//             Util.assert(receiver, "dynamic function lookup requires receiver");
+//             var dynamicType = receiver.type;
+
+//             // Sorry this is hacky :(
+//             // If it's a destructor, we look instead for the destructor of the dynamic type
+//             var func;
+//             if (this.definition instanceof DestructorDefinition) {
+//                 func = dynamicType.destructor;
+//             }
+//             else{
+//                 func = dynamicType.classScope.singleLookup(this.name, {
+//                     paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+//                     exactMatch:true, own:true, noNameHiding:true});
+//             }
+//             Util.assert(func, "Failed to find virtual function implementation during lookup.");
+//             return func;
+//         }
+//         else{
+//             return this;
+//         }
+//     }
+
+//     public suppressedVirtualProxy() : MemberFunctionEntity {
+//         var proxy = Object.create(this);
+//         proxy.isVirtual = false;
+//         return proxy;
+//     }
+
+// };
+
+// export class ConstructorEntity extends MemberFunctionEntity {
+
+// }
+
+
+// export class PointedFunctionEntity extends CPPEntity {
+//     protected static readonly _name = "FunctionEntity";
+
+//     private readonly desc: string;
+
+//     constructor(type: Type) {
+//         super(type);
+//         this.desc = "Unknown function of type " + type;
+//     }
+
+//     public isStaticallyBound() {
+//         return true;
+//     }
+
+//     public toString() {
+//         return this.desc;
+//     }
+
+//     public runtimeLookup(sim: Simulation, rtConstruct: RuntimeConstruct) {
+//         return rtConstruct.pointedFunction.runtimeLookup(sim, rtConstruct);
+//     }
+
+//     public isLinked() {
+//         return true;
+//     }
+
+//     public describe() {
+//         return {message: "no description available"};
+//     }
+// }
 
 
 
-export class TypeEntity extends DeclaredEntity {
-    protected static readonly _name = "TypeEntity";
+// export class TypeEntity extends DeclaredEntity {
+//     protected static readonly _name = "TypeEntity";
 
-    public toString() {
-        return "TypeEntity: " + this.type.instanceString();
-    }
+//     public toString() {
+//         return "TypeEntity: " + this.type.instanceString();
+//     }
 
-    public describe() {
-        return this.type.describe();
-    }
+//     public describe() {
+//         return this.type.describe();
+//     }
+// };
+
+
+function convLen(args: readonly Expression[]) {
+    return args.reduce((res, exp) => res + exp.conversionLength, 0);
 };
 
 // Selects from candidates the function that is the best match
@@ -1395,16 +1352,21 @@ export class TypeEntity extends DeclaredEntity {
 //              consisting of an array of any semantic problems that prevent it
 //              from being chosen.
 
-var convLen = function(args: Expression[]) {
-    var total = 0;
-    for (var i = 0; i < args.length; ++i) {
-        total += args[i].conversionLength;
-    }
-    return total;
-};
 
 // TODO: Update this so it does not modify the arguments passed in. This is essential.
-export function overloadResolution<T extends FunctionEntity>(candidates: readonly T[], paramTypes: readonly PotentialParameterType[], receiverType?: ClassType) {
+
+interface OverloadCandidateResult {
+    readonly candidate: FunctionEntity;
+    readonly notes: readonly Note[];
+}
+
+export interface OverloadResolutionResult {
+    readonly candidates: readonly OverloadCandidateResult[];
+    readonly viable: readonly FunctionEntity[];
+    readonly selected: FunctionEntity;
+}
+
+export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly PotentialParameterType[], receiverType?: ClassType) : OverloadResolutionResult {
 
     // TODO: add these checks, and send errors back to construct that calls this if they aren't met
     // Should return the function selected as well as an array of object-typed params that contain
@@ -1424,73 +1386,65 @@ export function overloadResolution<T extends FunctionEntity>(candidates: readonl
     //     return;
     // }
 
-
     // Find the constructor
-    let viable = [];
-    for(var c = 0; c < candidates.length; ++c){
-        let cand = candidates[c];
+    let viable: FunctionEntity[] = [];
+    let resultCandidates : readonly OverloadCandidateResult[] = candidates.map((candidate) => {
+
         let tempArgs = [];
-        var problems: Note[] = [];
-        candidateProblems && candidateProblems.push(problems);
+        var notes: Note[] = [];
 
         // Check argument types against parameter types
-        var paramTypes = cand.type.paramTypes;
-        if (args.length !== paramTypes.length){
-            problems.push(CPPError.param.numParams(cand.declaration));
+        let candidateParamTypes = candidate.type.paramTypes;
+        if (argTypes.length !== candidateParamTypes.length) {
+            notes.push(CPPError.param.numParams(candidate.declaration));
         }
-        else if (isThisConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
-            problems.push(CPPError.param.thisConst(cand.declaration));
-        }
+        // TODO: add back in with member functions
+        // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
+        //     problems.push(CPPError.param.thisConst(cand.declaration));
+        // }
         else{
-            for(var i = 0; i < args.length; ++i){
-                if (paramTypes[i] instanceof Types.Reference){
-                    tempArgs.push(args[i]);
-                    if(!Types.referenceCompatible(args[i].type, paramTypes[i].refTo)){
-                        problems.push(CPPError.param.paramReferenceType(args[i], args[i].type, paramTypes[i]));
+            argTypes.forEach((argType, i) => {
+                let candidateParamType = candidateParamTypes[i];
+                if (candidateParamType.isReferenceType()) {
+                    // tempArgs.push(args[i]);
+                    if(!referenceCompatible(argType, candidateParamType.refTo)) {
+                        notes.push(CPPError.param.paramReferenceType(candidate.declaration, argType, candidateParamType));
                     }
                     //else if (args[i].valueCategory !== "lvalue"){
                     //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
                     //}
                 }
-                else{
-                    tempArgs.push(standardConversion(args[i], paramTypes[i]));
-                    if(!Types.sameType(tempArgs[i].type, paramTypes[i])){
-                        problems.push(CPPError.param.paramType(args[i], args[i].type, paramTypes[i]));
+                else {
+                    // tempArgs.push(standardConversion(args[i], argTypes[i]));
+                    if(!isStandardConvertible(argType, candidateParamType)) {
+                        notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
                     }
 
                 }
-            }
-        }
-
-        if (problems.length == 0) {
-            viable.push({
-                cand: cand,
-                args: tempArgs
             });
         }
-    }
 
-    if (viable.length == 0){
-        return null;
-    }
-
-
-    var selected = viable[0];
-    var bestLen = convLen(selected.args);
-    for(var i = 1; i < viable.length; ++i){
-        var v = viable[i];
-        var vLen = convLen(v.args);
-        if (vLen < bestLen){
-            selected = v;
-            bestLen = vLen;
+        if (notes.length == 0) { // All notes in this function are errors, so if there are any it's not viable
+            viable.push(candidate);
         }
-    }
 
-    for(var i = 0; i < selected.args.length; ++i){
-        args[i] = selected.args[i];
-    }
+        return {candidate: candidate, notes: notes};
+    });
 
-    return selected.cand;
+    let selected = viable.reduce((best, current) => {
+        if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
+            return current;
+        }
+        else {
+            return best;
+        }
+    });
+
+    return {
+        candidates: resultCandidates,
+        viable: viable,
+        selected: selected
+    }
 };
 
 // TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.

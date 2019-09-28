@@ -5,7 +5,7 @@ import { Expression, RuntimeExpression, CompiledExpression } from "./expressions
 import { Simulation } from "./Simulation";
 import { SimpleDeclaration, FunctionDefinition } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { ReturnReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
+import { ReturnByReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
 import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
@@ -265,7 +265,7 @@ export class ReturnStatement extends Statement {
         }
 
         if (returnType instanceof ReferenceType) {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnReferenceEntity(returnType.refTo), [expression]);
+            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType.refTo), [expression]);
         }
         else {
             this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression]);

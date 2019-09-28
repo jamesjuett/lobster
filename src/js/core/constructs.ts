@@ -1,22 +1,14 @@
-import assign from "lodash/assign";
-import { Observable } from "../util/observe";
-import { CONSTRUCT_CLASSES } from "./constructClasses";
-import { assert, Mutable, asMutable } from "../util/util";
-import { SourceCode } from "./lexical";
-import { FunctionDefinition } from "./declarations";
-import { Scope, TemporaryObjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity, PassByValueParameterEntity, ReturnReferenceEntity } from "./entities";
-import { TranslationUnit, SourceReference } from "./Program";
-import { SemanticException } from "./semanticExceptions";
-import { Simulation } from "./Simulation";
-import { Type, ClassType, ObjectType, VoidType, ReferenceType, PotentialReturnType, noRef, noRefType } from "./types";
-import { Note, CPPError, Description, Explanation } from "./errors";
-import { Value, MemoryFrame } from "./runtimeEnvironment";
-import { CPPObject } from "./objects";
-import { Expression, TypedExpression, RuntimeExpression, ValueCategory } from "./expressions";
+import { SourceReference, Program, TranslationUnit } from "./Program";
+import { Scope, FunctionEntity, TemporaryObjectEntity } from "./entities";
+import { ClassType, Type, ObjectType } from "./types";
+import { Note, Explanation, Description, CPPError } from "./errors";
+import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { standardConversion } from "./standardConversions";
-import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
-import { clone } from "lodash";
+import { Simulation } from "./Simulation";
+import { Observable } from "../util/observe";
 import { RuntimeFunction } from "./functions";
+import { TemporaryObject } from "./objects";
+
 
 export interface ASTNode {
     construct_type?: string;
@@ -445,7 +437,7 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
         }
 
         if (!this.parent || !(this.parent instanceof PotentialFullExpression)) {
-            return Util.assertFalse("failed to find full expression for " + this);
+            return assertFalse("failed to find full expression for " + this);
         }
 
         return this.parent.findFullExpression();
@@ -454,6 +446,7 @@ export abstract class PotentialFullExpression extends InstructionConstruct {
     private addTemporaryObject(tempObjEnt: TemporaryObjectEntity) {
         assert(!this.parent, "Temporary objects may not be added to a full expression after it has been attached.")
         this.temporaryObjects.push(tempObjEnt);
+        tempObjEnt.setOwner(this);
     }
 
     public createTemporaryObject<T extends ObjectType>(type: T, description: string) {
@@ -725,11 +718,30 @@ export interface ExecutableRuntimeConstruct extends RuntimeConstruct {
 export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
 
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
+    public readonly temporaryObjects: {[index: number]: TemporaryObject | undefined} = {};
+
+    public readonly containingFullExpression : RuntimePotentialFullExpression;
 
     public constructor(model: C, stackType: StackType, parent: ExecutableRuntimeConstruct) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
             this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
+        }
+        this.containingFullExpression = this.findFullExpression();
+    }
+
+    private findFullExpression() : RuntimePotentialFullExpression {
+
+        let rt : RuntimeConstruct = this;
+        while (rt instanceof RuntimePotentialFullExpression && !rt.model.isFullExpression() && rt.parent) {
+            rt = rt.parent;
+        }
+
+        if (rt instanceof RuntimePotentialFullExpression) {
+            return rt;
+        }
+        else {
+            return assertFalse();
         }
     }
 
@@ -747,7 +759,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
     private justDestructed: boolean = false;
 
     public constructor (model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
-        super(model, "expression", parent.sim, parent);
+        super(model, "expression", parent);
     }
 	
     protected upNextImpl() {
@@ -793,35 +805,35 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 
 
-/**
- * Represents either a dot or arrow operator at runtime.
- * Provides a context that may change how entities are looked up based
- * on the object the member is being accessed from. e.g. A virtual member
- * function lookup depends on the actual (i.e. dynamic) type of the object
- * on which it was called.
- */
-export var RuntimeMemberAccess = RuntimeConstruct.extend({
-    _name : "RuntimeMemberAccess",
+// /**
+//  * Represents either a dot or arrow operator at runtime.
+//  * Provides a context that may change how entities are looked up based
+//  * on the object the member is being accessed from. e.g. A virtual member
+//  * function lookup depends on the actual (i.e. dynamic) type of the object
+//  * on which it was called.
+//  */
+// export var RuntimeMemberAccess = RuntimeConstruct.extend({
+//     _name : "RuntimeMemberAccess",
 
-    setObjectAccessedFrom : function(obj) {
-        this.i_objectAccessedFrom = obj;
-    },
+//     setObjectAccessedFrom : function(obj) {
+//         this.i_objectAccessedFrom = obj;
+//     },
 
-    contextualReceiver : function(){
-        return this.i_objectAccessedFrom;
-    }
-});
+//     contextualReceiver : function(){
+//         return this.i_objectAccessedFrom;
+//     }
+// });
 
-export var RuntimeNewInitializer = RuntimeConstruct.extend({
-    _name : "RuntimeNewInitializer",
+// export var RuntimeNewInitializer = RuntimeConstruct.extend({
+//     _name : "RuntimeNewInitializer",
 
-    setAllocatedObject : function(obj) {
-        this.i_allocatedObject = obj;
-    },
-    getAllocatedObject : function() {
-        return this.i_allocatedObject;
-    }
-});
+//     setAllocatedObject : function(obj) {
+//         this.i_allocatedObject = obj;
+//     },
+//     getAllocatedObject : function() {
+//         return this.i_allocatedObject;
+//     }
+// });
 
 
 
