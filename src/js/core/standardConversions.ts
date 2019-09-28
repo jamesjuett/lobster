@@ -1,29 +1,35 @@
 import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression} from "./expressions";
 import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool} from "./types";
 import { assertFalse } from "../util/util";
+import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct } from "./constructs";
 
-export var ImplicitConversion = Expression.extend({
-    _name: "ImplicitConversion",
-    i_childrenToExecute : ["from"],
-    init: function(from, toType, valueCategory){
-        assert(isA(toType, Type) && toType._isInstance);
-        this.initParent(from.ast, {parent: from.parent});
-        this.from = from;
-        from.parent = this;
-        this.type = toType;
+export abstract class ImplicitConversion<FromType extends ObjectType, ToType extends ObjectType, V extends ValueCategory> extends Expression implements CompiledConstruct {
+    
+    public readonly from: TypedExpression<FromType>;
+    public readonly toType: ToType;
+    public readonly valueCategory: V;
+    
+    public readonly conversionLength: number;
+    
+    _t_isCompiled: never;
+    
+    public constructor(context: FunctionContext, from: TypedExpression<FromType>, toType: ToType, valueCategory: V) {
+        super(context);
+        this.attach(this.from = from);
+        this.toType = toType;
         this.valueCategory = valueCategory;
 
-        if (isA(from, ImplicitConversion)){
-            this.conversionLength = from.conversionLength+1;
+        if (from instanceof ImplicitConversion) {
+            this.conversionLength = from.conversionLength + 1;
         }
         else{
             this.conversionLength = 1;
         }
-    },
+    }
 
-    compile : function(){
-        this.compileTemporarires();
-    },
+    public createRuntimeExpression(parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, ToType, V> {
+        return new RuntimeImplicitConversion(this, parent);
+    }
 
     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
@@ -45,11 +51,11 @@ export var ImplicitConversion = Expression.extend({
 
     operate: Class._ABSTRACT,
 
-    isTailChild : function(child){
-        return {isTail: false,
-            reason: "An implicit conversion (" + (this.englishName || this._name) + ") takes place after the function call returns."
-        };
-    }
+    // isTailChild : function(child){
+    //     return {isTail: false,
+    //         reason: "An implicit conversion (" + (this.englishName || this._name) + ") takes place after the function call returns."
+    //     };
+    // }
 
 });
 

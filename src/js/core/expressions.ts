@@ -485,6 +485,7 @@ export interface CompiledOperatorOverload<T extends PotentialReturnType = Potent
 
 export class Comma extends Expression {
     
+    // TODO: what is this for?
     public static readonly constructKind = Symbol("Comma");
 
     public readonly type: Type?;
@@ -505,7 +506,7 @@ export class Comma extends Expression {
     //     return !this.hasErrors;
     // }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeComma<T,V> {
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledComma<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeComma<T,V> {
         return new RuntimeComma(<CompiledComma<T,V>>this, parent);
     }
 
