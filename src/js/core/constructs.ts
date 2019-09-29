@@ -701,7 +701,7 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
 // TODO: this is just the same as RuntimeConstruct right now
 // export type ExecutableRuntimeConstruct = RuntimeConstruct; // RuntimeFunction | RuntimeInstruction;
 export interface ExecutableRuntimeConstruct extends RuntimeConstruct {
-    readonly containingRuntimeFunction : RuntimeFunction;
+    // readonly containingRuntimeFunction : RuntimeFunction;
 }
 // export abstract class RuntimeInstruction<C extends CompiledInstructionConstruct = CompiledInstructionConstruct> extends RuntimeConstruct<C> {
 

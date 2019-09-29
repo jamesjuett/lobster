@@ -150,7 +150,7 @@ abstract class TypeBase {
      * Used in parenthesization of string representations of types.
      * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
      */
-    protected abstract readonly precedence: number;
+    public abstract readonly precedence: number;
 
     public abstract readonly isArithmeticType: boolean;
     public abstract readonly isIntegralType: boolean;
@@ -237,7 +237,7 @@ abstract class TypeBase {
      * Returns true if this type is reference-related (see C++ standard) to the type other.
      * @param other
      */
-    public isReferenceRelated(other: Type) : boolean {
+    public isReferenceRelated(this: Type, other: Type) : boolean {
         return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
             subType(this.cvUnqualified(),other.cvUnqualified());
     }
@@ -247,7 +247,7 @@ abstract class TypeBase {
      * @param {Type} other
      * @returns {boolean}
      */
-    public isReferenceCompatible(other: Type) {
+    public isReferenceCompatible(this: Type, other: Type) {
         return this.isReferenceRelated(other) && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
     }
 
@@ -312,22 +312,20 @@ abstract class TypeBase {
     // TODO: perhaps make a way to clone a type with a particular cv qualification rather than the proxy approach, which seems more fragile
 
     /**
-     * Returns a cv-unqualified proxy object for this type, unless this type was already cv-unqualified,
-     * in which case just returns this object.
+     * Returns a cv-unqualified copy of this type.
      */
     public cvUnqualified() {
         return this.cvQualified(false, false);
     }
 
     /**
-     * Returns a copy of this type with the specified cv-qualifications, unless this type already matches
-     * the given cv-qualifications, in which case just returns this object.
+     * Returns a copy of this type with the specified cv-qualifications.
      */
     public cvQualified(isConst: boolean, isVolatile: boolean = false): this {
         return <this>this.cvQualifiedImpl(isConst, isVolatile);
     }
 
-    protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Type;
+    protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
 };
 
 // /**
@@ -377,7 +375,7 @@ export class VoidType extends TypeBase {
     public readonly isFloatingPointType = false;
     public readonly isComplete = true;
 
-    protected readonly precedence = 0;
+    public readonly precedence = 0;
 
     public sameType(other: Type) : boolean {
         return other instanceof VoidType
@@ -493,7 +491,7 @@ export abstract class SimpleType extends AtomicType {
     protected abstract simpleType: string;
 
     public readonly isComplete = true;
-    protected readonly precedence = 0;
+    public readonly precedence = 0;
 
     public sameType(other: Type) : boolean {
         return other instanceof SimpleType
@@ -692,7 +690,7 @@ export class PointerType extends AtomicType {
     public isFloatingPointType = false;
 
     public readonly size = 8;
-    protected readonly precedence = 1;
+    public readonly precedence = 1;
     public readonly isComplete = true;
 
     public static isNull(value: RawValueType) {
@@ -835,7 +833,7 @@ export class ReferenceType extends TypeBase {
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
 
-    protected readonly precedence = 1;
+    public readonly precedence = 1;
     public readonly isComplete = true;
 
     public readonly refTo: ObjectType;
@@ -891,7 +889,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
 
-    protected readonly precedence = 2;
+    public readonly precedence = 2;
 
     public readonly elemType: Elem_type;
     public readonly length: number;
@@ -972,7 +970,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     public readonly isIntegralType = false;
     public readonly isFloatingPointType = false;
 
-    protected readonly precedence = 2;
+    public readonly precedence = 2;
 
     public readonly elemType: Elem_type;
 
@@ -1032,7 +1030,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     // TODO: HACK to make ClassType exist but do nothing for now
 export class ClassType extends ObjectType {
     public size: number= 0;
-    protected precedence: number = 0;
+    public readonly precedence: number = 0;
     public readonly isArithmeticType: boolean = false;
     public readonly isIntegralType: boolean = false;
     public readonly isFloatingPointType: boolean = false;
@@ -1070,7 +1068,7 @@ export class ClassType extends ObjectType {
 //     public englishString(plural: boolean): string {
 //         throw new Error("Method not implemented.");
 //     }
-//     protected readonly precedence = 0;
+//     public readonly precedence = 0;
 
 //     public readonly cppClass: CPPClass;
 
@@ -1282,7 +1280,7 @@ export class FunctionType extends TypeBase {
     public isFloatingPointType = false;
     public isComplete = true;
     
-    protected readonly precedence = 2;
+    public readonly precedence = 2;
 
     public readonly returnType: PotentialReturnType;
     public readonly paramTypes: readonly PotentialParameterType[];
