@@ -1,6 +1,6 @@
-import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes} from "./expressions";
-import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer} from "./types";
-import { assertFalse } from "../util/util";
+import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral} from "./expressions";
+import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType} from "./types";
+import { assertFalse, assert } from "../util/util";
 import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct, ConstructContext } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { Description } from "./errors";
@@ -46,6 +46,10 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
 
     public abstract operate(fromEvalResult: VCResultTypes<FromType, FromVC>) : VCResultTypes<ToType, ToVC>;
 
+    
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
 }
 
 export interface CompiledImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, CompiledConstruct {
@@ -103,10 +107,6 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
         // TODO: add alert if value is invalid
         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     }
-    
-    public describeEvalResult(depth: number): Description {
-        throw new Error("Method not implemented.");
-    }
 
     // describeEvalResult : function(depth, sim, inst){
     //     if (inst && inst.evalResult){
@@ -133,13 +133,7 @@ export class ArrayToPointer<T extends ArrayType> extends ImplicitConversion<T, "
     }
 
     public operate(fromEvalResult: VCResultTypes<ArrayType, "lvalue">) {
-        return new Value(fromEvalResult.address, new ArrayPointer(fromEvalResult)); // Cast technically necessary here
-        // TODO: add alert if value is invalid
-        // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
-    }
-    
-    public describeEvalResult(depth: number): Description {
-        throw new Error("Method not implemented.");
+        return new Value(fromEvalResult.address, new ArrayPointer(fromEvalResult));
     }
 
     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
@@ -169,112 +163,50 @@ export class ArrayToPointer<T extends ArrayType> extends ImplicitConversion<T, "
 // Type 2 Conversions
 // Qualification conversions
 
-export var QualificationConversion = ImplicitConversion.extend({
-    _name: "QualificationConversion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        this.initParent(from, toType, "prvalue");
-    },
+class NoOpConversion<FromType extends AtomicType, ToType extends AtomicType>
+    extends ImplicitConversion<FromType, "prvalue", ToType, "prvalue"> {
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalResult;
-        inst.setEvalResult(evalValue.getValue());
+    public constructor(context: ConstructContext, from: TypedExpression<FromType, "prvalue">, toType: ToType) {
+        super(context, from, toType, "prvalue");
     }
-});
-
-export var NullPointerConversion = DoNothing.extend({
-    _name: "NullPointerConversion",
-    init : function(from, to){
-        assert(isA(from, Expressions.Literal));
-        assert(isA(from.type, Types.Int));
-        assert(from.value.rawValue() == 0);
-        assert(from.valueCategory === "prvalue");
-        this.initParent(from, to, "prvalue");
-    },
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        inst.setEvalResult(Value.instance(0, this.type));
+    
+    public operate(fromEvalResult: VCResultTypes<FromType, "prvalue">) {
+        return <VCResultTypes<ToType, "prvalue">>new Value(fromEvalResult.rawValue, this.type); // Cast technically necessary here
     }
-});
+}
 
-export var PointerConversion = DoNothing.extend({
-    _name: "PointerConversion",
-    init : function(from, to){
-        assert(from.valueCategory === "prvalue");
-        this.initParent(from, to, "prvalue");
+export class QualificationConversion<FromType extends AtomicType, ToType extends AtomicType> extends NoOpConversion<FromType, ToType> {
+
+}
+
+export class NullPointerConversion<P extends PointerType> extends NoOpConversion<Int, P> {
+
+    public constructor(context: ConstructContext, from: NumericLiteral<Int>, toType: P) {
+        super(context, from, toType);
+        assert(from.value.rawValue === 0);
     }
-});
 
-export var PointerToBooleanConversion = ImplicitConversion.extend({
-    _name: "PointerToBooleanConversion",
-    init: function(from){
-        assert(from.valueCategory === "prvalue");
-        assert(isA(from.type, Types.Pointer));
-        this.initParent(from, Types.Bool.instance(), "prvalue");
-    },
+}
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalResult.value;
-        inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
-    }
-});
+export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpConversion<FromType, ToType> {
 
-export var FloatingPointPromotion = DoNothing.extend({
-    _name: "FloatingPointPromotion",
-    init : function(from){
-        assert(isA(from.type, Types.Float));
-        assert(from.valueCategory === "prvalue");
-        this.initParent(from, Types.Double.instance(), "prvalue");
-    }
-});
+}
 
-export var IntegralConversion = ImplicitConversion.extend({
-    _name: "IntegralConversion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegralType);
-        assert(toType.isIntegralType);
-        this.initParent(from, toType, "prvalue");
-        this.englishName = from.type.englishString() + " to " + toType.englishString();
-    },
+export class PointerToBooleanConversion extends NoOpConversion<PointerType, Bool> {
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalResult.value;
-        if (isA(this.from.type, Types.Bool)){ // from bool
-            inst.setEvalResult(Value.instance(val ? 1 : 0, this.type));
-        }
-        else if (isA(this.type, Types.Bool)){ // to bool
-            inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
-        }
-        else{
-            inst.setEvalResult(Value.instance(val, this.type));
-        }
-    }
-});
+}
 
+export class FloatingPointPromotion extends NoOpConversion<Float, Double> {
 
-export var IntegralFloatingConversion = ImplicitConversion.extend({
-    _name: "IntegralFloatingConversion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegralType);
-        assert(toType.isFloatingPointType);
-        this.initParent(from, toType, "prvalue");
-    },
+}
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        // I think only thing I really need here is to handle booleans gracefully
-        // Adding 0.0 should do the trick.
-        var val = inst.childInstances.from.evalResult.value;
-        if (isA(this.from.type, Types.Bool)){ // bool to floating
-            inst.setEvalResult(Value.instance(val ? 1.0 : 0.0, this.type));
-        }
-        else{
-            inst.setEvalResult(Value.instance(val, this.type));
-        }
-    }
-});
+export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpConversion<FromType, ToType> {
+
+}
+
+export class IntegralToFloatingConversion<FromType extends IntegralType, ToType extends FloatingPointType> extends NoOpConversion<FromType, ToType> {
+
+}
 
 export var FloatingIntegralConversion = ImplicitConversion.extend({
     _name: "FloatingIntegralConversion",
