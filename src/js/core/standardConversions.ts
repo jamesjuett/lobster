@@ -1,22 +1,33 @@
-import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression} from "./expressions";
-import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool} from "./types";
+import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes} from "./expressions";
+import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer} from "./types";
 import { assertFalse } from "../util/util";
-import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct } from "./constructs";
+import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct, ConstructContext } from "./constructs";
+import { Value } from "./runtimeEnvironment";
+import { Description } from "./errors";
+import { CPPObject } from "./objects";
 
-export abstract class ImplicitConversion<FromType extends ObjectType, ToType extends ObjectType, V extends ValueCategory> extends Expression implements CompiledConstruct {
+export type ImplicitConversionKind = "lvalue-to-rvalue";
+
+const CONVERSION_OPERATIONS : {[index: ImplicitConversionKind]: (rt: RuntimeImplicitConversion) => void} = {
+    "lvalue-to-rvalue" : (rt: RuntimeImplicitConversion) => {
+        rt.from.
+    }
+}
+
+export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
     
-    public readonly from: TypedExpression<FromType>;
-    public readonly toType: ToType;
-    public readonly valueCategory: V;
+    public readonly from: TypedExpression<FromType, FromVC>;
+    public readonly type: ToType;
+    public readonly valueCategory: ToVC;
+
+    public readonly kind : ImplicitConversionKind;
     
     public readonly conversionLength: number;
-    
-    _t_isCompiled: never;
-    
-    public constructor(context: FunctionContext, from: TypedExpression<FromType>, toType: ToType, valueCategory: V) {
+
+    public constructor(context: ConstructContext, from: TypedExpression<FromType, FromVC>, toType: ToType, valueCategory: ToVC) {
         super(context);
         this.attach(this.from = from);
-        this.toType = toType;
+        this.type = toType;
         this.valueCategory = valueCategory;
 
         if (from instanceof ImplicitConversion) {
@@ -27,40 +38,44 @@ export abstract class ImplicitConversion<FromType extends ObjectType, ToType ext
         }
     }
 
-    public createRuntimeExpression(parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, ToType, V> {
+    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
+    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC> {
         return new RuntimeImplicitConversion(this, parent);
     }
 
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    public abstract operate(fromEvalResult: VCResultTypes<FromType, FromVC>) : VCResultTypes<ToType, ToVC>;
 
-        if (inst.index == "subexpressions"){
-            return Expression.upNext.apply(this, arguments);
-        }
-        else if (inst.index == "operate"){
-        }
-        return false;
-    },
+}
 
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if(inst.index == "operate") {
-            this.operate(sim, inst);
-            this.done(sim, inst);
-            return false;
-        }
-    },
+export interface CompiledImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, CompiledConstruct {
+    readonly from: CompiledExpression<FromType, FromVC>;
+}
 
-    operate: Class._ABSTRACT,
-
+export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory>
+    extends SimpleRuntimeExpression<ToType, ToVC, CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>> {
+        
+    public readonly from: RuntimeExpression<FromType, FromVC>;
+    
+    public constructor(model: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) {
+        super(model, parent);
+        this.from = this.model.from.createRuntimeExpression(this);
+        this.setSubexpressions([this.from]);
+    }
+        
+    protected operate(): void {
+        this.setEvalResult(this.model.operate(this.from.evalResult));
+    }
     // isTailChild : function(child){
     //     return {isTail: false,
     //         reason: "An implicit conversion (" + (this.englishName || this._name) + ") takes place after the function call returns."
     //     };
     // }
 
-});
+}
 
 
-var DoNothing = ImplicitConversion.extend({
+class DoNothing extends ImplicitConversion {
     _name: "DoNothing",
     init: function(from, to, valueCategory){
         this.initParent(from, to, valueCategory);
@@ -77,84 +92,79 @@ var DoNothing = ImplicitConversion.extend({
 // LValueToRValue, ArrayToPointer, FunctionToPointer
 
 
-export var LValueToRValue = ImplicitConversion.extend({
-    _name: "LValueToRValue",
-    init: function(from){
-        assert(from.valueCategory === "lvalue" || from.valueCategory === "xvalue");
-        var toType = (isA(from.type, Types.Class) ? from.type : from.type.cvUnqualified());
-        this.initParent(from, toType, "prvalue");
-    },
-
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalResult;
-        // Note, we get the type from the evalValue to preserve RTTI
-
-        inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        if(inst.index === "operate" && isA(this.from, Identifier) && this.from.entity === sim.endlEntity){
-            this.stepForward(sim, inst);
-            return true;
-        }
-        else{
-            return LValueToRValue._parent.upNext.apply(this, arguments);
-        }
-    },
-
-    describeEvalResult : function(depth, sim, inst){
-        if (inst && inst.evalResult){
-            return inst.evalResult.describe();
-        }
-        else if (depth == 0){
-            return {message: "the value of " + this.getSourceText()};
-        }
-        else{
-            return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
-        }
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
+export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
+    
+    public constructor(context: ConstructContext, from: TypedExpression<T, "lvalue">) {
+        super(context, from, from.type.cvUnqualified(), "prvalue");
+    }
+    
+    public operate(fromEvalResult: VCResultTypes<T, "lvalue">) {
+        return <VCResultTypes<T, "prvalue">>fromEvalResult.getValue(); // Cast technically necessary here
+        // TODO: add alert if value is invalid
+        // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
+    }
+    
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
     }
 
-});
+    // describeEvalResult : function(depth, sim, inst){
+    //     if (inst && inst.evalResult){
+    //         return inst.evalResult.describe();
+    //     }
+    //     else if (depth == 0){
+    //         return {message: "the value of " + this.getSourceText()};
+    //     }
+    //     else{
+    //         return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
+    //     }
+    // },
 
-export var ArrayToPointer = ImplicitConversion.extend({
-    _name: "ArrayToPointer",
-    init: function(from){
-        assert(isA(from.type, Types.Array));
-        this.initParent(from, Types.Pointer.instance(from.type.elemType), "prvalue");
-    },
+    // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
+    // }
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var arrObj = inst.childInstances.from.evalResult;
-        inst.setEvalResult(Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj)));
-    },
+}
 
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "In this case (and most others), using the name of an array in an expression will yield a the address of its first element. That's what happens here."};
+export class ArrayToPointer<T extends ArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
+
+    public constructor(context: ConstructContext, from: TypedExpression<T, "lvalue">) {
+        super(context, from, from.type.adjustToPointerType(), "prvalue");
     }
-});
 
-
-
-export var FunctionToPointer = ImplicitConversion.extend({
-    _name: "FunctionToPointer",
-    init: function(from){
-        assert(isA(from.type, Types.Function));
-        this.initParent(from, Types.Pointer.instance(from.type), "prvalue");
-    },
-
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var func = inst.childInstances.from.evalResult;
-        inst.setEvalResult(Value.instance(func, this.type));
-    },
-
-    explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return {message: "Using the name of a function in an expression will yield a pointer to that function."};
+    public operate(fromEvalResult: VCResultTypes<ArrayType, "lvalue">) {
+        return new Value(fromEvalResult.address, new ArrayPointer(fromEvalResult)); // Cast technically necessary here
+        // TODO: add alert if value is invalid
+        // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     }
-});
+    
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+    // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     return {message: "In this case (and most others), using the name of an array in an expression will yield a the address of its first element. That's what happens here."};
+    // }
+}
+
+
+
+// export var FunctionToPointer = ImplicitConversion.extend({
+//     _name: "FunctionToPointer",
+//     init: function(from){
+//         assert(isA(from.type, Types.Function));
+//         this.initParent(from, Types.Pointer.instance(from.type), "prvalue");
+//     },
+
+//     operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var func = inst.childInstances.from.evalResult;
+//         inst.setEvalResult(Value.instance(func, this.type));
+//     },
+
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         return {message: "Using the name of a function in an expression will yield a pointer to that function."};
+//     }
+// });
 
 // Type 2 Conversions
 // Qualification conversions

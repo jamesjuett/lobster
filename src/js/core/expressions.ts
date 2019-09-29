@@ -143,7 +143,7 @@ export function allObjectTyped(expressions: readonly Expression[]): expressions 
 //     readonly lvalue: CPPObject<T>;
 // } : never;
 
-type VCResultTypes<T extends Type, V extends ValueCategory> =
+export type VCResultTypes<T extends Type, V extends ValueCategory> =
     T extends FunctionType ? (
         V extends "prvalue" ? never :
         V extends "xvalue" ? never :
@@ -193,7 +193,14 @@ type VCResultTypes<T extends Type, V extends ValueCategory> =
 
 export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
     
-    public readonly evalResult?: VCResultTypes<T,V>;
+    /**
+     * WARNING: The evalResult property may be undefined, even though it's type suggests it will always
+     * be defined. In most places where it is accessed, there is an implicit assumption that the expression
+     * will already have been evaluated and the client code would end up needing a non-null assertion anyway.
+     * However, those non-null assertions actually introduce some tricky complications with VCResultTypes,
+     * which cause type errors and are a huge pain. So instead we tell the type system to trust us.
+     */
+    public readonly evalResult!: VCResultTypes<T,V>;
 
     public constructor(model: C, parent: ExecutableRuntimeConstruct) {
         super(model, "expression", parent);
@@ -510,19 +517,19 @@ export class Comma extends Expression {
         return new RuntimeComma(<CompiledComma<T,V>>this, parent);
     }
 
-    public isTailChild(child: ExecutableConstruct) {
-        if (child === this.right){
-            return {isTail: true,
-                reason: "The recursive call is on the right side of the comma, so it is guaranteed to be evaluated last."
-            };
-        }
-        else{
-            return {isTail: false,
-                reason: "The expression on the right of the comma will be evaluated after the recursive call.",
-                others: [this.right]
-            };
-        }
-    }
+    // public isTailChild(child: ExecutableConstruct) {
+    //     if (child === this.right){
+    //         return {isTail: true,
+    //             reason: "The recursive call is on the right side of the comma, so it is guaranteed to be evaluated last."
+    //         };
+    //     }
+    //     else{
+    //         return {isTail: false,
+    //             reason: "The expression on the right of the comma will be evaluated after the recursive call.",
+    //             others: [this.right]
+    //         };
+    //     }
+    // }
 
     public describeEvalResult(depth: number) {
         return this.right.describeEvalResult(depth);
@@ -1050,22 +1057,22 @@ type t_BinaryOperators = t_ArithmeticBinaryOperators | t_LogicalBinaryOperators;
 
 const ArithmeticBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
 
-function binaryOperate(op: t_BinaryOperators, left: Value<AtomicType>, right: Value<AtomicType>) {
+function binaryOperate<T extends AtomicType>(op: t_BinaryOperators, left: Value<T>, right: Value<T>) {
     return SIMPLE_BINARY_OPERATIONS[op](left, right);
 }
 
-const SIMPLE_BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, right: Value<AtomicType>) => Value<AtomicType>}
+const SIMPLE_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<T>}
     = {
-    "+" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "+" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, add);
     },
-    "-" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "-" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, sub);
     },
-    "*" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "*" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, mult);
     },
-    "/" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "/" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         if (left.type.isIntegralType) {
             return left.combine(right, intDiv);
         }
@@ -1073,22 +1080,22 @@ const SIMPLE_BINARY_OPERATIONS : {[index:string]: (left: Value<AtomicType>, righ
             return left.combine(right, floatDiv);
         }
     },
-    "%" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "%" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, mod);
     },
-    "&" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "&" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitAnd);
     },
-    "^" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "^" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitXor);
     },
-    "|" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "|" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitOr);
     },
-    "<<" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    "<<" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitShiftLeft);
     },
-    ">>" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
+    ">>" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitShiftRight);
     },
 
@@ -1129,6 +1136,9 @@ export abstract class BinaryOperator extends Expression {
         super(context)
         this.operator = operator;
     }
+
+    public abstract createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeBinaryOperator<T>;
+    public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
 }
 
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, CompiledConstruct {

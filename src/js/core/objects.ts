@@ -281,7 +281,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return new Value(this.address, new ObjectPointer(this));
     }
 
-    public getValue(this: CPPObject<AtomicType>, read: boolean = false) {
+    public getValue<U extends AtomicType>(this: CPPObject<U>, read: boolean = false) : Value<U> {
         let val = new Value(this.getRawValue(), this.type, this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
