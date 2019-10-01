@@ -42,7 +42,7 @@ export function similarType(type1: Type, type2: Type) {
 };
 
 // TODO subType function is dangerous :( (I think I originally wrote this because Type overall doesn't have isDerivedFrom)
-export function subType(type1: Type, type2: Type) {
+export function subType(type1: ClassType, type2: ClassType) {
     return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
 };
 
@@ -185,6 +185,10 @@ abstract class TypeBase {
     public isObjectType() : this is ObjectType {
         return this instanceof ObjectType;
     }
+    
+    public isAtomicType() : this is AtomicType {
+        return this instanceof AtomicType;
+    }
 
     public isPointerType() : this is PointerType {
         return this instanceof PointerType;
@@ -194,12 +198,20 @@ abstract class TypeBase {
         return this instanceof ReferenceType;
     }
 
-    public isArrayType() : this is ArrayType | ArrayOfUnknownBoundType {
-        return this instanceof ArrayType || this instanceof ArrayOfUnknownBoundType;
+    public isClassType() : this is ClassType {
+        return this instanceof ClassType;
+    }
+
+    public isBoundedArrayType() : this is BoundedArrayType {
+        return this instanceof BoundedArrayType;
     }
 
     public isArrayOfUnknownBoundType() : this is ArrayOfUnknownBoundType {
         return this instanceof ArrayOfUnknownBoundType;
+    }
+
+    public isGenericArrayType() : this is BoundedArrayType | ArrayOfUnknownBoundType {
+        return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
     public isFunctionType() : this is FunctionType {
@@ -584,6 +596,7 @@ builtInTypes["char"] = Char;
 
 export class Int extends IntegralType {
     public static readonly INT = new Int();
+
     protected readonly simpleType = "int";
     public readonly size = 4;
     
@@ -605,10 +618,10 @@ export class Size_t extends IntegralType {
 builtInTypes["size_t"] = Size_t;
 
 export class Bool extends IntegralType {
+    public static readonly BOOL = new Bool();
+
     protected readonly simpleType = "bool";
     public readonly size = 1;
-
-    public static readonly BOOL = new Bool();
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
@@ -634,6 +647,9 @@ export abstract class FloatingPointType extends SimpleType {
 }
 
 export class Float extends FloatingPointType {
+
+    public static readonly FLOAT = new Float();
+
     protected readonly simpleType = "float";
     public readonly size = 4;
     
@@ -644,6 +660,9 @@ export class Float extends FloatingPointType {
 builtInTypes["float"] = Float;
 
 export class Double extends FloatingPointType {
+
+    public static readonly DOUBLE = new Double();
+
     protected readonly simpleType = "double";
     public readonly size = 8;
     
@@ -769,9 +788,9 @@ export class PointerType extends AtomicType {
 
 export class ArrayPointer extends PointerType {
 
-    public readonly arrayObject: CPPObject<ArrayType>;
+    public readonly arrayObject: CPPObject<BoundedArrayType>;
 
-    public constructor(arrayObject: CPPObject<ArrayType>, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(arrayObject: CPPObject<BoundedArrayType>, isConst?: boolean, isVolatile?: boolean) {
         super(arrayObject.type.elemType, isConst, isVolatile);
         this.arrayObject = arrayObject;
     }
@@ -881,7 +900,7 @@ export type ArrayElemType = AtomicType | ClassType;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectType {
+export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectType {
     
     public readonly size: number;
 
@@ -919,11 +938,11 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     }
 
     public sameType(other: Type) : boolean {
-        return other instanceof ArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
     }
 
     public similarType(other: Type) : boolean {
-        return other instanceof ArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
@@ -935,7 +954,7 @@ export class ArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends 
     }
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
+        return new BoundedArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
     
     public adjustToPointerType() {

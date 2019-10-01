@@ -1,4 +1,4 @@
-import { Type, ArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
+import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
 import { Observable } from "../util/observe";
 import { assert } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -38,10 +38,10 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: ch
 
 }
 
-class ArrayObjectData<T extends ArrayType> extends ObjectData<T> {
+class ArrayObjectData<T extends BoundedArrayType> extends ObjectData<T> {
 
-    public static create<Elem_type extends ArrayElemType>(object: CPPObject<ArrayType<Elem_type>>, memory: Memory, address: number) {
-        return new ArrayObjectData<ArrayType>(object, memory, address);
+    public static create<Elem_type extends ArrayElemType>(object: CPPObject<BoundedArrayType<Elem_type>>, memory: Memory, address: number) {
+        return new ArrayObjectData<BoundedArrayType>(object, memory, address);
     } 
 
     private readonly elemObjects: ArraySubobject<any>[];
@@ -206,7 +206,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     public readonly address: number;
 
     private readonly data: T extends AtomicType ? AtomicObjectData<T> :
-                           T extends ArrayType ? ArrayObjectData<T> :
+                           T extends BoundedArrayType ? ArrayObjectData<T> :
                            T extends ClassType ? ClassObjectData<T> : never;
 
     public readonly isAlive: boolean;
@@ -220,7 +220,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
-        if (this.type instanceof ArrayType) {
+        if (this.type instanceof BoundedArrayType) {
             // this.isArray = true;
             this.data = <any>ArrayObjectData.create(<any>this, memory, address);
         }
@@ -238,12 +238,12 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobject<Elem_type extends ArrayElemType>(this: CPPObject<ArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobject<Elem_type extends ArrayElemType>(this: CPPObject<BoundedArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
         return this.data.getArrayElemSubobject(index);
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjectByAddress<Elem_type extends ArrayElemType>(this: CPPObject<ArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobjectByAddress<Elem_type extends ArrayElemType>(this: CPPObject<BoundedArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
@@ -604,9 +604,9 @@ export class ThisObject<T extends ObjectType = ObjectType> extends CPPObject<T> 
 
 }
 
-export class StringLiteralObject extends CPPObject<ArrayType<Char>> {
+export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
 
-    public constructor(type: ArrayType<Char>, memory: Memory, address: number) {
+    public constructor(type: BoundedArrayType<Char>, memory: Memory, address: number) {
         super(type, memory, address);
     }
 
@@ -618,9 +618,9 @@ export class StringLiteralObject extends CPPObject<ArrayType<Char>> {
 
 abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public readonly containingObject: CPPObject<ArrayType | ClassType>;
+    public readonly containingObject: CPPObject<BoundedArrayType | ClassType>;
 
-    public constructor(containingObject: CPPObject<ArrayType | ClassType>, type: T, memory: Memory, address: number) {
+    public constructor(containingObject: CPPObject<BoundedArrayType | ClassType>, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.containingObject = containingObject;
     }
@@ -642,10 +642,10 @@ abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T>
 
 export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
     
-    public readonly containingObject!: CPPObject<ArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
+    public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
     public readonly index: number;
 
-    public constructor(arrObj: CPPObject<ArrayType<T>>, index: number, memory: Memory, address: number) {
+    public constructor(arrObj: CPPObject<BoundedArrayType<T>>, index: number, memory: Memory, address: number) {
         super(arrObj, arrObj.type.elemType, memory, address);
         this.index = index;
     }

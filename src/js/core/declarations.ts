@@ -1,7 +1,7 @@
 import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
-import { Type, ArrayOfUnknownBoundType, FunctionType, ArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
+import { Type, ArrayOfUnknownBoundType, FunctionType, BoundedArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
 import { CPPError, Note } from "./errors";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
@@ -741,7 +741,7 @@ export class Declarator extends BasicCPPConstruct {
                     isInnermost = arePostfixesInnermost && i === 0;
 
                     if(postfix.kind === "array") {
-                        if (type.isArrayType()) {
+                        if (type.isBoundedArrayType()) {
                             this.addNote(CPPError.declaration.array.multidimensional_arrays_unsupported(this));
                             return;
                         }
@@ -763,7 +763,7 @@ export class Declarator extends BasicCPPConstruct {
 
                             if (postfix.size.construct_type === "literal") {
                                 // If the size specified is a literal, just use its value as array length
-                                type = new ArrayType(type, (<NumericLiteralASTNode>postfix.size).value);
+                                type = new BoundedArrayType(type, (<NumericLiteralASTNode>postfix.size).value);
                             }
                             else {
                                 // If a size is specified, that is not a literal, it must be an expression (via the grammar).
@@ -799,7 +799,7 @@ export class Declarator extends BasicCPPConstruct {
                             if (type.isFunctionType()) {
                                 this.addNote(CPPError.declaration.func.return_func(this));
                             }
-                            else if (type.isArrayType()){
+                            else if (type.isBoundedArrayType()){
                                 this.addNote(CPPError.declaration.func.return_array(this));
                             }
                             else {
@@ -828,7 +828,7 @@ export class Declarator extends BasicCPPConstruct {
                         
                         let paramTypes = paramDeclarators.map(decl => {
                             if (!decl.type) { return decl.type; }
-                            if (!decl.type.isArrayType()) { return decl.type; }
+                            if (!decl.type.isBoundedArrayType()) { return decl.type; }
                             else { return decl.type.adjustToPointerType();}
                         });
 

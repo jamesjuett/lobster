@@ -1,6 +1,6 @@
-import {Expression, readValueWithAlert, TypedExpression, ValueCategory, Literal, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral} from "./expressions";
-import {Type, Double, Float, sameType, ArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType} from "./types";
-import { assertFalse, assert } from "../util/util";
+import {Expression, readValueWithAlert, TypedExpression, ValueCategory, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral, SpecificTypedExpression} from "./expressions";
+import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType} from "./types";
+import { assertFalse, assert, Constructor } from "../util/util";
 import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct, ConstructContext } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { Description } from "./errors";
@@ -24,8 +24,8 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
     
     public readonly conversionLength: number;
 
-    public constructor(context: ConstructContext, from: TypedExpression<FromType, FromVC>, toType: ToType, valueCategory: ToVC) {
-        super(context);
+    public constructor(from: TypedExpression<FromType, FromVC>, toType: ToType, valueCategory: ToVC) {
+        super(from.context);
         this.attach(this.from = from);
         this.type = toType;
         this.valueCategory = valueCategory;
@@ -79,27 +79,14 @@ export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType,
 }
 
 
-class DoNothing extends ImplicitConversion {
-    _name: "DoNothing",
-    init: function(from, to, valueCategory){
-        this.initParent(from, to, valueCategory);
-    },
-
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var evalValue = inst.childInstances.from.evalResult;
-        // Note, we get the type from the evalValue to preserve RTTI
-        inst.setEvalResult(Value.instance(evalValue.value, evalValue.type));
-    }
-});
-
 // Type 1 Conversions
 // LValueToRValue, ArrayToPointer, FunctionToPointer
 
 
 export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
     
-    public constructor(context: ConstructContext, from: TypedExpression<T, "lvalue">) {
-        super(context, from, from.type.cvUnqualified(), "prvalue");
+    public constructor(from: TypedExpression<T, "lvalue">) {
+        super(from, from.type.cvUnqualified(), "prvalue");
     }
     
     public operate(fromEvalResult: VCResultTypes<T, "lvalue">) {
@@ -126,13 +113,13 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
 
 }
 
-export class ArrayToPointer<T extends ArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
+export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
 
-    public constructor(context: ConstructContext, from: TypedExpression<T, "lvalue">) {
-        super(context, from, from.type.adjustToPointerType(), "prvalue");
+    public constructor(from: TypedExpression<T, "lvalue">) {
+        super(from, from.type.adjustToPointerType(), "prvalue");
     }
 
-    public operate(fromEvalResult: VCResultTypes<ArrayType, "lvalue">) {
+    public operate(fromEvalResult: VCResultTypes<BoundedArrayType, "lvalue">) {
         return new Value(fromEvalResult.address, new ArrayPointer(fromEvalResult));
     }
 
@@ -161,13 +148,25 @@ export class ArrayToPointer<T extends ArrayType> extends ImplicitConversion<T, "
 // });
 
 // Type 2 Conversions
-// Qualification conversions
 
-class NoOpConversion<FromType extends AtomicType, ToType extends AtomicType>
+/**
+ * All type conversions ignore cv-qualifications on the given destination type. Instead,
+ * the converted type retains the cv-qualifications of the source type.
+ */
+abstract class TypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     extends ImplicitConversion<FromType, "prvalue", ToType, "prvalue"> {
 
-    public constructor(context: ConstructContext, from: TypedExpression<FromType, "prvalue">, toType: ToType) {
-        super(context, from, toType, "prvalue");
+    public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
+        super(from, toType.cvQualified(from.type.isConst, from.type.isVolatile), "prvalue");
+    }
+
+}
+
+class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
+    extends TypeConversion<FromType, ToType> {
+
+    public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
+        super(from, toType);
     }
     
     public operate(fromEvalResult: VCResultTypes<FromType, "prvalue">) {
@@ -175,58 +174,51 @@ class NoOpConversion<FromType extends AtomicType, ToType extends AtomicType>
     }
 }
 
-export class QualificationConversion<FromType extends AtomicType, ToType extends AtomicType> extends NoOpConversion<FromType, ToType> {
+export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
 
-}
-
-export class NullPointerConversion<P extends PointerType> extends NoOpConversion<Int, P> {
-
-    public constructor(context: ConstructContext, from: NumericLiteral<Int>, toType: P) {
-        super(context, from, toType);
+    public constructor(from: NumericLiteral<Int>, toType: P) {
+        super(from, toType);
         assert(from.value.rawValue === 0);
     }
 
 }
 
-export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpConversion<FromType, ToType> {
+export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpTypeConversion<FromType, ToType> {
 
 }
 
-export class PointerToBooleanConversion extends NoOpConversion<PointerType, Bool> {
-
-}
-
-export class FloatingPointPromotion extends NoOpConversion<Float, Double> {
-
-}
-
-export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpConversion<FromType, ToType> {
-
-}
-
-export class IntegralToFloatingConversion<FromType extends IntegralType, ToType extends FloatingPointType> extends NoOpConversion<FromType, ToType> {
-
-}
-
-export var FloatingIntegralConversion = ImplicitConversion.extend({
-    _name: "FloatingIntegralConversion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        assert(from.type.isFloatingPointType);
-        assert(toType.isIntegralType);
-        this.initParent(from, toType, "prvalue");
-    },
-
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        var val = inst.childInstances.from.evalResult.value;
-        if (isA(this.type, Types.Bool)) {
-            inst.setEvalResult(Value.instance(val != 0, this.type));
-        }
-        else{
-            inst.setEvalResult(Value.instance(Math.trunc(val), this.type));
-        }
+export class PointerToBooleanConversion extends NoOpTypeConversion<PointerType, Bool> {
+    public constructor(from: TypedExpression<PointerType, "prvalue">) {
+        super(from, Bool.BOOL);
     }
-});
+}
+
+
+export class FloatingPointPromotion extends NoOpTypeConversion<Float, Double> {
+    public constructor(from: TypedExpression<Float, "prvalue">) {
+        super(from, Double.DOUBLE);
+    }
+}
+
+export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+
+}
+
+export class IntegralToFloatingConversion<FromType extends IntegralType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
+
+}
+
+
+export class FloatingIntegralConversion<T extends FloatingPointType> extends TypeConversion<T, Int> {
+
+    public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
+        if (this.type.isType(Bool)) {
+            return new Value(fromEvalResult.rawValue === 0 ? 0 : 1, Int.INT);
+        }
+        return new Value(Math.trunc(fromEvalResult.rawValue), Int.INT);
+    }
+
+}
 
 
 // TODO: remove this. no longer needed now that we have real strings
@@ -247,102 +239,72 @@ export var FloatingIntegralConversion = ImplicitConversion.extend({
 //     }
 // });
 
-//var IntegralPromotion = IntegralPromotion = ImplicitConversion.extend({
-//    _name: "IntegralPromotion",
-//    init: function(from){
-//        // A prvalue of an integer type other than bool, char16_t, char32_t, or wchar_t
-//        // whose integer conversion rank is less than the rank of int can be operateed to
-//        // a prvalue of type int if int can represent all the values in the source type
-//        this.initParent(from, Types.Pointer.instance(from.type.elemType), "prvalue");
-//    },
-//
-//    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//        var arrObj = inst.childInstances.from.evalResult.object;
-//        inst.setEvalResult(Value.instance(arrObj.address, this.type));
-//    }
-//});
+export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
 
+}
 
+// Qualification conversions
 
-export var IntegralPromotion = ImplicitConversion.extend({
-    _name: "IntegralPromotion",
-    init: function(from, toType){
-        assert(from.valueCategory === "prvalue");
-        assert(from.type.isIntegralType);
-        assert(toType.isIntegralType);
-        this.initParent(from, toType, "prvalue");
-    },
+export class QualificationConversion<T extends AtomicType> extends ImplicitConversion<T, "prvalue", T, "prvalue"> {
 
-    operate : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//        alert(this.from.type + ", "+  this.type);
-        var val = inst.childInstances.from.evalResult.value;
-        if (isA(this.from.type, Types.Bool)){ // from bool
-            inst.setEvalResult(Value.instance(val ? 1 : 0, this.type));
-        }
-        else if (isA(this.type, Types.Bool)){ // to bool
-            inst.setEvalResult(Value.instance(val != 0 ? true : false, this.type));
-        }
-        else{
-            inst.setEvalResult(Value.instance(val, this.type));
-        }
+    public constructor(from: TypedExpression<T, "prvalue">, toType: T) {
+        super(from, toType, "prvalue");
+        assert(similarType(from.type, toType));
     }
-});
-
-export function convertToPRValue<T extends Type>(from: TypedExpression<T, ValueCategory>) : TypedExpression<T, "prvalue"> {
-
-    if (from.valueCategory === "prvalue") {
-        return <TypedExpression<T, "prvalue">> from;
+    
+    public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
+        return <VCResultTypes<T, "prvalue">>new Value(fromEvalResult.rawValue, this.type); // Cast technically necessary here
     }
+}
 
-    // Don't do lvalue to rvalue conversion on Classes dude // TODO: what does this mean?
-    if (from.type instanceof ClassType) {
-        return assertFalse("Class type object should never be converted to a prvalue");
-    }
+export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue"> {
 
-    // array to pointer conversion
-    if (from.type instanceof ArrayType) {
+    if (from.isBoundedArrayTyped()) {
         return new ArrayToPointer(from);
     }
 
-    if (from.type instanceof FunctionType) {
-        return new FunctionToPointer(from);
-    }
+    // based on union input type, it must be atomic typed if we get to here
 
-    // lvalue to rvalue conversion
-    if (from.valueCategory === "lvalue" || from.valueCategory === "xvalue"){
-        return new LValueToRValue(from);
+    if (from.isPrvalue()) {
+        return from;
     }
+    
+    // must be an lvalue if we get to here
 
-    return assertFalse("Failed to find matching conversion to convert to prvalue");
+
+    // TODO: add back in for function pointers
+    // if (from.type instanceof FunctionType) {
+    //     return new FunctionToPointer(from);
+    // }
+
+    return new LValueToRValue(from);
 };
 
-var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">, toType: ObjectType) {
+export function typeConversion(from: TypedExpression<ObjectType, "prvalue">, toType: ObjectType) {
 
-    if (sameType(from.type, toType)){
+    if (similarType(from.type, toType)) {
         return from;
     }
 
-    if (isType(toType, PointerType) && (from instanceof Literal) && isType(from.type, Int) && from.value.rawValue() == 0){
-        return NullPointerConversion.instance(from, toType);
+    if (toType.isPointerType() && (from instanceof NumericLiteral) && isType(from.type, Int) && from.value.rawValue === 0) {
+        return new NullPointerConversion(from, toType);
     }
 
-    if (isType(toType, PointerType)) {
-        if (isType(from.type, PointerType) && subType(from.type.ptrTo, toType.ptrTo)) {
-            toType = new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile), from.type.isConst, from.type.isVolatile);
-            return PointerConversion.instance(from, toType);
-        }
+    if (toType.isPointerType() && toType.ptrTo.isClassType() &&
+        from.isPointerTyped() && from.type.ptrTo.isClassType() &&
+        subType(from.type.ptrTo, toType.ptrTo)) {
+        // Note that cv qualifications on the new destination pointer type don't need to be set, since
+        // they are ignored by the PointerConversion anyway (the source type's cv qualifications are set).
+        // However, we do need to preserve the cv-qualifications on the pointed-to type.
+        return new PointerConversion(from, new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile)));
     }
 
-    if (isType(toType, Double)){
-        if (isType(from.type, Float)){
-            return FloatingPointPromotion.instance(from);
-        }
+    if (toType.isType(Double) && from.isTyped(Float)) {
+        return new FloatingPointPromotion(from);
     }
 
-    if (isType(toType, Bool)) {
-        if (isType(from.type, PointerType)) {
-            return PointerToBooleanConversion.instance(from);
-        }
+    if (toType.isType(Bool) && from.isPointerTyped()) {
+        return new PointerToBooleanConversion(from);
     }
 
     if (toType.isFloatingPointType){
@@ -351,7 +313,7 @@ var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">,
         }
     }
 
-    if (toType.isIntegralType){
+    if (toType.isIntegralType) {
         if (from.type.isIntegralType){
             return IntegralConversion.instance(from, toType);
         }
@@ -363,69 +325,77 @@ var standardConversion2 = function(from: TypedExpression<ObjectType, "prvalue">,
     return from;
 };
 
-var standardConversion3 = function(from, toType){
+export function qualificationConversion(from: TypedExpression<AtomicType, "prvalue">, toType: ObjectType) {
 
-    if (sameType(from.type, toType)){
+    if (sameType(from.type, toType)) {
         return from;
     }
 
-    if (from.valueCategory === "prvalue" && isCvConvertible(from.type, toType)){
-        return QualificationConversion.instance(from, toType);
+    if (from.valueCategory === "prvalue" && isCvConvertible(from.type, toType)) {
+        return new QualificationConversion(from, toType);
     }
 
     return from;
 };
 
-export function standardConversion(from: TypedExpression, toType: Type, options = {}) : TypedExpression {
+export interface StandardConversionOptions {
+    readonly suppressLTR?: true;
+}
+
+export function standardConversion(from: SpecificTypedExpression, toType: Type, options?: StandardConversionOptions = {}) {
     options = options || {};
 
-    if (!options.suppressLTR){
-        from = convertToPRValue(from, options);
+    if (!options.suppressLTR && (from.isAtomicTyped() || from.isBoundedArrayTyped())) {
+        let fromPrvalue = convertToPRValue(from);
+        if (toType.isObjectType()) {
+            fromPrvalue = typeConversion(fromPrvalue, toType);
+            fromPrvalue = qualificationConversion(fromPrvalue, toType);
+        }
+        return fromPrvalue;
     }
-    from = standardConversion2(from, toType, options);
-    from = standardConversion3(from, toType, options);
+
     return from;
 };
 
-export function integralPromotion(expr) {
-    if (expr.type.isIntegralType && !isA(expr.type, Types.Int)) {
-        return IntegralPromotion.instance(expr, Types.Int.instance());
+export function integralPromotion(expr: TypedExpression<AtomicType, "prvalue">) {
+    if (expr.isTyped(IntegralType) && !expr.isTyped(Int)) {
+        return new IntegralPromotion(expr, Int.INT);
     }
     else{
         return expr;
     }
 };
 
-export function usualArithmeticConversions(left:TypedExpression, right:TypedExpression) {
+export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<AtomicType>, rightOrig: SpecificTypedExpression<AtomicType>) {
     // Only do conversions if both are arithmetic
-    if (!left.type.isArithmeticType || !right.type.isArithmeticType){
-        return {left: left, right: right};
+    if (!leftOrig.type.isArithmeticType || !rightOrig.type.isArithmeticType){
+        return {left: leftOrig, right: rightOrig};
     }
     
-    left = convertToPRValue(left);
-    right = convertToPRValue(right);
+    let left = convertToPRValue(leftOrig);
+    let right = convertToPRValue(rightOrig);
 
     // TODO If either has scoped enumeration type, no conversions are performed
 
     // TODO If either is long double, the other shall be converted to long double
 
     // If either is double, the other shall be converted to double
-    if (left.type instanceof Double) {
-        right = standardConversion(right, new Double(), {suppressLTR:true});
+    if (left.isTyped(Double)) {
+        right = typeConversion(right, Double.DOUBLE);
         return {left: left, right: right};
     }
-    if (right.type instanceof Double) {
-        left = standardConversion(left, new Double(), {suppressLTR:true});
+    if (right.isTyped(Double)) {
+        left = typeConversion(left, Double.DOUBLE);
         return {left: left, right: right};
     }
     // If either is float, the other shall be converted to float
 
-    if (left.type instanceof Float) {
-        right = standardConversion(right, new Float(), {suppressLTR:true});
+    if (left.isTyped(Float)) {
+        right = typeConversion(right, Float.FLOAT);
         return {left: left, right: right};
     }
-    if (right.type instanceof Float) {
-        left = standardConversion(left, new Float(), {suppressLTR:true});
+    if (right.isTyped(Float)) {
+        left = typeConversion(left, Float.FLOAT);
         return {left: left, right: right};
     }
 

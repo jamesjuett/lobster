@@ -1,7 +1,7 @@
 import {CPPError, Note} from "./errors";
 import * as SemanticExceptions from "./semanticExceptions";
 import { Observable } from "../util/observe";
-import {Type, covariantType, ArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType, referenceCompatible} from "./types";
+import {Type, covariantType, BoundedArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType, referenceCompatible} from "./types";
 import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
 import {Initializer} from "./initializers";
 import {Description} from "./errors";
@@ -816,13 +816,13 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
 //     }
 // };
 
-export class StringLiteralEntity extends CPPEntity<ArrayType> implements ObjectEntity<ArrayType> {
+export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements ObjectEntity<BoundedArrayType> {
 
     public readonly str: string;
-    public readonly type!: ArrayType<Char>; // handled by parent
+    public readonly type!: BoundedArrayType<Char>; // handled by parent
 
     public constructor(str: string) {
-        super(new ArrayType(new Char(true), str.length + 1)); // + 1 for null char
+        super(new BoundedArrayType(new Char(true), str.length + 1)); // + 1 for null char
         this.str = str;
     }
 
@@ -946,10 +946,10 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
 
 export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
 
-    public readonly arrayEntity: ObjectEntity<ArrayType<T>>;
+    public readonly arrayEntity: ObjectEntity<BoundedArrayType<T>>;
     public readonly index: number;
 
-    constructor(arrayEntity: ObjectEntity<ArrayType<T>>, index: number) {
+    constructor(arrayEntity: ObjectEntity<BoundedArrayType<T>>, index: number) {
         super(arrayEntity.type.elemType);
         this.arrayEntity = arrayEntity;
         this.index = index;
