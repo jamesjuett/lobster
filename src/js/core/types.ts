@@ -134,15 +134,6 @@ export function isCvConvertible(t1: Type, t2: Type){
     return true;
 };
 
-// interface DefaultTypeProperties {
-//     size: number;
-//     precedence: number;
-//     isArithmeticType?: boolean;
-//     isIntegralType?: boolean;
-//     isFloatingPointType?: boolean;
-//     isComplete?: boolean;
-// }
-
 abstract class TypeBase {
     public static readonly _name = "Type";
 
@@ -153,8 +144,6 @@ abstract class TypeBase {
     public abstract readonly precedence: number;
 
     public abstract readonly isArithmeticType: boolean;
-    public abstract readonly isIntegralType: boolean;
-    public abstract readonly isFloatingPointType: boolean;
     public abstract readonly isComplete: boolean;
 
     // regular member properties
@@ -188,6 +177,14 @@ abstract class TypeBase {
     
     public isAtomicType() : this is AtomicType {
         return this instanceof AtomicType;
+    }
+    
+    public isIntegralType() : this is IntegralType {
+        return this instanceof IntegralType;
+    }
+    
+    public isFloatingPointType() : this is FloatingPointType {
+        return this instanceof FloatingPointType;
     }
 
     public isPointerType() : this is PointerType {
@@ -383,8 +380,6 @@ export class VoidType extends TypeBase {
     public static readonly VOID = new VoidType();
 
     public readonly isArithmeticType = false;
-    public readonly isIntegralType = false;
-    public readonly isFloatingPointType = false;
     public readonly isComplete = true;
 
     public readonly precedence = 0;
@@ -553,8 +548,6 @@ export abstract class SimpleType extends AtomicType {
 // builtInTypes["_universal_data"] = _Universal_data;
 
 export abstract class IntegralType extends SimpleType {
-    public readonly isFloatingPointType = false;
-    public readonly isIntegralType = true;
     public readonly isArithmeticType = true;
     
 }
@@ -635,8 +628,6 @@ builtInTypes["bool"] = Bool;
 
 export abstract class FloatingPointType extends SimpleType {
 
-    public readonly isIntegralType = false;
-    public readonly isFloatingPointType = true;
     public readonly isArithmeticType = true;
 
     public valueToString(value: RawValueType) {
@@ -675,8 +666,6 @@ builtInTypes["double"] = Double;
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
 //     public isArithmeticType: boolean;
-//     public isIntegralType: boolean;
-//     public isFloatingPointType: boolean;
 //     protected readonly simpleType = "ostream";
 //     public readonly size = 4;
 
@@ -705,8 +694,6 @@ export interface ArithmeticType extends SimpleType {
 
 export class PointerType extends AtomicType {
     public isArithmeticType = false;
-    public isIntegralType = false;
-    public isFloatingPointType = false;
 
     public readonly size = 8;
     public readonly precedence = 1;
@@ -849,8 +836,6 @@ export class ObjectPointer extends PointerType {
 
 export class ReferenceType extends TypeBase {
     public readonly isArithmeticType = false;
-    public readonly isIntegralType = false;
-    public readonly isFloatingPointType = false;
 
     public readonly precedence = 1;
     public readonly isComplete = true;
@@ -905,8 +890,6 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     public readonly size: number;
 
     public readonly isArithmeticType = false;
-    public readonly isIntegralType = false;
-    public readonly isFloatingPointType = false;
 
     public readonly precedence = 2;
 
@@ -986,8 +969,6 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
 export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase {
     
     public readonly isArithmeticType = false;
-    public readonly isIntegralType = false;
-    public readonly isFloatingPointType = false;
 
     public readonly precedence = 2;
 
@@ -1051,8 +1032,6 @@ export class ClassType extends ObjectType {
     public size: number= 0;
     public readonly precedence: number = 0;
     public readonly isArithmeticType: boolean = false;
-    public readonly isIntegralType: boolean = false;
-    public readonly isFloatingPointType: boolean = false;
     public readonly isComplete: boolean = false;
     public sameType(other: Type): boolean {
         throw new Error("Method not implemented.");
@@ -1081,8 +1060,6 @@ export class ClassType extends ObjectType {
 //         throw new Error("Method not implemented.");
 //     }
 //     public isArithmeticType = false;
-//     public isIntegralType = false;
-//     public isFloatingPointType = false;
 
 //     public englishString(plural: boolean): string {
 //         throw new Error("Method not implemented.");
@@ -1295,8 +1272,6 @@ export class ClassType extends ObjectType {
 //           argTypes must be an array of types
 export class FunctionType extends TypeBase {
     public isArithmeticType = false;
-    public isIntegralType = false;
-    public isFloatingPointType = false;
     public isComplete = true;
     
     public readonly precedence = 2;
