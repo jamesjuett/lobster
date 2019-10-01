@@ -51,7 +51,7 @@ export interface ConstructContext {
 //     return new constructCtor(ast, context);
 // }
 
-export abstract class CPPConstruct<ASTType = ASTNode> {
+export abstract class CPPConstruct<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> {
 
     public static readonly constructKind : symbol = Symbol("CPPConstruct");
 
@@ -74,7 +74,7 @@ export abstract class CPPConstruct<ASTType = ASTNode> {
     public readonly notes: Note[] = []; 
     public readonly hasErrors: boolean = false;
 
-    public readonly context: ConstructContext;
+    public readonly context: ContextType;
     public readonly translationUnit: TranslationUnit;
     public readonly contextualScope: Scope;
 
@@ -315,7 +315,7 @@ export interface CompiledConstruct {
     readonly _t_isCompiled: never;
 }
 
-export class BasicCPPConstruct extends CPPConstruct {
+export class BasicCPPConstruct<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
 
     public parent?: CPPConstruct;
 
@@ -362,25 +362,25 @@ export interface FunctionContext extends ConstructContext {
     readonly containingFunction: FunctionEntity;
 }
 
-export abstract class InstructionConstruct extends CPPConstruct {
+// export abstract class InstructionConstruct extends CPPConstruct {
 
-    public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
-    // public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
+//     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
+//     // public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
 
-    // public readonly containingFunction: FunctionEntity;
+//     // public readonly containingFunction: FunctionEntity;
     
-    protected constructor(context: ConstructContext) {
-        super(context);
+//     protected constructor(context: ConstructContext) {
+//         super(context);
 
-        // this.containingFunction = context.containingFunction;
-    }
+//         // this.containingFunction = context.containingFunction;
+//     }
 
-    // public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
-}
+//     // public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
+// }
 
-export interface CompiledInstructionConstruct extends InstructionConstruct, CompiledConstruct {
+// export interface CompiledInstructionConstruct extends InstructionConstruct, CompiledConstruct {
 
-}
+// }
 
 export abstract class PotentialFullExpression extends InstructionConstruct {
     
@@ -546,17 +546,10 @@ export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, Comp
 // });
 
 
-export abstract class UnsupportedConstruct extends CPPConstruct {
-
-    public readonly parent?: ExecutableConstruct; // Narrows type of property in base class
-
+export abstract class UnsupportedConstruct extends BasicCPPConstruct {
     public constructor(context: ConstructContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
-    }
-
-    public onAttach(parent: ExecutableConstruct) {
-        (<Mutable<this>>this).parent = parent;
     }
 }
 
