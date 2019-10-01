@@ -134,9 +134,11 @@ statement_tracked
   = stmt:labeled_statement
     {return absorb({construct_type:"labeled_statement"}, stmt); }
 
-  / stmt:compound_statement
+  / stmt:block
 
   / stmt:selection_statement
+
+  /*/ stmt:switch_statement*/
 
   / stmt:iteration_statement
 
@@ -146,25 +148,32 @@ statement_tracked
 
   / expression_statement
 
+  / null_statement
+
   /*/ asm_statement
   / try_except_statement
   / try_finally_statement*/
 
 labeled_statement
-  = label:identifier ws ":" ws stmt:statement {return {label:label, statement: stmt}; }
-  / "case" WS c:exp_const ws ":" ws stmt:statement { return {case:c, statement:stmt}; }
-  / "default" ws ":" ws stmt:statement { return {default:true, stmt:stmt}; }
+  = label:identifier ws ":" ws stmt:statement {return {construct_type: "labeled_statement", label:label, statement: stmt}; }
+  / "case" WS c:exp_const ws ":" ws stmt:statement { return {construct_type: "labeled_statement", case:c, statement:stmt}; }
+  / "default" ws ":" ws stmt:statement { return {construct_type: "labeled_statement", default:true, stmt:stmt}; }
 
 expression_statement
-  = expr:expression? ws ";" { expr = expr || {construct_type: "null_statement"}; return {construct_type: "expression_statement", expression:expr}; }
+  = expr:expression ws ";" { return {construct_type: "expression_statement", expression:expr}; }
 
-compound_statement
-  = "{" ws stmts:(stmt:statement ws {return stmt})* "}" { return {construct_type: "compound_statement", statements: stmts}; }
+null_statement
+  = ws ";" { return {construct_type: "null_statement"}; }
+
+block
+  = "{" ws stmts:(stmt:statement ws {return stmt})* "}" { return {construct_type: "block", statements: stmts}; }
 
 selection_statement
   = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"selection_statement", condition:cond, then:then, otherwise:e}; }
   / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"selection_statement", condition:cond, then:then}; }
-  /*/ "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
+
+/* selection_statement
+  = "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
 
 iteration_statement
   = "while" ws "(" ws cond:expression ws ")" ws body:statement
@@ -177,6 +186,7 @@ iteration_statement
 
 for_init_statement
   = expression_statement
+  / null_statement
   / d:declaration_statement { return track(d, location(), text()); }
 
 jump_statement
@@ -235,7 +245,7 @@ mem_initializer
   = i:identifier ws "(" ws args:exp_list? ws ")" {return track({construct_type: "member_initializer", member: i, args:args || []}, location(), text()); }
 
 function_body
-  = compound_statement
+  = block
 
 decl_specifiers
   = before:(s:decl_specifier WS {return s})* t:simple_type_name after:(WS s:decl_specifier {return s})*

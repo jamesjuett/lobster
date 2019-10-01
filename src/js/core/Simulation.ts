@@ -9,7 +9,7 @@ import { Int, PointerType, Char } from "./types";
 import { Initializer } from "./initializers";
 
 
-enum SimulationEvent {
+export enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
     UNSPECIFIED_BEHAVIOR = "unspecified_behavior",
     IMPLEMENTATION_DEFINED_BEHAVIOR = "implementation_defined_behavior",

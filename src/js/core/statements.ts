@@ -1,17 +1,45 @@
 
-import { InstructionConstruct, UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, FunctionContext, CompiledConstruct } from "./constructs";
+import { UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, FunctionContext, CompiledConstruct, BasicCPPConstruct } from "./constructs";
 import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
-import { Expression, RuntimeExpression, CompiledExpression } from "./expressions";
+import { Expression, RuntimeExpression, CompiledExpression, ExpressionASTNode } from "./expressions";
 import { Simulation } from "./Simulation";
-import { SimpleDeclaration, FunctionDefinition } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode } from "./declarations";
 import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { ReturnByReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
 import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
-export abstract class Statement extends InstructionConstruct {
+/ stmt:compound_statement
 
-    public readonly parent?: ExecutableConstruct;
+/ stmt:selection_statement
+
+/*/ stmt:switch_statement*/
+
+/ stmt:iteration_statement
+
+/ stmt:jump_statement
+
+/ declaration_statement
+
+/ expression_statement
+
+export type StatementASTNode =
+    LabeledStatementASTNode |
+    BlockASTNode |
+    SelectionStatementASTNode |
+    IterationStatementASTNode |
+    JumpStatementASTNode |
+    DeclarationStatementASTNode |
+    ExpressionStatementASTNode |
+    NullStatementASTNode;
+
+export abstract class Statement<ASTType extends StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
+    
+    public static createFromAST(ast: StatementASTNode, context: BlockContext) {
+        return new ExpressionStatement(context,
+            Expression.createFromAST(ast.expression, context)
+        ).setAST(ast);
+    }
 
     public onAttach(parent: ExecutableConstruct) {
         (<Mutable<this>>this).parent = parent;
@@ -38,19 +66,13 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
 }
 
-
-
-export class LabeledStatement extends UnsupportedConstruct {
-    protected readonly unsupportedName!: string;
-    protected static readonly _defaultProps = addDefaultPropertiesToPrototype(
-        LabeledStatement,
-        {
-            unsupportedName: "labeled statement"
-        }
-    );
+export interface LabeledStatementASTNode extends ASTNode {
+    readonly construct_type: "labeled_statement";
 }
 
-
+export interface SwitchStatementASTNode extends ASTNode {
+    readonly construct_type: "switch_statement";
+}
 
 export class SwitchStatement extends UnsupportedConstruct {
     protected readonly unsupportedName!: string;
@@ -67,7 +89,8 @@ export class SwitchStatement extends UnsupportedConstruct {
 
 
 export interface ExpressionStatementASTNode extends ASTNode {
-    expression: ExpressionASTNode;
+    readonly construct_type: "expression_statement";
+    readonly expression: ExpressionASTNode;
 }
 
 export class ExpressionStatement extends Statement {
@@ -123,8 +146,9 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
 }
 
 
-
-
+export interface NullStatementASTNode extends ASTNode {
+    readonly construct_type: "null_statement";
+}
 
 export class NullStatement extends Statement {
 

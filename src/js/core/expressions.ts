@@ -1,20 +1,17 @@
-import clone from "lodash/clone";
-import * as Util from "../util/util";
-import { ASTNode, ConstructContext, CPPConstruct, ExecutableConstruct, FunctionContext, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimeConstruct, RuntimePotentialFullExpression, InstructionConstruct, RuntimeFunction, CompiledConstruct, FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./constructs";
-import { CPPEntity, FunctionEntity, MemberFunctionEntity, PassByValueParameterEntity, ObjectEntity, PointedFunctionEntity, UnboundReferenceEntity, BoundReferenceEntity, ReturnByReferenceEntity, TemporaryObjectEntity } from "./entities";
-import { CPPError, Description } from "./errors";
-import { checkIdentifier, Name } from "./lexical";
 import { CPPObject } from "./objects";
+import { Simulation, SimulationEvent } from "./Simulation";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char } from "./types";
+import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, CompiledConstruct, RuntimePotentialFullExpression, RuntimeConstruct } from "./constructs";
+import { Description, CPPError } from "./errors";
+import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
-import { Simulation } from "./Simulation";
-import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType, Type, ArrayOfUnknownBoundType, BoundedArrayType } from "./types";
-import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
-import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
-import { Omit } from "lodash";
+import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functions";
+import { standardConversion, convertToPRValue, usualArithmeticConversions } from "./standardConversions";
+import { Name, checkIdentifier } from "./lexical";
 
-export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
+
+export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
     let value = obj.readValue();
     if(!value.isValid) {
         let objDesc = obj.describe();
@@ -22,7 +19,7 @@ export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
         if (value.rawValue === 0){
             msg += "\n\n(Note: The value just happens to be zero. Don't be fooled! Uninitialized memory isn't guaranteed to be zero.)";
         }
-        sim.undefinedBehavior(msg);
+        sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, msg, true);
     }
     return value;
 };
