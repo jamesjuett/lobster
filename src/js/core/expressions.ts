@@ -112,6 +112,14 @@ export abstract class Expression extends PotentialFullExpression {
         return !!this.type && this.type.isAtomicType();
     }
 
+    public isIntegralTyped() : this is SpecificTypedExpression<IntegralType, ValueCategory> {
+        return !!this.type && this.type.isIntegralType();
+    }
+
+    public isFloatingPointTyped() : this is SpecificTypedExpression<FloatingPointType, ValueCategory> {
+        return !!this.type && this.type.isFloatingPointType();
+    }
+
     public isPointerTyped() : this is SpecificTypedExpression<PointerType, ValueCategory> {
         return !!this.type && this.type.isPointerType();
     }

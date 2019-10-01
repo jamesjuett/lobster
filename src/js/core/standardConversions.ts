@@ -1,26 +1,16 @@
 import {Expression, readValueWithAlert, TypedExpression, ValueCategory, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral, SpecificTypedExpression} from "./expressions";
-import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType} from "./types";
+import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType, Char} from "./types";
 import { assertFalse, assert, Constructor } from "../util/util";
 import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct, ConstructContext } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { Description } from "./errors";
 import { CPPObject } from "./objects";
 
-export type ImplicitConversionKind = "lvalue-to-rvalue";
-
-const CONVERSION_OPERATIONS : {[index: ImplicitConversionKind]: (rt: RuntimeImplicitConversion) => void} = {
-    "lvalue-to-rvalue" : (rt: RuntimeImplicitConversion) => {
-        rt.from.
-    }
-}
-
 export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
     
     public readonly from: TypedExpression<FromType, FromVC>;
     public readonly type: ToType;
     public readonly valueCategory: ToVC;
-
-    public readonly kind : ImplicitConversionKind;
     
     public readonly conversionLength: number;
 
@@ -193,6 +183,14 @@ export class PointerToBooleanConversion extends NoOpTypeConversion<PointerType, 
     }
 }
 
+export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+
+}
+
+export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+
+}
+
 
 export class FloatingPointPromotion extends NoOpTypeConversion<Float, Double> {
     public constructor(from: TypedExpression<Float, "prvalue">) {
@@ -200,7 +198,7 @@ export class FloatingPointPromotion extends NoOpTypeConversion<Float, Double> {
     }
 }
 
-export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+export class FloatingPointConversion<FromType extends FloatingPointType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
 
 }
 
@@ -209,7 +207,7 @@ export class IntegralToFloatingConversion<FromType extends IntegralType, ToType 
 }
 
 
-export class FloatingIntegralConversion<T extends FloatingPointType> extends TypeConversion<T, Int> {
+export class FloatingToIntegralConversion<T extends FloatingPointType> extends TypeConversion<T, IntegralType> {
 
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         if (this.type.isType(Bool)) {
@@ -238,10 +236,6 @@ export class FloatingIntegralConversion<T extends FloatingPointType> extends Typ
 //         inst.setEvalResult(Value.instance(cstr.split(""), Types.String));
 //     }
 // });
-
-export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
-
-}
 
 // Qualification conversions
 
@@ -280,7 +274,7 @@ export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | Typ
     return new LValueToRValue(from);
 };
 
-export function typeConversion(from: TypedExpression<ObjectType, "prvalue">, toType: ObjectType) {
+export function typeConversion(from: TypedExpression<AtomicType, "prvalue">, toType: AtomicType) {
 
     if (similarType(from.type, toType)) {
         return from;
@@ -299,33 +293,36 @@ export function typeConversion(from: TypedExpression<ObjectType, "prvalue">, toT
         return new PointerConversion(from, new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile)));
     }
 
-    if (toType.isType(Double) && from.isTyped(Float)) {
-        return new FloatingPointPromotion(from);
-    }
-
     if (toType.isType(Bool) && from.isPointerTyped()) {
         return new PointerToBooleanConversion(from);
     }
 
-    if (toType.isFloatingPointType){
-        if (from.type.isIntegralType){
-            return IntegralFloatingConversion.instance(from, toType);
+    if (toType.isType(Double) && from.isTyped(Float)) {
+        return new FloatingPointPromotion(from);
+    }
+
+    if (toType.isIntegralType()) {
+        if (from.isIntegralTyped()) {
+            return new IntegralConversion(from, toType);
+        }
+        if (from.isFloatingPointTyped()) {
+            return new FloatingToIntegralConversion(from, toType);
         }
     }
 
-    if (toType.isIntegralType) {
-        if (from.type.isIntegralType){
-            return IntegralConversion.instance(from, toType);
+    if (toType.isFloatingPointType()) {
+        if (from.isIntegralTyped()) {
+            return new IntegralToFloatingConversion(from, toType);
         }
-        if (from.type.isFloatingPointType){
-            return FloatingIntegralConversion.instance(from, toType);
+        if (from.isFloatingPointTyped()) {
+            return new FloatingPointConversion(from, toType);
         }
     }
 
     return from;
 };
 
-export function qualificationConversion(from: TypedExpression<AtomicType, "prvalue">, toType: ObjectType) {
+export function qualificationConversion(from: TypedExpression<AtomicType, "prvalue">, toType: AtomicType) {
 
     if (sameType(from.type, toType)) {
         return from;
@@ -342,15 +339,13 @@ export interface StandardConversionOptions {
     readonly suppressLTR?: true;
 }
 
-export function standardConversion(from: SpecificTypedExpression, toType: Type, options?: StandardConversionOptions = {}) {
+export function standardConversion(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">, toType: AtomicType, options: StandardConversionOptions = {}) {
     options = options || {};
 
-    if (!options.suppressLTR && (from.isAtomicTyped() || from.isBoundedArrayTyped())) {
+    if (!options.suppressLTR) {
         let fromPrvalue = convertToPRValue(from);
-        if (toType.isObjectType()) {
-            fromPrvalue = typeConversion(fromPrvalue, toType);
-            fromPrvalue = qualificationConversion(fromPrvalue, toType);
-        }
+        fromPrvalue = typeConversion(fromPrvalue, toType);
+        fromPrvalue = qualificationConversion(fromPrvalue, toType);
         return fromPrvalue;
     }
 
