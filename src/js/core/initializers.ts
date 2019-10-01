@@ -1,7 +1,7 @@
 import { Expression, StringLiteral, EntityExpression, RuntimeExpression, TypedExpression, CompiledExpression, allWellTyped, allObjectTyped, ExpressionASTNode } from "./expressions";
 import { InstructionConstruct, ExecutableConstruct, ASTNode, ConstructContext, ExecutableRuntimeConstruct, RuntimeConstruct, PotentialFullExpression, CompiledConstruct, CompiledFunctionCall, RuntimeFunctionCall, RuntimePotentialFullExpression, FunctionCall } from "./constructs";
 import { CPPEntity, overloadResolution, FunctionEntity, ConstructorEntity, ArraySubobjectEntity, ObjectEntity, MemberSubobjectEntity, UnboundReferenceEntity } from "./entities";
-import { ReferenceType, ClassType, AtomicType, ArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
+import { ReferenceType, ClassType, AtomicType, BoundedArrayType, Type, referenceCompatible, sameType, Char, ObjectType, Int, VoidType } from "./types";
 import { CPPError, Explanation } from "./errors";
 import { assertFalse } from "../util/util"
 import { CPPObject } from "./objects";
@@ -46,7 +46,7 @@ export abstract class DefaultInitializer extends Initializer {
 
     public static create(context: ConstructContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
     public static create(context: ConstructContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<ArrayType>) : ArrayDefaultInitializer;
+    public static create(context: ConstructContext, target: ObjectEntity<BoundedArrayType>) : ArrayDefaultInitializer;
     public static create(context: ConstructContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
     public static create(context: ConstructContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
     public static create(context: ConstructContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
@@ -56,8 +56,8 @@ export abstract class DefaultInitializer extends Initializer {
         else if (target.type instanceof AtomicType) {
             return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>> target);
         }
-        else if (target.type instanceof ArrayType) {
-            return new ArrayDefaultInitializer(context, <ObjectEntity<ArrayType>> target);
+        else if (target.type instanceof BoundedArrayType) {
+            return new ArrayDefaultInitializer(context, <ObjectEntity<BoundedArrayType>> target);
         }
         else if (target.type instanceof ClassType) {
             return new ClassDefaultInitializer(context, <ObjectEntity<ClassType>> target);
@@ -153,10 +153,10 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
 
 export class ArrayDefaultInitializer extends DefaultInitializer {
 
-    public readonly target: ObjectEntity<ArrayType>;
+    public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly elementInitializers?: DefaultInitializer[];
 
-    public constructor(context: ConstructContext, target: ObjectEntity<ArrayType>) {
+    public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>) {
         super(context);
         
         this.target = target;
@@ -181,9 +181,9 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
     }
 
-    public createRuntimeInitializer<T extends ArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
 
@@ -205,13 +205,13 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
 }
 
-export interface CompiledArrayDefaultInitializer<T extends ArrayType = ArrayType> extends ArrayDefaultInitializer, CompiledConstruct {
+export interface CompiledArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends ArrayDefaultInitializer, CompiledConstruct {
     
     readonly target: ObjectEntity<T>;
     readonly elementInitializers?: CompiledDefaultInitializer<T["elemType"]>[];
 }
 
-export class RuntimeArrayDefaultInitializer<T extends ArrayType = ArrayType> extends RuntimeDefaultInitializer<T, CompiledArrayDefaultInitializer<T>> {
+export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends RuntimeDefaultInitializer<T, CompiledArrayDefaultInitializer<T>> {
 
     public readonly target: CPPObject<T>;
     public readonly elementInitializers?: RuntimeDefaultInitializer<T["elemType"]>[];
@@ -343,7 +343,7 @@ export abstract class DirectInitializer extends Initializer {
 
     public static create(context: ConstructContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
     public static create(context: ConstructContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<ArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
+    public static create(context: ConstructContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
     public static create(context: ConstructContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) : ClassDirectInitializer;
     public static create(context: ConstructContext, target: ObjectEntity, args: readonly Expression[]) : DirectInitializer;
     public static create(context: ConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]) : DirectInitializer {
@@ -353,8 +353,8 @@ export abstract class DirectInitializer extends Initializer {
         else if (target.type instanceof AtomicType) {
             return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args);
         }
-        else if (target.type instanceof ArrayType) {
-            return new ArrayDirectInitializer(context, <ObjectEntity<ArrayType>> target, args);
+        else if (target.type instanceof BoundedArrayType) {
+            return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args);
         }
         else if (target.type instanceof ClassType) {
             return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args);
@@ -565,11 +565,11 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType> extends Runtim
  */
 export class ArrayDirectInitializer extends DirectInitializer {
 
-    public readonly target: ObjectEntity<ArrayType>;
+    public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly args: readonly Expression[];
     public readonly arg?: StringLiteral;
 
-    public constructor(context: ConstructContext, target: ObjectEntity<ArrayType>, args: readonly Expression[]) {
+    public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
         super(context);
         
         this.target = target;
@@ -605,14 +605,14 @@ export class ArrayDirectInitializer extends DirectInitializer {
 }
 
 export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, CompiledConstruct {
-    readonly target: ObjectEntity<ArrayType<Char>>;
+    readonly target: ObjectEntity<BoundedArrayType<Char>>;
     readonly args: CompiledExpression[];
     readonly arg: CompiledStringLiteral;
 }
 
-export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<ArrayType<Char>, CompiledArrayDirectInitializer> {
+export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<BoundedArrayType<Char>, CompiledArrayDirectInitializer> {
 
-    public readonly target: CPPObject<ArrayType>;
+    public readonly target: CPPObject<BoundedArrayType>;
     public readonly arg: RuntimeStringLiteral;
 
     private alreadyPushed = false;
@@ -759,13 +759,13 @@ export class RuntimeClassCopyInitializer extends RuntimeClassDirectInitializer {
 export class ArrayMemberInitializer extends Initializer {
 
      // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
-    public readonly target: ObjectEntity<ArrayType>;
-    public readonly otherMember: ObjectEntity<ArrayType>;
+    public readonly target: ObjectEntity<BoundedArrayType>;
+    public readonly otherMember: ObjectEntity<BoundedArrayType>;
     
     public readonly elementInitializers: (DefaultInitializer | ArrayMemberInitializer)[] = [];
 
-    public constructor(context: ConstructContext, target: ObjectEntity<ArrayType>,
-                       otherMember: ObjectEntity<ArrayType>) {
+    public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>,
+                       otherMember: ObjectEntity<BoundedArrayType>) {
         super(context);
         
         this.target = target;
@@ -774,10 +774,10 @@ export class ArrayMemberInitializer extends Initializer {
 
         for(let i = 0; i < targetType.length; ++i) {
             let elemInit;
-            if (targetType.elemType instanceof ArrayType) {
+            if (targetType.elemType instanceof BoundedArrayType) {
                 elemInit = new ArrayMemberInitializer(context,
-                    new ArraySubobjectEntity(<ObjectEntity<ArrayType<ArrayType>>>target, i),
-                    new ArraySubobjectEntity(<ObjectEntity<ArrayType<ArrayType>>>otherMember, i));
+                    new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>target, i),
+                    new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>otherMember, i));
             }
             else {
                 elemInit = DirectInitializer.create(context,
@@ -817,7 +817,7 @@ export class ArrayMemberInitializer extends Initializer {
 
 export class RuntimeArrayMemberInitializer extends RuntimeInitializer<ArrayMemberInitializer> {
 
-    public readonly target: CPPObject<ArrayType>;
+    public readonly target: CPPObject<BoundedArrayType>;
     public readonly elementInitializers: (RuntimeDefaultInitializer | RuntimeArrayMemberInitializer)[];
 
     private index = 0;

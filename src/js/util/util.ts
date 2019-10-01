@@ -37,7 +37,7 @@ export function createMethodMixin<TargetType, MethodName extends keyof TargetTyp
     }
 }
 
-export type Constructor<T = {}> = new (...args: any[]) => T;
+export type Constructor<T = {}> = Function & { prototype: T };
 
 export type Overwrite<T1, T2> = Pick<T1, Exclude<keyof T1, keyof T2>> & T2;
 

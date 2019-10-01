@@ -8,7 +8,7 @@ import { CPPObject } from "./objects";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Simulation } from "./Simulation";
 import { convertToPRValue, integralPromotion, standardConversion, usualArithmeticConversions } from "./standardConversions";
-import { AtomicType, Bool, isType, ObjectType, sameType, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType, Type } from "./types";
+import { AtomicType, Bool, isType, ObjectType, sameType, VoidType, FunctionType, ClassType, PointerType, Int, IntegralType, ArrayPointer, ReferenceType, noRef, PotentialReturnType, PotentialParameterType, Float, Char, Double, FloatingPointType, ArithmeticType, Type, ArrayOfUnknownBoundType, BoundedArrayType } from "./types";
 import { CopyInitializer, DirectInitializer, RuntimeCopyInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 import { MagicFunctionDefinition, FunctionDefinition } from "./declarations";
@@ -45,7 +45,7 @@ export function readValueWithAlert(obj: CPPObject, sim: Simulation) {
  */
 
 // TODO: use symbols here?
-export type ValueCategory = "prvalue" | "xvalue" | "lvalue";
+export type ValueCategory = "prvalue" | "lvalue";
 
 
 export interface WellTyped<T extends Type = Type, V extends ValueCategory = ValueCategory> {
@@ -56,7 +56,9 @@ export interface WellTyped<T extends Type = Type, V extends ValueCategory = Valu
 export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
     readonly type: T;
     readonly valueCategory: V;
-};
+}
+
+export type SpecificTypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? TypedExpression<T,V> : never;
 
 // export interface TypedAndCompiled<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<T,V>, CompiledConstruct {
 
@@ -94,12 +96,44 @@ export abstract class Expression extends PotentialFullExpression {
 
     // protected abstract createRuntimeExpression_impl(parent: ExecutableRuntimeConstruct) : RuntimeExpression;
 
-    public isWellTyped() : this is TypedExpression<Type,ValueCategory> {
+    public isWellTyped() : this is SpecificTypedExpression<Type,ValueCategory> {
         return !!this.type && !!this.valueCategory;
     }
 
-    public isObjectTyped() : this is TypedExpression<ObjectType, ValueCategory> {
+    public isTyped<T extends Type>(ctor: Util.Constructor<T>) : this is SpecificTypedExpression<T, ValueCategory> {
+        return !!this.type && this.type.isType(ctor);
+    }
+
+    public isObjectTyped() : this is SpecificTypedExpression<ObjectType, ValueCategory> {
         return !!this.type && this.type.isObjectType();
+    }
+
+    public isAtomicTyped() : this is SpecificTypedExpression<AtomicType, ValueCategory> {
+        return !!this.type && this.type.isAtomicType();
+    }
+
+    public isPointerTyped() : this is SpecificTypedExpression<PointerType, ValueCategory> {
+        return !!this.type && this.type.isPointerType();
+    }
+
+    public isReferenceTyped() : this is SpecificTypedExpression<ReferenceType, ValueCategory> {
+        return !!this.type && this.type.isReferenceType();
+    }
+
+    public isClassTyped() : this is SpecificTypedExpression<ClassType, ValueCategory> {
+        return !!this.type && this.type.isClassType();
+    }
+
+    public isBoundedArrayTyped() : this is SpecificTypedExpression<BoundedArrayType, "lvalue"> {
+        return !!this.type && this.type.isBoundedArrayType();
+    }
+
+    public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
+        return this.valueCategory === "prvalue";
+    }
+
+    public isLvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"lvalue"> {
+        return this.valueCategory === "lvalue";
     }
 
     // public isSuccessfullyCompiled() : this is Compiled<this> {
@@ -116,9 +150,12 @@ export abstract class Expression extends PotentialFullExpression {
 }
 
 export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, CompiledConstruct {
-    readonly type: T,
+    readonly type: T;
     readonly valueCategory: V;
 }
+
+export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;
+
 
 export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
 export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
@@ -557,7 +594,7 @@ export class RuntimeComma<T extends Type, V extends ValueCategory> extends Simpl
     }
 
     protected operate() {
-        this.setEvalResult(this.right.evalResult!);
+        this.setEvalResult(this.right.evalResult);
     }
 
 }
