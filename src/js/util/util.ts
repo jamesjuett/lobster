@@ -41,6 +41,11 @@ export type Constructor<T = {}> = Function & { prototype: T };
 
 export type Overwrite<T1, T2> = Pick<T1, Exclude<keyof T1, keyof T2>> & T2;
 
+// https://stackoverflow.com/questions/50125893/typescript-derive-map-from-discriminated-union
+export type DiscriminateUnion<T, K extends keyof T, V extends T[K]> = 
+    T extends Record<K, V> ? T : never;
+export type MapDiscriminatedUnion<T extends Record<K, string>, K extends keyof T> =
+  { [V in T[K]]: DiscriminateUnion<T, K, V> };
 
 export function htmlDecoratedOperator(operator, cssClass){
     return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";

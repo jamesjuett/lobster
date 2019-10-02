@@ -11,20 +11,20 @@ import { TemporaryObject } from "./objects";
 
 
 export interface ASTNode {
-    construct_type?: string;
-    sourceReference?: SourceReference;
-    library_id?: number;
-    library_unsupported?: boolean;
+    // readonly construct_type: string;
+    readonly sourceReference?: SourceReference;
+    readonly library_id?: number;
+    readonly library_unsupported?: boolean;
 };
 
 export interface ConstructContext {
-    program: Program;
-    translationUnit: TranslationUnit;
-    contextualScope: Scope;
-    containingClass?: ClassType;
-    implicit?: boolean;
-    libraryId?: number;
-    libraryUnsupported?: boolean;
+    readonly program: Program;
+    readonly translationUnit: TranslationUnit;
+    readonly contextualScope: Scope;
+    readonly containingClass?: ClassType;
+    readonly implicit?: boolean;
+    readonly libraryId?: number;
+    readonly libraryUnsupported?: boolean;
 }
 
 
