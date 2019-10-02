@@ -1,6 +1,6 @@
 
 import { UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, FunctionContext, CompiledConstruct, BasicCPPConstruct } from "./constructs";
-import { addDefaultPropertiesToPrototype, Mutable } from "../util/util";
+import { addDefaultPropertiesToPrototype, Mutable, DiscriminateUnion, MapDiscriminatedUnion } from "../util/util";
 import { Expression, RuntimeExpression, CompiledExpression, ExpressionASTNode } from "./expressions";
 import { Simulation } from "./Simulation";
 import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode } from "./declarations";
@@ -9,36 +9,41 @@ import { ReturnByReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockS
 import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
-/ stmt:compound_statement
-
-/ stmt:selection_statement
-
-/*/ stmt:switch_statement*/
-
-/ stmt:iteration_statement
-
-/ stmt:jump_statement
-
-/ declaration_statement
-
-/ expression_statement
-
 export type StatementASTNode =
-    LabeledStatementASTNode |
-    BlockASTNode |
-    SelectionStatementASTNode |
-    IterationStatementASTNode |
-    JumpStatementASTNode |
-    DeclarationStatementASTNode |
+    // LabeledStatementASTNode |
+    // BlockASTNode |
+    // SelectionStatementASTNode |
+    // IterationStatementASTNode |
+    // JumpStatementASTNode |
+    // DeclarationStatementASTNode |
     ExpressionStatementASTNode |
     NullStatementASTNode;
+
+
+let blah! : {
+    [CT in StatementASTNode["construct_type"]]: (a: DiscriminateUnion<StatementASTNode, "construct_type", CT>) => boolean
+}
+
+
+let constructsMap = {
+    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context),
+    "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context)
+}
+
+function genConstruct<ASTType extends StatementASTNode>(ast: ASTType) : ReturnType<(typeof constructsMap)[ASTType["construct_type"]]> {
+    return <any>2;
+} 
 
 export abstract class Statement<ASTType extends StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
     
     public static createFromAST(ast: StatementASTNode, context: BlockContext) {
-        return new ExpressionStatement(context,
-            Expression.createFromAST(ast.expression, context)
-        ).setAST(ast);
+        // return new ExpressionStatement(context,
+        //     Expression.createFromAST(ast.expression, context)
+        // ).setAST(ast); 
+        if (ast.construct_type === "null_statement"){
+
+            let x = genConstruct(ast);
+        }
     }
 
     public onAttach(parent: ExecutableConstruct) {
@@ -66,24 +71,6 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
 }
 
-export interface LabeledStatementASTNode extends ASTNode {
-    readonly construct_type: "labeled_statement";
-}
-
-export interface SwitchStatementASTNode extends ASTNode {
-    readonly construct_type: "switch_statement";
-}
-
-export class SwitchStatement extends UnsupportedConstruct {
-    protected readonly unsupportedName!: string;
-    protected static readonly _defaultProps = addDefaultPropertiesToPrototype(
-        LabeledStatement,
-        {
-            unsupportedName: "switch statement"
-        }
-    );
-}
-
 
 
 
@@ -93,7 +80,7 @@ export interface ExpressionStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ExpressionStatement extends Statement {
+export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public readonly expression: Expression;
 
@@ -150,7 +137,7 @@ export interface NullStatementASTNode extends ASTNode {
     readonly construct_type: "null_statement";
 }
 
-export class NullStatement extends Statement {
+export class NullStatement extends Statement<NullStatementASTNode> {
 
     public createRuntimeStatement(this: CompiledNullStatement, parent: ExecutableRuntimeConstruct) {
         return new RuntimeNullStatement(this, parent);
@@ -182,7 +169,8 @@ export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement
 }
 
 export interface DeclarationStatementASTNode extends ASTNode {
-    declaration: DeclarationASTNode;
+    readonly construct_type: "declaration_statement";
+    readonly declaration: DeclarationASTNode;
 }
 
 export class DeclarationStatement extends Statement {
@@ -251,6 +239,22 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
     public stepForwardImpl() {
         return false;
     }
+}
+
+
+export type JumpStatementASTNode = BreakStatementASTNode | ContinueStatementASTNode | ReturnStatementASTNode;
+
+export interface BreakStatementASTNode extends ASTNode {
+    readonly construct_type: "break_statement";
+}
+
+export interface ContinueStatementASTNode extends ASTNode {
+    readonly construct_type: "continue_statement";
+}
+
+export interface ReturnStatementASTNode extends ASTNode {
+    readonly construct_type: "return_statement";
+    readonly expression: ExpressionASTNode;
 }
 
 export class ReturnStatement extends Statement {
@@ -503,6 +507,13 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 // });
 
 
+export interface SelectionStatementASTNode extends ASTNode {
+    readonly construct_type: "selection_statement";
+    readonly condition: ExpressionASTNode;
+    readonly then: StatementASTNode;
+    readonly otherwise: StatementASTNode;
+}
+
 // export var Selection = Statement.extend({
 //     _name: "Selection",
 //     initIndex: "condition",
@@ -582,6 +593,27 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 //     }
 // });
 
+export type IterationStatementASTNode = WhileStatementASTNode | DoWhileStatementASTNode | ForStatementASTNode;
+
+export interface WhileStatementASTNode extends ASTNode {
+    readonly construct_type: "while_statement";
+    readonly condition: ExpressionASTNode;
+    readonly body: StatementASTNode;
+}
+
+export interface DoWhileStatementASTNode extends ASTNode {
+    readonly construct_type: "dowhile_statement";
+    readonly condition: ExpressionASTNode;
+    readonly body: StatementASTNode;
+}
+
+export interface ForStatementASTNode extends ASTNode {
+    readonly construct_type: "for_statement";
+    readonly condition: ExpressionASTNode;
+    readonly initial: ExpressionStatementASTNode | NullStatementASTNode | DeclarationStatementASTNode;
+    readonly post: ExpressionASTNode;
+    readonly body: StatementASTNode;
+}
 
 // export var Iteration = Statement.extend({
 //     isTailChild : function(child){
@@ -784,4 +816,12 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 // });
 
 
+
+export interface LabeledStatementASTNode extends ASTNode {
+    readonly construct_type: "labeled_statement";
+}
+
+export interface SwitchStatementASTNode extends ASTNode {
+    readonly construct_type: "switch_statement";
+}
 

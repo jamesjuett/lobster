@@ -172,7 +172,7 @@ selection_statement
   = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"selection_statement", condition:cond, then:then, otherwise:e}; }
   / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"selection_statement", condition:cond, then:then}; }
 
-/* selection_statement
+/* switch_statement
   = "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
 
 iteration_statement
