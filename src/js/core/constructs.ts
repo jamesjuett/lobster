@@ -174,12 +174,12 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
      * Used by "createFromAST" static "named constructor" functions in derived classes
      * to set the AST from which a construct was created. Returns `this` for convenience.
      */
-    protected setAST(ast: ASTType) {
+    protected setAST(ast: ASTType) : this & {ast: ASTType} {
         (<Mutable<this>>this).ast = ast;
         if (ast.sourceReference) {
             this.sourceReference = this.sourceReference;
         }
-        return this;
+        return <this & {ast: ASTType}>this;
     }
 
     public get sourceReference() {
@@ -546,7 +546,7 @@ export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, Comp
 // });
 
 
-export abstract class UnsupportedConstruct extends BasicCPPConstruct {
+export class UnsupportedConstruct extends BasicCPPConstruct {
     public constructor(context: ConstructContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
