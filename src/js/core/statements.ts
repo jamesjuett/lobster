@@ -10,12 +10,12 @@ import { VoidType, ReferenceType, ObjectType } from "./types";
 import { CPPError } from "./errors";
 
 export type StatementASTNode =
-    // LabeledStatementASTNode |
-    // BlockASTNode |
-    // SelectionStatementASTNode |
-    // IterationStatementASTNode |
-    // JumpStatementASTNode |
-    // DeclarationStatementASTNode |
+    LabeledStatementASTNode |
+    BlockASTNode |
+    SelectionStatementASTNode |
+    IterationStatementASTNode |
+    JumpStatementASTNode |
+    DeclarationStatementASTNode |
     ExpressionStatementASTNode |
     NullStatementASTNode;
 
@@ -25,26 +25,26 @@ let blah! : {
 }
 
 
-let constructsMap = {
+const StatementConstructsMap = {
+    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "labeled statement"),
+    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context, false),
+    "selection_statement" : (ast: SelectionStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "selection statement"),
+    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "while loop"),
+    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "do-while loop"),
+    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "for loop"),"selection_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "labeled statement"),
+    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "break statement"),
+    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "continue statement"),
+    "return_statement" : (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
+    "declaration_statement" : (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
+    "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context),
-    "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context)
 }
 
-function genConstruct<ASTType extends StatementASTNode>(ast: ASTType) : ReturnType<(typeof constructsMap)[ASTType["construct_type"]]> {
-    return <any>2;
+function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
+    return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
 } 
 
-export abstract class Statement<ASTType extends StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
-    
-    public static createFromAST(ast: StatementASTNode, context: BlockContext) {
-        // return new ExpressionStatement(context,
-        //     Expression.createFromAST(ast.expression, context)
-        // ).setAST(ast); 
-        if (ast.construct_type === "null_statement"){
-
-            let x = genConstruct(ast);
-        }
-    }
+export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
 
     public onAttach(parent: ExecutableConstruct) {
         (<Mutable<this>>this).parent = parent;
@@ -173,7 +173,7 @@ export interface DeclarationStatementASTNode extends ASTNode {
     readonly declaration: DeclarationASTNode;
 }
 
-export class DeclarationStatement extends Statement {
+export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
 
     public readonly declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition;
 
@@ -257,7 +257,7 @@ export interface ReturnStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ReturnStatement extends Statement {
+export class ReturnStatement extends Statement<ReturnStatementASTNode> {
 
     public readonly expression?: Expression;
 
@@ -368,14 +368,20 @@ export interface BlockContext extends FunctionContext {
     contextualScope: BlockScope;
 }
 
-export class Block extends Statement {
+export class Block extends Statement<BlockASTNode> {
 
     public readonly statements: readonly Statement[];
     public readonly localObjects: readonly AutoEntity[];
     public readonly localReferences: readonly LocalReferenceEntity[];
 
-    public static createFromAST(ast: BlockASTNode, context: BlockContext) {
-
+    public static createFromAST(ast: BlockASTNode, context: BlockContext, isFunctionBodyBlock: boolean) {
+        
+        // If this is a function block, we presume the function has already created the block context
+        // for this block (e.g. to add entities defined by parameter definitions into its scope first).
+        // Thus, we only create our own block context (with a new block scope) if this is not a function block.
+        if (!isFunctionBodyBlock) {
+            context = createBlockContext(context);
+        }
         let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, context));
         
         return new Block(context, statements);
