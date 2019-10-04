@@ -207,7 +207,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     private readonly data: T extends AtomicType ? AtomicObjectData<T> :
                            T extends BoundedArrayType ? ArrayObjectData<T> :
-                           T extends ClassType ? ClassObjectData<T> : never;
+                           T extends ClassType ? ClassObjectData<T> : unknown;
 
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
