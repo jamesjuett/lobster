@@ -370,14 +370,14 @@ export abstract class DirectInitializer extends Initializer {
 }
 
 
-export interface CompiledDirectInitializer<T extends ObjectType> extends DirectInitializer, CompiledConstruct {
+export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> extends DirectInitializer, CompiledConstruct {
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer<T extends ObjectType, C extends CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
+export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType> extends RuntimeInitializer<CompiledDirectInitializer<T>> {
 
-    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 

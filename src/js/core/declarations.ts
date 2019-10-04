@@ -1,4 +1,4 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct } from "./constructs";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct, CompiledConstruct } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
 import { Type, ArrayOfUnknownBoundType, FunctionType, BoundedArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
@@ -336,6 +336,10 @@ export abstract class SimpleDeclaration extends BasicCPPConstruct implements CPP
         this.addNote(CPPError.lobster.unsupported_feature(this, "initializer lists"));
         return this;
     }
+}
+
+export interface CompiledSimpleDeclaration extends SimpleDeclaration, CompiledConstruct {
+    readonly type: Type;
 }
 
 
@@ -960,7 +964,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
                 paramDeclarator,
                 {}, <PotentialParameterType>paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
         })
-        let body = Block.createFromAST(ast.body, newContext, true);
+        let body = Block.createFromAST(ast.body, newContext);
         let implementation = new FunctionImplementation(newContext, declaration.declaredEntity, parameters.map(p => p.declaredEntity), body);
         return new FunctionDefinition(newContext, declaration, implementation);
     }

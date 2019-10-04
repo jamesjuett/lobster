@@ -382,19 +382,15 @@ export interface FunctionContext extends ConstructContext {
 
 // }
 
-export abstract class PotentialFullExpression extends InstructionConstruct {
+export abstract class PotentialFullExpression extends BasicCPPConstruct {
     
-    public readonly parent?: InstructionConstruct; // Narrows type of parent property of CPPConstruct
+    public readonly parent?: BasicCPPConstruct; // Narrows type of parent property of CPPConstruct
 
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
     public readonly temporaryDeallocator?: TemporaryDeallocator;
 
 
     public onAttach(parent: CPPConstruct) {
-
-        if (!(parent instanceof InstructionConstruct)) {
-            throw new Error("A PotentialFullExpression may only be attached to a parent that is an InstructionConstruct.");
-        }
 
         (<Mutable<this>>this).parent = parent;
 

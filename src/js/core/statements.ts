@@ -1,13 +1,10 @@
-
-import { UnsupportedConstruct, ASTNode, ExecutableConstruct, ConstructContext, CPPConstruct, RuntimeConstruct, ExecutableRuntimeConstruct, FunctionContext, CompiledConstruct, BasicCPPConstruct } from "./constructs";
-import { addDefaultPropertiesToPrototype, Mutable, DiscriminateUnion, MapDiscriminatedUnion } from "../util/util";
-import { Expression, RuntimeExpression, CompiledExpression, ExpressionASTNode } from "./expressions";
-import { Simulation } from "./Simulation";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode } from "./declarations";
-import { CopyInitializer, DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { ReturnByReferenceEntity, ReturnObjectEntity, FunctionBlockScope, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
-import { VoidType, ReferenceType, ObjectType } from "./types";
+import { BasicCPPConstruct, ExecutableRuntimeConstruct, CompiledConstruct, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
+import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
+import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration } from "./declarations";
+import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import { VoidType, ReferenceType } from "./types";
+import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -19,38 +16,28 @@ export type StatementASTNode =
     ExpressionStatementASTNode |
     NullStatementASTNode;
 
-
-let blah! : {
-    [CT in StatementASTNode["construct_type"]]: (a: DiscriminateUnion<StatementASTNode, "construct_type", CT>) => boolean
-}
-
-
 const StatementConstructsMap = {
-    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "labeled statement"),
-    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context, false),
-    "selection_statement" : (ast: SelectionStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "selection statement"),
-    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "while loop"),
-    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "do-while loop"),
-    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "for loop"),"selection_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "labeled statement"),
-    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "break statement"),
-    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedConstruct(context, "continue statement"),
+    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement"),
+    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, createBlockContext(context)),
+    "selection_statement" : (ast: SelectionStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "selection statement"),
+    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "while loop"),
+    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "do-while loop"),
+    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "for loop"),
+    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "break statement"),
+    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "continue statement"),
     "return_statement" : (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement" : (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context),
 }
 
-function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
+export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
 } 
 
 export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
 
-    public onAttach(parent: ExecutableConstruct) {
-        (<Mutable<this>>this).parent = parent;
-    }
-
-    public abstract createRuntimeStatement(parent: ExecutableRuntimeConstruct) : RuntimeStatement;
+    public abstract createRuntimeStatement(this: CompiledStatement, parent: ExecutableRuntimeConstruct) : RuntimeStatement;
 
 }
 
@@ -61,7 +48,7 @@ export interface CompiledStatement extends Statement, CompiledConstruct {
 export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeConstruct<C> {
 
     public constructor (model: C, parent: ExecutableRuntimeConstruct) {
-        super(model, "statement", parent.sim, parent);
+        super(model, "statement", parent);
     }
 
     public popped() {
@@ -71,8 +58,18 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
 }
 
+export class UnsupportedStatement extends Statement {
+    public constructor(context: ConstructContext, unsupportedName: string) {
+        super(context);
+        this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
+    }
 
-
+    // Will never be called since an UnsupportedStatement will always have errors and
+    // never satisfy the required this context of CompiledStatement
+    public createRuntimeStatement(this: CompiledStatement, parent: ExecutableRuntimeConstruct) : never {
+        throw new Error("Cannot create a runtime instance of an unsupported construct.");
+    }
+}
 
 
 export interface ExpressionStatementASTNode extends ASTNode {
@@ -149,7 +146,7 @@ export class NullStatement extends Statement<NullStatementASTNode> {
 }
 
 export interface CompiledNullStatement extends NullStatement, CompiledConstruct {
-    foo: number;
+    
 }
 
 export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement> {
@@ -189,7 +186,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         if (declaration instanceof FunctionDefinition) {
             this.addNote(CPPError.stmt.function_definition_prohibited(this));
         }
-        else if (declaration instanceof FunctionDefinition) {
+        else if (declaration instanceof ClassDefinition) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
         }
     }
@@ -206,7 +203,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 export interface CompiledDeclarationStatement extends DeclarationStatement, CompiledConstruct {
     
     // narrows to compiled version and rules out a FunctionDefinition or ClassDefinition
-    readonly declaration: CompiledDeclaration;
+    readonly declaration: CompiledSimpleDeclaration;
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
@@ -218,7 +215,7 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
     }
 	
     protected upNextImpl() {
-        let initializers = this.model.declaration.initializers;
+        let initializers = [this.model.declaration.initializer]; // HACK: rework this code based on assumption of single initializer
         if (this.index < initializers.length) {
             let init = initializers[this.index];
             if(init) { // TODO: is this if check necessary? shouldn't there always be an initializer (even if it's a default one?)
@@ -228,11 +225,9 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
             }
             ++this.index;
             this.wait();
-            return true;
         }
         else{
             this.sim.pop();
-            return true;
         }
     }
 
@@ -266,15 +261,15 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
 
     public static createFromAST(ast: ReturnStatementASTNode, context: FunctionContext) {
         return ast.expression
-            ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context))
-            : new ReturnStatement(context);
+            ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context)).setAST(ast)
+            : new ReturnStatement(context).setAST(ast);
     }
 
     public constructor(context: FunctionContext, expression?: Expression) {
         super(context);
         this.expression = expression;
 
-        let returnType = this.containingFunction.type.returnType;
+        let returnType = this.context.containingFunction.type.returnType;
 
         if (returnType instanceof VoidType) {
             if (expression) {
@@ -355,36 +350,34 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
     }
 }
 
-export interface BlockASTNode {
+export interface BlockASTNode extends ASTNode {
     readonly construct_type: "compound_statement";
     readonly statements: readonly StatementASTNode[];
 }
 
-export function createBlockContext(context: FunctionContext) : BlockContext {
-    return Object.assign({}, context, {contextualScope: new BlockScope(context.contextualScope)});
+function createBlockContext(context: FunctionContext) : BlockContext {
+    return Object.assign({}, context, {
+        contextualScope: new BlockScope(context.contextualScope),
+        localObjects: [],
+        localReferences: []
+    });
 }
 
 export interface BlockContext extends FunctionContext {
-    contextualScope: BlockScope;
+    readonly contextualScope: BlockScope;
+    readonly localObjects: AutoEntity[];
+    readonly localReferences: LocalReferenceEntity[];
 }
 
 export class Block extends Statement<BlockASTNode> {
 
     public readonly statements: readonly Statement[];
-    public readonly localObjects: readonly AutoEntity[];
-    public readonly localReferences: readonly LocalReferenceEntity[];
 
-    public static createFromAST(ast: BlockASTNode, context: BlockContext, isFunctionBodyBlock: boolean) {
+    public static createFromAST(ast: BlockASTNode, context: BlockContext) {
+                
+        let statements: Statement[] = ast.statements.map((stmtAst) => createStatementFromAST(stmtAst, context));
         
-        // If this is a function block, we presume the function has already created the block context
-        // for this block (e.g. to add entities defined by parameter definitions into its scope first).
-        // Thus, we only create our own block context (with a new block scope) if this is not a function block.
-        if (!isFunctionBodyBlock) {
-            context = createBlockContext(context);
-        }
-        let statements = ast.statements.map((stmtAst) => Statement.createFromAST(stmtAst, context));
-        
-        return new Block(context, statements);
+        return new Block(context, statements).setAST(ast);
     }
 
     public constructor(context: BlockContext, statements: readonly Statement[]) {
