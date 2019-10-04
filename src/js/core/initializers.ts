@@ -375,9 +375,9 @@ export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> ex
     readonly args: readonly CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType> extends RuntimeInitializer<CompiledDirectInitializer<T>> {
+export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
 
-    protected constructor (model: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
         super(model, parent);
     }
 
