@@ -1,6 +1,6 @@
 import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
 import { Observable } from "../util/observe";
-import { assert } from "../util/util";
+import { assert, Mutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { Description } from "./errors";
@@ -25,7 +25,7 @@ abstract class ObjectData<T extends ObjectType> {
     // public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 };
 
-class AtomicObjectData<T extends AtomicType> extends ObjectData<T> { // TODO: change to atomic type
+class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
     public rawValue() {
         var bytes = this.memory.readBytes(this.address, this.size);
@@ -238,12 +238,12 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobject<Elem_type extends ArrayElemType>(this: CPPObject<BoundedArrayType<Elem_type>>, index: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobject<AT extends BoundedArrayType>(this: CPPObject<AT>, index: number) : ArraySubobject<AT["elemType"]> {
         return this.data.getArrayElemSubobject(index);
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjectByAddress<Elem_type extends ArrayElemType>(this: CPPObject<BoundedArrayType<Elem_type>>, address: number) : ArraySubobject<Elem_type>{
+    public getArrayElemSubobjectByAddress<AT extends BoundedArrayType>(this: CPPObject<AT>, address: number) : ArraySubobject<AT["elemType"]> {
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
@@ -273,7 +273,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     public deallocated(rt?: RuntimeConstruct) {
         (<boolean>this.isAlive) = false;
         this._isValid = false;
-        (<RuntimeConstruct|undefined>this.deallocatedBy) = rt;
+        (<Mutable<this>>this).deallocatedBy = rt;
         this.observable.send("deallocated");
     }
 
