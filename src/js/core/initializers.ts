@@ -460,7 +460,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     }
     
     public stepForwardImpl() {
-        let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult!);  //TODO remove cast
+        let rtRef = this.model.target.bindTo(this, this.arg.evalResult);  //TODO remove cast
         this.observable.send("initialized", rtRef);
         this.sim.pop();
     }
@@ -548,7 +548,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
     }
 
     public stepForwardImpl() {
-        this.target.writeValue(this.arg.evalResult!);
+        this.target.writeValue(this.arg.evalResult);
         this.observable.send("initialized", this.target);
         this.sim.pop();
     }
