@@ -1,10 +1,11 @@
-import { BasicCPPConstruct, ExecutableRuntimeConstruct, CompiledConstruct, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, CompiledConstruct, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
+import { RuntimeFunction } from "./functions";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -37,7 +38,7 @@ export function createStatementFromAST<ASTType extends StatementASTNode>(ast: AS
 
 export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
 
-    public abstract createRuntimeStatement(this: CompiledStatement, parent: ExecutableRuntimeConstruct) : RuntimeStatement;
+    public abstract createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : RuntimeStatement;
 
 }
 
@@ -47,8 +48,16 @@ export interface CompiledStatement extends Statement, CompiledConstruct {
 
 export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeConstruct<C> {
 
-    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    public readonly containingRuntimeFunction: RuntimeFunction;
+
+    public constructor (model: C, parent: RuntimeStatement | RuntimeFunction) {
         super(model, "statement", parent);
+        if (parent instanceof RuntimeFunction) {
+            this.containingRuntimeFunction = parent;
+        }
+        else {
+            this.containingRuntimeFunction = parent.containingRuntimeFunction;
+        }
     }
 
     public popped() {
@@ -66,7 +75,7 @@ export class UnsupportedStatement extends Statement {
 
     // Will never be called since an UnsupportedStatement will always have errors and
     // never satisfy the required this context of CompiledStatement
-    public createRuntimeStatement(this: CompiledStatement, parent: ExecutableRuntimeConstruct) : never {
+    public createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : never {
         throw new Error("Cannot create a runtime instance of an unsupported construct.");
     }
 }
@@ -92,7 +101,7 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
         this.attach(this.expression = expression);
     }
 
-    public createRuntimeStatement(this: CompiledExpressionStatement, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledExpressionStatement, parent: RuntimeStatement) {
         return new RuntimeExpressionStatement(this, parent);
     }
 
@@ -110,7 +119,7 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
     public expression: RuntimeExpression;
     private index = "expr";
 
-    public constructor (model: CompiledExpressionStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledExpressionStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.expression = this.model.expression.createRuntimeExpression(this);
     }
@@ -136,7 +145,7 @@ export interface NullStatementASTNode extends ASTNode {
 
 export class NullStatement extends Statement<NullStatementASTNode> {
 
-    public createRuntimeStatement(this: CompiledNullStatement, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledNullStatement, parent: RuntimeStatement) {
         return new RuntimeNullStatement(this, parent);
     }
 
@@ -151,7 +160,7 @@ export interface CompiledNullStatement extends NullStatement, CompiledConstruct 
 
 export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement> {
 
-    public constructor (model: CompiledNullStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledNullStatement, parent: RuntimeStatement) {
         super(model, parent);
     }
 
@@ -172,7 +181,7 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
 
-    public readonly declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition;
+    public readonly declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: FunctionContext) {
         return new DeclarationStatement(context,
@@ -180,18 +189,18 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         ).setAST(ast);
     }
 
-    public constructor(context: FunctionContext, declaration: SimpleDeclaration | FunctionDefinition | ClassDefinition) {
+    public constructor(context: FunctionContext, declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/) {
         super(context);
-        this.attach(this.declaration = declaration);
-        if (declaration instanceof FunctionDefinition) {
-            this.addNote(CPPError.stmt.function_definition_prohibited(this));
-        }
-        else if (declaration instanceof ClassDefinition) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
-        }
+        this.attachAll(this.declarations = declarations);
+        // if (declaration instanceof FunctionDefinition) {
+        //     this.addNote(CPPError.stmt.function_definition_prohibited(this));
+        // }
+        // else if (declaration instanceof ClassDefinition) {
+        //     this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
+        // }
     }
 
-    public createRuntimeStatement(this: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledDeclarationStatement, parent: RuntimeStatement) {
         return new RuntimeDeclarationStatement(this, parent);
     }
 
@@ -203,19 +212,19 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 export interface CompiledDeclarationStatement extends DeclarationStatement, CompiledConstruct {
     
     // narrows to compiled version and rules out a FunctionDefinition or ClassDefinition
-    readonly declaration: CompiledSimpleDeclaration;
+    readonly declarations: readonly CompiledSimpleDeclaration[];
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
 
     private index = 0;
 
-    public constructor (model: CompiledDeclarationStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledDeclarationStatement, parent: RuntimeStatement) {
         super(model, parent);
     }
 	
     protected upNextImpl() {
-        let initializers = [this.model.declaration.initializer]; // HACK: rework this code based on assumption of single initializer
+        let initializers = this.model.declarations.map(d => d.initializer);
         if (this.index < initializers.length) {
             let init = initializers[this.index];
             if(init) { // TODO: is this if check necessary? shouldn't there always be an initializer (even if it's a default one?)
@@ -299,7 +308,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         this.attach(this.returnInitializer);
     }
 
-    public createRuntimeStatement(this: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledReturnStatement, parent: RuntimeStatement) {
         return new RuntimeReturnStatement(this, parent);
     }
     
@@ -325,7 +334,7 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
 
     private index = RuntimeReturnStatementIndices.PUSH_INITIALIZER;
 
-    public constructor (model: CompiledReturnStatement, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledReturnStatement, parent: RuntimeStatement) {
         super(model, parent);
         if(model.returnInitializer) {
             this.returnInitializer = model.returnInitializer.createRuntimeInitializer(this);
@@ -386,7 +395,7 @@ export class Block extends Statement<BlockASTNode> {
         this.statements = statements;
     }
 
-    public createRuntimeStatement(this: CompiledBlock, parent: ExecutableRuntimeConstruct) {
+    public createRuntimeStatement(this: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         return new RuntimeBlock(this, parent);
     }
 
@@ -430,7 +439,7 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 
     private index = 0;
 
-    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: C, parent: RuntimeStatement | RuntimeFunction) {
         super(model, parent);
         this.statements = model.statements.map((stmt) => stmt.createRuntimeStatement(this));
     }

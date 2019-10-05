@@ -287,7 +287,7 @@ enum RuntimeFunctionIndices {
 export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionImplementation> {
 
     public readonly caller?: RuntimeFunctionCall;
-    public readonly containingRuntimeFunction: RuntimeFunction;
+    // public readonly containingRuntimeFunction: this;
 
     public readonly stackFrame?: MemoryFrame;
 
@@ -313,7 +313,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         }
 
         // A function is its own containing function context
-        this.containingRuntimeFunction = this;
+        // this.containingRuntimeFunction = this;
         this.body = this.model.body.createRuntimeStatement(this);
     }
     

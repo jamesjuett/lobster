@@ -68,17 +68,6 @@ export function htmlDecoratedValue(value){
 };
 
 
-interface Array<T> {
-    clear() : void;
-} 
-Array.prototype.clear = function () {
-    this.length = 0;
-}
-
-
-
-
-
 var escapes = ["\\\"", "\\'", "\\?", "\\\\", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\0"];
 var escaped = ["\"", "\'", "", "\\", "", "\b", "\f", "\n", "\r", "\t", "\v", "\0"];
 

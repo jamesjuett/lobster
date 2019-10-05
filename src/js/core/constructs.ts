@@ -562,7 +562,7 @@ export abstract class RuntimeConstruct<C extends CompiledExecutableConstruct = C
     public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
 
     public readonly parent?: RuntimeConstruct;
-    public readonly containingRuntimeFunction?: RuntimeFunction;
+    // public readonly containingRuntimeFunction?: RuntimeFunction;
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
@@ -702,6 +702,8 @@ export interface ExecutableRuntimeConstruct extends RuntimeConstruct {
 //         this.containingRuntimeFunction = parent.containingRuntimeFunction;
 //     }
 // }
+
+// export interface 
 
 
 export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {

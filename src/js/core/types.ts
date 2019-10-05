@@ -573,8 +573,7 @@ export class Char extends IntegralType {
     }
 
     public valueToString(value: RawValueType) {
-        // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
-        return "'" + Util.unescapeString(String.fromCharCode(<number>value)) + "'";//""+value;
+        return "'" + Util.unescapeString(String.fromCharCode(value)) + "'";
     }
     public valueToOstreamString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
