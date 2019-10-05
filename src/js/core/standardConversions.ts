@@ -251,10 +251,16 @@ export class QualificationConversion<T extends AtomicType> extends ImplicitConve
     }
 }
 
-export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue"> {
+export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue">;
+export function convertToPRValue(from: TypedExpression) : TypedExpression;
+export function convertToPRValue(from: TypedExpression) {
 
     if (from.isBoundedArrayTyped()) {
         return new ArrayToPointer(from);
+    }
+
+    if (!from.isAtomicTyped()) {
+        return from;
     }
 
     // based on union input type, it must be atomic typed if we get to here
@@ -346,13 +352,17 @@ export interface StandardConversionOptions {
  * @param toType The destination type
  * @param options 
  */
-export function standardConversion(from: SpecificTypedExpression<Type>, toType: AtomicType, options: StandardConversionOptions = {}) {
+export function standardConversion(from: TypedExpression, toType: Type, options: StandardConversionOptions = {}) {
     options = options || {};
 
     // Unless the object is atomic typed or is an array, Lobster currently doesn't support
     // any standard conversions. Note in particular this means user-defined converison functions
     // for class-typed objects are not supported.
     if (!(from.isAtomicTyped() || from.isBoundedArrayTyped())) {
+        return from;
+    }
+
+    if (!toType.isAtomicType()) {
         return from;
     }
 

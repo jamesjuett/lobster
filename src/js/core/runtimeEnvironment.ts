@@ -63,8 +63,8 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && otherValue.isValid);
     }
 
-    public pointerOffset(this: Value<PointerType>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
-        return new Value<PointerType>(
+    public pointerOffset<T extends PointerType>(this: Value<T>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
+        return new Value<T>(
             (subtract ?
                 this.rawValue - this.type.ptrTo.size * offsetValue.rawValue :
                 this.rawValue + this.type.ptrTo.size * offsetValue.rawValue),
