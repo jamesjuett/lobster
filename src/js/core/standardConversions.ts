@@ -339,8 +339,22 @@ export interface StandardConversionOptions {
     readonly suppressLTR?: true;
 }
 
-export function standardConversion(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">, toType: AtomicType, options: StandardConversionOptions = {}) {
+/**
+ * Attempts to generate a standard conversion sequence of the given expression to the given
+ * destination type. 
+ * @param from The original expression
+ * @param toType The destination type
+ * @param options 
+ */
+export function standardConversion(from: SpecificTypedExpression<Type>, toType: AtomicType, options: StandardConversionOptions = {}) {
     options = options || {};
+
+    // Unless the object is atomic typed or is an array, Lobster currently doesn't support
+    // any standard conversions. Note in particular this means user-defined converison functions
+    // for class-typed objects are not supported.
+    if (!(from.isAtomicTyped() || from.isBoundedArrayTyped())) {
+        return from;
+    }
 
     if (!options.suppressLTR) {
         let fromPrvalue = convertToPRValue(from);
