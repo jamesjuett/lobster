@@ -1032,6 +1032,9 @@ export class ClassType extends ObjectType {
     public readonly precedence: number = 0;
     public readonly isArithmeticType: boolean = false;
     public readonly isComplete: boolean = false;
+
+    public readonly name: string = "";
+
     public sameType(other: Type): boolean {
         throw new Error("Method not implemented.");
     }
