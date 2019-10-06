@@ -1,5 +1,5 @@
-import { ASTNode, PotentialFullExpression, ExecutableRuntimeConstruct, ExecutableConstruct, CompiledConstruct, RuntimePotentialFullExpression, ConstructContext, RuntimeConstruct } from "./constructs";
-import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
+import { ASTNode, PotentialFullExpression, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, ConstructContext, RuntimeConstruct } from "./constructs";
+import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, VCResultTypes } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
 import { assertFalse } from "../util/util";
@@ -24,7 +24,7 @@ export abstract class Initializer extends PotentialFullExpression {
 
 }
 
-export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, CompiledConstruct {
+export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, SuccessfullyCompiled {
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
 } 
 
@@ -68,7 +68,7 @@ export abstract class DefaultInitializer extends Initializer {
     public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer<T>;
 }
 
-export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, CompiledConstruct {
+export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, SuccessfullyCompiled {
     readonly target: ObjectEntity<T>;
 }
 
@@ -125,7 +125,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends AtomicDefaultInitializer, CompiledConstruct {
+export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends AtomicDefaultInitializer, SuccessfullyCompiled {
     readonly target: ObjectEntity<T>;
 }
 
@@ -203,7 +203,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
 }
 
-export interface CompiledArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends ArrayDefaultInitializer, CompiledConstruct {
+export interface CompiledArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends ArrayDefaultInitializer, SuccessfullyCompiled {
     
     readonly target: ObjectEntity<T>;
     readonly elementInitializers?: CompiledDefaultInitializer<T["elemType"]>[];
@@ -279,7 +279,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //     }
 // }
 
-// export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, CompiledConstruct {
+// export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
 
 //     readonly target: ObjectEntity<T>;
 //     readonly ctor: ConstructorEntity<T>;
@@ -368,7 +368,7 @@ export abstract class DirectInitializer extends Initializer {
 }
 
 
-export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> extends DirectInitializer, CompiledConstruct {
+export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> extends DirectInitializer, SuccessfullyCompiled {
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 }
@@ -431,7 +431,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, CompiledConstruct {
+export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
     readonly target: UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 
@@ -460,7 +460,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     }
     
     public stepForwardImpl() {
-        let rtRef = this.model.target.bindTo(this, this.arg.evalResult);  //TODO remove cast
+        let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         this.observable.send("initialized", rtRef);
         this.sim.pop();
     }
@@ -521,7 +521,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledAtomicDirectInitializer<T extends AtomicType> extends AtomicDirectInitializer, CompiledConstruct {
+export interface CompiledAtomicDirectInitializer<T extends AtomicType> extends AtomicDirectInitializer, SuccessfullyCompiled {
     readonly target: ObjectEntity<T>;
     readonly args: readonly CompiledExpression[];
     readonly arg: CompiledExpression<T, "prvalue">;
@@ -602,7 +602,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //     }
 // }
 
-// export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, CompiledConstruct {
+// export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, SuccessfullyCompiled {
 //     readonly target: ObjectEntity<BoundedArrayType<Char>>;
 //     readonly args: CompiledExpression[];
 //     readonly arg: CompiledStringLiteral;
@@ -694,7 +694,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //     }
 // }
 
-// export interface CompiledClassDirectInitializer<T extends ClassType> extends ClassDirectInitializer, CompiledConstruct {
+// export interface CompiledClassDirectInitializer<T extends ClassType> extends ClassDirectInitializer, SuccessfullyCompiled {
     
     
 //     readonly target: ObjectEntity<T>;
@@ -751,103 +751,103 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 
 
 
-/**
- * Note: only use is in implicitly defined copy constructor
- */
-export class ArrayMemberInitializer extends Initializer {
+// /**
+//  * Note: only use is in implicitly defined copy constructor
+//  */
+// export class ArrayMemberInitializer extends Initializer {
 
-     // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
-    public readonly target: ObjectEntity<BoundedArrayType>;
-    public readonly otherMember: ObjectEntity<BoundedArrayType>;
+//      // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
+//     public readonly target: ObjectEntity<BoundedArrayType>;
+//     public readonly otherMember: ObjectEntity<BoundedArrayType>;
     
-    public readonly elementInitializers: DirectInitializer[] = [];
+//     public readonly elementInitializers: DirectInitializer[] = [];
 
-    public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>,
-                       otherMember: ObjectEntity<BoundedArrayType>) {
-        super(context);
+//     public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>,
+//                        otherMember: ObjectEntity<BoundedArrayType>) {
+//         super(context);
         
-        this.target = target;
-        this.otherMember = otherMember;
-        let targetType = target.type;
+//         this.target = target;
+//         this.otherMember = otherMember;
+//         let targetType = target.type;
 
-        for(let i = 0; i < targetType.length; ++i) {
-            let elemInit;
-            // COMMENTED BELOW BECAUSE MULTIDIMENSIONAL ARRAYS ARE NOT ALLOWED
-            // if (targetType.elemType instanceof BoundedArrayType) {
-            //     elemInit = new ArrayMemberInitializer(context,
-            //         new ArraySubobjectEntity(target, i),
-            //         new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>otherMember, i));
-            // }
-            // else {
-                elemInit = DirectInitializer.create(context,
-                    new ArraySubobjectEntity(target, i),
-                    [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))]);
-            // }
+//         for(let i = 0; i < targetType.length; ++i) {
+//             let elemInit;
+//             // COMMENTED BELOW BECAUSE MULTIDIMENSIONAL ARRAYS ARE NOT ALLOWED
+//             // if (targetType.elemType instanceof BoundedArrayType) {
+//             //     elemInit = new ArrayMemberInitializer(context,
+//             //         new ArraySubobjectEntity(target, i),
+//             //         new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>otherMember, i));
+//             // }
+//             // else {
+//                 elemInit = DirectInitializer.create(context,
+//                     new ArraySubobjectEntity(target, i),
+//                     [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))]);
+//             // }
 
-            this.elementInitializers.push(elemInit);
-            this.attach(elemInit);
+//             this.elementInitializers.push(elemInit);
+//             this.attach(elemInit);
 
-            if(elemInit.hasErrors) {
-                this.addNote(CPPError.declaration.init.array_direct_init(this));
-                break;
-            }
-        }
+//             if(elemInit.hasErrors) {
+//                 this.addNote(CPPError.declaration.init.array_direct_init(this));
+//                 break;
+//             }
+//         }
         
-    }
+//     }
 
-    public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
-        return new RuntimeArrayMemberInitializer(this, parent);
-    }
+//     public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
+//         return new RuntimeArrayMemberInitializer(this, parent);
+//     }
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
-        let targetDesc = this.target.describe();
-        let targetType = this.target.type;
-        let otherMemberDesc = this.otherMember.describe();
+//     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
+//         let targetDesc = this.target.describe();
+//         let targetType = this.target.type;
+//         let otherMemberDesc = this.otherMember.describe();
         
-        if (targetType.length === 0) {
-            return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
-        }
-        else {
-            return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized with the value of the"
-                + "corresponding element of " + (otherMemberDesc.name || otherMemberDesc.message) + ". For example, " +
-                this.elementInitializers[0].explain(sim, rtConstruct) };
-        }
-    }
-}
+//         if (targetType.length === 0) {
+//             return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
+//         }
+//         else {
+//             return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized with the value of the"
+//                 + "corresponding element of " + (otherMemberDesc.name || otherMemberDesc.message) + ". For example, " +
+//                 this.elementInitializers[0].explain(sim, rtConstruct) };
+//         }
+//     }
+// }
 
-export interface CompiledArrayMemberInitializer extends ArrayMemberInitializer, CompiledConstruct {
-    readonly elementInitializers: CompiledDirectInitializer[];
-}
+// export interface CompiledArrayMemberInitializer extends ArrayMemberInitializer, SuccessfullyCompiled {
+//     readonly elementInitializers: CompiledDirectInitializer[];
+// }
 
-export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledArrayMemberInitializer> {
+// export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledArrayMemberInitializer> {
 
-    public readonly target: CPPObject<BoundedArrayType>;
-    public readonly elementInitializers: RuntimeDirectInitializer[];
+//     public readonly target: CPPObject<BoundedArrayType>;
+//     public readonly elementInitializers: RuntimeDirectInitializer[];
 
-    private index = 0;
+//     private index = 0;
 
-    public constructor (model: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
-        super(model, parent);
-        this.target = this.model.target.runtimeLookup(this);
-        this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
-            return elemInit.createRuntimeInitializer(this);
-        });
-    }
+//     public constructor (model: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
+//         super(model, parent);
+//         this.target = this.model.target.runtimeLookup(this);
+//         this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
+//             return elemInit.createRuntimeInitializer(this);
+//         });
+//     }
 	
-    protected upNextImpl() {
-        if (this.elementInitializers && this.index < this.elementInitializers.length) {
-            this.sim.push(this.elementInitializers[this.index++])
-        }
-        else {
-            this.observable.send("initialized", this.target);
-            this.sim.pop();
-        }
-    }
+//     protected upNextImpl() {
+//         if (this.elementInitializers && this.index < this.elementInitializers.length) {
+//             this.sim.push(this.elementInitializers[this.index++])
+//         }
+//         else {
+//             this.observable.send("initialized", this.target);
+//             this.sim.pop();
+//         }
+//     }
 
-    public stepForwardImpl() {
-        // do nothing
-    }
-}
+//     public stepForwardImpl() {
+//         // do nothing
+//     }
+// }
 
 
 
