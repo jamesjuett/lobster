@@ -1,7 +1,7 @@
 import {Expression, readValueWithAlert, TypedExpression, ValueCategory, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral, SpecificTypedExpression} from "./expressions";
 import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType, Char} from "./types";
 import { assertFalse, assert, Constructor } from "../util/util";
-import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, CompiledConstruct, ConstructContext } from "./constructs";
+import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, SuccessfullyCompiled, ConstructContext } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { Description } from "./errors";
 import { CPPObject } from "./objects";
@@ -42,7 +42,7 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
     }
 }
 
-export interface CompiledImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, CompiledConstruct {
+export interface CompiledImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, SuccessfullyCompiled {
     readonly from: CompiledExpression<FromType, FromVC>;
 }
 
