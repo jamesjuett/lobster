@@ -1,4 +1,4 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct, CompiledConstruct } from "./constructs";
+import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct, SuccessfullyCompiled } from "./constructs";
 import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
 import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
 import { Type, ArrayOfUnknownBoundType, FunctionType, BoundedArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
@@ -338,7 +338,7 @@ export abstract class SimpleDeclaration extends BasicCPPConstruct implements CPP
     }
 }
 
-export interface CompiledSimpleDeclaration extends SimpleDeclaration, CompiledConstruct {
+export interface CompiledSimpleDeclaration extends SimpleDeclaration, SuccessfullyCompiled {
     readonly type: Type;
 }
 

@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, CompiledConstruct, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
+import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity } from "./entities";
 import { RuntimeBlock, Block, CompiledBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType } from "./types";
@@ -276,7 +276,7 @@ export class FunctionImplementation extends BasicCPPConstruct {
     // }
 }
 
-export interface CompiledFunctionImplementation extends FunctionImplementation, CompiledConstruct {
+export interface CompiledFunctionImplementation extends FunctionImplementation, SuccessfullyCompiled {
     readonly body: CompiledBlock;
 }
 
@@ -575,7 +575,7 @@ export class FunctionCall extends PotentialFullExpression {
 
 }
 
-export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCall, CompiledConstruct {
+export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCall, SuccessfullyCompiled {
     
 }
 
