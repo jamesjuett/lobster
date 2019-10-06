@@ -38,7 +38,7 @@
   }
 
   function track(obj, location, text){
-    obj.sourceReference = {
+    obj.source = {
       location : location,
       start : location.start.offset,
       text : text,

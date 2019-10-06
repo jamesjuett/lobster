@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, CompiledConstruct, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration } from "./declarations";
@@ -42,7 +42,7 @@ export abstract class Statement<ASTType extends StatementASTNode = StatementASTN
 
 }
 
-export interface CompiledStatement extends Statement, CompiledConstruct {
+export interface CompiledStatement extends Statement, SuccessfullyCompiled {
 
 }
 
@@ -110,7 +110,7 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     }
 }
 
-export interface CompiledExpressionStatement extends ExpressionStatement, CompiledConstruct {
+export interface CompiledExpressionStatement extends ExpressionStatement, SuccessfullyCompiled {
     readonly expression: CompiledExpression;
 }
 
@@ -154,7 +154,7 @@ export class NullStatement extends Statement<NullStatementASTNode> {
     }
 }
 
-export interface CompiledNullStatement extends NullStatement, CompiledConstruct {
+export interface CompiledNullStatement extends NullStatement, SuccessfullyCompiled {
     
 }
 
@@ -209,7 +209,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
     }
 }
 
-export interface CompiledDeclarationStatement extends DeclarationStatement, CompiledConstruct {
+export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
     
     // narrows to compiled version and rules out a FunctionDefinition or ClassDefinition
     readonly declarations: readonly CompiledSimpleDeclaration[];
@@ -318,7 +318,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     // }
 }
 
-export interface CompiledReturnStatement extends ReturnStatement, CompiledConstruct {
+export interface CompiledReturnStatement extends ReturnStatement, SuccessfullyCompiled {
     readonly expression?: CompiledExpression;
     readonly returnInitializer?: CompiledDirectInitializer;
 }
@@ -429,7 +429,7 @@ export class Block extends Statement<BlockASTNode> {
 
 }
 
-export interface CompiledBlock extends Block, CompiledConstruct {
+export interface CompiledBlock extends Block, SuccessfullyCompiled {
     readonly statements: readonly CompiledStatement[];
 }
 
@@ -475,7 +475,7 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 
 // }
 
-// export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, CompiledConstruct {
+// export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, SuccessfullyCompiled {
 //     readonly statements: readonly CompiledStatement[];
 // }
 

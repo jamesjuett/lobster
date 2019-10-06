@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char } from "./types";
-import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, CompiledConstruct, RuntimePotentialFullExpression, RuntimeConstruct } from "./constructs";
+import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct } from "./constructs";
 import { Description, CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -57,7 +57,7 @@ export interface TypedExpression<T extends Type = Type, V extends ValueCategory 
 
 export type SpecificTypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? TypedExpression<T,V> : never;
 
-// export interface TypedAndCompiled<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<T,V>, CompiledConstruct {
+// export interface TypedAndCompiled<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<T,V>, SuccessfullyCompiled {
 
 // }
 
@@ -147,7 +147,7 @@ export abstract class Expression extends PotentialFullExpression {
     public abstract describeEvalResult(depth: number) : Description;
 }
 
-export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, CompiledConstruct {
+export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, SuccessfullyCompiled {
     readonly type: T;
     readonly valueCategory: V;
 }
@@ -485,7 +485,7 @@ type t_OverloadableOperators =
 
 // }
 
-// export interface CompiledOperatorOverload<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends OperatorOverload, CompiledConstruct {
+// export interface CompiledOperatorOverload<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends OperatorOverload, SuccessfullyCompiled {
     
 //     public readonly type: T;
 //     public readonly valueCategory: V;
@@ -544,7 +544,7 @@ export class Comma extends Expression {
 }
 
 
-export interface CompiledComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Comma, CompiledConstruct {
+export interface CompiledComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Comma, SuccessfullyCompiled {
     readonly type: T;
     readonly valueCategory: V;
     readonly left: CompiledExpression;
@@ -658,7 +658,7 @@ export class Ternary extends Expression {
     // }
 }
 
-export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Ternary, CompiledConstruct {
+export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Ternary, SuccessfullyCompiled {
     readonly type: T;
     readonly valueCategory: V;
     readonly condition: CompiledExpression<Bool, "prvalue">;
@@ -859,7 +859,7 @@ export class Assignment extends Expression {
     }
 }
 
-export interface CompiledAssignment<T extends AtomicType = AtomicType> extends Assignment, CompiledConstruct {
+export interface CompiledAssignment<T extends AtomicType = AtomicType> extends Assignment, SuccessfullyCompiled {
     readonly type: T;
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
@@ -1144,7 +1144,7 @@ export abstract class BinaryOperator extends Expression {
     public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
 }
 
-export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, CompiledConstruct {
+export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
     readonly type: T;
     readonly left: CompiledExpression<AtomicType, "prvalue">
     readonly right: CompiledExpression<AtomicType, "prvalue">
@@ -1236,7 +1236,7 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
 // TODO: Add CompiledArithmeticBinaryOperator?
 
-export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperator, CompiledConstruct {
+export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperator, SuccessfullyCompiled {
     
     public readonly type: T;
 
@@ -1324,7 +1324,7 @@ class PointerOffset extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerOffset<T extends PointerType = PointerType> extends PointerOffset, CompiledConstruct {
+export interface CompiledPointerOffset<T extends PointerType = PointerType> extends PointerOffset, SuccessfullyCompiled {
 
     readonly type: T;
 
@@ -1438,7 +1438,7 @@ class PointerDifference extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerDifference extends PointerDifference, CompiledConstruct {
+export interface CompiledPointerDifference extends PointerDifference, SuccessfullyCompiled {
     public readonly left: CompiledExpression<PointerType, "prvalue">;
     public readonly right: CompiledExpression<PointerType, "prvalue">;
 }
@@ -1577,7 +1577,7 @@ class LogicalBinaryOperator extends BinaryOperator {
 }
 
 
-export interface CompiledLogicalBinaryOperator extends LogicalBinaryOperator, CompiledConstruct {
+export interface CompiledLogicalBinaryOperator extends LogicalBinaryOperator, SuccessfullyCompiled {
     readonly left: CompiledExpression<Bool, "prvalue">
     readonly right: CompiledExpression<Bool, "prvalue">
 }
@@ -2458,7 +2458,7 @@ export class FunctionCallExpression extends Expression {
     // }
 }
 
-export interface CompiledFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCallExpression, CompiledConstruct {
+export interface CompiledFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCallExpression, SuccessfullyCompiled {
     
     public readonly type: T;
     public readonly valueCategory: V;
@@ -3078,13 +3078,13 @@ export class Identifier extends Expression {
     // }
 }
 
-export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, CompiledConstruct {
+export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, SuccessfullyCompiled {
     public readonly type: T;
     public readonly valueCategory: "lvalue";
     public readonly entity: ObjectEntity;
 }
 
-export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, CompiledConstruct {
+export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, SuccessfullyCompiled {
     public readonly type: T;
     public readonly valueCategory: "lvalue";
     public readonly entity: FunctionEntity;
@@ -3248,7 +3248,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 //	}
 }
 
-export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticType> extends NumericLiteral<T>, CompiledConstruct {
+export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticType> extends NumericLiteral<T>, SuccessfullyCompiled {
 
 }
 
@@ -3345,7 +3345,7 @@ export class Parentheses extends Expression {
 
 
 // TODO: should these interface definitions have "public" in them? what is best style?
-export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Parentheses, CompiledConstruct {
+export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Parentheses, SuccessfullyCompiled {
     public readonly type: T;
     public readonly valueCategory: V;
 
