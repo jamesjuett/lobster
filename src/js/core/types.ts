@@ -1,14 +1,9 @@
-import * as Util from "../util/util";
-import {CPPConstruct, BasicCPPConstruct, ConstructContext} from "./constructs";
-import {CPPError} from "./errors";
-import {Value, RawValueType, byte} from "./runtimeEnvironment";
-import {Description} from "./errors";
-import { CPPObject, Subobject } from "./objects";
-import flatten from "lodash/flatten";
-import { NameLookupOptions, ClassScope, CPPEntity, FunctionEntity, MemberFunctionEntity, BaseClassEntity, Scope, ConstructorEntity, MemberVariableEntity, TypeEntity } from "./entities";
-import { QualifiedName, fullyQualifiedNameToUnqualified } from "./lexical";
+import { Constructor } from "../util/util";
+import { Description } from "./errors";
+import { byte, RawValueType } from "./runtimeEnvironment";
+import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
-import { StorageSpecifier, StorageSpecifierKey } from "./declarations";
+
 
 var vowels = ["a", "e", "i", "o", "u"];
 function isVowel(c: string) {
@@ -21,7 +16,7 @@ function isVowel(c: string) {
 
 
 export var userTypeNames = {};
-export const builtInTypes : {[index:string]: Util.Constructor<Type>} = {};
+export const builtInTypes : {[index:string]: Constructor<Type>} = {};
 
 export var defaultUserTypeNames = {
     ostream : true,
@@ -29,7 +24,7 @@ export var defaultUserTypeNames = {
     size_t : true
 };
 
-export function isType<T extends Type>(type: Type, ctor: Util.Constructor<T>) : type is InstanceType<typeof ctor> {
+export function isType<T extends Type>(type: Type, ctor: Constructor<T>) : type is InstanceType<typeof ctor> {
     return type.isType(ctor);
 };
 
@@ -41,8 +36,7 @@ export function similarType(type1: Type, type2: Type) {
     return type1.similarType(type2);
 };
 
-// TODO subType function is dangerous :( (I think I originally wrote this because Type overall doesn't have isDerivedFrom)
-export function subType(type1: ClassType, type2: ClassType) {
+export function subType(type1: Type, type2: Type) {
     return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
 };
 
@@ -102,32 +96,34 @@ export function referenceCompatible(from: Type, to: Type){
 //     }
 // };
 
-export function isCvConvertible(t1: Type, t2: Type){
+export function isCvConvertible(fromType: Type | null, toType: Type | null) {
+
+    if (fromType === null || toType === null) { return false; }
 
     // t1 and t2 must be similar
-    if (!similarType(t1,t2)){ return false; }
+    if (!similarType(fromType,toType)) { return false; }
 
     // Discard 0th level of cv-qualification signatures, we don't care about them.
     // (It's essentially a value semantics thing, we're making a copy so top level const doesn't matter.)
-    t1 = t1.getCompoundNext();
-    t2 = t2.getCompoundNext();
+    fromType = fromType.getCompoundNext();
+    toType = toType.getCompoundNext();
 
     // check that t2 has const everywhere that t1 does
     // also if we ever find a difference, t2 needs const everywhere leading
     // up to it (but not including) (and not including discarded 0th level).
-    var t2AllConst = true;
-    while(t1 && t2){ //similar so they should run out at same time
-        if (t1.isConst && !t2.isConst){
+    let t2AllConst = true;
+    while(fromType && toType){ //similar so they should run out at same time
+        if (fromType.isConst && !toType.isConst){
             return false;
         }
-        else if (!t1.isConst && t2.isConst && !t2AllConst){
+        else if (!fromType.isConst && toType.isConst && !t2AllConst){
             return false;
         }
 
         // Update allConst
-        t2AllConst = t2AllConst && t2.isConst;
-        t1 = t1.getCompoundNext();
-        t2 = t2.getCompoundNext();
+        t2AllConst = t2AllConst && toType.isConst;
+        fromType = fromType.getCompoundNext();
+        toType = toType.getCompoundNext();
     }
 
     // If no violations, t1 is convertable to t2
@@ -167,7 +163,7 @@ abstract class TypeBase {
     /**
      * Returns true if this type object is an instance of the given Type class
      */
-    public isType<T extends Type>(ctor: Util.Constructor<T>) : this is InstanceType<typeof ctor> {
+    public isType<T extends Type>(ctor: Constructor<T>) : this is InstanceType<typeof ctor> {
         return this instanceof ctor;
     }
 
@@ -248,7 +244,7 @@ abstract class TypeBase {
      */
     public isReferenceRelated(this: Type, other: Type) : boolean {
         return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
-            subType(this.cvUnqualified(),other.cvUnqualified());
+            subType(this.cvUnqualified(), other.cvUnqualified());
     }
 
     /**
@@ -517,7 +513,7 @@ export abstract class SimpleType extends AtomicType {
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? Util.htmlDecoratedType(this.simpleType) : this.simpleType) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.simpleType) : this.simpleType) + (varname ? " " + varname : "");
         }
     }
     
@@ -573,7 +569,7 @@ export class Char extends IntegralType {
     }
 
     public valueToString(value: RawValueType) {
-        return "'" + Util.unescapeString(String.fromCharCode(value)) + "'";
+        return "'" + unescapeString(String.fromCharCode(value)) + "'";
     }
     public valueToOstreamString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
@@ -734,7 +730,7 @@ export class PointerType extends AtomicType {
     }
 
     public englishString(plural: boolean) {
-        return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString();
+        return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString(false);
     }
 
     public valueToString(value: RawValueType) {
@@ -1041,6 +1037,11 @@ export class ClassType extends ObjectType {
     public similarType(other: Type): boolean {
         throw new Error("Method not implemented.");
     }
+
+    public isDerivedFrom(other: Type): boolean {
+        throw new Error("Method not implemented.");
+    }
+
     public typeString(excludeBase: boolean, varname: string, decorated?: boolean | undefined): string {
         throw new Error("Method not implemented.");
     }
@@ -1378,7 +1379,7 @@ export class FunctionType extends TypeBase {
         return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
         return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
     }
 

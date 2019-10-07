@@ -3259,7 +3259,7 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
     }
 
 	protected upNextImpl() {
-        this.setEvalResult(this.model.value);
+        this.setEvalResult(<VCResultTypes<T, "prvalue">>this.model.value);
         this.sim.pop();
 	}
 	
