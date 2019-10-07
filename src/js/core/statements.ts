@@ -68,7 +68,7 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 }
 
 export class UnsupportedStatement extends Statement {
-    public constructor(context: ConstructContext, unsupportedName: string) {
+    public constructor(context: BlockContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
@@ -90,13 +90,13 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public readonly expression: Expression;
 
-    public static createFromAST(ast: ExpressionStatementASTNode, context: FunctionContext) {
+    public static createFromAST(ast: ExpressionStatementASTNode, context: BlockContext) {
         return new ExpressionStatement(context,
             Expression.createFromAST(ast.expression, context)
         ).setAST(ast);
     }
 
-    public constructor(context: FunctionContext, expression: Expression) {
+    public constructor(context: BlockContext, expression: Expression) {
         super(context);
         this.attach(this.expression = expression);
     }
@@ -183,13 +183,13 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 
     public readonly declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/;
 
-    public static createFromAST(ast: DeclarationStatementASTNode, context: FunctionContext) {
+    public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
             SimpleDeclaration.createFromAST(ast.declaration, context)
         ).setAST(ast);
     }
 
-    public constructor(context: FunctionContext, declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/) {
+    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/) {
         super(context);
         this.attachAll(this.declarations = declarations);
         // if (declaration instanceof FunctionDefinition) {
@@ -268,13 +268,13 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     // TODO: Technically, this should be CopyInitializer
     public readonly returnInitializer?: DirectInitializer;
 
-    public static createFromAST(ast: ReturnStatementASTNode, context: FunctionContext) {
+    public static createFromAST(ast: ReturnStatementASTNode, context: BlockContext) {
         return ast.expression
             ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context)).setAST(ast)
             : new ReturnStatement(context).setAST(ast);
     }
 
-    public constructor(context: FunctionContext, expression?: Expression) {
+    public constructor(context: BlockContext, expression?: Expression) {
         super(context);
         this.expression = expression;
 
