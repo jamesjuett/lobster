@@ -377,7 +377,7 @@ export function standardConversion(from: TypedExpression, toType: Type, options:
 };
 
 export function integralPromotion(expr: TypedExpression<AtomicType, "prvalue">) {
-    if (expr.isTyped(IntegralType) && !expr.isTyped(Int)) {
+    if (expr.isIntegralTyped() && !expr.isTyped(Int)) {
         return new IntegralPromotion(expr, Int.INT);
     }
     else{

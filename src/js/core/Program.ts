@@ -1,7 +1,7 @@
 import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError } from "./errors";
 import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { StaticEntity, NamespaceScope, StringLiteralEntity } from "./entities";
+import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity } from "./entities";
 import { FunctionCall, CPPConstruct } from "./constructs";
 import { SimpleDeclaration } from "./declarations";
 
@@ -130,6 +130,8 @@ export class Program {
     private readonly functionCalls: FunctionCall[] = [];
 
     public readonly notes = new NoteRecorder();
+
+    public readonly mainFunction: FunctionEntity;
 
 
     public constructor(translationUnits: readonly TranslationUnit[]) {

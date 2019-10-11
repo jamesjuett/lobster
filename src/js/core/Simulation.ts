@@ -1,7 +1,7 @@
 import { Observable } from "../util/observe";
 import { Program } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct, ExecutableRuntimeConstruct } from "./constructs";
+import { RuntimeConstruct } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
 import { RuntimeFunction } from "./functions";
@@ -29,8 +29,6 @@ export class Simulation {
 
     private readonly _execStack: RuntimeConstruct[];
     public readonly execStack: readonly RuntimeConstruct[];
-
-    private readonly console : ValueEntity;
 
     public readonly random = new CPPRandom();
 
@@ -70,7 +68,7 @@ export class Simulation {
 
         // These things need be reset when the simulation is reset
         this.memory = new Memory();
-        this.console = ValueEntity.instance("console", "");
+        // this.console = ValueEntity.instance("console", "");
 
         this.execStack = this._execStack = [];
 
