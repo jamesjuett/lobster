@@ -10,6 +10,18 @@ import { RuntimeFunction } from "./functions";
 import { TemporaryObject } from "./objects";
 
 
+export interface Description {
+    name?: string;
+    message: string;
+    ignore?: boolean; // TODO: check what this is used for
+}
+
+export interface Explanation {
+    message: string;
+    ignore?: boolean; // TODO: check what this is used for
+}
+
+
 export interface ASTNode {
     // readonly construct_type: string;
     readonly source: {
@@ -185,6 +197,9 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
     // getNotes : function() {
     //     return this.i_notes;
     // },
+    public getNearestSourceReference() {
+        return this.translationUnit.getNearestSourceReferenceForConstruct(this);
+    }
 }
 
 export interface SuccessfullyCompiled {

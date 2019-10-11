@@ -711,7 +711,7 @@ export class TranslationUnit {
         asMutable(this.functionCalls).push(call);
     }
 
-    public getSourceReferenceForConstruct(construct: CPPConstruct) {
+    public getNearestSourceReferenceForConstruct(construct: CPPConstruct) {
         var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
         var trackedCode = trackedConstruct.code;
         return this.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
