@@ -1,77 +1,8 @@
 import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, ObjectType, ClassType, Type } from "./types";
-import { CPPEntity, DeclaredEntity } from "./entities";
+import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType } from "./types";
+import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "./declarations";
-
-export interface Description {
-    name?: string;
-    message: string;
-    ignore?: boolean; // TODO: check what this is used for
-}
-
-export interface Explanation {
-    message: string;
-    ignore?: boolean; // TODO: check what this is used for
-}
-
-export var RuntimeMessage = Class.extend({
-    _name: "RuntimeMessage",
-    text : Class._ABSTRACT
-});
-
-export var DeadObjectMessage = RuntimeMessage.extend({
-    _name: "DeadObjectMessage",
-    init : function(deadObj, options) {
-        assert(isA(deadObj, CPPObject));
-        this.deadObj = deadObj;
-
-        // If we're working with a subobject, its lifetime is tied to that of its parent object
-        // while(isA(this.deadObj, Subobject)) {
-        //     this.deadObj = this.deadObj.containingObject;
-        // }
-
-        this.options = options || {};
-    },
-    text : function() {
-    },
-    display : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-        var text0;
-        if (this.options.fromDereference) {
-            text0 = "I followed that pointer, but I don't like what I found. There's no legitimate data here. Perhaps you dereferenced an invalid pointer/address, or maybe it was a dangling pointer to a dead object?";
-        }
-        else if (this.options.fromSubscript) {
-            text0 = "The object retrieved from that subscript operation doesn't exist. Either you indexed out of bounds, or possibly the underlying array itself was no longer around.";
-        }
-        else if (this.options.fromDelete) {
-            text0 = "Uh...the object you're trying to delete is already dead...";
-        }
-        else{
-            text0 = "Uh oh. It looks like the object you're trying to work with is dead.";
-        }
-
-
-        var text1 = "";
-        if (isA(this.deadObj, DynamicObject)) {
-            text1 = "\n\nIt was dynamically allocated on the heap, but has since been been deleted.";
-            var killer = this.deadObj.obituary().killer;
-            if (killer) {
-                var srcCode = findNearestTrackedConstruct(killer.model).code;
-                if(srcCode) {
-                    killer.send("current");
-                    text1 = "\n\nIt was dynamically allocated on the heap, but has since been deleted by line " + srcCode.line + ":\n<span class='code'>" + srcCode.text + "</span>";
-                }
-            }
-        }
-        else if (isA(this.deadObj, AutoObject)) {
-            text1 = "\n\nIt was a local variable declared at the highlighted line, but it already has gone out of scope.";
-        }
-
-        sim.undefinedBehavior(text0 + text1);
-
-    }
-});
-
 
 export enum NoteKind {
     ERROR = "error",
@@ -95,9 +26,9 @@ export class Note {
     /**
      * The primary source reference for this note, although more than one may exist.
      * Use the allSourceReferences property to retrieve an array of all source references.
-     * May be null if the note doesn't concern any particular part of the source.
+     * May be undefined if the note doesn't concern any particular part of the source.
      */
-    public abstract readonly primarySourceReference: SourceReference | null;
+    public abstract readonly primarySourceReference?: SourceReference;
 
     /**
      * An array of all source references for this note.
@@ -130,11 +61,9 @@ export class SyntaxNote extends BasicNoteBase {
 
 }
 
-class CompilerLinkerNoteBase extends Note {
+class ConstructNoteBase extends Note {
 
-    public primarySourceReference: SourceReference?;
-    public allSourceReferences: readonly SourceReference[];
-
+    public primaryConstruct: CPPConstruct;
     public readonly constructs: readonly CPPConstruct[];
 
     /**
@@ -144,17 +73,23 @@ class CompilerLinkerNoteBase extends Note {
     public constructor(constructs: CPPConstruct | readonly CPPConstruct[], kind: NoteKind, id: string, message: string) {
         super(kind, id, message);
         this.constructs = constructs instanceof CPPConstruct ? [constructs] : constructs;
+        this.primaryConstruct = this.constructs[0];
+    }
+    
+    public get primarySourceReference() {
+        return this.primaryConstruct.getNearestSourceReference();
+    }
 
-        this.allSourceReferences = this.constructs.map((c) => c.sourceReference).filter((c) => c);
-        this.primarySourceReference = this.allSourceReferences[0];
+    public get allSourceReferences() {
+        return this.constructs.map(c => c.getNearestSourceReference());
     }
 }
 
-export class CompilerNote extends CompilerLinkerNoteBase {
+export class CompilerNote extends ConstructNoteBase {
 
 }
 
-export class LinkerNote extends CompilerLinkerNoteBase {
+export class LinkerNote extends ConstructNoteBase {
 
 }
 
@@ -227,16 +162,16 @@ export const CPPError = {
             }
         },
         dtor : {
-            no_destructor_auto : function(construct: CPPConstruct, entity) {
+            no_destructor_auto : function(construct: CPPConstruct, entity: AutoEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_auto", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
-            no_destructor_member : function(construct: CPPConstruct, entity, containingClass) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
-            },
-            no_destructor_base : function(construct: CPPConstruct, entity, containingClass) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_base", "The base class " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
-            },
-            no_destructor_temporary : function(construct: CPPConstruct, entity) {
+            // no_destructor_member : function(construct: CPPConstruct, entity: ObjectEntity, containingClass) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            // },
+            // no_destructor_base : function(construct: CPPConstruct, entity, containingClass) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_base", "The base class " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            // },
+            no_destructor_temporary : function(construct: CPPConstruct, entity: TemporaryObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             }
             // TODO Add warning for non-virtual destructor if derived classes exist
@@ -247,7 +182,7 @@ export const CPPError = {
         // prev_decl : function(construct: CPPConstruct, name, prev) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_decl", name + " cannot be declared more than once in this scope.");
         // },
-        prev_def : function(construct: CPPConstruct, name, prev) {
+        prev_def : function(construct: CPPConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_def", name + " cannot be defined more than once in this scope.");
         },
         // prev_main : function(construct: CPPConstruct, name, prev) {
@@ -278,7 +213,7 @@ export const CPPError = {
             op_subscript_one_param : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.op_subscript_one_param", "An overloaded subscript ([]) operator must take exactly one parameter.");
             },
-            returnTypesMatch : function(construct: CPPConstruct, name) {
+            returnTypesMatch : function(construct: CPPConstruct, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.returnTypesMatch", "Cannot redeclare function " + name + " with the same parameter types but a different return type.");
             },
             mainParams : function(construct: CPPConstruct) {
@@ -287,7 +222,7 @@ export const CPPError = {
             no_return_type : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.no_return_type", "You must specify a return type for this function. (Or if you meant it to be a constructor, did you misspell the name?)");
             },
-            nonCovariantReturnType : function(construct: CPPConstruct, derived, base) {
+            nonCovariantReturnType : function(construct: CPPConstruct, derived: Type, base: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
             },
             definition_non_function_type : function(construct: CPPConstruct) {
@@ -335,36 +270,36 @@ export const CPPError = {
             }
         },
         init : {
-            scalar_args : function(construct: CPPConstruct, declType) {
+            scalar_args : function(construct: CPPConstruct, declType: AtomicType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.scalar_args", "Invalid initialization of scalar type " + declType + " from multiple values.");
             },
-            array_string_literal : function(construct: CPPConstruct, targetType) {
+            array_string_literal : function(construct: CPPConstruct, targetType: BoundedArrayType | ArrayOfUnknownBoundType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.array_string_literal", "Cannot direct/copy initialize an array of type " + targetType + ". The only allowed direct/copy initialization of an array is to initialize an array of char from a string literal.");
             },
-            convert : function(construct: CPPConstruct, initType, declType) {
+            convert : function(construct: CPPConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.convert", "Invalid conversion from " + initType + " to " + declType + ".");
             },
-            list_narrowing : function(construct: CPPConstruct, initType, declType) {
+            list_narrowing : function(construct: CPPConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_narrowing", "Implicit narrowing conversion from " + initType + " to " + declType + " is not allowed in initializer list.");
             },
             list_array : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_array", "Initializer list syntax only supported for arrays.");
             },
-            list_length : function(construct: CPPConstruct, length) {
+            list_length : function(construct: CPPConstruct, length: number) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_length", "Length of initializer list must match length of array (" + length + ").");
             },
-            matching_constructor : function(construct: CPPConstruct, entity, argTypes) {
+            matching_constructor : function(construct: CPPConstruct, entity: ObjectEntity<ClassType>, argTypes: readonly Type[]) {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.matching_constructor", "Trying to initialize " + (desc.name || desc.message) + ", but unable to find a matching constructor definition for the " + entity.type.className + " class using the given arguments (" + argTypes.join(", ") + ").");
             },
-            no_default_constructor : function(construct: CPPConstruct, entity) {
+            no_default_constructor : function(construct: CPPConstruct, entity: ObjectEntity) {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referencePrvalueConst : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
-            referenceType : function(construct: CPPConstruct, from, to) {
+            referenceType : function(construct: CPPConstruct, from: ObjectType, to: ObjectType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from.type + ").");
             },
             referenceBind : function(construct: CPPConstruct) {
@@ -373,7 +308,7 @@ export const CPPError = {
             referenceBindMultiple : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBindMultiple", "References cannot be bound to multiple objects.");
             },
-            stringLiteralLength : function(construct: CPPConstruct, stringSize, arrSize) {
+            stringLiteralLength : function(construct: CPPConstruct, stringSize: number, arrSize: number) {
                 if (arrSize === stringSize - 1) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.stringLiteralLength", "Your array is one element too short. Remember, when initializing a character array (i.e. a c-string) with a string literal, an extra \\0 (null character) is automatically appended.");
                 }
@@ -384,7 +319,7 @@ export const CPPError = {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.stringLiteralLength", "The string literal used for initialization (length " + stringSize + ") cannot fit in the declared array (length " + arrSize +").");
                 }
             },
-            uninitialized : function(construct: CPPConstruct, ent) {
+            uninitialized : function(construct: CPPConstruct, ent: ObjectEntity) {
                 return new CompilerNote(construct, NoteKind.WARNING, "declaration.init.uninitialized", (ent.describe().name || ent.describe().message) + " is uninitialized, so it will start with whatever value happens to be in memory (i.e. memory junk). If you try to use this variable before initializing it, who knows what will happen!");
             },
             array_default_init : function(construct: CPPConstruct) {
