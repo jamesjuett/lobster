@@ -1,8 +1,9 @@
 import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity } from "./entities";
+import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
+import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "./declarations";
+import { Expression, TypedExpression } from "./expressions";
 
 export enum NoteKind {
     ERROR = "error",
@@ -292,15 +293,15 @@ export const CPPError = {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.matching_constructor", "Trying to initialize " + (desc.name || desc.message) + ", but unable to find a matching constructor definition for the " + entity.type.className + " class using the given arguments (" + argTypes.join(", ") + ").");
             },
-            no_default_constructor : function(construct: CPPConstruct, entity: ObjectEntity) {
+            no_default_constructor : function(construct: CPPConstruct, entity: ObjectEntity<ClassType>) {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referencePrvalueConst : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
-            referenceType : function(construct: CPPConstruct, from: ObjectType, to: ObjectType) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from.type + ").");
+            referenceType : function(construct: CPPConstruct, from: Type, to: ObjectType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
             referenceBind : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBind", "References must be bound to something when they are declared.");
@@ -337,12 +338,9 @@ export const CPPError = {
             incompatible : function(construct: CPPConstruct, specs: readonly StorageSpecifierKey[]) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.incompatible", "Storage specifiers ( " + specs.join(" ") + ") are incompatible with each other.");
             },
-            typedef : function(construct: CPPConstruct, specs) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.typedef", "Storage specifiers may not be used in a typedef. (" + specs + " were found.)");
-            },
-            unsupported : function(construct: CPPConstruct, spec) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.unsupported", "Sorry, the " + spec + " storage specifier is not currently supported.");
-            }
+            // typedef : function(construct: CPPConstruct, specs) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.typedef", "Storage specifiers may not be used in a typedef. (" + specs + " were found.)");
+            // }
         },
         typeSpecifier : {
             once : function(construct: CPPConstruct, spec: TypeSpecifierKey) {
@@ -392,18 +390,18 @@ export const CPPError = {
         storage : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.WARNING, "type.storage", "Because of the way Lobster works, storage class specifiers (e.g. static) have no effect.");
         },
-        typeNotFound : function(construct: CPPConstruct, typeName) {
+        typeNotFound : function(construct: CPPConstruct, typeName: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "type.typeNotFound", "Oops, this is embarassing... I feel like " + typeName + " should be a type, but I can't figure out what it is.");
         }
 	},
     expr : {
-        overloadLookup : function(construct: CPPConstruct, op) {
-            return new CompilerNote(construct, NoteKind.ERROR, "expr.overloadLookup", "Trying to find a function implementing an overloaded " + op + " operator...");
-        },
-        array_operand : function(construct: CPPConstruct, type) {
+        // overloadLookup : function(construct: CPPConstruct, op) {
+        //     return new CompilerNote(construct, NoteKind.ERROR, "expr.overloadLookup", "Trying to find a function implementing an overloaded " + op + " operator...");
+        // },
+        array_operand : function(construct: CPPConstruct, type: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "expr.array_operand", "Type " + type + " cannot be subscripted.");
         },
-        array_offset : function(construct: CPPConstruct, type) {
+        array_offset : function(construct: CPPConstruct, type: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "expr.array_offset", "Invalid type (" + type + ") for array subscript offset.");
         },
         assignment : {
@@ -413,55 +411,55 @@ export const CPPError = {
             lhs_const : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
             },
-            convert : function(construct: CPPConstruct, lhs, rhs) {
+            convert : function(construct: CPPConstruct, lhs: TypedExpression, rhs: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.convert", "Cannot convert " + rhs.type + " to " + lhs.type + " in assignment.");
             },
-            self : function(construct: CPPConstruct, entity) {
-                return new CompilerNote(construct, NoteKind.WARNING, "expr.assignment.self", "Self assignment from " + entity.name + " to itself.");
-            },
-            not_defined : function(construct: CPPConstruct, type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.not_defined", "An assignment operator for the type " + type + " cannot be found.");
+            self : function(construct: CPPConstruct, entity: ObjectEntity) {
+                return new CompilerNote(construct, NoteKind.WARNING, "expr.assignment.self", "Self assignment from " + (entity.describe().name || entity.describe().message) + " to itself.");
             }
+            // not_defined : function(construct: CPPConstruct, type) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.not_defined", "An assignment operator for the type " + type + " cannot be found.");
+            // }
 
         },
         binary : {
-            overload_not_found : function(construct: CPPConstruct, op, operands) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.overload_not_found", "An overloaded " + op + " operator for the types (" + operands.map((op)=>{return op.type;}).join(", ") + ") cannot be found.");
-            },
-            arithmetic_operands : function(construct: CPPConstruct, operator, left, right) {    
+            // overload_not_found : function(construct: CPPConstruct, op, operands) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.overload_not_found", "An overloaded " + op + " operator for the types (" + operands.map((op)=>{return op.type;}).join(", ") + ") cannot be found.");
+            // },
+            arithmetic_operands : function(construct: CPPConstruct, operator: string, left: TypedExpression, right: TypedExpression) {    
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.arithmetic_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ", which requires operands of arithmetic type.");
             },
-            integral_operands : function(construct: CPPConstruct, operator, left, right) {    
+            integral_operands : function(construct: CPPConstruct, operator: string, left: TypedExpression, right: TypedExpression) {    
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.integral_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ", which requires operands of integral type.");
             },
-            boolean_operand : function(construct: CPPConstruct, operator, operand) {    
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.boolean_operand", "Invalid operand type (" + operand.type ") for operator " + operator + ", which requires operands that may be converted to boolean type.");
+            boolean_operand : function(construct: CPPConstruct, operator: string, operand: TypedExpression) {    
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.boolean_operand", "Invalid operand type (" + operand.type + ") for operator " + operator + ", which requires operands that may be converted to boolean type.");
             },
-            arithmetic_common_type : function(construct: CPPConstruct, operator, left, right) {    
+            arithmetic_common_type : function(construct: CPPConstruct, operator: string, left: TypedExpression, right: TypedExpression) {    
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.arithmetic_common_type", "Performing the usual arithmetic conversions yielded operands of types (" + left.type + ", " + right.type + ") for operator " + operator + ", but a common arithmetic type could not be found.");
             }
         },
         unary : {
-            overload_not_found : function(construct: CPPConstruct, op, type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.unary.overload_not_found", "An overloaded " + op + " operator for the type " + type + " cannot be found.");
-            }
+            // overload_not_found : function(construct: CPPConstruct, op, type) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "expr.unary.overload_not_found", "An overloaded " + op + " operator for the type " + type + " cannot be found.");
+            // }
         },
         delete : {
-            no_destructor : function(construct: CPPConstruct, type) {
+            no_destructor : function(construct: CPPConstruct, type: ClassType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.no_destructor", "I can't find a destructor for the " + type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
-            pointer : function(construct: CPPConstruct, type) {
+            pointer : function(construct: CPPConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.pointer", "The delete operator requires an operand of pointer type. (Current operand is " + type + " ).");
             },
-            pointerToObjectType : function(construct: CPPConstruct, type) {
+            pointerToObjectType : function(construct: CPPConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.pointerToObjectType", "The delete operator cannot be used with a pointer to a non-object type (e.g. void pointers, function pointers). (Current operand is " + type + " ).");
             }
         },
         dereference : {
-            pointer : function(construct: CPPConstruct, type) {
+            pointer : function(construct: CPPConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dereference.pointer", "The dereference operator (*) requires an operand of pointer type. (Current operand is " + type + " ).");
             },
-            pointerToObjectType : function(construct: CPPConstruct, type) {
+            pointerToObjectType : function(construct: CPPConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dereference.pointerToObjectType", "Pointers to a non-object, non-function type (e.g. void pointers) cannot be dereferenced. (Current operand is " + type + " ).");
             }
         },
@@ -469,10 +467,10 @@ export const CPPError = {
             class_type : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_type", "The dot operator can only be used to access members of an operand with class type.");
             },
-            no_such_member : function(construct: CPPConstruct, classType, name) {
+            no_such_member : function(construct: CPPConstruct, classType: ClassType, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.no_such_member", "Operand of type " + classType + " has no member named " + name + ".");
             },
-            memberLookup : function(construct: CPPConstruct, classType, name) {
+            memberLookup : function(construct: CPPConstruct, classType: ClassType, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.memberLookup", "Member lookup for " + name + " in class " + classType + " failed...");
             }
         },
@@ -480,26 +478,26 @@ export const CPPError = {
             class_pointer_type : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.class_pointer_type", "The arrow operator can only be used to access members of an operand with pointer-to-class type.");
             },
-            no_such_member : function(construct: CPPConstruct, classType, name) {
+            no_such_member : function(construct: CPPConstruct, classType: ClassType, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.no_such_member", "Operand of type " + classType + " has no member named " + name + ".");
             },
-            memberLookup : function(construct: CPPConstruct, classType, name) {
+            memberLookup : function(construct: CPPConstruct, classType: ClassType, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.memberLookup", "Member lookup for " + name + " in class " + classType + " failed...");
             }
         },
-        invalid_operand : function(construct: CPPConstruct, operator, operand) {
+        invalid_operand : function(construct: CPPConstruct, operator: string, operand: TypedExpression) {
             return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_operand", "Invalid operand type (" + operand.type + ") for operator " + operator + ".");
         },
-        lvalue_operand : function(construct: CPPConstruct, operator) {
+        lvalue_operand : function(construct: CPPConstruct, operator: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "expr.lvalue_operand", "The " + operator + " operator requires an lvalue operand.");
         },
-        invalid_binary_operands : function(construct: CPPConstruct, operator, left, right) {
+        invalid_binary_operands : function(construct: CPPConstruct, operator: string, left: TypedExpression, right: TypedExpression) {
 
-            if (isA(left.type, Types.Pointer) && sameType(left.type.ptrTo, right.type)) {
+            if (left.type.isPointerType() && sameType(left.type.ptrTo, right.type)) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "The types of the operands used for the " + operator + " operator " +
                 "aren't quite compatible. The one on the right is " + right.type.englishString() + ", but the left is a pointer to that type. Think about whether you want to compare pointers (addresses) or the objects they point to.");
             }
-            else if (isA(right.type, Types.Pointer) && sameType(right.type.ptrTo, left.type)) {
+            else if (right.type.isPointerType() && sameType(right.type.ptrTo, left.type)) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "The types of the operands used for the " + operator + " operator " +
                 "aren't quite compatible. The one on the left is " + left.type.englishString() + ", but the right is a pointer to that type.  Think about whether you want to compare pointers (addresses) or the objects they point to.");
             }
@@ -507,7 +505,7 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ".");
         },
         logicalNot : {
-            operand_bool : function(construct: CPPConstruct, operand) {
+            operand_bool : function(construct: CPPConstruct, operand: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.logicalNot.operand_bool", "Expression of type (" + operand.type + ") cannot be converted to boolean (as required for the operand of logical not).");
             }
         },
@@ -517,7 +515,7 @@ export const CPPError = {
             }
         },
         ternary : {
-            condition_bool : function(construct: CPPConstruct, type) {
+            condition_bool : function(construct: CPPConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.ternary.condition_bool", "Expression of type (" + type + ") cannot be converted to boolean condition.");
             },
             sameValueCategory : function(construct: CPPConstruct) {
@@ -541,19 +539,19 @@ export const CPPError = {
             numParams : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.numParams", "Improper number of arguments for this function call.");
             },
-            operand : function(construct: CPPConstruct, operand) {
+            operand : function(construct: CPPConstruct, operand: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.operand", "Operand of type " + operand.type + " cannot be called as a function.");
             },
-            paramType : function(construct: CPPConstruct, from, to) {
+            paramType : function(construct: CPPConstruct, from: Type, to: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.paramType", "Cannot convert " + from + " to " + to + " in function call parameter.");
             },
-            paramReferenceType : function(construct: CPPConstruct, from, to) {
+            paramReferenceType : function(construct: CPPConstruct, from: Type, to: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.paramReferenceType", "The given argument (of type " + from + ") cannot be bound to a reference parameter of a different type ("+ to + ").");
             },
             paramReferenceLvalue : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.paramReferenceLvalue", "For now, you cannot bind a non-lvalue as a reference parameter in Lobster. (i.e. you have to bind a variable)");
             },
-            not_defined : function(construct: CPPConstruct, type, paramTypes, message) {
+            not_defined : function(construct: CPPConstruct, type: Type, paramTypes: readonly PotentialParameterType[]) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.not_defined", "A function call operator with parameters of types (" +
                     paramTypes.map(function(pt) {
                         return pt.toString();
@@ -578,19 +576,19 @@ export const CPPError = {
 
     },
 	iden : {
-        ambiguous : function(construct: CPPConstruct, name) {
+        ambiguous : function(construct: CPPConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.ambiguous", "\""+name+"\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which entity this identifier refers to.)");
         },
-        no_match : function(construct: CPPConstruct, name) {
+        no_match : function(construct: CPPConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.no_match", "No matching function found for call to \""+name+"\" with these parameter types.");
         },
         // not_declared : function(construct: CPPConstruct, name) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "iden.not_declared", "\""+name+"\" was not declared in this scope.");
         // },
-        keyword : function(construct: CPPConstruct, name) {
+        keyword : function(construct: CPPConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.keyword", "\""+name+"\" is a C++ keyword and cannot be used as an identifier.");
         },
-        alt_op : function(construct: CPPConstruct, name) {
+        alt_op : function(construct: CPPConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\""+name+"\" is a C++ operator and cannot be used as an identifier.");
         }
 	},
@@ -598,10 +596,10 @@ export const CPPError = {
         numParams : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "param.numParams", "Improper number of arguments.");
         },
-        paramType : function(construct: CPPConstruct, from, to) {
+        paramType : function(construct: CPPConstruct, from: Type, to: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "param.paramType", "Cannot convert " + from + " to a parameter of type " + to + ".");
         },
-        paramReferenceType : function(construct: CPPConstruct, from, to) {
+        paramReferenceType : function(construct: CPPConstruct, from: Type, to: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "param.paramReferenceType", "The given argument (of type " + from + ") cannot be bound to a reference parameter of a different type ("+ to + ").");
         },
         paramReferenceLvalue : function(construct: CPPConstruct) {
@@ -610,7 +608,7 @@ export const CPPError = {
         // paramCopyConstructor : function(construct: CPPConstruct, type) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "param.paramCopyConstructor", "Cannot find a copy constructor to pass a parameter of type " + type + " by value.");
         // },
-        thisConst : function(construct: CPPConstruct, type) {
+        thisConst : function(construct: CPPConstruct, type: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "param.thisConst", "A non-const member function cannot be called on a const instance of the " + type + " class.");
         }
     },
@@ -619,51 +617,51 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "stmt.function_definition_prohibited", "A function definition is prohibited here (i.e. inside a statement).");
         },
         selection : {
-            condition_bool : function(construct: CPPConstruct, expr) {
+            condition_bool : function(construct: CPPConstruct, expr: TypedExpression) {
                 return new CompilerNote(expr, NoteKind.ERROR, "stmt.selection.condition_bool", "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
         iteration: {
-            condition_bool : function(construct: CPPConstruct, expr) {
+            condition_bool : function(construct: CPPConstruct, expr: TypedExpression) {
                 return new CompilerNote(expr, NoteKind.ERROR, "stmt.iteration.condition_bool", "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
         breakStatement: {
-            location: function (src) {
+            location: function (construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.breakStatement.location", "Break statements may only occur inside loops or case statements.");
             }
         },
         returnStatement: {
-            empty: function (src) {
+            empty: function (construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.empty", "A return statement without an expression is only allowed in void functions.");
             },
-            exprVoid: function (src) {
+            exprVoid: function (construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.exprVoid", "A return statement with an expression of non-void type is only allowed in a non-void function.");
             },
-            convert : function(construct: CPPConstruct, from, to) {
+            convert : function(construct: CPPConstruct, from: Type, to: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.convert", "Cannot convert " + from + " to return type of " + to + " in return statement.");
             }
         }
     },
     link : {
-        def_not_found : function(construct: CPPConstruct, func) {
-            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.def_not_found", "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+        def_not_found : function(construct: CPPConstruct, func: FunctionEntity) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
         },
-        library_unsupported : function(construct: CPPConstruct, func) {
-            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.library_unsupported", "I'm sorry, but this function (" + func + ") is a part of the standard library that isn't currently supported.");
+        library_unsupported : function(construct: CPPConstruct, func: FunctionEntity) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.library_unsupported", "I'm sorry, but this function (" + func + ") is a part of the standard library that isn't currently supported.");
         },
-        multiple_def : function(construct: CPPConstruct, name) {
-            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.multiple_def", "Multiple definitions found for " + name + ".");
+        multiple_def : function(construct: CPPConstruct, name: string) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.multiple_def", "Multiple definitions found for " + name + ".");
         },
-        type_mismatch : function(construct: CPPConstruct, ent1, ent2) {
-            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.type_mismatch", "Multiple declarations found for " + ent1.name + ", but with different types.");
+        type_mismatch : function(construct: CPPConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.type_mismatch", "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
-        class_same_tokens : function(construct: CPPConstruct, ent1, ent2) {
-            return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+        class_same_tokens : function(construct: CPPConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
-            returnTypesMatch : function(construct: CPPConstruct, name) {
-                return LinkerNote.instance(src, LinkerNote.TYPE_ERROR, "link.func.returnTypesMatch", "This definition of the function " + name + " has a different return type than its declaration.");
+            returnTypesMatch : function(construct: CPPConstruct, name: string) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This definition of the function " + name + " has a different return type than its declaration.");
             }
         }
 
@@ -700,7 +698,7 @@ export const CPPError = {
     },
     preprocess : {
         recursiveInclude : function(sourceRef) {
-             return PreprocessorNote.instance(sourceRef, PreprocessorNote.TYPE_WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
+             return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
         }
     },
     lobster : {
@@ -710,7 +708,7 @@ export const CPPError = {
         referencePrvalue : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.referencePrvalue", "Sorry, Lobster does not yet support binding references (even if they are reference-to-const) to prvalues (e.g. temporary objects).");
         },
-        ternarySameType : function(construct: CPPConstruct, type1, type2) {
+        ternarySameType : function(construct: CPPConstruct, type1: Type, type2: Type) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.ternarySameType", "Lobster's ternary operator requires second and third operands of the same type. The given operands have types " + type1 + " and " + type2 + ".");
         },
         ternaryNoVoid : function(construct: CPPConstruct) {
