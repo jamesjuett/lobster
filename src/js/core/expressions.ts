@@ -743,7 +743,7 @@ export class Assignment extends Expression {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        if (rhs.type && !sameType(rhs.type, lhs.type.cvUnqualified())) {
+        if (rhs.isWellTyped() && !sameType(rhs.type, lhs.type.cvUnqualified())) {
             this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
         }
 
