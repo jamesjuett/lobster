@@ -12,7 +12,7 @@ export enum NoteKind {
     OTHER = "other"
 }
 
-export class Note {
+export abstract class Note {
 
     public readonly kind: NoteKind;
     public readonly id: string;
@@ -495,11 +495,11 @@ export const CPPError = {
 
             if (left.type.isPointerType() && sameType(left.type.ptrTo, right.type)) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "The types of the operands used for the " + operator + " operator " +
-                "aren't quite compatible. The one on the right is " + right.type.englishString() + ", but the left is a pointer to that type. Think about whether you want to compare pointers (addresses) or the objects they point to.");
+                "aren't quite compatible. The one on the right is " + right.type.englishString(false) + ", but the left is a pointer to that type. Think about whether you want to compare pointers (addresses) or the objects they point to.");
             }
             else if (right.type.isPointerType() && sameType(right.type.ptrTo, left.type)) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "The types of the operands used for the " + operator + " operator " +
-                "aren't quite compatible. The one on the left is " + left.type.englishString() + ", but the right is a pointer to that type.  Think about whether you want to compare pointers (addresses) or the objects they point to.");
+                "aren't quite compatible. The one on the left is " + left.type.englishString(false) + ", but the right is a pointer to that type.  Think about whether you want to compare pointers (addresses) or the objects they point to.");
             }
 
             return new CompilerNote(construct, NoteKind.ERROR, "expr.invalid_binary_operands", "Invalid operand types (" + left.type + ", " + right.type + ") for operator " + operator + ".");
@@ -697,13 +697,13 @@ export const CPPError = {
         }
     },
     preprocess : {
-        recursiveInclude : function(sourceRef) {
+        recursiveInclude : function(sourceRef: SourceReference) {
              return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
         }
     },
     lobster : {
-        unsupported_feature : function(construct: CPPConstruct, feature_name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "lobster.unsupported_feature", "Sorry, you have used a C++ feature (" + expressionName + ") that is not currently supported in Lobster.");
+        unsupported_feature : function(construct: CPPConstruct, feature: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "lobster.unsupported_feature", "Sorry, you have used a C++ feature (" + feature + ") that is not currently supported in Lobster.");
         },
         referencePrvalue : function(construct: CPPConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.referencePrvalue", "Sorry, Lobster does not yet support binding references (even if they are reference-to-const) to prvalues (e.g. temporary objects).");
