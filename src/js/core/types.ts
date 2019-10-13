@@ -550,6 +550,7 @@ export abstract class IntegralType extends SimpleType {
 
 
 export class Char extends IntegralType {
+    public static readonly CHAR = new Char();
     
     protected readonly simpleType = "char";
     public readonly size = 1;
