@@ -2,7 +2,7 @@ import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressions";
 
 export enum NoteKind {
@@ -214,8 +214,8 @@ export const CPPError = {
             op_subscript_one_param : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.op_subscript_one_param", "An overloaded subscript ([]) operator must take exactly one parameter.");
             },
-            returnTypesMatch : function(construct: CPPConstruct, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.returnTypesMatch", "Cannot redeclare function " + name + " with the same parameter types but a different return type.");
+            returnTypesMatch : function(declarations: SimpleDeclaration[], name: string) {
+                return new CompilerNote(declarations, NoteKind.ERROR, "declaration.func.returnTypesMatch", "Cannot redeclare function " + name + " with the same parameter types but a different return type.");
             },
             mainParams : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.mainParams", "Sorry, but for now command line arguments (and thus parameters for main) are not supported in Lobster.");

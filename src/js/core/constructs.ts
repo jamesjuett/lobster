@@ -228,7 +228,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
 
     public readonly parent?: RuntimeConstruct;
-    // public readonly containingRuntimeFunction?: RuntimeFunction;
+    public readonly containingRuntimeFunction?: RuntimeFunction;
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;

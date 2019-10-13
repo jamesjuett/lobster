@@ -1,11 +1,11 @@
 import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject } from "./objects";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject } from "./objects";
 import { Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
-import { Block } from "./statements";
+import { Block, CompiledBlock } from "./statements";
 import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
@@ -346,7 +346,7 @@ export class Memory {
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
-        return new AnonymousObject(ptr.type, this, addr);
+        return new InvalidObject(ptr.type, this, addr);
     }
     
 
@@ -378,7 +378,9 @@ export class Memory {
             this.stringLiteralMap[str] = object;
 
             // write value of string literal into the object
-            object.writeValue(Char.jsStringToNullTerminatedCharArray(str));
+            Char.jsStringToNullTerminatedCharArray(str).forEach((c, i) => {
+                object.getArrayElemSubobject(i).setValue(new Value(c, Char.CHAR));
+            });
 
             // adjust location for next static object
             this.staticTop += object.size;
@@ -391,10 +393,10 @@ export class Memory {
     }
 
     public allocateStatic(staticEntity: StaticEntity) {
-        var object = staticEntity.objectInstance();
-        this.allocateObject(object, this.staticTop);
-        this.staticTop += object.size;
-        this.staticObjects[staticEntity.getFullyQualifiedName()] = object;
+        var obj = new StaticObject(staticEntity, staticEntity.type, this, this.staticTop);
+        this.allocateObject(obj);
+        this.staticTop += obj.size;
+        this.staticObjects[staticEntity.getFullyQualifiedName()] = obj;
     }
 
     
@@ -405,7 +407,7 @@ export class Memory {
 
     public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) {
         let obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
-        this.allocateObject(obj, this.temporaryBottom);
+        this.allocateObject(obj);
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
         this.observable.send("temporaryObjectAllocated", obj);
@@ -449,7 +451,7 @@ class MemoryStack {
     }
 
     public pushFrame(rtFunc: RuntimeFunction) {
-        var frame = MemoryFrame.instance(rtFunc.model.bodyScope, this.memory, this.top, rtFunc);
+        var frame = new MemoryFrame(rtFunc.model.body, this.memory, this.top, rtFunc);
         this.top += frame.size;
         this.frames.push(frame);
         this.memory.observable.send("framePushed", frame);
@@ -457,11 +459,9 @@ class MemoryStack {
     }
 
     public popFrame(rtConstruct: RuntimeConstruct) {
-        var frame = this.frames.pop();
-        for (var key in frame.objects) {
-            var obj = frame.objects[key];
-            this.memory.deallocateObject(obj.address, rtConstruct)
-        }
+        let frame = this.frames.pop();
+        assert(frame);
+        frame.pop(rtConstruct);
         this.top -= frame.size;
         this.memory.observable.send("framePopped", frame);
     }
@@ -498,23 +498,23 @@ class MemoryHeap {
     //     this.objectMap = {};
     // }
 
-    public allocateNewObject(obj: DynamicObject) {
-        this.bottom -= obj.type.size;
-        this.memory.allocateObject(obj, this.bottom);
-        this.objectMap[obj.address] = obj;
-        this.memory.observable.send("heapObjectAllocated", obj);
-    }
+    // public allocateNewObject(obj: DynamicObject) {
+    //     this.bottom -= obj.type.size;
+    //     this.memory.allocateObject(obj, this.bottom);
+    //     this.objectMap[obj.address] = obj;
+    //     this.memory.observable.send("heapObjectAllocated", obj);
+    // }
 
-    public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
-        var obj = this.objectMap[addr];
-        if (obj) {
-            delete this.objectMap[addr];
-            this.memory.deallocateObject(addr, rtConstruct);
-            this.memory.observable.send("heapObjectDeleted", obj);
-            // Note: responsibility for running destructor lies elsewhere
-        }
-        return obj;
-    }
+    // public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
+    //     var obj = this.objectMap[addr];
+    //     if (obj) {
+    //         delete this.objectMap[addr];
+    //         this.memory.deallocateObject(addr, rtConstruct);
+    //         this.memory.observable.send("heapObjectDeleted", obj);
+    //         // Note: responsibility for running destructor lies elsewhere
+    //     }
+    //     return obj;
+    // }
 }
 
 
@@ -523,18 +523,18 @@ export class MemoryFrame {
     
     public readonly observable = new Observable(this);
 
-    public readonly block: Block;
+    public readonly block: CompiledBlock;
     private readonly start: number;
     private readonly end: number;
     private readonly memory: Memory;
     private readonly func: RuntimeFunction;
 
-    private size: number;
+    public readonly size: number;
     private readonly localObjectsByName: {[index:string]: AutoObject} = {};
     private readonly localReferencesByName: {[index:string]: CPPObject | undefined} = {};
     
 
-    public constructor(block: Block, memory: Memory, start: number, rtFunc: RuntimeFunction) {
+    public constructor(block: CompiledBlock, memory: Memory, start: number, rtFunc: RuntimeFunction) {
         this.block = block;
         this.memory = memory;
         this.start = start;
@@ -599,5 +599,12 @@ export class MemoryFrame {
     //         //addr += ref.type.size;
     //     });
     // }
+
+    public pop(rtConstruct: RuntimeConstruct) {
+        for (let key in this.localObjectsByName) {
+            var obj = this.localObjectsByName[key];
+            this.memory.deallocateObject(obj.address, rtConstruct)
+        }
+    }
 
 };

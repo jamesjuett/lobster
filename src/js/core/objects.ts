@@ -1,6 +1,6 @@
 import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
 import { Observable } from "../util/observe";
-import { assert, Mutable } from "../util/util";
+import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { Description } from "./errors";
@@ -301,8 +301,8 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
         this._isValid = newValue.isValid;
 
-        // Accept new RTTI (TODO: change to use <Mutable<this>>)
-        (<T_Atomic>this.type) = newValue.type;
+        // Accept new RTTI
+        asMutable(this).type = newValue.type;
         
         this.data.setRawValue(newValue.rawValue, write);
 

@@ -1,19 +1,14 @@
-import {CPPError, Note} from "./errors";
-import * as SemanticExceptions from "./semanticExceptions";
-import { Observable } from "../util/observe";
-import {Type, covariantType, BoundedArrayType, ClassType, ObjectType, FunctionType, Char, ArrayElemType, PotentialReturnType, sameType, PotentialParameterType, ReferenceType, referenceCompatible} from "./types";
-import {SimpleDeclaration, ParameterDefinition, FunctionDefinition} from "./declarations";
-import {Initializer} from "./initializers";
-import {Description} from "./errors";
-import { CPPObject, AnonymousObject, AutoObject, StaticObject, ArrayObjectData, ArraySubobject, MemberSubobject, BaseSubobject, StringLiteralObject, TemporaryObject, TemporaryObjectType } from "./objects";
-import {standardConversion} from "./standardConversions";
-import * as Expressions from "./expressions";
-import {Expression} from "./expressions";
-import { Value, Memory } from "./runtimeEnvironment";
-import { RuntimeConstruct, ExecutableRuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
-import { FunctionImplementation } from "./functions";
-import { Program } from "./Program";
+import { PotentialParameterType, ClassType, Type, sameType, ObjectType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
+import { CPPError, Note } from "./errors";
 import { assert, Mutable, assertFalse } from "../util/util";
+import { Program } from "./Program";
+import { Observable } from "../util/observe";
+import { Description, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
+import { SimpleDeclaration, FunctionDefinition } from "./declarations";
+import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
+import { Memory } from "./runtimeEnvironment";
+import { Expression } from "./expressions";
+
 
 interface NormalLookupOptions {
     readonly kind: "normal";
@@ -121,7 +116,7 @@ export class Scope {
 
                     // If they have mismatched return types, that's a problem.
                     if (!newEntity.type.sameReturnType(otherFunc.type)) {
-                        throw CPPError.declaration.func.returnTypesMatch([newEntity.decl, otherFunc.decl], newEntity.name);
+                        throw CPPError.declaration.func.returnTypesMatch([newEntity.declaration, otherFunc.declaration], newEntity.name);
                     }
 
                     // As a sanity check, make sure they're the same type.
@@ -153,15 +148,15 @@ export class Scope {
         
     // }
 
-    public singleLookup(name: string, options: NameLookupOptions) {
-        var result = this.lookup(name, options);
-        if (Array.isArray(result)){
-            return result[0];
-        }
-        else{
-            return result;
-        }
-    }
+    // public singleLookup(name: string, options: NameLookupOptions) {
+    //     var result = this.lookup(name, options);
+    //     if (Array.isArray(result)){
+    //         return result[0];
+    //     }
+    //     else{
+    //         return result;
+    //     }
+    // }
 
     // public requiredLookup(name, options){
     //     return this.i_requiredLookupImpl(this.lookup(name, options), name, options);
@@ -228,7 +223,7 @@ export class Scope {
     public lookup(name: string, options: NameLookupOptions) : DeclaredEntity | FunctionEntity[] | undefined {
         options = options || {};
 
-        Util.assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
+        assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
 
         let ent = this.entities[name];
 
@@ -277,9 +272,10 @@ export class Scope {
             // If we're looking for something that could be called with given parameter types, including conversions
             else if (options.paramTypes) {
                 // var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
-                viable = overloadResolution(ent, options.paramTypes, options.receiverType) || [];
+                viable = overloadResolution(ent, options.paramTypes, options.receiverType).viable || [];
             }
 
+            return viable;
             // // Hack to get around overloadResolution sometimes returning not an array
             // if (viable && !Array.isArray(viable)){
             //     viable = [viable];
@@ -635,7 +631,7 @@ export abstract class DeclaredEntity<T extends Type = Type> extends NamedEntity<
 
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+    runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
 }
 
 export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
@@ -651,9 +647,9 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntit
         return this.name + " (" + this.type + ")";
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : AutoObject<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
         // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
+        return rtConstruct.containingRuntimeFunction!.stackFrame!.getLocalObject(this);
     }
 
     public describe() {
@@ -664,11 +660,11 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredEntit
 
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T>, ObjectEntity<T> {
-    runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T>;
+    runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
 }
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) : void;
+    bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) : void;
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
@@ -680,13 +676,13 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
         this.isParameter = !!isParameter;
     }
 
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
-        rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
+    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+        rtConstruct.containingRuntimeFunction!.stackFrame!.bindReference(this, obj);
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
-        // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup<T>(this);
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
+        // TODO: revisit the non-null assertions below
+        return rtConstruct.containingRuntimeFunction!.stackFrame!.referenceLookup<T>(this);
     }
 
     public describe() {
@@ -700,19 +696,15 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEnt
     protected static _name =  "StaticEntity";
 
     // storage: "static",
-    constructor(decl: SimpleDeclaration) {
-        super(decl);
-    }
-
-    public objectInstance(memory: Memory, address: number) {
-        return new StaticObject(this);
+    constructor(type: T, decl: SimpleDeclaration) {
+        super(type, decl);
     }
 
     public toString() {
         return this.name + " (" + this.type + ")";
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : StaticObject<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {
         return rtConstruct.sim.memory.staticLookup(this);
     }
     
@@ -728,7 +720,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEnt
 //         rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
 //     }
 
-//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<T> {
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
 //         // TODO: revisit the non-null assertion below
 //         return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup(this);
 //     }
@@ -754,7 +746,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEnt
  */
 export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectEntity<ObjectType> {
     
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) : CPPObject<ObjectType> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<ObjectType> {
         let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
         if (!returnObject) {
             throw "Error: Runtime lookup performed for the return object of a function, but the return object does not currently exist.";
@@ -770,7 +762,7 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
 
 export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
     
-    public bindTo(rtConstruct : ExecutableRuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.setReturnObject(obj);
     }
 
@@ -834,7 +826,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
         return "string literal \"" + Util.unescapeString(this.str) + "\"";
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         return rtConstruct.sim.memory.getStringLiteral(this.str);
     }
 
@@ -868,7 +860,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
         }
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
         // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
         // in the context of the calling function.
@@ -908,7 +900,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
 //         return "function receiver (" + this.type + ")";
 //     }
 
-//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 //         return rtConstruct.contextualReceiver();
 //     }
 
@@ -933,7 +925,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
 //         return "object (" + this.type + ")";
 //     }
 
-//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 //         // no additional runtimeLookup() needed on the object since it will never be a reference
 //         return rtConstruct.getAllocatedObject();
 //     }
@@ -955,7 +947,7 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
         this.index = index;
     }
 
-    public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
         return this.arrayEntity.runtimeLookup(rtConstruct).getArrayElemSubobject(this.index);
     }
 
@@ -980,7 +972,7 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 //         this.containingEntity = containingEntity;
 //     }
 
-//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 //         // TODO: check on non-null assertion below
 //         return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
 //     }
@@ -1003,7 +995,7 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 //         this.name = name;
 //     }
 
-//     public runtimeLookup(rtConstruct: ExecutableRuntimeConstruct) {
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 //         // TODO: check on cast below
 //         return <MemberSubobject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberSubobject(this.name);
 //     }
@@ -1361,8 +1353,8 @@ interface OverloadCandidateResult {
 }
 
 export interface OverloadResolutionResult {
-    readonly candidates: readonly OverloadCandidateResult[];
-    readonly viable: readonly FunctionEntity[];
+    readonly candidates: OverloadCandidateResult[];
+    readonly viable: FunctionEntity[];
     readonly selected: FunctionEntity;
 }
 
