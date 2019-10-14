@@ -355,7 +355,7 @@ export class NamespaceScope extends Scope {
     public readonly name: string;
     private readonly children: {[index:string]: NamespaceScope | undefined};
 
-    public constructor(name: string, program: Program, parent?: NamespaceScope) {
+    public constructor(name: string, parent?: NamespaceScope) {
         super(parent);
         assert(!parent || parent instanceof NamespaceScope);
         this.name = name;

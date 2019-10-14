@@ -1,9 +1,12 @@
-import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError } from "./errors";
+import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError, LinkerNote } from "./errors";
 import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity } from "./entities";
-import { FunctionCall, CPPConstruct } from "./constructs";
-import { SimpleDeclaration } from "./declarations";
+import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST } from "./declarations";
+import { FunctionCall } from "./functions";
+import { resetUserTypeNames } from "./types";
+import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 
 
 
@@ -127,7 +130,7 @@ export class Program {
     private readonly _staticEntities: StaticEntity[] = [];
     public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
     
-    private readonly functionCalls: FunctionCall[] = [];
+    private readonly functionCalls: readonly FunctionCall[] = [];
 
     public readonly notes = new NoteRecorder();
 
@@ -578,6 +581,12 @@ class PreprocessedSource {
 
 }
 
+
+export interface TranslationUnitAST {
+    readonly construct_type: "translation_unit";
+    readonly declarations: readonly DeclarationASTNode[];
+}
+
 /**
  * TranslationUnit
  *
@@ -596,12 +605,14 @@ export class TranslationUnit {
 
     public readonly globalScope: NamespaceScope;
     
-    public readonly topLevelDeclarations: readonly SimpleDeclaration[] = [];
+    public readonly topLevelDeclarations: readonly Declaration[] = [];
     public readonly staticEntities: readonly StaticEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralEntity[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
 
-    public readonly parsedAST?: TranslationUnitASTNode;
+    public readonly parsedAST?: TranslationUnitAST;
+
+    public readonly globalContext: ConstructContext;
 
     /**
      * Attempts to compiled the given primary source file as a translation unit for a C++ program.
@@ -613,8 +624,13 @@ export class TranslationUnit {
      */
     public constructor(preprocessedSource: PreprocessedSource) {
         this.source = preprocessedSource;
-        this.globalScope = new NamespaceScope(primarySourceFile.name + "_GLOBAL_SCOPE", null);
+        this.globalScope = new NamespaceScope(preprocessedSource.sourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
+        this.globalContext = {
+            program: bleh,
+            translationUnit: this,
+            contextualScope: this.globalScope
+        };
 
         try{
             // This is kind of a hack to communicate with the PEG.js generated parsing code.
@@ -623,17 +639,24 @@ export class TranslationUnit {
             // around), and also ensures "default" user-defined type names like ostream, etc. are
             // recognized as such. Making a copy is important so that we don't modify the original
             // which will potentially be used by other translation units.
-            Types.userTypeNames = Object.assign({}, Types.defaultUserTypeNames);
+            resetUserTypeNames(); //Object.assign({}, Types.defaultUserTypeNames);
 
-            let parsedAST = Lobster.cPlusPlusParser.parse(this.source.preprocessedText);
+            // Note this is not checked by the TS type system. We just have to manually ensure
+            // the structure produced by the grammar/parser matches what we expect.
+            let parsedAST : TranslationUnitAST = cpp_parse(this.source.preprocessedText);
             this.parsedAST = parsedAST;
 
             this.createBuiltInGlobals();
-            this.compileTopLevelDeclarations(parsedAST);
+            this.compileTopLevelDeclarations(this.parsedAST);
 		}
 		catch(err) {
 			if (err.name == "SyntaxError"){
-				this.notes.addNote(new SyntaxNote(this.getSourceReference(err.location.start.line, err.location.start.column, err.location.start.offset, err.location.start.offset + 1), Note.TYPE_ERROR, "syntax", err.message););
+				this.notes.addNote(new SyntaxNote(
+                    this.getSourceReference(err.location.start.line, err.location.start.column, 
+                                            err.location.start.offset, err.location.start.offset + 1),
+                    NoteKind.ERROR,
+                    "syntax",
+                    err.message));
 			}
 			else {
                 console.log(err.stack);
@@ -684,19 +707,10 @@ export class TranslationUnit {
 
     }
     
-    private compileTopLevelDeclarations(ast: TranslationUnitASTNode) {
-        for(var i = 0; i < ast.length; ++i){
-            var decl = SimpleDeclaration.createFromAST(ast[i], {
-                parent: null,
-                scope : this.i_globalScope,
-                translationUnit : this,
-                func: globalFunctionContext
-            });
-            decl.tryCompileDeclaration();
-            decl.tryCompileDefinition();
-            asMutable(this.topLevelDeclarations).push(decl);
-            this.notes.addNotes(decl.getNotes());
-        }
+    private compileTopLevelDeclarations(ast: TranslationUnitAST) {
+        ast.declarations.forEach((declAST) => {
+            asMutable(this.topLevelDeclarations).push(createDeclarationFromAST(declAST, this.globalContext));
+        });
     }
 
     public addStaticEntity(ent: StaticEntity) {

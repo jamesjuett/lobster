@@ -1,5 +1,5 @@
 {
-    "name": "Lobster",
+    "name": "lobster",
     "version": "1.0.0",
     "description": "A C++ Program Visualization Tool",
     "private": true,
@@ -14,7 +14,9 @@
         "@types/jquery": "^3.3.4",
         "@types/lodash": "^4.14.111",
         "lodash": "^4.17.10",
+        "pegjs": "^0.10.0",
         "ts-loader": "^4.4.2",
+        "ts-pegjs": "^0.2.6",
         "typescript": "^4.4.2",
         "webpack": "^4.0.1",
         "webpack-cli": "^2.0.9"

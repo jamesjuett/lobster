@@ -195,7 +195,29 @@ export interface DeclarationSpecifiersASTNode {
     readonly virtual?: boolean;
 }
 
-export type DeclarationASTNode = SimpleDeclarationASTNode; // TODO: | FunctionDefinitionASTNode | ClassDefinitionASTNode
+export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode;// | ClassDefinitionASTNode
+
+export type Declaration = SimpleDeclaration | FunctionDefinition;
+
+
+interface t_DeclarationTypes {
+    "simple_declaration": SimpleDeclaration;
+    "function_definition": FunctionDefinition;
+}
+
+export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: ConstructContext) : SimpleDeclaration;
+export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) : FunctionDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) : Declaration;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) : any {
+    if (ast.construct_type === "simple_declaration") {
+        return SimpleDeclaration.createFromAST(ast, context);
+    }
+    else {
+        return FunctionDefinition.createFromAST(ast, context);
+    }
+} 
+
+
 
 interface SimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
