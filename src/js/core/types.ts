@@ -15,14 +15,17 @@ function isVowel(c: string) {
 
 
 
-export var userTypeNames = {};
-export const builtInTypes : {[index:string]: Constructor<Type>} = {};
+let USER_TYPE_NAMES = {};
+export function resetUserTypeNames() {
+    USER_TYPE_NAMES = {};
+}
+// export const builtInTypes : {[index:string]: Constructor<Type>} = {};
 
-export var defaultUserTypeNames = {
-    ostream : true,
-    istream : true,
-    size_t : true
-};
+// export let defaultUserTypeNames = {
+//     ostream : true,
+//     istream : true,
+//     size_t : true
+// };
 
 export function isType<T extends Type>(type: Type, ctor: Constructor<T>) : type is InstanceType<typeof ctor> {
     return type.isType(ctor);
