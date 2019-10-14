@@ -1,38 +1,44 @@
 import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
-import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity } from "./entities";
 import { RuntimeBlock, Block, CompiledBlock } from "./statements";
-import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType } from "./types";
+import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType, FunctionType } from "./types";
 import { MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
-import { Mutable, assert } from "../util/util";
+import { Mutable, assert, asMutable } from "../util/util";
 import { TypedExpression, ValueCategory } from "./expressions";
 import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
 import { CPPError } from "./errors";
 
-export function createFunctionContext(context: ConstructContext, containingFunction: FunctionEntity) : FunctionContext {
+export function createFunctionContext(context: ConstructContext, containingFunction: FunctionImplementation) : FunctionContext {
     return Object.assign({}, context, {containingFunction: containingFunction});
 }
 
 export class FunctionImplementation extends BasicCPPConstruct {
 
-    public readonly context!: FunctionContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
+    public readonly functionContext: FunctionContext;
 
     public readonly func: FunctionEntity;
+    public readonly type: FunctionType;
     public readonly parameters: readonly LocalVariableEntity[];
 
     public readonly body: Block;
 
-    // public readonly localObjects: AutoEntity;
+    readonly localVariables: readonly LocalVariableEntity[] = [];
+
+    public readonly localObjects: readonly AutoEntity[] = [];
+    public readonly localReferences: readonly LocalReferenceEntity[] = [];
 
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, func: FunctionEntity, parameters: readonly LocalVariableEntity[], body: Block) {
+    public constructor(context: ConstructContext, func: FunctionEntity) {
         super(context);
 
+        this.functionContext = createFunctionContext(context, this);
         this.func = func;
+        this.type = func.type;
         this.parameters = clone(parameters); // parameter definitions are already attached elsewhere
         this.attach(this.body = body);
 
@@ -64,6 +70,15 @@ export class FunctionImplementation extends BasicCPPConstruct {
         //     }
 
         // });
+    }
+
+    public registerLocalVariable(local: LocalVariableEntity) {
+        if (local instanceof AutoEntity) {
+            asMutable(this.localObjects).push(local)
+        }
+        else {
+            asMutable(this.localReferences).push(local);
+        }
     }
 
     // callSearch : function(callback, options){

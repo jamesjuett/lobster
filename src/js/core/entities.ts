@@ -671,9 +671,9 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
 
     public readonly isParameter: boolean;
 
-    public constructor(type: T, decl: SimpleDeclaration, isParameter?: boolean) {
+    public constructor(type: T, decl: SimpleDeclaration, isParameter: boolean = false) {
         super(type, decl);
-        this.isParameter = !!isParameter;
+        this.isParameter = isParameter;
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {

@@ -6,6 +6,7 @@ import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer 
 import { VoidType, ReferenceType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeFunction } from "./functions";
+import { Mutable, asMutable } from "../util/util";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -374,25 +375,28 @@ function createBlockContext(context: FunctionContext) : BlockContext {
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
-    readonly localObjects: AutoEntity[];
-    readonly localReferences: LocalReferenceEntity[];
 }
 
 export class Block extends Statement<BlockASTNode> {
 
-    public readonly statements: readonly Statement[];
+    public readonly statements: readonly Statement[] = [];
 
-    public static createFromAST(ast: BlockASTNode, context: BlockContext) {
-                
-        let statements: Statement[] = ast.statements.map((stmtAst) => createStatementFromAST(stmtAst, context));
-        
-        return new Block(context, statements).setAST(ast);
+    public readonly blockContext: BlockContext;
+
+    public static createFromAST(ast: BlockASTNode, context: FunctionContext) {
+        let block = new Block(context).setAST(ast);
+        ast.statements.forEach((stmtAst) => block.addStatement(createStatementFromAST(stmtAst, context)));
+        return block;
     }
 
-    public constructor(context: BlockContext, statements: readonly Statement[]) {
+    public constructor(context: BlockContext) {
         super(context);
+        this.blockContext = createBlockContext(context);
+    }
 
-        this.statements = statements;
+    public addStatement(statement: Statement) {
+        asMutable(this.statements).push(statement);
+        this.attach(statement);
     }
 
     public createRuntimeStatement(this: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {

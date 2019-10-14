@@ -8,7 +8,7 @@ import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressi
 import { Mutable, assert, asMutable, assertFalse } from "../util/util";
 import { SemanticException } from "./semanticExceptions";
 import { Simulation } from "./Simulation";
-import { Statement, BlockASTNode, createBlockContext, Block, BlockContext } from "./statements";
+import { Statement, BlockASTNode, createBlockContext, Block, BlockContext, createStatementFromAST } from "./statements";
 import { FunctionImplementation, createFunctionContext } from "./functions";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
@@ -203,7 +203,7 @@ interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export abstract class SimpleDeclaration extends BasicCPPConstruct implements CPPConstruct {
+export abstract class SimpleDeclaration<ContextType extends ConstructContext = ConstructContext> extends BasicCPPConstruct<ContextType> implements CPPConstruct {
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -517,7 +517,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
 }
 
-export class LocalObjectDefinition extends SimpleDeclaration {
+export class LocalObjectDefinition extends SimpleDeclaration<BlockContext> {
 
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
@@ -525,7 +525,7 @@ export class LocalObjectDefinition extends SimpleDeclaration {
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType> | StaticEntity<ObjectType>;
     
-    public constructor(context: ConstructContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: BlockContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
@@ -533,8 +533,7 @@ export class LocalObjectDefinition extends SimpleDeclaration {
         this.type = type;
 
         this.declaredEntity = 
-            this.type.isReferenceType() ? new LocalReferenceEntity(this) :
-            new AutoEntity(this);
+            type.isReferenceType() ? new LocalReferenceEntity(type.refTo, this) : new AutoEntity(type, this);
 
 
         // Note extern unsupported error is added in the base Declaration class, so no need to add here
@@ -556,6 +555,8 @@ export class LocalObjectDefinition extends SimpleDeclaration {
                 throw e;
             }
         }
+        
+        context.containingFunction.registerLocalVariable(this.declaredEntity);
     }
 }
 
@@ -575,12 +576,12 @@ export class GlobalObjectDefinition extends SimpleDeclaration {
 
         this.type = type;
 
-        if (this.type.isReferenceType()) {
+        if (type.isReferenceType()) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "globally scoped references"));
             return;
         }
 
-        this.declaredEntity = new StaticEntity(this);
+        this.declaredEntity = new StaticEntity(type, this);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
@@ -618,8 +619,8 @@ export class ParameterDefinition extends SimpleDeclaration {
         this.type = type;
 
         let declaredEntity = 
-            this.type.isReferenceType() ? new LocalReferenceEntity(this) :
-            new AutoEntity(this);
+            this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this) :
+            new AutoEntity(this.type, this);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
@@ -635,6 +636,9 @@ export class ParameterDefinition extends SimpleDeclaration {
                 throw e;
             }
         }
+
+        // Register the defined local object/reference
+        context.containingFunction.registerLocalVariable(declaredEntity);
     }
 }
 
@@ -949,27 +953,38 @@ export class FunctionDefinition extends BasicCPPConstruct {
         let declaration = SimpleDeclaration.createFromAST({
             construct_type: "simple_declaration",
             declarators: [ast.declarator],
-            specs: ast.specs
+            specs: ast.specs,
+            source: ast.declarator.source
         }, context)[0];
         
         if (!(declaration instanceof FunctionDeclaration)) {
             return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
         }
 
-        let newContext = createBlockContext(createFunctionContext(context, declaration.declaredEntity));
+        // Create implementation and body block (before params and body statements added yet)
+        let implementation = new FunctionImplementation(context, declaration.declaredEntity);
+        let body = new Block(implementation.functionContext);
+        let bodyContext = body.blockContext;
+        
+        // Create parameters, which are given the body block's context to add declared entities to.
+        // As the context refers back to the implementation, local objects/references will be registerd there.
         let parameters = declaration.parameterDeclarators.map((paramDeclarator) => {
-            return new ParameterDefinition(newContext,
-                TypeSpecifier.createFromAST([], newContext),
-                StorageSpecifier.createFromAST([], newContext),
+            return new ParameterDefinition(bodyContext,
+                TypeSpecifier.createFromAST([], bodyContext),
+                StorageSpecifier.createFromAST([], bodyContext),
                 paramDeclarator,
                 {}, <PotentialParameterType>paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
-        })
-        let body = Block.createFromAST(ast.body, newContext);
-        let implementation = new FunctionImplementation(newContext, declaration.declaredEntity, parameters.map(p => p.declaredEntity), body);
-        return new FunctionDefinition(newContext, declaration, implementation);
+        });
+
+        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
+        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
+        // added after the parameters.)
+        ast.body.statements.forEach(sNode => createStatementFromAST(sNode, bodyContext));
+        
+        return new FunctionDefinition(context, declaration, implementation);
     }
 
-    public constructor(context: FunctionContext, declaration: FunctionDeclaration, implementation: FunctionImplementation) {
+    public constructor(context: ConstructContext, declaration: FunctionDeclaration, implementation: FunctionImplementation) {
         super(context);
         this.attach(this.declaration = declaration);
         this.attach(this.implementation = implementation);
