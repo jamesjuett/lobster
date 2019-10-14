@@ -6,7 +6,7 @@ import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 import { Block, CompiledBlock } from "./statements";
-import { RuntimeFunction } from "./functions";
+import { RuntimeFunction, CompiledFunctionImplementation } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -355,15 +355,15 @@ export class Memory {
     }
 
     /**
-     * Deallocates an object at the given address. The object actually remains in memory, but is marked as dead.
+     * Ends the lifetime of an object at the given address. Its data actually remains in memory, but is marked as dead and invalid.
      * If no object exists at the given address, does nothing. If the object is already dead, does nothing.
      * @param addr 
      * @param killer The runtime construct that killed the object
      */
-    public deallocateObject(addr: number, killer?: RuntimeConstruct) {
-        var obj = this.objects[addr];
+    public killObject(addr: number, killer?: RuntimeConstruct) {
+        let obj = this.objects[addr];
         if (obj && obj.isAlive) {
-            obj.deallocated(killer);
+            obj.kill(killer);
         }
     }
 
@@ -417,7 +417,7 @@ export class Memory {
 
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
     public deallocateTemporaryObject(obj: TemporaryObject, killer?: RuntimeConstruct) {
-        this.deallocateObject(obj.address, killer);
+        this.killObject(obj.address, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj.address];
         this.observable.send("temporaryObjectDeallocated", obj);
@@ -523,23 +523,21 @@ export class MemoryFrame {
     
     public readonly observable = new Observable(this);
 
-    public readonly block: CompiledBlock;
     private readonly start: number;
     private readonly end: number;
     private readonly memory: Memory;
     private readonly func: RuntimeFunction;
 
     public readonly size: number;
-    private readonly localObjectsByName: {[index:string]: AutoObject} = {};
-    private readonly localReferencesByName: {[index:string]: CPPObject | undefined} = {};
+    private readonly localObjectsByEntityId: {[index:number]: AutoObject} = {};
+    private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined} = {};
     
 
-    public constructor(block: CompiledBlock, memory: Memory, start: number, rtFunc: RuntimeFunction) {
-        this.block = block;
+    public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
         this.memory = memory;
         this.start = start;
         this.func = rtFunc;
-
+        
         this.size = 0;
 
         let addr = this.start;
@@ -555,15 +553,18 @@ export class MemoryFrame {
         // }
 
         // Push objects for all entities in the block
-        block.localObjects.forEach((objEntity) => {
+        rtFunc.model.localVariables.forEach((objEntity) => {
 
-            // Create and allocate the object
-            let obj = new AutoObject(objEntity, objEntity.type, memory, addr);
-            this.localObjectsByName[objEntity.name] = obj;
+            if (objEntity instanceof AutoEntity) {
+                // Create and allocate the object
+                let obj = new AutoObject(objEntity, objEntity.type, memory, addr);
+                this.localObjectsByEntityId[objEntity.entityId] = obj;
 
-            // Move on to next address afterward
-            addr += obj.size;
-            this.size += obj.size;
+                // Move on to next address afterward
+                addr += obj.size;
+                (<Mutable<this>>this).size += obj.size;
+            }
+
         });
 
         this.end = this.start + this.size;
@@ -572,8 +573,8 @@ export class MemoryFrame {
     // TODO: is this ever used?
     public toString() {
         var str = "";
-        for (var key in this.localObjectsByName) {
-            var obj = this.localObjectsByName[key];
+        for (var key in this.localObjectsByEntityId) {
+            var obj = this.localObjectsByEntityId[key];
             //			if (!obj.type){
             // str += "<span style=\"background-color:" + obj.color + "\">" + key + " = " + obj + "</span>\n";
             str += "<span>" + obj + "</span>\n";
@@ -583,13 +584,13 @@ export class MemoryFrame {
     }
 
     public getLocalObject<T extends ObjectType>(entity: AutoEntity<T>) {
-        return <AutoObject<T>>this.localObjectsByName[entity.name];
+        return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
     public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
-        return <CPPObject<T>>this.localReferencesByName[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
+        return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }
     public bindReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
-        this.localReferencesByName[entity.name] = obj;
+        this.localReferencesByEntityId[entity.entityId] = obj;
     }
 
     // public setUpReferenceInstances() {
@@ -601,9 +602,11 @@ export class MemoryFrame {
     // }
 
     public pop(rtConstruct: RuntimeConstruct) {
-        for (let key in this.localObjectsByName) {
-            var obj = this.localObjectsByName[key];
-            this.memory.deallocateObject(obj.address, rtConstruct)
+        for (let key in this.localObjectsByEntityId) {
+            var obj = this.localObjectsByEntityId[key];
+
+            // Note this does nothing if the object was already deallocated (e.g. going out of scope of a nested block, destructor was called)
+            this.memory.killObject(obj.address, rtConstruct);
         }
     }
 

@@ -270,10 +270,12 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     //     return "@" + this.address;
     // }
 
-    public deallocated(rt?: RuntimeConstruct) {
-        (<boolean>this.isAlive) = false;
+    public kill(rt?: RuntimeConstruct) {
+        (<Mutable<this>>this).isAlive = false;
         this._isValid = false;
-        (<Mutable<this>>this).deallocatedBy = rt;
+        if (rt) {
+            (<Mutable<this>>this).deallocatedBy = rt;
+        }
         this.observable.send("deallocated");
     }
 

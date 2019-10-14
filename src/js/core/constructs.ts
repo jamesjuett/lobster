@@ -6,7 +6,7 @@ import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { standardConversion } from "./standardConversions";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { RuntimeFunction } from "./functions";
+import { RuntimeFunction, FunctionImplementation } from "./functions";
 import { TemporaryObject } from "./objects";
 
 
@@ -392,7 +392,7 @@ export class InvalidConstruct extends BasicCPPConstruct {
 // }
 
 export interface FunctionContext extends ConstructContext {
-    readonly containingFunction: FunctionEntity;
+    readonly containingFunction: FunctionImplementation;
 }
 
 // export abstract class InstructionConstruct extends CPPConstruct {
