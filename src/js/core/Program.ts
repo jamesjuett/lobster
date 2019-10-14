@@ -3,7 +3,7 @@ import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity } from "./entities";
 import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration } from "./declarations";
 import { FunctionCall } from "./functions";
 import { resetUserTypeNames } from "./types";
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
