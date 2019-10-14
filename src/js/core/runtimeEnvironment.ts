@@ -451,7 +451,7 @@ class MemoryStack {
     }
 
     public pushFrame(rtFunc: RuntimeFunction) {
-        var frame = new MemoryFrame(rtFunc.model.body, this.memory, this.top, rtFunc);
+        var frame = new MemoryFrame(this.memory, this.top, rtFunc);
         this.top += frame.size;
         this.frames.push(frame);
         this.memory.observable.send("framePushed", frame);
@@ -460,7 +460,9 @@ class MemoryStack {
 
     public popFrame(rtConstruct: RuntimeConstruct) {
         let frame = this.frames.pop();
-        assert(frame);
+        if (!frame) {
+            return assertFalse();
+        }
         frame.pop(rtConstruct);
         this.top -= frame.size;
         this.memory.observable.send("framePopped", frame);
