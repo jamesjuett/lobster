@@ -3137,7 +3137,8 @@ export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeEx
 //     },
 //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //         // Set this pointer with RTTI to point to receiver
-//         inst.setEvalResult(Value.instance(inst.contextualReceiver().address, Types.ObjectPointer.instance(inst.contextualReceiver())));
+//         let receiver = inst.containingRuntimeFunction!.receiver;
+//         inst.setEvalResult(Value.instance(receiver.address, Types.ObjectPointer.instance(receiver)));
 //         this.done(sim, inst);
 //     }
 // });
