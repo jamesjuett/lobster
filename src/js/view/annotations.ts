@@ -2,7 +2,7 @@
 // something in the parsing step, but it's also needed for cases where the construct generating
 // the error doesn't exist in the source (e.g. implicitly defined default constructor errors get
 // attributed to the containing class)
-var findNearestTrackedConstruct = function(construct){
+var findNearestTrackedConstruct = function(construct) {
     if (construct && !construct.code && construct.start !== undefined && construct.line !== undefined){
         return {code: construct};
     }

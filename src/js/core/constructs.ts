@@ -1,13 +1,13 @@
-import { SourceReference, Program, TranslationUnit } from "./Program";
-import { Scope, FunctionEntity, TemporaryObjectEntity } from "./entities";
-import { ClassType, Type, ObjectType } from "./types";
-import { Note, Explanation, Description, CPPError, NoteKind } from "./errors";
+import { Program, TranslationUnit, SourceReference } from "./Program";
+import { Scope, TemporaryObjectEntity } from "./entities";
+import { Note, NoteKind, CPPError } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
-import { standardConversion } from "./standardConversions";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { RuntimeFunction, FunctionImplementation } from "./functions";
+import { ObjectType } from "./types";
 import { TemporaryObject } from "./objects";
+
 
 
 export interface Description {
@@ -197,7 +197,11 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
     //     return this.i_notes;
     // },
     public getNearestSourceReference() {
-        return this.translationUnit.getNearestSourceReferenceForConstruct(this);
+        let construct : CPPConstruct = this;
+        while (!construct.sourceReference && construct.parent) {
+            construct = construct.parent;
+        }
+        return construct.sourceReference || this.translationUnit.getSourceReference(0,0,0,0);
     }
 }
 
@@ -274,17 +278,17 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public upNext() {
         this.observable.send("upNext");
 
-        for(var key in this.pauses){
-            var p = this.pauses[key];
-            if (p.pauseWhenUpNext //||
-                // p.pauseAtIndex !== undefined && this.index == p.pauseAtIndex){
-            ){
-                this.sim.pause();
-                p.callback && p.callback();
-                delete this.pauses[key];
-                break;
-            }
-        }
+        // for(var key in this.pauses){
+        //     var p = this.pauses[key];
+        //     if (p.pauseWhenUpNext //||
+        //         // p.pauseAtIndex !== undefined && this.index == p.pauseAtIndex){
+        //     ){
+        //         this.sim.pause();
+        //         p.callback && p.callback();
+        //         delete this.pauses[key];
+        //         break;
+        //     }
+        // }
 
         return this.upNextImpl();
     }
@@ -337,10 +341,6 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
             parent = parent.parent;
         }
         return parent;
-    }
-
-    public contextualReceiver() {
-        return this.containingRuntimeFunction.receiver;
     }
 
     public explain() : Explanation {

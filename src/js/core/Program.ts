@@ -726,6 +726,9 @@ export class TranslationUnit {
     }
 
     public getNearestSourceReferenceForConstruct(construct: CPPConstruct) {
+        while (!construct.ast) {
+            
+        }
         var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
         var trackedCode = trackedConstruct.code;
         return this.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
@@ -735,3 +738,5 @@ export class TranslationUnit {
         return this.source.getSourceReference(line, column, start, end);
     }
 }
+
+
