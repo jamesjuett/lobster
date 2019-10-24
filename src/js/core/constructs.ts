@@ -36,7 +36,7 @@ export interface ASTNode {
 };
 
 export interface ConstructContext {
-    readonly program: Program;
+    // readonly program: Program;
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
     readonly implicit?: boolean;
