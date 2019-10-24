@@ -1,15 +1,13 @@
-import { CPPConstruct, ExecutableConstruct, BasicCPPConstruct, ConstructContext, ASTNode, RuntimeConstruct, RuntimeFunction, FunctionCall, FunctionContext, InvalidConstruct, SuccessfullyCompiled } from "./constructs";
-import { FunctionEntity, CPPEntity, BlockScope, AutoEntity, LocalReferenceEntity, DeclaredEntity, StaticEntity, ArraySubobjectEntity, MemberFunctionEntity, TypeEntity, MemberVariableEntity, ObjectEntity, ClassScope, FunctionBlockScope } from "./entities";
-import { Initializer, DirectInitializer, CopyInitializer, DefaultInitializer, InitializerASTNode } from "./initializers";
-import { Type, ArrayOfUnknownBoundType, FunctionType, BoundedArrayType, PotentialParameterType, PointerType, ReferenceType, ObjectType, SimpleType, builtInTypes, VoidType } from "./types";
+import { BasicCPPConstruct, ConstructContext, ASTNode, CPPConstruct, SuccessfullyCompiled, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError, Note } from "./errors";
+import { asMutable, assertFalse, assert, Mutable } from "../util/util";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType } from "./types";
+import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode } from "./initializers";
+import { BlockScope, ObjectEntity, FunctionEntity, AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope } from "./entities";
+import { Expression, ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
+import { BlockContext, BlockASTNode, Block, createStatementFromAST } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { ExpressionASTNode, NumericLiteralASTNode, Expression } from "./expressions";
-import { Mutable, assert, asMutable, assertFalse } from "../util/util";
-import { SemanticException } from "./semanticExceptions";
-import { Simulation } from "./Simulation";
-import { Statement, BlockASTNode, createBlockContext, Block, BlockContext, createStatementFromAST } from "./statements";
-import { FunctionImplementation, createFunctionContext } from "./functions";
+import { FunctionImplementation } from "./functions";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -521,6 +519,13 @@ export class FunctionDeclaration extends SimpleDeclaration {
                 throw e;
             }
         }
+
+        // A function declaration has linkage, unless it is a local function declaration in a block scope
+        // (which has no linkage). The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword to specify internal linkage.
+        if (this.contextualScope instanceof NamespaceScope) {
+            this.translationUnit.registerLinkedEntity(this.declaredEntity.qualifiedName);
+        }
     }
     
 
@@ -968,6 +973,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 export class FunctionDefinition extends BasicCPPConstruct {
 
     public readonly declaration: SimpleDeclaration;
+    public readonly parameters: readonly ParameterDefinition[];
     public readonly implementation: FunctionImplementation;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) {
@@ -1003,12 +1009,13 @@ export class FunctionDefinition extends BasicCPPConstruct {
         // added after the parameters.)
         ast.body.statements.forEach(sNode => createStatementFromAST(sNode, bodyContext));
         
-        return new FunctionDefinition(context, declaration, implementation);
+        return new FunctionDefinition(context, declaration, parameters, implementation);
     }
 
-    public constructor(context: ConstructContext, declaration: FunctionDeclaration, implementation: FunctionImplementation) {
+    public constructor(context: ConstructContext, declaration: FunctionDeclaration, parameters: readonly ParameterDefinition[], implementation: FunctionImplementation) {
         super(context);
         this.attach(this.declaration = declaration);
+        this.attachAll(this.parameters = parameters);
         this.attach(this.implementation = implementation);
 
         // TODO: register definition or implementation with the entity or with the linker somehow

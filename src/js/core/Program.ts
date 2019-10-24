@@ -1,7 +1,7 @@
 import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError, LinkerNote } from "./errors";
 import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity } from "./entities";
+import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity } from "./entities";
 import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
 import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration } from "./declarations";
 import { FunctionCall } from "./functions";
@@ -68,10 +68,6 @@ import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 //
 // });
 
-/**
- * @class
- * @extends NoteHandler
- */
 export class NoteRecorder implements NoteHandler {
     
     private readonly _allNotes: Note[] = [];
@@ -123,9 +119,9 @@ export class Program {
     
     public readonly isCompilationUpToDate: boolean = true;
 
-    public readonly translationUnits : { [index: string]: TranslationUnit | undefined } = {};
-    public readonly originalSourceFiles : { [index: string]: SourceFile | undefined } = {};
-    public readonly includedSourceFiles : { [index: string]: SourceFile | undefined } = {};
+    public readonly translationUnits : { [index: string]: TranslationUnit } = {};
+    public readonly originalSourceFiles : { [index: string]: SourceFile } = {};
+    public readonly includedSourceFiles : { [index: string]: SourceFile } = {};
     
     private readonly _staticEntities: StaticEntity[] = [];
     public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
@@ -231,29 +227,32 @@ export class Program {
      * Presumes translation units are already compiled (not necessarily successfully).
      */
     private compilationProper() {
-        this.observable.send("compilationStarted");
+        // this.observable.send("compilationStarted");
 
         for(let tuName in this.translationUnits) {
             let tu = this.translationUnits[tuName];
 
-            Object.assign(this.includedSourceFiles, tu.includedSourceFiles);
-            this.notes.addAll(tu.notes);
+            this.originalSourceFiles[tu.source.primarySourceFile.name] = tu.source.primarySourceFile;
+            Object.assign(this.includedSourceFiles, tu.source.includedSourceFiles);
+            this.notes.addNotes(tu.notes.allNotes);
 
-            if (this.notes.hasSyntaxErrors) {
-                break;
-            }
+            // TODO: why was this here?
+            // if (this.notes.hasSyntaxErrors) {
+            //     break;
+            // }
         }
-        this.observable.send("compilationFinished");
+        // this.observable.send("compilationFinished");
     }
 
-    link : function() {
-        this.send("linkingStarted");
+    private link() {
+        // this.send("linkingStarted");
 
-        // Bring together stuff from all translation units
-        // TODO NEW: Make reporting of linker errors more elegant
-        var self = this;
-        for(var name in this.i_translationUnits) {
-            var tu = this.i_translationUnits[name];
+        // Check all entities with linkage from each translation unit
+        for(let name in this.translationUnits) {
+            var tu = this.translationUnits[name];
+            tu.linkedEntities.forEach(le => {
+                
+            });
             this.i_globalScope.merge(tu.getGlobalScope(), function(e) {
                 if (isA(e, LinkerNote)) {
                     self.addNote(e);
@@ -277,27 +276,24 @@ export class Program {
         }
 
 
-        //look for main
-        try{
-            this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(e.annotation());
-            }
-            else{
-                console.log(e.stack);
-                throw e;
-            }
-        }
-
-        this.send("linkingFinished");
-
-        // else if (decl.name === "main") {
-        //     this.semanticProblems.push(CPPError.declaration.prev_main(this, decl.name, otherFunc.decl));
-        //     return null;
+        //look for main - TODO: this should just be a prerequisite for actually simulating.
+        // I think it's a bit annoying that a program without main necessarily has this error.
+        // try{
+        //     this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
         // }
-    },
+        // catch(e){
+        //     if (isA(e, SemanticExceptions.BadLookup)){
+        //         this.addNote(e.annotation());
+        //     }
+        //     else{
+        //         console.log(e.stack);
+        //         throw e;
+        //     }
+        // }
+
+        // this.send("linkingFinished");
+
+    }
 
     private defineIntrinsics() {
 
@@ -407,7 +403,7 @@ interface IncludeMapping {
 
 class PreprocessedSource {
 
-    public readonly sourceFile: SourceFile;
+    public readonly primarySourceFile: SourceFile;
     public readonly name: string;
     public readonly availableToInclude: {[index: string]: SourceFile};
 
@@ -416,18 +412,18 @@ class PreprocessedSource {
     private readonly _includes: IncludeMapping[] = [];
     public readonly includes: readonly IncludeMapping[] = this._includes;
 
-    public readonly sourceFilesIncluded: {[index: string]: boolean} = {};
+    public readonly includedSourceFiles: {[index: string]: SourceFile} = {};
 
     public readonly preprocessedText: string;
     public readonly numLines: number;
     public readonly length: number;
 
     public constructor(sourceFile: SourceFile, availableToInclude: {[index: string]: SourceFile}, alreadyIncluded: {[index: string]: boolean} = {}) {
-        this.sourceFile = sourceFile;
+        this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
         this.availableToInclude = availableToInclude;
 
-        alreadyIncluded[this.sourceFile.name] = true;
+        alreadyIncluded[this.primarySourceFile.name] = true;
 
         let codeStr = sourceFile.text;
 
@@ -437,7 +433,7 @@ class PreprocessedSource {
         let currentIncludeLineNumber = 1;
         let originalIncludeLineNumber = 1;
 
-        this.sourceFilesIncluded[this.sourceFile.name] = true;
+        this.includedSourceFiles[this.primarySourceFile.name] = this.primarySourceFile;
 
         // Find and replace #include lines. Will also populate i_includes array.
         // [^\S\n] is a character class for all whitespace other than newlines
@@ -482,7 +478,7 @@ class PreprocessedSource {
                 var included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
                     Object.assign({}, alreadyIncluded));
 
-                Object.assign(this.sourceFilesIncluded, included.sourceFilesIncluded);
+                Object.assign(this.includedSourceFiles, included.includedSourceFiles);
 
 
                 mapping.numLines = included.numLines;
@@ -564,10 +560,10 @@ class PreprocessedSource {
         for(let i = 0; i < this.includes.length; ++i) {
             let inc = this.includes[i];
             if (line < inc.startLine) {
-                return new SourceReference(this.sourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
+                return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
             }
             else if (inc.startLine <= line && line < inc.endLine) {
-                return SourceReference.createIncluded(this.sourceFile, inc.lineIncluded,
+                return SourceReference.createIncluded(this.primarySourceFile, inc.lineIncluded,
                     inc.included.getSourceReference(line - inc.startLine + 1, column, start && start - inc.startOffset, end && end - inc.startOffset));
             }
             offset += inc.lengthDelta;
@@ -576,7 +572,7 @@ class PreprocessedSource {
 
         // If this line wasn't part of any of the includes, just return a regular source reference to the original
         // source file associated with this translation unit
-        return new SourceReference(this.sourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
+        return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
     }
 
 }
@@ -610,6 +606,8 @@ export class TranslationUnit {
     public readonly stringLiterals: readonly StringLiteralEntity[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
 
+    public readonly linkedEntities: readonly DeclaredEntity[] = [];
+
     public readonly parsedAST?: TranslationUnitAST;
 
     public readonly globalContext: ConstructContext;
@@ -624,10 +622,9 @@ export class TranslationUnit {
      */
     public constructor(preprocessedSource: PreprocessedSource) {
         this.source = preprocessedSource;
-        this.globalScope = new NamespaceScope(preprocessedSource.sourceFile.name + "_GLOBAL_SCOPE");
+        this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
         this.globalContext = {
-            program: bleh,
             translationUnit: this,
             contextualScope: this.globalScope
         };
@@ -723,6 +720,10 @@ export class TranslationUnit {
 
     public registerFunctionCall(call: FunctionCall) {
         asMutable(this.functionCalls).push(call);
+    }
+
+    public registerLinkedEntity(entity: DeclaredEntity) {
+        asMutable(this.linkedEntities).push(entity);
     }
 
     public getNearestSourceReferenceForConstruct(construct: CPPConstruct) {

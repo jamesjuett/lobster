@@ -103,43 +103,31 @@ export class Scope {
         }
     }
 
+    /**
+     * Selects a function from the given overload group based on the signature of
+     * the provided function type. (Note there's no consideration of function names here.)
+     */
+    private selectOverload(overloadGroup: readonly FunctionEntity[], type: FunctionType) {
+        return overloadGroup.find(func => type.sameSignature(func.type));
+    }
+
     private mergeDeclaredFunctionEntity<T extends Type>(newEntity: FunctionEntity, existingEntity: DeclaredEntity | FunctionEntity[]) {
         if (!Array.isArray(existingEntity)) { // It's not a function overload group
-            DeclaredEntity.merge(newEntity, existingEntity);
-            return existingEntity;
+            throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, existingEntity);
         }
         else { // It is a function overload group, check each other function found
-            let matchingFunction = existingEntity.find((otherFunc) => {
-                // Look for any function with the same signature
-                // Functions with different signatures are different overloads and are fine
-                if (newEntity.type.sameSignature(otherFunc.type)) {
-
-                    // If they have mismatched return types, that's a problem.
-                    if (!newEntity.type.sameReturnType(otherFunc.type)) {
-                        throw CPPError.declaration.func.returnTypesMatch([newEntity.declaration, otherFunc.declaration], newEntity.name);
-                    }
-
-                    // As a sanity check, make sure they're the same type.
-                    // But this should already be true, given that they have the same signature and return type.
-                    if (!sameType(newEntity.type, otherFunc.type)) { // an array indicates a function overload group was found
-                        throw CPPError.declaration.type_mismatch(newEntity.declaration, newEntity, otherFunc);
-                    }
-
-                    // Terminates early when the first match is found.
-                    // It's not possible there would be more than one match, since only one
-                    // FunctionEntity with the same signature would be allowed in the array.
-                    return true;
-                }
-            });
+            let matchingFunction = this.selectOverload(existingEntity, newEntity.type);
             
-            if (matchingFunction) {
-                return matchingFunction;
+            if (!matchingFunction) {
+                // If none were found with the same signature, this is a new overload, so go ahead and add it
+                existingEntity.push(newEntity);
+                return newEntity;
             }
 
-            // If none were found with the same signature, this is a new overload, so go ahead and add it
-            existingEntity.push(newEntity);
-            // this.declaredEntityAdded(newEntity);
-            return newEntity;
+            newEntity.mergeInto(matchingFunction);
+
+            return matchingFunction;
+
         }
 
     }
@@ -614,10 +602,6 @@ export abstract class DeclaredEntity<T extends Type = Type> extends NamedEntity<
     //     return !!this.definition;
     // }
 
-    // TODO: when namespaces are implemented, need to fix this function
-    public getFullyQualifiedName() {
-        return "::" + this.name;
-    }
 
     // public isLibraryConstruct() {
     //     return this.decl.isLibraryConstruct();
@@ -628,6 +612,38 @@ export abstract class DeclaredEntity<T extends Type = Type> extends NamedEntity<
     // }
 };
 
+export type LinkedEntity = StaticEntity | FunctionEntity;
+
+// abstract class LinkedEntity<T extends Type = Type> extends DeclaredEntity<T> {
+
+//     public readonly qualifiedName: string;
+
+//     public readonly declaration: SimpleDeclaration;
+//     public readonly definition?: SimpleDeclaration;
+
+//     public constructor(type: T, decl: SimpleDeclaration) {
+//         super(type, decl);
+//         this.declaration = decl;
+//         this.qualifiedName = "::" + this.name; // TODO: when namespaces are implemented, fix this to actually do something
+//     }
+
+//     public setDefinition(definition: SimpleDeclaration) {
+//         (<SimpleDeclaration>this.definition) = definition;
+//     }
+
+//     // public isDefined() {
+//     //     return !!this.definition;
+//     // }
+
+
+//     // public isLibraryConstruct() {
+//     //     return this.decl.isLibraryConstruct();
+//     // }
+
+//     // public isLibraryUnsupported() {
+//     //     return this.decl.isLibraryUnsupported();
+//     // }
+// }
 
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
@@ -693,7 +709,6 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
 export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<T> | LocalReferenceEntity<T>;
 
 export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-    protected static _name =  "StaticEntity";
 
     // storage: "static",
     constructor(type: T, decl: SimpleDeclaration) {
@@ -1169,8 +1184,17 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
         return this.name;
     }
 
-    public isLinked() {
-        return this.isDefined();
+    public mergeInto(existingEntity: FunctionEntity) {
+        // If they have mismatched return types, that's a problem.
+        if (!this.type.sameReturnType(existingEntity.type)) {
+            throw CPPError.declaration.func.returnTypesMatch([this.declaration, existingEntity.declaration], this.name);
+        }
+
+        // As a sanity check, make sure they're the same type.
+        // But this should already be true, given that they have the same signature and return type.
+        if (!sameType(this.type, existingEntity.type)) { // an array indicates a function overload group was found
+            throw CPPError.declaration.type_mismatch(this.declaration, this, existingEntity);
+        }
     }
 
     // TODO: check on what this is here for
@@ -1179,7 +1203,7 @@ export class FunctionEntity extends DeclaredEntity<FunctionType> {
     // }
 
     public isMain() {
-        return this.getFullyQualifiedName() === "::main";
+        return this.qualifiedName === "::main";
     }
 
     public describe() {

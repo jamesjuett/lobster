@@ -396,13 +396,13 @@ export class Memory {
         var obj = new StaticObject(staticEntity, staticEntity.type, this, this.staticTop);
         this.allocateObject(obj);
         this.staticTop += obj.size;
-        this.staticObjects[staticEntity.getFullyQualifiedName()] = obj;
+        this.staticObjects[staticEntity.qualifiedName] = obj;
     }
 
     
 
     public staticLookup<T extends ObjectType>(staticEntity: StaticEntity<T>) {
-        return <StaticObject<T>>this.staticObjects[staticEntity.getFullyQualifiedName()];
+        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];
     }
 
     public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) {
