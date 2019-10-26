@@ -8,9 +8,7 @@ import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
 
-export interface InitializerASTNode extends ASTNode {
-    args: readonly ExpressionASTNode[];
-}
+export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode;
 
 export abstract class Initializer extends PotentialFullExpression {
 
@@ -323,10 +321,11 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
 
 export interface DirectInitializerASTNode extends ASTNode {
+    construct_type: "direct_initializer";
     args: ExpressionASTNode[];
 }
 
-export type CopyInitializerASTNode = DirectInitializerASTNode;
+
 
 export abstract class DirectInitializer extends Initializer {
 
@@ -734,6 +733,12 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //     }
 // }
 
+
+
+export interface CopyInitializerASTNode extends ASTNode {
+    construct_type: "copy_initializer";
+    args: ExpressionASTNode[];
+}
 
 // TODO: These should really be "class aliases" rather than derived classes, however
 // it doesn't seem like Typescript has any proper mechanism for this.

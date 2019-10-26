@@ -24,9 +24,9 @@ export const ALT_OPS = new Set([
     "not_eq", "or", "or_eq", "xor", "xor_eq"
 ]);
 
-export type UnqualifiedName = string;
-export type QualifiedName = string[];
-export type Name = UnqualifiedName | QualifiedName;
+// export type UnqualifiedName = string;
+// export type QualifiedName = string[];
+// export type Name = UnqualifiedName | QualifiedName;
 
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
 export function checkIdentifier(src: CPPConstruct, name: Name, noteHandler: NoteHandler) {
