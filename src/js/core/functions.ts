@@ -9,7 +9,8 @@ import { Mutable, assert, asMutable } from "../util/util";
 import { TypedExpression, ValueCategory } from "./expressions";
 import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
-import { CPPError } from "./errors";
+import { CPPError, NoteHandler } from "./errors";
+import { LocalVariableDefinition } from "./declarations";
 
 export function createFunctionContext(context: ConstructContext, containingFunction: FunctionImplementation) : FunctionContext {
     return Object.assign({}, context, {containingFunction: containingFunction});
@@ -21,14 +22,12 @@ export class FunctionImplementation extends BasicCPPConstruct {
 
     public readonly func: FunctionEntity;
     public readonly type: FunctionType;
-    public readonly parameters: readonly LocalVariableEntity[];
-
-    public readonly body: Block;
-
-    readonly localVariables: readonly LocalVariableEntity[] = [];
 
     public readonly localObjects: readonly AutoEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    public readonly localVariablesByEntityId: {
+        [index: number] : LocalVariableEntity
+    } = {};
 
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
@@ -39,8 +38,6 @@ export class FunctionImplementation extends BasicCPPConstruct {
         this.functionContext = createFunctionContext(context, this);
         this.func = func;
         this.type = func.type;
-        this.parameters = clone(parameters); // parameter definitions are already attached elsewhere
-        this.attach(this.body = body);
 
         // TODO: need to create ParameterDefinitions for each parameter
 
@@ -73,6 +70,8 @@ export class FunctionImplementation extends BasicCPPConstruct {
     }
 
     public registerLocalVariable(local: LocalVariableEntity) {
+        assert(!this.localVariablesByEntityId[local.entityId]);
+        this.localVariablesByEntityId[local.entityId] = local;
         if (local instanceof AutoEntity) {
             asMutable(this.localObjects).push(local)
         }
@@ -614,7 +613,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
         super(model, "call", parent);
-        let functionDef = this.model.func.definition!.runtimeLookup(); // TODO
+        let functionDef = this.model.func.definition!; // TODO
         
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));

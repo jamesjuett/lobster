@@ -6,6 +6,7 @@ import { RuntimeConstruct } from "./constructs";
 import { Description } from "./errors";
 import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity, ObjectEntity } from "./entities";
 import { Simulation } from "./Simulation";
+import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition } from "./declarations";
 
 abstract class ObjectData<T extends ObjectType> {
     protected readonly object: CPPObject<T>;
@@ -548,12 +549,12 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
 export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public constructor(public readonly entity: AutoEntity, type: T, memory: Memory, address: number) {
+    public constructor(public readonly def: LocalVariableDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
     }
 
     public describe(): Description {
-        return this.entity.describe();
+        return this.def.declaredEntity.describe();
     }
 
 }
@@ -573,12 +574,12 @@ export class MainReturnObject extends CPPObject<Int> {
 
 export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public constructor(public readonly entity: StaticEntity, type: T, memory: Memory, address: number) {
+    public constructor(public readonly def: CompiledGlobalObjectDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
     }
 
     public describe(): Description {
-        return this.entity.describe();
+        return this.def.declaredEntity.describe();
     }
 
 }

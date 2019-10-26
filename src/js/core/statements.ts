@@ -377,6 +377,10 @@ export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
 }
 
+export function isBlockContext(context: ConstructContext) : context is BlockContext {
+    return context.contextualScope instanceof BlockScope;
+}
+
 export class Block extends Statement<BlockASTNode> {
 
     public readonly statements: readonly Statement[] = [];

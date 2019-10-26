@@ -3,7 +3,7 @@ import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity } from "./entities";
 import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition } from "./declarations";
 import { FunctionCall } from "./functions";
 import { resetUserTypeNames } from "./types";
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
@@ -127,6 +127,12 @@ export class Program {
     public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
     
     private readonly functionCalls: readonly FunctionCall[] = [];
+    
+    public readonly definitions: {
+        [index: string] : GlobalObjectDefinition | FunctionDefinition[]
+    } = {};
+
+    public readonly linkedEntities: readonly DeclaredEntity[] = [];
 
     public readonly notes = new NoteRecorder();
 
@@ -247,12 +253,10 @@ export class Program {
     private link() {
         // this.send("linkingStarted");
 
-        // Check all entities with linkage from each translation unit
-        for(let name in this.translationUnits) {
-            var tu = this.translationUnits[name];
-            tu.linkedEntities.forEach(le => {
-                
-            });
+        // Check all entities with linkage
+        this.linkedEntities.forEach(le => {
+            le.link(this.definitions[le.])
+        });
             this.i_globalScope.merge(tu.getGlobalScope(), function(e) {
                 if (isA(e, LinkerNote)) {
                     self.addNote(e);
@@ -262,7 +266,6 @@ export class Program {
                     throw e;
                 }
             });
-        }
 
         this.i_defineIntrinsics();
 
@@ -298,6 +301,34 @@ export class Program {
     private defineIntrinsics() {
 
     }
+
+    public registerLinkedEntity(entity: DeclaredEntity) {
+        asMutable(this.linkedEntities).push(entity);
+    }
+
+    public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalObjectDefinition) {
+        if (!this.definitions[qualifiedName]) {
+            this.definitions[qualifiedName] = def;
+        }
+        else {
+            // One definition rule violation
+            this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
+        }
+    }
+
+    public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
+        if (!this.definitions[qualifiedName]) {
+            this.definitions[qualifiedName] = [def];
+        }
+        else {
+            
+        }
+        // check one-definition rule
+        let existingDef = this.definitions[def.decla]
+        asMutable(this.linkedEntities).push(entity);
+    }
+
+
 
     //TODO: Program itself should just register all the function calls in its translation units.
     //      However, don't spend time on this until figuring out where the list of function calls
@@ -598,6 +629,7 @@ export class TranslationUnit {
 
     public readonly name: string;
     public readonly source: PreprocessedSource;
+    public readonly program: Program;
 
     public readonly globalScope: NamespaceScope;
     
@@ -605,8 +637,6 @@ export class TranslationUnit {
     public readonly staticEntities: readonly StaticEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralEntity[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
-
-    public readonly linkedEntities: readonly DeclaredEntity[] = [];
 
     public readonly parsedAST?: TranslationUnitAST;
 
@@ -720,10 +750,6 @@ export class TranslationUnit {
 
     public registerFunctionCall(call: FunctionCall) {
         asMutable(this.functionCalls).push(call);
-    }
-
-    public registerLinkedEntity(entity: DeclaredEntity) {
-        asMutable(this.linkedEntities).push(entity);
     }
 
     public getNearestSourceReferenceForConstruct(construct: CPPConstruct) {

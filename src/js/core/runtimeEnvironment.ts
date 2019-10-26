@@ -555,7 +555,7 @@ export class MemoryFrame {
         // }
 
         // Push objects for all entities in the block
-        rtFunc.model.localVariables.forEach((objEntity) => {
+        rtFunc.model.localVariablesByEntityId.forEach((objEntity) => {
 
             if (objEntity instanceof AutoEntity) {
                 // Create and allocate the object
