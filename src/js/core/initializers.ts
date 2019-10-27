@@ -1,9 +1,9 @@
-import { ASTNode, PotentialFullExpression, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, ConstructContext, RuntimeConstruct } from "./constructs";
+import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, ConstructContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, VCResultTypes } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
 import { assertFalse } from "../util/util";
-import { CPPError, Explanation } from "./errors";
+import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
@@ -14,21 +14,22 @@ export abstract class Initializer extends PotentialFullExpression {
 
     public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
-    public abstract createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : RuntimeInitializer;
+    public abstract createRuntimeInitializer(parent: RuntimeConstruct) : RuntimeInitializer;
 
-    public isTailChild(child: ExecutableConstruct) {
+    public isTailChild(child: CPPConstruct) {
         return {isTail: true};
     }
 
 }
 
 export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
 } 
 
 export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimePotentialFullExpression<C> {
 
-    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: C, parent: RuntimeConstruct) {
         super(model, "initializer", parent);
     }
 
@@ -63,16 +64,17 @@ export abstract class DefaultInitializer extends Initializer {
         }
     }
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeDefaultInitializer<T>;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeDefaultInitializer<T>;
 }
 
 export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
 }
 
 export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
 
-    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 }
@@ -89,7 +91,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
         this.addNote(CPPError.declaration.init.referenceBind(this));
     }
 
-    public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) : never {
+    public createRuntimeInitializer(parent: RuntimeConstruct) : never {
         return assertFalse("A default initializer for a reference is not allowed.");
     }
 
@@ -111,9 +113,9 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
         this.target = target;
     }
 
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
     }
 
@@ -124,6 +126,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
 }
 
 export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends AtomicDefaultInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
 }
 
@@ -131,7 +134,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
 
     public readonly target: CPPObject<T>;
 
-    public constructor (model: CompiledAtomicDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
     }
@@ -177,9 +180,9 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
     }
 
-    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
 
@@ -202,7 +205,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 }
 
 export interface CompiledArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends ArrayDefaultInitializer, SuccessfullyCompiled {
-    
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
     readonly elementInitializers?: CompiledDefaultInitializer<T["elemType"]>[];
 }
@@ -214,7 +217,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
     private index = 0;
 
-    public constructor (model: CompiledArrayDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
         if (this.model.elementInitializers) {
@@ -264,9 +267,9 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //         // this.args = this.ctorCall.args;
 //     }
 
-//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
-//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
+//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
+//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
 //         return new RuntimeClassDefaultInitializer(this, parent);
 //     }
 
@@ -291,7 +294,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
 //     private index = "callCtor";
     
-//     public constructor (model: CompiledClassDefaultInitializer<T>, parent: ExecutableRuntimeConstruct) {
+//     public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.target = model.target.runtimeLookup(this);
 //         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
@@ -363,18 +366,19 @@ export abstract class DirectInitializer extends Initializer {
 
     public abstract readonly args: readonly Expression[];
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeDirectInitializer<T>;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeDirectInitializer<T>;
 }
 
 
 export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> extends DirectInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 }
 
 export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
 
-    protected constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    protected constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -417,9 +421,9 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeReferenceDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: RuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
         return new RuntimeReferenceDirectInitializer(<CompiledReferenceDirectInitializer<T>>this, parent);
     }
 
@@ -431,6 +435,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
 }
 
 export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 
@@ -446,7 +451,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 
     private alreadyPushed = false;
 
-    public constructor (model: CompiledReferenceDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.arg = this.model.arg.createRuntimeExpression(this);
     }
@@ -506,9 +511,9 @@ export class AtomicDirectInitializer extends DirectInitializer {
         
     }
 
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends AtomicType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeAtomicDirectInitializer<T> {
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends AtomicType>(this: any, parent: RuntimeConstruct) : RuntimeAtomicDirectInitializer<T> {
         return new RuntimeAtomicDirectInitializer(<CompiledAtomicDirectInitializer<T>>this, parent);
     }
 
@@ -521,6 +526,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
 }
 
 export interface CompiledAtomicDirectInitializer<T extends AtomicType> extends AtomicDirectInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
     readonly args: readonly CompiledExpression[];
     readonly arg: CompiledExpression<T, "prvalue">;
@@ -533,7 +539,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
     private alreadyPushed = false;
 
-    public constructor (model: CompiledAtomicDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.target = this.model.target.runtimeLookup(this);
         this.arg = this.model.arg.createRuntimeExpression(this);
@@ -589,7 +595,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
         
 //     }
 
-//     public createRuntimeInitializer(parent: ExecutableRuntimeConstruct) {
+//     public createRuntimeInitializer(parent: RuntimeConstruct) {
 //         return new RuntimeArrayDirectInitializer(this, parent);
 //     }
 
@@ -614,7 +620,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 //     private alreadyPushed = false;
 
-//     public constructor (model: CompiledArrayDirectInitializer, parent: ExecutableRuntimeConstruct) {
+//     public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.target = this.model.target.runtimeLookup(this);
 //         this.arg = this.model.arg.createRuntimeExpression(this);
@@ -679,9 +685,9 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
         
 //     }
 
-//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : RuntimeClassDirectInitializer<T>;
-//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: ExecutableRuntimeConstruct) : never;
-//     public createRuntimeInitializer<T extends ClassType>(this: any, parent: ExecutableRuntimeConstruct) : RuntimeClassDirectInitializer<T> {
+//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDirectInitializer<T>;
+//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
+//     public createRuntimeInitializer<T extends ClassType>(this: any, parent: RuntimeConstruct) : RuntimeClassDirectInitializer<T> {
 //         return new RuntimeClassDirectInitializer(<CompiledClassDirectInitializer<T>>this, parent);
 //     }
 
@@ -711,7 +717,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 //     private index = "callCtor";
 
-//     public constructor (model: CompiledClassDirectInitializer<T>, parent: ExecutableRuntimeConstruct) {
+//     public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.target = this.model.target.runtimeLookup(this);
 //         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
@@ -800,7 +806,7 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
         
 //     }
 
-//     public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
+//     public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
 //         return new RuntimeArrayMemberInitializer(this, parent);
 //     }
 
@@ -831,7 +837,7 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 
 //     private index = 0;
 
-//     public constructor (model: CompiledArrayMemberInitializer, parent: ExecutableRuntimeConstruct) {
+//     public constructor (model: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.target = this.model.target.runtimeLookup(this);
 //         this.elementInitializers = this.model.elementInitializers.map((elemInit) => {

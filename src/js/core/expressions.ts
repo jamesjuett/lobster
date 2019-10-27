@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char } from "./types";
-import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct } from "./constructs";
+import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { Description, CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -148,6 +148,7 @@ export abstract class Expression extends PotentialFullExpression {
 }
 
 export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly valueCategory: V;
 }
@@ -545,6 +546,7 @@ export class Comma extends Expression {
 
 
 export interface CompiledComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Comma, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly valueCategory: V;
     readonly left: CompiledExpression;
@@ -659,6 +661,7 @@ export class Ternary extends Expression {
 }
 
 export interface CompiledTernary<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Ternary, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly valueCategory: V;
     readonly condition: CompiledExpression<Bool, "prvalue">;
@@ -860,6 +863,7 @@ export class Assignment extends Expression {
 }
 
 export interface CompiledAssignment<T extends AtomicType = AtomicType> extends Assignment, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
@@ -1145,6 +1149,7 @@ export abstract class BinaryOperator extends Expression {
 }
 
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly left: CompiledExpression<AtomicType, "prvalue">
     readonly right: CompiledExpression<AtomicType, "prvalue">
@@ -1237,7 +1242,8 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 // TODO: Add CompiledArithmeticBinaryOperator?
 
 export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperator, SuccessfullyCompiled {
-    
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     public readonly type: T;
 
     public readonly left: CompiledExpression<T,"prvalue">;
@@ -1325,6 +1331,8 @@ class PointerOffset extends BinaryOperator {
 }
 
 export interface CompiledPointerOffset<T extends PointerType = PointerType> extends PointerOffset, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly type: T;
 
@@ -1439,6 +1447,8 @@ class PointerDifference extends BinaryOperator {
 }
 
 export interface CompiledPointerDifference extends PointerDifference, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
     public readonly left: CompiledExpression<PointerType, "prvalue">;
     public readonly right: CompiledExpression<PointerType, "prvalue">;
 }
@@ -1578,6 +1588,8 @@ class LogicalBinaryOperator extends BinaryOperator {
 
 
 export interface CompiledLogicalBinaryOperator extends LogicalBinaryOperator, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
     readonly left: CompiledExpression<Bool, "prvalue">
     readonly right: CompiledExpression<Bool, "prvalue">
 }
@@ -2460,6 +2472,8 @@ export class FunctionCallExpression extends Expression {
 
 export interface CompiledFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCallExpression, SuccessfullyCompiled {
     
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
     public readonly type: T;
     public readonly valueCategory: V;
     
@@ -3079,12 +3093,16 @@ export class Identifier extends Expression {
 }
 
 export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
     public readonly type: T;
     public readonly valueCategory: "lvalue";
     public readonly entity: ObjectEntity;
 }
 
 export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
     public readonly type: T;
     public readonly valueCategory: "lvalue";
     public readonly entity: FunctionEntity;
@@ -3250,7 +3268,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 }
 
 export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticType> extends NumericLiteral<T>, SuccessfullyCompiled {
-
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
 export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> extends RuntimeExpression<T, "prvalue", CompiledNumericLiteral<T>> {
@@ -3347,6 +3365,9 @@ export class Parentheses extends Expression {
 
 // TODO: should these interface definitions have "public" in them? what is best style?
 export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Parentheses, SuccessfullyCompiled {
+    
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
     public readonly type: T;
     public readonly valueCategory: V;
 
