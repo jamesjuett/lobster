@@ -982,7 +982,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 
 export class FunctionDefinition extends BasicCPPConstruct {
 
-    public readonly declaration: SimpleDeclaration;
+    public readonly declaration: FunctionDeclaration;
     public readonly parameters: readonly ParameterDefinition[];
     public readonly implementation: FunctionImplementation;
 
@@ -1029,7 +1029,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
         this.attach(this.implementation = implementation);
 
         // TODO: register definition or implementation with the entity or with the linker somehow
-        this.translationUnit.program.registerDefinition(this);
+        this.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity, this);
     }
 }
 
@@ -1776,3 +1776,13 @@ export class FunctionDefinition extends BasicCPPConstruct {
 //     }
 // });
 
+
+/**
+ * Selects a function from the given overload group based on the signature of
+ * the provided function type. (Note there's no consideration of function names here.)
+ */
+export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
+    return overloadGroup.find(func => type.sameSignature(func.declaration.type));
+}
+
+export type LinkedDefinition = GlobalObjectDefinition | FunctionDefinition[];

@@ -1,10 +1,9 @@
 import { PotentialParameterType, ClassType, Type, sameType, ObjectType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
 import { CPPError, Note } from "./errors";
 import { assert, Mutable, assertFalse } from "../util/util";
-import { Program } from "./Program";
 import { Observable } from "../util/observe";
 import { Description, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, GlobalObjectDefinition, LocalVariableDefinition, ParameterDefinition } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, GlobalObjectDefinition, LocalVariableDefinition, ParameterDefinition, selectOverloadedDefinition, LinkedDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressions";
@@ -567,7 +566,7 @@ export abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEnt
 export type DeclaredEntity = DeclaredObjectEntity | FunctionEntity;
 
 
-// export type LinkedEntity = StaticEntity | FunctionEntity;
+export type LinkedEntity = StaticEntity | FunctionEntity;
 
 // abstract class LinkedEntity<T extends Type = Type> extends DeclaredEntity<T> {
 
@@ -701,7 +700,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObj
         return this.name + " (" + this.type + ")";
     }
 
-    public link(def: GlobalObjectDefinition | FunctionDefinition) : void {
+    public link(def: LinkedDefinition | undefined) {
         // Nothing to be done here since extern keyword is not supported, which means
         // any static entity would have been created from a definition and does not need
         // to be linked to anything else.
@@ -1152,11 +1151,15 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
 
 export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
-    protected static readonly _name = "FunctionEntity";
 
-    public readonly type!: FunctionType; // ! - Initialized by parent constructor
-
-    public readonly definition?: FunctionDefinition; //TODO narrows type from base class, should be made abstract?
+    
+    public readonly qualifiedName: string;
+    
+    // storage: "static",
+    constructor(type: FunctionType, decl: SimpleDeclaration) {
+        super(type, decl);
+        this.qualifiedName = "::" + this.name;
+    }
 
     public isStaticallyBound() {
         return true;
@@ -1180,7 +1183,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
             throw CPPError.declaration.type_mismatch(this.declaration, this, existingEntity);
         }
         else { // It is a function overload group, check each other function found
-            let matchingFunction = selectOverload(existingEntity, this.type);
+            let matchingFunction = selectOverloadedEntity(existingEntity, this.type);
             
             if (!matchingFunction) {
                 // If none were found with the same signature, this is a new overload, so go ahead and add it
@@ -1205,6 +1208,27 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 
     }
 
+    public link(def: LinkedDefinition | undefined) {
+        if (!def || !Array.isArray(def)) {
+            // Either undefined, or linked against something other than a function overload group
+            this.declaration.addNote(CPPError.link.func.def_not_found(this.declaration, this));
+            return;
+        }
+        
+        // found an overload group of function definitions, check for one
+        // with matching signature to the given linked entity
+        let overload = selectOverloadedDefinition(def, this.type);
+        if (!overload) {
+            this.declaration.addNote(CPPError.link.func.no_matching_overload(this.declaration, this));
+            return;
+        }
+
+        // check return type
+        if (!this.type.sameReturnType(overload.declaration.type)) {
+            this.declaration.addNote(CPPError.link.func.returnTypesMatch(this.declaration, this));
+        }
+    }
+
     // TODO: check on what this is here for
     // public getPointerTo() {
     //     return new Value(this, this.type);
@@ -1214,8 +1238,8 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return this.qualifiedName === "::main";
     }
 
-    public describe() {
-        return this.declaration.describe();
+    public describe(): Description {
+        throw new Error("Method not implemented.");
     }
 }
 
@@ -1477,7 +1501,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
  * Selects a function from the given overload group based on the signature of
  * the provided function type. (Note there's no consideration of function names here.)
  */
-export function selectOverload(overloadGroup: readonly FunctionEntity[], type: FunctionType) {
+export function selectOverloadedEntity(overloadGroup: readonly FunctionEntity[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.type));
 }
 

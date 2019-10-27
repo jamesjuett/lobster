@@ -1,11 +1,11 @@
 import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError, LinkerNote } from "./errors";
 import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity } from "./entities";
+import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity, LinkedEntity } from "./entities";
 import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition, selectOverloadedDefinition, LinkedDefinition } from "./declarations";
 import { FunctionCall } from "./functions";
-import { resetUserTypeNames } from "./types";
+import { resetUserTypeNames, FunctionType } from "./types";
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 
 
@@ -107,6 +107,7 @@ export class NoteRecorder implements NoteHandler {
     }
 }
 
+
 /**
  *
  * The program also needs to know about all source files involved so that #include preprocessor
@@ -129,14 +130,14 @@ export class Program {
     private readonly functionCalls: readonly FunctionCall[] = [];
     
     public readonly definitions: {
-        [index: string] : GlobalObjectDefinition | FunctionDefinition[]
+        [index: string] : LinkedDefinition
     } = {};
 
-    public readonly linkedEntities: readonly DeclaredEntity[] = [];
+    public readonly linkedEntities: readonly LinkedEntity[] = [];
 
     public readonly notes = new NoteRecorder();
 
-    public readonly mainFunction: FunctionEntity;
+    public readonly mainFunction?: FunctionDefinition;
 
 
     public constructor(translationUnits: readonly TranslationUnit[]) {
@@ -253,32 +254,20 @@ export class Program {
     private link() {
         // this.send("linkingStarted");
 
-        // Check all entities with linkage
-        this.linkedEntities.forEach(le => {
-            le.link(this.definitions[le.])
-        });
-            this.i_globalScope.merge(tu.getGlobalScope(), function(e) {
-                if (isA(e, LinkerNote)) {
-                    self.addNote(e);
-                    console.log("Linker: " + e.getMessage());
-                }
-                else{
-                    throw e;
-                }
-            });
+        this.defineIntrinsics();
 
-        this.i_defineIntrinsics();
+        // Provide definitions to each linked entity based on qualified name.
+        // Note that the definition provided might not match at all or might
+        // be undefined if there was no match for the qualified name. The entities
+        // will take care of adding the appropriate linker errors in these cases.
+        this.linkedEntities.forEach(le => 
+            le.link(this.definitions[le.qualifiedName])
+        );
 
-        // Make sure all function calls have a definition
-        var calls = this.getFunctionCalls();
-        for(var i = 0; i < calls.length; ++i) {
-            var note = calls[i].checkLinkingProblems();
-            if (note) {
-                this.addNote(note);
-            }
+        let main = this.definitions["::main"];
+        if (main instanceof FunctionDefinition) {
+            (<Mutable<this>>this).mainFunction = main;
         }
-
-
         //look for main - TODO: this should just be a prerequisite for actually simulating.
         // I think it's a bit annoying that a program without main necessarily has this error.
         // try{
@@ -299,10 +288,10 @@ export class Program {
     }
 
     private defineIntrinsics() {
-
+        // TODO
     }
 
-    public registerLinkedEntity(entity: DeclaredEntity) {
+    public registerLinkedEntity(entity: LinkedEntity) {
         asMutable(this.linkedEntities).push(entity);
     }
 
@@ -317,36 +306,46 @@ export class Program {
     }
 
     public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
-        if (!this.definitions[qualifiedName]) {
+        let prevDef = this.definitions[qualifiedName];
+        if (!prevDef) {
             this.definitions[qualifiedName] = [def];
         }
-        else {
-            
+        else if (!Array.isArray(prevDef)) {
+            // Previous definition that isn't a function overload group
+            this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
         }
-        // check one-definition rule
-        let existingDef = this.definitions[def.decla]
-        asMutable(this.linkedEntities).push(entity);
-    }
-
-
-
-    //TODO: Program itself should just register all the function calls in its translation units.
-    //      However, don't spend time on this until figuring out where the list of function calls
-    //      is used. I think it was used as part of linking to ensure all function calls are defined,
-    //      but when linking is more properly implemented, I really need to check that everything with
-    //      linkage (that is odr-used) actually has a definition.
-    registerFunctionCall : function(call) {
-        this.i_functionCalls.push(call);
-    },
-
-    _act : {
-        textChanged : function(msg) {
-            if (this.i_includedSourceFiles[msg.source.getName()]) {
-                this.i_setCompilationUpToDate(false);
+        else {
+            // Already some definitions for functions with this same name. Check if there's
+            // a conflicting overload that violates ODR
+            let conflictingDef = selectOverloadedDefinition(prevDef, def.declaration.type);
+            if (conflictingDef) {
+                this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            }
+            else {
+                prevDef.push(def);
             }
         }
     }
-});
+
+
+
+    // //TODO: Program itself should just register all the function calls in its translation units.
+    // //      However, don't spend time on this until figuring out where the list of function calls
+    // //      is used. I think it was used as part of linking to ensure all function calls are defined,
+    // //      but when linking is more properly implemented, I really need to check that everything with
+    // //      linkage (that is odr-used) actually has a definition.
+    // registerFunctionCall : function(call) {
+    //     this.i_functionCalls.push(call);
+    // },
+
+    // _act : {
+    //     textChanged : function(msg) {
+    //         if (this.i_includedSourceFiles[msg.source.getName()]) {
+    //             this.i_setCompilationUpToDate(false);
+    //         }
+    //     }
+    // }
+};
 
 export class SourceFile {
 
