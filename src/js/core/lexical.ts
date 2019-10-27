@@ -29,19 +29,21 @@ export const ALT_OPS = new Set([
 // export type Name = UnqualifiedName | QualifiedName;
 
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
-export function checkIdentifier(src: CPPConstruct, name: Name, noteHandler: NoteHandler) {
-    if (typeof name === "string") {
-        // Check that identifier is not a keyword or an alternative representation for an operator
-        if (KEYWORDS.has(name)) {
-            noteHandler.addNote(CPPError.iden.keyword(src, name));
-        }
-        if (ALT_OPS.has(name)) {
-            noteHandler.addNote(CPPError.iden.alt_op(src, name));
-        }
+export function checkIdentifier(src: CPPConstruct, name: string, noteHandler: NoteHandler) {
+    
+    // Special case for qualified names
+    if (name.includes("::")) {
+        name.split("::").forEach((elem) => checkIdentifier(src, elem, noteHandler));
         return;
     }
 
-    name.forEach((elem) => checkIdentifier(src, elem, noteHandler));
+    // Check that identifier is not a keyword or an alternative representation for an operator
+    if (KEYWORDS.has(name)) {
+        noteHandler.addNote(CPPError.iden.keyword(src, name));
+    }
+    if (ALT_OPS.has(name)) {
+        noteHandler.addNote(CPPError.iden.alt_op(src, name));
+    }
 };
 
 export function createFullyQualifiedName(...names : string[]) {

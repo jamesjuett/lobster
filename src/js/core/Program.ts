@@ -649,7 +649,8 @@ export class TranslationUnit {
      * @param primarySourceFile Contains the source code for this translation unit.
      * @param sourceFiles The set of files to be available for inclusion via #include directives.
      */
-    public constructor(preprocessedSource: PreprocessedSource) {
+    public constructor(program: Program, preprocessedSource: PreprocessedSource) {
+        this.program = program;
         this.source = preprocessedSource;
         this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;

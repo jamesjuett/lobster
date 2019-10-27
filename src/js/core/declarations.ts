@@ -771,7 +771,7 @@ export class Declarator extends BasicCPPConstruct {
 
             if (decl.name) {
                 (<Mutable<this>>this).name = decl.name.identifier;
-                this.name && checkIdentifier(this, this.name, this);
+                checkIdentifier(this, decl.name.identifier, this);
             }
 
             if (decl.postfixes) {
