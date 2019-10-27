@@ -647,9 +647,6 @@ export const CPPError = {
         }
     },
     link : {
-        def_not_found : function(construct: CPPConstruct, func: FunctionEntity) {
-            return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for function " + func + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
-        },
         library_unsupported : function(construct: CPPConstruct, func: FunctionEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.library_unsupported", "I'm sorry, but this function (" + func + ") is a part of the standard library that isn't currently supported.");
         },
@@ -663,8 +660,14 @@ export const CPPError = {
             return new LinkerNote(construct, NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
-            returnTypesMatch : function(construct: CPPConstruct, name: string) {
-                return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This definition of the function " + name + " has a different return type than its declaration.");
+            def_not_found : function(construct: CPPConstruct, func: FunctionEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+            },
+            no_matching_overload : function(construct: CPPConstruct, func: FunctionEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.no_matching_overload", `Although some definitions for a function named ${func.name} exist, I can't find one with the right signature to match this declaration.`);
+            },
+            returnTypesMatch : function(construct: CPPConstruct, func: FunctionEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This declaration of the function " + func.name + " has a different return type than its definition.");
             }
         }
 
