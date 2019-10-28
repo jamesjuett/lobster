@@ -1,14 +1,14 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char } from "./types";
-import { ASTNode, PotentialFullExpression, ConstructContext, FunctionContext, ExecutableRuntimeConstruct, ExecutableConstruct, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator } from "./constructs";
-import { Description, CPPError } from "./errors";
+import { ASTNode, PotentialFullExpression, ConstructContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
+import { CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Mutable, Constructor, assert } from "../util/util";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functions";
 import { standardConversion, convertToPRValue, usualArithmeticConversions } from "./standardConversions";
-import { Name, checkIdentifier } from "./lexical";
+import { checkIdentifier } from "./lexical";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -71,22 +71,26 @@ export interface ExpressionASTNode extends ASTNode {
 
 }
 
+export interface ExpressionContext extends ConstructContext {
+
+}
+
 export abstract class Expression extends PotentialFullExpression {
 
-    public static createFromAST(ast: ExpressionASTNode, context: ConstructContext) : Expression {
+    public static createFromAST(ast: ExpressionASTNode, context: ExpressionContext) : Expression {
         // TODO: implement this. Should not just call super
         return super.createFromAST(ast, context);
     }
 
-    public abstract readonly type: Type?;
-    public abstract readonly valueCategory: ValueCategory?;
+    public abstract readonly type?: Type;
+    public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
 
-    protected constructor(context: ConstructContext) {
+    protected constructor(context: ExpressionContext) {
         super(context);
     }
 
-    public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeExpression<T,V>;
+    public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 
     public isWellTyped() : this is SpecificTypedExpression<Type,ValueCategory> {
         return !!this.type && !!this.valueCategory;
@@ -102,6 +106,10 @@ export abstract class Expression extends PotentialFullExpression {
 
     public isAtomicTyped() : this is SpecificTypedExpression<AtomicType, ValueCategory> {
         return !!this.type && this.type.isAtomicType();
+    }
+
+    public isArithmeticTyped() : this is SpecificTypedExpression<ArithmeticType, ValueCategory> {
+        return !!this.type && this.type.isArithmeticType();
     }
 
     public isIntegralTyped() : this is SpecificTypedExpression<IntegralType, ValueCategory> {
@@ -140,7 +148,7 @@ export abstract class Expression extends PotentialFullExpression {
     //     return !this.hasErrors;
     // }
 
-    public isTailChild(child: ExecutableConstruct) {
+    public isTailChild(child: CPPConstruct) {
         return {isTail: false};
     }
 
@@ -209,7 +217,7 @@ export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCa
      */
     public readonly evalResult!: VCResultTypes<T,V>;
 
-    public constructor(model: C, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: C, parent: RuntimeConstruct) {
         super(model, "expression", parent);
     }
 
@@ -222,10 +230,10 @@ export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCa
 
 export class UnsupportedExpression extends Expression {
 
-    public readonly type = null;
-    public readonly valueCategory = null;
+    public readonly type = undefined;
+    public readonly valueCategory = undefined;
 
-    public constructor(context: ConstructContext, unsupportedName: string) {
+    public constructor(context: ExpressionContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
@@ -318,7 +326,7 @@ export abstract class SimpleRuntimeExpression<T extends Type = Type, V extends V
     //       RuntimeExpression<Type, ValueCategory> and particular instantiations may not
     private subexpressions: RuntimeConstruct[] = [];
 
-    public constructor (model: C, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -364,8 +372,8 @@ type t_OverloadableOperators =
 
 // export class OperatorOverload extends Expression {
 
-//     public readonly type: Type?;
-//     public readonly valueCategory: ValueCategory?;
+//     public readonly type?: Type;
+//     public readonly valueCategory?: ValueCategory;
 
 //     public readonly operator: t_OverloadableOperators;
 //     public readonly operands: Expression[];
@@ -373,7 +381,7 @@ type t_OverloadableOperators =
 //     public readonly isMemberOverload?: boolean;
 //     public readonly overloadFunctionCall?: FunctionCall;
 
-//     private constructor(context: FunctionContext, operands: Expression[], operator: t_OverloadableOperators) {
+//     private constructor(context: ExpressionContext, operands: Expression[], operator: t_OverloadableOperators) {
 //         super(context);
 
 //         this.operator = operator;
@@ -452,7 +460,7 @@ type t_OverloadableOperators =
 //         return operands.every((expr) => { return expr.isWellTyped(); });
 //     }
 
-//     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeOperatorOverload<CompiledOperatorOverload<T,V>> {
+//     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeOperatorOverload<CompiledOperatorOverload<T,V>> {
 //         return new RuntimeOperatorOverload(this, parent);
 //     }
     
@@ -495,7 +503,7 @@ type t_OverloadableOperators =
     
 //     public readonly isMemberOverload: boolean;
 //     public readonly overloadFunctionCall: CompiledFunctionCall<T,V>; 
-}
+// }
 
 
 export class Comma extends Expression {
@@ -503,13 +511,13 @@ export class Comma extends Expression {
     // TODO: what is this for?
     public static readonly constructKind = Symbol("Comma");
 
-    public readonly type: Type?;
-    public readonly valueCategory: ValueCategory?;
+    public readonly type?: Type;
+    public readonly valueCategory?: ValueCategory;
 
     public readonly left: Expression;
     public readonly right: Expression;
 
-    public constructor(context: FunctionContext, left: Expression, right: Expression) {
+    public constructor(context: ExpressionContext, left: Expression, right: Expression) {
         super(context);
         this.type = right.type;
         this.valueCategory = right.valueCategory;
@@ -521,11 +529,11 @@ export class Comma extends Expression {
     //     return !this.hasErrors;
     // }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledComma<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeComma<T,V> {
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledComma<T,V>, parent: RuntimeConstruct) : RuntimeComma<T,V> {
         return new RuntimeComma(<CompiledComma<T,V>>this, parent);
     }
 
-    // public isTailChild(child: ExecutableConstruct) {
+    // public isTailChild(child: CPPConstruct) {
     //     if (child === this.right){
     //         return {isTail: true,
     //             reason: "The recursive call is on the right side of the comma, so it is guaranteed to be evaluated last."
@@ -558,7 +566,7 @@ export class RuntimeComma<T extends Type, V extends ValueCategory> extends Simpl
     public left: RuntimeExpression;
     public right: RuntimeExpression<T,V>;
 
-    public constructor (model: CompiledComma<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledComma<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.right = this.model.right.createRuntimeExpression(this);
         this.left = this.model.left.createRuntimeExpression(this);
@@ -574,8 +582,8 @@ export class RuntimeComma<T extends Type, V extends ValueCategory> extends Simpl
 
 export class Ternary extends Expression {
     
-    public readonly type: Type?;
-    public readonly valueCategory: ValueCategory?;
+    public readonly type?: Type;
+    public readonly valueCategory?: ValueCategory;
 
     public readonly condition: Expression;
     public readonly then: Expression;
@@ -583,7 +591,7 @@ export class Ternary extends Expression {
     
     public readonly _t_compiled!: CompiledTernary;
 
-    public constructor(context: FunctionContext, condition: Expression, then: Expression, otherwise: Expression) {
+    public constructor(context: ExpressionContext, condition: Expression, then: Expression, otherwise: Expression) {
         super(context);
         
         if(condition.isWellTyped()) {
@@ -621,7 +629,7 @@ export class Ternary extends Expression {
     
 
         if (!sameType(then.type, otherwise.type)) {
-            this.addNote(CPPError.lobster.ternarySameType(this, then, otherwise));
+            this.addNote(CPPError.lobster.ternarySameType(this, then.type, otherwise.type));
         }
         if (isType(then.type, VoidType) || isType(otherwise.type, VoidType)) {
             this.addNote(CPPError.lobster.ternaryNoVoid(this));
@@ -634,9 +642,9 @@ export class Ternary extends Expression {
         return {then, otherwise};
     }
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<T,V>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeTernary<T,V> {
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: RuntimeConstruct) : RuntimeTernary<T,V>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: RuntimeConstruct) : RuntimeTernary<T,V> {
         return new RuntimeTernary(this, parent);
     }
 
@@ -647,7 +655,7 @@ export class Ternary extends Expression {
 
     
 
-    // public isTailChild(child: ExecutableConstruct) {
+    // public isTailChild(child: CPPConstruct) {
     //     if (child === this.condition){
     //         return {isTail: false,
     //             reason: "One of the two subexpressions in the ternary operator will be evaluated after the function call.",
@@ -677,7 +685,7 @@ export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = Val
 
     private index = "condition";
 
-    public constructor (model: CompiledTernary<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledTernary<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.condition = this.model.condition.createRuntimeExpression(this);
         this.then = this.model.then.createRuntimeExpression(this);
@@ -715,7 +723,7 @@ export class Assignment extends Expression {
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
 
-    public readonly type: Type?;
+    public readonly type?: Type;
     public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
@@ -723,12 +731,11 @@ export class Assignment extends Expression {
     
     // public readonly _t_compiled!: CompiledAssignment;
 
-    private constructor(context: FunctionContext, lhs: Expression, rhs: Expression) {
+    private constructor(context: ExpressionContext, lhs: Expression, rhs: Expression) {
         super(context);
 
         // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
         if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
-            this.type = null;
             this.attach(this.lhs = lhs);
             this.attach(this.rhs = rhs);
             return;
@@ -750,11 +757,6 @@ export class Assignment extends Expression {
             this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
         }
 
-        // warning for self assignment
-        if (lhs instanceof Identifier && rhs instanceof Identifier && lhs.entity === rhs.entity) {
-            this.addNote(CPPError.expr.assignment.self(this, lhs.entity));
-        }
-
         // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
 
         this.type = lhs.type;
@@ -762,9 +764,9 @@ export class Assignment extends Expression {
         this.attach(this.rhs = rhs);
     }
 
-    public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: ExecutableRuntimeConstruct) : RuntimeAssignment<T>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: ExecutableRuntimeConstruct) : RuntimeAssignment<T> {
+    public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: RuntimeConstruct) : RuntimeAssignment<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: RuntimeConstruct) : RuntimeAssignment<T> {
         return new RuntimeAssignment(this, parent);
     }
     
@@ -848,7 +850,7 @@ export class Assignment extends Expression {
     //     }
     // },
 
-    public isTailChild(child: ExecutableConstruct) {
+    public isTailChild(child: CPPConstruct) {
         return {isTail: false,
             reason: "The assignment itself will happen after the recursive call returns.",
             others: [this]
@@ -875,7 +877,7 @@ export class RuntimeAssignment<T extends AtomicType = AtomicType> extends Simple
     public readonly lhs: RuntimeExpression<T, "lvalue">;
     public readonly rhs: RuntimeExpression<T, "prvalue">;
 
-    public constructor (model: CompiledAssignment<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledAssignment<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.lhs = this.model.lhs.createRuntimeExpression(this);
         this.rhs = this.model.rhs.createRuntimeExpression(this);
@@ -1058,17 +1060,49 @@ export function bitShiftRight(left: number, right: number){
 }
 
 
-type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>" | "<" | ">" | "<=" | ">=" | "==" | "!=";
-type t_LogicalBinaryOperators = "&&" | "||";
-type t_BinaryOperators = t_ArithmeticBinaryOperators | t_LogicalBinaryOperators;
+type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
-const ArithmeticBinaryOperatorsYieldBool = new Set(["<", ">", "<=", ">=", "==", "!="]);
+export abstract class BinaryOperator extends Expression {
+    
+    public abstract readonly type?: AtomicType;
+    public readonly valueCategory = "prvalue";
 
-function binaryOperate<T extends AtomicType>(op: t_BinaryOperators, left: Value<T>, right: Value<T>) {
-    return SIMPLE_BINARY_OPERATIONS[op](left, right);
+    public abstract readonly left: Expression;
+    public abstract readonly right: Expression;
+
+    public readonly operator: t_BinaryOperators;
+    
+    public readonly _t_compiled!: CompiledBinaryOperator;
+
+    protected constructor(context: ExpressionContext, operator: t_BinaryOperators) {
+        super(context)
+        this.operator = operator;
+    }
+
+    public abstract createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeBinaryOperator<T>;
+    public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
 }
 
-const SIMPLE_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<T>}
+export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly type: T;
+    readonly left: CompiledExpression<AtomicType, "prvalue">
+    readonly right: CompiledExpression<AtomicType, "prvalue">
+}
+
+// TODO: I think this class shouldn't exist. It should probably just be RuntimeArithmeticBinaryOperator.
+// It gives the impression
+// that this would be a base for all Runtime classes for binary operators, but it isn't for
+// RuntimeLogicalBinaryOperator since that one runs differently to handle short-circuit behavior
+// correctly.
+export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C extends CompiledBinaryOperator<T> = CompiledBinaryOperator<T>> extends SimpleRuntimeExpression<T, "prvalue", C> {
+
+}
+
+type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>" | "<" | ">" | "<=" | ">=" | "==" | "!=";
+
+// Note: AtomicType here is much wider than needed. T should theoretically only ever be Int, Double, or Float
+const ARITHMETIC_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<T>}
     = {
     "+" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, add);
@@ -1080,7 +1114,7 @@ const SIMPLE_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: V
         return left.combine(right, mult);
     },
     "/" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        if (left.type.isIntegralType) {
+        if (left.type.isIntegralType()) {
             return left.combine(right, intDiv);
         }
         else {
@@ -1104,64 +1138,7 @@ const SIMPLE_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: V
     },
     ">>" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
         return left.combine(right, bitShiftRight);
-    },
-
-
-    "<" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, lt);
-    },
-    ">" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, gt);
-    },
-    "<=" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, lte);
-    },
-    ">=" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, gte);
-    },
-    "==" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, eq);
-    },
-    "!=" : function(left: Value<AtomicType>, right: Value<AtomicType>) {
-        return left.compare(right, ne);
-    },
-}
-
-export abstract class BinaryOperator extends Expression {
-    
-    public abstract readonly type: AtomicType?;
-    public readonly valueCategory = "prvalue";
-
-    public abstract readonly left: Expression;
-    public abstract readonly right: Expression;
-
-    public readonly operator: t_BinaryOperators;
-    
-    public readonly _t_compiled!: CompiledBinaryOperator;
-
-    protected constructor(context: FunctionContext, operator: t_BinaryOperators) {
-        super(context)
-        this.operator = operator;
     }
-
-    public abstract createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeBinaryOperator<T>;
-    public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-}
-
-export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly type: T;
-    readonly left: CompiledExpression<AtomicType, "prvalue">
-    readonly right: CompiledExpression<AtomicType, "prvalue">
-}
-
-// TODO: I think this class shouldn't exist. It should probably just be RuntimeArithmeticBinaryOperator.
-// It gives the impression
-// that this would be a base for all Runtime classes for binary operators, but it isn't for
-// RuntimeLogicalBinaryOperator since that one runs differently to handle short-circuit behavior
-// correctly.
-export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C extends CompiledBinaryOperator<T> = CompiledBinaryOperator<T>> extends SimpleRuntimeExpression<T, "prvalue", C> {
-
 }
 
 // TODO: make types more specific. ArithmeticBinaryOperator should only be used in cases where it has
@@ -1175,27 +1152,25 @@ export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C
 // pointer difference cases should also be checked for first. So these are the fallback options.)
 class ArithmeticBinaryOperator extends BinaryOperator {
     
-    public readonly type: AtomicType?;
+    public readonly type?: ArithmeticType;
 
     public readonly left: Expression;
     public readonly right: Expression;
 
     public readonly operator!: t_ArithmeticBinaryOperators; // Narrows type from base
 
-    protected constructor(context: FunctionContext, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
+    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
         super(context, operator);
 
         if (!left.isWellTyped() || !right.isWellTyped()) {
-            this.type = null;
             this.attach(this.left = left);
             this.attach(this.right = right);
             return;
         }
         
         // Arithmetic types are required
-        if (!left.type.isArithmeticType || !right.type.isArithmeticType) {
+        if (!left.isArithmeticTyped() || !right.isArithmeticTyped()) {
             this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
-            this.type = null;
             this.attach(this.left = left);
             this.attach(this.right = right);
             return;
@@ -1203,34 +1178,28 @@ class ArithmeticBinaryOperator extends BinaryOperator {
 
         // % operator and shift operators require integral operands
         if ((operator === "%" || operator === "<<" || operator == ">>") &&
-            (!left.type.isIntegralType || !right.type.isIntegralType)) {
+            (!left.isIntegralTyped() || !right.isIntegralTyped())) {
             this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
-            this.type = null;
             this.attach(this.left = left);
             this.attach(this.right = right);
             return;
         }
 
-        ({left, right} = usualArithmeticConversions(left, right));
+        let [convertedLeft, convertedRight] = usualArithmeticConversions(left, right);
 
         
-        if (!sameType(left.type!, right.type!)) {
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
+        if (!sameType(convertedLeft.type!, convertedRight.type!)) {
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, convertedLeft, convertedRight));
         }
 
-        if (ArithmeticBinaryOperatorsYieldBool.has(this.operator)) {
-            this.type = new Bool();
-        }
-        else {
-            this.type = <AtomicType>left.type; //NOTE: this cast is valid since arithmeticType implies AtomicType. TODO: work this into the type hierarchy?
-        }
-        this.attach(this.left = left);
-        this.attach(this.right = right);
+        this.type = convertedLeft.type;
+        this.attach(this.left = convertedLeft);
+        this.attach(this.right = convertedRight);
     }
 
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeArithmeticBinaryOperator<T>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) : RuntimeArithmeticBinaryOperator<T> {
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeArithmeticBinaryOperator<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeArithmeticBinaryOperator<T> {
         return new RuntimeArithmeticBinaryOperator(this, parent);
     }
 
@@ -1239,15 +1208,13 @@ class ArithmeticBinaryOperator extends BinaryOperator {
     }
 }
 
-// TODO: Add CompiledArithmeticBinaryOperator?
-
 export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperator, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    public readonly type: T;
+    readonly type: T;
 
-    public readonly left: CompiledExpression<T,"prvalue">;
-    public readonly right: CompiledExpression<T,"prvalue">;
+    readonly left: CompiledExpression<T,"prvalue">;
+    readonly right: CompiledExpression<T,"prvalue">;
 }
 
 // TODO: rename this or maybe create two separate classes for Arithmetic and Logical
@@ -1256,7 +1223,7 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends R
     public readonly left: RuntimeExpression<T, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue">;
 
-    public constructor (model: CompiledArithmeticBinaryOperator<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledArithmeticBinaryOperator<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -1264,14 +1231,113 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends R
     }
 
     public operate() {
-        // TODO: fix binaryOperate so that it returns an ArithmeticType
-        this.setEvalResult(binaryOperate(this.model.operator, this.left.evalResult, this.right.evalResult));
+        // Not sure why the cast here is necessary but apparently Typescript needs it
+        this.setEvalResult(<VCResultTypes<T,"prvalue">>ARITHMETIC_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult));
     }
 }
 
+type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
+
+const RELATIONAL_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<Bool>}
+    = {
+    "<" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, lt);
+    },
+    ">" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, gt);
+    },
+    "<=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, lte);
+    },
+    ">=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, gte);
+    },
+    "==" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, eq);
+    },
+    "!=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, ne);
+    },
+}
+
+class RelationalBinaryOperator extends BinaryOperator {
+    
+    public readonly type = Bool.BOOL;
+
+    public readonly left: Expression;
+    public readonly right: Expression;
+
+    public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
+
+    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_RelationalBinaryOperators) {
+        super(context, operator);
+
+        if (!left.isWellTyped() || !right.isWellTyped()) {
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+        
+        // Arithmetic types are required (note: pointer comparisons have their own PointerRelationalOperation class)
+        if (!left.isArithmeticTyped() || !right.isArithmeticTyped()) {
+            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+
+        let [convertedLeft, convertedRight] = usualArithmeticConversions(left, right);
+        
+        if (!sameType(convertedLeft.type!, convertedRight.type!)) {
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, convertedLeft, convertedRight));
+        }
+
+        this.attach(this.left = convertedLeft);
+        this.attach(this.right = convertedRight);
+    }
+
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T> {
+        return new RuntimeRelationalBinaryOperator(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> extends RelationalBinaryOperator, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly left: CompiledExpression<T,"prvalue">;
+    readonly right: CompiledExpression<T,"prvalue">;
+}
+
+export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<Bool, CompiledRelationalBinaryOperator<T>> {
+    
+    public readonly left: RuntimeExpression<T, "prvalue">;
+    public readonly right: RuntimeExpression<T, "prvalue">;
+
+    public constructor (model: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+        // Not sure why the cast here is necessary but apparently Typescript needs it
+        this.setEvalResult(RELATIONAL_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult));
+    }
+}
+
+
+
 class PointerOffset extends BinaryOperator {
     
-    public readonly type: PointerType?;
+    public readonly type?: PointerType;
 
     public readonly left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
     public readonly right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
@@ -1283,7 +1349,9 @@ class PointerOffset extends BinaryOperator {
 
     public readonly operator! : "+"; // Narrows type from base
 
-    protected constructor(context: FunctionContext, left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">, right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">;) {
+    protected constructor(context: ExpressionContext,
+            left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">,
+            right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">) {
         super(context, "+");
 
         // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
@@ -1292,36 +1360,34 @@ class PointerOffset extends BinaryOperator {
         //     right = convertToPRValue(right);
         // }
 
+
         this.attach(this.left = left);
         this.attach(this.right = right);
 
-        if (left.isWellTyped() && right.isWellTyped()) {
+        if (!left.isWellTyped() || !right.isWellTyped()) {
+            return;
+        }
             
-            if (left.type.isType(PointerType) && right.type.isIntegralType) {
-                this.pointerOnLeft = true;
-                this.pointer = <TypedExpression<PointerType, "prvalue">> left;
-                this.offset = <TypedExpression<IntegralType, "prvalue">> right;
-                this.type = this.pointer.type;
-            }
-            else if (left.type.isIntegralType && right.type.isType(PointerType)) {
-                this.pointerOnLeft = false;
-                this.pointer = <TypedExpression<PointerType, "prvalue">> right;
-                this.offset = <TypedExpression<IntegralType, "prvalue">> left;
-                this.type = this.pointer.type;
-            }
-            else {
-                this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
-                this.type = null;
-            }
+        if (left.isPointerTyped() && right.isIntegralTyped()) {
+            this.pointerOnLeft = true;
+            this.pointer = <TypedExpression<PointerType, "prvalue">> left;
+            this.offset = <TypedExpression<IntegralType, "prvalue">> right;
+            this.type = this.pointer.type;
+        }
+        else if (left.isIntegralTyped() && right.isPointerTyped()) {
+            this.pointerOnLeft = false;
+            this.pointer = <TypedExpression<PointerType, "prvalue">> right;
+            this.offset = <TypedExpression<IntegralType, "prvalue">> left;
+            this.type = this.pointer.type;
         }
         else {
-            this.type = null;
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
         }
     }
 
-    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T>;
-    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) : RuntimePointerOffset<T> {
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimePointerOffset<T>;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimePointerOffset<T> {
         return new RuntimePointerOffset(this, parent);
     }
 
@@ -1354,7 +1420,7 @@ export class RuntimePointerOffset<T extends PointerType = PointerType> extends R
     public readonly pointer: RuntimeExpression<T, "prvalue">;
     public readonly offset: RuntimeExpression<IntegralType, "prvalue">;
 
-    public constructor (model: CompiledPointerOffset<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledPointerOffset<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.pointer = this.model.pointer.createRuntimeExpression(this);
         this.offset = this.model.offset.createRuntimeExpression(this);
@@ -1404,7 +1470,7 @@ class PointerDifference extends BinaryOperator {
 
     public readonly operator! : "-"; // Narrows type from base
 
-    protected constructor(context: FunctionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
+    protected constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
         super(context, "-");
 
         // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
@@ -1435,9 +1501,9 @@ class PointerDifference extends BinaryOperator {
         // }
     }
 
-    public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference;
-    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression(this: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) : RuntimePointerDifference {
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference {
         return new RuntimePointerDifference(this, parent);
     }
 
@@ -1449,8 +1515,8 @@ class PointerDifference extends BinaryOperator {
 export interface CompiledPointerDifference extends PointerDifference, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    public readonly left: CompiledExpression<PointerType, "prvalue">;
-    public readonly right: CompiledExpression<PointerType, "prvalue">;
+    readonly left: CompiledExpression<PointerType, "prvalue">;
+    readonly right: CompiledExpression<PointerType, "prvalue">;
 }
 
 export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
@@ -1458,7 +1524,7 @@ export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, Compile
     public left: RuntimeExpression<PointerType, "prvalue">;
     public right: RuntimeExpression<PointerType, "prvalue">;
 
-    public constructor (model: CompiledPointerDifference, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledPointerDifference, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -1531,6 +1597,8 @@ export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, Compile
 //     }
 // });
 
+type t_LogicalBinaryOperators = "&&" | "||";
+
 class LogicalBinaryOperator extends BinaryOperator {
     
     public readonly type = new Bool();
@@ -1540,7 +1608,7 @@ class LogicalBinaryOperator extends BinaryOperator {
 
     public readonly operator!: t_LogicalBinaryOperators; // Narrows type from base
 
-    protected constructor(context: FunctionContext, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
+    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
         super(context, operator);
 
         if (left.isWellTyped() && right.isWellTyped()) {
@@ -1561,9 +1629,9 @@ class LogicalBinaryOperator extends BinaryOperator {
         return subexpr;
     }
     
-    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: ExecutableRuntimeConstruct) : RuntimeLogicalBinaryOperator;
-    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: ExecutableRuntimeConstruct) : RuntimeLogicalBinaryOperator {
+    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: RuntimeConstruct) : RuntimeLogicalBinaryOperator;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: RuntimeConstruct) : RuntimeLogicalBinaryOperator {
         return new RuntimeLogicalBinaryOperator(this, parent);
     }
 
@@ -1571,7 +1639,7 @@ class LogicalBinaryOperator extends BinaryOperator {
         throw new Error("Method not implemented.");
     }
     
-    // public isTailChild(child: ExecutableConstruct) {
+    // public isTailChild(child: CPPConstruct) {
     //     if (child === this.left){
     //         return {isTail: false,
     //             reason: "The right operand of the " + this.operator + " operator may need to be checked if it does not short circuit.",
@@ -1603,7 +1671,7 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 
     private hasShortCircuited?: boolean;
 
-    public constructor (model: CompiledLogicalBinaryOperator, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledLogicalBinaryOperator, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -1865,7 +1933,7 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 
 //     convert : function(){
 //         this.operand = this.operand = convertToPRValue(this.operand);
-//         if (this.operand.type.isIntegralType){
+//         if (this.operand.isIntegralTyped()){
 //             this.operand = this.operand = integralPromotion(this.operand);
 //         }
 //     },
@@ -1893,7 +1961,7 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 
 //     convert : function(){
 //         this.operand = this.operand = convertToPRValue(this.operand);
-//         if (this.operand.type.isIntegralType){
+//         if (this.operand.isIntegralTyped()){
 //             this.operand = this.operand = integralPromotion(this.operand);
 //         }
 //     },
@@ -2405,16 +2473,16 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 // with addition context including the compiled types of the arguments.
 export class FunctionCallExpression extends Expression {
     
-    public readonly type: PotentialReturnType?;
-    public readonly valueCategory: ValueCategory?;
+    public readonly type?: PotentialReturnType;
+    public readonly valueCategory?: ValueCategory;
 
     public readonly operand: Identifier | Dot | Arrow;
     public readonly args: readonly Expression[];
-    public readonly call: FunctionCall?;
+    public readonly call?: FunctionCall;
     
     public readonly _t_compiled!: CompiledFunctionCallExpression;
 
-    public constructor(context: FunctionContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
+    public constructor(context: ExpressionContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2423,7 +2491,7 @@ export class FunctionCallExpression extends Expression {
 
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
-            this.type = this.valueCategory = this.call = null;
+            // type, valueCategory, and call remain undefined
             return;
         }
 
@@ -2433,12 +2501,12 @@ export class FunctionCallExpression extends Expression {
         // }
 
         if (!operand.entity) { // TODO: check if identifier/dot/arrow has an entity i.e. has it found a function
-            this.type = this.valueCategory = this.call = null;
+            // type, valueCategory, and call remain undefined
             return;
         }
 
         if (!(operand.entity instanceof FunctionEntity)) {
-            this.type = this.valueCategory = this.call = null;
+            // type, valueCategory, and call remain undefined
             this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
             return;
         }
@@ -2452,7 +2520,7 @@ export class FunctionCallExpression extends Expression {
         this.call = new FunctionCall(context, this.operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }
 
-    public createRuntimeExpression_impl<T extends PotentialReturnType, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionCallExpression<T,V>{
+    public createRuntimeExpression_impl<T extends PotentialReturnType, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<T,V>{
         return new RuntimeFunctionCallExpression(this, parent);
     }
 
@@ -2474,12 +2542,12 @@ export interface CompiledFunctionCallExpression<T extends PotentialReturnType = 
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    public readonly type: T;
-    public readonly valueCategory: V;
+    readonly type: T;
+    readonly valueCategory: V;
     
-    public readonly operand: CompiledIdentifier | CompiledDot | CompiledArrow;
-    public readonly args: readonly CompiledExpression[];
-    public readonly call: CompiledFunctionCall;
+    readonly operand: CompiledIdentifier | CompiledDot | CompiledArrow;
+    readonly args: readonly CompiledExpression[];
+    readonly call: CompiledFunctionCall;
 }
 
 const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
@@ -2493,7 +2561,7 @@ export class RuntimeFunctionCallExpression<T extends PotentialReturnType = Poten
 
     private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
-    public constructor (model: CompiledFunctionCallExpression<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledFunctionCallExpression<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.operand = this.model.operand.createRuntimeExpression(this);
         this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
@@ -3000,7 +3068,7 @@ function qualifiedNameString(names) {
 // TODO: make separate classes for qualified and unqualified IDs?
 export class Identifier extends Expression {
 
-    public readonly type: Type?;
+    public readonly type?: Type;
     public readonly valueCategory = "lvalue";
     
     public readonly entity: ObjectEntity | FunctionEntity | null; // TODO: should this be NamedEntity? Does it make a difference?
@@ -3015,7 +3083,7 @@ export class Identifier extends Expression {
     //     this.identifierText = qualifiedNameString(this.identifier);
     // },
 
-    public constructor(context: FunctionContext, name: Name) {
+    public constructor(context: ExpressionContext, name: Name) {
         super(context);
         this.name = name;
         checkIdentifier(this, name, this);
@@ -3056,15 +3124,15 @@ export class Identifier extends Expression {
 
 	}
 
-    // protected createRuntimeExpression_impl(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpression> {
+    // protected createRuntimeExpression_impl(parent: RuntimeConstruct<CPPConstruct>): RuntimeExpression> {
     //     throw new Error("Method not implemented.");
     // }
     
 
-    public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeObjectIdentifier<T>;
-    public createRuntimeExpression<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) : RuntimeFunctionIdentifier<T>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends FunctionType>(parent: ExecutableRuntimeConstruct) {
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) : RuntimeObjectIdentifier<T>;
+    public createRuntimeExpression<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: RuntimeConstruct) : RuntimeFunctionIdentifier<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends FunctionType>(parent: RuntimeConstruct) {
         if (this.entity instanceof FunctionEntity) {
             return new RuntimeFunctionIdentifier(<any>this, parent);
         }
@@ -3095,23 +3163,23 @@ export class Identifier extends Expression {
 export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    public readonly type: T;
-    public readonly valueCategory: "lvalue";
-    public readonly entity: ObjectEntity;
+    readonly type: T;
+    readonly valueCategory: "lvalue";
+    readonly entity: ObjectEntity;
 }
 
 export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    public readonly type: T;
-    public readonly valueCategory: "lvalue";
-    public readonly entity: FunctionEntity;
+    readonly type: T;
+    readonly valueCategory: "lvalue";
+    readonly entity: FunctionEntity;
 }
 
 
 export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpression<T, "lvalue", CompiledObjectIdentifier<T>> {
 
-    public constructor (model: CompiledObjectIdentifier<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -3127,7 +3195,7 @@ export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpres
 
 export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeExpression<T, "lvalue", CompiledFunctionIdentifier<T>> {
 
-    public constructor (model: CompiledFunctionIdentifier<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledFunctionIdentifier<T>, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -3237,7 +3305,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
 
-    constructor(context: FunctionContext, type: T, value: RawValueType) {
+    constructor(context: ExpressionContext, type: T, value: RawValueType) {
         super(context);
 
         this.type = type;
@@ -3245,9 +3313,9 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
         this.value = new Value(value, this.type);  //TODO fix this (maybe with a factory function for values?)
 	}
 
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) : RuntimeNumericLiteral<T>;
-    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) : RuntimeNumericLiteral<T> {
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T>;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T> {
         return new RuntimeNumericLiteral(this, parent);
     }
 
@@ -3273,7 +3341,7 @@ export interface CompiledNumericLiteral<T extends ArithmeticType = ArithmeticTyp
 
 export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> extends RuntimeExpression<T, "prvalue", CompiledNumericLiteral<T>> {
 
-    public constructor (model: CompiledNumericLiteral<T>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledNumericLiteral<T>, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -3290,7 +3358,7 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 // export class StringLiteral extends Expression {
 //     public valueCategory: string;
 //     public type: Type;
-//     public createRuntimeExpression(parent: RuntimeConstruct<ExecutableConstruct>): RuntimeExpressionBase<Expression> {
+//     public createRuntimeExpression(parent: RuntimeConstruct<CPPConstruct>): RuntimeExpressionBase<Expression> {
 //         throw new Error("Method not implemented.");
 //     }
 //     public describeEvalResult(depth: number): Description {
@@ -3330,14 +3398,14 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 
 export class Parentheses extends Expression {
 
-    public readonly type: Type?;
-    public readonly valueCategory: ValueCategory?;
+    public readonly type?: Type;
+    public readonly valueCategory?: ValueCategory;
 
     public readonly subexpression: Expression;
 
     public readonly _t_compiled!: CompiledParentheses;
 
-    public constructor(context: FunctionContext, subexpression: Expression) {
+    public constructor(context: ExpressionContext, subexpression: Expression) {
         super(context);
 
         this.attach(this.subexpression = subexpression);
@@ -3347,9 +3415,9 @@ export class Parentheses extends Expression {
     }
 
 
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<T,V>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) : RuntimeParentheses<T,V> {
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: RuntimeConstruct) : RuntimeParentheses<T,V>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: RuntimeConstruct) : RuntimeParentheses<T,V> {
         return new RuntimeParentheses(this, parent);
     }
 
@@ -3367,7 +3435,7 @@ export class Parentheses extends Expression {
 export interface CompiledParentheses<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Parentheses, SuccessfullyCompiled {
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    
+
     public readonly type: T;
     public readonly valueCategory: V;
 
@@ -3382,7 +3450,7 @@ export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory =
 
     private index : typeof INDEX_PARENTHESES_SUBEXPRESSIONS | typeof INDEX_PARENTHESES_DONE = INDEX_PARENTHESES_SUBEXPRESSIONS;
 
-    public constructor (model: CompiledParentheses<T,V>, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledParentheses<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.subexpression = this.model.subexpression.createRuntimeExpression(this);
     }

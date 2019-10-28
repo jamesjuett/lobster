@@ -1,5 +1,5 @@
 import {Expression, readValueWithAlert, TypedExpression, ValueCategory, CompiledExpression, SimpleRuntimeExpression, RuntimeExpression, VCResultTypes, NumericLiteral, SpecificTypedExpression} from "./expressions";
-import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType, Char} from "./types";
+import {Type, Double, Float, sameType, BoundedArrayType, FunctionType, ClassType, ObjectType, isType, PointerType, Int, subType, Bool, AtomicType, ArrayElemType, ArrayPointer, FloatingPointType, IntegralType, ArrayOfUnknownBoundType, isCvConvertible, similarType, Char, ArithmeticType} from "./types";
 import { assertFalse, assert, Constructor } from "../util/util";
 import { FunctionContext, ExecutableRuntimeConstruct, RuntimeConstruct, SuccessfullyCompiled, ConstructContext } from "./constructs";
 import { Value } from "./runtimeEnvironment";
@@ -251,6 +251,7 @@ export class QualificationConversion<T extends AtomicType> extends ImplicitConve
     }
 }
 
+export function convertToPRValue<T extends AtomicType>(from: SpecificTypedExpression<T>) : TypedExpression<T, "prvalue">;
 export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue">;
 export function convertToPRValue(from: TypedExpression) : TypedExpression;
 export function convertToPRValue(from: TypedExpression) {
@@ -280,6 +281,14 @@ export function convertToPRValue(from: TypedExpression) {
     return new LValueToRValue(from);
 };
 
+export function typeConversion(from: TypedExpression<PointerType, "prvalue">, toType: Bool) : TypedExpression<Bool, "prvalue">;
+export function typeConversion(from: TypedExpression<Double, "prvalue">, toType: Float) : TypedExpression<Float, "prvalue">;
+export function typeConversion(from: TypedExpression<IntegralType, "prvalue">, toType: IntegralType) : TypedExpression<IntegralType, "prvalue">;
+export function typeConversion(from: TypedExpression<FloatingPointType, "prvalue">, toType: IntegralType) : TypedExpression<IntegralType, "prvalue">;
+export function typeConversion(from: TypedExpression<IntegralType, "prvalue">, toType: FloatingPointType) : TypedExpression<FloatingPointType, "prvalue">;
+export function typeConversion(from: TypedExpression<FloatingPointType, "prvalue">, toType: FloatingPointType) : TypedExpression<FloatingPointType, "prvalue">;
+export function typeConversion<SimilarType extends AtomicType>(from: TypedExpression<SimilarType, "prvalue">, toType: SimilarType) : TypedExpression<SimilarType, "prvalue">;
+export function typeConversion<FromType extends AtomicType, ToType extends AtomicType>(from: TypedExpression<FromType, "prvalue">, toType: ToType) : TypedExpression<FromType, "prvalue"> | TypedExpression<ToType, "prvalue">;
 export function typeConversion(from: TypedExpression<AtomicType, "prvalue">, toType: AtomicType) {
 
     if (similarType(from.type, toType)) {
@@ -376,7 +385,7 @@ export function standardConversion(from: TypedExpression, toType: Type, options:
     return from;
 };
 
-export function integralPromotion(expr: TypedExpression<AtomicType, "prvalue">) {
+export function integralPromotion(expr: TypedExpression<IntegralType, "prvalue">) {
     if (expr.isIntegralTyped() && !expr.isTyped(Int)) {
         return new IntegralPromotion(expr, Int.INT);
     }
@@ -385,11 +394,7 @@ export function integralPromotion(expr: TypedExpression<AtomicType, "prvalue">) 
     }
 };
 
-export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<AtomicType>, rightOrig: SpecificTypedExpression<AtomicType>) {
-    // Only do conversions if both are arithmetic
-    if (!leftOrig.type.isArithmeticType || !rightOrig.type.isArithmeticType){
-        return {left: leftOrig, right: rightOrig};
-    }
+export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<ArithmeticType>, rightOrig: SpecificTypedExpression<ArithmeticType>) {
     
     let left = convertToPRValue(leftOrig);
     let right = convertToPRValue(rightOrig);
@@ -401,35 +406,39 @@ export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<Ato
     // If either is double, the other shall be converted to double
     if (left.isTyped(Double)) {
         right = typeConversion(right, Double.DOUBLE);
-        return {left: left, right: right};
+        return [left, right];
     }
     if (right.isTyped(Double)) {
         left = typeConversion(left, Double.DOUBLE);
-        return {left: left, right: right};
+        return [left, right];
     }
     // If either is float, the other shall be converted to float
 
     if (left.isTyped(Float)) {
         right = typeConversion(right, Float.FLOAT);
-        return {left: left, right: right};
+        return [left, right];
     }
     if (right.isTyped(Float)) {
         left = typeConversion(left, Float.FLOAT);
-        return {left: left, right: right};
+        return [left, right];
     }
 
     // Otherwise, do integral promotions
-    left = integralPromotion(left);
-    right = integralPromotion(right);
+    if (left.isIntegralTyped()) {
+        left = integralPromotion(left);
+    }
+    if (right.isIntegralTyped()) {
+        right = integralPromotion(right);
+    }
 
     // If both operands have the same type, no further conversion is needed
     if (sameType(left.type, right.type)){
-        return {left: left, right: right};
+        return [left, right];
     }
 
     // TODO: Otherwise, if both operands have signed or both have unsigned types,
     // operand with type of lesser integer conversion rank shall be converted
     // to the type of the operand with greater rank
-    return {left: left, right: right};
+    return [left, right];
 }
 
