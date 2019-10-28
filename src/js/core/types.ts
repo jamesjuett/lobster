@@ -142,7 +142,6 @@ abstract class TypeBase {
      */
     public abstract readonly precedence: number;
 
-    public abstract readonly isArithmeticType: boolean;
     public abstract readonly isComplete: boolean;
 
     // regular member properties
@@ -176,6 +175,10 @@ abstract class TypeBase {
     
     public isAtomicType() : this is AtomicType {
         return this instanceof AtomicType;
+    }
+
+    public isArithmeticType() : this is ArithmeticType {
+        return this instanceof ArithmeticType;
     }
     
     public isIntegralType() : this is IntegralType {
@@ -233,12 +236,12 @@ abstract class TypeBase {
     /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
      */
-    public abstract sameType(other: Type) : boolean;
+    public abstract sameType<T extends Type>(other: T) : this is T;
 
     /**
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
      */
-    public abstract similarType(other: Type) : boolean;
+    public abstract similarType<T extends Type>(other: T) : this is T;
 
 
     /**
@@ -378,7 +381,6 @@ export class VoidType extends TypeBase {
     
     public static readonly VOID = new VoidType();
 
-    public readonly isArithmeticType = false;
     public readonly isComplete = true;
 
     public readonly precedence = 0;
@@ -537,6 +539,9 @@ export abstract class SimpleType extends AtomicType {
 }
 
 
+export abstract class ArithmeticType extends SimpleType {
+
+}
 
 // TODO: This was an idea for a hack to store C++ object data into a javascript object. I don't think it's going to be used anywhere.
 // var _Universal_data = SimpleType.extend({
@@ -546,8 +551,7 @@ export abstract class SimpleType extends AtomicType {
 // });
 // builtInTypes["_universal_data"] = _Universal_data;
 
-export abstract class IntegralType extends SimpleType {
-    public readonly isArithmeticType = true;
+export abstract class IntegralType extends ArithmeticType {
     
 }
 
@@ -625,9 +629,7 @@ builtInTypes["bool"] = Bool;
 
 
 
-export abstract class FloatingPointType extends SimpleType {
-
-    public readonly isArithmeticType = true;
+export abstract class FloatingPointType extends ArithmeticType {
 
     public valueToString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
@@ -664,7 +666,6 @@ builtInTypes["double"] = Double;
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
-//     public isArithmeticType: boolean;
 //     protected readonly simpleType = "ostream";
 //     public readonly size = 4;
 
@@ -685,14 +686,10 @@ builtInTypes["double"] = Double;
 
 
 
-export interface ArithmeticType extends SimpleType {
-    readonly isArithmeticType: true;
-}
 
 //TODO: create separate function pointer type???
 
 export class PointerType extends AtomicType {
-    public isArithmeticType = false;
 
     public readonly size = 8;
     public readonly precedence = 1;
@@ -834,7 +831,6 @@ export class ObjectPointer extends PointerType {
 
 
 export class ReferenceType extends TypeBase {
-    public readonly isArithmeticType = false;
 
     public readonly precedence = 1;
     public readonly isComplete = true;
@@ -887,8 +883,6 @@ export type ArrayElemType = AtomicType | ClassType;
 export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectType {
     
     public readonly size: number;
-
-    public readonly isArithmeticType = false;
 
     public readonly precedence = 2;
 
@@ -966,8 +960,6 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
 
 
 export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase {
-    
-    public readonly isArithmeticType = false;
 
     public readonly precedence = 2;
 
@@ -1030,7 +1022,6 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 export class ClassType extends ObjectType {
     public size: number= 0;
     public readonly precedence: number = 0;
-    public readonly isArithmeticType: boolean = false;
     public readonly isComplete: boolean = false;
     public readonly className: string = "";
     public readonly name: string = "";
@@ -1066,7 +1057,6 @@ export class ClassType extends ObjectType {
 //     public valueToString(value: number): string {
 //         throw new Error("Method not implemented.");
 //     }
-//     public isArithmeticType = false;
 
 //     public englishString(plural: boolean): string {
 //         throw new Error("Method not implemented.");
@@ -1278,7 +1268,6 @@ export class ClassType extends ObjectType {
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 export class FunctionType extends TypeBase {
-    public isArithmeticType = false;
     public isComplete = true;
     
     public readonly precedence = 2;

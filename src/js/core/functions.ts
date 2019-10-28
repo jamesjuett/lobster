@@ -480,7 +480,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    public constructor(context: FunctionContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: ConstructContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;
