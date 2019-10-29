@@ -1,11 +1,11 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, noRefType } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef } from "./types";
 import { ASTNode, PotentialFullExpression, ConstructContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
 import { CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
-import { Mutable, Constructor, assert } from "../util/util";
+import { Mutable, Constructor, assert, escapeString } from "../util/util";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functions";
 import { standardConversion, convertToPRValue, usualArithmeticConversions } from "./standardConversions";
 import { checkIdentifier } from "./lexical";
@@ -2468,21 +2468,21 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 // TODO: move FunctionCall to its own module
 // TODO: FunctionCall should not extend Expression
 
-type FunctionResultType<RT extends PotentialReturnType> = noRefType<Exclude<RT,VoidType>>;
+type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
 type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 // NOTE: when creating this from AST, operand must be created/compiled
 // with addition context including the compiled types of the arguments.
 export class FunctionCallExpression extends Expression {
     
-    public readonly type?: ObjectType;
+    public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operand: Identifier | Dot | Arrow;
+    public readonly operand: Identifier
     public readonly args: readonly Expression[];
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
+    public constructor(context: ExpressionContext, operand: Identifier, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2495,32 +2495,32 @@ export class FunctionCallExpression extends Expression {
             return;
         }
 
-        // Operand may need additional context to ensure lookup of the correct function
-        // if (operand instanceof Identifier || operand instanceof Dot) {
-            operand.setLookupContextParameterTypes(args.map((arg) => arg.type));
-        // }
+        // Note: contextual parameter and receiver types will have already been set for the operand
 
-        if (!operand.entity) { // TODO: check if identifier/dot/arrow has an entity i.e. has it found a function
+        if (!operand.entity) {
             // type, valueCategory, and call remain undefined
             return;
         }
 
         if (!(operand.entity instanceof FunctionEntity)) {
             // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
+            this.addNote(CPPError.expr.functionCall.operand(this, operand.entity));
             return;
         }
 
-        this.type = operand.entity.type.returnType;
+        this.type = noRef(operand.entity.type.returnType);        
+
         this.valueCategory = operand.entity.type.returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
         // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
         // So the cast below should be fine.
         // TODO: allow member function calls. (or make them a separate class idk)
-        this.call = new FunctionCall(context, this.operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
+        this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }
-
-    public createRuntimeExpression_impl<T extends PotentialReturnType>(this: CompiledFunctionCallExpression<T>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<T> {
+    
+    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>
+    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT> {
         return new RuntimeFunctionCallExpression(this, parent);
     }
 
@@ -2545,7 +2545,7 @@ export interface CompiledFunctionCallExpression<RT extends PotentialReturnType =
     readonly type: FunctionResultType<RT>;
     readonly valueCategory: FunctionVC<RT>;
     
-    readonly operand: CompiledIdentifier | CompiledDot | CompiledArrow;
+    readonly operand: CompiledFunctionIdentifier;
     readonly args: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<RT,FunctionVC<RT>>;
 }
@@ -2555,7 +2555,7 @@ const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
 export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledFunctionCallExpression<RT>> {
 
-    public readonly operand: RuntimeFunctionIdentifier | RuntimeDot | RuntimeArrow;
+    public readonly operand: RuntimeFunctionIdentifier;
     public readonly args: readonly RuntimeExpression[];
     public readonly call: RuntimeFunctionCall<RT,FunctionVC<RT>>;
 
@@ -3063,35 +3063,38 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 
 
 
-function identifierToText(unqualifiedId: string) : string;
-function identifierToText(qualId: readonly {identifier: string}[]) : string;
-    function identifierToText(qualId: string | readonly {identifier: string}[]) : string {
-    if (typeof qualId === "string") {
-        return qualId; // If it's an unqualified id
-    }
-    else {
-        return qualId.reduce(function(str,id,i){
-            return str + (i > 0 ? "::" : "") + id.identifier;
-        },"");
-    }
-};
+// function identifierToText(unqualifiedId: string) : string;
+// function identifierToText(qualId: readonly {identifier: string}[]) : string;
+//     function identifierToText(qualId: string | readonly {identifier: string}[]) : string {
+//     if (typeof qualId === "string") {
+//         return qualId; // If it's an unqualified id
+//     }
+//     else {
+//         return qualId.reduce(function(str,id,i){
+//             return str + (i > 0 ? "::" : "") + id.identifier;
+//         },"");
+//     }
+// };
 
-function qualifiedNameString(names) {
-    if (!Array.isArray(names)){
-        return names;
-    }
-    return names.map(function(id){return id.identifier}).join("::")
-}
+// function qualifiedNameString(names) {
+//     if (!Array.isArray(names)){
+//         return names;
+//     }
+//     return names.map(function(id){return id.identifier}).join("::")
+// }
 
 // TODO: maybe Identifier should be a non-executable construct and then have a 
 // TODO: make separate classes for qualified and unqualified IDs?
 export class Identifier extends Expression {
 
-    public readonly type?: Type;
+    public readonly type?: ObjectType | FunctionType;
     public readonly valueCategory = "lvalue";
     
-    public readonly entity: ObjectEntity | FunctionEntity | null; // TODO: should this be NamedEntity? Does it make a difference?
-    public readonly name: Name;
+    public readonly name: string;
+    public readonly contextualParameterTypes?: readonly PotentialParameterType[];
+    public readonly contextualReceiverType?: ClassType;
+
+    public readonly entity?: ObjectEntity | FunctionEntity; // TODO: should this be NamedEntity? Does it make a difference?
 
     public _t_compiled!: CompiledObjectIdentifier | CompiledFunctionIdentifier;
 
@@ -3102,56 +3105,26 @@ export class Identifier extends Expression {
     //     this.identifierText = qualifiedNameString(this.identifier);
     // },
 
-    public constructor(context: ExpressionContext, name: Name) {
+    public constructor(context: ExpressionContext, name: string, contextualParameterTypes?: readonly PotentialParameterType[],
+            contextualReceiverType?: ClassType) {
         super(context);
         this.name = name;
+        this.contextualParameterTypes = contextualParameterTypes;
+        this.contextualReceiverType = contextualReceiverType;
         checkIdentifier(this, name, this);
 
-        this.entity = this.attemptLookup();
+        this.entity = this.contextualScope.lookup(this.name, {
+            kind: "normal",
+            paramTypes: this.contextualParameterTypes,
+            receiverType: this.contextualReceiverType
+        });
         this.type = this.entity && this.entity.type;
     }
 
-    public setLookupContextParameterTypes(paramTypes: readonly PotentialParameterType[]) {
-        (<Mutable<this>>this).entity = this.attemptLookup();
-        (<Mutable<this>>this).type = this.entity && this.entity.type;
-    }
-
-    private attemptLookup() : ObjectEntity | FunctionEntity | null {
-
-		try{
-            this.entity = this.contextualScope.requiredLookup(this.identifier, {paramTypes: this.i_paramTypes, isThisConst:this.containingFunction().type.isThisConst});
-
-            if(isA(this.entity, CPPEntity)) {
-                this.type = this.entity.type;
-                if(isA(this.type, Types.IStream)){
-                    this.addNote(CPPError.other.cin_not_supported(this));
-                }
-            }
-
-            if (isA(this.type, Types.Reference)){
-                this.type = this.type.refTo;
-            }
-        }
-        catch(e){
-            if (isA(e, SemanticExceptions.BadLookup)){
-                this.addNote(e.annotation(this));
-            }
-            else{
-                throw e;
-            }
-        }
-
-	}
-
-    // protected createRuntimeExpression_impl(parent: RuntimeConstruct<CPPConstruct>): RuntimeExpression> {
-    //     throw new Error("Method not implemented.");
-    // }
-    
-
     public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) : RuntimeObjectIdentifier<T>;
-    public createRuntimeExpression<T extends FunctionType>(this: CompiledFunctionIdentifier<T>, parent: RuntimeConstruct) : RuntimeFunctionIdentifier<T>;
+    public createRuntimeExpression<T extends FunctionType>(this: CompiledFunctionIdentifier, parent: RuntimeConstruct) : RuntimeFunctionIdentifier;
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression<T extends FunctionType>(parent: RuntimeConstruct) {
+    public createRuntimeExpression(parent: RuntimeConstruct) {
         if (this.entity instanceof FunctionEntity) {
             return new RuntimeFunctionIdentifier(<any>this, parent);
         }
@@ -3184,13 +3157,13 @@ export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> ext
 
     readonly type: T;
     readonly valueCategory: "lvalue";
-    readonly entity: ObjectEntity;
+    readonly entity: ObjectEntity<T>;
 }
 
-export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends Identifier, SuccessfullyCompiled {
+export interface CompiledFunctionIdentifier extends Identifier, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: T;
+    readonly type: FunctionType;
     readonly valueCategory: "lvalue";
     readonly entity: FunctionEntity;
 }
@@ -3203,7 +3176,7 @@ export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpres
     }
 
 	protected upNextImpl() {
-        this.setEvalResult(this.model.entity.runtimeLookup(this));
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>this.model.entity.runtimeLookup(this));
         this.sim.pop();
     }
 
@@ -3212,9 +3185,9 @@ export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpres
     }
 }
 
-export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeExpression<T, "lvalue", CompiledFunctionIdentifier<T>> {
+export class RuntimeFunctionIdentifier extends RuntimeExpression<FunctionType, "lvalue", CompiledFunctionIdentifier> {
 
-    public constructor (model: CompiledFunctionIdentifier<T>, parent: RuntimeConstruct) {
+    public constructor (model: CompiledFunctionIdentifier, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -3284,7 +3257,7 @@ export class RuntimeFunctionIdentifier<T extends FunctionType> extends RuntimeEx
 
 
 function parseCPPChar(litValue: string){
-    return Util.escapeString(litValue).charCodeAt(0);
+    return escapeString(litValue).charCodeAt(0);
 };
 
 var literalJSParse : {[index:string]: (a: any) => RawValueType}= {
@@ -3455,10 +3428,10 @@ export interface CompiledParentheses<T extends Type = Type, V extends ValueCateg
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    public readonly type: T;
-    public readonly valueCategory: V;
+    readonly type: T;
+    readonly valueCategory: V;
 
-    public readonly subexpression: CompiledExpression<T,V>;
+    readonly subexpression: CompiledExpression<T,V>;
 }
 
 const INDEX_PARENTHESES_SUBEXPRESSIONS = 0;

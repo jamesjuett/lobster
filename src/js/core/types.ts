@@ -90,15 +90,6 @@ export function referenceCompatible(from: Type, to: Type){
     return from && to && from.isReferenceCompatible(to);
 };
 
-// export function noRef<T extends ObjectType | Reference>(type : T) : ObjectType {
-//     if(type instanceof Reference) {
-//         return type.refTo;
-//     }
-//     else{
-//         return type;
-//     }
-// };
-
 export function isCvConvertible(fromType: Type | null, toType: Type | null) {
 
     if (fromType === null || toType === null) { return false; }
@@ -873,7 +864,16 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
     }
 }
 
-export type noRefType<T extends ReferenceType | ObjectType | VoidType> = T extends ReferenceType<infer RefTo> ? RefTo : T;
+export type NoRefType<T extends ObjectType | ReferenceType | VoidType> = T extends ReferenceType<infer RefTo> ? RefTo : T;
+
+export function noRef<T extends ObjectType | ReferenceType | VoidType>(type : T) : NoRefType<T> {
+    if(type instanceof ReferenceType) {
+        return type.refTo;
+    }
+    else{
+        return <NoRefType<T>>type; // will either be an object type or void type
+    }
+};
 
 export type ArrayElemType = AtomicType | ClassType;
 
