@@ -67,9 +67,24 @@ export type SpecificTypedExpression<T extends Type = Type, V extends ValueCatego
 type SimilarTypedCompiledExpression<CE extends CompiledExpression> = CompiledExpression<CE["type"], CE["valueCategory"]>;
 
 
-export interface ExpressionASTNode extends ASTNode {
+export type ExpressionASTNode =
+    LabeledStatementASTNode |
+    BlockASTNode |
+    SelectionStatementASTNode |
+    IterationStatementASTNode |
+    JumpStatementASTNode |
+    DeclarationStatementASTNode |
+    ExpressionStatementASTNode |
+    NullStatementASTNode;
 
+const ExpressionConstructsMap = {
+    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
+    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, createBlockContext(context))
 }
+
+export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext) : ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
+    return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
+} 
 
 export interface ExpressionContext extends ConstructContext {
 
@@ -504,6 +519,13 @@ type t_OverloadableOperators =
 //     public readonly overloadFunctionCall: CompiledFunctionCall<T,V>; 
 // }
 
+export interface CommaASTNode extends ASTNode {
+    readonly construct_type: "comma_expression";
+    readonly operator: ",";
+    readonly left: ExpressionASTNode;
+    readonly right: ExpressionASTNode;
+    readonly associativity: "left";
+}
 
 export class Comma extends Expression {
     
@@ -578,6 +600,12 @@ export class RuntimeComma<T extends Type, V extends ValueCategory> extends Simpl
 
 }
 
+export interface TernaryASTNode extends ASTNode {
+    readonly construct_type: "ternary_expression";
+    readonly condition: ExpressionASTNode;
+    readonly then: ExpressionASTNode;
+    readonly otherwise: ExpressionASTNode;
+}
 
 export class Ternary extends Expression {
     
@@ -713,7 +741,15 @@ export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = Val
 	}
 }
 
-export class Assignment extends Expression {
+
+export interface AssignmentExpressionASTNode extends ASTNode {
+    readonly construct_type: "assignment_expression";
+    readonly lhs: ExpressionASTNode;
+    readonly operator: "=";
+    readonly rhs: ExpressionASTNode;
+}
+
+export class AssignmentExpression extends Expression {
     // public readonly 
     // valueCategory : "lvalue",
     // isOverload : false,
@@ -863,7 +899,7 @@ export class Assignment extends Expression {
     }
 }
 
-export interface CompiledAssignment<T extends AtomicType = AtomicType> extends Assignment, SuccessfullyCompiled {
+export interface CompiledAssignment<T extends AtomicType = AtomicType> extends AssignmentExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly lhs: CompiledExpression<T, "lvalue">;
@@ -887,6 +923,15 @@ export class RuntimeAssignment<T extends AtomicType = AtomicType> extends Simple
         this.lhs.evalResult.writeValue(this.rhs.evalResult);
         this.setEvalResult(this.lhs.evalResult);
 	}
+}
+
+export type t_CompoundAssignmentOperators = "*=" | "/=" | "%=" | "+=" | "-=" | ">>=" | "<<=" | "&=" | "^=" | "|=";
+
+export interface CompoundAssignmentExpressionASTNode extends ASTNode {
+    readonly construct_type: "compound_assignment_expression";
+    readonly lhs: ExpressionASTNode;
+    readonly operator: t_CompoundAssignmentOperators;
+    readonly rhs: ExpressionASTNode;
 }
 
 // var beneathConversions = function(expr){
@@ -990,6 +1035,7 @@ export class RuntimeAssignment<T extends AtomicType = AtomicType> extends Simple
 // });
 
 
+
 export function add(left: number, right: number) {
     return left + right;
 }
@@ -1058,6 +1104,10 @@ export function bitShiftRight(left: number, right: number){
     return left >>> right; // TODO: is the sign preserving bit shift right more consistent with C++?
 }
 
+export type BinaryOperatorExpressionASTNode =
+    ArithmeticBinaryOperatorExpressionASTNode |
+    RelationalBinaryOperatorExpressionASTNode |
+    LogicalBinaryOperatorExpressionASTNode;
 
 type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
@@ -1096,6 +1146,14 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> exten
 // correctly.
 export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C extends CompiledBinaryOperator<T> = CompiledBinaryOperator<T>> extends SimpleRuntimeExpression<T, "prvalue", C> {
 
+}
+
+export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
+    readonly construct_type: "arithmetic_binary_operator_expression";
+    readonly operator: t_ArithmeticBinaryOperators;
+    readonly left: ExpressionASTNode;
+    readonly right: ExpressionASTNode;
+    readonly associativity: "left";
 }
 
 type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>" | "<" | ">" | "<=" | ">=" | "==" | "!=";
@@ -1233,6 +1291,15 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends R
         // Not sure why the cast here is necessary but apparently Typescript needs it
         this.setEvalResult(<VCResultTypes<T,"prvalue">>ARITHMETIC_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult));
     }
+}
+
+
+export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
+    readonly construct_type: "relational_binary_operator_expression";
+    readonly operator: t_RelationalBinaryOperators;
+    readonly left: ExpressionASTNode;
+    readonly right: ExpressionASTNode;
+    readonly associativity: "left";
 }
 
 type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
@@ -1596,6 +1663,15 @@ export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, Compile
 //     }
 // });
 
+
+export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
+    readonly construct_type: "logical_binary_operator_expression";
+    readonly operator: t_LogicalBinaryOperators;
+    readonly left: ExpressionASTNode;
+    readonly right: ExpressionASTNode;
+    readonly associativity: "left";
+}
+
 type t_LogicalBinaryOperators = "&&" | "||";
 
 class LogicalBinaryOperator extends BinaryOperator {
@@ -1708,6 +1784,81 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
             return this.model.operator == "&&" ? a && b : a || b;
         });
     }
+}
+
+export interface PointerToMemberExpressionASTNode extends ASTNode {
+    readonly construct_type: "pointer_to_member_expression";
+}
+
+export interface CStyleCastExpression extends ASTNode {
+    readonly construct_type: "c_style_cast_expression";
+}
+
+export type UnaryExpressionASTNode =
+    PrefixIncrementExpressionASTNode |
+    PrefixDecrementExpressionASTNode |
+    DereferenceExpressionASTNode |
+    AddressOfExpressionASTNode |
+    UnaryPlusExpressionASTNode |
+    UnaryMinusExpressionASTNode |
+    LogicalNotExpressionASTNode |
+    BitwiseNotExpressionASTNode |
+    SizeofExpressionASTNode |
+    SizeofTypeExpressionASTNode |
+    NewExpressionASTNode |
+    DeleteExpressionASTNode |
+    DeleteArrayExpressionASTNode;
+
+export interface PrefixIncrementExpressionASTNode extends ASTNode {
+    readonly construct_type: "prefix_increment_expression";
+}
+
+export interface PrefixDecrementExpressionASTNode extends ASTNode {
+    readonly construct_type: "prefix_decrement_expression";
+}
+
+export interface DereferenceExpressionASTNode extends ASTNode {
+    readonly construct_type: "dereference_expression";
+}
+
+export interface AddressOfExpressionASTNode extends ASTNode {
+    readonly construct_type: "address_of_expression";
+}
+
+export interface UnaryPlusExpressionASTNode extends ASTNode {
+    readonly construct_type: "unary_plus_expression";
+}
+
+export interface UnaryMinusExpressionASTNode extends ASTNode {
+    readonly construct_type: "unary_minus_expression";
+}
+
+export interface LogicalNotExpressionASTNode extends ASTNode {
+    readonly construct_type: "logical_not_expression";
+}
+
+export interface BitwiseNotExpressionASTNode extends ASTNode {
+    readonly construct_type: "bitwise_not_expression";
+}
+
+export interface SizeofExpressionASTNode extends ASTNode {
+    readonly construct_type: "sizeof_expression";
+}
+
+export interface SizeofTypeExpressionASTNode extends ASTNode {
+    readonly construct_type: "sizeof_type_expression";
+}
+
+export interface NewExpressionASTNode extends ASTNode {
+    readonly construct_type: "new_expression";
+}
+
+export interface DeleteExpressionASTNode extends ASTNode {
+    readonly construct_type: "delete_expression";
+}
+
+export interface DeleteArrayExpressionASTNode extends ASTNode {
+    readonly construct_type: "delete_array_expression";
 }
 
 
@@ -2464,9 +2615,45 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 //     }
 // };
 
+export type PostfixExpressionASTNode =
+    StaticCastExpressionASTNode |
+    DynamicCastExpressionASTNode |
+    ReinterpretCastExpressionASTNode |
+    ConstCastExpressionASTNode |
+    SubscriptExpressionASTNode |
+    FunctionCallExpressionASTNode |
+    DotExpressionASTNode |
+    ArrowExpressionASTNode |
+    PostfixIncrementExpressionASTNode |
+    PostfixDecrementExpressionASTNode;
 
-// TODO: move FunctionCall to its own module
-// TODO: FunctionCall should not extend Expression
+
+export interface StaticCastExpressionASTNode extends ASTNode {
+    readonly construct_type: "static_cast_expression";
+}
+
+export interface DynamicCastExpressionASTNode extends ASTNode {
+    readonly construct_type: "dynamic_cast_expression";
+}
+
+export interface ReinterpretCastExpressionASTNode extends ASTNode {
+    readonly construct_type: "reinterpret_cast_expression";
+}
+
+export interface ConstCastExpressionASTNode extends ASTNode {
+    readonly construct_type: "const_cast_expression";
+}
+
+export interface SubscriptExpressionASTNode extends ASTNode {
+    readonly construct_type: "subscript_expression";
+}
+
+
+export interface FunctionCallExpressionASTNode extends ASTNode {
+    readonly construct_type: "function_call_expression";
+    readonly operand: ExpressionASTNode;
+    readonly args: readonly ExpressionASTNode[];
+}
 
 type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
 type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
@@ -2658,28 +2845,22 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 // });
 
 
-// export var StaticCast = Unsupported.extend({
-//     _name: "StaticCast",
-//     englishName: "static_cast"
-// });
-// export var DynamicCast = Unsupported.extend({
-//     _name: "DynamicCast",
-//     englishName: "dynamic_cast"
-// });
-// export var ReinterpretCast = Unsupported.extend({
-//     _name: "ReinterpretCast",
-//     englishName: "reinterpret_cast"
-// });
-// export var ConstCast = Unsupported.extend({
-//     _name: "ConstCast",
-//     englishName: "const_cast"
-// });
-// export var Cast = Unsupported.extend({
-//     _name: "Cast",
-//     englishName: "C-Style Cast"
-// });
 
+export interface DotExpressionASTNode extends ASTNode {
+    readonly construct_type: "dot_expression";
+}
 
+export interface ArrowExpressionASTNode extends ASTNode {
+    readonly construct_type: "arrow_expression";
+}
+
+export interface PostfixIncrementExpressionASTNode extends ASTNode {
+    readonly construct_type: "postfix_increment_expression";
+}
+
+export interface PostfixDecrementExpressionASTNode extends ASTNode {
+    readonly construct_type: "postfix_decrement_expression";
+}
 
 
 
@@ -3002,6 +3183,11 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 //     }
 // });
 
+
+export interface ConstructExpressionASTNode extends ASTNode {
+    readonly construct_type: "construct_expression";
+}
+
 // // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
 // export var ConstructExpression = Expression.extend({
 //     _name: "ConstructExpression",
@@ -3082,6 +3268,11 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 //     }
 //     return names.map(function(id){return id.identifier}).join("::")
 // }
+
+export interface IdentifierExpressionASTNode extends ASTNode {
+    readonly construct_type: "identifier_expression";
+    readonly identifier: string;
+}
 
 // TODO: maybe Identifier should be a non-executable construct and then have a 
 // TODO: make separate classes for qualified and unqualified IDs?
@@ -3200,6 +3391,9 @@ export class RuntimeFunctionIdentifier extends RuntimeExpression<FunctionType, "
     }
 }
 
+export interface ThisExpressionASTNode extends ASTNode {
+    readonly construct_type: "this_expression";
+}
 
 // export var ThisExpression  = Expression.extend({
 //     _name: "ThisExpression",
@@ -3289,8 +3483,30 @@ var literalTypes = {
     "char" : Char
 };
 
-export interface NumericLiteralASTNode extends ExpressionASTNode {
-    value: number
+export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
+
+export interface FloatLiteralASTNode extends ExpressionASTNode {
+    readonly construct_type: "numeric_literal";
+    readonly type: "float";
+    readonly value: number;
+}
+
+export interface IntLiteralASTNode extends ExpressionASTNode {
+    readonly construct_type: "numeric_literal";
+    readonly type: "int";
+    readonly value: number;
+}
+
+export interface CharLiteralASTNode extends ExpressionASTNode {
+    readonly construct_type: "numeric_literal";
+    readonly type: "char";
+    readonly value: string;
+}
+
+export interface BoolLiteralASTNode extends ExpressionASTNode {
+    readonly construct_type: "numeric_literal";
+    readonly type: "char";
+    readonly value: boolean;
 }
 
 export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression {
@@ -3400,6 +3616,10 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 // //		return true;
 // //	}
 // }
+
+export interface ParenthesesExpressionASTNode extends ASTNode {
+    readonly construct_type: "parentheses_expression";
+}
 
 export class Parentheses extends Expression {
 

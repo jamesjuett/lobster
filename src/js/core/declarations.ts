@@ -203,10 +203,10 @@ interface t_DeclarationTypes {
     "function_definition": FunctionDefinition;
 }
 
-export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: ConstructContext) : SimpleDeclaration;
+export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: ConstructContext) : SimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) : FunctionDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) : Declaration;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) : any {
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) : SimpleDeclaration[] | FunctionDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: ConstructContext) {
     if (ast.construct_type === "simple_declaration") {
         return createSimpleDeclarationFromAST(ast, context);
     }
@@ -988,7 +988,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) {
         
-        let declaration = SimpleDeclaration.createFromAST({
+        let declaration = createSimpleDeclarationFromAST({
             construct_type: "simple_declaration",
             declarators: [ast.declarator],
             specs: ast.specs,
@@ -1028,8 +1028,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
         this.attachAll(this.parameters = parameters);
         this.attach(this.implementation = implementation);
 
-        // TODO: register definition or implementation with the entity or with the linker somehow
-        this.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity, this);
+        this.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
 }
 

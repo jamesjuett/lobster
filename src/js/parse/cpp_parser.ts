@@ -11323,7 +11323,7 @@ function peg$parse(input: string, options?: IParseOptions) {
 
     function composeBinaryOp(first, rest, assoc, exprType){
       assoc = assoc || "left";
-      exprType = exprType || "binary_expression";
+      exprType = exprType || "binary_operator_expression";
       if(!rest || rest.length === 0){
         return first;
       }
