@@ -93,10 +93,15 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
 } 
 
 export interface ExpressionContext extends ConstructContext {
-
+    readonly contextualParameterTypes?: readonly PotentialParameterType[];
+    readonly contextualReceiverType?: ClassType;
 }
 
-export abstract class Expression extends PotentialFullExpression {
+export function createExpressionContext(context: ConstructContext, contextualParameterTypes: readonly PotentialParameterType[]) : ExpressionContext {
+    return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
+}
+
+export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
@@ -2722,11 +2727,11 @@ export class FunctionCallExpression extends Expression {
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operand: Identifier
+    public readonly operand: IdentifierExpression
     public readonly args: readonly Expression[];
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, operand: Identifier, args: readonly Expression[]) {
+    public constructor(context: ExpressionContext, operand: IdentifierExpression, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2760,6 +2765,14 @@ export class FunctionCallExpression extends Expression {
         // So the cast below should be fine.
         // TODO: allow member function calls. (or make them a separate class idk)
         this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
+    }
+
+    public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext) {
+        let args = ast.args.map(arg => createExpressionFromAST(arg, context));
+        let contextualParamTypes = args.map(arg => arg.type);
+        return new FunctionCallExpression(context,
+            createExpressionFromAST(ast.operand, createExpressionContext(context, contextualParamTypes)),
+            args);
     }
     
     public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>
@@ -3333,14 +3346,12 @@ export interface IdentifierExpressionASTNode extends ASTNode {
 
 // TODO: maybe Identifier should be a non-executable construct and then have a 
 // TODO: make separate classes for qualified and unqualified IDs?
-export class Identifier extends Expression {
+export class IdentifierExpression extends Expression {
 
     public readonly type?: ObjectType | FunctionType;
     public readonly valueCategory = "lvalue";
     
     public readonly name: string;
-    public readonly contextualParameterTypes?: readonly PotentialParameterType[];
-    public readonly contextualReceiverType?: ClassType;
 
     public readonly entity?: ObjectEntity | FunctionEntity; // TODO: should this be NamedEntity? Does it make a difference?
 
@@ -3353,20 +3364,21 @@ export class Identifier extends Expression {
     //     this.identifierText = qualifiedNameString(this.identifier);
     // },
 
-    public constructor(context: ExpressionContext, name: string, contextualParameterTypes?: readonly PotentialParameterType[],
-            contextualReceiverType?: ClassType) {
+    public constructor(context: ExpressionContext, name: string) {
         super(context);
         this.name = name;
-        this.contextualParameterTypes = contextualParameterTypes;
-        this.contextualReceiverType = contextualReceiverType;
         checkIdentifier(this, name, this);
 
         this.entity = this.contextualScope.lookup(this.name, {
             kind: "normal",
-            paramTypes: this.contextualParameterTypes,
-            receiverType: this.contextualReceiverType
+            paramTypes: this.context.contextualParameterTypes,
+            receiverType: this.context.contextualReceiverType
         });
         this.type = this.entity && this.entity.type;
+    }
+    
+    public static createFromAST(ast: IdentifierExpressionASTNode, context: ExpressionContext) {
+        return new IdentifierExpression(context, ast.identifier);
     }
 
     public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) : RuntimeObjectIdentifier<T>;
@@ -3400,7 +3412,7 @@ export class Identifier extends Expression {
     // }
 }
 
-export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends Identifier, SuccessfullyCompiled {
+export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends IdentifierExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly type: T;
@@ -3408,7 +3420,7 @@ export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> ext
     readonly entity: ObjectEntity<T>;
 }
 
-export interface CompiledFunctionIdentifier extends Identifier, SuccessfullyCompiled {
+export interface CompiledFunctionIdentifier extends IdentifierExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly type: FunctionType;
@@ -3490,33 +3502,6 @@ export interface ThisExpressionASTNode extends ASTNode {
 // });
 
 
-const AUXILIARY_EXPRESSION_CONTEXT : ExpressionContext = {
-    translationUnit: <never>undefined,
-    contextualScope: <never>undefined
-}
-
-export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression implements TypedExpression<T,V> {
-
-    public readonly type: T;
-    public readonly valueCategory: V;
-
-    constructor(type: T, valueCategory: V) {
-        super(AUXILIARY_EXPRESSION_CONTEXT);
-        this.type = type;
-        this.valueCategory = valueCategory;
-	}
-
-    public createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T, V>, parent: RuntimeConstruct) : never {
-        throw new Error("Auxiliary expressions must never be instantiated at runtime.");
-    }
-
-    public describeEvalResult(depth: number) : never {
-        throw new Error("Auxiliary expressions have no description");
-    }
-
-}
-
-
 
 
 
@@ -3524,43 +3509,43 @@ function parseCPPChar(litValue: string){
     return escapeString(litValue).charCodeAt(0);
 };
 
-var literalJSParse : {[index:string]: (a: any) => RawValueType}= {
+const literalJSParse = {
 	"int": parseInt,
 	"float": parseFloat,
     "double": parseFloat,
-    "bool" : function(b) {return b ? 1 : 0;},
+    "bool" : (b: boolean) => (b ? 1 : 0),
     "char": parseCPPChar
 };
 
-var literalTypes = {
-	"int": Int,
-	"float": Float,
-	"double": Double,
-    "bool": Bool,
-    "char" : Char
+const literalTypes = {
+	"int": Int.INT,
+	"float": Double.DOUBLE,
+	"double": Double.DOUBLE,
+    "bool": Bool.BOOL,
+    "char" : Char.CHAR
 };
 
 export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
 
-export interface FloatLiteralASTNode extends ExpressionASTNode {
+export interface FloatLiteralASTNode extends ASTNode {
     readonly construct_type: "numeric_literal";
     readonly type: "float";
     readonly value: number;
 }
 
-export interface IntLiteralASTNode extends ExpressionASTNode {
+export interface IntLiteralASTNode extends ASTNode {
     readonly construct_type: "numeric_literal";
     readonly type: "int";
     readonly value: number;
 }
 
-export interface CharLiteralASTNode extends ExpressionASTNode {
+export interface CharLiteralASTNode extends ASTNode {
     readonly construct_type: "numeric_literal";
     readonly type: "char";
     readonly value: string;
 }
 
-export interface BoolLiteralASTNode extends ExpressionASTNode {
+export interface BoolLiteralASTNode extends ASTNode {
     readonly construct_type: "numeric_literal";
     readonly type: "char";
     readonly value: boolean;
@@ -3590,6 +3575,11 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 
         this.value = new Value(value, this.type);  //TODO fix this (maybe with a factory function for values?)
 	}
+    
+    public static createFromAST(ast: NumericLiteralASTNode, context: ExpressionContext) {
+        let val = literalJSParse[ast.type](<any>ast.value);
+        return new NumericLiteral(context, literalTypes[ast.type], val);
+    }
 
     public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T>;
     public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
@@ -3676,6 +3666,7 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 
 export interface ParenthesesExpressionASTNode extends ASTNode {
     readonly construct_type: "parentheses_expression";
+    readonly subexpression: ExpressionASTNode;
 }
 
 export class Parentheses extends Expression {
@@ -3695,7 +3686,10 @@ export class Parentheses extends Expression {
         this.valueCategory = subexpression.valueCategory;
 
     }
-
+    
+    public static createFromAST(ast: ParenthesesExpressionASTNode, context: ExpressionContext) {
+        return new Parentheses(context, createExpressionFromAST(ast.subexpression, context));
+    }
 
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: RuntimeConstruct) : RuntimeParentheses<T,V>;
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
@@ -3752,6 +3746,36 @@ export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory =
         // Do nothing
 	}
 }
+
+
+
+const AUXILIARY_EXPRESSION_CONTEXT : ExpressionContext = {
+    translationUnit: <never>undefined,
+    contextualScope: <never>undefined
+}
+
+export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression implements TypedExpression<T,V> {
+
+    public readonly type: T;
+    public readonly valueCategory: V;
+
+    constructor(type: T, valueCategory: V) {
+        super(AUXILIARY_EXPRESSION_CONTEXT);
+        this.type = type;
+        this.valueCategory = valueCategory;
+	}
+
+    public createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T, V>, parent: RuntimeConstruct) : never {
+        throw new Error("Auxiliary expressions must never be instantiated at runtime.");
+    }
+
+    public describeEvalResult(depth: number) : never {
+        throw new Error("Auxiliary expressions have no description");
+    }
+
+}
+
+
 
 // OLD EXPRESSION JUNK BELOW
 

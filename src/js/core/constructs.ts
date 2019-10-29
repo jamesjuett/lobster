@@ -422,7 +422,7 @@ export interface FunctionContext extends ConstructContext {
 
 // }
 
-export abstract class PotentialFullExpression extends BasicCPPConstruct {
+export abstract class PotentialFullExpression<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
     
     public readonly parent?: BasicCPPConstruct; // Narrows type of parent property of CPPConstruct
 
