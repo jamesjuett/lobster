@@ -3215,7 +3215,7 @@ export class RuntimeFunctionIdentifier extends RuntimeExpression<FunctionType, "
 //     },
 //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 //         // Set this pointer with RTTI to point to receiver
-//         let receiver = inst.containingRuntimeFunction!.receiver;
+//         let receiver = inst.containingRuntimeFunction.receiver;
 //         inst.setEvalResult(Value.instance(receiver.address, Types.ObjectPointer.instance(receiver)));
 //         this.done(sim, inst);
 //     }
@@ -3239,18 +3239,31 @@ export class RuntimeFunctionIdentifier extends RuntimeExpression<FunctionType, "
 // });
 
 
+const AUXILIARY_EXPRESSION_CONTEXT : ExpressionContext = {
+    translationUnit: <never>undefined,
+    contextualScope: <never>undefined
+}
 
-// export var AuxiliaryExpression  = Expression.extend({
-//     _name: "AuxiliaryExpression",
-//     valueCategory: "prvalue",
-//     init : function(type){
-//         this.initParent(null, null);
-//         this.type = type
-//     },
-//     compile : function(){
-//         // Do nothing
-//     }
-// });
+export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression implements TypedExpression<T,V> {
+
+    public readonly type: T;
+    public readonly valueCategory: V;
+
+    constructor(type: T, valueCategory: V) {
+        super(AUXILIARY_EXPRESSION_CONTEXT);
+        this.type = type;
+        this.valueCategory = valueCategory;
+	}
+
+    public createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T, V>, parent: RuntimeConstruct) : never {
+        throw new Error("Auxiliary expressions must never be instantiated at runtime.");
+    }
+
+    public describeEvalResult(depth: number) : never {
+        throw new Error("Auxiliary expressions have no description");
+    }
+
+}
 
 
 

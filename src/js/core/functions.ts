@@ -347,7 +347,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<NoRefType<T>>, obj: CPPObject<NoRefType<T>>) {
+    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T>>) {
         // This should only be used once
         assert(!this.returnObject);
         (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
