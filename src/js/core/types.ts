@@ -830,14 +830,14 @@ export class ObjectPointer extends PointerType {
 }
 
 
-export class ReferenceType extends TypeBase {
+export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBase {
 
     public readonly precedence = 1;
     public readonly isComplete = true;
 
-    public readonly refTo: ObjectType;
+    public readonly refTo: RefTo;
 
-    public constructor(refTo: ObjectType, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(refTo: RefTo, isConst?: boolean, isVolatile?: boolean) {
         // References have no notion of const (they can't be re-bound anyway)
         super(false, isVolatile);
         this.refTo = refTo;
@@ -873,7 +873,7 @@ export class ReferenceType extends TypeBase {
     }
 }
 
-export type noRefType<T> = T extends ReferenceType ? T["refTo"] : T;
+export type noRefType<T extends ReferenceType | ObjectType | VoidType> = T extends ReferenceType<infer RefTo> ? RefTo : T;
 
 export type ArrayElemType = AtomicType | ClassType;
 

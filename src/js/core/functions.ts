@@ -312,7 +312,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: CPPObject<ObjectType>;
+    public readonly returnObject?: CPPObject<noRefType<Exclude<T,VoidType>>>;
 
     public readonly hasControl: boolean = false;
 
@@ -602,7 +602,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
     public readonly model!: CompiledFunctionCall<T,V>; // narrows type of member in base class
 
     // public readonly functionDef : FunctionDefinition;
-    public readonly calledFunction : RuntimeFunction;
+    public readonly calledFunction : RuntimeFunction<T>;
     public readonly argInitializers: readonly RuntimeCopyInitializer[];
 
     public readonly receiver?: CPPObject<ClassType>

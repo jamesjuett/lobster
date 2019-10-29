@@ -1,6 +1,6 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, noRefType } from "./types";
 import { ASTNode, PotentialFullExpression, ConstructContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
 import { CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
@@ -191,7 +191,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
         
         // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
         //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
-        V extends "prvalue" ? AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T> :
+        V extends "prvalue" ? (AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T>) :
         V extends "xvalue" ? CPPObject<T> :
         CPPObject<T> // lvalue
     )
@@ -224,7 +224,6 @@ export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCa
     protected setEvalResult(value: VCResultTypes<T,V>) {
         (<Mutable<this>>this).evalResult = value;
     }
-
 }
 
 
@@ -2469,18 +2468,19 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
 // TODO: move FunctionCall to its own module
 // TODO: FunctionCall should not extend Expression
 
+type FunctionResultType<RT extends PotentialReturnType> = noRefType<Exclude<RT,VoidType>>;
+type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
+
 // NOTE: when creating this from AST, operand must be created/compiled
 // with addition context including the compiled types of the arguments.
 export class FunctionCallExpression extends Expression {
     
-    public readonly type?: PotentialReturnType;
+    public readonly type?: ObjectType;
     public readonly valueCategory?: ValueCategory;
 
     public readonly operand: Identifier | Dot | Arrow;
     public readonly args: readonly Expression[];
     public readonly call?: FunctionCall;
-    
-    public readonly _t_compiled!: CompiledFunctionCallExpression;
 
     public constructor(context: ExpressionContext, operand: Identifier | Dot | Arrow, args: readonly Expression[]) {
         super(context);
@@ -2520,7 +2520,7 @@ export class FunctionCallExpression extends Expression {
         this.call = new FunctionCall(context, this.operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }
 
-    public createRuntimeExpression_impl<T extends PotentialReturnType, V extends ValueCategory>(this: CompiledFunctionCallExpression<T, V>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<T,V>{
+    public createRuntimeExpression_impl<T extends PotentialReturnType>(this: CompiledFunctionCallExpression<T>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<T> {
         return new RuntimeFunctionCallExpression(this, parent);
     }
 
@@ -2538,30 +2538,30 @@ export class FunctionCallExpression extends Expression {
     // }
 }
 
-export interface CompiledFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCallExpression, SuccessfullyCompiled {
+export interface CompiledFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression, SuccessfullyCompiled {
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: T;
-    readonly valueCategory: V;
+    readonly type: FunctionResultType<RT>;
+    readonly valueCategory: FunctionVC<RT>;
     
     readonly operand: CompiledIdentifier | CompiledDot | CompiledArrow;
     readonly args: readonly CompiledExpression[];
-    readonly call: CompiledFunctionCall;
+    readonly call: CompiledFunctionCall<RT,FunctionVC<RT>>;
 }
 
 const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
 const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-export class RuntimeFunctionCallExpression<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T,V, CompiledFunctionCallExpression<T,V>> {
+export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledFunctionCallExpression<RT>> {
 
     public readonly operand: RuntimeFunctionIdentifier | RuntimeDot | RuntimeArrow;
     public readonly args: readonly RuntimeExpression[];
-    public readonly call: RuntimeFunctionCall;
+    public readonly call: RuntimeFunctionCall<RT,FunctionVC<RT>>;
 
     private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
-    public constructor (model: CompiledFunctionCallExpression<T,V>, parent: RuntimeConstruct) {
+    public constructor (model: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) {
         super(model, parent);
         this.operand = this.model.operand.createRuntimeExpression(this);
         this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
@@ -2578,14 +2578,33 @@ export class RuntimeFunctionCallExpression<T extends PotentialReturnType = Poten
             this.index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
             return true;
         }
-        else if (this.index === INDEX_FUNCTION_CALL_RETURN ) {
+        else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_RETURN ) {
             if (this.model.type instanceof VoidType) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
-            this.setEvalResult(this.call.returnObject!);
+
+            if (this.model.isReferenceTyped()) {
+                // Return by reference is lvalue and yields the returned object
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
+            }
+            else if (this.model.isAtomicTyped()) {
+                // Return by value of atomic type. In this case, we can look up
+                // the value of the return object and use that as the eval result
+                let retObj = <CPPObject<AtomicType>><unknown>this.call.calledFunction.returnObject!; // I don't understand why Typescript forces the hard cast here
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>retObj.getValue());
+            }
+            else {
+                // Return by value of a non-atomic type. In this case, it's still a prvalue
+                // but is the temporary object rather than its value.
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
+            }
             this.sim.pop();
         }
-	}
+    }
+
+    protected stepForwardImpl() {
+        // nothing to do
+    }
 }
 
 // OLD stuff kept in case it's relevant for operator overloads, but probably won't be needed
