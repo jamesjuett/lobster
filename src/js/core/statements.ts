@@ -20,7 +20,7 @@ export type StatementASTNode =
 
 const StatementConstructsMap = {
     "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
-    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, createBlockContext(context)),
+    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context),
     "selection_statement" : (ast: SelectionStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "selection statement").setAST(ast),
     "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "while loop").setAST(ast),
     "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "do-while loop").setAST(ast),

@@ -68,18 +68,24 @@ type SimilarTypedCompiledExpression<CE extends CompiledExpression> = CompiledExp
 
 
 export type ExpressionASTNode =
-    LabeledStatementASTNode |
-    BlockASTNode |
-    SelectionStatementASTNode |
-    IterationStatementASTNode |
-    JumpStatementASTNode |
-    DeclarationStatementASTNode |
-    ExpressionStatementASTNode |
-    NullStatementASTNode;
+    CommaASTNode |
+    TernaryASTNode |
+    AssignmentExpressionASTNode |
+    CompoundAssignmentExpressionASTNode |
+    BinaryOperatorExpressionASTNode |
+    PointerToMemberExpressionASTNode |
+    CStyleCastExpressionASTNode |
+    UnaryExpressionASTNode |
+    PostfixExpressionASTNode |
+    ConstructExpressionASTNode |
+    IdentifierExpressionASTNode |
+    ThisExpressionASTNode |
+    NumericLiteralASTNode;
+
 
 const ExpressionConstructsMap = {
-    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
-    "compound_statement" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, createBlockContext(context))
+    "comma_expression" : (ast: CommaASTNode, context: ExpressionContext) => Comma.createFromAST(ast, context)
+    "comma" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
 }
 
 export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext) : ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
@@ -91,11 +97,6 @@ export interface ExpressionContext extends ConstructContext {
 }
 
 export abstract class Expression extends PotentialFullExpression {
-
-    public static createFromAST(ast: ExpressionASTNode, context: ExpressionContext) : Expression {
-        // TODO: implement this. Should not just call super
-        return super.createFromAST(ast, context);
-    }
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
@@ -545,6 +546,10 @@ export class Comma extends Expression {
         this.attach(this.left = left);
         this.attach(this.right = right);
     }
+
+    public static createFromAST(ast: CommaASTNode, context: ExpressionContext) {
+        return new Comma(context, createExpressionFromAST(ast.left, context), createExpressionFromAST(ast.right, context));
+    }
     
     // public isSuccessfullyCompiled(): this is Comma<true> {
     //     return !this.hasErrors;
@@ -635,6 +640,13 @@ export class Ternary extends Expression {
 
         this.type = then.type;
         this.valueCategory = then.valueCategory;
+    }
+    
+    public static createFromAST(ast: TernaryASTNode, context: ExpressionContext) {
+        return new Ternary(context,
+            createExpressionFromAST(ast.condition, context),
+            createExpressionFromAST(ast.then, context),
+            createExpressionFromAST(ast.otherwise, context));
     }
 
     private compileCondition(condition : TypedExpression) {
@@ -797,6 +809,12 @@ export class AssignmentExpression extends Expression {
         this.type = lhs.type;
         this.attach(this.lhs = lhs);
         this.attach(this.rhs = rhs);
+    }
+    
+    public static createFromAST(ast: AssignmentExpressionASTNode, context: ExpressionContext) {
+        return new AssignmentExpression(context,
+            createExpressionFromAST(ast.lhs, context),
+            createExpressionFromAST(ast.rhs, context));
     }
 
     public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: RuntimeConstruct) : RuntimeAssignment<T>;
@@ -1253,6 +1271,26 @@ class ArithmeticBinaryOperator extends BinaryOperator {
         this.attach(this.left = convertedLeft);
         this.attach(this.right = convertedRight);
     }
+    
+    public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext) {
+        let left = createExpressionFromAST(ast.left, context);
+        let right = createExpressionFromAST(ast.right, context);
+        let op = ast.operator;
+
+        // If operator is "-" and both are pointers, it's a pointer difference
+        if (op === "-" && left.isPointerTyped() && right.isPointerTyped()) {
+            return new PointerDifference(context, left, right);
+        }
+
+        // If operator is "-" or "+" and it's a combination of pointer plus integer, it's a pointer offset
+        if (op === "-" || op === "+") {
+            if(left.isPointerTyped() && right.isIntegralTyped() || left.isIntegralTyped() && right.isPointerTyped()) {
+                return new PointerOffset(context, left, right);
+            }
+        }
+
+        return new ArithmeticBinaryOperator(context, left, right, op);
+    }
 
     public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeArithmeticBinaryOperator<T>;
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
@@ -1293,79 +1331,51 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends R
     }
 }
 
-
-export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
-    readonly construct_type: "relational_binary_operator_expression";
-    readonly operator: t_RelationalBinaryOperators;
-    readonly left: ExpressionASTNode;
-    readonly right: ExpressionASTNode;
-    readonly associativity: "left";
-}
-
-type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
-
-const RELATIONAL_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<Bool>}
-    = {
-    "<" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, lt);
-    },
-    ">" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, gt);
-    },
-    "<=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, lte);
-    },
-    ">=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, gte);
-    },
-    "==" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, eq);
-    },
-    "!=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
-        return left.compare(right, ne);
-    },
-}
-
-class RelationalBinaryOperator extends BinaryOperator {
+export class PointerDifference extends BinaryOperator {
     
-    public readonly type = Bool.BOOL;
+    public readonly type: Int;
+    public readonly valueCategory = "prvalue";
 
-    public readonly left: Expression;
-    public readonly right: Expression;
+    public readonly left: TypedExpression<PointerType, "prvalue">;
+    public readonly right: TypedExpression<PointerType, "prvalue">;
 
-    public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
+    public readonly operator! : "-"; // Narrows type from base
 
-    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_RelationalBinaryOperators) {
-        super(context, operator);
+    public constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
+        super(context, "-");
 
-        if (!left.isWellTyped() || !right.isWellTyped()) {
-            this.attach(this.left = left);
-            this.attach(this.right = right);
-            return;
-        }
+        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
+        // if (left.isWellTyped() && right.isWellTyped()) {
+        //     left = convertToPRValue(left);
+        //     right = convertToPRValue(right);
+        // }
+
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+
+        this.type = new Int();
+
         
-        // Arithmetic types are required (note: pointer comparisons have their own PointerRelationalOperation class)
-        if (!left.isArithmeticTyped() || !right.isArithmeticTyped()) {
-            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
-            this.attach(this.left = left);
-            this.attach(this.right = right);
-            return;
-        }
-
-        let [convertedLeft, convertedRight] = usualArithmeticConversions(left, right);
-        
-        if (!sameType(convertedLeft.type!, convertedRight.type!)) {
-            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, convertedLeft, convertedRight));
-        }
-
-        this.attach(this.left = convertedLeft);
-        this.attach(this.right = convertedRight);
+        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
+        // if (left.isWellTyped() && right.isWellTyped()) {
+            
+        //     if (left.type.isType(Pointer) && right.type.isType(Pointer)) {
+        //         this.type = new Int();
+        //     }
+        //     else {
+        //         this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
+        //         this.type = null;
+        //     }
+        // }
+        // else {
+        //     this.type = null;
+        // }
     }
 
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T> {
-        return new RuntimeRelationalBinaryOperator(this, parent);
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference {
+        return new RuntimePointerDifference(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1373,20 +1383,19 @@ class RelationalBinaryOperator extends BinaryOperator {
     }
 }
 
-export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> extends RelationalBinaryOperator, SuccessfullyCompiled {
-
+export interface CompiledPointerDifference extends PointerDifference, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly left: CompiledExpression<T,"prvalue">;
-    readonly right: CompiledExpression<T,"prvalue">;
+    readonly left: CompiledExpression<PointerType, "prvalue">;
+    readonly right: CompiledExpression<PointerType, "prvalue">;
 }
 
-export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<Bool, CompiledRelationalBinaryOperator<T>> {
-    
-    public readonly left: RuntimeExpression<T, "prvalue">;
-    public readonly right: RuntimeExpression<T, "prvalue">;
+export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
 
-    public constructor (model: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) {
+    public left: RuntimeExpression<PointerType, "prvalue">;
+    public right: RuntimeExpression<PointerType, "prvalue">;
+
+    public constructor (model: CompiledPointerDifference, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -1394,14 +1403,34 @@ export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends R
     }
 
     public operate() {
-        // Not sure why the cast here is necessary but apparently Typescript needs it
-        this.setEvalResult(RELATIONAL_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult));
+        
+        let result = this.left.evalResult.pointerDifference(this.right.evalResult);
+
+        let leftArr = this.left.model.type.isType(ArrayPointer) ? this.left.model.type.arrayObject : null;
+        let rightArr = this.right.model.type.isType(ArrayPointer) ? this.right.model.type.arrayObject : null;
+
+        if (result.rawEquals(0)) {
+            // If it's the same address, I guess we can let it slide...
+        }
+        else if (!leftArr && rightArr) {
+            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The left pointer in this subtraction is not from an array, so the resulting difference is not meaningful.", true);
+            result = result.invalidated();
+        }
+        else if (leftArr && !rightArr) {
+            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The right pointer in this subtraction is not from an array, so the resulting difference is not meaningful.", true);
+            result = result.invalidated();
+        }
+        else if (leftArr && rightArr && leftArr !== rightArr) {
+            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The pointers in this subtraction are pointing into two different arrays, so the resulting difference is not meaningful.", true);
+            result = result.invalidated();
+        }
+
+        this.setEvalResult(result);
+
     }
 }
 
-
-
-class PointerOffset extends BinaryOperator {
+export class PointerOffset extends BinaryOperator {
     
     public readonly type?: PointerType;
 
@@ -1415,7 +1444,7 @@ class PointerOffset extends BinaryOperator {
 
     public readonly operator! : "+"; // Narrows type from base
 
-    protected constructor(context: ExpressionContext,
+    public constructor(context: ExpressionContext,
             left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">,
             right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">) {
         super(context, "+");
@@ -1526,51 +1555,89 @@ export class RuntimePointerOffset<T extends PointerType = PointerType> extends R
 }
 
 
-class PointerDifference extends BinaryOperator {
+
+
+
+
+export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
+    readonly construct_type: "relational_binary_operator_expression";
+    readonly operator: t_RelationalBinaryOperators;
+    readonly left: ExpressionASTNode;
+    readonly right: ExpressionASTNode;
+    readonly associativity: "left";
+}
+
+type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
+
+const RELATIONAL_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(left: Value<T>, right: Value<T>) => Value<Bool>}
+    = {
+    "<" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, lt);
+    },
+    ">" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, gt);
+    },
+    "<=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, lte);
+    },
+    ">=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, gte);
+    },
+    "==" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, eq);
+    },
+    "!=" : function<T extends AtomicType>(left: Value<T>, right: Value<T>) {
+        return left.compare(right, ne);
+    },
+}
+
+class RelationalBinaryOperator extends BinaryOperator {
     
-    public readonly type: Int;
-    public readonly valueCategory = "prvalue";
+    public readonly type = Bool.BOOL;
 
-    public readonly left: TypedExpression<PointerType, "prvalue">;
-    public readonly right: TypedExpression<PointerType, "prvalue">;
+    public readonly left: Expression;
+    public readonly right: Expression;
 
-    public readonly operator! : "-"; // Narrows type from base
+    public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
-        super(context, "-");
+    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_RelationalBinaryOperators) {
+        super(context, operator);
 
-        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
-        // if (left.isWellTyped() && right.isWellTyped()) {
-        //     left = convertToPRValue(left);
-        //     right = convertToPRValue(right);
-        // }
-
-        this.attach(this.left = left);
-        this.attach(this.right = right);
-
-        this.type = new Int();
-
+        if (!left.isWellTyped() || !right.isWellTyped()) {
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
         
-        // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
-        // if (left.isWellTyped() && right.isWellTyped()) {
-            
-        //     if (left.type.isType(Pointer) && right.type.isType(Pointer)) {
-        //         this.type = new Int();
-        //     }
-        //     else {
-        //         this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, left, right));
-        //         this.type = null;
-        //     }
-        // }
-        // else {
-        //     this.type = null;
-        // }
+        // Arithmetic types are required (note: pointer comparisons have their own PointerRelationalOperation class)
+        if (!left.isArithmeticTyped() || !right.isArithmeticTyped()) {
+            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
+            this.attach(this.left = left);
+            this.attach(this.right = right);
+            return;
+        }
+
+        let [convertedLeft, convertedRight] = usualArithmeticConversions(left, right);
+        
+        if (!sameType(convertedLeft.type!, convertedRight.type!)) {
+            this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, convertedLeft, convertedRight));
+        }
+
+        this.attach(this.left = convertedLeft);
+        this.attach(this.right = convertedRight);
+    }
+    
+    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext) {
+        return new RelationalBinaryOperator(context,
+            createExpressionFromAST(ast.left, context),
+            createExpressionFromAST(ast.right, context),
+            ast.operator);
     }
 
-    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference;
-    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression(this: CompiledPointerDifference, parent: RuntimeConstruct) : RuntimePointerDifference {
-        return new RuntimePointerDifference(this, parent);
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T> {
+        return new RuntimeRelationalBinaryOperator(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1578,19 +1645,20 @@ class PointerDifference extends BinaryOperator {
     }
 }
 
-export interface CompiledPointerDifference extends PointerDifference, SuccessfullyCompiled {
+export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> extends RelationalBinaryOperator, SuccessfullyCompiled {
+
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly left: CompiledExpression<PointerType, "prvalue">;
-    readonly right: CompiledExpression<PointerType, "prvalue">;
+    readonly left: CompiledExpression<T,"prvalue">;
+    readonly right: CompiledExpression<T,"prvalue">;
 }
 
-export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
+export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<Bool, CompiledRelationalBinaryOperator<T>> {
+    
+    public readonly left: RuntimeExpression<T, "prvalue">;
+    public readonly right: RuntimeExpression<T, "prvalue">;
 
-    public left: RuntimeExpression<PointerType, "prvalue">;
-    public right: RuntimeExpression<PointerType, "prvalue">;
-
-    public constructor (model: CompiledPointerDifference, parent: RuntimeConstruct) {
+    public constructor (model: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = this.model.left.createRuntimeExpression(this);
         this.right = this.model.right.createRuntimeExpression(this);
@@ -1598,32 +1666,14 @@ export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, Compile
     }
 
     public operate() {
-        
-        let result = this.left.evalResult.pointerDifference(this.right.evalResult);
-
-        let leftArr = this.left.model.type.isType(ArrayPointer) ? this.left.model.type.arrayObject : null;
-        let rightArr = this.right.model.type.isType(ArrayPointer) ? this.right.model.type.arrayObject : null;
-
-        if (result.rawEquals(0)) {
-            // If it's the same address, I guess we can let it slide...
-        }
-        else if (!leftArr && rightArr) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The left pointer in this subtraction is not from an array, so the resulting difference is not meaningful.", true);
-            result = result.invalidated();
-        }
-        else if (leftArr && !rightArr) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The right pointer in this subtraction is not from an array, so the resulting difference is not meaningful.", true);
-            result = result.invalidated();
-        }
-        else if (leftArr && rightArr && leftArr !== rightArr) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "The pointers in this subtraction are pointing into two different arrays, so the resulting difference is not meaningful.", true);
-            result = result.invalidated();
-        }
-
-        this.setEvalResult(result);
-
+        // Not sure why the cast here is necessary but apparently Typescript needs it
+        this.setEvalResult(RELATIONAL_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult));
     }
 }
+
+
+
+
 
 
 
@@ -1702,6 +1752,13 @@ class LogicalBinaryOperator extends BinaryOperator {
             this.addNote(CPPError.expr.binary.boolean_operand(this, this.operator, subexpr));
         }
         return subexpr;
+    }
+    
+    public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext) {
+        return new LogicalBinaryOperator(context,
+            createExpressionFromAST(ast.left, context),
+            createExpressionFromAST(ast.right, context),
+            ast.operator);
     }
     
     public createRuntimeExpression(this: CompiledLogicalBinaryOperator, parent: RuntimeConstruct) : RuntimeLogicalBinaryOperator;
@@ -1790,7 +1847,7 @@ export interface PointerToMemberExpressionASTNode extends ASTNode {
     readonly construct_type: "pointer_to_member_expression";
 }
 
-export interface CStyleCastExpression extends ASTNode {
+export interface CStyleCastExpressionASTNode extends ASTNode {
     readonly construct_type: "c_style_cast_expression";
 }
 
