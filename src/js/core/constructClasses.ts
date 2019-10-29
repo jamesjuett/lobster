@@ -66,7 +66,7 @@ export const CONSTRUCT_CLASSES: {[index:string]: any} = {
     // construct_expression : Expressions.Construct,
     parentheses_expression : Expressions.Parentheses,
     this_expression : Expressions.ThisExpression,
-    identifier_expression : Expressions.Identifier,
+    identifier_expression : Expressions.IdentifierExpression,
     literal : Expressions.Literal,
     string_literal : Expressions.StringLiteral,
     member_declaration : Declarations.MemberDeclaration
