@@ -1,7 +1,7 @@
 {
   function composeBinaryOp(first, rest, assoc, exprType){
     assoc = assoc || "left";
-    exprType = exprType || "binary_expression";
+    exprType = exprType || "binary_binary_operator_expression";
     if(!rest || rest.length === 0){
       return first;
     }
@@ -511,31 +511,31 @@ exp_cond
 
 exp_or
   = first:exp_and rest:(ws op:("||" / "or" !identifierChar) ws e:exp_and {return ["||",e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "logical_binary_operator_expression"), location(), text()); }
 
 exp_and
   = first:exp_or_bit rest:(ws op:("&&" / "and" !identifierChar) ws e:exp_or_bit {return ["&&",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "logical_binary_operator_expression"), location(), text()); }
 
 exp_or_bit
   = first:exp_xor_bit rest:(ws op:("|" / "bitor" !identifierChar) ws e:exp_xor_bit {return ["|",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_xor_bit
   = first:exp_and_bit rest:(ws op:("^" / "xor") ws e:exp_and_bit {return ["^",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_and_bit
   = first:exp_eq rest:(ws op:("&" !"&" / "bitand" !identifierChar) ws e:exp_eq {return ["&",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_eq
   = first:exp_rel rest:(ws op:("==" / ("!=" / "not_eq" !identifierChar {return "!=";})) ws e:exp_rel {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "relational_binary_operator_expression"), location(), text()); }
 
 exp_rel
   = first:exp_shift rest:(ws op:op_rel ws e:exp_shift {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "relational_binary_operator_expression"), location(), text()); }
 
 op_rel
   = "<="
@@ -545,7 +545,7 @@ op_rel
 
 exp_shift
   = first:exp_add rest:(ws op:op_shift ws e:exp_add {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_shift
   = "<<"
@@ -553,7 +553,7 @@ op_shift
 
 exp_add
   = first:exp_mult rest:(ws op:op_add ws e:exp_mult {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_add
   = "+"
@@ -561,7 +561,7 @@ op_add
 
 exp_mult
   = first:exp_pm rest:(ws op:op_mult ws e:exp_pm {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_mult
   = "*"
@@ -570,7 +570,7 @@ op_mult
 
 exp_pm
   = first:exp_cast rest:(ws op:op_pm ws e:exp_cast {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "pointer_to_member_expression"), location(), text()); }
 
 op_pm
   = ".*"
@@ -578,7 +578,7 @@ op_pm
 
 exp_cast
   = "(" ws t:type_id ws ")" ws sub:exp_cast {
-      return track({construct_type: "cast_expression", type:t, operand:sub}, location(), text());
+      return track({construct_type: "c_style_cast_expression", type:t, operand:sub}, location(), text());
 }
   / exp_unary
 
@@ -755,15 +755,15 @@ unoverloadable_op
 
 literal
   = lit:literal_float
-    {return track({construct_type: "literal", type:"float", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"float", value:lit}, location(), text());}
   / lit:literal_int
-    {return track({construct_type: "literal", type:"int", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"int", value:lit}, location(), text());}
   / lit:literal_char
-    {return track({construct_type: "literal", type:"char", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"char", value:lit}, location(), text());}
   / lit:literal_string
     {return track({construct_type: "string_literal", type:"string", value:lit}, location(), text());}
   / lit:literal_boolean
-    {return track({construct_type: "literal", type:"bool", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"bool", value:lit}, location(), text());}
 
 literal_int
   = neg:"-"? digits:[0-9]+ { return parseInt((neg ? neg : "") + digits.join("")); }
