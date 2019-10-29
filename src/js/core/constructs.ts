@@ -231,7 +231,15 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
 
     public readonly parent?: RuntimeConstruct;
-    public readonly containingRuntimeFunction?: RuntimeFunction;
+
+    /**
+     * WARNING: The containingRuntimeFunction property may be undefined, even though it's type suggests it will always
+     * be defined. In most places where it is accessed, there is an implicit assumption that a runtime construct
+     * situated inside a function is being used (e.g. looking up an entity that depends on a local function) and the
+     * client code would end up needing a non-null assertion anyway. Those non-null assertions are annoying, so
+     * instead we trick the type system and trust that this property will be used appropriately by the programmer.
+     */
+    public readonly containingRuntimeFunction!: RuntimeFunction;
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;

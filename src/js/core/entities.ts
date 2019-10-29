@@ -1,12 +1,14 @@
-import { PotentialParameterType, ClassType, Type, sameType, ObjectType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
+import { PotentialParameterType, ClassType, Type, sameType, ObjectType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, ReferenceType } from "./types";
 import { CPPError, Note } from "./errors";
-import { assert, Mutable, assertFalse } from "../util/util";
+import { assert, Mutable, assertFalse, unescapeString } from "../util/util";
 import { Observable } from "../util/observe";
 import { Description, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
 import { SimpleDeclaration, FunctionDefinition, GlobalObjectDefinition, LocalVariableDefinition, ParameterDefinition, selectOverloadedDefinition, LinkedDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
 import { Memory } from "./runtimeEnvironment";
-import { Expression } from "./expressions";
+import { Expression, AuxiliaryExpression, ExpressionContext } from "./expressions";
+import { RuntimeFunction } from "./functions";
+import { standardConversion } from "./standardConversions";
 
 
 interface NormalLookupOptions {
@@ -211,9 +213,11 @@ export class Scope {
             else if (options.paramTypes) {
                 // var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
                 viable = overloadResolution(ent, options.paramTypes, options.receiverType).viable || [];
+                return viable[0];
+                // TODO - should give error if there's multiple elements i.e. an ambiguity
             }
 
-            return viable[0]; // TODO - should give error if there's multiple elements i.e. an ambiguity
+            return undefined;
 
             // // If viable is empty, not found.
             // if (viable && viable.length === 0){
@@ -634,7 +638,7 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjec
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
         // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction!.stackFrame!.getLocalObject(this);
+        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
     }
 
     public describe() {
@@ -667,12 +671,12 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
-        rtConstruct.containingRuntimeFunction!.stackFrame!.bindReference(this, obj);
+        rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertions below
-        return rtConstruct.containingRuntimeFunction!.stackFrame!.referenceLookup<T>(this);
+        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup<T>(this);
     }
 
     public describe() {
@@ -763,7 +767,10 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
 export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
     
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
-        rtConstruct.containingRuntimeFunction.setReturnObject(obj);
+        // Assume a ReturnByReferenceEntity will only be bound in the context of a return
+        // for a return-by-reference function, thus the cast
+        let func = <RuntimeFunction<ReferenceType<T>>>rtConstruct.containingRuntimeFunction;
+        func.setReturnObject(obj);
     }
 
     public describe() {
@@ -823,7 +830,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
     }
 
     public toString() {
-        return "string literal \"" + Util.unescapeString(this.str) + "\"";
+        return "string literal \"" + unescapeString(this.str) + "\"";
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
@@ -831,7 +838,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
     }
 
     public describe() {
-        return {message: "the string literal \"" + Util.unescapeString(this.str) + "\""};
+        return {message: "the string literal \"" + unescapeString(this.str) + "\""};
     }
 };
 
@@ -847,13 +854,13 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
         this.calledFunction = calledFunction;
         this.type = type;
         this.num = num;
-        Util.assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for ParameterEntity.");
+        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for ParameterEntity.");
     }
 
     public toString() {
         let definition = this.calledFunction.definition;
         if (definition) {
-            return `The parameter ${definition.implementation.parameters[this.num].name} of the called function ${this.calledFunction.name}`
+            return `The parameter ${definition.parameters[this.num].name} of the called function ${this.calledFunction.name}`
         }
         else {
             return `Parameter #${this.num+1} of the called function`;
@@ -867,17 +874,17 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
         var func = rtConstruct.sim.topFunction();
 
         if (!func) {
-            return Util.assertFalse("ParameterEntity lookup failed because there were no functions on the execution stack.");
+            return assertFalse("ParameterEntity lookup failed because there were no functions on the execution stack.");
         }
 
         if (func.model.func !== this.calledFunction) {
-            return Util.assertFalse("ParameterEntity looked up, but its corresponding function does not match the top function on the stack at runtime.");
+            return assertFalse("ParameterEntity looked up, but its corresponding function does not match the top function on the stack at runtime.");
         }
 
         // Look up the parameter (as a local variable) in the context of the top function on the stack.
         let paramObj = func.model.parameters[this.num].runtimeLookup(func);
         
-        Util.assert(sameType(paramObj.type, this.type));
+        assert(sameType(paramObj.type, this.type));
         return <CPPObject<T>>paramObj;
     }
 
@@ -1150,6 +1157,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 
     
     public readonly qualifiedName: string;
+    public readonly definition?: FunctionDefinition;
     
     // storage: "static",
     constructor(type: FunctionType, decl: SimpleDeclaration) {
@@ -1222,7 +1230,10 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         // check return type
         if (!this.type.sameReturnType(overload.declaration.type)) {
             this.declaration.addNote(CPPError.link.func.returnTypesMatch(this.declaration, this));
+            return;
         }
+        
+        (<Mutable<this>>this).definition = overload;
     }
 
     // TODO: check on what this is here for
@@ -1405,9 +1416,9 @@ interface OverloadCandidateResult {
 }
 
 export interface OverloadResolutionResult {
-    readonly candidates: OverloadCandidateResult[];
+    readonly candidates: readonly OverloadCandidateResult[];
     readonly viable: FunctionEntity[];
-    readonly selected: FunctionEntity;
+    readonly selected?: FunctionEntity;
 }
 
 export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly PotentialParameterType[], receiverType?: ClassType) : OverloadResolutionResult {
@@ -1460,7 +1471,12 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
                 }
                 else {
                     // tempArgs.push(standardConversion(args[i], argTypes[i]));
-                    if(!isStandardConvertible(argType, candidateParamType)) {
+
+                    // Attempt standard conversion of an auxiliary expression of the argument's type to the param type
+                    let auxArg = new AuxiliaryExpression(argType, "prvalue");
+                    let convertedArg = standardConversion(auxArg, candidateParamType);
+
+                    if(!sameType(convertedArg.type, candidateParamType)) {
                         notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
                     }
 
@@ -1475,16 +1491,17 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
         return {candidate: candidate, notes: notes};
     });
 
+    // TODO: need to determine which of several viable overloads is the best option
     // TODO: need to detect when multiple viable overloads have the same total conversion length, which results in an ambiguity
-
-    let selected = viable.reduce((best, current) => {
-        if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
-            return current;
-        }
-        else {
-            return best;
-        }
-    });
+    // let selected = viable.reduce((best, current) => {
+    //     if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
+    //         return current;
+    //     }
+    //     else {
+    //         return best;
+    //     }
+    // });
+    let selected = viable[0] ? viable[0] : undefined;
 
     return {
         candidates: resultCandidates,
@@ -1502,14 +1519,3 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
 export function selectOverloadedEntity(overloadGroup: readonly FunctionEntity[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.type));
 }
-
-// TODO: clean this up so it doesn't depend on trying to imitate the interface of an expression.
-// Probably would be best to just create an "AuxiliaryExpression" class for something like this.
-var fakeExpressionsFromTypes = function(types: Type[]) {
-    var exprs = [];
-    for (var i = 0; i < types.length; ++i){
-        exprs[i] = Expressions.AuxiliaryExpression.instance(types[i]);
-        // exprs[i] = {type: types[i], ast: null, valueCategory: "prvalue", context: {parent:null}, parent:null, conversionLength: 0};
-    }
-    return exprs;
-};
