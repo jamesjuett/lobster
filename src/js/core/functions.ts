@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity } from "./entities";
 import { RuntimeBlock, Block, CompiledBlock } from "./statements";
-import { PotentialReturnType, ClassType, ObjectType, ReferenceType, noRefType, VoidType, FunctionType } from "./types";
+import { PotentialReturnType, ClassType, ObjectType, ReferenceType, NoRefType, VoidType, FunctionType } from "./types";
 import { MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
@@ -312,7 +312,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: CPPObject<noRefType<Exclude<T,VoidType>>>;
+    public readonly returnObject?: CPPObject<NoRefType<Exclude<T,VoidType>>>;
 
     public readonly hasControl: boolean = false;
 
@@ -347,7 +347,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<noRefType<T>>, obj: CPPObject<noRefType<T>>) {
+    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<NoRefType<T>>, obj: CPPObject<NoRefType<T>>) {
         // This should only be used once
         assert(!this.returnObject);
         (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;

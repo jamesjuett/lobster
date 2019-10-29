@@ -13,7 +13,7 @@ interface NormalLookupOptions {
     readonly kind: "normal";
     readonly own?: boolean;
     readonly noBase?: boolean;
-    readonly paramTypes?: PotentialParameterType[]
+    readonly paramTypes?: readonly PotentialParameterType[]
     readonly receiverType? : ClassType;
 }
 
@@ -21,7 +21,7 @@ interface ExactLookupOptions {
     readonly kind: "exact";
     readonly own?: boolean;
     readonly noBase?: boolean;
-    readonly paramTypes: PotentialParameterType[]
+    readonly paramTypes: readonly PotentialParameterType[]
     readonly receiverType?: ClassType;
 }
 
@@ -158,7 +158,7 @@ export class Scope {
     //     return result;
     // }
 
-    public lookup(name: string, options: NameLookupOptions) : DeclaredObjectEntity | FunctionEntity[] | undefined {
+    public lookup(name: string, options: NameLookupOptions) : DeclaredObjectEntity | FunctionEntity | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
@@ -204,7 +204,7 @@ export class Scope {
                     return cand.type.sameParamTypes(paramTypes);
                 });
 
-                return viable;
+                return viable[0]; // TODO - should give error if there's multiple elements i.e. an ambiguity
             }
 
             // If we're looking for something that could be called with given parameter types, including conversions
@@ -213,11 +213,7 @@ export class Scope {
                 viable = overloadResolution(ent, options.paramTypes, options.receiverType).viable || [];
             }
 
-            return viable;
-            // // Hack to get around overloadResolution sometimes returning not an array
-            // if (viable && !Array.isArray(viable)){
-            //     viable = [viable];
-            // }
+            return viable[0]; // TODO - should give error if there's multiple elements i.e. an ambiguity
 
             // // If viable is empty, not found.
             // if (viable && viable.length === 0){
@@ -1478,6 +1474,8 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
 
         return {candidate: candidate, notes: notes};
     });
+
+    // TODO: need to detect when multiple viable overloads have the same total conversion length, which results in an ambiguity
 
     let selected = viable.reduce((best, current) => {
         if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
