@@ -1,9 +1,9 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType } from "./types";
 import { ASTNode, PotentialFullExpression, ConstructContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
 import { CPPError } from "./errors";
-import { FunctionEntity, ObjectEntity, CPPEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, CPPEntity, overloadResolution } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Mutable, Constructor, assert, escapeString } from "../util/util";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functions";
@@ -141,11 +141,11 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
 } 
 
 export interface ExpressionContext extends ConstructContext {
-    readonly contextualParameterTypes?: readonly PotentialParameterType[];
+    readonly contextualParameterTypes?: readonly (Type | undefined)[];
     readonly contextualReceiverType?: ClassType;
 }
 
-export function createExpressionContext(context: ConstructContext, contextualParameterTypes: readonly PotentialParameterType[]) : ExpressionContext {
+export function createExpressionContext(context: ConstructContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
     return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
 }
 
@@ -203,6 +203,14 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     public isBoundedArrayTyped() : this is SpecificTypedExpression<BoundedArrayType, "lvalue"> {
         return !!this.type && this.type.isBoundedArrayType();
+    }
+
+    public isArrayOfUnknownBoundTyped() : this is SpecificTypedExpression<ArrayOfUnknownBoundType, "lvalue"> {
+        return !!this.type && this.type.isArrayOfUnknownBoundType();
+    }
+
+    public isGenericArrayTyped() : this is SpecificTypedExpression<BoundedArrayType | ArrayOfUnknownBoundType, "lvalue"> {
+        return !!this.type && this.type.isGenericArrayType();
     }
 
     public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
@@ -1326,19 +1334,28 @@ class ArithmeticBinaryOperatorExpression extends BinaryOperator {
     }
     
     public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext) : ArithmeticBinaryOperatorExpression | PointerDifference | PointerOffset {
-        let left = createExpressionFromAST(ast.left, context);
-        let right = createExpressionFromAST(ast.right, context);
+        let left : Expression = createExpressionFromAST(ast.left, context);
+        let right : Expression = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
 
         // If operator is "-" and both are pointers, it's a pointer difference
-        if (op === "-" && left.isPointerTyped() && right.isPointerTyped()) {
-            return new PointerDifference(context, left, right);
+        if (op === "-" && (left.isPointerTyped() || left.isBoundedArrayTyped()) && (right.isPointerTyped() || right.isBoundedArrayTyped())) {
+            // casts below are necessary because convertToPRValue() overloads can't elegantly
+            // handle the union between pointer and array types. Without the casts, we've have
+            // to separate this out into the 4 different cases of array/array, array/pointer,
+            // pointer/array, pointer/pointer, which would be annoying
+            return new PointerDifference(context,
+                <TypedExpression<PointerType, "prvalue">>convertToPRValue(left),
+                <TypedExpression<PointerType, "prvalue">>convertToPRValue(right));
         }
 
         // If operator is "-" or "+" and it's a combination of pointer plus integer, it's a pointer offset
         if (op === "-" || op === "+") {
-            if(left.isPointerTyped() && right.isIntegralTyped() || left.isIntegralTyped() && right.isPointerTyped()) {
-                return new PointerOffset(context, left, right);
+            if((left.isPointerTyped() || left.isBoundedArrayTyped()) && right.isIntegralTyped() ||
+               (right.isPointerTyped() || right.isBoundedArrayTyped()) && left.isIntegralTyped()) {
+                return new PointerOffset(context,
+                    <TypedExpression<PointerType, "prvalue">>convertToPRValue(left),
+                    <TypedExpression<PointerType, "prvalue">>convertToPRValue(right));
             }
         }
 
@@ -2775,11 +2792,11 @@ export class FunctionCallExpression extends Expression {
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operand: IdentifierExpression
+    public readonly operand: Expression
     public readonly args: readonly Expression[];
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, operand: IdentifierExpression, args: readonly Expression[]) {
+    public constructor(context: ExpressionContext, operand: Expression, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
@@ -2792,7 +2809,10 @@ export class FunctionCallExpression extends Expression {
             return;
         }
 
-        // Note: contextual parameter and receiver types will have already been set for the operand
+        if (!(operand instanceof IdentifierExpression)) {
+            this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, operand));
+            return
+        }
 
         if (!operand.entity) {
             // type, valueCategory, and call remain undefined
@@ -2805,7 +2825,7 @@ export class FunctionCallExpression extends Expression {
             return;
         }
 
-        this.type = noRef(operand.entity.type.returnType);        
+        this.type = noRef(operand.entity.type.returnType);
 
         this.valueCategory = operand.entity.type.returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
@@ -3417,11 +3437,40 @@ export class IdentifierExpression extends Expression {
         this.name = name;
         checkIdentifier(this, name, this);
 
-        this.entity = this.contextualScope.lookup(this.name, {
-            kind: "normal",
-            paramTypes: this.context.contextualParameterTypes,
-            receiverType: this.context.contextualReceiverType
-        });
+        let lookupResult = this.contextualScope.lookup(this.name);
+
+        if (Array.isArray(lookupResult)) {
+
+            if (lookupResult.length === 1) {
+                // Only one function with that name found, so we just grab it.
+                // Any errors will be detected later e.g. when a function call is attempted.
+                this.entity = lookupResult[0];
+            }
+            else {
+                // Need to perform overload resolution to select the appropriate function
+                // from the function overload group. This depends on contextual parameter types.
+                if (this.context.contextualParameterTypes) {
+                    let overloadResult = overloadResolution(lookupResult, this.context.contextualParameterTypes, this.context.contextualReceiverType);
+
+                    if (overloadResult.selected) {
+                        // If a best result has been selected, use that
+                        this.entity = overloadResult.selected;
+                    }
+                    else {
+                        // Otherwise, use the best candidate (it is sorted to the front of the candidates in the result)
+                        // The errors that made it non-viable will be picked up later e.g. when a function call is attempted.
+                        this.entity = overloadResult.candidates[0].candidate;
+                    }
+                }
+                else {
+                    this.addNote(CPPError.iden.ambiguous(this, this.name));
+                }
+            }
+        }
+        else {
+            this.entity = lookupResult;
+        }
+
         this.type = this.entity && this.entity.type;
     }
     

@@ -228,6 +228,7 @@ abstract class TypeBase {
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
      */
     public abstract sameType<T extends Type>(other: T) : this is T;
+    public abstract sameType(other: Type) : boolean;
 
     /**
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
@@ -680,7 +681,7 @@ builtInTypes["double"] = Double;
 
 //TODO: create separate function pointer type???
 
-export class PointerType extends AtomicType {
+export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicType {
 
     public readonly size = 8;
     public readonly precedence = 1;
@@ -694,9 +695,9 @@ export class PointerType extends AtomicType {
         return <number>value < 0;
     }
 
-    public readonly ptrTo: ObjectType; // TODO: add | VoidType for void pointers? or just make that a whole separate VoidPointer class?
+    public readonly ptrTo: PtrTo; // TODO: add | VoidType for void pointers? or just make that a whole separate VoidPointer class?
 
-    public constructor(ptrTo: ObjectType, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(ptrTo: PtrTo, isConst?: boolean, isVolatile?: boolean) {
         super(isConst, isVolatile);
         this.ptrTo = ptrTo;
     }
@@ -1338,7 +1339,7 @@ export class FunctionType extends TypeBase {
         return this.sameType(other);
     }
 
-    public sameParamTypes(other: FunctionType | readonly PotentialParameterType[]) {
+    public sameParamTypes(other: FunctionType | readonly Type[]) {
         let otherParamTypes = other instanceof FunctionType ? other.paramTypes : other;
         if (this.paramTypes.length !== otherParamTypes.length){
             return false;

@@ -1,6 +1,6 @@
-import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointer, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, isType, subType, sameType, isCvConvertible, ArithmeticType } from "./types";
+import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointer, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, isType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType } from "./types";
 import { ValueCategory, Expression, TypedExpression, CompiledExpression, VCResultTypes, SimpleRuntimeExpression, RuntimeExpression, NumericLiteral, SpecificTypedExpression } from "./expressions";
-import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
+import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
 
@@ -26,9 +26,9 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
         }
     }
 
-    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: ExecutableRuntimeConstruct) : never;
-    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC> {
+    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
+    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC> {
         return new RuntimeImplicitConversion(this, parent);
     }
 
@@ -51,7 +51,7 @@ export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType,
         
     public readonly from: RuntimeExpression<FromType, FromVC>;
     
-    public constructor(model: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: ExecutableRuntimeConstruct) {
+    public constructor(model: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) {
         super(model, parent);
         this.from = this.model.from.createRuntimeExpression(this);
         this.setSubexpressions([this.from]);
@@ -252,6 +252,7 @@ export class QualificationConversion<T extends AtomicType> extends ImplicitConve
 }
 
 export function convertToPRValue<T extends AtomicType>(from: SpecificTypedExpression<T>) : TypedExpression<T, "prvalue">;
+export function convertToPRValue<Elem_type extends ArrayElemType>(from: TypedExpression<BoundedArrayType<Elem_type>, "lvalue">) : TypedExpression<PointerType<Elem_type>, "prvalue">;
 export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue">;
 export function convertToPRValue(from: TypedExpression) : TypedExpression;
 export function convertToPRValue(from: TypedExpression) {

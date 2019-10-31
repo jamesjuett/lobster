@@ -542,6 +542,9 @@ export const CPPError = {
             numParams : function(construct: CPPConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.numParams", "Improper number of arguments for this function call.");
             },
+            invalid_operand_expression : function(construct: CPPConstruct, operand: Expression) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.invalid_operand_expression", "The expression " + operand + " cannot be called as a function.");
+            },
             operand : function(construct: CPPConstruct, operand: CPPEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.operand", "Operand of type " + operand.type + " cannot be called as a function.");
             },

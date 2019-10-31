@@ -15,8 +15,6 @@ interface NormalLookupOptions {
     readonly kind: "normal";
     readonly own?: boolean;
     readonly noBase?: boolean;
-    readonly paramTypes?: readonly PotentialParameterType[]
-    readonly receiverType? : ClassType;
 }
 
 interface ExactLookupOptions {
@@ -160,7 +158,7 @@ export class Scope {
     //     return result;
     // }
 
-    public lookup(name: string, options: NameLookupOptions) : DeclaredObjectEntity | FunctionEntity | undefined {
+    public lookup(name: string, options: NameLookupOptions = {kind:"normal"}) : DeclaredObjectEntity | FunctionEntity[] | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
@@ -188,16 +186,17 @@ export class Scope {
             // If we're looking for an exact match of parameter types
             if (options.kind === "exact") {
                 const paramTypes = options.paramTypes;
+                const receiverType = options.receiverType;
                 viable = ent.filter((cand) => {
 
                     // Check that parameter types match
                     if (!cand.type.sameParamTypes(paramTypes))
 
-                    if (options.receiverType) {
+                    if (receiverType) {
                         // if receiver type is defined, candidate must also have
                         // a receiver and the presence/absence of const must match
                         // NOTE: the actual receiver type does not need to match, just the constness
-                        return cand.type.receiverType && options.receiverType.isConst === cand.type.isConst;
+                        return cand.type.receiverType && receiverType.isConst === cand.type.isConst;
                     }
                     else {
                         // if no receiver type is defined, candidate must not have a receiver
@@ -206,18 +205,18 @@ export class Scope {
                     return cand.type.sameParamTypes(paramTypes);
                 });
 
-                return viable[0]; // TODO - should give error if there's multiple elements i.e. an ambiguity
+                return viable;
             }
 
-            // If we're looking for something that could be called with given parameter types, including conversions
-            else if (options.paramTypes) {
-                // var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
-                viable = overloadResolution(ent, options.paramTypes, options.receiverType).viable || [];
-                return viable[0];
-                // TODO - should give error if there's multiple elements i.e. an ambiguity
-            }
+            // // If we're looking for something that could be called with given parameter types, including conversions
+            // else if (options.paramTypes) {
+            //     // var params = options.params || options.paramTypes && fakeExpressionsFromTypes(options.paramTypes);
+            //     viable = overloadResolution(ent, options.paramTypes, options.receiverType).viable || [];
+            //     return viable[0];
+            //     // TODO - should give error if there's multiple elements i.e. an ambiguity
+            // }
 
-            return undefined;
+            return viable;
 
             // // If viable is empty, not found.
             // if (viable && viable.length === 0){
@@ -1421,7 +1420,7 @@ export interface OverloadResolutionResult {
     readonly selected?: FunctionEntity;
 }
 
-export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly PotentialParameterType[], receiverType?: ClassType) : OverloadResolutionResult {
+export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly (Type|undefined)[], receiverType?: ClassType) : OverloadResolutionResult {
 
     // TODO: add these checks, and send errors back to construct that calls this if they aren't met
     // Should return the function selected as well as an array of object-typed params that contain
@@ -1459,6 +1458,9 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
         // }
         else{
             argTypes.forEach((argType, i) => {
+                if (!argType) {
+                    return; // ignore undefined argType, assume it "works" since there will be an error elsewhere already
+                }
                 let candidateParamType = candidateParamTypes[i];
                 if (candidateParamType.isReferenceType()) {
                     // tempArgs.push(args[i]);
