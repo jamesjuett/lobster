@@ -37,7 +37,7 @@ export const CONSTRUCT_CLASSES: {[index:string]: any} = {
     parameter_declaration : Declarations.Parameter,
     assignment_expression : Expressions.AssignmentExpression,
     compound_assignment : Expressions.CompoundAssignment,
-    ternary_expression : Expressions.Ternary,
+    ternary_expression : Expressions.TernaryExpression,
     binary_expression : Expressions.BinaryOperator,
     cast_expression : Expressions.Cast,
     prefix_increment_expression : Expressions.Prefix,
