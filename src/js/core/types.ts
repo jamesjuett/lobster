@@ -15,11 +15,10 @@ function isVowel(c: string) {
 
 
 
-let USER_TYPE_NAMES = {};
-export function resetUserTypeNames() {
-    USER_TYPE_NAMES = {};
-}
-// export const builtInTypes : {[index:string]: Constructor<Type>} = {};
+// let USER_TYPE_NAMES = {};
+// export function resetUserTypeNames() {
+//     USER_TYPE_NAMES = {};
+// }
 
 // export let defaultUserTypeNames = {
 //     ostream : true,
@@ -1382,4 +1381,16 @@ export class FunctionType extends TypeBase {
                (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
     }
 }
-export {FunctionType as Function};
+
+const builtInTypeNames = new Set(["char", "int", "bool", "float", "double", "void"]);
+export function isBuiltInTypeName(name: string) : name is "char" | "int" | "bool" | "float" | "double" | "void" {
+    return builtInTypeNames.has(name);
+}
+export const builtInTypes = {
+    "char": Char,
+    "int": Int,
+    "bool": Bool,
+    "float": Float,
+    "double": Double,
+    "void": VoidType
+};

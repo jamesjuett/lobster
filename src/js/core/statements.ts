@@ -1,11 +1,11 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, ConstructContext, ASTNode, FunctionContext, CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, ConstructContext, ASTNode,  CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
-import { RuntimeFunction } from "./functions";
+import { RuntimeFunction, FunctionContext } from "./functions";
 import { Mutable, asMutable } from "../util/util";
 
 export type StatementASTNode =

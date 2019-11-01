@@ -1,73 +1,34 @@
-import { BasicCPPConstruct, ExecutableConstruct, FunctionContext, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ExecutableRuntimeConstruct, ConstructContext } from "./constructs";
-import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity } from "./entities";
-import { RuntimeBlock, Block, CompiledBlock } from "./statements";
+import { BasicCPPConstruct, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ConstructContext, CompiledTemporaryDeallocator } from "./constructs";
+import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity, PassByReferenceParameterEntity } from "./entities";
+import { RuntimeBlock, CompiledBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, NoRefType, VoidType, FunctionType } from "./types";
 import { MemoryFrame } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { Simulation } from "./Simulation";
 import { Mutable, assert, asMutable } from "../util/util";
 import { TypedExpression, ValueCategory } from "./expressions";
-import { CopyInitializer, RuntimeCopyInitializer } from "./initializers";
+import { CopyInitializer, RuntimeCopyInitializer, CompiledCopyInitializer } from "./initializers";
 import { clone } from "lodash";
-import { CPPError, NoteHandler } from "./errors";
-import { LocalVariableDefinition } from "./declarations";
+import { CPPError } from "./errors";
+import { CompiledFunctionDefinition } from "./declarations";
 
-export function createFunctionContext(context: ConstructContext, containingFunction: FunctionImplementation) : FunctionContext {
-    return Object.assign({}, context, {containingFunction: containingFunction});
+
+export interface FunctionContext extends ConstructContext {
+    readonly containingFunction: FunctionEntity;
+    readonly functionLocals: FunctionLocals;
 }
 
-export class FunctionImplementation extends BasicCPPConstruct {
+export function createFunctionContext(context: ConstructContext, containingFunction: FunctionEntity) : FunctionContext {
+    return Object.assign({}, context, {containingFunction: containingFunction, functionLocals: new FunctionLocals()});
+}
 
-    public readonly functionContext: FunctionContext;
-
-    public readonly func: FunctionEntity;
-    public readonly type: FunctionType;
+export class FunctionLocals {
 
     public readonly localObjects: readonly AutoEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
     public readonly localVariablesByEntityId: {
         [index: number] : LocalVariableEntity
     } = {};
-
-
-    // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
-
-    public constructor(context: ConstructContext, func: FunctionEntity) {
-        super(context);
-
-        this.functionContext = createFunctionContext(context, this);
-        this.func = func;
-        this.type = func.type;
-
-        // TODO: need to create ParameterDefinitions for each parameter
-
-        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-        //     return isA(obj.type, Types.Class);
-        // });
-
-        // this.bodyScope.automaticObjects.filter(function(obj){
-        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-        // }).map(function(arr){
-        //   for(var i = 0; i < arr.type.length; ++i){
-        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-        //   }
-        // });
-
-        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-        //     var dest = entityToDestruct.type.destructor;
-        //     if (dest){
-        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-        //         call.compile({
-        //             func: dest,
-        //             receiver: entityToDestruct});
-        //         return call;
-        //     }
-        //     else{
-        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-        //     }
-
-        // });
-    }
 
     public registerLocalVariable(local: LocalVariableEntity) {
         assert(!this.localVariablesByEntityId[local.entityId]);
@@ -79,226 +40,13 @@ export class FunctionImplementation extends BasicCPPConstruct {
             asMutable(this.localReferences).push(local);
         }
     }
-
-    // callSearch : function(callback, options){
-    //     options = options || {};
-    //     // this.calls will be filled when the body is being compiled
-    //     // We assume this has already been done for all functions.
-
-    //     this.callClosure = {};
-
-    //     var queue = [];
-    //     queue.unshiftAll(this.calls.map(function(call){
-    //         return {call: call, from: null};
-    //     }));
-
-    //     var search = {
-    //         chain: []
-    //     };
-    //     while (queue.length > 0){
-    //         var next = (options.searchType === "dfs" ? queue.pop() : queue.shift());
-    //         var call = next.call;
-    //         search.chain = next;
-    //         if (search.stop){
-    //             break;
-    //         }
-    //         else if (search.skip){
-
-    //         }
-    //         else if (call.func.isLinked() && call.func.isStaticallyBound()){
-
-    //             if (call.staticFunction.decl === this){
-    //                 search.cycle = true;
-    //             }
-    //             else{
-    //                 search.cycle = false;
-    //                 for(var c = next.from; c; c = c.from){
-    //                     if (c.call.staticFunction.entityId === call.staticFunction.entityId){
-    //                         search.cycle = true;
-    //                         break;
-    //                     }
-    //                 }
-    //             }
-
-    //             callback && callback(search);
-
-    //             // If there's no cycle, we can push children
-    //             if (!search.cycle && isA(call.staticFunction.decl, FunctionDefinition)) {
-    //                 for(var i = call.staticFunction.decl.calls.length-1; i >= 0; --i){
-    //                     queue.push({call: call.staticFunction.decl.calls[i], from: next});
-    //                 }
-    //             }
-
-    //             this.callClosure[call.staticFunction.entityId] = true;
-    //         }
-
-    //     }
-    // },
-
-    // tailRecursionAnalysis : function(annotatedCalls){
-
-    //     // Assume not recursive at first, will be set to true if it is
-    //     this.isRecursive = false;
-
-    //     // Assume we can use constant stack space at first, will be set to false if not
-    //     this.constantStackSpace = true;
-
-    //     //from = from || {start: this, from: null};
-
-    //     // The from parameter sort of represents all functions which, if seen again, constitute recursion
-
-
-    //     //console.log("tail recursion analysis for: " + this.name);
-    //     var self = this;
-    //     this.callSearch(function(search){
-
-    //         // Ignore non-cycles
-    //         if (!search.cycle){
-    //             return;
-    //         }
-
-    //         var str = " )";
-    //         var chain = search.chain;
-    //         var cycleStart = chain.call;
-    //         var first = true;
-    //         var inCycle = true;
-    //         var tailCycle = true;
-    //         var nonTailCycleCalls = [];
-    //         var firstCall = chain.call;
-    //         while (chain){
-    //             var call = chain.call;
-
-    //             // Mark all calls in the cycle as part of a cycle, except the original
-    //             if (chain.from || first){
-    //                 call.isPartOfCycle = true;
-    //             }
-
-    //             // Make sure we know whether it's a tail call
-    //             call.tailRecursionCheck();
-
-    //             // At time of writing, this will always be true due to the way call search works
-    //             if (call.staticFunction){
-    //                 // If we know what the call is calling
-
-
-    //                 str = (call.staticFunction.name + ", ") + str;
-    //                 if (call.isTail){
-    //                     str = "t-" + str;
-    //                 }
-    //                 if (!first && call.staticFunction === cycleStart.staticFunction){
-    //                     inCycle = false;
-    //                     str = "( " + str;
-    //                 }
-
-    //                 // This comes after possible change in inCycle because first part of cycle doesn't have to be tail
-    //                 if (inCycle){
-    //                     if (!annotatedCalls[call.id]){
-    //                         // TODO: fix this to not use semanticProblems
-    //                         // self.semanticProblems.addWidget(RecursiveCallAnnotation.instance(call, call.isTail, call.isTailReason, call.isTailOthers));
-    //                         annotatedCalls[call.id] = true;
-    //                     }
-    //                 }
-    //                 if (inCycle && !call.isTail){
-    //                     tailCycle = false;
-    //                     nonTailCycleCalls.push(call);
-    //                 }
-    //             }
-    //             else if (call.staticFunctionType){
-    //                 // Ok at least we know the type we're calling
-
-    //             }
-    //             else{
-    //                 // Uhh we don't know anything. This really shouldn't happen.
-    //             }
-    //             first = false;
-    //             chain = chain.from;
-    //         }
-    //         //console.log(str + (tailCycle ? " tail" : " non-tail"));
-
-    //         // We found a cycle so it's certainly recursive
-    //         self.isRecursive = true;
-
-    //         // If we found a non-tail cycle, it's not tail recursive
-    //         if (!tailCycle){
-    //             self.constantStackSpace = false;
-    //             if (!self.nonTailCycles){
-    //                 self.nonTailCycles = [];
-    //             }
-    //             self.nonTailCycles.push(search.chain);
-    //             self.nonTailCycle = search.chain;
-    //             self.nonTailCycleReason = str;
-
-    //             if(!self.nonTailCycleCalls){
-    //                 self.nonTailCycleCalls = [];
-    //             }
-    //             self.nonTailCycleCalls.pushAll(nonTailCycleCalls);
-    //         }
-    //     },{
-    //         searchType: "dfs"
-    //     });
-    //     //console.log("");
-    //     //console.log("");
-
-    //     self.tailRecursionAnalysisDone = true;
-
-
-    //     // TODO: fix this to not use semanticProblems
-    //     // this.semanticProblems.addWidget(RecursiveFunctionAnnotation.instance(this));
-    // },
-
-    // isTailChild : function(child){
-    //     if (child !== this.body){
-    //         return {isTail: false};
-    //     }
-    //     else if (this.autosToDestruct.length > 0){
-    //         return {
-    //             isTail: false,
-    //             reason: "The highlighted local variables ("
-
-    //             +
-    //             this.bodyScope.automaticObjects.filter(function(obj){
-    //                 return isA(obj.type, Types.Class);
-    //             }).map(function(obj){
-
-    //                 return obj.name;
-
-    //             }).join(",")
-    //                 +
-
-    //             ") have destructors that will run at the end of the function body (i.e. after any possible recursive call).",
-    //             others: this.bodyScope.automaticObjects.filter(function(obj){
-    //                 return isA(obj.type, Types.Class);
-    //             }).map(function(obj){
-
-    //                 var decl = obj.decl;
-    //                 if (isA(decl, Declarator)){
-    //                     decl = decl.parent;
-    //                 }
-    //                 return decl;
-
-    //             })
-    //         }
-    //     }
-    //     else {
-    //         return {isTail: true};
-    //     }
-    // },
-    // describe : function(){
-    //     var exp = {};
-    //     exp.message = "a function definition";
-    //     return exp;
-    // }
-}
-
-export interface CompiledFunctionImplementation extends FunctionImplementation, SuccessfullyCompiled {
-    readonly body: CompiledBlock;
 }
 
 enum RuntimeFunctionIndices {
 
 }
 
-export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionImplementation> {
+export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionDefinition> {
 
     public readonly caller?: RuntimeFunctionCall;
     // public readonly containingRuntimeFunction: this;
@@ -318,9 +66,9 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     public readonly body: RuntimeBlock;
 
-    public constructor (model: CompiledFunctionImplementation, parent: RuntimeFunctionCall);
-    public constructor (model: CompiledFunctionImplementation, sim: Simulation);
-    public constructor (model: CompiledFunctionImplementation, parentOrSim: RuntimeFunctionCall | Simulation ) {
+    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall);
+    public constructor (model: CompiledFunctionDefinition, sim: Simulation);
+    public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation ) {
         super(model, "function", <any>parentOrSim);
         if (parentOrSim instanceof RuntimeFunctionCall) {
             this.caller = parentOrSim;
@@ -491,7 +239,13 @@ export class FunctionCall extends PotentialFullExpression {
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, this.func.definition), [arg]);
+            let paramType = this.func.type.paramTypes[i];
+            if (paramType.isReferenceType()) {
+                return CopyInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg]);
+            }
+            else {
+                return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg]);
+            }
         });
 
         // TODO
@@ -589,17 +343,21 @@ export class FunctionCall extends PotentialFullExpression {
 
 }
 
-export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends FunctionCall, SuccessfullyCompiled {
+export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType> extends FunctionCall, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     
+    readonly args: readonly TypedExpression[];
+    readonly argInitializers: readonly CompiledCopyInitializer[];
+    readonly returnByValueTarget?: T extends ObjectType ? TemporaryObjectEntity<T> : undefined;
 }
 
 const INDEX_FUNCTION_CALL_PUSH = 0;
 const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 const INDEX_FUNCTION_CALL_CALL = 2;
 const INDEX_FUNCTION_CALL_RETURN = 2;
-export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends RuntimeConstruct {
+export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
 
-    public readonly model!: CompiledFunctionCall<T,V>; // narrows type of member in base class
+    public readonly model!: CompiledFunctionCall<T>; // narrows type of member in base class
 
     // public readonly functionDef : FunctionDefinition;
     public readonly calledFunction : RuntimeFunction<T>;
@@ -611,7 +369,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
 
-    public constructor (model: CompiledFunctionCall, parent: ExecutableRuntimeConstruct) {
+    public constructor (model: CompiledFunctionCall<T>, parent: RuntimeConstruct) {
         super(model, "call", parent);
         let functionDef = this.model.func.definition!; // TODO
         
@@ -629,7 +387,8 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
                 // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
         if (this.model.returnByValueTarget) {
             // If return-by-value, set return object to temporary
-            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
+            let cf = <RuntimeFunction<ObjectType>>this.calledFunction; // TODO: may be able to get rid of this cast if CompiledFunctionDefinition provided more info about return type
+            cf.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
         }
         this.index = INDEX_FUNCTION_CALL_CALL;
     }
