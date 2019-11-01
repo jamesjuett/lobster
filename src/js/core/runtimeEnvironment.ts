@@ -5,8 +5,7 @@ import { Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerT
 import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
-import { Block, CompiledBlock } from "./statements";
-import { RuntimeFunction, CompiledFunctionImplementation } from "./functions";
+import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter

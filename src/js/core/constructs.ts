@@ -4,8 +4,8 @@ import { Note, NoteKind, CPPError } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { RuntimeFunction, FunctionImplementation } from "./functions";
-import { ObjectType } from "./types";
+import { RuntimeFunction, FunctionLocals } from "./functions";
+import { ObjectType, ClassType } from "./types";
 import { TemporaryObject } from "./objects";
 
 
@@ -39,6 +39,7 @@ export interface ConstructContext {
     // readonly program: Program;
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
+    readonly containingClass?: ClassType;
     readonly implicit?: boolean;
     readonly libraryId?: number;
     readonly libraryUnsupported?: boolean;
@@ -397,10 +398,6 @@ export class InvalidConstruct extends BasicCPPConstruct {
 // export interface CompiledExecutableConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 // }
-
-export interface FunctionContext extends ConstructContext {
-    readonly containingFunction: FunctionImplementation;
-}
 
 // export abstract class InstructionConstruct extends CPPConstruct {
 

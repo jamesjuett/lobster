@@ -1,13 +1,13 @@
-import { BasicCPPConstruct, ConstructContext, ASTNode, CPPConstruct, SuccessfullyCompiled, FunctionContext, InvalidConstruct } from "./constructs";
+import { BasicCPPConstruct, ConstructContext, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode } from "./initializers";
 import { BlockScope, ObjectEntity, FunctionEntity, AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity } from "./entities";
-import { Expression, ExpressionASTNode, NumericLiteralASTNode } from "./expressions";
-import { BlockContext, BlockASTNode, Block, createStatementFromAST, isBlockContext } from "./statements";
+import { Expression, ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
+import { BlockContext, BlockASTNode, Block, createStatementFromAST, isBlockContext, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { FunctionImplementation } from "./functions";
+import { FunctionLocals, FunctionContext, createFunctionContext } from "./functions";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -79,7 +79,7 @@ export class StorageSpecifier extends BasicCPPConstruct {
     }
 }
 
-export type SimpleTypeName = string;
+export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
 export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
 
 export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName)[];
@@ -158,19 +158,20 @@ export class TypeSpecifier extends BasicCPPConstruct {
         }
 
         // Check to see if type name is one of the built in types
-        if (builtInTypes[this.typeName]) {
+        if (isBuiltInTypeName(this.typeName)) {
             asMutable(this).type = new builtInTypes[this.typeName](this.const, this.volatile);
             return;
         }
 
         // Otherwise, check to see if the type name is in scope
-        var scopeType;
-        if (scopeType = this.contextualScope.lookup(this.typeName)){
-            if (scopeType instanceof TypeEntity){
-                this.type = new scopeType.type(this.const, this.volatile);
-                return;
-            }
-        }
+        // TODO: add back in when classes are added
+        // var scopeType;
+        // if (scopeType = this.contextualScope.lookup(this.typeName)){
+        //     if (scopeType instanceof TypeEntity){
+        //         this.type = new scopeType.type(this.const, this.volatile);
+        //         return;
+        //     }
+        // }
 
         this.addNote(CPPError.type.typeNotFound(this, this.typeName));
     }
@@ -269,10 +270,10 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
                 decl.setDefaultInitializer();
             }
             else if (init.construct_type == "direct_initializer") {
-                decl.setDirectInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+                decl.setDirectInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
             }
             else if (init.construct_type == "copy_initializer") {
-                decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
+                decl.setCopyInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
             }
             // else if (init.construct_type == "initializer_list") {
             //     // decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
@@ -316,10 +317,10 @@ export abstract class SimpleDeclaration<ContextType extends ConstructContext = C
         this.otherSpecifiers = otherSpecs;
 
         this.declarator = declarator;
+        this.name = declarator.name!; // TODO: remove non-null assertion here once typescript supports assert based control flow analysis (soon)
         if (!declarator.name) {
             return assertFalse("Simple declarations must have a name.");
         }
-        this.name = declarator.name;
 
         // None of the simple declarations are member function declarations
         // and thus none support the virtual keyword
@@ -576,7 +577,7 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
             this.contextualScope.addDeclaredEntity(this.declaredEntity);
-            context.containingFunction.registerLocalVariable(this.declaredEntity);
+            context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -656,8 +657,8 @@ export class ParameterDefinition extends SimpleDeclaration {
         this.type = type;
 
         this.declaredEntity = 
-            this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this) :
-            new AutoEntity(this.type, this);
+            this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
+            new AutoEntity(this.type, this, true);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
@@ -665,7 +666,7 @@ export class ParameterDefinition extends SimpleDeclaration {
             this.contextualScope.addDeclaredEntity(this.declaredEntity);
 
             // Register the defined local object/reference
-            context.containingFunction.registerLocalVariable(this.declaredEntity);
+            context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -806,9 +807,9 @@ export class Declarator extends BasicCPPConstruct {
                         
                         if (postfix.size) {
 
-                            if (postfix.size.construct_type === "literal") {
+                            if (postfix.size.construct_type === "numeric_literal") {
                                 // If the size specified is a literal, just use its value as array length
-                                type = new BoundedArrayType(type, (<NumericLiteralASTNode>postfix.size).value);
+                                type = new BoundedArrayType(type, parseNumericLiteralValueFromAST(postfix.size));
                             }
                             else {
                                 // If a size is specified, that is not a literal, it must be an expression (via the grammar).
@@ -984,7 +985,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
 
     public readonly declaration: FunctionDeclaration;
     public readonly parameters: readonly ParameterDefinition[];
-    public readonly implementation: FunctionImplementation;
+    public readonly body: Block;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: ConstructContext) {
         
@@ -1000,8 +1001,8 @@ export class FunctionDefinition extends BasicCPPConstruct {
         }
 
         // Create implementation and body block (before params and body statements added yet)
-        let implementation = new FunctionImplementation(context, declaration.declaredEntity);
-        let body = new Block(implementation.functionContext);
+        let functionContext = createFunctionContext(context, declaration.declaredEntity);
+        let body = new Block(functionContext);
         let bodyContext = body.blockContext;
         
         // Create parameters, which are given the body block's context to add declared entities to.
@@ -1017,19 +1018,262 @@ export class FunctionDefinition extends BasicCPPConstruct {
         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
         // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
         // added after the parameters.)
-        ast.body.statements.forEach(sNode => createStatementFromAST(sNode, bodyContext));
+        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        return new FunctionDefinition(context, declaration, parameters, implementation);
+        return new FunctionDefinition(functionContext, declaration, parameters, body);
     }
 
-    public constructor(context: ConstructContext, declaration: FunctionDeclaration, parameters: readonly ParameterDefinition[], implementation: FunctionImplementation) {
+    // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
+
+    public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDefinition[], body: Block) {
         super(context);
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
-        this.attach(this.implementation = implementation);
-
+        this.attach(this.body = body);
+        
         this.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
+
+        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
+        //     return isA(obj.type, Types.Class);
+        // });
+
+        // this.bodyScope.automaticObjects.filter(function(obj){
+        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
+        // }).map(function(arr){
+        //   for(var i = 0; i < arr.type.length; ++i){
+        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
+        //   }
+        // });
+
+        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
+        //     var dest = entityToDestruct.type.destructor;
+        //     if (dest){
+        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
+        //         call.compile({
+        //             func: dest,
+        //             receiver: entityToDestruct});
+        //         return call;
+        //     }
+        //     else{
+        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
+        //     }
+
+        // });
     }
+
+    
+    // callSearch : function(callback, options){
+    //     options = options || {};
+    //     // this.calls will be filled when the body is being compiled
+    //     // We assume this has already been done for all functions.
+
+    //     this.callClosure = {};
+
+    //     var queue = [];
+    //     queue.unshiftAll(this.calls.map(function(call){
+    //         return {call: call, from: null};
+    //     }));
+
+    //     var search = {
+    //         chain: []
+    //     };
+    //     while (queue.length > 0){
+    //         var next = (options.searchType === "dfs" ? queue.pop() : queue.shift());
+    //         var call = next.call;
+    //         search.chain = next;
+    //         if (search.stop){
+    //             break;
+    //         }
+    //         else if (search.skip){
+
+    //         }
+    //         else if (call.func.isLinked() && call.func.isStaticallyBound()){
+
+    //             if (call.staticFunction.decl === this){
+    //                 search.cycle = true;
+    //             }
+    //             else{
+    //                 search.cycle = false;
+    //                 for(var c = next.from; c; c = c.from){
+    //                     if (c.call.staticFunction.entityId === call.staticFunction.entityId){
+    //                         search.cycle = true;
+    //                         break;
+    //                     }
+    //                 }
+    //             }
+
+    //             callback && callback(search);
+
+    //             // If there's no cycle, we can push children
+    //             if (!search.cycle && isA(call.staticFunction.decl, FunctionDefinition)) {
+    //                 for(var i = call.staticFunction.decl.calls.length-1; i >= 0; --i){
+    //                     queue.push({call: call.staticFunction.decl.calls[i], from: next});
+    //                 }
+    //             }
+
+    //             this.callClosure[call.staticFunction.entityId] = true;
+    //         }
+
+    //     }
+    // },
+
+    // tailRecursionAnalysis : function(annotatedCalls){
+
+    //     // Assume not recursive at first, will be set to true if it is
+    //     this.isRecursive = false;
+
+    //     // Assume we can use constant stack space at first, will be set to false if not
+    //     this.constantStackSpace = true;
+
+    //     //from = from || {start: this, from: null};
+
+    //     // The from parameter sort of represents all functions which, if seen again, constitute recursion
+
+
+    //     //console.log("tail recursion analysis for: " + this.name);
+    //     var self = this;
+    //     this.callSearch(function(search){
+
+    //         // Ignore non-cycles
+    //         if (!search.cycle){
+    //             return;
+    //         }
+
+    //         var str = " )";
+    //         var chain = search.chain;
+    //         var cycleStart = chain.call;
+    //         var first = true;
+    //         var inCycle = true;
+    //         var tailCycle = true;
+    //         var nonTailCycleCalls = [];
+    //         var firstCall = chain.call;
+    //         while (chain){
+    //             var call = chain.call;
+
+    //             // Mark all calls in the cycle as part of a cycle, except the original
+    //             if (chain.from || first){
+    //                 call.isPartOfCycle = true;
+    //             }
+
+    //             // Make sure we know whether it's a tail call
+    //             call.tailRecursionCheck();
+
+    //             // At time of writing, this will always be true due to the way call search works
+    //             if (call.staticFunction){
+    //                 // If we know what the call is calling
+
+
+    //                 str = (call.staticFunction.name + ", ") + str;
+    //                 if (call.isTail){
+    //                     str = "t-" + str;
+    //                 }
+    //                 if (!first && call.staticFunction === cycleStart.staticFunction){
+    //                     inCycle = false;
+    //                     str = "( " + str;
+    //                 }
+
+    //                 // This comes after possible change in inCycle because first part of cycle doesn't have to be tail
+    //                 if (inCycle){
+    //                     if (!annotatedCalls[call.id]){
+    //                         // TODO: fix this to not use semanticProblems
+    //                         // self.semanticProblems.addWidget(RecursiveCallAnnotation.instance(call, call.isTail, call.isTailReason, call.isTailOthers));
+    //                         annotatedCalls[call.id] = true;
+    //                     }
+    //                 }
+    //                 if (inCycle && !call.isTail){
+    //                     tailCycle = false;
+    //                     nonTailCycleCalls.push(call);
+    //                 }
+    //             }
+    //             else if (call.staticFunctionType){
+    //                 // Ok at least we know the type we're calling
+
+    //             }
+    //             else{
+    //                 // Uhh we don't know anything. This really shouldn't happen.
+    //             }
+    //             first = false;
+    //             chain = chain.from;
+    //         }
+    //         //console.log(str + (tailCycle ? " tail" : " non-tail"));
+
+    //         // We found a cycle so it's certainly recursive
+    //         self.isRecursive = true;
+
+    //         // If we found a non-tail cycle, it's not tail recursive
+    //         if (!tailCycle){
+    //             self.constantStackSpace = false;
+    //             if (!self.nonTailCycles){
+    //                 self.nonTailCycles = [];
+    //             }
+    //             self.nonTailCycles.push(search.chain);
+    //             self.nonTailCycle = search.chain;
+    //             self.nonTailCycleReason = str;
+
+    //             if(!self.nonTailCycleCalls){
+    //                 self.nonTailCycleCalls = [];
+    //             }
+    //             self.nonTailCycleCalls.pushAll(nonTailCycleCalls);
+    //         }
+    //     },{
+    //         searchType: "dfs"
+    //     });
+    //     //console.log("");
+    //     //console.log("");
+
+    //     self.tailRecursionAnalysisDone = true;
+
+
+    //     // TODO: fix this to not use semanticProblems
+    //     // this.semanticProblems.addWidget(RecursiveFunctionAnnotation.instance(this));
+    // },
+
+    // isTailChild : function(child){
+    //     if (child !== this.body){
+    //         return {isTail: false};
+    //     }
+    //     else if (this.autosToDestruct.length > 0){
+    //         return {
+    //             isTail: false,
+    //             reason: "The highlighted local variables ("
+
+    //             +
+    //             this.bodyScope.automaticObjects.filter(function(obj){
+    //                 return isA(obj.type, Types.Class);
+    //             }).map(function(obj){
+
+    //                 return obj.name;
+
+    //             }).join(",")
+    //                 +
+
+    //             ") have destructors that will run at the end of the function body (i.e. after any possible recursive call).",
+    //             others: this.bodyScope.automaticObjects.filter(function(obj){
+    //                 return isA(obj.type, Types.Class);
+    //             }).map(function(obj){
+
+    //                 var decl = obj.decl;
+    //                 if (isA(decl, Declarator)){
+    //                     decl = decl.parent;
+    //                 }
+    //                 return decl;
+
+    //             })
+    //         }
+    //     }
+    //     else {
+    //         return {isTail: true};
+    //     }
+    // },
+    // describe : function(){
+    //     var exp = {};
+    //     exp.message = "a function definition";
+    //     return exp;
+    // }
+}
+
+export interface CompiledFunctionDefinition extends FunctionDefinition, SuccessfullyCompiled {
+    readonly body: CompiledBlock;
 }
 
 

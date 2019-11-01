@@ -3622,6 +3622,10 @@ const literalTypes = {
     "char" : Char.CHAR
 };
 
+export function parseNumericLiteralValueFromAST(ast: NumericLiteralASTNode) {
+    return literalJSParse[ast.type](<any>ast.value);
+}
+
 export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
 
 export interface FloatLiteralASTNode extends ASTNode {
@@ -3674,8 +3678,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 	}
     
     public static createFromAST(ast: NumericLiteralASTNode, context: ExpressionContext) {
-        let val = literalJSParse[ast.type](<any>ast.value);
-        return new NumericLiteral(context, literalTypes[ast.type], val);
+        return new NumericLiteral(context, literalTypes[ast.type], parseNumericLiteralValueFromAST(ast));
     }
 
     public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T>;

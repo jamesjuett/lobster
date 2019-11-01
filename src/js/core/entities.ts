@@ -853,44 +853,78 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
         this.calledFunction = calledFunction;
         this.type = type;
         this.num = num;
-        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for ParameterEntity.");
-    }
-
-    public toString() {
-        let definition = this.calledFunction.definition;
-        if (definition) {
-            return `The parameter ${definition.parameters[this.num].name} of the called function ${this.calledFunction.name}`
-        }
-        else {
-            return `Parameter #${this.num+1} of the called function`;
-        }
+        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for parameter entity.");
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // Getting the function at runtime already takes care of polymorphism for virtual functions
         // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
-        // in the context of the calling function.
-        var func = rtConstruct.sim.topFunction();
-
-        if (!func) {
-            return assertFalse("ParameterEntity lookup failed because there were no functions on the execution stack.");
-        }
-
-        if (func.model.func !== this.calledFunction) {
-            return assertFalse("ParameterEntity looked up, but its corresponding function does not match the top function on the stack at runtime.");
-        }
+        // in the context of the calling function, rather than the called function.
+        var func = rtConstruct.sim.topFunction()!;
 
         // Look up the parameter (as a local variable) in the context of the top function on the stack.
-        let paramObj = func.model.parameters[this.num].runtimeLookup(func);
+        let param = func.model.parameters[this.num].declaredEntity;
+        
+        if (!(param instanceof AutoEntity)) {
+            return assertFalse("Pass by value used with reference parameter.");
+        }
+
+        let paramObj = param.runtimeLookup(func);
         
         assert(sameType(paramObj.type, this.type));
-        return <CPPObject<T>>paramObj;
+        return <AutoObject<T>>paramObj;
     }
 
     public describe() {
-        return {message: "parameter " + this.num + " of " + this.calledFunction.describe().message};
+        let definition = this.calledFunction.definition;
+        if (definition) {
+            return definition.parameters[this.num].declaredEntity.describe();
+        }
+        else {
+            return {message: `Parameter #${this.num+1} of the called function`};
+        }
     }
 
+};
+
+export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+
+    public readonly calledFunction: FunctionEntity;
+    public readonly type: T;
+    public readonly num: number;
+
+    public constructor(calledFunction: FunctionEntity, type: T, num: number) {
+        super(type);
+        this.calledFunction = calledFunction;
+        this.type = type;
+        this.num = num;
+        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for parameter entity.");
+    }
+
+    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+        // Getting the function at runtime already takes care of polymorphism for virtual functions
+        // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
+        // in the context of the calling function, rather than the called function.
+        var func = rtConstruct.sim.topFunction()!;
+
+        // Look up the parameter (as a local variable) in the context of the top function on the stack.
+        let param = func.model.parameters[this.num].declaredEntity;
+        
+        if (!(param instanceof LocalReferenceEntity)) {
+            return assertFalse("Pass by reference used with non-reference parameter.");
+        }
+
+        param.bindTo(func, obj);
+    }
+    public describe() {
+        let definition = this.calledFunction.definition;
+        if (definition) {
+            return definition.parameters[this.num].declaredEntity.describe();
+        }
+        else {
+            return {message: `Parameter #${this.num+1} of the called function`};
+        }
+    }
 };
 
 // export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {

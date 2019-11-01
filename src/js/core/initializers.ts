@@ -434,7 +434,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledReferenceDirectInitializer<T extends ObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
+export interface CompiledReferenceDirectInitializer<T extends ObjectType = ObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
@@ -525,7 +525,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledAtomicDirectInitializer<T extends AtomicType> extends AtomicDirectInitializer, SuccessfullyCompiled {
+export interface CompiledAtomicDirectInitializer<T extends AtomicType = AtomicType> extends AtomicDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
     readonly args: readonly CompiledExpression[];
@@ -749,10 +749,15 @@ export interface CopyInitializerASTNode extends ASTNode {
 // TODO: These should really be "class aliases" rather than derived classes, however
 // it doesn't seem like Typescript has any proper mechanism for this.
 export abstract class CopyInitializer extends DirectInitializer { };
+export interface CompiledCopyInitializer<T extends ObjectType = ObjectType> extends CompiledDirectInitializer<T> { };
 export abstract class RuntimeCopyInitializer extends RuntimeDirectInitializer { };
+
 export class ReferenceCopyInitializer extends ReferenceDirectInitializer { };
+export interface CompiledReferenceCopyInitializer<T extends ObjectType = ObjectType> extends CompiledReferenceDirectInitializer<T> { };
 export class RuntimeReferenceCopyInitializer extends RuntimeReferenceDirectInitializer { };
+
 export class AtomicCopyInitializer extends AtomicDirectInitializer { };
+export interface CompiledAtomicCopyInitializer<T extends AtomicType = AtomicType> extends CompiledAtomicDirectInitializer<T> { };
 export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer { };
 // export class ArrayCopyInitializer extends ArrayDirectInitializer { };
 // export class RuntimeArrayCopyInitializer extends RuntimeArrayDirectInitializer { };
