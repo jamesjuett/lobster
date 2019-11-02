@@ -1,13 +1,14 @@
 import { BasicCPPConstruct, ConstructContext, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode } from "./initializers";
-import { BlockScope, ObjectEntity, FunctionEntity, AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity } from "./entities";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
+import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
+import { BlockScope, ObjectEntity, FunctionEntity, AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity } from "./entities";
 import { Expression, ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockContext, BlockASTNode, Block, createStatementFromAST, isBlockContext, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { FunctionLocals, FunctionContext, createFunctionContext } from "./functions";
+import { FunctionLocals, FunctionContext, createFunctionContext, RuntimeFunctionCall, RuntimeFunction } from "./functions";
+import { CPPObject } from "./objects";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -307,6 +308,9 @@ export abstract class SimpleDeclaration<ContextType extends ConstructContext = C
     // Allow subclasses to customize behavior
     protected abstract readonly initializerAllowed: boolean;
     public abstract readonly isDefinition: boolean;
+    
+    public readonly initializer?: Initializer;
+    public readonly declaredEntity?: CPPEntity;
 
     protected constructor(context: ContextType, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -548,6 +552,12 @@ export abstract class VariableDefinition<ContextType extends ConstructContext = 
     }
 }
 
+export interface CompiledVariableDefinition<T extends ObjectType = ObjectType> extends VariableDefinition, SuccessfullyCompiled {
+    readonly declaredEntity: VariableEntity<T>;
+    readonly initializer?: CompiledInitializer<T>;
+}
+
+
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
 
     protected readonly initializerAllowed = true;
@@ -589,6 +599,10 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         }
         
     }
+}
+export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectType> extends LocalVariableDefinition, SuccessfullyCompiled {
+    readonly declaredEntity: AutoEntity<T> | LocalReferenceEntity<T>
+    readonly initializer?: CompiledInitializer<T>;
 }
 
 
@@ -636,8 +650,9 @@ export class GlobalObjectDefinition extends VariableDefinition {
 }
 
 
-export interface CompiledGlobalObjectDefinition extends GlobalObjectDefinition, SuccessfullyCompiled {
-    readonly declaredEntity: StaticEntity<ObjectType>;
+export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalObjectDefinition, SuccessfullyCompiled {
+    readonly declaredEntity: StaticEntity<T>;
+    readonly initializer?: CompiledInitializer<T>;
 }
 
 
@@ -981,7 +996,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
     readonly body: FunctionBodyASTNode;
 }
 
-export class FunctionDefinition extends BasicCPPConstruct {
+export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
 
     public readonly declaration: FunctionDeclaration;
     public readonly parameters: readonly ParameterDefinition[];
@@ -1061,7 +1076,10 @@ export class FunctionDefinition extends BasicCPPConstruct {
         // });
     }
 
-    
+    public createRuntimeFunction<ReturnType extends PotentialReturnType>(this: CompiledFunctionDefinition<ReturnType>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>) : RuntimeFunction<ReturnType>{
+        return new RuntimeFunction(this, parent, receiver);
+    }
+
     // callSearch : function(callback, options){
     //     options = options || {};
     //     // this.calls will be filled when the body is being compiled
@@ -1272,7 +1290,7 @@ export class FunctionDefinition extends BasicCPPConstruct {
     // }
 }
 
-export interface CompiledFunctionDefinition extends FunctionDefinition, SuccessfullyCompiled {
+export interface CompiledFunctionDefinition<ReturnType extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
     readonly body: CompiledBlock;
 }
 

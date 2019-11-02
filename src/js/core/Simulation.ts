@@ -1,5 +1,5 @@
 import { Observable } from "../util/observe";
-import { Program } from "./Program";
+import { Program, CompiledProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
@@ -23,7 +23,7 @@ export class Simulation {
 
     public readonly observable = new Observable(this);
 
-    public readonly program: Program;
+    public readonly program: CompiledProgram;
 
     public readonly memory: Memory;
 
@@ -58,10 +58,11 @@ export class Simulation {
 
     // MAX_SPEED: -13445, // lol TODO
 
-    public readonly mainReturnObject: MainReturnObject;
-    public readonly mainFunction: RuntimeFunction<Int>;
 
-    constructor(program: Program) {
+    public readonly mainReturnObject!: MainReturnObject;
+    public readonly mainFunction!: RuntimeFunction<Int>;
+
+    constructor(program: CompiledProgram) {
         this.program = program;
 
         // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;
@@ -79,10 +80,7 @@ export class Simulation {
         this.stepsTaken = 0;
         this.atEnd = false;
 
-
-        if (this.program.getMainEntity() && !this.program.hasErrors()) {
-            this.start();
-        }
+        this.start();
     }
 
 
@@ -90,28 +88,19 @@ export class Simulation {
 
 
     public start() {
-
-        // TODO: probably remove this in favor of other ways of ensuring a simulation with no main is ever started
-        if (!this.program.mainEntity.definition) {
-            throw "Cannot start simulation with no main function.";
-        }
-
-        
         this.allocateStringLiterals();
         
-
         // Change static initialization so it is wrapped up in its own construct and
         // runtime construct pair specifically for that purpose. That construct could
         // also optionally create and push the main call taking over what is currently
         // in this.callMain()
 
-        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
-            this.memory.allocateStatic(this.program.staticEntities[i]);
-        }
-        var anyStaticInits = false;
-        for(var i = this.program.staticEntities.length - 1; i >= 0; --i){
+        this.program.globalObjects.forEach(globalObj => this.memory.allocateStatic(globalObj))
 
-            var init : Initializer = this.program.staticEntities[i].initializer;
+        var anyStaticInits = false;
+        for(var i = this.program.globalObjects.length - 1; i >= 0; --i){
+
+            var init = this.program.globalObjects[i].initializer;
             if(init) {
                 init.createRuntimeInitializer();
                 anyStaticInits = true;
@@ -166,17 +155,17 @@ export class Simulation {
      */
     public pop() {
         let popped = this._execStack.pop();
-        if (popped) {
-            popped.popped();
-            if (popped.stackType === "statement" || popped.stackType === "function") {
-                this.leakCheck();
-            }
-        }
+        // if (popped) {
+        //     popped.popped();
+        //     if (popped.stackType === "statement" || popped.stackType === "function") {
+        //         this.leakCheck(); // TODO leak checking
+        //     }
+        // }
         return popped;
     }
 
     //TODO: this may be dangerous depending on whether there are cases this could skip temporary deallocators or destructors
-    public popUntil(rt: ExecutableRuntimeConstruct) {
+    public popUntil(rt: RuntimeConstruct) {
         while(this._execStack.length > 0 && this._execStack[this._execStack.length - 1] !== rt) {
             this.pop();
         }
@@ -198,7 +187,7 @@ export class Simulation {
         };
     }
 
-	public stepForward(n?: number = 1) {
+	public stepForward(n: number = 1) {
 
         for(var i = 0; !this.atEnd && i < n; ++i){
             this._stepForward();
@@ -456,7 +445,8 @@ export class Simulation {
         else {
             text = escapeString(value.valueToOstreamString());
         }
-        this.console.setValue(this.console.value() + text);
+        console.log("cout: " + text);
+        // this.console.setValue(this.console.value() + text);
     }
     
     // public undefinedBehavior : function(message) {

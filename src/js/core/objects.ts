@@ -2,11 +2,10 @@ import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectType,
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
-import { Description } from "./errors";
+import { RuntimeConstruct, Description } from "./constructs";
 import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity, ObjectEntity } from "./entities";
 import { Simulation } from "./Simulation";
-import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition } from "./declarations";
+import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
 
 abstract class ObjectData<T extends ObjectType> {
     protected readonly object: CPPObject<T>;
@@ -549,8 +548,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
 export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public constructor(public readonly def: LocalVariableDefinition, type: T, memory: Memory, address: number) {
+    public readonly def: LocalVariableDefinition | ParameterDefinition
+
+    public constructor(def: LocalVariableDefinition | ParameterDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
+        this.def = def;
     }
 
     public describe(): Description {

@@ -482,7 +482,7 @@ export abstract class PotentialFullExpression<ContextType extends ConstructConte
         tempObjEnt.setOwner(this);
     }
 
-    public createTemporaryObject<T extends ObjectType>(type: T, description: string) {
+    public createTemporaryObject<T extends ObjectType>(type: T, description: string) : TemporaryObjectEntity<T>{
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, description);
         this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;

@@ -6,6 +6,7 @@ import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
 import { RuntimeFunction } from "./functions";
+import { CompiledGlobalObjectDefinition, GlobalObjectDefinition } from "./declarations";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -391,11 +392,11 @@ export class Memory {
         return this.stringLiteralMap[str];
     }
 
-    public allocateStatic(staticEntity: StaticEntity) {
-        var obj = new StaticObject(staticEntity, staticEntity.type, this, this.staticTop);
+    public allocateStatic(def: CompiledGlobalObjectDefinition) {
+        var obj = new StaticObject(def, def.declaredEntity.type, this, this.staticTop);
         this.allocateObject(obj);
         this.staticTop += obj.size;
-        this.staticObjects[staticEntity.qualifiedName] = obj;
+        this.staticObjects[def.declaredEntity.qualifiedName] = obj;
     }
 
     
@@ -554,11 +555,11 @@ export class MemoryFrame {
         // }
 
         // Push objects for all entities in the block
-        rtFunc.model.localVariablesByEntityId.forEach((objEntity) => {
+        rtFunc.model.context.functionLocals.localObjects.forEach((objEntity) => {
 
             if (objEntity instanceof AutoEntity) {
                 // Create and allocate the object
-                let obj = new AutoObject(objEntity, objEntity.type, memory, addr);
+                let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
                 this.localObjectsByEntityId[objEntity.entityId] = obj;
 
                 // Move on to next address afterward

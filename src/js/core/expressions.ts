@@ -2872,7 +2872,7 @@ export interface CompiledFunctionCallExpression<RT extends PotentialReturnType =
     
     readonly operand: CompiledFunctionIdentifier;
     readonly args: readonly CompiledExpression[];
-    readonly call: CompiledFunctionCall<RT,FunctionVC<RT>>;
+    readonly call: CompiledFunctionCall<RT>;
 }
 
 const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
@@ -2882,7 +2882,7 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 
     public readonly operand: RuntimeFunctionIdentifier;
     public readonly args: readonly RuntimeExpression[];
-    public readonly call: RuntimeFunctionCall<RT,FunctionVC<RT>>;
+    public readonly call: RuntimeFunctionCall<RT>;
 
     private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
