@@ -688,6 +688,7 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<
 export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
 
     public readonly qualifiedName: string;
+    public readonly definition?: GlobalObjectDefinition;
     
     // storage: "static",
     constructor(type: T, decl: SimpleDeclaration) {
@@ -700,9 +701,13 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObj
     }
 
     public link(def: LinkedDefinition | undefined) {
-        // Nothing to be done here since extern keyword is not supported, which means
-        // any static entity would have been created from a definition and does not need
-        // to be linked to anything else.
+        if (!def || !(def instanceof GlobalObjectDefinition)) {
+            // Either undefined, or linked against something other than a function overload group
+            this.declaration.addNote(CPPError.link.def_not_found(this.declaration, this));
+            return;
+        }
+        
+        (<Mutable<this>>this).definition = def;
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {

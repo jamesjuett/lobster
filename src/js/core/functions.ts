@@ -66,14 +66,14 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     public readonly body: RuntimeBlock;
 
-    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall);
-    public constructor (model: CompiledFunctionDefinition, sim: Simulation);
-    public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation ) {
+    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>);
+    public constructor (model: CompiledFunctionDefinition, sim: Simulation, receiver?: CPPObject<ClassType>);
+    public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation, receiver?: CPPObject<ClassType>) {
         super(model, "function", <any>parentOrSim);
         if (parentOrSim instanceof RuntimeFunctionCall) {
             this.caller = parentOrSim;
         }
-
+        this.receiver = receiver;
         // A function is its own containing function context
         // this.containingRuntimeFunction = this;
         this.body = this.model.body.createRuntimeStatement(this);
@@ -264,21 +264,21 @@ export class FunctionCall extends PotentialFullExpression {
         this.translationUnit.registerFunctionCall(this); // TODO: is this needed?
     }
 
-    public checkLinkingProblems() {
-        if (!this.func.isLinked()) {
-            if (this.func.isLibraryUnsupported()) {
-                let note = CPPError.link.library_unsupported(this, this.func);
-                this.addNote(note);
-                return note;
-            }
-            else {
-                let note = CPPError.link.def_not_found(this, this.func);
-                this.addNote(note);
-                return note;
-            }
-        }
-        return null;
-    }
+    // public checkLinkingProblems() {
+    //     if (!this.func.isLinked()) {
+    //         if (this.func.isLibraryUnsupported()) {
+    //             let note = CPPError.link.library_unsupported(this, this.func);
+    //             this.addNote(note);
+    //             return note;
+    //         }
+    //         else {
+    //             let note = CPPError.link.def_not_found(this, this.func);
+    //             this.addNote(note);
+    //             return note;
+    //         }
+    //     }
+    //     return null;
+    // }
 
     // tailRecursionCheck : function(){
     //     if (this.isTail !== undefined) {
@@ -323,8 +323,8 @@ export class FunctionCall extends PotentialFullExpression {
     //     this.canUseTCO = this.isRecursive && this.isTail;
     // },
 
-    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T,V>, parent: RuntimePotentialFullExpression) : RuntimeFunctionCall<T,V> {
-        return new RuntimeFunctionCall<T,V>(this, parent);
+    public createRuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory>(this: CompiledFunctionCall<T>, parent: RuntimePotentialFullExpression) : RuntimeFunctionCall<T> {
+        return new RuntimeFunctionCall<T>(this, parent);
     }
 
     // isTailChild : function(child){
@@ -371,7 +371,12 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     public constructor (model: CompiledFunctionCall<T>, parent: RuntimeConstruct) {
         super(model, "call", parent);
-        let functionDef = this.model.func.definition!; // TODO
+
+        // TODO can i get rid of the non-null assertion or cast here?
+        // Basically, the assumption depends on a RuntimeFunctionCall only being created
+        // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
+        // It also assumes the function definition has the correct return type.
+        let functionDef = <CompiledFunctionDefinition<T>>this.model.func.definition!;
         
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));

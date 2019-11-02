@@ -1,7 +1,7 @@
 import { CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity } from "./entities";
+import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity, StaticEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressions";
 
@@ -664,7 +664,7 @@ export const CPPError = {
         },
         func : {
             def_not_found : function(construct: CPPConstruct, func: FunctionEntity) {
-                return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
             no_matching_overload : function(construct: CPPConstruct, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.no_matching_overload", `Although some definitions for a function named ${func.name} exist, I can't find one with the right signature to match this declaration.`);
@@ -672,39 +672,42 @@ export const CPPError = {
             returnTypesMatch : function(construct: CPPConstruct, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This declaration of the function " + func.name + " has a different return type than its definition.");
             }
-        }
+        },
+        def_not_found : function(construct: CPPConstruct, ent: StaticEntity) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for object " + ent.name + ". (It is declared, so I know it's a variable and what type it is, but it's never defined anywhere.)");
+        },
 
     },
-    lookup : {
-        // badLookup : function(construct: CPPConstruct, name) {
-        //     name = Identifier.qualifiedNameString(name);
-        //     return new CompilerNote(construct, NoteKind.ERROR, "lookup.badLookup", "Name lookup for \""+name+"\" was unsuccessful.)");
-        // },
-        ambiguous : function(construct: CPPConstruct, name) {
-            name = Identifier.qualifiedNameString(name);
-            return new CompilerNote(construct, NoteKind.ERROR, "lookup.ambiguous", "\""+name+"\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which entity this identifier refers to.)");
-        },
-        no_match : function(construct: CPPConstruct, name, paramTypes, isThisConst) {
-            name = Identifier.qualifiedNameString(name);
-            return new CompilerNote(construct, NoteKind.ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with parameter types (" +
-            paramTypes.map(function(pt) {
-                return pt.toString();
-            }).join(", ") +
-            ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : "."));
-        },
-        hidden : function(construct: CPPConstruct, name, paramTypes, isThisConst) {
-            name = Identifier.qualifiedNameString(name);
-            return new CompilerNote(construct, NoteKind.ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with parameter types(" +
-                paramTypes.map(function(pt) {
-                    return pt.toString();
-                }).join(", ") +
-                ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : ".") + " (Actually, there is a match in a more distant scope, but it is hidden by an entity of the same name in a nearer scope.)");
-        },
-        not_found : function(construct: CPPConstruct, name) {
-            name = Identifier.qualifiedNameString(name);
-            return new CompilerNote(construct, NoteKind.ERROR, "lookup.not_found", "Cannot find declaration for \""+name+"\".");
-        }
-    },
+    // lookup : {
+    //     // badLookup : function(construct: CPPConstruct, name) {
+    //     //     name = Identifier.qualifiedNameString(name);
+    //     //     return new CompilerNote(construct, NoteKind.ERROR, "lookup.badLookup", "Name lookup for \""+name+"\" was unsuccessful.)");
+    //     // },
+    //     ambiguous : function(construct: CPPConstruct, name) {
+    //         name = Identifier.qualifiedNameString(name);
+    //         return new CompilerNote(construct, NoteKind.ERROR, "lookup.ambiguous", "\""+name+"\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which entity this identifier refers to.)");
+    //     },
+    //     no_match : function(construct: CPPConstruct, name, paramTypes, isThisConst) {
+    //         name = Identifier.qualifiedNameString(name);
+    //         return new CompilerNote(construct, NoteKind.ERROR, "lookup.no_match", "No matching function found for call to \""+name+"\" with parameter types (" +
+    //         paramTypes.map(function(pt) {
+    //             return pt.toString();
+    //         }).join(", ") +
+    //         ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : "."));
+    //     },
+    //     hidden : function(construct: CPPConstruct, name, paramTypes, isThisConst) {
+    //         name = Identifier.qualifiedNameString(name);
+    //         return new CompilerNote(construct, NoteKind.ERROR, "lookup.hidden", "No matching function found for call to \""+name+"\" with parameter types(" +
+    //             paramTypes.map(function(pt) {
+    //                 return pt.toString();
+    //             }).join(", ") +
+    //             ")" + (isThisConst ? " and that may be applied to a const object (or called from const member function)." : ".") + " (Actually, there is a match in a more distant scope, but it is hidden by an entity of the same name in a nearer scope.)");
+    //     },
+    //     not_found : function(construct: CPPConstruct, name) {
+    //         name = Identifier.qualifiedNameString(name);
+    //         return new CompilerNote(construct, NoteKind.ERROR, "lookup.not_found", "Cannot find declaration for \""+name+"\".");
+    //     }
+    // },
     preprocess : {
         recursiveInclude : function(sourceRef: SourceReference) {
              return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");

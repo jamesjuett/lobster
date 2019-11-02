@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, ConstructContext, ASTNode,  CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
-import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression } from "./expressions";
-import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration } from "./declarations";
+import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, createExpressionFromAST } from "./expressions";
+import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
@@ -93,7 +93,7 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public static createFromAST(ast: ExpressionStatementASTNode, context: BlockContext) {
         return new ExpressionStatement(context,
-            Expression.createFromAST(ast.expression, context)
+            createExpressionFromAST(ast.expression, context)
         ).setAST(ast);
     }
 
@@ -182,20 +182,25 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
 
-    public readonly declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/;
+    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition /* | ClassDefinition*/;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
-            SimpleDeclaration.createFromAST(ast.declaration, context)
+            createDeclarationFromAST(ast.declaration, context)
         ).setAST(ast);
     }
 
-    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[]/* | FunctionDefinition | ClassDefinition*/) {
+    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition /* | ClassDefinition*/) {
         super(context);
+
+        if (declarations instanceof FunctionDefinition) {
+            this.addNote(CPPError.stmt.function_definition_prohibited(this));
+            this.attach(this.declarations = declarations);
+            return;
+        }
+
         this.attachAll(this.declarations = declarations);
-        // if (declaration instanceof FunctionDefinition) {
-        //     this.addNote(CPPError.stmt.function_definition_prohibited(this));
-        // }
+        
         // else if (declaration instanceof ClassDefinition) {
         //     this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
         // }
@@ -225,10 +230,13 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
     }
 	
     protected upNextImpl() {
+
         let initializers = this.model.declarations.map(d => d.initializer);
         if (this.index < initializers.length) {
             let init = initializers[this.index];
-            if(init) { // TODO: is this if check necessary? shouldn't there always be an initializer (even if it's a default one?)
+            if(init) {
+                // Only declarations with an initializer (e.g. a variable definition) have something
+                // to do at runtime. Others (e.g. typedefs) do nothing.
                 this.observable.send("initializing", this.index);
                 let runtimeInit = init.createRuntimeInitializer(this);
                 this.sim.push(runtimeInit);
@@ -271,7 +279,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
 
     public static createFromAST(ast: ReturnStatementASTNode, context: BlockContext) {
         return ast.expression
-            ? new ReturnStatement(context, Expression.createFromAST(ast.expression, context)).setAST(ast)
+            ? new ReturnStatement(context, createExpressionFromAST(ast.expression, context)).setAST(ast)
             : new ReturnStatement(context).setAST(ast);
     }
 

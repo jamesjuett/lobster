@@ -3,9 +3,9 @@ import { Mutable, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity, LinkedEntity } from "./entities";
 import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition, selectOverloadedDefinition, LinkedDefinition } from "./declarations";
+import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition, selectOverloadedDefinition, LinkedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition } from "./declarations";
 import { FunctionCall } from "./functions";
-import { resetUserTypeNames, FunctionType } from "./types";
+import { FunctionType } from "./types";
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 
 
@@ -124,8 +124,7 @@ export class Program {
     public readonly originalSourceFiles : { [index: string]: SourceFile } = {};
     public readonly includedSourceFiles : { [index: string]: SourceFile } = {};
     
-    private readonly _staticEntities: StaticEntity[] = [];
-    public readonly staticEntities: readonly StaticEntity[] = this._staticEntities;
+    public readonly globalObjects: readonly GlobalObjectDefinition[] = [];
     
     private readonly functionCalls: readonly FunctionCall[] = [];
     
@@ -298,6 +297,7 @@ export class Program {
     public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalObjectDefinition) {
         if (!this.definitions[qualifiedName]) {
             this.definitions[qualifiedName] = def;
+            asMutable(this.globalObjects).push(def);
         }
         else {
             // One definition rule violation
@@ -346,6 +346,11 @@ export class Program {
     //     }
     // }
 };
+
+export interface CompiledProgram extends Program {
+    readonly mainFunction: CompiledFunctionDefinition;
+    readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+}
 
 export class SourceFile {
 
@@ -666,7 +671,7 @@ export class TranslationUnit {
             // around), and also ensures "default" user-defined type names like ostream, etc. are
             // recognized as such. Making a copy is important so that we don't modify the original
             // which will potentially be used by other translation units.
-            resetUserTypeNames(); //Object.assign({}, Types.defaultUserTypeNames);
+            // resetUserTypeNames(); //Object.assign({}, Types.defaultUserTypeNames); // TODO
 
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
@@ -736,12 +741,14 @@ export class TranslationUnit {
     
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
-            asMutable(this.topLevelDeclarations).push(createDeclarationFromAST(declAST, this.globalContext));
+            let declsOrFuncDef = createDeclarationFromAST(declAST, this.globalContext);
+            if (Array.isArray(declsOrFuncDef)) {
+                declsOrFuncDef.forEach(decl => asMutable(this.topLevelDeclarations).push(decl));
+            }
+            else {
+                asMutable(this.topLevelDeclarations).push(declsOrFuncDef);
+            }
         });
-    }
-
-    public addStaticEntity(ent: StaticEntity) {
-        asMutable(this.staticEntities).push(ent);
     }
 
     public addStringLiteral(literal: StringLiteralEntity) {

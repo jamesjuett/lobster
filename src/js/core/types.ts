@@ -1,8 +1,8 @@
-import { Constructor } from "../util/util";
-import { Description } from "./errors";
+import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
 import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
+import { Description } from "./constructs";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -233,6 +233,7 @@ abstract class TypeBase {
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
      */
     public abstract similarType<T extends Type>(other: T) : this is T;
+    public abstract similarType(other: Type) : boolean;
 
 
     /**
@@ -362,8 +363,6 @@ abstract class TypeBase {
 //     }
 // }
 
-// builtInTypes["unknown"] = Unknown;
-
 // export let UNKNOWN_TYPE = new Unknown();
 
 export type Type = VoidType | ObjectType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
@@ -398,7 +397,6 @@ export class VoidType extends TypeBase {
         return new VoidType(isConst, isVolatile);
     }
 }
-builtInTypes["void"] = VoidType;
 
 /**
  * Represents a type for an object that exists in memory and takes up some space.
@@ -534,14 +532,6 @@ export abstract class ArithmeticType extends SimpleType {
 
 }
 
-// TODO: This was an idea for a hack to store C++ object data into a javascript object. I don't think it's going to be used anywhere.
-// var _Universal_data = SimpleType.extend({
-//     _name: "_Universal_data",
-//     simpleType: "_universal_data",
-//     size: 16
-// });
-// builtInTypes["_universal_data"] = _Universal_data;
-
 export abstract class IntegralType extends ArithmeticType {
     
 }
@@ -579,7 +569,6 @@ export class Char extends IntegralType {
         return new Char(isConst, isVolatile);
     }
 }
-builtInTypes["char"] = Char;
 
 export class Int extends IntegralType {
     public static readonly INT = new Int();
@@ -592,8 +581,6 @@ export class Int extends IntegralType {
     }
 };
 
-builtInTypes["int"] = Int;
-
 export class Size_t extends IntegralType {
     protected readonly simpleType = "size_t";
     public readonly size = 8;
@@ -602,7 +589,6 @@ export class Size_t extends IntegralType {
         return new Size_t(isConst, isVolatile);
     }
 }
-builtInTypes["size_t"] = Size_t;
 
 export class Bool extends IntegralType {
     public static readonly BOOL = new Bool();
@@ -614,7 +600,6 @@ export class Bool extends IntegralType {
         return new Bool(isConst, isVolatile);
     }
 }
-builtInTypes["bool"] = Bool;
 
 // TODO: add support for Enums
 
@@ -640,7 +625,6 @@ export class Float extends FloatingPointType {
         return new Float(isConst, isVolatile);
     }
 }
-builtInTypes["float"] = Float;
 
 export class Double extends FloatingPointType {
 
@@ -653,7 +637,6 @@ export class Double extends FloatingPointType {
         return new Double(isConst, isVolatile);
     }
 }
-builtInTypes["double"] = Double;
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
@@ -661,7 +644,6 @@ builtInTypes["double"] = Double;
 //     public readonly size = 4;
 
 // }
-// builtInTypes["ostream"] = OStream;
 
 // TODO: add support for istream
 // export class IStream = SimpleType.extend({
@@ -673,7 +655,6 @@ builtInTypes["double"] = Double;
 //         return JSON.stringify(value);
 //     }
 // });
-// builtInTypes["istream"] = IStream;
 
 
 
