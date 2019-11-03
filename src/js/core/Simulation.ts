@@ -130,7 +130,7 @@ export class Simulation {
 
     private callMain() {
         (<Mutable<this>>this).mainReturnObject = new MainReturnObject(this.memory);
-        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainEntity.definition, this);
+        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainFunction, this);
         this.mainFunction.setReturnObject(this.mainReturnObject);
         this.mainFunction.pushStackFrame();
         this.push(this.mainFunction);

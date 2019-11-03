@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, ConstructContext, ASTNode,  CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, createExpressionFromAST } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition } from "./declarations";
@@ -385,7 +385,7 @@ export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
 }
 
-export function isBlockContext(context: ConstructContext) : context is BlockContext {
+export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
     return context.contextualScope instanceof BlockScope;
 }
 
@@ -485,7 +485,7 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
 
 // export class FunctionBodyBlock extends Block {
 
-//     public constructor(context: ExecutableConstructContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
+//     public constructor(context: ExecutableTranslationUnitContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
 //         super(context, functionBlockScope, statements);
 //     }
 

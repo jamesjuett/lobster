@@ -4,9 +4,10 @@ import { Note, NoteKind, CPPError } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { RuntimeFunction, FunctionLocals } from "./functions";
+import { RuntimeFunction, FunctionLocals, FunctionContext } from "./functions";
 import { ObjectType, ClassType } from "./types";
 import { TemporaryObject } from "./objects";
+import { GlobalObjectDefinition, CompiledGlobalObjectDefinition } from "./declarations";
 
 
 
@@ -35,41 +36,24 @@ export interface ASTNode {
     readonly library_unsupported?: boolean;
 };
 
-export interface ConstructContext {
-    // readonly program: Program;
-    readonly translationUnit: TranslationUnit;
-    readonly contextualScope: Scope;
-    readonly containingClass?: ClassType;
+export interface ProgramContext {
+    readonly program: Program;
     readonly implicit?: boolean;
     readonly libraryId?: number;
     readonly libraryUnsupported?: boolean;
 }
 
+export interface TranslationUnitContext extends ProgramContext {
+    readonly translationUnit: TranslationUnit;
+    readonly contextualScope: Scope;
+    readonly containingClass?: ClassType;
+}
 
-// export function createConstructFromAST(ast: ASTNode, context: ConstructContext) {
+export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope) : TranslationUnitContext {
+    return Object.assign({}, context, {translationUnit: translationUnit, contextualScope: contextualScope });
+}
 
-//     // TODO: Determine if allowing detacted constructs is actually necessary
-//     // if ast is actually already a (detatched) construct, just attach it to the
-//     // provided context rather than creating a new one.
-//     // if (isA(ast, CPPConstruct)) {
-//     //     assert(!ast.isAttached());
-//     //     if (context) {
-//     //         if (context.auxiliary) {
-//     //             return this.create(ast.ast, context);
-//     //         }
-//     //         else {
-//     //             ast.attach(context);
-//     //         }
-//     //     }
-//     //     return ast;
-//     // }
-//     TODO this //needs to be a separate function that calls createFromAST on individual types based on the AST
-//     var constructCtor = CONSTRUCT_CLASSES[ast["construct_type"]];
-//     assert(constructCtor !== undefined, "Unrecognized construct_type.");
-//     return new constructCtor(ast, context);
-// }
-
-export abstract class CPPConstruct<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> {
+export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
 
     public static readonly constructKind : symbol = Symbol("CPPConstruct");
 
@@ -93,15 +77,12 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
     public readonly hasErrors: boolean = false;
 
     public readonly context: ContextType;
-    public readonly translationUnit: TranslationUnit;
-    public readonly contextualScope: Scope;
 
     public readonly ast?: ASTType;
     public readonly sourceReference?: SourceReference;
 
-    public readonly isImplicit?: boolean;
-    public readonly libraryId?: number;
-    public readonly isLibraryUnsupported?: boolean;
+    // public readonly libraryId?: number;
+    // public readonly isLibraryUnsupported?: boolean;
 
     public abstract readonly parent?: CPPConstruct;
     public readonly children: readonly CPPConstruct[] = [];
@@ -110,9 +91,6 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
         this.id = CPPConstruct.NEXT_ID++;
 
         this.context = context;
-        this.translationUnit = context.translationUnit;
-        this.contextualScope = context.contextualScope
-        if (context.implicit) { this.isImplicit = true; }
 
         // TODO: figure out library stuff
         // if (context.libraryId) {
@@ -149,32 +127,32 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
         children.forEach((child) => this.attach(child));
     }
 
-    public abstract onAttach(parent: CPPConstruct) : void;
+    protected abstract onAttach(parent: this["parent"]) : void;
 
     /**
      * Used by "createFromAST" static "named constructor" functions in derived classes
      * to set the AST from which a construct was created. Returns `this` for convenience.
      */
-    public setAST(ast: ASTType) : this & {ast: ASTType} {
-        (<Mutable<this>>this).ast = ast;
+    public setAST(this: CPPConstruct<TranslationUnitContext>, ast: ASTType) : this & {ast: ASTType} {
+        asMutable(this).ast = ast;
         if (!ast.source) {
             assertFalse("AST source is undefined. A track() call is likely missing in the grammar.");
         }
-        (<Mutable<this>>this).sourceReference = this.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
-        return <this & {ast: ASTType}>this;
+        asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+        return <this & {ast: ASTType}><any>this; // TODO: this whole function is going to go away, so this ugly cast will too
     }
 
     // public getSourceText() {
     //     return this.ast.code ? this.ast.code.text : "an expression";
     // }
 
-    public isLibraryConstruct() {
-        return this.libraryId !== undefined;
-    }
+    // public isLibraryConstruct() {
+    //     return this.libraryId !== undefined;
+    // }
 
-    public getLibraryId() {
-        return this.libraryId;
-    }
+    // public getLibraryId() {
+    //     return this.libraryId;
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
         return {message: "[No explanation available.]", ignore: true};
@@ -197,12 +175,12 @@ export abstract class CPPConstruct<ContextType extends ConstructContext = Constr
     // getNotes : function() {
     //     return this.i_notes;
     // },
-    public getNearestSourceReference() {
+    public getNearestSourceReference(this: CPPConstruct<TranslationUnitContext>) {
         let construct : CPPConstruct = this;
         while (!construct.sourceReference && construct.parent) {
             construct = construct.parent;
         }
-        return construct.sourceReference || this.translationUnit.getSourceReference(0,0,0,0);
+        return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
 }
 
@@ -365,7 +343,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
 
 
-export class BasicCPPConstruct<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
+export class BasicCPPConstruct<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
 
     public parent?: CPPConstruct;
 
@@ -382,44 +360,14 @@ export class InvalidConstruct extends BasicCPPConstruct {
 
     public readonly note: Note;
 
-    public constructor(context: ConstructContext, errorFn: (construct: CPPConstruct) => Note) {
+    public constructor(context: TranslationUnitContext, errorFn: (construct: CPPConstruct) => Note) {
         super(context);
         this.addNote(this.note = errorFn(this));
     }
 
 }
 
-// export interface ExecutableConstruct extends CPPConstruct {
-//     // readonly parent?: ExecutableConstruct; // TODO: is this increased specificity necessary now that parent can be undefined
-//     readonly containingFunction: FunctionEntity;
-//     readonly context: FunctionContext;
-    
-// }
-// export interface CompiledExecutableConstruct extends CPPConstruct, SuccessfullyCompiled {
-
-// }
-
-// export abstract class InstructionConstruct extends CPPConstruct {
-
-//     public abstract readonly parent?: ExecutableConstruct; // Narrows type of parent property of CPPConstruct
-//     // public readonly context!: ExecutableConstructContext; // TODO: narrows type of parent property, but needs to be done in safe way (with parent property made abstract)
-
-//     // public readonly containingFunction: FunctionEntity;
-    
-//     protected constructor(context: ConstructContext) {
-//         super(context);
-
-//         // this.containingFunction = context.containingFunction;
-//     }
-
-//     // public abstract isTailChild(child: CPPConstruct) : {isTail: boolean};
-// }
-
-// export interface CompiledInstructionConstruct extends InstructionConstruct, SuccessfullyCompiled {
-
-// }
-
-export abstract class PotentialFullExpression<ContextType extends ConstructContext = ConstructContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
+export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
     
     public readonly parent?: BasicCPPConstruct; // Narrows type of parent property of CPPConstruct
 
@@ -427,7 +375,7 @@ export abstract class PotentialFullExpression<ContextType extends ConstructConte
     public readonly temporaryDeallocator?: TemporaryDeallocator;
 
 
-    public onAttach(parent: CPPConstruct) {
+    public onAttach(parent: BasicCPPConstruct) {
 
         (<Mutable<this>>this).parent = parent;
 
@@ -541,7 +489,7 @@ export class TemporaryDeallocator extends BasicCPPConstruct {
 
     // public readonly dtors: (MemberFunctionCall | null)[];
 
-    public constructor(context: ConstructContext, temporaryObjects: TemporaryObjectEntity[] ) {
+    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[] ) {
         super(context);
         this.temporaryObjects = temporaryObjects;
 
@@ -600,19 +548,19 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 
         // let dtors = this.model.dtors;
-        let dtors : readonly any[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
+        let dtors : readonly null[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
         if (this.index < dtors.length) {
-            let dtor = dtors[this.index];
-            if (!this.justDestructed && dtor) {
-                dtor.createRuntimeConstruct(this);
-                this.sim.push(dtor);
-                this.justDestructed = true;
-            }
-            else {
+            // let dtor = dtors[this.index];
+            // if (!this.justDestructed && dtor) {
+            //     dtor.createRuntimeConstruct(this);
+            //     this.sim.push(dtor);
+            //     this.justDestructed = true;
+            // }
+            // else {
                 this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this));
                 ++this.index;
-                this.justDestructed = false;
-            }
+                // this.justDestructed = false;
+            // }
         }
         else{
             this.sim.pop();
@@ -657,7 +605,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 
 export class UnsupportedConstruct extends BasicCPPConstruct {
-    public constructor(context: ConstructContext, unsupportedName: string) {
+    public constructor(context: TranslationUnitContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
@@ -726,33 +674,35 @@ export class UnsupportedConstruct extends BasicCPPConstruct {
 // });
 
 
+export class RuntimeGlobalObjectAllocator {
 
-// TODO: change this to a static initialization construct that properly checks
-//       whether all static initializers are compiled.
-export class GlobalExecutionConstruct extends CPPConstruct implements SuccessfullyCompiled {
-    
-    public parent: undefined;
-    public _t_isCompiled!: never;
+    public readonly sim: Simulation;
 
-    public onAttach(parent: CPPConstruct) {
-        throw new Error("GlobalExecutionConstruct should never be attached as a child of another construct.");
+    private index = 0;
+
+    public constructor (sim: Simulation) {
+       this.sim = sim;
+    }
+	
+    protected upNextImpl() {
+
+        let globalObjects = this.sim.program.globalObjects;
+
+        // let dtors = this.model.dtors;
+        if (this.index < globalObjects.length) {
+            let objDef = globalObjects[this.index];
+            this.sim.memory.allocateStatic(objDef);
+            if (objDef.initializer) {
+                this.sim.push(objDef.initializer.createRuntimeInitializer(this));
+            }
+            ++this.index;
+        }
+        else{
+            this.sim.pop();
+        }
     }
 
-    public createRuntimeGlobalExecution() {
-
+    public stepForwardImpl() {
+        return false;
     }
-
-}
-
-export class RuntimeGlobalExecution extends RuntimeConstruct<GlobalExecutionConstruct> {
-
-    protected stepForwardImpl(): void {
-        throw new Error("Method not implemented.");
-    }
-
-    protected upNextImpl(): void {
-        throw new Error("Method not implemented.");
-    }
-
-    
 }
