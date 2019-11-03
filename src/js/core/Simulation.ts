@@ -95,37 +95,13 @@ export class Simulation {
         // also optionally create and push the main call taking over what is currently
         // in this.callMain()
 
-        this.program.globalObjects.forEach(globalObj => this.memory.allocateStatic(globalObj))
-
-        var anyStaticInits = false;
-        for(var i = this.program.globalObjects.length - 1; i >= 0; --i){
-
-            var init = this.program.globalObjects[i].initializer;
-            if(init) {
-                init.createRuntimeInitializer();
-                anyStaticInits = true;
-            }
-        }
-
         this.callMain();
+        this.push(this.program.globalObjectAllocator.createRuntimeConstruct(this));
 
         this.observable.send("started");
 
         // Needed for whatever is first on the execution stack
         this.upNext();
-
-        // Get through all static initializers and stuff before main
-        if (anyStaticInits) {
-            this.i_mainCallInst.setPauseWhenUpNext();
-            this.i_paused = false;
-            while (!this.i_paused){
-                this.stepForward();
-                this.i_stepsTaken = 0; // TODO remove hack. make outlet count user steps
-            }
-            this.i_paused = false;
-        }
-
-        this.stepForward(); // To call main
     }
 
     private callMain() {

@@ -62,7 +62,7 @@ class ArrayObjectData<T extends BoundedArrayType> extends ObjectData<T> {
         return this.getArrayElemSubobject(index);
     }
 
-    public getArrayElemSubobject(index: number) {
+    public getArrayElemSubobject(index: number) : ArraySubobject<T["elemType"]> {
         if (0 <= index && index < this.elemObjects.length) {
             return this.elemObjects[index];
         }
@@ -295,7 +295,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return this.data.rawValue();
     }
     
-    public readValue(this: CPPObject<AtomicType>) {
+    public readValue<U extends AtomicType>(this: CPPObject<U>) : Value<U> {
         return this.getValue(true);
     }
 
@@ -323,7 +323,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.setValue(newValue, true);
     }
 
-    public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>) {
+    public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>) : boolean {
         return this._isValid && this.type.isValueValid(this.getRawValue());
     }
 

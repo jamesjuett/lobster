@@ -1,0 +1,169 @@
+"use strict";
+/**
+ * @author James
+ */
+var Lobster = Lobster || {};
+Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
+Lobster.Outlets.CPP.CPP_ANIMATIONS = true;
+var dmp = new diff_match_patch();
+var diff = function (from, to) {
+    var d = dmp.diff_main(from, to);
+    var changes = [];
+    var curChar = 0;
+    for (var i = 0; i < d.length; ++i) {
+        var type = d[i][0];
+        var text = d[i][1];
+        if (type === 0) {
+            // an equality
+            curChar += text.length;
+        }
+        else if (type === -1) {
+            // a deletion
+            changes.push(UserActions.ChangeCode.instance("delete", curChar, text));
+        }
+        else { // if (type === 1)
+            // an insertion
+            changes.push(UserActions.ChangeCode.instance("insert", curChar, text));
+            curChar += text.length;
+        }
+    }
+    return changes;
+};
+var UserActions = Lobster.CPP.UserActions = {};
+Lobster.CPP.UserActions.Base = Class.extend({
+    _name: "UserAction",
+    // combine takes one parameter for the next action and returns false if this action can't
+    // "absorb" that one. If they can be combined, it should modify this
+    // action to "absorb" the other one and then return this
+    combine: function () {
+        return false; //default is can't combine actions
+    },
+    encode: Class._ABSTRACT
+});
+Lobster.CPP.UserActions.ChangeCode = UserActions.Base.extend({
+    _name: "UserActions.ChangeCode",
+    init: function (type, at, text) {
+        this.type = type;
+        this.at = at;
+        this.text = text;
+    },
+    combine: function (next) {
+        // if both are insertions
+        if (this.type === "insert" && next.type === "insert") {
+            if (this.at + this.text.length === next.at) {
+                // we can combine them
+                this.text += next.text;
+                return this;
+            }
+        }
+        // if both are deletions (using backspace)
+        if (this.type === "delete" && next.type === "delete") {
+            if (this.at - this.text.length === next.at) {
+                // we can combine them
+                this.text = next.text + this.text;
+                return this;
+            }
+        }
+        // if both are deletions (using delete)
+        if (this.type === "delete" && next.type === "delete") {
+            if (this.at === next.at) {
+                // we can combine them
+                this.text += next.text;
+                return this;
+            }
+        }
+        return false;
+    },
+    encode: function () {
+        return {
+            action: this.type + "Code",
+            value: this.at + ":" + (this.type === "insert" ? this.text : this.text.length)
+        };
+    }
+});
+Lobster.CPP.UserActions.LoadCode = UserActions.Base.extend({
+    _name: "UserActions.LoadCode",
+    init: function (code) {
+        this.code = code;
+    },
+    combine: function (next) {
+        return false;
+    },
+    encode: function () {
+        return {
+            action: "loadCode",
+            value: this.code
+        };
+    }
+});
+Lobster.CPP.UserActions.Simulate = UserActions.Base.extend({
+    _name: "UserActions.Simulate",
+    init: function (code) {
+        this.code = code;
+    },
+    combine: function (next) {
+        return false;
+    },
+    encode: function () {
+        return {
+            action: "simulate",
+            value: ""
+        };
+    }
+});
+var UserLog = Lobster.CPP.UserLog = Class.extend(Observer, {
+    _name: "UserLog",
+    init: function () {
+        this.initParent();
+        this.actions = [];
+        var self = this;
+        self.logId = false;
+        $.get("log/new", function (data) {
+            self.logId = data;
+        });
+        setInterval(function () {
+            if (self.logId !== false) {
+                self.compress();
+                self.update();
+            }
+        }, 10000);
+    },
+    addAction: function (action) {
+        this.actions.push(action);
+    },
+    _act: {
+        userAction: function (msg) {
+            this.addAction(msg.data);
+        }
+    },
+    compress: function () {
+        // just return if there aren't multiple actions
+        if (this.actions.length < 2) {
+            return;
+        }
+        var newActions = [];
+        var prev = this.actions[0];
+        for (var i = 1; i < this.actions.length; ++i) {
+            var act = this.actions[i];
+            if (prev.combine(act)) {
+                continue;
+            }
+            newActions.push(prev);
+            prev = this.actions[i];
+        }
+        newActions.push(prev);
+        this.actions = newActions;
+    },
+    update: function () {
+        // post actions to server
+        for (var i = 0; i < this.actions.length; ++i) {
+            this.actions[i] = this.actions[i].encode();
+        }
+        if (this.actions.length !== 0) {
+            debug(JSON.stringify(this.actions, null, 4), "log");
+            $.post("log/update", { logId: this.logId, actions: JSON.stringify(this.actions) }, null);
+        }
+        this.actions.length = 0;
+    }
+});
+//# sourceMappingURL=actions.js.map

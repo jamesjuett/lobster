@@ -1,6 +1,8 @@
 {
     "include": [
-      "./src/js/**/*"
+      "./src/js/core/*.ts",
+      "./src/js/parse/*.ts",
+      "./src/js/util/*.ts"
     ],
     "compilerOptions": {
       /* Basic Options */

@@ -1,12 +1,12 @@
 
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteHandler, Note, NoteKind, SyntaxNote, CPPError } from "./errors";
-import { Mutable, asMutable } from "../util/util";
+import { Mutable, asMutable, assertFalse } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, selectOverloadedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
 import { FunctionCall } from "./functions";
 import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 
 
 
@@ -127,6 +127,7 @@ export class Program {
     public readonly includedSourceFiles : { [index: string]: SourceFile } = {};
     
     public readonly globalObjects: readonly GlobalObjectDefinition[] = [];
+    public readonly globalObjectAllocator!: GlobalObjectAllocator;
     
     private readonly functionCalls: readonly FunctionCall[] = [];
     
@@ -270,7 +271,7 @@ export class Program {
             (<Mutable<this>>this).mainFunction = main;
         }
 
-        this.globalObjectAllocator = new GlobalObjectAllocator()
+        (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
         //look for main - TODO: this should just be a prerequisite for actually simulating.
         // I think it's a bit annoying that a program without main necessarily has this error.
         // try{
@@ -354,6 +355,7 @@ export class Program {
 export interface CompiledProgram extends Program {
     readonly mainFunction: CompiledFunctionDefinition;
     readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+    readonly globalObjectAllocator: CompiledGlobalObjectAllocator;
 }
 
 export class SourceFile {
@@ -761,12 +763,14 @@ export class TranslationUnit {
     }
 
     public getNearestSourceReferenceForConstruct(construct: CPPConstruct) {
-        while (!construct.ast) {
-            
+        while (!construct.ast && construct.parent) {
+            construct = construct.parent;
         }
-        var trackedConstruct = findNearestTrackedConstruct(construct); // will be source if that was tracked
-        var trackedCode = trackedConstruct.code;
-        return this.getSourceReference(trackedCode.line, trackedCode.column, trackedCode.start, trackedCode.end);
+        if (!construct.ast) {
+            return assertFalse("Can't find source reference for construct");
+        }
+        let src = construct.ast.source;
+        return this.getSourceReference(src.line, src.column, src.start, src.end);
     }
 
     public getSourceReference(line: number, column: number, start: number, end: number) {

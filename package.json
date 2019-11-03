@@ -23,6 +23,6 @@
     },
     "dependencies": {},
     "scripts": {
-        "build": "webpack --config webpack.config.js"
+        "build": "node ./node_modules/.bin/webpack --config webpack.config.js"
     }
 }

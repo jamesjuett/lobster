@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ConstructContext, CompiledTemporaryDeallocator, TranslationUnitContext } from "./constructs";
+import { BasicCPPConstruct, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, CompiledTemporaryDeallocator, TranslationUnitContext } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity, PassByReferenceParameterEntity } from "./entities";
 import { RuntimeBlock, CompiledBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, NoRefType, VoidType, FunctionType } from "./types";
@@ -261,7 +261,7 @@ export class FunctionCall extends PotentialFullExpression {
 
         // TODO: need to check that it's not an auxiliary function call before adding these?
         // this.context.containingFunction.addCall(this);
-        this.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+        this.context.translationUnit.registerFunctionCall(this); // TODO: is this needed?
     }
 
     // public checkLinkingProblems() {

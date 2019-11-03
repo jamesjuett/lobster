@@ -507,7 +507,7 @@ export abstract class SimpleType extends AtomicType {
             return varname ? varname : "";
         }
         else{
-            return this.getCVString() + (decorated ? htmlDecoratedType(this.simpleType) : this.simpleType) + (varname ? " " + varname : "");
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.simpleType.toString()) : this.simpleType) + (varname ? " " + varname : "");
         }
     }
     
