@@ -6,16 +6,7 @@ export function asMutable<T>(obj: T) : Mutable<T> {
     return <Mutable<T>>obj;
 }
 
-export function debug(message, category){
-    if (category){
-        console.log(category + ": " + message);
-        $(".debug."+category).html(""+message); //""+ is to force conversion to string (via .toString if object)
-    }
-    else{
-        console.log(message);
-        $(".debug.debugAll").html(""+message); //""+ is to force conversion to string (via .toString if object)
-    }
-}
+
 
 export function assert(condition: boolean, message: string = "") {
     if (!condition)
@@ -26,10 +17,6 @@ export function assertFalse(message: string = "") : never {
     throw Error("Assert failed: " + message);
 };
 
-
-export function addDefaultPropertiesToPrototype<T>(ctor: {prototype: T}, props: {}) {
-    assign(ctor.prototype, props);
-}
 
 export function createMethodMixin<TargetType, MethodName extends keyof TargetType>(mix: TargetType[MethodName]) {
     return (targetProto: TargetType, name: MethodName) => {
@@ -47,37 +34,37 @@ export type DiscriminateUnion<T, K extends keyof T, V extends T[K]> =
 export type MapDiscriminatedUnion<T extends Record<K, string>, K extends keyof T> =
   { [V in T[K]]: DiscriminateUnion<T, K, V> };
 
-export function htmlDecoratedOperator(operator, cssClass){
-    return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";
+// export function htmlDecoratedOperator(operator, cssClass){
+//     return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";
+// };
+
+// export function htmlDecoratedKeyword(keyword){
+//     return '<span class="code-keyword">' + keyword + '</span>';
+// };
+
+export function htmlDecoratedType(typeString: string) {
+    return '<span class="code-type">' + typeString + '</span>';
 };
 
-export function htmlDecoratedKeyword(keyword){
-    return '<span class="code-keyword">' + keyword + '</span>';
-};
+// export function htmlDecoratedName(name, type){
+//     return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString() + '</span>' + name + '</span>';
+// };
 
-export function htmlDecoratedType(type){
-    return '<span class="code-type">' + type.toString() + '</span>';
-};
-
-export function htmlDecoratedName(name, type){
-    return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString() + '</span>' + name + '</span>';
-};
-
-export function htmlDecoratedValue(value){
-    return '<span class="code-literal">' + value + '</span>';
-};
+// export function htmlDecoratedValue(value){
+//     return '<span class="code-literal">' + value + '</span>';
+// };
 
 
 var escapes = ["\\\"", "\\'", "\\?", "\\\\", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\0"];
 var escaped = ["\"", "\'", "", "\\", "", "\b", "\f", "\n", "\r", "\t", "\v", "\0"];
 
-export function escapeString(text){
+export function escapeString(text: string) {
     for(var i = 0; i < escapes.length; ++i){
         text = text.replace(escapes[i], escaped[i]);
     }
     return text;
 };
-export function unescapeString(text){
+export function unescapeString(text: string){
     var newStr = "";
     for(var i = 0; i < text.length; ++i){
         var c = text[i];

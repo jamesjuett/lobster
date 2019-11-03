@@ -1,12 +1,10 @@
 {
-  function composeBinaryOp(first, rest, assoc, exprType){
-    assoc = assoc || "left";
-    exprType = exprType || "binary_binary_operator_expression";
+  function composeBinaryOp(first: any, rest: any, assoc: "left" | "right", exprType: string) : any {
     if(!rest || rest.length === 0){
       return first;
     }
     if (assoc === "left"){
-      var right = rest.pop();
+      let right = rest.pop();
       return {
         construct_type: exprType,
         operator: right[0],
@@ -16,7 +14,7 @@
       }
     }
     else{
-      var left = rest.shift();
+      let left = rest.shift();
       return {
         construct_type: exprType,
         operator: left[0],
@@ -27,9 +25,9 @@
     }
   }
 
-  function absorb(eater, eaten){
+  function absorb(eater: any, eaten: any){
     if (!eaten){ return eater; }
-    for (var attr in eaten){
+    for (let attr in eaten){
       if(attr != "start" && attr != "end"){
         eater[attr] = eaten[attr];
       }
@@ -37,7 +35,7 @@
     return eater;
   }
 
-  function track(obj, location, text){
+  function track(obj: any, location: any, text: string) {
     obj.source = {
       location : location,
       start : location.start.offset,
@@ -49,65 +47,29 @@
     return obj;
   }
 
-  function makeArray(obj){
-    if (Array.isArray(obj)){
-      return obj;
-    }
-    else{
-      return [obj];
-    }
-  }
-
-  function addImplicitJump(control){
-    control.body.push({jump:"implicit"});
-    return control;
-  }
-
-  function insideOut(obj, sub, result_in){
-    sub = sub || "sub";
-    var result = result_in || {};
-    if (obj[sub]){
-      var temp = insideOut(obj[sub], sub, result);
-      delete obj[sub];
-      temp[sub] = obj;
-      return (result_in ? temp.sub : result.sub);
-    }
-    else{
-      // No sub property means last piece
-      result.sub = obj
-      return obj;
-    }
-  }
-
-  function postfixExp(ops, sub){
+  function postfixExp(ops: any, sub: any){
     if(ops.length == 0){
       return sub;
     }
     else{
-      var op = ops.pop();
+      let op = ops.pop();
       op.operand = postfixExp(ops, sub);
       return op;
     }
   }
 
-  var vars = {abstract: false};
+  let _userTypeNames = {};
 
-  function arrayContains(arr, elem){
-    return arr.indexOf(elem) != -1;
-  }
-
-  var _userTypeNames = {list_t:true, tree_t:true};
-
-  function getUserTypeNames(){
-    if (typeof Types !== "undefined"){
-      return Types.userTypeNames;
-    }
-    else{
+  function getUserTypeNames() : any {
+    //if (typeof Types !== "undefined"){
+    //  return Types.userTypeNames;
+    //}
+    //else{
       return _userTypeNames;
-    }
+    //}
   }
 
-  function isUserTypeName(name){
+  function isUserTypeName(name: string) {
     return getUserTypeNames()[name];
   }
 
@@ -116,7 +78,7 @@
 
 
 start
-  = ws decls:(d:decl_or_comment ws {return d})* {return decls.filter(function(elem){return elem!=="comment";});}
+  = ws decls:(d:decl_or_comment ws {return d})* {return decls.filter((elem: any) => elem!=="comment");}
 
 decl_or_comment
   = comment {return "comment";}
@@ -253,13 +215,13 @@ decl_specifiers
       before.push({typeSpec:t});
       var rest = before.concat(after);
 
-      var declSpecs = {
+      var declSpecs : any = {
         typeSpecs: [],
         storageSpecs: []
       };
 
       for(var i = 0; i < rest.length; ++i){
-        var spec = rest[i];
+        let spec = rest[i];
         if (spec.typeSpec){
           declSpecs.typeSpecs.push(spec.typeSpec);
         }
@@ -373,14 +335,12 @@ initializer_list
 declarator
   = d:_declarator
     {
-    //d = insideOut(d);
     var d2 = track(absorb({construct_type:"declarator"}, d), location(), text());
    return d2;
   }
 
 abstract_declarator
   = d:_abs_declarator {
-    //d = insideOut(d);
     var d2 = track(absorb({construct_type:"declarator", abstract: true}, d), location(), text());
     return d2;
   }
@@ -630,7 +590,6 @@ new_type_id
 
 
 new_declarator = d:_new_declarator {
-  //d = insideOut(d);
   var d2 = track(absorb({construct_type:"declarator"}, d), location(), text());
   return d2;
 

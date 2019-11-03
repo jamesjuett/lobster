@@ -55,8 +55,6 @@ export function createTranslationUnitContext(context: ProgramContext, translatio
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
 
-    public static readonly constructKind : symbol = Symbol("CPPConstruct");
-
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
@@ -183,6 +181,8 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
 }
+
+export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
 
 export interface SuccessfullyCompiled {
     
@@ -674,23 +674,49 @@ export class UnsupportedConstruct extends BasicCPPConstruct {
 // });
 
 
-export class RuntimeGlobalObjectAllocator {
 
-    public readonly sim: Simulation;
+
+export class GlobalObjectAllocator extends CPPConstruct {
+    
+
+    public readonly parent?: undefined;
+    public readonly globalObjects: readonly GlobalObjectDefinition[];
+
+    public constructor(context: ProgramContext, globalObjects: readonly GlobalObjectDefinition[] ) {
+        super(context);
+        this.globalObjects = globalObjects;
+    }
+    
+    protected onAttach(parent: this["parent"]): void {
+        throw new Error("Method not implemented.");
+    }
+
+    public createRuntimeConstruct(this: CompiledGlobalObjectAllocator, sim: Simulation) {
+        return new RuntimeGlobalObjectAllocator(this, sim);
+    }
+
+    // public isTailChild(child: ExecutableConstruct) {
+    //     return {isTail: true};
+    // }
+}
+
+export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {
+    readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+}
+
+export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGlobalObjectAllocator> {
 
     private index = 0;
 
-    public constructor (sim: Simulation) {
-       this.sim = sim;
+    public constructor (model: CompiledGlobalObjectAllocator, sim: Simulation) {
+        super(model, "statement", sim); // TODO: is "statement" the right stack type here? should I make a new one?
     }
 	
     protected upNextImpl() {
 
-        let globalObjects = this.sim.program.globalObjects;
-
         // let dtors = this.model.dtors;
-        if (this.index < globalObjects.length) {
-            let objDef = globalObjects[this.index];
+        if (this.index < this.model.globalObjects.length) {
+            let objDef = this.model.globalObjects[this.index];
             this.sim.memory.allocateStatic(objDef);
             if (objDef.initializer) {
                 this.sim.push(objDef.initializer.createRuntimeInitializer(this));

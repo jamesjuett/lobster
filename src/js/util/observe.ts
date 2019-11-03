@@ -1,5 +1,6 @@
 
 import pull from "lodash/pull";
+import { assert } from "./util";
 
 interface Message {
     category: string;
