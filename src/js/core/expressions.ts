@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType } from "./types";
-import { ASTNode, PotentialFullExpression, ConstructContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
+import { ASTNode, PotentialFullExpression, TranslationUnitContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
 import { CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity, CPPEntity, overloadResolution } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -140,12 +140,12 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
     return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
 } 
 
-export interface ExpressionContext extends ConstructContext {
+export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualParameterTypes?: readonly (Type | undefined)[];
     readonly contextualReceiverType?: ClassType;
 }
 
-export function createExpressionContext(context: ConstructContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
+export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
     return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
 }
 
@@ -3437,7 +3437,7 @@ export class IdentifierExpression extends Expression {
         this.name = name;
         checkIdentifier(this, name, this);
 
-        let lookupResult = this.contextualScope.lookup(this.name);
+        let lookupResult = this.context.contextualScope.lookup(this.name);
 
         if (Array.isArray(lookupResult)) {
 
@@ -3850,6 +3850,7 @@ export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory =
 
 
 const AUXILIARY_EXPRESSION_CONTEXT : ExpressionContext = {
+    program: <never>undefined,
     translationUnit: <never>undefined,
     contextualScope: <never>undefined
 }

@@ -1,4 +1,4 @@
-import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, ConstructContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
+import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, VCResultTypes } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
@@ -41,12 +41,12 @@ export abstract class RuntimeInitializer<C extends CompiledInitializer = Compile
 
 export abstract class DefaultInitializer extends Initializer {
 
-    public static create(context: ConstructContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<BoundedArrayType>) : ArrayDefaultInitializer;
-    // public static create(context: ConstructContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>) : ArrayDefaultInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);
         }
@@ -83,7 +83,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
 
     public readonly target: UnboundReferenceEntity;
 
-    public constructor(context: ConstructContext, target: UnboundReferenceEntity) {
+    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity) {
         super(context);
         this.target = target;
 
@@ -108,7 +108,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
 
     public readonly target: ObjectEntity<AtomicType>;
 
-    public constructor(context: ConstructContext, target: ObjectEntity<AtomicType>) {
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) {
         super(context);
         this.target = target;
     }
@@ -155,7 +155,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly elementInitializers?: DefaultInitializer[];
 
-    public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>) {
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>) {
         super(context);
         
         this.target = target;
@@ -249,7 +249,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //     public readonly ctor: ConstructorEntity?;
 //     public readonly ctorCall: MemberFunctionCall?;
 
-//     public constructor(context: ConstructContext, target: ObjectEntity<ClassType>) {
+//     public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>) {
 //         super(context);
 
 //         this.target = target;
@@ -333,7 +333,7 @@ export interface DirectInitializerASTNode extends ASTNode {
 export abstract class DirectInitializer extends Initializer {
 
     // NOTE: removed since I don't think it makes sense to create an initializer directly from an AST (and it doesn't match the base signature of CPPConstruct.createFromAST)
-    // public static createFromAST<T extends Type>(ast: DirectInitializerASTNode, context: ConstructContext, target: ObjectEntity<T>) {
+    // public static createFromAST<T extends Type>(ast: DirectInitializerASTNode, context: TranslationUnitContext, target: ObjectEntity<T>) {
     //     return this.create(context, target,
     //         ast.args.map((a) => {
     //             return Expression.createFromAST(a, context);
@@ -341,12 +341,12 @@ export abstract class DirectInitializer extends Initializer {
     //     )
     // }
 
-    public static create(context: ConstructContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
-    // public static create(context: ConstructContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
-    // public static create(context: ConstructContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) : ClassDirectInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity, args: readonly Expression[]) : DirectInitializer;
-    public static create(context: ConstructContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]) : DirectInitializer {
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) : ClassDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[]) : DirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]) : DirectInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args);
         }
@@ -391,7 +391,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: ConstructContext, target: UnboundReferenceEntity, args: readonly Expression[]) {
+    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]) {
         super(context);
         this.target = target;
         
@@ -477,7 +477,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: ConstructContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) {
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) {
         super(context);
         
         this.target = target;
@@ -572,7 +572,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //     public readonly args: readonly Expression[];
 //     public readonly arg?: StringLiteral;
 
-//     public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
+//     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
 //         super(context);
         
 //         this.target = target;
@@ -657,7 +657,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //     public readonly ctor: ConstructorEntity?;
 //     public readonly ctorCall: MemberFunctionCall?;
 
-//     public constructor(context: ConstructContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) {
+//     public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) {
 //         super(context);
         
 //         this.target = target;
@@ -778,7 +778,7 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
     
 //     public readonly elementInitializers: DirectInitializer[] = [];
 
-//     public constructor(context: ConstructContext, target: ObjectEntity<BoundedArrayType>,
+//     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>,
 //                        otherMember: ObjectEntity<BoundedArrayType>) {
 //         super(context);
         

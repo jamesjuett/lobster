@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ConstructContext, CompiledTemporaryDeallocator } from "./constructs";
+import { BasicCPPConstruct, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression, SuccessfullyCompiled, ConstructContext, CompiledTemporaryDeallocator, TranslationUnitContext } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByValueParameterEntity, LocalVariableEntity, LocalReferenceEntity, AutoEntity, PassByReferenceParameterEntity } from "./entities";
 import { RuntimeBlock, CompiledBlock } from "./statements";
 import { PotentialReturnType, ClassType, ObjectType, ReferenceType, NoRefType, VoidType, FunctionType } from "./types";
@@ -13,12 +13,12 @@ import { CPPError } from "./errors";
 import { CompiledFunctionDefinition } from "./declarations";
 
 
-export interface FunctionContext extends ConstructContext {
+export interface FunctionContext extends TranslationUnitContext {
     readonly containingFunction: FunctionEntity;
     readonly functionLocals: FunctionLocals;
 }
 
-export function createFunctionContext(context: ConstructContext, containingFunction: FunctionEntity) : FunctionContext {
+export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity) : FunctionContext {
     return Object.assign({}, context, {containingFunction: containingFunction, functionLocals: new FunctionLocals()});
 }
 
@@ -69,7 +69,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
     public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>);
     public constructor (model: CompiledFunctionDefinition, sim: Simulation, receiver?: CPPObject<ClassType>);
     public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation, receiver?: CPPObject<ClassType>) {
-        super(model, "function", <any>parentOrSim);
+        super(model, "function", parentOrSim);
         if (parentOrSim instanceof RuntimeFunctionCall) {
             this.caller = parentOrSim;
         }
@@ -228,7 +228,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    public constructor(context: ConstructContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: TranslationUnitContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
         super(context);
 
         this.func = func;

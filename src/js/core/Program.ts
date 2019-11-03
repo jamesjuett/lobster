@@ -1,12 +1,12 @@
-import { Note, NoteHandler, NoteKind, SyntaxNote, CPPError, LinkerNote } from "./errors";
-import { Mutable, asMutable } from "../util/util";
-import { Observable } from "../util/observe";
-import { StaticEntity, NamespaceScope, StringLiteralEntity, FunctionEntity, DeclaredEntity, LinkedEntity } from "./entities";
-import { CPPConstruct, ASTNode, ConstructContext } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, DeclarationASTNode, createDeclarationFromAST, Declaration, GlobalObjectDefinition, selectOverloadedDefinition, LinkedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition } from "./declarations";
-import { FunctionCall } from "./functions";
-import { FunctionType } from "./types";
+
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
+import { NoteHandler, Note, NoteKind, SyntaxNote, CPPError } from "./errors";
+import { Mutable, asMutable } from "../util/util";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, selectOverloadedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
+import { FunctionCall } from "./functions";
+import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity } from "./entities";
+import { Observable } from "../util/observe";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext } from "./constructs";
 
 
 
@@ -117,6 +117,8 @@ export class NoteRecorder implements NoteHandler {
 export class Program {
     
     // public readonly observable = new Observable(this);
+    
+    public readonly context: ProgramContext = {program: this};
     
     public readonly isCompilationUpToDate: boolean = true;
 
@@ -267,6 +269,8 @@ export class Program {
         if (main instanceof FunctionDefinition) {
             (<Mutable<this>>this).mainFunction = main;
         }
+
+        this.globalObjectAllocator = new GlobalObjectAllocator()
         //look for main - TODO: this should just be a prerequisite for actually simulating.
         // I think it's a bit annoying that a program without main necessarily has this error.
         // try{
@@ -628,6 +632,8 @@ export interface TranslationUnitAST {
  */
 export class TranslationUnit {
     
+    public readonly context: TranslationUnitContext;
+
     // public readonly observable = new Observable(this);
     public readonly notes = new NoteRecorder();
 
@@ -644,8 +650,6 @@ export class TranslationUnit {
 
     public readonly parsedAST?: TranslationUnitAST;
 
-    public readonly globalContext: ConstructContext;
-
     /**
      * Attempts to compiled the given primary source file as a translation unit for a C++ program.
      * The compilation is attempted given the **current** state of the source files. If the primary
@@ -659,10 +663,7 @@ export class TranslationUnit {
         this.source = preprocessedSource;
         this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
-        this.globalContext = {
-            translationUnit: this,
-            contextualScope: this.globalScope
-        };
+        this.context = createTranslationUnitContext(program.context, this, this.globalScope);
 
         try{
             // This is kind of a hack to communicate with the PEG.js generated parsing code.
@@ -741,7 +742,7 @@ export class TranslationUnit {
     
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
-            let declsOrFuncDef = createDeclarationFromAST(declAST, this.globalContext);
+            let declsOrFuncDef = createDeclarationFromAST(declAST, this.context);
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => asMutable(this.topLevelDeclarations).push(decl));
             }
