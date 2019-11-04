@@ -1,111 +1,12 @@
 
-import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
-import { NoteHandler, Note, NoteKind, SyntaxNote, CPPError } from "./errors";
+import { parse as cpp_parse} from "../parse/cpp_parser";
+import { NoteKind, SyntaxNote, CPPError, NoteRecorder } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
-import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition } from "./entities";
+import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
-
-
-
-//TODO: Remove this once I'm confident I don't need it
-// var CompoundNoteHandler = NoteHandler.extend({
-//     _name : "CompoundNoteHandler",
-//
-//     instance : function(handler1, handler2) {
-//         if (!handler1) {
-//             return handler2;
-//         }
-//         if (!handler2) {
-//             return handler1;
-//         }
-//
-//         return this._class._parent.instance.apply(this, arguments);
-//     },
-//
-//     /**
-//      *
-//      * @param {NoteHandler} handler1
-//      * @param {NoteHandler} handler2
-//      */
-//     init : function(handler1, handler2) {
-//         this.i_handler1 = handler1;
-//         this.i_handler2 = handler2;
-//     },
-//
-//     /**
-//      *
-//      * @param {PreprocessorNote} note
-//      */
-//     preprocessorNote : function(note) {
-//         this.i_handler1.preprocessorNote(note);
-//         this.i_handler2.preprocessorNote(note);
-//     },
-//
-//
-//     /**
-//      *
-//      * @param {CompilerNote} note
-//      */
-//     compilerNote : function(note) {
-//         this.i_handler1.compilerNote(note);
-//         this.i_handler2.compilerNote(note);
-//     },
-//
-//
-//
-//     /**
-//      *
-//      * @param {LinkerNote} note
-//      */
-//     linkerNote : function(note) {
-//         this.i_handler1.linkerNote(note);
-//         this.i_handler2.linkerNote(note);
-//     }
-//
-//
-// });
-
-export class NoteRecorder implements NoteHandler {
-    
-    private readonly _allNotes: Note[] = [];
-    public readonly allNotes: readonly Note[] = this._allNotes;
-
-    public readonly hasErrors: boolean = false;
-    public readonly hasSyntaxErrors: boolean = false;
-    public readonly hasWarnings: boolean = false;
-
-    public addNote(note: Note) {
-        this._allNotes.push(note);
-
-        let _this = (<Mutable<this>>this);
-
-        if (note.kind === NoteKind.ERROR) {
-            _this.hasErrors = true;
-
-            if (note instanceof SyntaxNote) {
-                _this.hasSyntaxErrors = true;
-            }
-        }
-        else if (note.kind === NoteKind.WARNING) {
-            _this.hasWarnings = true;
-        }
-    }
-
-    public addNotes(notes: readonly Note[]) {
-        notes.forEach((note) => this.addNote(note));
-    }
-
-    public clearNotes() {
-        this._allNotes.length = 0;
-        let _this = (<Mutable<this>>this);
-        _this.hasErrors = false;
-        _this.hasSyntaxErrors = false;
-        _this.hasWarnings = false;
-    }
-}
 
 
 /**
@@ -131,7 +32,7 @@ export class Program {
     private readonly functionCalls: readonly FunctionCall[] = [];
     
     public readonly definitions: {
-        [index: string] : LinkedDefinition
+        [index: string] : LinkedDefinition | undefined
     } = {};
 
     public readonly linkedEntities: readonly LinkedEntity[] = [];
@@ -149,14 +50,12 @@ export class Program {
 
         translationUnits.forEach((tuName) => {
             assert(!!this.sourceFiles[tuName], `Source file ${tuName} not found.`);
-            this.translationUnits[tuName] = new TranslationUnit(this,
+
+            let tu = this.translationUnits[tuName] = new TranslationUnit(this,
                 new PreprocessedSource(this.sourceFiles[tuName], this.sourceFiles));
-        });
-        
-        for(let tuName in this.translationUnits) {
-            let tu = this.translationUnits[tuName];
+
             this.notes.addNotes(tu.notes.allNotes);
-        }
+        });
         
         if (!this.notes.hasSyntaxErrors) {
             this.link();
@@ -249,9 +148,17 @@ export class Program {
             le.link(this.definitions[le.qualifiedName])
         );
 
-        let main = this.definitions["::main"];
-        if (main instanceof FunctionDefinition) {
-            (<Mutable<this>>this).mainFunction = main;
+        let mainLookup = this.definitions["::main"];
+        if (mainLookup) {
+            if (isDefinitionOverloadGroup(mainLookup)) {
+                if (mainLookup.length === 1) {
+                    (<Mutable<this>>this).mainFunction = mainLookup[0];
+                }
+                else {
+                    mainLookup.forEach(mainDef => this.notes.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
+                }
+            }
+            // TODO else it is apparently a global object. need to double check whether that's allowed
         }
 
         (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
@@ -315,7 +222,13 @@ export class Program {
         }
     }
 
+    public isCompiled() : this is CompiledProgram {
+        return !this.notes.hasErrors;
+    }
 
+    public isRunnable() : this is RunnableProgram {
+        return this.isCompiled() && !!this.mainFunction;
+    }
 
     // //TODO: Program itself should just register all the function calls in its translation units.
     // //      However, don't spend time on this until figuring out where the list of function calls
@@ -336,9 +249,13 @@ export class Program {
 };
 
 export interface CompiledProgram extends Program {
-    readonly mainFunction: CompiledFunctionDefinition;
+    readonly mainFunction?: CompiledFunctionDefinition;
     readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
     readonly globalObjectAllocator: CompiledGlobalObjectAllocator;
+}
+
+export interface RunnableProgram extends CompiledProgram {
+    readonly mainFunction: CompiledFunctionDefinition;
 }
 
 export class SourceFile {
@@ -729,10 +646,14 @@ export class TranslationUnit {
         ast.declarations.forEach((declAST) => {
             let declsOrFuncDef = createDeclarationFromAST(declAST, this.context);
             if (Array.isArray(declsOrFuncDef)) {
-                declsOrFuncDef.forEach(decl => asMutable(this.topLevelDeclarations).push(decl));
+                declsOrFuncDef.forEach(decl => {
+                    asMutable(this.topLevelDeclarations).push(decl);
+                    this.notes.addNotes(decl.getAllNotes().allNotes);
+                });
             }
             else {
                 asMutable(this.topLevelDeclarations).push(declsOrFuncDef);
+                this.notes.addNotes(declsOrFuncDef.getAllNotes().allNotes);
             }
         });
     }

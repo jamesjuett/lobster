@@ -1,5 +1,5 @@
 import { Observable } from "../util/observe";
-import { Program, CompiledProgram } from "./Program";
+import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
@@ -22,7 +22,7 @@ export class Simulation {
 
     public readonly observable = new Observable(this);
 
-    public readonly program: CompiledProgram;
+    public readonly program: RunnableProgram;
 
     public readonly memory: Memory;
 
@@ -61,7 +61,7 @@ export class Simulation {
     public readonly mainReturnObject!: MainReturnObject;
     public readonly mainFunction!: RuntimeFunction<Int>;
 
-    constructor(program: CompiledProgram) {
+    constructor(program: RunnableProgram) {
         this.program = program;
 
         // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;

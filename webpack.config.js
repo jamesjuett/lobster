@@ -6,7 +6,7 @@ module.exports = {
   entry: {
     main: './src/js/main.ts'
   },
-  devtool: "inline-source-map",
+  devtool: "source-map",
   output: {
     path: path.join(__dirname, '/public/lobster/js/'),
     filename: '[name].bundle.js',

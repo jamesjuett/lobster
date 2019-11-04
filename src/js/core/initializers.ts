@@ -172,7 +172,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
                 let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.target, i));
                 this.elementInitializers.push(elemInit);
                 this.attach(elemInit);
-                if (elemInit.hasErrors) {
+                if (elemInit.notes.hasErrors) {
                     this.addNote(CPPError.declaration.init.array_default_init(this));
                     break;
                 }

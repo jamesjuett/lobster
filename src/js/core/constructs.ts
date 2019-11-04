@@ -1,6 +1,6 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
 import { Scope, TemporaryObjectEntity, FunctionEntity, AutoEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope } from "./entities";
-import { Note, NoteKind, CPPError } from "./errors";
+import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
@@ -99,8 +99,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     
     public readonly id: number;
 
-    public readonly notes: Note[] = []; 
-    public readonly hasErrors: boolean = false;
+    public readonly notes = new NoteRecorder();
 
     public readonly context: ContextType;
 
@@ -189,13 +188,19 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     }
 
     public addNote(note: Note) {
-        this.notes.push(note);
-        if (note.kind === NoteKind.ERROR) {
-            (<Mutable<this>>this).hasErrors = true;
-        }
+        this.notes.addNote(note);
         // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
         //     this.parent.addNote(note);
         // }
+    }
+
+    /**
+     * Returns an array of all notes associated with this construct or any of its descendants.
+     */
+    public getAllNotes() {
+        let allNotes = new NoteRecorder();
+        this.children.forEach(child => allNotes.addNotes(child.getAllNotes().allNotes));
+        return allNotes;
     }
 
     // getNotes : function() {
