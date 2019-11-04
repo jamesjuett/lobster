@@ -21,7 +21,9 @@
         "webpack": "^4.0.1",
         "webpack-cli": "^2.0.9"
     },
-    "dependencies": {},
+    "dependencies": {
+        "circular-dependency-plugin": "^5.2.0"
+    },
     "scripts": {
         "build": "node ./node_modules/.bin/webpack --config webpack.config.js"
     }

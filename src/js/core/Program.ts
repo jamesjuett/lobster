@@ -1,7 +1,7 @@
 
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteHandler, Note, NoteKind, SyntaxNote, CPPError } from "./errors";
-import { Mutable, asMutable, assertFalse } from "../util/util";
+import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, selectOverloadedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
 import { FunctionCall } from "./functions";
 import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity } from "./entities";
@@ -122,9 +122,8 @@ export class Program {
     
     public readonly isCompilationUpToDate: boolean = true;
 
+    public readonly sourceFiles : { [index: string]: SourceFile } = {};
     public readonly translationUnits : { [index: string]: TranslationUnit } = {};
-    public readonly originalSourceFiles : { [index: string]: SourceFile } = {};
-    public readonly includedSourceFiles : { [index: string]: SourceFile } = {};
     
     public readonly globalObjects: readonly GlobalObjectDefinition[] = [];
     public readonly globalObjectAllocator!: GlobalObjectAllocator;
@@ -142,10 +141,28 @@ export class Program {
     public readonly mainFunction?: FunctionDefinition;
 
 
-    public constructor(translationUnits: readonly TranslationUnit[]) {
-        translationUnits.forEach((tu) => {this.translationUnits[tu.name] = tu;});
+    public constructor(sourceFiles: readonly SourceFile[], translationUnits: readonly string[]) {
 
-        this.fullCompile();
+        sourceFiles.forEach(file => {
+            this.sourceFiles[file.name] = file;
+        });
+
+        translationUnits.forEach((tuName) => {
+            assert(!!this.sourceFiles[tuName], `Source file ${tuName} not found.`);
+            this.translationUnits[tuName] = new TranslationUnit(this,
+                new PreprocessedSource(this.sourceFiles[tuName], this.sourceFiles));
+        });
+        
+        for(let tuName in this.translationUnits) {
+            let tu = this.translationUnits[tuName];
+            this.notes.addNotes(tu.notes.allNotes);
+        }
+        
+        if (!this.notes.hasSyntaxErrors) {
+            this.link();
+        }
+
+        (<Mutable<this>>this).isCompilationUpToDate = true;
     }
 
     // addSourceFile : function(sourceFile) {
@@ -218,40 +235,6 @@ export class Program {
     // addStaticEntity : function(ent){
     //     this.staticEntities.push(ent);
     // },
-
-    /**
-     * Links compiled translation units together.
-     */
-    private fullCompile() {
-        this.compilationProper();
-
-        if (!this.notes.hasSyntaxErrors) {
-            this.link();
-        }
-
-        (<Mutable<this>>this).isCompilationUpToDate = true;
-    }
-
-    /**
-     * Presumes translation units are already compiled (not necessarily successfully).
-     */
-    private compilationProper() {
-        // this.observable.send("compilationStarted");
-
-        for(let tuName in this.translationUnits) {
-            let tu = this.translationUnits[tuName];
-
-            this.originalSourceFiles[tu.source.primarySourceFile.name] = tu.source.primarySourceFile;
-            Object.assign(this.includedSourceFiles, tu.source.includedSourceFiles);
-            this.notes.addNotes(tu.notes.allNotes);
-
-            // TODO: why was this here?
-            // if (this.notes.hasSyntaxErrors) {
-            //     break;
-            // }
-        }
-        // this.observable.send("compilationFinished");
-    }
 
     private link() {
         // this.send("linkingStarted");

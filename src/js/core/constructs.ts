@@ -4,7 +4,7 @@ import { Note, NoteKind, CPPError } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { RuntimeFunction, FunctionLocals, FunctionContext } from "./functions";
+import { RuntimeFunction } from "./functions";
 import { ObjectType, ClassType } from "./types";
 import { TemporaryObject } from "./objects";
 import { GlobalObjectDefinition, CompiledGlobalObjectDefinition } from "./declarations";
