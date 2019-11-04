@@ -1,8 +1,9 @@
-import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointer, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, isType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType } from "./types";
-import { ValueCategory, Expression, TypedExpression, CompiledExpression, VCResultTypes, SimpleRuntimeExpression, RuntimeExpression, NumericLiteral, SpecificTypedExpression } from "./expressions";
+import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointer, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
+import { SimpleRuntimeExpression, NumericLiteral } from "./expressions";
 import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
+import { CompiledExpression, Expression, VCResultTypes, RuntimeExpression, ValueCategory, TypedExpression, SpecificTypedExpression } from "./expressionBase";
 
 export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
     
@@ -363,7 +364,6 @@ export interface StandardConversionOptions {
  * @param options 
  */
 export function standardConversion(from: TypedExpression, toType: Type, options: StandardConversionOptions = {}) {
-    options = options || {};
 
     // Unless the object is atomic typed or is an array, Lobster currently doesn't support
     // any standard conversions. Note in particular this means user-defined converison functions

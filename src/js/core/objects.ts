@@ -3,8 +3,6 @@ import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct, Description } from "./constructs";
-import { AutoEntity, StaticEntity, CPPEntity, TemporaryObjectEntity, ObjectEntity } from "./entities";
-import { Simulation } from "./Simulation";
 import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
 
 abstract class ObjectData<T extends ObjectType> {

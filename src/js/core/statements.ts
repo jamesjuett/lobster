@@ -1,12 +1,12 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext } from "./constructs";
 import { CPPError } from "./errors";
-import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, createExpressionFromAST } from "./expressions";
+import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
-import { RuntimeFunction, FunctionContext } from "./functions";
 import { Mutable, asMutable } from "../util/util";
+import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -379,14 +379,6 @@ function createBlockContext(context: FunctionContext) : BlockContext {
         localObjects: [],
         localReferences: []
     });
-}
-
-export interface BlockContext extends FunctionContext {
-    readonly contextualScope: BlockScope;
-}
-
-export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
-    return context.contextualScope instanceof BlockScope;
 }
 
 export class Block extends Statement<BlockASTNode> {

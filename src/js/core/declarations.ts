@@ -1,14 +1,15 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext } from "./constructs";
+import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
 import { AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity } from "./entities";
-import { Expression, ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
-import { BlockContext, BlockASTNode, Block, createStatementFromAST, isBlockContext, CompiledBlock } from "./statements";
+import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
+import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { FunctionLocals, FunctionContext, createFunctionContext, RuntimeFunctionCall, RuntimeFunction } from "./functions";
 import { CPPObject } from "./objects";
+import { RuntimeFunctionCall } from "./functionCall";
+import { Expression } from "./expressionBase";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -607,7 +608,7 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 
 
 export class GlobalObjectDefinition extends VariableDefinition {
-
+    public readonly kind = "GlobalObjectDefinition";
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
 
@@ -997,6 +998,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 }
 
 export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
+    public readonly kind = "FunctionDefinition";
 
     public readonly declaration: FunctionDeclaration;
     public readonly parameters: readonly ParameterDefinition[];
@@ -2036,14 +2038,5 @@ export interface CompiledFunctionDefinition<ReturnType extends PotentialReturnTy
 //         return {isTail: false};
 //     }
 // });
-
-
-/**
- * Selects a function from the given overload group based on the signature of
- * the provided function type. (Note there's no consideration of function names here.)
- */
-export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
-    return overloadGroup.find(func => type.sameSignature(func.declaration.type));
-}
 
 export type LinkedDefinition = GlobalObjectDefinition | FunctionDefinition[];

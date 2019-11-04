@@ -2,11 +2,11 @@
 import {SyntaxError, parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteHandler, Note, NoteKind, SyntaxNote, CPPError } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, selectOverloadedDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
-import { FunctionCall } from "./functions";
-import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity } from "./entities";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
+import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
+import { FunctionCall } from "./functionCall";
 
 
 

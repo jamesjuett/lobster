@@ -1,5 +1,5 @@
 import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
-import { ExpressionASTNode, Expression, CompiledExpression, RuntimeExpression, VCResultTypes } from "./expressions";
+import { ExpressionASTNode } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
 import { assertFalse } from "../util/util";
@@ -7,6 +7,7 @@ import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
+import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode;
 

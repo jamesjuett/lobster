@@ -1,10 +1,9 @@
 import { Observable } from "../util/observe";
 import { Program, CompiledProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { RuntimeFunction } from "./functions";
 import { Int, PointerType, Char } from "./types";
 import { Initializer } from "./initializers";
 
