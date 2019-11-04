@@ -175,7 +175,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   let peg$startRuleFunction: () => any = peg$parsestart;
 
   const peg$c0 = function(d: any): any {return d};
-  const peg$c1 = function(decls: any): any {return decls.filter((elem: any) => elem!=="comment");};
+  const peg$c1 = function(decls: any): any {return {construct_type: "translation_unit", declarations: decls.filter((elem: any) => elem!=="comment")};};
   const peg$c2 = function(): any {return "comment";};
   const peg$c3 = "//";
   const peg$c4 = peg$literalExpectation("//", false);

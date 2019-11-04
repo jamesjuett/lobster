@@ -78,7 +78,7 @@
 
 
 start
-  = ws decls:(d:decl_or_comment ws {return d})* {return decls.filter((elem: any) => elem!=="comment");}
+  = ws decls:(d:decl_or_comment ws {return d})* {return {construct_type: "translation_unit", declarations: decls.filter((elem: any) => elem!=="comment")};}
 
 decl_or_comment
   = comment {return "comment";}
