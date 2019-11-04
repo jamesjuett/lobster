@@ -1,14 +1,15 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType } from "./types";
-import { ASTNode, PotentialFullExpression, TranslationUnitContext, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description } from "./constructs";
-import { CPPError } from "./errors";
-import { FunctionEntity, ObjectEntity, CPPEntity, overloadResolution } from "./entities";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible } from "./types";
+import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description, ExpressionContext, createExpressionContext } from "./constructs";
+import { CPPError, Note } from "./errors";
+import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
-import { Mutable, Constructor, assert, escapeString } from "../util/util";
-import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functions";
+import { Mutable, Constructor, escapeString } from "../util/util";
 import { standardConversion, convertToPRValue, usualArithmeticConversions } from "./standardConversions";
 import { checkIdentifier } from "./lexical";
+import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
+import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -40,22 +41,6 @@ export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) 
  *   6. Compile any temporary objects for whom this is the enclosing full expression.
  *
  */
-
-// TODO: use symbols here?
-export type ValueCategory = "prvalue" | "lvalue";
-
-
-export interface WellTyped<T extends Type = Type, V extends ValueCategory = ValueCategory> {
-    readonly type: T;
-    readonly valueCategory: V;
-}
-
-export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
-    readonly type: T;
-    readonly valueCategory: V;
-}
-
-export type SpecificTypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? TypedExpression<T,V> : never;
 
 // export interface TypedAndCompiled<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<T,V>, SuccessfullyCompiled {
 
@@ -138,170 +123,8 @@ const ExpressionConstructsMap = {
 
 export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext) : ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
     return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
-} 
-
-export interface ExpressionContext extends TranslationUnitContext {
-    readonly contextualParameterTypes?: readonly (Type | undefined)[];
-    readonly contextualReceiverType?: ClassType;
 }
 
-export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
-    return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
-}
-
-export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
-
-    public abstract readonly type?: Type;
-    public abstract readonly valueCategory?: ValueCategory;
-    public readonly conversionLength: number = 0;
-
-    protected constructor(context: ExpressionContext) {
-        super(context);
-    }
-
-    public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
-
-    public isWellTyped() : this is SpecificTypedExpression<Type,ValueCategory> {
-        return !!this.type && !!this.valueCategory;
-    }
-
-    public isTyped<T extends Type>(ctor: Constructor<T>) : this is SpecificTypedExpression<T, ValueCategory> {
-        return !!this.type && this.type.isType(ctor);
-    }
-
-    public isObjectTyped() : this is SpecificTypedExpression<ObjectType, ValueCategory> {
-        return !!this.type && this.type.isObjectType();
-    }
-
-    public isAtomicTyped() : this is SpecificTypedExpression<AtomicType, ValueCategory> {
-        return !!this.type && this.type.isAtomicType();
-    }
-
-    public isArithmeticTyped() : this is SpecificTypedExpression<ArithmeticType, ValueCategory> {
-        return !!this.type && this.type.isArithmeticType();
-    }
-
-    public isIntegralTyped() : this is SpecificTypedExpression<IntegralType, ValueCategory> {
-        return !!this.type && this.type.isIntegralType();
-    }
-
-    public isFloatingPointTyped() : this is SpecificTypedExpression<FloatingPointType, ValueCategory> {
-        return !!this.type && this.type.isFloatingPointType();
-    }
-
-    public isPointerTyped() : this is SpecificTypedExpression<PointerType, ValueCategory> {
-        return !!this.type && this.type.isPointerType();
-    }
-
-    public isReferenceTyped() : this is SpecificTypedExpression<ReferenceType, ValueCategory> {
-        return !!this.type && this.type.isReferenceType();
-    }
-
-    public isClassTyped() : this is SpecificTypedExpression<ClassType, ValueCategory> {
-        return !!this.type && this.type.isClassType();
-    }
-
-    public isBoundedArrayTyped() : this is SpecificTypedExpression<BoundedArrayType, "lvalue"> {
-        return !!this.type && this.type.isBoundedArrayType();
-    }
-
-    public isArrayOfUnknownBoundTyped() : this is SpecificTypedExpression<ArrayOfUnknownBoundType, "lvalue"> {
-        return !!this.type && this.type.isArrayOfUnknownBoundType();
-    }
-
-    public isGenericArrayTyped() : this is SpecificTypedExpression<BoundedArrayType | ArrayOfUnknownBoundType, "lvalue"> {
-        return !!this.type && this.type.isGenericArrayType();
-    }
-
-    public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
-        return this.valueCategory === "prvalue";
-    }
-
-    public isLvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"lvalue"> {
-        return this.valueCategory === "lvalue";
-    }
-
-    // public isSuccessfullyCompiled() : this is Compiled<this> {
-    //     return !this.hasErrors;
-    // }
-
-    public isTailChild(child: CPPConstruct) {
-        return {isTail: false};
-    }
-
-    public abstract describeEvalResult(depth: number) : Description;
-}
-
-export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, SuccessfullyCompiled {
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly type: T;
-    readonly valueCategory: V;
-}
-
-export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;
-
-
-export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
-export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
-export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
-    return expressions.every((expr) => { return expr.isWellTyped(); });
-}
-
-export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[] {
-    return expressions.every((expr) => { return expr.isObjectTyped(); });
-}
-
-export type VCResultTypes<T extends Type, V extends ValueCategory> =
-    T extends FunctionType ? (
-        V extends "prvalue" ? never :
-        V extends "xvalue" ? never :
-        FunctionEntity // lvalue
-    )
-    : T extends AtomicType ? (
-        V extends "prvalue" ? Value<T> :
-        V extends "xvalue" ? CPPObject<T> :
-        CPPObject<T> // lvalue
-    )
-    : T extends ObjectType ? (
-        
-        // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
-        //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
-        V extends "prvalue" ? (AtomicType extends T ? Value<AtomicType> | CPPObject<T> : CPPObject<T>) :
-        V extends "xvalue" ? CPPObject<T> :
-        CPPObject<T> // lvalue
-    )
-    : /*ObjectType extends T ?*/ ( // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        V extends "prvalue" ? Value<AtomicType> | CPPObject<ObjectType> :
-        V extends "xvalue" ? CPPObject<ObjectType> :
-        CPPObject<ObjectType> // lvalue
-    )
-    // : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
-    //     readonly prvalue: number;
-    //     readonly xvalue: number;
-    //     readonly lvalue: number;
-    // };
-
-export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
-    
-    /**
-     * WARNING: The evalResult property may be undefined, even though it's type suggests it will always
-     * be defined. In most places where it is accessed, there is an implicit assumption that the expression
-     * will already have been evaluated and the client code would end up needing a non-null assertion anyway.
-     * However, those non-null assertions actually introduce some tricky complications with VCResultTypes,
-     * which cause type errors and are a huge pain. So instead we tell the type system to trust us.
-     */
-    public readonly evalResult!: VCResultTypes<T,V>;
-
-    public constructor(model: C, parent: RuntimeConstruct) {
-        super(model, "expression", parent);
-    }
-
-    protected setEvalResult(value: VCResultTypes<T,V>) {
-        (<Mutable<this>>this).evalResult = value;
-    }
-}
 
 
 export class UnsupportedExpression extends Expression {
@@ -2776,211 +2599,6 @@ export interface SubscriptExpressionASTNode extends ASTNode {
 }
 
 
-export interface FunctionCallExpressionASTNode extends ASTNode {
-    readonly construct_type: "function_call_expression";
-    readonly operand: ExpressionASTNode;
-    readonly args: readonly ExpressionASTNode[];
-}
-
-type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
-type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
-
-// NOTE: when creating this from AST, operand must be created/compiled
-// with addition context including the compiled types of the arguments.
-export class FunctionCallExpression extends Expression {
-    
-    public readonly type?: ObjectType | VoidType;
-    public readonly valueCategory?: ValueCategory;
-
-    public readonly operand: Expression
-    public readonly args: readonly Expression[];
-    public readonly call?: FunctionCall;
-
-    public constructor(context: ExpressionContext, operand: Expression, args: readonly Expression[]) {
-        super(context);
-        
-        this.attach(this.operand = operand);
-        this.args = args;
-        args.forEach((arg) => this.attach(arg))
-
-        // If any arguments are not well typed, we can't select a function.
-        if (!allWellTyped(args)) {
-            // type, valueCategory, and call remain undefined
-            return;
-        }
-
-        if (!(operand instanceof IdentifierExpression)) {
-            this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, operand));
-            return
-        }
-
-        if (!operand.entity) {
-            // type, valueCategory, and call remain undefined
-            return;
-        }
-
-        if (!(operand.entity instanceof FunctionEntity)) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.functionCall.operand(this, operand.entity));
-            return;
-        }
-
-        this.type = noRef(operand.entity.type.returnType);
-
-        this.valueCategory = operand.entity.type.returnType instanceof ReferenceType ? "lvalue" : "prvalue";
-
-        // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
-        // So the cast below should be fine.
-        // TODO: allow member function calls. (or make them a separate class idk)
-        this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
-    }
-
-    public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext) : FunctionCallExpression {
-        let args = ast.args.map(arg => createExpressionFromAST(arg, context));
-        let contextualParamTypes = args.map(arg => arg.type);
-        return new FunctionCallExpression(context,
-            createExpressionFromAST(ast.operand, createExpressionContext(context, contextualParamTypes)),
-            args);
-    }
-    
-    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>
-    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT> {
-        return new RuntimeFunctionCallExpression(this, parent);
-    }
-
-    // TODO
-    public describeEvalResult(depth: number): Description {
-        throw new Error("Method not implemented.");
-    }
-
-    
-
-    
-    // isTailChild : function(child){
-    //     return {isTail: child === this.funcCall
-    //     };
-    // }
-}
-
-export interface CompiledFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression, SuccessfullyCompiled {
-    
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-
-    readonly type: FunctionResultType<RT>;
-    readonly valueCategory: FunctionVC<RT>;
-    
-    readonly operand: CompiledFunctionIdentifier;
-    readonly args: readonly CompiledExpression[];
-    readonly call: CompiledFunctionCall<RT>;
-}
-
-const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
-const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
-const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledFunctionCallExpression<RT>> {
-
-    public readonly operand: RuntimeFunctionIdentifier;
-    public readonly args: readonly RuntimeExpression[];
-    public readonly call: RuntimeFunctionCall<RT>;
-
-    private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
-
-    public constructor (model: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) {
-        super(model, parent);
-        this.operand = this.model.operand.createRuntimeExpression(this);
-        this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
-        this.call = this.model.call.createRuntimeFunctionCall(this);
-    }
-
-	protected upNextImpl() {
-        if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_OPERAND) {
-            this.sim.push(this.operand);
-            this.index = INDEX_FUNCTION_CALL_EXPRESSION_CALL;
-        }
-        else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_CALL) {
-            this.sim.push(this.call);
-            this.index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
-            return true;
-        }
-        else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_RETURN ) {
-            if (this.model.type instanceof VoidType) {
-                // this.setEvalResult(null); // TODO: type system won't allow this currently
-            }
-
-            if (this.model.isReferenceTyped()) {
-                // Return by reference is lvalue and yields the returned object
-                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
-            }
-            else if (this.model.isAtomicTyped()) {
-                // Return by value of atomic type. In this case, we can look up
-                // the value of the return object and use that as the eval result
-                let retObj = <CPPObject<AtomicType>><unknown>this.call.calledFunction.returnObject!; // I don't understand why Typescript forces the hard cast here
-                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>retObj.getValue());
-            }
-            else {
-                // Return by value of a non-atomic type. In this case, it's still a prvalue
-                // but is the temporary object rather than its value.
-                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
-            }
-            this.sim.pop();
-        }
-    }
-
-    protected stepForwardImpl() {
-        // nothing to do
-    }
-}
-
-// OLD stuff kept in case it's relevant for operator overloads, but probably won't be needed
-// export var FunctionCallExpression  = Expression.extend({
-//     _name: "FunctionCallExpression",
-//     initIndex: "operand",
-
-    // bindFunction : function(argTypes){
-    //     var self = this;
-    //     if (isA(this.operand.type, Types.Class)){
-    //         // Check for function call operator and if so, find function
-    //         // TODO: I think this breaks given multiple overloaded function call operators?
-
-    //         try{
-    //             this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
-    //             this.boundFunction = this.callOp;
-    //             this.type = noRef(this.callOp.type.returnType);
-    //         }
-    //         catch(e){
-    //             if (isA(e, SemanticExceptions.BadLookup)){
-    //                 this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
-    //                 this.addNote(e.annotation(this));
-    //             }
-    //             else{
-    //                 throw e;
-    //             }
-    //         }
-    //     }
-    //     else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
-    //         // If it's an identifier, dot, arrow, etc. that denote an entity - just bind that
-    //         this.staticFunction = this.operand.entity;
-    //         this.staticFunctionType = this.staticFunction.type;
-    //         this.boundFunction = this.operand.entity;
-    //     }
-    //     else if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
-    //         this.staticFunctionType = this.operand.type.ptrTo;
-    //         this.boundFunction = PointedFunctionEntity.instance(this.operand.type.ptrTo);
-    //         this.operand = convertToPRValue(this.operand);
-    //     }
-    //     else if (isA(this.operand.type, Types.Function)){
-    //         this.staticFunctionType = this.operand.type;
-    //         this.boundFunction = PointedFunctionEntity.instance(this.operand.type);
-    //     }
-    //     else{
-    //         this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
-    //     }
-
-    // },
-
-
-// });
 
 
 
@@ -3917,3 +3535,110 @@ export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory 
 //                                 readonly valueCategory: VC;
 //                             }
 //                         >;
+
+
+
+
+interface OverloadCandidateResult {
+    readonly candidate: FunctionEntity;
+    readonly notes: readonly Note[];
+}
+
+export interface OverloadResolutionResult {
+    readonly candidates: readonly OverloadCandidateResult[];
+    readonly viable: FunctionEntity[];
+    readonly selected?: FunctionEntity;
+}
+
+export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly (Type|undefined)[], receiverType?: ClassType) : OverloadResolutionResult {
+
+    // TODO: add these checks, and send errors back to construct that calls this if they aren't met
+    // Should return the function selected as well as an array of object-typed params that contain
+    // any implicit conversions necessary.
+    
+    // if (!allWellTyped(args)) {
+    //     // If arguments are not well-typed, we can't continue onward to select a function
+    //     // and create a function call, so instead just give up attach arguments here.
+    //     this.attachAll(args);
+    //     return;
+    // }
+
+    // if (!allObjectTyped(args)) {
+    //     // Only object types may be passed as arguments to functions.
+    //     this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target)); // TODO: fix
+    //     this.attachAll(args);
+    //     return;
+    // }
+
+    // Find the constructor
+    let viable: FunctionEntity[] = [];
+    let resultCandidates : readonly OverloadCandidateResult[] = candidates.map((candidate) => {
+
+        let tempArgs = [];
+        var notes: Note[] = [];
+
+        // Check argument types against parameter types
+        let candidateParamTypes = candidate.type.paramTypes;
+        if (argTypes.length !== candidateParamTypes.length) {
+            notes.push(CPPError.param.numParams(candidate.declaration));
+        }
+        // TODO: add back in with member functions
+        // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
+        //     problems.push(CPPError.param.thisConst(cand.declaration));
+        // }
+        else{
+            argTypes.forEach((argType, i) => {
+                if (!argType) {
+                    return; // ignore undefined argType, assume it "works" since there will be an error elsewhere already
+                }
+                let candidateParamType = candidateParamTypes[i];
+                if (candidateParamType.isReferenceType()) {
+                    // tempArgs.push(args[i]);
+                    if(!referenceCompatible(argType, candidateParamType.refTo)) {
+                        notes.push(CPPError.param.paramReferenceType(candidate.declaration, argType, candidateParamType));
+                    }
+                    //else if (args[i].valueCategory !== "lvalue"){
+                    //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
+                    //}
+                }
+                else {
+                    // tempArgs.push(standardConversion(args[i], argTypes[i]));
+
+                    // Attempt standard conversion of an auxiliary expression of the argument's type to the param type
+                    
+                    let auxArg = new AuxiliaryExpression(argType, "prvalue");
+                    let convertedArg = standardConversion(auxArg, candidateParamType);
+
+                    if(!sameType(convertedArg.type, candidateParamType)) {
+                        notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
+                    }
+
+                }
+            });
+        }
+
+        if (notes.length == 0) { // All notes in this function are errors, so if there are any it's not viable
+            viable.push(candidate);
+        }
+
+        return {candidate: candidate, notes: notes};
+    });
+
+    // TODO: need to determine which of several viable overloads is the best option
+    // TODO: need to detect when multiple viable overloads have the same total conversion length, which results in an ambiguity
+    // let selected = viable.reduce((best, current) => {
+    //     if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
+    //         return current;
+    //     }
+    //     else {
+    //         return best;
+    //     }
+    // });
+    let selected = viable[0] ? viable[0] : undefined;
+
+    return {
+        candidates: resultCandidates,
+        viable: viable,
+        selected: selected
+    }
+};

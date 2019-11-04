@@ -1,14 +1,13 @@
-import { PotentialParameterType, ClassType, Type, sameType, ObjectType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, ReferenceType } from "./types";
-import { CPPError, Note } from "./errors";
-import { assert, Mutable, assertFalse, unescapeString } from "../util/util";
+import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
+import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
-import { Description, RuntimeConstruct, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
-import { SimpleDeclaration, FunctionDefinition, GlobalObjectDefinition, LocalVariableDefinition, ParameterDefinition, selectOverloadedDefinition, LinkedDefinition } from "./declarations";
+import { Description, RuntimeConstruct, RuntimeFunction, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
+import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
+import { CPPError } from "./errors";
 import { Memory } from "./runtimeEnvironment";
-import { Expression, AuxiliaryExpression, ExpressionContext } from "./expressions";
-import { RuntimeFunction } from "./functions";
-import { standardConversion } from "./standardConversions";
+import { Expression } from "./expressionBase";
+
 
 
 interface NormalLookupOptions {
@@ -615,7 +614,7 @@ export abstract class DeclaredObjectEntity<T extends ObjectType = ObjectType> ex
 }
 
 export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
-    
+    public readonly kind = "AutoEntity";
     public readonly isParameter: boolean;
 
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
@@ -656,7 +655,7 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
-
+    public readonly kind = "LocalReferenceEntity";
     public readonly isParameter: boolean;
 
     public constructor(type: T, decl: SimpleDeclaration, isParameter: boolean = false) {
@@ -701,8 +700,8 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObj
     }
 
     public link(def: LinkedDefinition | undefined) {
-        if (!def || !(def instanceof GlobalObjectDefinition)) {
-            // Either undefined, or linked against something other than a function overload group
+        if (!def || Array.isArray(def)) {
+            // Either undefined, or linked against a function overload group
             this.declaration.addNote(CPPError.link.def_not_found(this.declaration, this));
             return;
         }
@@ -1446,111 +1445,6 @@ function convLen(args: readonly Expression[]) {
 //              from being chosen.
 
 
-// TODO: Update this so it does not modify the arguments passed in. This is essential.
-
-interface OverloadCandidateResult {
-    readonly candidate: FunctionEntity;
-    readonly notes: readonly Note[];
-}
-
-export interface OverloadResolutionResult {
-    readonly candidates: readonly OverloadCandidateResult[];
-    readonly viable: FunctionEntity[];
-    readonly selected?: FunctionEntity;
-}
-
-export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly (Type|undefined)[], receiverType?: ClassType) : OverloadResolutionResult {
-
-    // TODO: add these checks, and send errors back to construct that calls this if they aren't met
-    // Should return the function selected as well as an array of object-typed params that contain
-    // any implicit conversions necessary.
-    
-    // if (!allWellTyped(args)) {
-    //     // If arguments are not well-typed, we can't continue onward to select a function
-    //     // and create a function call, so instead just give up attach arguments here.
-    //     this.attachAll(args);
-    //     return;
-    // }
-
-    // if (!allObjectTyped(args)) {
-    //     // Only object types may be passed as arguments to functions.
-    //     this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target)); // TODO: fix
-    //     this.attachAll(args);
-    //     return;
-    // }
-
-    // Find the constructor
-    let viable: FunctionEntity[] = [];
-    let resultCandidates : readonly OverloadCandidateResult[] = candidates.map((candidate) => {
-
-        let tempArgs = [];
-        var notes: Note[] = [];
-
-        // Check argument types against parameter types
-        let candidateParamTypes = candidate.type.paramTypes;
-        if (argTypes.length !== candidateParamTypes.length) {
-            notes.push(CPPError.param.numParams(candidate.declaration));
-        }
-        // TODO: add back in with member functions
-        // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
-        //     problems.push(CPPError.param.thisConst(cand.declaration));
-        // }
-        else{
-            argTypes.forEach((argType, i) => {
-                if (!argType) {
-                    return; // ignore undefined argType, assume it "works" since there will be an error elsewhere already
-                }
-                let candidateParamType = candidateParamTypes[i];
-                if (candidateParamType.isReferenceType()) {
-                    // tempArgs.push(args[i]);
-                    if(!referenceCompatible(argType, candidateParamType.refTo)) {
-                        notes.push(CPPError.param.paramReferenceType(candidate.declaration, argType, candidateParamType));
-                    }
-                    //else if (args[i].valueCategory !== "lvalue"){
-                    //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
-                    //}
-                }
-                else {
-                    // tempArgs.push(standardConversion(args[i], argTypes[i]));
-
-                    // Attempt standard conversion of an auxiliary expression of the argument's type to the param type
-                    let auxArg = new AuxiliaryExpression(argType, "prvalue");
-                    let convertedArg = standardConversion(auxArg, candidateParamType);
-
-                    if(!sameType(convertedArg.type, candidateParamType)) {
-                        notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
-                    }
-
-                }
-            });
-        }
-
-        if (notes.length == 0) { // All notes in this function are errors, so if there are any it's not viable
-            viable.push(candidate);
-        }
-
-        return {candidate: candidate, notes: notes};
-    });
-
-    // TODO: need to determine which of several viable overloads is the best option
-    // TODO: need to detect when multiple viable overloads have the same total conversion length, which results in an ambiguity
-    // let selected = viable.reduce((best, current) => {
-    //     if (convLen(current.type.paramTypes) < convLen(best.type.paramTypes)) {
-    //         return current;
-    //     }
-    //     else {
-    //         return best;
-    //     }
-    // });
-    let selected = viable[0] ? viable[0] : undefined;
-
-    return {
-        candidates: resultCandidates,
-        viable: viable,
-        selected: selected
-    }
-};
-
 
 
 /**
@@ -1559,4 +1453,13 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
  */
 export function selectOverloadedEntity(overloadGroup: readonly FunctionEntity[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.type));
+}
+
+
+/**
+ * Selects a function from the given overload group based on the signature of
+ * the provided function type. (Note there's no consideration of function names here.)
+ */
+export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
+    return overloadGroup.find(func => type.sameSignature(func.declaration.type));
 }

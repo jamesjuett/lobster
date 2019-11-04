@@ -1,13 +1,15 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, AutoEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope } from "./entities";
 import { Note, NoteKind, CPPError } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { RuntimeFunction } from "./functions";
-import { ObjectType, ClassType } from "./types";
-import { TemporaryObject } from "./objects";
-import { GlobalObjectDefinition, CompiledGlobalObjectDefinition } from "./declarations";
+import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type } from "./types";
+import { TemporaryObject, CPPObject } from "./objects";
+import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition } from "./declarations";
+import { RuntimeBlock } from "./statements";
+import { MemoryFrame } from "./runtimeEnvironment";
+import { RuntimeFunctionCall } from "./functionCall";
 
 
 
@@ -51,6 +53,32 @@ export interface TranslationUnitContext extends ProgramContext {
 
 export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope) : TranslationUnitContext {
     return Object.assign({}, context, {translationUnit: translationUnit, contextualScope: contextualScope });
+}
+
+export interface ExpressionContext extends TranslationUnitContext {
+    readonly contextualParameterTypes?: readonly (Type | undefined)[];
+    readonly contextualReceiverType?: ClassType;
+}
+
+export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
+    return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
+}
+
+export interface FunctionContext extends TranslationUnitContext {
+    readonly containingFunction: FunctionEntity;
+    readonly functionLocals: FunctionLocals;
+}
+
+export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity) : FunctionContext {
+    return Object.assign({}, context, {containingFunction: containingFunction, functionLocals: new FunctionLocals()});
+}
+
+export interface BlockContext extends FunctionContext {
+    readonly contextualScope: BlockScope;
+}
+
+export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
+    return context.contextualScope instanceof BlockScope;
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
@@ -479,6 +507,217 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         super.done();
     }
 }
+
+
+
+
+
+
+
+
+
+export class FunctionLocals {
+
+    public readonly localObjects: readonly AutoEntity[] = [];
+    public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    public readonly localVariablesByEntityId: {
+        [index: number] : LocalVariableEntity
+    } = {};
+
+    public registerLocalVariable(local: LocalVariableEntity) {
+        assert(!this.localVariablesByEntityId[local.entityId]);
+        this.localVariablesByEntityId[local.entityId] = local;
+        if (local.kind === "AutoEntity") {
+            asMutable(this.localObjects).push(local)
+        }
+        else {
+            asMutable(this.localReferences).push(local);
+        }
+    }
+}
+
+enum RuntimeFunctionIndices {
+
+}
+
+export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionDefinition> {
+
+    public readonly caller?: RuntimeFunctionCall;
+    // public readonly containingRuntimeFunction: this;
+
+    public readonly stackFrame?: MemoryFrame;
+
+    public readonly receiver?: CPPObject<ClassType>;
+
+    /**
+     * The object returned by the function, either an original returned-by-reference or a temporary
+     * object created to hold a return-by-value. Once the function call has been executed, will be
+     * defined unless it's a void function.
+     */
+    public readonly returnObject?: CPPObject<NoRefType<Exclude<T,VoidType>>>;
+
+    public readonly hasControl: boolean = false;
+
+    public readonly body: RuntimeBlock;
+
+    public constructor (model: CompiledFunctionDefinition, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>);
+    public constructor (model: CompiledFunctionDefinition, sim: Simulation, receiver?: CPPObject<ClassType>);
+    public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation, receiver?: CPPObject<ClassType>) {
+        super(model, "function", parentOrSim);
+        // if (parentOrSim instanceof RuntimeFunctionCall) {
+        //     this.caller = parentOrSim;
+        // }
+        this.receiver = receiver;
+        // A function is its own containing function context
+        // this.containingRuntimeFunction = this;
+        this.body = this.model.body.createRuntimeStatement(this);
+    }
+    
+
+    // setCaller : function(caller) {
+    //     this.i_caller = caller;
+    // },
+
+    public pushStackFrame() {
+        (<Mutable<this>>this).stackFrame = this.sim.memory.stack.pushFrame(this);
+    }
+
+    /**
+     * Sets the return object for this function. May only be invoked once.
+     * e.g.
+     *  - return-by-value: The caller should set the return object to a temporary object, whose value
+     *                     may be initialized by a return statement.
+     *  - return-by-reference: When the function is finished, is set to the object returned.
+     */
+    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T>>) {
+        // This should only be used once
+        assert(!this.returnObject);
+        (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
+
+    }
+
+    public gainControl() {
+        (<boolean>this.hasControl) = true;
+        this.observable.send("gainControl");
+    }
+
+    public loseControl() {
+        (<boolean>this.hasControl) = true;
+        this.observable.send("loseControl");
+    }
+
+    // private encounterReturnStatement : function() {
+    //     this.i_returnStatementEncountered = true;
+    // },
+
+    // returnStatementEncountered : function() {
+    //     return this.i_returnStatementEncountered;
+    // }
+
+    
+    // tailCallReset : function(sim: Simulation, rtConstruct: RuntimeConstruct, caller) {
+
+    //     // Need to unseat all reference that were on the stack frame for the function.
+    //     // Otherwise, lookup weirdness can occur because the reference lookup code wasn't
+    //     // intended to be able to reseat references and parameter initializers will instead
+    //     // think they're supposed to pass into the things that the references on the existing
+    //     // stack frame were referring to.
+    //     inst.stackFrame.setUpReferenceInstances();
+
+    //     inst.reusedFrame = true;
+    //     inst.setCaller(caller);
+    //     inst.index = this.initIndex;
+    //     sim.popUntil(inst);
+    //     //inst.send("reset"); // don't need i think
+    //     return inst;
+    // },
+    
+    protected stepForwardImpl(): void {
+
+    }
+
+    protected upNextImpl(): void {
+        if (this.body.isDone) {
+            this.sim.pop();
+        }
+        else {
+            this.sim.push(this.body);
+        }
+    }
+    
+    // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    // }
+
+    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     if (inst.index === "afterDestructors"){
+    //         this.done(sim, inst);
+    //     }
+    // }
+
+    // done : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     // If non-void return type, check that return object was initialized.
+    //     // Non-void functions should be guaranteed to have a returnObject (even if it might be a reference)
+    //     if (!isA(this.type.returnType, Types.Void) && !inst.returnStatementEncountered()){
+    //         this.flowOffNonVoid(sim, inst);
+    //     }
+
+    //     if (inst.receiver){
+    //         inst.receiver.callEnded();
+    //     }
+
+    //     sim.memory.stack.popFrame(inst);
+    //     sim.pop(inst);
+    // }
+
+    // flowOffNonVoid : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     if (this.isMain){
+    //         inst.i_returnObject.setValue(Value.instance(0, Types.Int.instance()));
+    //     }
+    //     else{
+    //         sim.implementationDefinedBehavior("Yikes! This is a non-void function (i.e. it's supposed to return something), but it ended without hitting a return statement");
+    //     }
+    // }
+
+}
+
+// TODO: is this needed? I think RuntimeFunction may be able to handle all of it.
+// export class RuntimeMemberFunction extends RuntimeFunction {
+
+//     public readonly receiver: CPPObject<ClassType>;
+
+//     public constructor (model: FunctionDefinition, parent: RuntimeFunctionCall, receiver: CPPObject<ClassType>) {
+//         super(model, parent);
+//         this.receiver = receiver;
+//     }
+
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

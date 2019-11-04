@@ -3,7 +3,7 @@ import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity, StaticEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration } from "./declarations";
-import { Expression, TypedExpression } from "./expressions";
+import { Expression, TypedExpression } from "./expressionBase";
 
 export enum NoteKind {
     ERROR = "error",

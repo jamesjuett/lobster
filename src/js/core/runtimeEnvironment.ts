@@ -4,8 +4,7 @@ import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObje
 import { Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
 import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct } from "./constructs";
-import { RuntimeFunction } from "./functions";
+import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CompiledGlobalObjectDefinition, GlobalObjectDefinition } from "./declarations";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
