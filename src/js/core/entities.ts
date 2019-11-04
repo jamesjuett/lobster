@@ -1463,3 +1463,7 @@ export function selectOverloadedEntity(overloadGroup: readonly FunctionEntity[],
 export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.declaration.type));
 }
+
+export function isDefinitionOverloadGroup(def: LinkedDefinition) : def is FunctionDefinition[] {
+    return Array.isArray(def);
+}

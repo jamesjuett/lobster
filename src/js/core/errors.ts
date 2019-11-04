@@ -4,6 +4,7 @@ import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUn
 import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity, StaticEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
+import { Mutable } from "../util/util";
 
 export enum NoteKind {
     ERROR = "error",
@@ -92,6 +93,104 @@ export class CompilerNote extends ConstructNoteBase {
 
 export class LinkerNote extends ConstructNoteBase {
 
+}
+
+
+//TODO: Remove this once I'm confident I don't need it
+// var CompoundNoteHandler = NoteHandler.extend({
+//     _name : "CompoundNoteHandler",
+//
+//     instance : function(handler1, handler2) {
+//         if (!handler1) {
+//             return handler2;
+//         }
+//         if (!handler2) {
+//             return handler1;
+//         }
+//
+//         return this._class._parent.instance.apply(this, arguments);
+//     },
+//
+//     /**
+//      *
+//      * @param {NoteHandler} handler1
+//      * @param {NoteHandler} handler2
+//      */
+//     init : function(handler1, handler2) {
+//         this.i_handler1 = handler1;
+//         this.i_handler2 = handler2;
+//     },
+//
+//     /**
+//      *
+//      * @param {PreprocessorNote} note
+//      */
+//     preprocessorNote : function(note) {
+//         this.i_handler1.preprocessorNote(note);
+//         this.i_handler2.preprocessorNote(note);
+//     },
+//
+//
+//     /**
+//      *
+//      * @param {CompilerNote} note
+//      */
+//     compilerNote : function(note) {
+//         this.i_handler1.compilerNote(note);
+//         this.i_handler2.compilerNote(note);
+//     },
+//
+//
+//
+//     /**
+//      *
+//      * @param {LinkerNote} note
+//      */
+//     linkerNote : function(note) {
+//         this.i_handler1.linkerNote(note);
+//         this.i_handler2.linkerNote(note);
+//     }
+//
+//
+// });
+
+export class NoteRecorder implements NoteHandler {
+    
+    private readonly _allNotes: Note[] = [];
+    public readonly allNotes: readonly Note[] = this._allNotes;
+
+    public readonly hasErrors: boolean = false;
+    public readonly hasSyntaxErrors: boolean = false;
+    public readonly hasWarnings: boolean = false;
+
+    public addNote(note: Note) {
+        this._allNotes.push(note);
+
+        let _this = (<Mutable<this>>this);
+
+        if (note.kind === NoteKind.ERROR) {
+            _this.hasErrors = true;
+
+            if (note instanceof SyntaxNote) {
+                _this.hasSyntaxErrors = true;
+            }
+        }
+        else if (note.kind === NoteKind.WARNING) {
+            _this.hasWarnings = true;
+        }
+    }
+
+    public addNotes(notes: readonly Note[]) {
+        notes.forEach((note) => this.addNote(note));
+    }
+
+    public clearNotes() {
+        this._allNotes.length = 0;
+        let _this = (<Mutable<this>>this);
+        _this.hasErrors = false;
+        _this.hasSyntaxErrors = false;
+        _this.hasWarnings = false;
+    }
 }
 
 export const CPPError = {
@@ -675,6 +774,9 @@ export const CPPError = {
         },
         def_not_found : function(construct: TranslationUnitConstruct, ent: StaticEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for object " + ent.name + ". (It is declared, so I know it's a variable and what type it is, but it's never defined anywhere.)");
+        },
+        main_multiple_def : function(construct: TranslationUnitConstruct) {
+            return new LinkerNote(construct, NoteKind.ERROR, "link.main_multiple_def", "Multiple definitions of main are not allowed.");
         },
 
     },
