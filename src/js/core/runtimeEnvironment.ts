@@ -421,6 +421,16 @@ export class Memory {
         delete this.temporaryObjects[obj.address];
         this.observable.send("temporaryObjectDeallocated", obj);
     }
+
+    public printObjects() {
+        let objs : any = {};
+        for(let key in this.objects) {
+            let obj = this.objects[key];
+            let desc = obj.describe();
+            objs[desc.name || desc.message] = obj.getValue();
+        }
+        console.log(JSON.stringify(objs, null, 4));
+    }
 };
 
 class MemoryStack {

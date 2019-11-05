@@ -640,7 +640,7 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjec
     }
 
     public describe() {
-        return {message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}`};
+        return {name: this.name, message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}`};
     }
 };
 

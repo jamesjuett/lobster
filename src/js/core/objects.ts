@@ -1,4 +1,4 @@
-import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int } from "./types";
+import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int, ObjectType } from "./types";
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -25,6 +25,10 @@ abstract class ObjectData<T extends ObjectType> {
 
 class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
+    public getValue(isValid: boolean) {
+        return new Value<T>(this.rawValue(), this.object.type, isValid);
+    }
+
     public rawValue() {
         var bytes = this.memory.readBytes(this.address, this.size);
         return this.object.type.bytesToValue(bytes);
@@ -36,15 +40,15 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
 }
 
-class ArrayObjectData<T extends BoundedArrayType> extends ObjectData<T> {
+class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<BoundedArrayType<Elem_type>> {
 
-    public static create<Elem_type extends ArrayElemType>(object: CPPObject<BoundedArrayType<Elem_type>>, memory: Memory, address: number) {
-        return new ArrayObjectData<BoundedArrayType>(object, memory, address);
-    } 
+    // public static create<Elem_type extends ArrayElemType>(object: CPPObject<BoundedArrayType<Elem_type>>, memory: Memory, address: number) {
+    //     return new ArrayObjectData<BoundedArrayType>(object, memory, address);
+    // } 
 
-    private readonly elemObjects: ArraySubobject<any>[];
+    private readonly elemObjects: ArraySubobject<Elem_type>[];
 
-    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
+    public constructor(object: CPPObject<BoundedArrayType<Elem_type>>, memory: Memory, address: number) {
         super(object, memory, address);
 
         let subAddr = this.address;
@@ -60,7 +64,7 @@ class ArrayObjectData<T extends BoundedArrayType> extends ObjectData<T> {
         return this.getArrayElemSubobject(index);
     }
 
-    public getArrayElemSubobject(index: number) : ArraySubobject<T["elemType"]> {
+    public getArrayElemSubobject(index: number) : ArraySubobject<Elem_type> {
         if (0 <= index && index < this.elemObjects.length) {
             return this.elemObjects[index];
         }
@@ -71,9 +75,14 @@ class ArrayObjectData<T extends BoundedArrayType> extends ObjectData<T> {
         }
     }
 
-    // public rawValue() {
-    //     return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
-    // }
+    public getValue() {
+        return this.elemObjects.map((elemObj) => { return elemObj.getValue(); });
+    }
+
+
+    public rawValue() {
+        return this.elemObjects.map((elemObj) => { return elemObj.rawValue(); });
+    }
 
     // public setRawValue(newValue: RawValueType, write: boolean) {
     //     for(var i = 0; i < (<ArrayType>this.object.type).length; ++i){
@@ -138,6 +147,14 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
     //         this.subobjects[i].setValue(newValue[i], write);
     //     }
     // }
+    public getValue() : never {
+        throw new Error("Not implemented");
+    }
+
+
+    public rawValue() : never {
+        throw new Error("Not implemented");
+    }
 }
 
 // interface CPPObjectDescriptor<T extends ObjectType> {
@@ -191,6 +208,26 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 //     }
 // }
 
+type ObjectValueRepresentation<T extends ObjectType> =
+    T extends AtomicType ? Value<T> :
+    T extends BoundedArrayType<infer Elem_type> ? ObjectValueRepresentationArray<Elem_type> :
+    T extends ClassType ? ObjectValueRepresentationClass : never;
+
+interface ObjectValueRepresentationArray<T extends ObjectType> extends Array<ObjectValueRepresentation<T>> {};
+interface ObjectValueRepresentationClass {
+    [index: string] : ObjectValueRepresentation<ObjectType>;
+};
+
+
+type ObjectRawValueRepresentation<T extends ObjectType> =
+    T extends AtomicType ? RawValueType :
+    T extends BoundedArrayType<infer Elem_type> ? ObjectRawValueRepresentationArray<Elem_type> :
+    T extends ClassType ? ObjectRawValueRepresentationClass : unknown;
+
+interface ObjectRawValueRepresentationArray<T extends ObjectType> extends Array<ObjectRawValueRepresentation<T>> {};
+interface ObjectRawValueRepresentationClass {
+    [index: string] : ObjectRawValueRepresentation<ObjectType>;
+};
 
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
@@ -203,9 +240,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     public readonly size: number;
     public readonly address: number;
 
-    private readonly data: T extends AtomicType ? AtomicObjectData<T> :
-                           T extends BoundedArrayType ? ArrayObjectData<T> :
-                           T extends ClassType ? ClassObjectData<T> : unknown;
+    private readonly data: any;
 
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
@@ -220,7 +255,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
         if (this.type instanceof BoundedArrayType) {
             // this.isArray = true;
-            this.data = <any>ArrayObjectData.create(<any>this, memory, address);
+            this.data = <any>new ArrayObjectData(<any>this, memory, address);
         }
         else if (this.type instanceof ClassType) {
             this.data = <any>new ClassObjectData(<any>this, memory, address);
@@ -281,19 +316,19 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return new Value(this.address, new ObjectPointer(this));
     }
 
-    public getValue<U extends AtomicType>(this: CPPObject<U>, read: boolean = false) : Value<U> {
-        let val = new Value(this.getRawValue(), this.type, this._isValid);
+    public getValue(read: boolean = false) : ObjectValueRepresentation<T> {
+        let val = this.data.getValue(this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
         }
-        return val;
+        return <any>val;
     }
 
-    private getRawValue(this: CPPObject<AtomicType>) {
-        return this.data.rawValue();
+    public rawValue() : ObjectRawValueRepresentation<T>{
+        return <any>this.data.rawValue();
     }
     
-    public readValue<U extends AtomicType>(this: CPPObject<U>) : Value<U> {
+    public readValue() : ObjectValueRepresentation<T> {
         return this.getValue(true);
     }
 
@@ -322,7 +357,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>) : boolean {
-        return this._isValid && this.type.isValueValid(this.getRawValue());
+        return this._isValid && this.type.isValueValid(this.rawValue());
     }
 
     // TODO: figure out whether this old code is worth keeping

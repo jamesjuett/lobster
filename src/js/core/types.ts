@@ -160,7 +160,7 @@ abstract class TypeBase {
     }
 
     public isObjectType() : this is ObjectType {
-        return this instanceof ObjectType;
+        return this.isAtomicType() || this.isBoundedArrayType() || this.isClassType();
     }
     
     public isAtomicType() : this is AtomicType {
@@ -216,11 +216,11 @@ abstract class TypeBase {
     }
     
     public isPotentialReturnType() : this is PotentialReturnType {
-        return this instanceof ObjectType || this instanceof ReferenceType || this instanceof VoidType;
+        return this.isObjectType() || this.isReferenceType() || this.isVoidType();
     }
 
     public isPotentialParameterType() : this is PotentialParameterType {
-        return this instanceof ObjectType || this instanceof ReferenceType;
+        return this.isObjectType() || this.isReferenceType();
     }
 
     /**
@@ -402,9 +402,13 @@ export class VoidType extends TypeBase {
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
-export abstract class ObjectType extends TypeBase {
+export abstract class ObjectTypeBase extends TypeBase {
     public abstract readonly size: number;
 }
+
+
+
+export type ObjectType = AtomicType | BoundedArrayType | ClassType;
 
 export type PotentialReturnType = ObjectType | ReferenceType | VoidType;
 
@@ -413,7 +417,7 @@ export type PotentialParameterType = AtomicType | ClassType | ReferenceType; // 
 /**
  * Represents a type for an object that has a value.
  */
-abstract class ValueType extends ObjectType {
+abstract class ValueType extends ObjectTypeBase {
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
@@ -861,7 +865,7 @@ export type ArrayElemType = AtomicType | ClassType;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectType {
+export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectTypeBase {
     
     public readonly size: number;
 
@@ -1000,7 +1004,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 
 
     // TODO: HACK to make ClassType exist but do nothing for now
-export class ClassType extends ObjectType {
+export class ClassType extends ObjectTypeBase {
     public size: number= 0;
     public readonly precedence: number = 0;
     public readonly isComplete: boolean = false;
@@ -1031,7 +1035,7 @@ export class ClassType extends ObjectType {
     }
 }
 
-// export class ClassType extends ObjectType {
+// export class ClassType extends ObjectTypeBase {
 //     public isValueValid(value: number): boolean {
 //         throw new Error("Method not implemented.");
 //     }

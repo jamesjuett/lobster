@@ -14,7 +14,11 @@ console.log(program);
 if (program.isRunnable()) {
     let sim = new Simulation(program);
     console.log(sim);
-    setInterval(() => sim.stepForward(), 10000);
+    sim.memory.printObjects();
+    setInterval(() => {
+        sim.stepForward()
+        sim.memory.printObjects();
+    }, 10000);
     // while(!sim.atEnd) {
     //     sim.stepForward();
     // }
