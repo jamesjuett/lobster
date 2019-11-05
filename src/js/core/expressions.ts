@@ -245,8 +245,7 @@ export abstract class SimpleRuntimeExpression<T extends Type = Type, V extends V
     
     protected stepForwardImpl() {
         this.operate();
-        this.done();
-        // TODO: how do expressions pop themselves?
+        this.startCleanup()
     }
 
     protected abstract operate() : void;
@@ -633,7 +632,7 @@ export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = Val
 	
 	protected stepForwardImpl() {
         this.setEvalResult(this.then ? this.then.evalResult : this.otherwise.evalResult);
-        this.sim.pop();
+        this.startCleanup();
 	}
 }
 
@@ -1726,7 +1725,7 @@ export class RuntimeLogicalBinaryOperator extends RuntimeExpression<Bool, "prval
         else {
             this.setEvalResult(this.operate(this.left.evalResult, this.right.evalResult));
         }
-        this.sim.pop();
+        this.startCleanup();
     }
     
     private operate(left: Value<Bool>, right: Value<Bool>) {
@@ -3152,7 +3151,7 @@ export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpres
 
 	protected upNextImpl() {
         this.setEvalResult(<VCResultTypes<T, "lvalue">>this.model.entity.runtimeLookup(this));
-        this.sim.pop();
+        this.startCleanup();
     }
 
     protected stepForwardImpl(): void {
@@ -3168,6 +3167,7 @@ export class RuntimeFunctionIdentifier extends RuntimeExpression<FunctionType, "
 
 	protected upNextImpl() {
         this.setEvalResult(this.model.entity);
+        this.startCleanup();
     }
 
     protected stepForwardImpl(): void {
@@ -3333,7 +3333,7 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 
 	protected upNextImpl() {
         this.setEvalResult(<VCResultTypes<T, "prvalue">>this.model.value);
-        this.sim.pop();
+        this.startCleanup();
 	}
 	
 	protected stepForwardImpl() {
@@ -3456,7 +3456,7 @@ export class RuntimeParentheses<T extends Type = Type, V extends ValueCategory =
         }
         else {
             this.setEvalResult(this.subexpression.evalResult);
-            this.sim.pop();
+            this.startCleanup();
         }
 	}
 	

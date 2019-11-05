@@ -114,8 +114,8 @@ export class Simulation {
     
     public push(rt: RuntimeConstruct) {
         this._execStack.push(rt);
-        rt.pushed();
         this.observable.send("pushed", rt);
+        rt.afterPushed();
     }
     
     public top() {
@@ -130,12 +130,12 @@ export class Simulation {
      */
     public pop() {
         let popped = this._execStack.pop();
-        // if (popped) {
-        //     popped.popped();
+        if (popped) {
+            popped.afterPopped();
         //     if (popped.stackType === "statement" || popped.stackType === "function") {
         //         this.leakCheck(); // TODO leak checking
         //     }
-        // }
+        }
         return popped;
     }
 

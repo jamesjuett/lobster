@@ -61,8 +61,8 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
         }
     }
 
-    public popped() {
-        super.popped();
+    public afterPopped() {
+        super.afterPopped();
         this.observable.send("reset");
     }
 
@@ -134,7 +134,7 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
 	}
 	
 	protected stepForwardImpl() {
-        this.sim.pop();
+        this.startCleanup();
         return false;
 	}
 }
@@ -245,7 +245,7 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
             this.wait();
         }
         else{
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 
@@ -458,7 +458,7 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
             this.sim.push(this.statements[this.index++]);
         }
         else {
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 

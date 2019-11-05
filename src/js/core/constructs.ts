@@ -255,8 +255,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
+    public readonly isDone: boolean = false;
 
-    public isDone: boolean = false;
+    private cleanupConstruct?: RuntimeConstruct;
+    private cleanupStarted: boolean = false;
 
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
@@ -309,15 +311,16 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         //         break;
         //     }
         // }
-
-        return this.upNextImpl();
+        if (this.cleanupStarted) {
+            this.sim.pop();
+            return;
+        }
+        else {
+            return this.upNextImpl();
+        }
     }
 
     protected abstract upNextImpl() : void;
-
-    protected done() {
-        this.isDone = true;
-    }
 
     public setPauseWhenUpNext() {
         this.pauses["upNext"] = {pauseWhenUpNext: true};
@@ -327,12 +330,27 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         this.observable.send("wait");
     }
 
-    public pushed() {
+    public afterPushed() {
         (<boolean>this.isActive) = true;
         this.observable.send("pushed");
     }
 
-    public popped() {
+    protected setCleanupConstruct(cleanupConstruct: RuntimeConstruct) {
+        this.cleanupConstruct = cleanupConstruct;
+    }
+
+    public startCleanup() {
+        this.cleanupStarted = true;
+        if (this.cleanupConstruct) {
+            this.sim.push(this.cleanupConstruct);
+        }
+        else {
+            this.sim.pop();
+        }
+    }
+
+    public afterPopped() {
+        (<Mutable<this>>this).isDone = true;
         (<boolean>this.isActive) = false;
         this.observable.send("popped", this);
     }
@@ -486,6 +504,7 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
             this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
+            this.setCleanupConstruct(this.temporaryDeallocator);
         }
         this.containingFullExpression = this.findFullExpression();
     }
@@ -503,13 +522,6 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         else {
             return assertFalse();
         }
-    }
-
-    protected done() {
-        if (this.temporaryDeallocator) {
-            this.sim.push(this.temporaryDeallocator);
-        }
-        super.done();
     }
 }
 
@@ -643,7 +655,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     protected upNextImpl(): void {
         if (this.body.isDone) {
-            this.sim.pop();
+            this.startCleanup();
         }
         else {
             this.sim.push(this.body);
@@ -807,7 +819,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
             // }
         }
         else{
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 
@@ -968,7 +980,7 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
             ++this.index;
         }
         else{
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 

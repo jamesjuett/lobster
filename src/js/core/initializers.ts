@@ -143,7 +143,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
     protected upNextImpl() {
         // No initialization. Object has junk value.
         this.observable.send("initialized", this.target);
-        this.sim.pop();
+        this.startCleanup();
     }
 
     public stepForwardImpl() {
@@ -234,7 +234,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
         }
         else {
             this.observable.send("initialized", this.target);
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 
@@ -308,7 +308,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //         }
 //         else {
 //             this.observable.send("initialized", this.target);
-//             this.sim.pop();
+//             this.startCleaningUp();
 //         }
 //     }
 
@@ -467,7 +467,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     public stepForwardImpl() {
         let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         this.observable.send("initialized", rtRef);
-        this.sim.pop();
+        this.startCleanup();
     }
 }
 
@@ -556,7 +556,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
     public stepForwardImpl() {
         this.target.writeValue(this.arg.evalResult);
         this.observable.send("initialized", this.target);
-        this.sim.pop();
+        this.startCleanup();
     }
 }
 
@@ -645,7 +645,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 //         this.target.writeValue(charsToWrite);
 //         this.observable.send("initialized", this.target);
-//         this.sim.pop();
+//         this.startCleaningUp();
 //     }
 // }
 
@@ -731,7 +731,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //         }
 //         else {
 //             this.observable.send("initialized", this.target);
-//             this.sim.pop();
+//             this.startCleaningUp();
 //         }
 //     }
 
@@ -857,7 +857,7 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 //         }
 //         else {
 //             this.observable.send("initialized", this.target);
-//             this.sim.pop();
+//             this.startCleaningUp();
 //         }
 //     }
 

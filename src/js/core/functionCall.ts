@@ -218,8 +218,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
             this.containingRuntimeFunction.gainControl();
-            this.done();
-            this.sim.pop();
+            this.startCleanup();
         }
     }
     
@@ -396,7 +395,7 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
                 // but is the temporary object rather than its value.
                 this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
             }
-            this.sim.pop();
+            this.startCleanup();
         }
     }
 

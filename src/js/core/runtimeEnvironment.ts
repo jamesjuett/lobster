@@ -349,7 +349,7 @@ export class Memory {
     }
     
 
-    private allocateObject(object: CPPObject<ObjectType>) {
+    public allocateObject(object: CPPObject<ObjectType>) {
         this.objects[object.address] = object;
     }
 
@@ -559,6 +559,7 @@ export class MemoryFrame {
             if (objEntity instanceof AutoEntity) {
                 // Create and allocate the object
                 let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
+                this.memory.allocateObject(obj);
                 this.localObjectsByEntityId[objEntity.entityId] = obj;
 
                 // Move on to next address afterward
