@@ -1,5 +1,5 @@
 import { PotentialFullExpression, TranslationUnitContext, RuntimePotentialFullExpression, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, Description } from "./constructs";
-import { FunctionEntity, ObjectEntity, TemporaryObjectEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier } from "./expressions";
 import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType } from "./types";
 import { CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer } from "./initializers";
@@ -15,7 +15,7 @@ export class FunctionCall extends PotentialFullExpression {
     public readonly args: readonly TypedExpression[];
     public readonly receiver?: ObjectEntity<ClassType>;
 
-    public readonly argInitializers!: readonly CopyInitializer[];
+    public readonly argInitializers: readonly CopyInitializer[];
     
     public readonly returnByValueTarget?: TemporaryObjectEntity;
     /**
@@ -47,15 +47,16 @@ export class FunctionCall extends PotentialFullExpression {
         // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
 
         // Create initializers for each argument/parameter pair
-        // this.argInitializers = args.map((arg, i) => {
-        //     let paramType = this.func.type.paramTypes[i];
-        //     if (paramType.isReferenceType()) {
-        //         return CopyInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg]);
-        //     }
-        //     else {
-        //         return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg]);
-        //     }
-        // });
+        this.argInitializers = args.map((arg, i) => {
+            let paramType = this.func.type.paramTypes[i];
+            if (paramType.isReferenceType()) {
+                return CopyInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg]);
+            }
+            else {
+                return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg]);
+            }
+        });
+        this.attachAll(this.argInitializers);
 
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
@@ -163,7 +164,7 @@ export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialR
 const INDEX_FUNCTION_CALL_PUSH = 0;
 const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 const INDEX_FUNCTION_CALL_CALL = 2;
-const INDEX_FUNCTION_CALL_RETURN = 2;
+const INDEX_FUNCTION_CALL_RETURN = 3;
 export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
 
     public readonly model!: CompiledFunctionCall<T>; // narrows type of member in base class
@@ -176,7 +177,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     // public readonly hasBeenCalled: boolean = false;
 
-    private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN = INDEX_FUNCTION_CALL_PUSH;
+    private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN;
 
     public constructor (model: CompiledFunctionCall<T>, parent: RuntimeConstruct) {
         super(model, "call", parent);
@@ -204,7 +205,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             let cf = <RuntimeFunction<ObjectType>>this.calledFunction; // TODO: may be able to get rid of this cast if CompiledFunctionDefinition provided more info about return type
             cf.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
         }
-        this.index = INDEX_FUNCTION_CALL_CALL;
+        this.index = INDEX_FUNCTION_CALL_PUSH;
     }
 
     protected upNextImpl(): void {
@@ -214,6 +215,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             for(var i = this.argInitializers.length-1; i >= 0; --i) {
                 this.sim.push(this.argInitializers[i]);
             }
+            this.index = INDEX_FUNCTION_CALL_CALL;
         }
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
@@ -273,27 +275,30 @@ export class FunctionCallExpression extends Expression {
         
         this.attach(this.operand = operand);
         this.args = args;
-        args.forEach((arg) => this.attach(arg))
 
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
+            this.attachAll(args);
             return;
         }
 
         if (!(operand instanceof IdentifierExpression)) {
             this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, operand));
-            return
-        }
-
-        if (!operand.entity) {
-            // type, valueCategory, and call remain undefined
+            this.attachAll(args);
             return;
         }
-
+        
+        if (!operand.entity) {
+            // type, valueCategory, and call remain undefined
+            this.attachAll(args);
+            return;
+        }
+        
         if (!(operand.entity instanceof FunctionEntity)) {
             // type, valueCategory, and call remain undefined
             this.addNote(CPPError.expr.functionCall.operand(this, operand.entity));
+            this.attachAll(args);
             return;
         }
 
@@ -303,6 +308,7 @@ export class FunctionCallExpression extends Expression {
 
         // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
         // So the cast below should be fine.
+        // If we get to here, we don't attach the args directly since they will be attached under the function call.
         // TODO: allow member function calls. (or make them a separate class idk)
         this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }

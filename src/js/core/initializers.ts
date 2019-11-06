@@ -133,16 +133,14 @@ export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicT
 
 export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends RuntimeDefaultInitializer<T, CompiledAtomicDefaultInitializer<T>> {
 
-    public readonly target: CPPObject<T>;
-
     public constructor (model: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.target = this.model.target.runtimeLookup(this);
     }
 	
     protected upNextImpl() {
         // No initialization. Object has junk value.
-        this.observable.send("initialized", this.target);
+        let target = this.model.target.runtimeLookup(this);
+        this.observable.send("initialized", target);
         this.startCleanup();
     }
 
@@ -213,14 +211,12 @@ export interface CompiledArrayDefaultInitializer<T extends BoundedArrayType = Bo
 
 export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = BoundedArrayType> extends RuntimeDefaultInitializer<T, CompiledArrayDefaultInitializer<T>> {
 
-    public readonly target: CPPObject<T>;
     public readonly elementInitializers?: RuntimeDefaultInitializer<T["elemType"]>[];
 
     private index = 0;
 
     public constructor (model: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.target = this.model.target.runtimeLookup(this);
         if (this.model.elementInitializers) {
             this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
                 return elemInit.createRuntimeInitializer(this);
@@ -233,7 +229,8 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
             this.sim.push(this.elementInitializers[this.index++])
         }
         else {
-            this.observable.send("initialized", this.target);
+            let target = this.model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
             this.startCleanup();
         }
     }
@@ -290,14 +287,12 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
 // export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
 
-//     public readonly target: CPPObject<ClassType>;
 //     public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
 //     private index = "callCtor";
     
 //     public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
 //         super(model, parent);
-//         this.target = model.target.runtimeLookup(this);
 //         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
 //     }
 	
@@ -307,7 +302,8 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //             this.index = "done";
 //         }
 //         else {
-//             this.observable.send("initialized", this.target);
+//             let target = model.target.runtimeLookup(this);
+//             this.observable.send("initialized", target);
 //             this.startCleaningUp();
 //         }
 //     }
@@ -535,14 +531,12 @@ export interface CompiledAtomicDirectInitializer<T extends AtomicType = AtomicTy
 
 export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> extends RuntimeDirectInitializer<T, CompiledAtomicDirectInitializer<T>> {
 
-    public readonly target: CPPObject<AtomicType>;
     public readonly arg: RuntimeExpression<T, "prvalue">;
 
     private alreadyPushed = false;
 
     public constructor (model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.target = this.model.target.runtimeLookup(this);
         this.arg = this.model.arg.createRuntimeExpression(this);
     }
 
@@ -554,8 +548,9 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
     }
 
     public stepForwardImpl() {
-        this.target.writeValue(this.arg.evalResult);
-        this.observable.send("initialized", this.target);
+        let target = this.model.target.runtimeLookup(this);
+        target.writeValue(this.arg.evalResult);
+        this.observable.send("initialized", target);
         this.startCleanup();
     }
 }
@@ -616,14 +611,12 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 // export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<BoundedArrayType<Char>, CompiledArrayDirectInitializer> {
 
-//     public readonly target: CPPObject<BoundedArrayType>;
 //     public readonly arg: RuntimeStringLiteral;
 
 //     private alreadyPushed = false;
 
 //     public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
 //         super(model, parent);
-//         this.target = this.model.target.runtimeLookup(this);
 //         this.arg = this.model.arg.createRuntimeExpression(this);
 //     }
 
@@ -636,15 +629,16 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 //     public stepForwardImpl() {
         
+//         lettarget = this.model.target.runtimeLookup(this);
 //         var charsToWrite = this.arg.evalResult.rawValue();
 
 //         // pad with zeros
-//         while (charsToWrite.length < this.target.type.length) {
+//         while (charsToWrite.length < target.type.length) {
 //             charsToWrite.push(Char.NULL_CHAR);
 //         }
 
-//         this.target.writeValue(charsToWrite);
-//         this.observable.send("initialized", this.target);
+//         target.writeValue(charsToWrite);
+//         this.observable.send("initialized", target);
 //         this.startCleaningUp();
 //     }
 // }
@@ -711,8 +705,6 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 // }
 
 // export class RuntimeClassDirectInitializer<T extends ClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
-
-//     public readonly target: CPPObject<ClassType>;
     
 //     public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
@@ -720,7 +712,6 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
 //     public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
 //         super(model, parent);
-//         this.target = this.model.target.runtimeLookup(this);
 //         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
 //     }
 
@@ -730,7 +721,8 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 //             this.index = "done";
 //         }
 //         else {
-//             this.observable.send("initialized", this.target);
+//             target = this.model.target.runtimeLookup(this);
+//             this.observable.send("initialized", target);
 //             this.startCleaningUp();
 //         }
 //     }
@@ -838,14 +830,12 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 
 // export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledArrayMemberInitializer> {
 
-//     public readonly target: CPPObject<BoundedArrayType>;
 //     public readonly elementInitializers: RuntimeDirectInitializer[];
 
 //     private index = 0;
 
 //     public constructor (model: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
 //         super(model, parent);
-//         this.target = this.model.target.runtimeLookup(this);
 //         this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
 //             return elemInit.createRuntimeInitializer(this);
 //         });
@@ -856,7 +846,8 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 //             this.sim.push(this.elementInitializers[this.index++])
 //         }
 //         else {
-//             this.observable.send("initialized", this.target);
+//             target = this.model.target.runtimeLookup(this);
+//             this.observable.send("initialized", target);
 //             this.startCleaningUp();
 //         }
 //     }

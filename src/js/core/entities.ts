@@ -636,7 +636,7 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjec
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
         // TODO: revisit the non-null assertion below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.getLocalObject(this);
+        return rtConstruct.containingRuntimeFunction.stackFrame!.localObjectLookup(this);
     }
 
     public describe() {
@@ -669,12 +669,12 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
-        rtConstruct.containingRuntimeFunction.stackFrame!.bindReference(this, obj);
+        rtConstruct.containingRuntimeFunction.stackFrame!.bindLocalReference(this, obj);
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
         // TODO: revisit the non-null assertions below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.referenceLookup<T>(this);
+        return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<T>(this);
     }
 
     public describe() {
@@ -861,19 +861,19 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        // Getting the function at runtime already takes care of polymorphism for virtual functions
-        // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
-        // in the context of the calling function, rather than the called function.
-        var func = rtConstruct.sim.topFunction()!;
+        // Note that using sim.topFunction() here is incorrect, because the called function
+        // isn't yet on the execution stack. However, the stack frame for that function is on
+        // the top of the memory stack.
+        let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
 
-        // Look up the parameter (as a local variable) in the context of the top function on the stack.
-        let param = func.model.parameters[this.num].declaredEntity;
+        // Parameter's entity to be looked up in the top stack frame
+        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity;
         
         if (!(param instanceof AutoEntity)) {
             return assertFalse("Pass by value used with reference parameter.");
         }
 
-        let paramObj = param.runtimeLookup(func);
+        let paramObj = topStackFrame.localObjectLookup(param);
         
         assert(sameType(paramObj.type, this.type));
         return <AutoObject<T>>paramObj;
@@ -906,20 +906,21 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
-        // Getting the function at runtime already takes care of polymorphism for virtual functions
-        // Note: rtConstruct.containingRuntimeFunction is not correct here since the lookup would occur
-        // in the context of the calling function, rather than the called function.
-        var func = rtConstruct.sim.topFunction()!;
+        // Note that using sim.topFunction() here is incorrect, because the called function
+        // isn't yet on the execution stack. However, the stack frame for that function is on
+        // the top of the memory stack.
+        let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
 
-        // Look up the parameter (as a local variable) in the context of the top function on the stack.
-        let param = func.model.parameters[this.num].declaredEntity;
+        // Parameter's entity to be looked up in the top stack frame
+        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity;
         
         if (!(param instanceof LocalReferenceEntity)) {
             return assertFalse("Pass by reference used with non-reference parameter.");
         }
 
-        param.bindTo(func, obj);
+        topStackFrame.bindLocalReference(param, obj);
     }
+    
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
