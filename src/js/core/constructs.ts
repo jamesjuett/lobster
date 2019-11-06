@@ -197,9 +197,10 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     /**
      * Returns an array of all notes associated with this construct or any of its descendants.
      */
-    public getAllNotes() {
+    public getContainedNotes() {
         let allNotes = new NoteRecorder();
-        this.children.forEach(child => allNotes.addNotes(child.getAllNotes().allNotes));
+        allNotes.addNotes(this.notes.allNotes);
+        this.children.forEach(child => allNotes.addNotes(child.getContainedNotes().allNotes));
         return allNotes;
     }
 

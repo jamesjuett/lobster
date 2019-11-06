@@ -648,12 +648,12 @@ export class TranslationUnit {
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
                     asMutable(this.topLevelDeclarations).push(decl);
-                    this.notes.addNotes(decl.getAllNotes().allNotes);
+                    this.notes.addNotes(decl.getContainedNotes().allNotes);
                 });
             }
             else {
                 asMutable(this.topLevelDeclarations).push(declsOrFuncDef);
-                this.notes.addNotes(declsOrFuncDef.getAllNotes().allNotes);
+                this.notes.addNotes(declsOrFuncDef.getContainedNotes().allNotes);
             }
         });
     }

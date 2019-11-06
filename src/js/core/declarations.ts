@@ -529,8 +529,9 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
     public abstract readonly declaredEntity: VariableEntity;
 
     private setInitializer(init: Initializer) {
-        assert(!this.initializer);
+        assert(!this.initializer); // should only be called once
         (<Mutable<this>>this).initializer = init;
+        this.attach(init);
         return this;
     }
 

@@ -285,7 +285,6 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
 
     public constructor(context: BlockContext, expression?: Expression) {
         super(context);
-        this.expression = expression;
 
         let returnType = this.context.containingFunction.type.returnType;
 
@@ -293,6 +292,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
             if (expression) {
                 // We have an expression to return, but the type is void, so that's bad
                 this.addNote(CPPError.stmt.returnStatement.exprVoid(this));
+                this.attach(this.expression = expression);
             }
             return;
         }
@@ -310,7 +310,6 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         }
         else {
             this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression]);
-
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.

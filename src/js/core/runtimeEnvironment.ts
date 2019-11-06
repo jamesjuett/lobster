@@ -427,7 +427,7 @@ export class Memory {
         for(let key in this.objects) {
             let obj = this.objects[key];
             let desc = obj.describe();
-            objs[desc.name || desc.message] = obj.getValue();
+            objs[desc.name || desc.message] = obj.rawValue();
         }
         console.log(JSON.stringify(objs, null, 4));
     }
@@ -595,13 +595,15 @@ export class MemoryFrame {
         return str;
     }
 
-    public getLocalObject<T extends ObjectType>(entity: AutoEntity<T>) {
+    public localObjectLookup<T extends ObjectType>(entity: AutoEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
-    public referenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
+
+    public localReferenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
         return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }
-    public bindReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
+
+    public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = obj;
     }
 
