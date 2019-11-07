@@ -2,6 +2,7 @@
     "include": [
       "./src/js/core/*.ts",
       "./src/js/parse/*.ts",
+      "./src/js/view/*.ts",
       "./src/js/util/*.ts"
     ],
     "compilerOptions": {

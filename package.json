@@ -9,10 +9,12 @@
     "license": "",
     "devDependencies": {
         "@types/bootstrap": "^4.1.2",
+        "@types/codemirror": "0.0.80",
         "@types/gapi": "^0.0.35",
         "@types/gapi.auth2": "^0.0.47",
         "@types/jquery": "^3.3.4",
         "@types/lodash": "^4.14.111",
+        "codemirror": "^5.49.2",
         "lodash": "^4.17.10",
         "pegjs": "^0.10.0",
         "ts-loader": "^6.2.1",
