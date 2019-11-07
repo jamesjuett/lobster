@@ -258,10 +258,13 @@ export interface RunnableProgram extends CompiledProgram {
     readonly mainFunction: CompiledFunctionDefinition;
 }
 
+/**
+ * A simple, immutable object that contains a filename and its text contents.
+ * Because it is immutable, don't grab a reference to someone's source file
+ * and expect it to update - changes to a file's context require a completely new object.
+ */
 export class SourceFile {
-
-    public readonly observable = new Observable(this);
-
+    
     public readonly name: string;
     public readonly text: string;
 
@@ -269,7 +272,6 @@ export class SourceFile {
         this.name = name;
         this.text = text;
     }
-
 
     // setText : function(text) {
     //     this.i_text = text;
