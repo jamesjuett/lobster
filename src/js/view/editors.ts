@@ -7,7 +7,7 @@ import 'codemirror/addon/display/fullscreen.js';
 import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
-import { Note, SyntaxNote } from "../core/errors";
+import { Note, SyntaxNote, NoteKind } from "../core/errors";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -376,7 +376,6 @@ class ProjectSaveOutlet {
  */
 class CompilationOutlet {
 
-    public observable = new Observable(this);
     public _act: MessageResponses = {};
     
     private readonly projectEditor: ProjectEditor;
@@ -419,75 +418,78 @@ class CompilationOutlet {
     }
 }
 
-var NoteCSSClasses = {};
-NoteCSSClasses[Note.TYPE_ERROR] = "lobster-note-error";
-NoteCSSClasses[Note.TYPE_WARNING] = "lobster-note-warning";
-NoteCSSClasses[Note.TYPE_STYLE] = "lobster-note-style";
-NoteCSSClasses[Note.TYPE_OTHER] = "lobster-note-other";
+const NoteCSSClasses : {[K in NoteKind]: string} = {
+    error: "lobster-note-error",
+    warning: "lobster-note-warning",
+    style: "lobster-note-style",
+    other: "lobster-note-other"
+};
 
-var NoteDescriptions= {};
-NoteDescriptions[Note.TYPE_ERROR] = "Error";
-NoteDescriptions[Note.TYPE_WARNING] = "Warning";
-NoteDescriptions[Note.TYPE_STYLE] = "Style";
-NoteDescriptions[Note.TYPE_OTHER] = "Info";
+const NoteDescriptions : {[K in NoteKind]: string} = {
+    error: "Error",
+    warning: "Warning",
+    style: "Style",
+    other: "Other"
+};
 
 /**
- * Allows a user to view and manage the compilation scheme for a program.
+ * Shows all of the compilation errors/warnings/etc. for the current project.
  */
-var CompilationNotesOutlet = Class.extend(Observer, {
-    _name: "CompilationNotesOutlet",
+class CompilationNotesOutlet {
 
-    init: function (element, program) {
-        this.i_element = element;
-        this.i_program = program;
+    public _act: MessageResponses = {};
 
-        this.listenTo(program);
+    private readonly projectEditor: ProjectEditor;
 
-    },
+    private readonly element: JQuery;
 
-    i_updateNotes : function() {
-        this.i_element.empty();
+    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+        this.element = element;
+        this.projectEditor = projectEditor;
 
-        var self = this;
-        this.i_program.getNotes().forEach(function(note) {
+        addListener(projectEditor, this);
 
-            var item = $('<li></li>');
-            item.append(self.i_createBadgeForNote(note)).append(" ");
+    }
 
-            var ref = note.getSourceReference();
-            if (ref){
-                var sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
-                SourceReferenceOutlet.instance(sourceReferenceElem, ref, self.i_program);
+    private updateNotes() {
+        this.element.empty();
+
+        this.projectEditor.program.notes.allNotes.forEach(note => {
+
+            let item = $('<li></li>').append(this.createBadgeForNote(note)).append(" ");
+
+            let ref = note.primarySourceReference;
+            if (ref) {
+                let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
+                new SourceReferenceOutlet(sourceReferenceElem, ref, this.projectEditor.program);
                 item.append(sourceReferenceElem).append(" ");
             }
 
-            item.append(note.getMessage());
+            item.append(note.message);
 
-            self.i_element.append(item);
+            this.element.append(item);
         });
-    },
+    }
 
-    i_createBadgeForNote : function(note) {
+
+    @messageResponse("reset")
+    @messageResponse("compilationFinished")
+    private createBadgeForNote(note: Note) {
         var elem = $('<span class="label"></span>');
 
         // hacky special case
-        if (isA(note, SyntaxNote)) {
+        if (note instanceof SyntaxNote) {
             elem.html("Syntax Error");
         }
         else {
-            elem.html(NoteDescriptions[note.getType()]);
+            elem.html(NoteDescriptions[note.kind]);
         }
 
-        elem.addClass(NoteCSSClasses[note.getType()]);
+        elem.addClass(NoteCSSClasses[note.kind]);
 
         return elem;
-    },
-
-    _act : {
-        reset : "i_updateNotes",
-        fullCompilationFinished : "i_updateNotes"
     }
-});
+}
 
 var CompilationStatusOutlet = Class.extend(Observer, {
     _name: "CompilationStatusOutlet",
