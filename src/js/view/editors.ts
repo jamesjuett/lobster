@@ -1,5 +1,5 @@
 import { Program, SourceFile, SourceReference } from "../core/Program";
-import * as CodeMirror from 'codemirror';
+import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/monokai.css';
 import 'codemirror/mode/xml/xml.js';
@@ -31,8 +31,8 @@ export class ProjectEditor {
     }
 
     public readonly projectName?: string;
-    public readonly sourceFiles: readonly SourceFile[];
-    public readonly isTranslationUnit: {[index: string]: boolean};
+    public readonly sourceFiles: readonly SourceFile[] = [];
+    public readonly isTranslationUnit: {[index: string]: boolean} = [];
     public readonly program: Program;
 
     public readonly isSaved: boolean = true;
@@ -44,11 +44,11 @@ export class ProjectEditor {
 
     private codeMirror: CodeMirror.Editor;
 
-    public constructor(element) {
+    public constructor(element: JQuery) {
         
-        let codeMirrorElement = element.find(".codeMirrorEditor")[0];
-        assert(codeMirrorElement, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
-        this.codeMirror = CodeMirror(codeMirrorElement, {
+        let codeMirrorElement = element.find(".codeMirrorEditor");
+        assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
+        this.codeMirror = CodeMirror(codeMirrorElement[0], {
             mode: FileEditor.CODE_MIRROR_MODE,
             theme: "monokai",
             lineNumbers: true,
@@ -374,60 +374,50 @@ class ProjectSaveOutlet {
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */
-var CompilationOutlet = Class.extend(Observer, {
-    _name: "CompilationOutlet",
+class CompilationOutlet {
 
-    init: function (element, program) {
-        this.i_program = program;
+    public observable = new Observable(this);
+    public _act: MessageResponses = {};
+    
+    private readonly projectEditor: ProjectEditor;
+    private readonly compilationNotesOutlet: CompilationNotesOutlet;
 
+    private readonly element: JQuery;
+    private readonly translationUnitsListElem: JQuery;
 
-        this.i_translationUnitsListElem = element.find(".translation-units-list");
-        this.compilationNotesOutlet = CompilationNotesOutlet.instance(element.find(".compilation-notes-list"), program);
+    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+        this.element = element;
+        this.projectEditor = projectEditor;
 
-        this.listenTo(program);
+        this.translationUnitsListElem = element.find(".translation-units-list");
+        assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-    },
+        this.compilationNotesOutlet = CompilationNotesOutlet.instance(element.find(".compilation-notes-list"), projectEditor);
+        assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
 
-    i_updateButtons : function() {
-        this.i_translationUnitsListElem.empty();
+        addListener(projectEditor, this);
+
+    }
+
+    @messageResponse("reset")
+    @messageResponse("sourceFileAdded")
+    @messageResponse("sourceFileRemoved")
+    @messageResponse("translationUnitCreated")
+    @messageResponse("translationUnitRemoved")
+    private updateButtons() {
+        this.translationUnitsListElem.empty();
 
         // Create buttons for each file to toggle whether it's a translation unit or not
-        for(var fileName in this.i_program.getSourceFiles()) {
-            this.i_createButton(fileName);
+        for(let fileName in this.projectEditor.sourceFiles) {
+
+            let button = $('<button class="btn">' + fileName + '</button>')
+            .addClass(this.projectEditor.isTranslationUnit[fileName] ? "btn-info" : "text-muted")
+            .click(() => this.projectEditor.toggleTranslationUnit());
+
+            this.translationUnitsListElem.append($('<li></li>').append(button));
         }
-    },
-
-    i_createButton : function(fileName) {
-        var button = $('<button class="btn">' + fileName + '</button>');
-
-        if (this.i_program.getTranslationUnit(fileName)) {
-            button.addClass("btn-info");
-        }
-        else{
-            button.addClass("text-muted");
-        }
-
-        var self = this;
-        button.click(function(){
-            if (self.i_program.getTranslationUnit(fileName)) {
-                self.i_program.removeTranslationUnit(fileName);
-            }
-            else{
-                self.i_program.createTranslationUnitForSourceFile(fileName);
-            }
-        });
-
-        this.i_translationUnitsListElem.append($('<li></li>').append(button));
-    },
-
-    _act : {
-        reset : "i_updateButtons",
-        sourceFileAdded : "i_updateButtons",
-        sourceFileRemoved : "i_updateButtons",
-        translationUnitCreated : "i_updateButtons",
-        translationUnitRemoved : "i_updateButtons"
     }
-});
+}
 
 var NoteCSSClasses = {};
 NoteCSSClasses[Note.TYPE_ERROR] = "lobster-note-error";
