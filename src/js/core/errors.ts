@@ -163,6 +163,13 @@ export class NoteRecorder implements NoteHandler {
     public readonly hasSyntaxErrors: boolean = false;
     public readonly hasWarnings: boolean = false;
 
+    private _numNotesByKind : {[K in NoteKind]: number} = {
+        error: 0,
+        warning: 0,
+        style: 0,
+        other: 0
+    }
+
     public addNote(note: Note) {
         this._allNotes.push(note);
 
@@ -178,6 +185,8 @@ export class NoteRecorder implements NoteHandler {
         else if (note.kind === NoteKind.WARNING) {
             _this.hasWarnings = true;
         }
+
+        ++this._numNotesByKind[note.kind];
     }
 
     public addNotes(notes: readonly Note[]) {
@@ -190,6 +199,10 @@ export class NoteRecorder implements NoteHandler {
         _this.hasErrors = false;
         _this.hasSyntaxErrors = false;
         _this.hasWarnings = false;
+    }
+
+    public numNotes(kind?: NoteKind) {
+        return kind ? this._numNotesByKind[kind] : this.allNotes.length;
     }
 }
 
