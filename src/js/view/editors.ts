@@ -27,12 +27,14 @@ export class ProjectEditor {
 
     public static onBeforeUnload() {
         let unsaved = this.instances.find(inst => inst.isOpen && !inst.isSaved);
-        return "The project \"" + unsaved.projectName + "\" has unsaved changes.";
+        if (unsaved) {
+            return "The project \"" + unsaved.projectName + "\" has unsaved changes.";
+        }
     }
 
     public readonly projectName?: string;
     public readonly sourceFiles: readonly SourceFile[] = [];
-    public readonly translationUnitNames: readonly string[];
+    private translationUnitNamesMap: {[index: string]: boolean} = {};
     public readonly program: Program;
 
     public readonly isSaved: boolean = true;
@@ -49,7 +51,7 @@ export class ProjectEditor {
         let codeMirrorElement = element.find(".codeMirrorEditor");
         assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
         this.codeMirror = CodeMirror(codeMirrorElement[0], {
-            mode: FileEditor.CODE_MIRROR_MODE,
+            mode: CODEMIRROR_MODE,
             theme: "monokai",
             lineNumbers: true,
             tabSize: 2,
@@ -64,9 +66,21 @@ export class ProjectEditor {
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
 
-        ProjectEditor.instances.push(this);
+        this.filesElem = element.find(".project-files");
+        assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
+        element.find(".project-files");
+        
         this.program = new Program([], []);
+        
+        ProjectEditor.instances.push(this);
+    }
+
+    public isTranslationUnit(tuName: string) {
+        // If it's a valid source file, its name will be a key in the map
+        assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
+        
+        return this.translationUnitNamesMap[tuName];
     }
 
     /**
@@ -76,10 +90,10 @@ export class ProjectEditor {
      * @param tuName 
      */
     public toggleTranslationUnit(tuName: string) {
-        assert(!!this.sourceFiles.find(file => file.name === tuName), `No source file found for translation unit: ${tuName}`);
-        if (!!this.translationUnitNames.find(name => name === tuName)) {
-            
-        }
+        // If it's a valid source file, its name will be a key in the map
+        assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
+        
+        this.translationUnitNamesMap[tuName] = !this.translationUnitNamesMap[tuName];
     }
 
     private loadProject(projectName: string) {
@@ -109,7 +123,7 @@ export class ProjectEditor {
         let projectFiles = this.sourceFiles.map((file) => ({
             name: file.name,
             text: file.text,
-            isTranslationUnit: this.isTranslationUnit[file.name] ? "yes" : "no"
+            isTranslationUnit: this.isTranslationUnit(file.name) ? "yes" : "no"
         }));
 
         $.ajax({
@@ -161,7 +175,7 @@ export class ProjectEditor {
     public recompile() {
         (<Mutable<this>>this).program = new Program(this.sourceFiles, Object.keys(this.isTranslationUnit));
 
-        this.fileEditors.keys().forEach((ed: string) => this.fileEditors[ed].clearAnnotations());
+        Object.keys(this.fileEditors).forEach((ed: string) => this.fileEditors[ed].clearAnnotations());
         
         this.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
@@ -183,11 +197,6 @@ export class ProjectEditor {
         // }
     }
 
-    private clearSyntaxErrors() {
-        Object.keys(this.fileEditors).forEach((ed: string) => {
-            ed.clearSyntaxErrors();
-        })
-    }
 //     @messageResponse()
 //     private parsed(msg: Message) {
 
@@ -206,35 +215,18 @@ export class ProjectEditor {
 //             // editor.clearAnnotations();
 //         }
 //     },
-    private showSyntaxError(sourceRef: SourceReference) {
-
-        // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
-        // ^^ that TODO may already be fixed?
-        let editor = this.fileEditors[sourceRef.sourceFile.name];
-
-        editor.clearSyntaxErrors();
-
-        if (editor.syntaxErrorLineHandle) {
-            editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
-        }
-        editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(sourceRef.line-1, "background", "syntaxError");
-        // sourceEditor.clearAnnotations();
-    }
 
     private clearProject() {
 
         this.fileTabs = {};
         this.filesElem.empty();
 
-        for (let filename in this.fileEditors) {
-            this.fileEditors[filename].removeListener(this);
-        }
         this.fileEditors = {};
         
         let _this = <Mutable<this>>this;
 
         _this.sourceFiles = [];
-        _this.isTranslationUnit = {};
+        this.translationUnitNamesMap = {};
         _this.isOpen = false;
         _this.isSaved = true;
         _this.projectName = "";
@@ -249,10 +241,9 @@ export class ProjectEditor {
         // Create the file itself
         let sourceFile = new SourceFile(fileName, fileData["code"]);
         asMutable(this.sourceFiles).push(sourceFile);
-        addListener(sourceFile, this);
 
         // Create a FileEditor object to manage editing the file
-        let fileEd = FileEditor.instance(fileName, sourceFile);
+        let fileEd = new FileEditor(sourceFile);
         this.fileEditors[fileName] = fileEd;
         addListener(fileEd, this);
 
@@ -265,14 +256,12 @@ export class ProjectEditor {
         this.filesElem.append(item);
 
         // Add a translation unit if appropriate
-        if (fileData["isTranslationUnit"] === "yes") {
-            this.isTranslationUnit[fileName] = true;
-        }
+        this.translationUnitNamesMap[fileName] = fileData["isTranslationUnit"] === "yes";
     }
 
     private selectFile(filename: string) {
-        assert(this.fileEditors[filename]);
-        this.codeMirror.swapDoc(this.fileEditors[filename].getDoc());
+        assert(!!this.fileEditors[filename], `File ${filename} does not exist in this project.`);
+        this.codeMirror.swapDoc(this.fileEditors[filename].doc);
     }
 
     public refreshEditorView() {
@@ -282,11 +271,19 @@ export class ProjectEditor {
         this.codeMirror.scrollIntoView(null, 50);
     }
 
+    public gotoSourceReference(sourceRef: SourceReference) {
+        let editor = this.fileEditors[sourceRef.sourceFile.name];
+        if (editor) {
+            editor.gotoSourceReference(sourceRef);
+        }
+        
+    }
+
     @messageResponse()
     private requestFocus(msg: Message) {
         this.observable.send("requestFocus");
         if (msg.source instanceof FileEditor) {
-            this.fileTabs[msg.source.getFileName()].tab("show");
+            this.fileTabs[msg.source.file.name].tab("show");
         }
     }
 
@@ -404,7 +401,7 @@ class CompilationOutlet {
         this.translationUnitsListElem = element.find(".translation-units-list");
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        this.compilationNotesOutlet = CompilationNotesOutlet.instance(element.find(".compilation-notes-list"), projectEditor);
+        this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"), projectEditor);
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
 
         addListener(projectEditor, this);
@@ -422,8 +419,8 @@ class CompilationOutlet {
         for(let fileName in this.projectEditor.sourceFiles) {
 
             let button = $('<button class="btn">' + fileName + '</button>')
-            .addClass(this.projectEditor.isTranslationUnit[fileName] ? "btn-info" : "text-muted")
-            .click(() => this.projectEditor.toggleTranslationUnit());
+            .addClass(this.projectEditor.isTranslationUnit(fileName) ? "btn-info" : "text-muted")
+            .click(() => this.projectEditor.toggleTranslationUnit(fileName));
 
             this.translationUnitsListElem.append($('<li></li>').append(button));
         }
@@ -473,7 +470,7 @@ class CompilationNotesOutlet {
             let ref = note.primarySourceReference;
             if (ref) {
                 let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
-                new SourceReferenceOutlet(sourceReferenceElem, ref, this.projectEditor.program);
+                new SourceReferenceOutlet(sourceReferenceElem, this.projectEditor, ref);
                 item.append(sourceReferenceElem).append(" ");
             }
 
@@ -634,16 +631,13 @@ class FileEditor {
     private static instances: FileEditor[] = [];
     
     public observable: Observable = new Observable(this);
-    public _act: MessageResponses = {};
 
     public readonly file: SourceFile;
-    
-    private readonly doc: CodeMirror.Doc;
-
-    private readonly element: JQuery;
+    public readonly doc: CodeMirror.Doc;
 
     private readonly annotations: Annotation[] = [];
     private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
+    private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
      /**
      *
@@ -725,7 +719,24 @@ class FileEditor {
         }
     }
 
-    public addAnnotation(ann: Annotation){
+    public clearSyntaxError() {
+        if (this.syntaxErrorLineHandle) {
+            let ed = this.doc.getEditor();
+            if (ed) {
+                ed.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
+            }
+        }
+    }
+
+    public setSyntaxError(line: number) {
+        this.clearSyntaxError();
+        let ed = this.doc.getEditor();
+        if (ed) {
+            this.syntaxErrorLineHandle = ed.addLineClass(line-1, "background", "syntaxError");
+        }
+    }
+
+    public addAnnotation(ann: Annotation) {
         ann.onAdd(this);
         this.annotations.push(ann);
     }
@@ -738,12 +749,11 @@ class FileEditor {
     }
 
     public gotoSourceReference(sourceRef: SourceReference) {
-        console.log("got the message " + sourceRef.sourceFile.getName() + ":" + sourceRef.line);
+        console.log("got the message " + sourceRef.sourceFile.name + ":" + sourceRef.line);
         // this.send("requestFocus", function() {});
         this.doc.setCursor(sourceRef.line, sourceRef.column, {scroll:true});
         // self.doc.scrollIntoView(, 10);
         // });
     }
-    
 
-});
+}
