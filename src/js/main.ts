@@ -1,58 +1,57 @@
-import { PointerType, Int } from "./core/types";
-import { parse as cpp_parse } from "./parse/cpp_parser";
-import { SourceFile, Program } from "./core/Program";
-import { Simulation } from "./core/Simulation";
+import {ProjectEditor, CompilationOutlet, CompilationStatusOutlet, ProjectSaveOutlet} from "./view/editors";
 
-console.log("hello");
-// let x = new PointerType(new Int(), true);
-// console.log(x.toString());
+$(() => {
 
-let file1 = new SourceFile("test.cpp", `
+    let element = $("#lobster1");
 
-int square(int x) {
-    return x * x;
-}
+    let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-int * enigma(int x, int &y, int *ptr) {
-    x = x + 1;
-    y = y + 1;
-    *ptr = *ptr + 1;
-    return &y;
-}
+    let sourcePane = element.find("#sourcePane");
+    let projectEditor = new ProjectEditor(sourcePane);
 
-int main() {
-    int x = 2;
-    int y = 3;
-    int z = 10 * x + y;
-    double d1 = 10.5;
-    double d2 = 7.2;
-    double d3 = d1 + d2;
-    z = d1 + d2;
-    int blah = d1 + d2 - 10;
-    int foo = square(blah);
-    int foo2 = 5;
-    int e1 = 1;
-    int e2 = 2;
-    int e3 = 3;
-//    int &e4 = enigma(e1, e2, &e3);
-//    e4 = e4 + 1;
-}
-`);
-let program = new Program([file1], ["test.cpp"]);
-console.log(program);
+    // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+    i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
+        projectEditor.refreshEditorView();
+    });
 
-if (program.isRunnable()) {
-    let sim = new Simulation(program);
-    console.log(sim);
-    sim.memory.printObjects();
-    let timeout = setInterval(() => {
-        sim.stepForward()
-        sim.memory.printObjects();
-        if (sim.atEnd) {
-            clearInterval(timeout);
-        }
-    }, 100);
-    // while(!sim.atEnd) {
-    //     sim.stepForward();
+    let compilationOutlet = new CompilationOutlet(element.find("#compilationPane"), projectEditor);
+
+    let compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), projectEditor);
+    let projectSaveOutlet = new ProjectSaveOutlet(element.find(".project-save-outlet"), projectEditor);
+
+
+    // let errorStatus = ValueEntity.instance();
+
+
+    let runningProgress = element.find(".runningProgress");
+
+    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "blah", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "yes"} ]);
+
+//        console = ValueEntity.instance();
+
+    // if ((elem = statusElem = element.find(".status")).length !== 0) {
+    //     status = Outlets.HtmlOutlet.instance(elem, true).listenTo(errorStatus);
     // }
-}
+    // if ((elem = element.find(".console")).length !== 0) {
+    //     consoleOutlet = Outlets.HtmlOutlet.instance(elem, true).listenTo(sim.console);
+    // }
+
+    // if ((elem = element.find(".stackFrames")).length !== 0) {
+    //     if (useSourceSimulation){
+    //         stackFrames = Outlets.CPP.SourceSimulation.instance(elem, sim, this);
+    //         listenTo(stackFrames);
+    //     }
+    //     else{
+    //         stackFrames = Outlets.CPP.SimulationStack.instance(elem, sim, this);
+    //         listenTo(stackFrames);
+    //     }
+    // }
+    
+    // if ((elem = element.find(".memory")).length !== 0) {
+    //     memory = Outlets.CPP.Memory.instance(elem, sim.memory);
+    // }
+
+    // runButton = element.find(".runButton");
+
+
+});

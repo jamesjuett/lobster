@@ -4,13 +4,19 @@ import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/monokai.css';
 import 'codemirror/mode/xml/xml.js';
 import 'codemirror/addon/display/fullscreen.js';
-import '../../styles/components/_codemirror.css';
+// import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
 import { Note, SyntaxNote, NoteKind } from "../core/errors";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
+
+interface FileData {
+    readonly name: string;
+    readonly code: string;
+    readonly isTranslationUnit: "yes" | "no";
+}
 
 /**
  * This class manages all of the source files associated with a project and the editors
@@ -23,10 +29,10 @@ export class ProjectEditor {
     private static instances: ProjectEditor[] = [];
 
     public observable: Observable = new Observable(this);
-    public _act: MessageResponses = {};
+    public _act!: MessageResponses;
 
     public static onBeforeUnload() {
-        let unsaved = this.instances.find(inst => inst.isOpen && !inst.isSaved);
+        let unsaved = ProjectEditor.instances.find(inst => inst.isOpen && !inst.isSaved);
         if (unsaved) {
             return "The project \"" + unsaved.projectName + "\" has unsaved changes.";
         }
@@ -68,8 +74,6 @@ export class ProjectEditor {
 
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
-
-        element.find(".project-files");
         
         this.program = new Program([], []);
         
@@ -93,7 +97,15 @@ export class ProjectEditor {
         // If it's a valid source file, its name will be a key in the map
         assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
         
-        this.translationUnitNamesMap[tuName] = !this.translationUnitNamesMap[tuName];
+        let isTU = this.translationUnitNamesMap[tuName] = !this.translationUnitNamesMap[tuName];
+        if (isTU) {
+            this.observable.send("translationUnitAdded");
+        }
+        else {
+            this.observable.send("translationUnitRemoved");
+        }
+
+        this.compilationOutOfDate();
     }
 
     private loadProject(projectName: string) {
@@ -149,19 +161,38 @@ export class ProjectEditor {
         }
     }
 
-    private setProject(projectName: string, projectData: readonly any[]) {
+    private clearProject() {
+        let _this = <Mutable<this>>this;
+
+        _this.projectName = "";
+        _this.sourceFiles = [];
+        this.translationUnitNamesMap = {};
+        this.recompile();
+
+        _this.isSaved = true;
+        _this.isOpen = false;
+        
+        this.fileTabs = {};
+        this.filesElem.empty();
+        this.fileEditors = {};
+
+        this.observable.send("projectCleared");
+    }
+
+    public setProject(projectName: string, projectData: readonly FileData[]) {
 
         this.clearProject();
 
         let _this = <Mutable<this>>this;
 
-        _this.isOpen = true;
-        _this.isSaved = true;
         _this.projectName = projectName;
+        projectData.forEach(fileData => this.createFile(fileData));
+
+        _this.isSaved = true;
+        _this.isOpen = true;
+
         document.title = projectName; // TODO: this is too aggressive. replace in favor of projectLoaded message
 
-        projectData.forEach(fileData => this.createFile(fileData));
-        
         // Set first file to be active
         if (projectData.length > 0) {
             this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
@@ -172,20 +203,49 @@ export class ProjectEditor {
         this.observable.send("projectLoaded");
     }
 
-    public recompile() {
-        (<Mutable<this>>this).program = new Program(this.sourceFiles, Object.keys(this.isTranslationUnit));
+    private createFile(fileData: FileData) {
+        let fileName = fileData.name;
 
-        Object.keys(this.fileEditors).forEach((ed: string) => this.fileEditors[ed].clearAnnotations());
+        // Create the file itself
+        let sourceFile = new SourceFile(fileName, fileData.code);
+        asMutable(this.sourceFiles).push(sourceFile);
+
+        // Add a translation unit if appropriate
+        this.translationUnitNamesMap[fileName] = fileData.isTranslationUnit === "yes";
+
+        // Create a FileEditor object to manage editing the file
+        let fileEd = new FileEditor(sourceFile);
+        this.fileEditors[fileName] = fileEd;
+        addListener(fileEd, this);
+
+        // Create tab to select this file for viewing/editing
+        let item = $('<li></li>');
+        let link = $('<a href="" data-toggle="pill">' + fileData.name + '</a>');
+        link.on("shown.bs.tab", () => this.selectFile(fileName));
+        item.append(link);
+        this.fileTabs[fileData.name] = link;
+        this.filesElem.append(item);
+    }
+
+    private compilationOutOfDate() {
+        this.observable.send("compilationOutOfDate");
+    }
+
+    public recompile() {
+        (<Mutable<this>>this).program = new Program(this.sourceFiles,
+            this.sourceFiles.map(file => file.name).filter(name => this.isTranslationUnit(name)));
+
+        Object.keys(this.fileEditors).forEach((ed: string) => {
+            this.fileEditors[ed].clearMarks();
+            this.fileEditors[ed].clearGutterErrors();
+        });
         
         this.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
                 let editor = this.fileEditors[sourceRef.sourceFile.name];
-                editor.addAnnotation(GutterAnnotation.instance(
-                    sourceRef,
-                    note.kind,
-                    note.message
-                ));
+                editor.addMark(sourceRef, note.kind);
+                editor.addGutterError(sourceRef.line, note.message);
             }
         });
 
@@ -195,68 +255,7 @@ export class ProjectEditor {
         //     // alert(this.i_semanticProblems.get(i));
         //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         // }
-    }
-
-//     @messageResponse()
-//     private parsed(msg: Message) {
-
-//         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
-//         var tu = msg.source;
-//         var editor = this.i_fileEditors[tu.getName()];
-
-//         if (editor.syntaxErrorLineHandle) {
-//             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
-//         }
-//         if (msg.data){
-//             var err = msg.data;
-// //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
-// //                {className: "syntaxError"}));
-//             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-//             // editor.clearAnnotations();
-//         }
-//     },
-
-    private clearProject() {
-
-        this.fileTabs = {};
-        this.filesElem.empty();
-
-        this.fileEditors = {};
-        
-        let _this = <Mutable<this>>this;
-
-        _this.sourceFiles = [];
-        this.translationUnitNamesMap = {};
-        _this.isOpen = false;
-        _this.isSaved = true;
-        _this.projectName = "";
-
-        this.recompile();
-        this.observable.send("projectCleared");
-    }
-
-    private createFile(fileData: any) {
-        let fileName = fileData["name"];
-
-        // Create the file itself
-        let sourceFile = new SourceFile(fileName, fileData["code"]);
-        asMutable(this.sourceFiles).push(sourceFile);
-
-        // Create a FileEditor object to manage editing the file
-        let fileEd = new FileEditor(sourceFile);
-        this.fileEditors[fileName] = fileEd;
-        addListener(fileEd, this);
-
-        // Create tab to select this file for viewing/editing
-        let item = $('<li></li>');
-        let link = $('<a href="" data-toggle="pill">' + fileData["name"] + '</a>');
-        link.on("shown.bs.tab", () => this.selectFile(fileName));
-        item.append(link);
-        this.fileTabs[fileData["name"]] = link;
-        this.filesElem.append(item);
-
-        // Add a translation unit if appropriate
-        this.translationUnitNamesMap[fileName] = fileData["isTranslationUnit"] === "yes";
+        this.observable.send("compilationFinished");
     }
 
     private selectFile(filename: string) {
@@ -279,20 +278,42 @@ export class ProjectEditor {
         
     }
 
-    @messageResponse()
-    private requestFocus(msg: Message) {
-        this.observable.send("requestFocus");
-        if (msg.source instanceof FileEditor) {
-            this.fileTabs[msg.source.file.name].tab("show");
-        }
-    }
+    // @messageResponse()
+    // private requestFocus(msg: Message) {
+    //     this.observable.send("requestFocus");
+    //     if (msg.source instanceof FileEditor) {
+    //         this.fileTabs[msg.source.file.name].tab("show");
+    //     }
+    // }
 
     @messageResponse()
-    private textChanged() {
+    private textChanged(msg: Message) {
+        let updatedFile: SourceFile = msg.data;
+        let i = this.sourceFiles.findIndex(file => file.name === updatedFile.name);
+        asMutable(this.sourceFiles)[i] = updatedFile;
         this.setSaved(false);
+        this.compilationOutOfDate();
     }
 
 
+//     @messageResponse()
+//     private parsed(msg: Message) {
+
+//         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+//         var tu = msg.source;
+//         var editor = this.i_fileEditors[tu.getName()];
+
+//         if (editor.syntaxErrorLineHandle) {
+//             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+//         }
+//         if (msg.data){
+//             var err = msg.data;
+// //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
+// //                {className: "syntaxError"}));
+//             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
+//             // editor.clearAnnotations();
+//         }
+//     },
 
     // setSource : function(src){
     //     this.i_sourceCode = src;
@@ -301,10 +322,10 @@ export class ProjectEditor {
 }
 $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
 
-class ProjectSaveOutlet {
+export class ProjectSaveOutlet {
 
     public observable = new Observable(this);
-    public _act: MessageResponses = {};
+    public _act!: MessageResponses;
 
     private readonly projectEditor: ProjectEditor;
 
@@ -384,9 +405,9 @@ class ProjectSaveOutlet {
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */
-class CompilationOutlet {
+export class CompilationOutlet {
 
-    public _act: MessageResponses = {};
+    public _act!: MessageResponses;
     
     private readonly projectEditor: ProjectEditor;
     private readonly compilationNotesOutlet: CompilationNotesOutlet;
@@ -408,22 +429,24 @@ class CompilationOutlet {
 
     }
 
+    @messageResponse("projectCleared")
+    @messageResponse("projectLoaded")
     @messageResponse("sourceFileAdded")
     @messageResponse("sourceFileRemoved")
-    @messageResponse("translationUnitCreated")
+    @messageResponse("translationUnitAdded")
     @messageResponse("translationUnitRemoved")
     private updateButtons() {
         this.translationUnitsListElem.empty();
 
         // Create buttons for each file to toggle whether it's a translation unit or not
-        for(let fileName in this.projectEditor.sourceFiles) {
+        this.projectEditor.sourceFiles.forEach(file => {
 
-            let button = $('<button class="btn">' + fileName + '</button>')
-            .addClass(this.projectEditor.isTranslationUnit(fileName) ? "btn-info" : "text-muted")
-            .click(() => this.projectEditor.toggleTranslationUnit(fileName));
+            let button = $('<button class="btn">' + file.name + '</button>')
+            .addClass(this.projectEditor.isTranslationUnit(file.name) ? "btn-info" : "text-muted")
+            .click(() => this.projectEditor.toggleTranslationUnit(file.name));
 
             this.translationUnitsListElem.append($('<li></li>').append(button));
-        }
+        });
     }
 }
 
@@ -444,9 +467,9 @@ const NoteDescriptions : {[K in NoteKind]: string} = {
 /**
  * Shows all of the compilation errors/warnings/etc. for the current project.
  */
-class CompilationNotesOutlet {
+export class CompilationNotesOutlet {
 
-    public _act: MessageResponses = {};
+    public _act!: MessageResponses;
 
     private readonly projectEditor: ProjectEditor;
 
@@ -460,6 +483,7 @@ class CompilationNotesOutlet {
 
     }
 
+    @messageResponse("compilationFinished")
     private updateNotes() {
         this.element.empty();
 
@@ -480,8 +504,6 @@ class CompilationNotesOutlet {
         });
     }
 
-
-    @messageResponse("compilationFinished")
     private createBadgeForNote(note: Note) {
         var elem = $('<span class="label"></span>');
 
@@ -499,9 +521,9 @@ class CompilationNotesOutlet {
     }
 }
 
-class CompilationStatusOutlet {
+export class CompilationStatusOutlet {
 
-    public _act: MessageResponses = {};
+    public _act!: MessageResponses;
 
     private readonly projectEditor: ProjectEditor;
 
@@ -626,7 +648,7 @@ const CODEMIRROR_MODE = "text/x-c++src";
 //     text: "int main(){\n  \n}",
 // }
 
-class FileEditor {
+export class FileEditor {
 
     private static instances: FileEditor[] = [];
     
@@ -635,7 +657,7 @@ class FileEditor {
     public readonly file: SourceFile;
     public readonly doc: CodeMirror.Doc;
 
-    private readonly annotations: Annotation[] = [];
+    // private readonly annotations: Annotation[] = [];
     private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
     private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
@@ -681,6 +703,10 @@ class FileEditor {
         return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     }
 
+    public clearMarks() {
+        this.doc.getAllMarks().forEach(mark => mark.clear());
+    }
+
     public addGutterError(line: number, text: string) {
         --line;
         let marker = this.gutterErrors[line];
@@ -711,6 +737,14 @@ class FileEditor {
         }
     }
 
+    public clearGutterErrors() {
+        let ed = this.doc.getEditor();
+        if (ed) {
+            ed.clearGutter("errors");
+        }
+        this.gutterErrors.length = 0;
+    }
+
     public addWidget(sourceRef: SourceReference, elem: JQuery) {
         let from = this.doc.posFromIndex(sourceRef.start);
         let ed = this.doc.getEditor();
@@ -736,17 +770,17 @@ class FileEditor {
         }
     }
 
-    public addAnnotation(ann: Annotation) {
-        ann.onAdd(this);
-        this.annotations.push(ann);
-    }
+    // public addAnnotation(ann: Annotation) {
+    //     ann.onAdd(this);
+    //     this.annotations.push(ann);
+    // }
 
-    public clearAnnotations() {
-        for(var i = 0; i < this.annotations.length; ++i){
-            this.annotations[i].onRemove(this);
-        }
-        this.annotations.length = 0;
-    }
+    // public clearAnnotations() {
+    //     for(var i = 0; i < this.annotations.length; ++i){
+    //         this.annotations[i].onRemove(this);
+    //     }
+    //     this.annotations.length = 0;
+    // }
 
     public gotoSourceReference(sourceRef: SourceReference) {
         console.log("got the message " + sourceRef.sourceFile.name + ":" + sourceRef.line);
