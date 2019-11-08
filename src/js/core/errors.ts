@@ -5,6 +5,7 @@ import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEnt
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
+import { IdentifierExpression } from "./expressions";
 
 export enum NoteKind {
     ERROR = "error",
@@ -708,6 +709,9 @@ export const CPPError = {
         },
         alt_op : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\""+name+"\" is a C++ operator and cannot be used as an identifier.");
+        },
+        not_found : function(construct: IdentifierExpression, name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find a variable or function called "${name}" in this scope.`);
         }
 	},
     param : {

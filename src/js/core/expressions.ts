@@ -3056,7 +3056,10 @@ export class IdentifierExpression extends Expression {
 
         let lookupResult = this.context.contextualScope.lookup(this.name);
 
-        if (Array.isArray(lookupResult)) {
+        if (!lookupResult) {
+            this.addNote(CPPError.iden.not_found(this, this.name));
+        }
+        else if (Array.isArray(lookupResult)) {
 
             if (lookupResult.length === 1) {
                 // Only one function with that name found, so we just grab it.

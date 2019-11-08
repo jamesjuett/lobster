@@ -76,6 +76,9 @@ export interface ObserverType {
 // }
 
 function receiveMessage(observer: ObserverType, msg: Message) {
+    if (!observer._act) {
+        return;
+    }
     var catAct = observer._act[msg.category];
     if (catAct){
         catAct.call(observer, msg);
@@ -84,7 +87,7 @@ function receiveMessage(observer: ObserverType, msg: Message) {
         observer._act._default.call(observer, msg);
     }
     else {
-        assert(false);
+        // do nothing, message ignored
     }
 }
 
