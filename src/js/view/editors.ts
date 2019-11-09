@@ -271,8 +271,10 @@ export class ProjectEditor {
     }
 
     public gotoSourceReference(sourceRef: SourceReference) {
-        let editor = this.fileEditors[sourceRef.sourceFile.name];
+        let name = sourceRef.sourceFile.name;
+        let editor = this.fileEditors[name];
         if (editor) {
+            this.fileTabs[name].tab("show");
             editor.gotoSourceReference(sourceRef);
         }
         

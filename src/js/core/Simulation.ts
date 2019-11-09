@@ -86,7 +86,7 @@ export class Simulation {
     public readonly isPaused = true;
 
 
-    public start() {
+    private start() {
         this.allocateStringLiterals();
         
         // Change static initialization so it is wrapped up in its own construct and
