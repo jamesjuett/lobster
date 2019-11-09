@@ -1029,8 +1029,6 @@ export abstract class BinaryOperator extends Expression {
         this.operator = operator;
     }
 
-    public abstract createRuntimeExpression<T extends AtomicType>(this: CompiledBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeBinaryOperator<T>;
-    public abstract createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
 }
 
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
@@ -1038,15 +1036,6 @@ export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> exten
     readonly type: T;
     readonly left: CompiledExpression<AtomicType, "prvalue">
     readonly right: CompiledExpression<AtomicType, "prvalue">
-}
-
-// TODO: I think this class shouldn't exist. It should probably just be RuntimeArithmeticBinaryOperator.
-// It gives the impression
-// that this would be a base for all Runtime classes for binary operators, but it isn't for
-// RuntimeLogicalBinaryOperator since that one runs differently to handle short-circuit behavior
-// correctly.
-export abstract class RuntimeBinaryOperator<T extends AtomicType = AtomicType, C extends CompiledBinaryOperator<T> = CompiledBinaryOperator<T>> extends SimpleRuntimeExpression<T, "prvalue", C> {
-
 }
 
 export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
@@ -1099,15 +1088,6 @@ const ARITHMETIC_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
     }
 }
 
-// TODO: make types more specific. ArithmeticBinaryOperator should only be used in cases where it has
-// already been determined that both operands have arithmetic type. Either that or it should be used
-// in cases where an operator requires arithmetic operands, but not sure. For example, what if someone
-// tries to add a pointer type and a class type with the + operator (assuming overloads already checked
-// and none found). What TS class do we want to get used, s that the error messages are as good as possible?
-// Considering thie and LogicalBinaryOperator together, it actually seems best to create this in a way that
-// is based on the operator used and actually allows for improper types. That should result in the most relevant
-// error messages. (Of course, overloads are still checked for first, and the specific pointer offset and
-// pointer difference cases should also be checked for first. So these are the fallback options.)
 class ArithmeticBinaryOperatorExpression extends BinaryOperator {
     
     public readonly type?: ArithmeticType;
@@ -1205,7 +1185,7 @@ export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> exte
 }
 
 // TODO: rename this or maybe create two separate classes for Arithmetic and Logical
-export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<T, CompiledArithmeticBinaryOperator<T>> {
+export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends SimpleRuntimeExpression<T, "prvalue", CompiledArithmeticBinaryOperator<T>> {
     
     public readonly left: RuntimeExpression<T, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue">;
@@ -1282,7 +1262,7 @@ export interface CompiledPointerDifference extends PointerDifference, Successful
     readonly right: CompiledExpression<PointerType, "prvalue">;
 }
 
-export class RuntimePointerDifference extends RuntimeBinaryOperator<Int, CompiledPointerDifference> {
+export class RuntimePointerDifference extends SimpleRuntimeExpression<Int, "prvalue", CompiledPointerDifference> {
 
     public left: RuntimeExpression<PointerType, "prvalue">;
     public right: RuntimeExpression<PointerType, "prvalue">;
@@ -1399,7 +1379,7 @@ export interface CompiledPointerOffset<T extends PointerType = PointerType> exte
 }
 
 
-export class RuntimePointerOffset<T extends PointerType = PointerType> extends RuntimeBinaryOperator<T, CompiledPointerOffset<T>> {
+export class RuntimePointerOffset<T extends PointerType = PointerType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPointerOffset<T>> {
 
     public readonly left: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
     public readonly right: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
@@ -1545,7 +1525,7 @@ export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> exte
     readonly right: CompiledExpression<T,"prvalue">;
 }
 
-export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends RuntimeBinaryOperator<Bool, CompiledRelationalBinaryOperator<T>> {
+export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends SimpleRuntimeExpression<Bool, "prvalue", CompiledRelationalBinaryOperator<T>> {
     
     public readonly left: RuntimeExpression<T, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue">;
@@ -1810,6 +1790,134 @@ export interface DeleteArrayExpressionASTNode extends ASTNode {
     readonly construct_type: "delete_array_expression";
 }
 
+type t_UnaryOperators = "++" | "--" | "*" | "&" | "+" | "-" | "!" | "~" | "sizeof" | "new" | "delete" | "delete[]";
+
+export abstract class UnaryOperator extends Expression {
+    
+    public abstract readonly type?: ObjectType | VoidType; // VoidType is due to delete, delete[]
+
+    public abstract readonly operand: Expression;
+
+    public abstract readonly operator: t_UnaryOperators;
+    
+    public readonly _t_compiled!: CompiledUnaryOperator;
+
+    protected constructor(context: ExpressionContext) {
+        super(context)
+    }
+
+}
+
+export interface CompiledUnaryOperator<T extends ObjectType | VoidType = ObjectType | VoidType> extends UnaryOperator, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly type: T;
+    readonly operand: CompiledExpression;
+}
+
+
+
+export class Dereference extends UnaryOperator {
+    
+    public readonly type?: ObjectType;
+    public readonly valueCategory = "lvalue";
+
+    public readonly operand: Expression;
+
+    public readonly operator = "*";
+
+    public constructor(context: ExpressionContext, operand: Expression) {
+        super(context);
+
+        if (!operand.isWellTyped()) {
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        let convertedOperand = convertToPRValue(operand);
+        this.attach(this.operand = convertedOperand);
+
+        if (!convertedOperand.isPointerTyped()) {
+            this.addNote(CPPError.expr.dereference.pointer(this, convertedOperand.type));
+        }
+        else if (!(convertedOperand.type.ptrTo.isObjectType())) {
+            // Note: function pointers currently not allowed
+            this.addNote(CPPError.expr.dereference.pointerToObjectType(this, convertedOperand.type));
+        }
+        else {
+            this.type = convertedOperand.type;
+        }
+    }
+
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimeDereference<T>;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimePointerOffset<T> {
+        return new RuntimeDereference(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledDereference<T extends PointerType = PointerType> extends PointerOffset, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly type: ObjectType;
+    readonly operand: CompiledExpression<PointerType, "prvalue">;
+}
+
+
+export class RuntimePointerOffset<T extends PointerType = PointerType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPointerOffset<T>> {
+
+    public readonly left: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
+    public readonly right: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
+
+    public readonly pointer: RuntimeExpression<T, "prvalue">;
+    public readonly offset: RuntimeExpression<IntegralType, "prvalue">;
+
+    public constructor (model: CompiledPointerOffset<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.pointer = this.model.pointer.createRuntimeExpression(this);
+        this.offset = this.model.offset.createRuntimeExpression(this);
+        if (model.pointerOnLeft) {
+            this.left = this.pointer;
+            this.right = this.offset;
+        }
+        else {
+            this.left = this.offset;
+            this.right = this.pointer;
+        }
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+
+        // code below computes the new address after pointer addition, while preserving RTTI
+        //   result = pointer + offset * pointerSize
+        let result = this.pointer.evalResult.pointerOffset(this.offset.evalResult);
+        this.setEvalResult(<VCResultTypes<T,"prvalue">>result); // not sure why cast is necessary here
+
+        let resultType = result.type;
+        if (resultType.isType(ArrayPointer)){
+            // Check that we haven't run off the array
+            if (result.rawValue < resultType.min()){
+                //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+            }
+            else if (resultType.onePast() < result.rawValue){
+                //sim.alert("Oops. That pointer just wandered off the end of its array.");
+            }
+        }
+        else{
+            // If the RTTI works well enough, this should always be unsafe
+            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.", true);
+        }
+    }
+}
+
+
+
+
 
 
 // export var UnaryOp  = Expression.extend({
@@ -1921,20 +2029,6 @@ export interface DeleteArrayExpressionASTNode extends ASTNode {
 // export var Dereference = UnaryOp.extend({
 //     _name: "Dereference",
 //     valueCategory: "lvalue",
-//     convert : function(){
-//         this.operand = this.operand = standardConversion(this.operand, Types.Pointer);
-//     },
-//     typeCheck : function(){
-//         // Type check
-//         if (!isA(this.operand.type, Types.Pointer)) {
-//             this.addNote(CPPError.expr.dereference.pointer(this, this.operand.type));
-//         }
-//         else if (!(this.operand.type.ptrTo.isObjectType || isA(this.operand.type.ptrTo, Types.Function))){
-//             this.addNote(CPPError.expr.dereference.pointerToObjectType(this, this.operand.type));
-//         }
-//         else{
-//             this.type = this.operand.type.ptrTo;
-//         }
 //     },
 
 //     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
