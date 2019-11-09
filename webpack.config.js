@@ -4,7 +4,8 @@ const CircularDependencyPlugin = require('circular-dependency-plugin')
 module.exports = {
   // mode: "development",
   entry: {
-    main: './src/js/main.ts'
+    main: './src/js/main.ts',
+    regression: './src/js/test/regression.ts'
   },
   devtool: "inline-source-map",
   output: {
