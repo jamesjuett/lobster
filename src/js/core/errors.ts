@@ -256,8 +256,8 @@ export const CPPError = {
         ctor : {
             copy : {
                 pass_by_value : function(construct: TranslationUnitConstruct, type: ObjectType, name: string) {
-                    var constRef = new ReferenceType(type, true);
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.copy.pass_by_value", "A copy constructor cannot take its parameter by value. Because pass-by-value itself uses the copy constructor, this would cause infinite recursion if it were allowed. Try passing by const reference instead! (i.e. " + constRef.typeString(false, name, false) + ")");
+                    var constRef = new ReferenceType(type.cvQualified(true));
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.copy.pass_by_value", "A copy constructor cannot take its parameter by value. Because pass-by-value itself uses the copy constructor, this would cause infinite recursion if it were allowed. Try passing by reference-to-const instead! (i.e. " + constRef.typeString(false, name, false) + ")");
                 }
             },
             init : {
@@ -628,6 +628,9 @@ export const CPPError = {
         addressOf : {
             lvalue_required : function(construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.addressOf.lvalue_required", "Operand for address-of operator (&) must be an lvalue.");
+            },
+            object_type_required : function(construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.addressOf.object_type_required", "The address-of operator (&) may not be applied to an operand of this type.");
             }
         },
         ternary : {

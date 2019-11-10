@@ -183,6 +183,14 @@ abstract class TypeBase {
         return this instanceof PointerType;
     }
 
+    public isArrayPointerType() : this is ArrayPointerType {
+        return this instanceof ArrayPointerType;
+    }
+
+    public isObjectPointer() : this is ObjectPointerType {
+        return this instanceof ObjectPointerType;
+    }
+
     public isReferenceType() : this is ReferenceType {
         return this instanceof ReferenceType;
     }
@@ -203,12 +211,12 @@ abstract class TypeBase {
         return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isFunctionType() : this is FunctionType {
-        return this instanceof FunctionType;
-    }
-
     public isArrayElemType() : this is ArrayElemType {
         return this instanceof AtomicType || this instanceof ClassType;
+    }
+
+    public isFunctionType() : this is FunctionType {
+        return this instanceof FunctionType;
     }
 
     public isVoidType() : this is VoidType {
@@ -745,11 +753,11 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
     }
 }
 
-export class ArrayPointer extends PointerType {
+export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends PointerType<T> {
 
-    public readonly arrayObject: CPPObject<BoundedArrayType>;
+    public readonly arrayObject: CPPObject<BoundedArrayType<T>>;
 
-    public constructor(arrayObject: CPPObject<BoundedArrayType>, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(arrayObject: CPPObject<BoundedArrayType<T>>, isConst?: boolean, isVolatile?: boolean) {
         super(arrayObject.type.elemType, isConst, isVolatile);
         this.arrayObject = arrayObject;
     }
@@ -779,15 +787,15 @@ export class ArrayPointer extends PointerType {
     }
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ArrayPointer(this.arrayObject, isConst, isVolatile);
+        return new ArrayPointerType(this.arrayObject, isConst, isVolatile);
     }
 }
 
-export class ObjectPointer extends PointerType {
+export class ObjectPointerType<T extends ObjectType = ObjectType> extends PointerType<T> {
 
-    public readonly pointedObject: CPPObject<ObjectType>;
+    public readonly pointedObject: CPPObject<T>;
 
-    public constructor(obj: CPPObject<ObjectType>, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(obj: CPPObject<T>, isConst?: boolean, isVolatile?: boolean) {
         super(obj.type, isConst, isVolatile);
         this.pointedObject = obj;
     }
@@ -801,7 +809,7 @@ export class ObjectPointer extends PointerType {
     }
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ObjectPointer(this.pointedObject, isConst, isVolatile);
+        return new ObjectPointerType(this.pointedObject, isConst, isVolatile);
     }
 }
 
@@ -813,9 +821,9 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
 
     public readonly refTo: RefTo;
 
-    public constructor(refTo: RefTo, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(refTo: RefTo) {
         // References have no notion of const (they can't be re-bound anyway)
-        super(false, isVolatile);
+        super(false, false);
         this.refTo = refTo;
     }
 
@@ -845,7 +853,7 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
     }
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ReferenceType(this.refTo, isConst, isVolatile);
+        return new ReferenceType(this.refTo);
     }
 }
 

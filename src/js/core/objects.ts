@@ -1,4 +1,4 @@
-import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectPointer, ArrayPointer, ArrayElemType, Char, Int, ObjectType } from "./types";
+import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, ObjectType } from "./types";
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -312,8 +312,8 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("deallocated");
     }
 
-    public getPointerTo() : Value<PointerType> {
-        return new Value(this.address, new ObjectPointer(this));
+    public getPointerTo() : Value<PointerType<T>> {
+        return new Value(this.address, new ObjectPointerType(this));
     }
 
     public getValue(read: boolean = false) : ObjectValueRepresentation<T> {
@@ -689,7 +689,7 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
     }
 
     public getPointerTo() {
-        return new Value(this.address, new ArrayPointer(this.containingObject));
+        return new Value(this.address, new ArrayPointerType(this.containingObject));
     }
     
     describe() {

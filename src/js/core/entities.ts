@@ -902,7 +902,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
         this.calledFunction = calledFunction;
         this.type = type;
         this.num = num;
-        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for parameter entity.");
+        assert(sameType(calledFunction.type.paramTypes[num], new ReferenceType(type)), "Inconsistent type for parameter entity.");
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {

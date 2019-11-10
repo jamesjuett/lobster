@@ -7,7 +7,7 @@ import 'codemirror/addon/display/fullscreen.js';
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
-import { Note, SyntaxNote, NoteKind } from "../core/errors";
+import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -255,7 +255,7 @@ export class ProjectEditor {
         //     // alert(this.i_semanticProblems.get(i));
         //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         // }
-        this.observable.send("compilationFinished");
+        this.observable.send("compilationFinished", this.program);
     }
 
     private selectFile(filename: string) {
@@ -424,8 +424,10 @@ export class CompilationOutlet {
         this.translationUnitsListElem = element.find(".translation-units-list");
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"), projectEditor);
+        this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"));
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
+        addListener(this.compilationNotesOutlet, projectEditor);
+        addListener(projectEditor, this.compilationNotesOutlet);
 
         addListener(projectEditor, this);
 
@@ -471,32 +473,34 @@ const NoteDescriptions : {[K in NoteKind]: string} = {
  */
 export class CompilationNotesOutlet {
 
+    public observable = new Observable(this);
     public _act!: MessageResponses;
-
-    private readonly projectEditor: ProjectEditor;
 
     private readonly element: JQuery;
 
-    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+    public constructor(element: JQuery) {
         this.element = element;
-        this.projectEditor = projectEditor;
-
-        addListener(projectEditor, this);
-
     }
 
+    public updateNotes(notes: Program): void; 
+    public updateNotes(msg: Message<Program>): void;
     @messageResponse("compilationFinished")
-    private updateNotes() {
+    public updateNotes(program: Program | Message<Program>) {
+
+        if (!(program instanceof Program)) {
+            program = program.data;
+        }
+
         this.element.empty();
 
-        this.projectEditor.program.notes.allNotes.forEach(note => {
+        program.notes.allNotes.forEach(note => {
 
             let item = $('<li></li>').append(this.createBadgeForNote(note)).append(" ");
 
             let ref = note.primarySourceReference;
             if (ref) {
                 let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
-                new SourceReferenceOutlet(sourceReferenceElem, this.projectEditor, ref);
+                new SourceReferenceOutlet(sourceReferenceElem, ref);
                 item.append(sourceReferenceElem).append(" ");
             }
 
@@ -520,6 +524,11 @@ export class CompilationNotesOutlet {
         elem.addClass(NoteCSSClasses[note.kind]);
 
         return elem;
+    }
+    
+    @messageResponse("gotoSourceReference")
+    private gotoSourceReference(msg: Message<SourceReference>) {
+        this.observable.send("gotoSourceReference", msg.data);
     }
 }
 
@@ -624,18 +633,18 @@ export class CompilationStatusOutlet {
 
 class SourceReferenceOutlet {
     
+    public observable = new Observable(this);
+
     private readonly element: JQuery;
-    private readonly projectEditor: ProjectEditor;
     private readonly sourceRef: SourceReference;
 
-    public constructor(element: JQuery, projectEditor: ProjectEditor, sourceRef: SourceReference) {
+    public constructor(element: JQuery, sourceRef: SourceReference) {
         this.element = element;
-        this.projectEditor = projectEditor;
         this.sourceRef = sourceRef;
         var link = $('<a><code>' + sourceRef.sourceFile.name + ':' + sourceRef.line + '</code></a>');
 
         link.click(() => {
-            this.projectEditor.gotoSourceReference(sourceRef);
+            this.observable.send("gotoSourceReference", sourceRef);
         });
 
         element.append(link);

@@ -1,7 +1,7 @@
 import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject } from "./objects";
-import { Bool, Char, ObjectPointer, ArrayPointer, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int } from "./types";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
+import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType } from "./types";
 import last from "lodash/last";
 import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
@@ -322,17 +322,20 @@ export class Memory {
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
     // TODO: prevent writing to zero or negative address objects?
-    public dereference(ptr: Value<PointerType>) {
+    public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>) : ArraySubobject<Elem_type>;
+    public dereference<T extends ObjectType>(ptr: Value<ObjectPointerType<T>>) : CPPObject<T>;
+    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>) : CPPObject<T> | InvalidObject<T>;
+    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>) {
         assert(ptr.type.isObjectPointer());
 
         var addr = ptr.rawValue;
 
         // Handle special cases for pointers with RTTI
-        if (ptr.type instanceof ArrayPointer) {
+        if (ptr.type instanceof ArrayPointerType) {
             return ptr.type.arrayObject.getArrayElemSubobjectByAddress(addr);
 
         }
-        if (ptr.type instanceof ObjectPointer && ptr.type.isValueValid(addr)) {
+        if (ptr.type instanceof ObjectPointerType && ptr.type.isValueValid(addr)) {
             return ptr.type.pointedObject;
         }
 
@@ -340,12 +343,12 @@ export class Memory {
         var obj = this.objects[addr];
 
         if (obj && (similarType(obj.type, ptr.type.ptrTo) || subType(obj.type, ptr.type.ptrTo))) {
-            return obj;
+            return <CPPObject<T>>obj;
         }
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)
         // then we need to create an anonymous object of the appropriate type instead
-        return new InvalidObject(ptr.type, this, addr);
+        return new InvalidObject(ptr.type.ptrTo, this, addr);
     }
     
 
