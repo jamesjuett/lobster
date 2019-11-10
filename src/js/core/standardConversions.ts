@@ -1,4 +1,4 @@
-import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointer, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
+import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointerType, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
 import { SimpleRuntimeExpression, NumericLiteral } from "./expressions";
 import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
@@ -111,7 +111,7 @@ export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversi
     }
 
     public operate(fromEvalResult: VCResultTypes<BoundedArrayType, "lvalue">) {
-        return new Value(fromEvalResult.address, new ArrayPointer(fromEvalResult));
+        return new Value(fromEvalResult.address, new ArrayPointerType(fromEvalResult));
     }
 
     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){

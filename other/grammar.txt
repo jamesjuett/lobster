@@ -563,7 +563,7 @@ exp_unary
 
 op_unary
   = "*" {return {construct_type: "dereference_expression", operator: "*"};}
-  / "&" {return {construct_type: "address_of_expression",   operator: "&"};}
+  / "&" {return {construct_type: "address_of_expression", operator: "&"};}
   / "+" {return {construct_type: "unary_plus_expression", operator: "+"};}
   / "-" {return {construct_type: "unary_minus_expression", operator: "-"};}
   / "!" {return {construct_type: "logical_not_expression", operator: "!"};}

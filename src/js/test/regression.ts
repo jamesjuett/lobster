@@ -1,10 +1,11 @@
 import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier } from "./verifiers";
+import { CompilationNotesOutlet } from "../view/editors";
 
 $(() => {
     var numTests = 0;
     var numTestsSuccessful = 0;
 
-    var showTest = function(test: ProgramTest) {
+    var showTest = (test: ProgramTest) => {
         var programElem = $('<div class="col-xs-6"></div>');
 
         programElem.append("Translation Units: <br />");
@@ -46,6 +47,8 @@ $(() => {
                 success = false;
             }
         }
+        let notesElem = $("<ul></ul>").appendTo(resultsElem);
+        (new CompilationNotesOutlet(notesElem)).updateNotes(test.program);
 
         var testElem = $('<div class="container lobster-test-result"></div>');
         testElem.append("<h2>" + test.name + "</h2>");

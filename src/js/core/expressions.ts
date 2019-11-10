@@ -1,6 +1,6 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointer, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible } from "./types";
 import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description, ExpressionContext, createExpressionContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
@@ -65,7 +65,8 @@ export type ExpressionASTNode =
     ConstructExpressionASTNode |
     IdentifierExpressionASTNode |
     ThisExpressionASTNode |
-    NumericLiteralASTNode;
+    NumericLiteralASTNode |
+    ParenthesesExpressionASTNode;
 
 
 const ExpressionConstructsMap = {
@@ -88,8 +89,8 @@ const ExpressionConstructsMap = {
     // prefix operators
     "prefix_increment_expression" : (ast: PrefixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "prefix increment").setAST(ast),
     "prefix_decrement_expression" : (ast: PrefixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "prefix decrement").setAST(ast),
-    "dereference_expression" : (ast: DereferenceExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "dereference").setAST(ast),
-    "address_of_expression" : (ast: AddressOfExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "address-of").setAST(ast),
+    "dereference_expression" : (ast: DereferenceExpressionASTNode, context: ExpressionContext) => DereferenceExpression.createFromAST(ast, context),
+    "address_of_expression" : (ast: AddressOfExpressionASTNode, context: ExpressionContext) => AddressOfExpression.createFromAST(ast, context),
     "unary_plus_expression" : (ast: UnaryPlusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "unary plus").setAST(ast),
     "unary_minus_expression" : (ast: UnaryMinusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "unary minus").setAST(ast),
     "logical_not_expression" : (ast: LogicalNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "logical not").setAST(ast),
@@ -119,6 +120,7 @@ const ExpressionConstructsMap = {
     "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "this pointer").setAST(ast),
 
     "numeric_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteral.createFromAST(ast, context),
+    "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => Parentheses.createFromAST(ast, context)
 }
 
 export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext) : ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
@@ -1278,8 +1280,8 @@ export class RuntimePointerDifference extends SimpleRuntimeExpression<Int, "prva
         
         let result = this.left.evalResult.pointerDifference(this.right.evalResult);
 
-        let leftArr = this.left.model.type.isType(ArrayPointer) ? this.left.model.type.arrayObject : null;
-        let rightArr = this.right.model.type.isType(ArrayPointer) ? this.right.model.type.arrayObject : null;
+        let leftArr = this.left.model.type.isType(ArrayPointerType) ? this.left.model.type.arrayObject : null;
+        let rightArr = this.right.model.type.isType(ArrayPointerType) ? this.right.model.type.arrayObject : null;
 
         if (result.rawEquals(0)) {
             // If it's the same address, I guess we can let it slide...
@@ -1410,7 +1412,7 @@ export class RuntimePointerOffset<T extends PointerType = PointerType> extends S
         this.setEvalResult(<VCResultTypes<T,"prvalue">>result); // not sure why cast is necessary here
 
         let resultType = result.type;
-        if (resultType.isType(ArrayPointer)){
+        if (resultType.isType(ArrayPointerType)){
             // Check that we haven't run off the array
             if (result.rawValue < resultType.min()){
                 //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
@@ -1748,10 +1750,14 @@ export interface PrefixDecrementExpressionASTNode extends ASTNode {
 
 export interface DereferenceExpressionASTNode extends ASTNode {
     readonly construct_type: "dereference_expression";
+    readonly operator: "*";
+    readonly operand: ExpressionASTNode;
 }
 
 export interface AddressOfExpressionASTNode extends ASTNode {
     readonly construct_type: "address_of_expression";
+    readonly operator: "&";
+    readonly operand: ExpressionASTNode;
 }
 
 export interface UnaryPlusExpressionASTNode extends ASTNode {
@@ -1816,7 +1822,7 @@ export interface CompiledUnaryOperator<T extends ObjectType | VoidType = ObjectT
 
 
 
-export class Dereference extends UnaryOperator {
+export class DereferenceExpression extends UnaryOperator {
     
     public readonly type?: ObjectType;
     public readonly valueCategory = "lvalue";
@@ -1844,14 +1850,18 @@ export class Dereference extends UnaryOperator {
             this.addNote(CPPError.expr.dereference.pointerToObjectType(this, convertedOperand.type));
         }
         else {
-            this.type = convertedOperand.type;
+            this.type = convertedOperand.type.ptrTo;
         }
     }
+    
+    public static createFromAST(ast: DereferenceExpressionASTNode, context: ExpressionContext) : DereferenceExpression {
+        return new DereferenceExpression(context, createExpressionFromAST(ast.operand, context));
+    }
 
-    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimeDereference<T>;
-    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression<T extends PointerType>(this: CompiledPointerOffset<T>, parent: RuntimeConstruct) : RuntimePointerOffset<T> {
-        return new RuntimeDereference(this, parent);
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) : RuntimeDereferenceExpression<T>;
+    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) : RuntimeDereferenceExpression<T> {
+        return new RuntimeDereferenceExpression(this, parent);
     }
 
     public describeEvalResult(depth: number): Description {
@@ -1859,62 +1869,165 @@ export class Dereference extends UnaryOperator {
     }
 }
 
-export interface CompiledDereference<T extends PointerType = PointerType> extends PointerOffset, SuccessfullyCompiled {
+export interface CompiledDereferenceExpression<T extends ObjectType = ObjectType> extends DereferenceExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: ObjectType;
-    readonly operand: CompiledExpression<PointerType, "prvalue">;
+    readonly type: T;
+    readonly operand: CompiledExpression<PointerType<T>, "prvalue">;
 }
 
+export class RuntimeDereferenceExpression<T extends ObjectType> extends SimpleRuntimeExpression<T, "lvalue", CompiledDereferenceExpression<T>> {
 
-export class RuntimePointerOffset<T extends PointerType = PointerType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPointerOffset<T>> {
+    public operand: RuntimeExpression<PointerType<T>, "prvalue">;
 
-    public readonly left: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
-    public readonly right: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">; // narrows type of member in base class
-
-    public readonly pointer: RuntimeExpression<T, "prvalue">;
-    public readonly offset: RuntimeExpression<IntegralType, "prvalue">;
-
-    public constructor (model: CompiledPointerOffset<T>, parent: RuntimeConstruct) {
+    public constructor (model: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.pointer = this.model.pointer.createRuntimeExpression(this);
-        this.offset = this.model.offset.createRuntimeExpression(this);
-        if (model.pointerOnLeft) {
-            this.left = this.pointer;
-            this.right = this.offset;
-        }
-        else {
-            this.left = this.offset;
-            this.right = this.pointer;
-        }
-        this.setSubexpressions([this.left, this.right]);
+        this.operand = this.model.operand.createRuntimeExpression(this);
+        this.setSubexpressions([this.operand]);
     }
 
-    public operate() {
+    protected operate() {
 
-        // code below computes the new address after pointer addition, while preserving RTTI
-        //   result = pointer + offset * pointerSize
-        let result = this.pointer.evalResult.pointerOffset(this.offset.evalResult);
-        this.setEvalResult(<VCResultTypes<T,"prvalue">>result); // not sure why cast is necessary here
+        // Note: function pointers not supported yet
 
-        let resultType = result.type;
-        if (resultType.isType(ArrayPointer)){
-            // Check that we haven't run off the array
-            if (result.rawValue < resultType.min()){
-                //sim.alert("Oops. That pointer just wandered off the beginning of its array.");
-            }
-            else if (resultType.onePast() < result.rawValue){
-                //sim.alert("Oops. That pointer just wandered off the end of its array.");
-            }
+        let ptr = <Value<PointerType<T>>>this.operand.evalResult;
+        let addr = ptr.rawValue;
+
+        // If it's a null pointer, give message
+        if (PointerType.isNull(addr)) {
+            this.sim.eventOccurred(SimulationEvent.CRASH, "Ow! Your code just dereferenced a null pointer!", true);
         }
-        else{
-            // If the RTTI works well enough, this should always be unsafe
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.", true);
+        else if (PointerType.isNegative(addr)) {
+            this.sim.eventOccurred(SimulationEvent.CRASH, "Uh, wow. The pointer you're trying to dereference has a negative address.\nThanks a lot.", true);
         }
+        else if (ptr.type.isArrayPointerType()) {
+            // If it's an array pointer, make sure it's in bounds and not one-past
+            if (addr < ptr.type.min()){
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+            else if (ptr.type.onePast() < addr){
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+            else if (addr == ptr.type.onePast()){
+                // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+
+        }
+
+        var obj = this.sim.memory.dereference(ptr);
+
+        // Note: dead object is not necessarily invalid. Invalid has to do with the value
+        // while dead/alive has to do with the object itself. Reading from dead object does
+        // yield an invalid value though.
+        // TODO: add this back in
+        // if (!obj.isAlive()){
+        //     DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
+        // }
+
+        this.setEvalResult(<this["evalResult"]>obj);
+    }
+
+
+//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalResult){
+//             return {message: "We will find the object at address " + inst.childInstances.operand.evalResult.describe().message}
+//         }
+//         else{
+//             return {message: "The result of " + this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
+//         }
+//     }
+
+    
+//     describeEvalResult : function(depth, sim, inst){
+//         if (inst && inst.evalResult){
+//             return inst.evalResult.describe();
+//         }
+//         else if (depth == 0){
+//             return {message: "the result of " + this.getSourceText()};
+//         }
+//         else{
+//             return {message: "the object at address " + this.operand.describeEvalResult(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
+//         }
+//     },
+
+}
+
+
+export class AddressOfExpression extends UnaryOperator {
+    
+    public readonly type?: PointerType;
+    public readonly valueCategory = "prvalue";
+
+    public readonly operand: Expression;
+
+    public readonly operator = "&";
+
+    public constructor(context: ExpressionContext, operand: Expression) {
+        super(context);
+
+        this.attach(this.operand = operand);
+        
+        if (!operand.isWellTyped()) {
+            return;
+        }
+        
+        if(operand.valueCategory !== "lvalue") {
+            this.addNote(CPPError.expr.addressOf.lvalue_required(this));
+        }
+
+        if (operand.isFunctionTyped()) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "Function Pointers"));
+            return;
+        }
+
+        if(!operand.isObjectTyped()) {
+            this.addNote(CPPError.expr.addressOf.object_type_required(this));
+            return;
+        }
+
+        this.type = new PointerType(operand.type);
+    }
+    
+    public static createFromAST(ast: AddressOfExpressionASTNode, context: ExpressionContext) : AddressOfExpression {
+        return new AddressOfExpression(context, createExpressionFromAST(ast.operand, context));
+    }
+
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) : RuntimeAddressOfExpression<T>;
+    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) : RuntimeAddressOfExpression<T> {
+        return new RuntimeAddressOfExpression(this, parent);
+    }
+
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
     }
 }
 
+export interface CompiledAddressOfExpression<T extends ObjectType = ObjectType> extends AddressOfExpression, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly type: PointerType<T>;
+    readonly operand: CompiledExpression<T, "lvalue">;
+}
+
+export class RuntimeAddressOfExpression<T extends ObjectType> extends SimpleRuntimeExpression<PointerType<T>, "prvalue", CompiledAddressOfExpression<T>> {
+
+    public operand: RuntimeExpression<T, "lvalue">;
+
+    public constructor (model: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = this.model.operand.createRuntimeExpression(this);
+        this.setSubexpressions([this.operand]);
+    }
+
+    protected operate() {
+        this.setEvalResult(<this["evalResult"]>this.operand.evalResult.getPointerTo());
+    }
+
+}
 
 
 
@@ -2031,72 +2144,6 @@ export class RuntimePointerOffset<T extends PointerType = PointerType> extends S
 //     valueCategory: "lvalue",
 //     },
 
-//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (isA(this.operand.type.ptrTo, Types.Function)){
-//             //function pointer
-//             inst.setEvalResult(inst.childInstances.operand.evalResult);
-//         }
-//         else{
-//             var ptr = inst.childInstances.operand.evalResult;
-//             var addr = ptr.rawValue();
-
-
-
-//             // If it's a null pointer, give message
-//             if (Types.Pointer.isNull(addr)){
-//                 sim.crash("Ow! Your code just dereferenced a null pointer!");
-//             }
-//             else if (Types.Pointer.isNegative(addr)){
-//                 sim.crash("Uh, wow. The pointer you're trying to dereference has a negative address.\nThanks a lot.");
-//             }
-//             else if (isA(ptr.type, Types.ArrayPointer)){
-//                 // If it's an array pointer, make sure it's in bounds and not one-past
-//                 if (addr < ptr.type.min()){
-//                     sim.undefinedBehavior("That pointer has wandered off the beginning of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-//                 else if (ptr.type.onePast() < addr){
-//                     sim.undefinedBehavior("That pointer has wandered off the end of its array. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-//                 else if (addr == ptr.type.onePast()){
-//                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
-//                     sim.undefinedBehavior("That pointer is one past the end of its array. Do you have an off-by-one error?. Dereferencing it might cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-
-//             }
-
-//             var obj = sim.memory.dereference(ptr);
-
-//             // Note: dead object is not necessarily invalid. Invalid has to do with the value
-//             // while dead/alive has to do with the object itself. Reading from dead object does
-//             // yield an invalid value though.
-//             if (!obj.isAlive()){
-//                 DeadObjectMessage.instance(obj, {fromDereference:true}).display(sim, inst);
-//             }
-
-//             inst.setEvalResult(obj);
-//         }
-//     },
-
-//     describeEvalResult : function(depth, sim, inst){
-//         if (inst && inst.evalResult){
-//             return inst.evalResult.describe();
-//         }
-//         else if (depth == 0){
-//             return {message: "the result of " + this.getSourceText()};
-//         }
-//         else{
-//             return {message: "the object at address " + this.operand.describeEvalResult(depth-1, sim, this.childInstance(sim, inst, "operand")).message};
-//         }
-//     },
-
-//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (inst && inst.childInstances && inst.childInstances.operand && inst.childInstances.operand.evalResult){
-//             return {message: "We will find the object at address " + inst.childInstances.operand.evalResult.describe().message}
-//         }
-//         else{
-//             return {message: "The result of " + this.operand.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.operand).message + " will be dereferenced. This is, the result is a pointer/address and we will follow the pointer to see what object lives there."};
-//         }
-//     }
 // });
 
 // export var AddressOf = UnaryOp.extend({
@@ -3502,7 +3549,7 @@ export class Parentheses extends Expression {
 
     }
     
-    public static createFromAST(ast: ParenthesesExpressionASTNode, context: ExpressionContext) {
+    public static createFromAST(ast: ParenthesesExpressionASTNode, context: ExpressionContext) : Parentheses {
         return new Parentheses(context, createExpressionFromAST(ast.subexpression, context));
     }
 

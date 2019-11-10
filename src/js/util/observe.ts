@@ -2,9 +2,9 @@
 import pull from "lodash/pull";
 import { assert } from "./util";
 
-export interface Message {
+export interface Message<Data_type = any> {
     category: string;
-    data: any;
+    data: Data_type;
     source: any;
 }
 

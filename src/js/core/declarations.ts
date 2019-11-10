@@ -1,4 +1,4 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext } from "./constructs";
+import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
@@ -196,15 +196,15 @@ export interface DeclarationSpecifiersASTNode {
     readonly virtual?: boolean;
 }
 
-export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode;// | ClassDefinitionASTNode
+export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
 export type Declaration = SimpleDeclaration | FunctionDefinition;
 
 
-interface t_DeclarationTypes {
-    "simple_declaration": SimpleDeclaration;
-    "function_definition": FunctionDefinition;
-}
+// interface t_DeclarationTypes {
+//     "simple_declaration": SimpleDeclaration;
+//     "function_definition": FunctionDefinition;
+// }
 
 export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition;
@@ -213,8 +213,11 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
     if (ast.construct_type === "simple_declaration") {
         return createSimpleDeclarationFromAST(ast, context);
     }
-    else {
+    else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
+    }
+    else {
+        return new UnsupportedConstruct(context, "Classes/Structs");
     }
 } 
 
@@ -766,6 +769,16 @@ export class Declarator extends BasicCPPConstruct {
 
     private determineNameAndType(ast: DeclaratorASTNode) {
         
+        let findName: DeclaratorASTNode | undefined = ast;
+        while(findName) {
+            if (findName.name) {
+                (<Mutable<this>>this).name = findName.name.identifier;
+                checkIdentifier(this, findName.name.identifier, this.notes);
+                break;
+            }
+            findName = findName.pointer || findName.reference || findName.sub;
+        }
+
         if (!this.baseType) { // If there's no base type, we really can't do much
             return;
         }
@@ -776,6 +789,9 @@ export class Declarator extends BasicCPPConstruct {
         // let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
         
         let decl: DeclaratorASTNode | undefined = ast; // AST will always be present on Declarators
+
+        
+
         while (decl) {
 
             // We want to check whether this is the innermost thing, but first we need to loop
@@ -785,23 +801,14 @@ export class Declarator extends BasicCPPConstruct {
                 tempDecl = tempDecl.sub;
             }
 
-            let isInnermost = !(tempDecl.pointer || tempDecl.reference || tempDecl.sub);
-
-            if (decl.name) {
-                (<Mutable<this>>this).name = decl.name.identifier;
-                checkIdentifier(this, decl.name.identifier, this.notes);
-            }
-
             if (decl.postfixes) {
 
-                let arePostfixesInnermost = isInnermost;
                 for(let i = decl.postfixes.length-1; i >= 0; --i) {
 
                     // A postfix portion of a declarator is only innermost if it's the leftmost one,
                     // which would be closest to where the name would occur in the declarator. (Note
                     // that this is also the last one processed here, since we iterate backward down to 0.)
                     let postfix = decl.postfixes[i];
-                    isInnermost = arePostfixesInnermost && i === 0;
 
                     if(postfix.kind === "array") {
                         if (type.isBoundedArrayType()) {
@@ -813,14 +820,6 @@ export class Declarator extends BasicCPPConstruct {
                             this.addNote(CPPError.declaration.array.invalid_element_type(this, type));
                             return;
                         }
-                        
-                        // If it's a parameter and it's an array, adjust to pointer
-                        // TODO: move this to Parameter Declaration class instead of here so that a Declarator
-                        // doesn't need information about its context (i.e. whether it's in a parameter) to do its job.
-                        // if (isParam && innermost && i == decl.postfixes.length - 1) {
-                        //     prev = "pointer"; // Don't think this is necessary
-                        //     type = Types.Pointer.instance(type, decl["const"], decl["volatile"]);
-                        // }
                         
                         if (postfix.size) {
 
@@ -950,7 +949,7 @@ export class Declarator extends BasicCPPConstruct {
                     }
                     return;
                 }
-                type = new ReferenceType(type, decl["const"], decl["volatile"]);
+                type = new ReferenceType(type);
                 decl = decl.reference;
             }
             else if (decl.hasOwnProperty("sub")) {
@@ -1298,6 +1297,13 @@ export interface CompiledFunctionDefinition<ReturnType extends PotentialReturnTy
 }
 
 
+
+
+
+
+export interface ClassDefinitionASTNode extends ASTNode {
+    readonly construct_type: "class_definition";
+}
 
 // TODO: this should be called ClassDefinition
 // export var ClassDeclaration = CPPConstruct.extend(BaseDeclarationMixin, {

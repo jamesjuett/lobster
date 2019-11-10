@@ -79,6 +79,10 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return !!this.type && this.type.isGenericArrayType();
     }
 
+    public isFunctionTyped() : this is SpecificTypedExpression<FunctionType> {
+        return !!this.type && this.type.isFunctionType();
+    }
+
     public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
         return this.valueCategory === "prvalue";
     }
