@@ -1,5 +1,5 @@
 import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointerType, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
-import { SimpleRuntimeExpression, NumericLiteral } from "./expressions";
+import { SimpleRuntimeExpression, NumericLiteral, AuxiliaryExpression } from "./expressions";
 import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
@@ -165,9 +165,14 @@ class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     }
 }
 
+export interface IntegerLiteralZero extends NumericLiteral {
+    readonly type: Int;
+    readonly value: Value<Int> & {rawValue: 0};
+}
+
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
 
-    public constructor(from: NumericLiteral<Int>, toType: P) {
+    public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
         assert(from.value.rawValue === 0);
     }
@@ -254,6 +259,7 @@ export class QualificationConversion<T extends AtomicType> extends ImplicitConve
 
 export function convertToPRValue<T extends AtomicType>(from: SpecificTypedExpression<T>) : TypedExpression<T, "prvalue">;
 export function convertToPRValue<Elem_type extends ArrayElemType>(from: TypedExpression<BoundedArrayType<Elem_type>, "lvalue">) : TypedExpression<PointerType<Elem_type>, "prvalue">;
+export function convertToPRValue(from: SpecificTypedExpression<PointerType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<PointerType, "prvalue">;
 export function convertToPRValue(from: SpecificTypedExpression<AtomicType> | TypedExpression<BoundedArrayType, "lvalue">) : TypedExpression<AtomicType, "prvalue">;
 export function convertToPRValue(from: TypedExpression) : TypedExpression;
 export function convertToPRValue(from: TypedExpression) {
@@ -297,7 +303,7 @@ export function typeConversion(from: TypedExpression<AtomicType, "prvalue">, toT
         return from;
     }
 
-    if (toType.isPointerType() && (from instanceof NumericLiteral) && isType(from.type, Int) && from.value.rawValue === 0) {
+    if (toType.isPointerType() && isIntegerLiteralZero(from)) {
         return new NullPointerConversion(from, toType);
     }
 
@@ -394,6 +400,23 @@ export function integralPromotion(expr: TypedExpression<IntegralType, "prvalue">
         return expr;
     }
 };
+
+export function isIntegerLiteralZero(from: Expression) : from is IntegerLiteralZero {
+    return from instanceof NumericLiteral && isType(from.type, Int) && from.value.rawValue === 0;
+}
+
+export function isConvertibleToPointer(from: Expression) : from is SpecificTypedExpression<PointerType> | TypedExpression<BoundedArrayType, "lvalue"> | IntegerLiteralZero {
+    if (!from.isWellTyped()) {
+        return false;
+    }
+    return from.isPointerTyped() || from.isBoundedArrayTyped() || isIntegerLiteralZero(from);
+}
+
+export function isConvertible(from: TypedExpression, toType: Type, options: StandardConversionOptions = {}) {
+    let aux = new AuxiliaryExpression(from.type, from.valueCategory);
+    let converted = standardConversion(aux, toType, options);
+    return sameType(converted.type, toType);
+}
 
 export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<ArithmeticType>, rightOrig: SpecificTypedExpression<ArithmeticType>) {
     
