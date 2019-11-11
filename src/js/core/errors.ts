@@ -555,6 +555,17 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.arithmetic_common_type", "Performing the usual arithmetic conversions yielded operands of types (" + left.type + ", " + right.type + ") for operator " + operator + ", but a common arithmetic type could not be found.");
             }
         },
+        pointer_comparison : {
+            same_pointer_type_required : function(construct: TranslationUnitConstruct, left: TypedExpression, right: TypedExpression) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_comparison.same_pointer_type_requried", `Comparing the addresses of pointers to different types is prohibited (${left.type} and ${right.type}).`);
+            },
+            null_literal_comparison : function(construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_comparison.null_literal_comparison", `Comparing against a null pointer literal with <, <=, >, or >= is technically prohibited by the C++ language standard (although some compilers may allow it). If you're trying to check for a null pointer, use == or != instead.`);
+            },
+            null_literal_array_equality : function(construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.WARNING, "expr.pointer_comparison.null_literal_array_equality", `The address at the start of an array will never be 0, so this comparison is not meaningful.`);
+            },
+        },
         unary : {
             // overload_not_found : function(construct: TranslationUnitConstruct, op, type) {
             //     return new CompilerNote(construct, NoteKind.ERROR, "expr.unary.overload_not_found", "An overloaded " + op + " operator for the type " + type + " cannot be found.");

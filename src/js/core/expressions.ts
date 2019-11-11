@@ -1,12 +1,12 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType } from "./types";
 import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description, ExpressionContext, createExpressionContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Mutable, Constructor, escapeString } from "../util/util";
-import { standardConversion, convertToPRValue, usualArithmeticConversions } from "./standardConversions";
+import { standardConversion, convertToPRValue, usualArithmeticConversions, isConvertibleToPointer, isIntegerLiteralZero, NullPointerConversion, ArrayToPointer } from "./standardConversions";
 import { checkIdentifier } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
 import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
@@ -1142,7 +1142,9 @@ class ArithmeticBinaryOperatorExpression extends BinaryOperator {
         let right : Expression = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
 
-        // If operator is "-" and both are pointers, it's a pointer difference
+        // If operator is "-" and both are pointers or arrays, it's a pointer difference
+        // Note that although integer 0 is convertible to a pointer, that conversion should
+        // not be applied here since the 0 should just be interpreted as a pointer offset.
         if (op === "-" && (left.isPointerTyped() || left.isBoundedArrayTyped()) && (right.isPointerTyped() || right.isBoundedArrayTyped())) {
             // casts below are necessary because convertToPRValue() overloads can't elegantly
             // handle the union between pointer and array types. Without the casts, we've have
@@ -1501,11 +1503,27 @@ class RelationalBinaryOperator extends BinaryOperator {
         this.attach(this.right = convertedRight);
     }
     
-    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext) : RelationalBinaryOperator {
-        return new RelationalBinaryOperator(context,
-            createExpressionFromAST(ast.left, context),
-            createExpressionFromAST(ast.right, context),
-            ast.operator);
+    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext) : RelationalBinaryOperator | PointerComparison {
+        
+        let left : Expression = createExpressionFromAST(ast.left, context);
+        let right : Expression = createExpressionFromAST(ast.right, context);
+        let op = ast.operator;
+
+        if (left.isPointerTyped() || left.isBoundedArrayTyped()) {
+            if (right.isPointerTyped() || right.isBoundedArrayTyped()) {
+                return new PointerComparison(context, convertToPRValue(left), convertToPRValue(right), op);
+            }
+            else if (isIntegerLiteralZero(right)) {
+                let convertedLeft = convertToPRValue(left);
+                return new PointerComparison(context, convertedLeft, new NullPointerConversion(right, convertedLeft.type), op);
+            }
+        }
+        else if (isIntegerLiteralZero(left) && (right.isPointerTyped() || right.isBoundedArrayTyped())) {
+            let convertedRight = convertToPRValue(right);
+            return new PointerComparison(context, new NullPointerConversion(left, convertedRight.type), convertedRight, op);
+        }
+        
+        return new RelationalBinaryOperator(context, left, right, ast.operator);
     }
 
     public createRuntimeExpression<T extends ArithmeticType>(this: CompiledRelationalBinaryOperator<T>, parent: RuntimeConstruct) : RuntimeRelationalBinaryOperator<T>;
@@ -1547,46 +1565,85 @@ export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends S
 
 
 
+export class PointerComparison extends BinaryOperator {
+    
+    public readonly type: Bool;
+    public readonly valueCategory = "prvalue";
 
+    public readonly left: TypedExpression<PointerType, "prvalue">;
+    public readonly right: TypedExpression<PointerType, "prvalue">;
 
+    public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
 
+    public constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">,
+                       right: TypedExpression<PointerType, "prvalue">, operator: t_RelationalBinaryOperators) {
+        super(context, operator);
 
-// PointerRelationalBinaryOperator
+        this.attach(this.left = left);
+        this.attach(this.right = right);
 
+        this.type = new Bool();
 
-//     convert : function(){
+        if(!(similarType(left.type, right.type) || subType(left.type, right.type) || subType(right.type, left.type))) {
+            this.addNote(CPPError.expr.pointer_comparison.same_pointer_type_required(this, left, right));
+        }
 
-//         if (isA(this.left.type, Types.Pointer) && isA(this.right, Literal) && isA(this.right.type, Types.Int) && this.right.value.rawValue() == 0){
-//             this.right = Conversions.NullPointerConversion.instance(this.right, this.left.type);
-//         }
-//         if (isA(this.right.type, Types.Pointer) && isA(this.left, Literal) && isA(this.left.type, Types.Int) && this.left.value.rawValue() == 0){
-//             this.left = Conversions.NullPointerConversion.instance(this.left, this.right.type);
-//         }
-//     },
+        if (left instanceof NullPointerConversion || right instanceof NullPointerConversion) {
+            if (this.operator === "==" || this.operator === "!=") {
+                if (left instanceof ArrayToPointer || right instanceof ArrayToPointer) {
+                    this.addNote(CPPError.expr.pointer_comparison.null_literal_array_equality(this));
+                }
+            }
+            else { // operator is <, <=, >, or >=
+                this.addNote(CPPError.expr.pointer_comparison.null_literal_comparison(this));
+            }
+        }
+        
+    }
 
-//     typeCheck : function(){
+    public createRuntimeExpression(this: CompiledPointerComparison, parent: RuntimeConstruct) : RuntimePointerComparison;
+    public createRuntimeExpression<T extends PointerType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledPointerComparison, parent: RuntimeConstruct) : RuntimePointerComparison {
+        return new RuntimePointerComparison(this, parent);
+    }
 
-//         // Note: typeCheck is only called if it's not an overload
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+}
 
-//         if (isA(this.left.type, Types.Pointer)){
-//             if (!isA(this.right.type, Types.Pointer)){
-//                 // TODO this is a hack until I implement functions to determine cv-combined type and composite pointer types
-//                 this.addNote(CPPError.expr.invalid_binary_operands(this, this.operator, this.left, this.right));
-//                 return false;
-//             }
-//         }
-//     },
+export interface CompiledPointerComparison extends PointerComparison, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-//     operate : function(left, right, sim, inst){
-//         if (this.isPointerComparision) {
-//             if (!this.allowDiffArrayPointers && (!isA(left.type, Types.ArrayPointer) || !isA(right.type, Types.ArrayPointer) || left.type.arrObj !== right.type.arrObj)){
-//                 sim.unspecifiedBehavior("It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.");
-//             }
-//             return Value.instance(this.compare(left.value, right.value), this.type); // TODO match C++ arithmetic
-//         }
-//     }
-// });
+    readonly left: CompiledExpression<PointerType, "prvalue">;
+    readonly right: CompiledExpression<PointerType, "prvalue">;
+}
 
+export class RuntimePointerComparison extends SimpleRuntimeExpression<Bool, "prvalue", CompiledPointerComparison> {
+
+    public left: RuntimeExpression<PointerType, "prvalue">;
+    public right: RuntimeExpression<PointerType, "prvalue">;
+
+    public constructor (model: CompiledPointerComparison, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = this.model.right.createRuntimeExpression(this);
+        this.setSubexpressions([this.left, this.right]);
+    }
+
+    public operate() {
+        let leftResult = this.left.evalResult;
+        let rightResult = this.right.evalResult;
+
+        if (!leftResult.type.isArrayPointerType() || !rightResult.type.isArrayPointerType() || leftResult.type.arrayObject !== rightResult.type.arrayObject) {
+            this.sim.eventOccurred(SimulationEvent.UNSPECIFIED_BEHAVIOR, "It looks like you're trying to see which pointer comes before/after in memory, but this only makes sense if both pointers come from the same array. I don't think that's the case here.", true);
+        }
+        let result = RELATIONAL_BINARY_OPERATIONS[this.model.operator](this.left.evalResult, this.right.evalResult);
+        
+        this.setEvalResult(result);
+
+    }
+}
 
 export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "logical_binary_operator_expression";
@@ -3453,6 +3510,9 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
         throw new Error("Method not implemented.");
     }
 
+    public isIntegerZero() {
+        return 
+    }
 
     // describeEvalResult : function(depth, sim, inst){
     //     var str = this.value.toString();
