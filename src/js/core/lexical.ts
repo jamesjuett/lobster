@@ -19,10 +19,21 @@ export const KEYWORDS = new Set([
     "const_cast", "for", "public", "throw"
 ]);
 
+
+
+export enum MAGIC_FUNCTION_NAMES {
+    assert = "assert",
+    pause = "pause",
+    pauseIf = "pauseIf"
+}
+
+export const LOBSTER_KEYWORDS = new Set(Object.keys(MAGIC_FUNCTION_NAMES));
+
 export const ALT_OPS = new Set([
     "and", "and_eq", "bitand", "bitor", "compl", "not",
     "not_eq", "or", "or_eq", "xor", "xor_eq"
 ]);
+
 
 // export type UnqualifiedName = string;
 // export type QualifiedName = string[];
@@ -37,9 +48,12 @@ export function checkIdentifier(src: TranslationUnitConstruct, name: string, not
         return;
     }
 
-    // Check that identifier is not a keyword or an alternative representation for an operator
+    // Check that identifier is not a C++ keyword, Lobster keyword, or an alternative representation for an operator
     if (KEYWORDS.has(name)) {
         noteHandler.addNote(CPPError.iden.keyword(src, name));
+    }
+    if (LOBSTER_KEYWORDS.has(name)) {
+        noteHandler.addNote(CPPError.lobster.keyword(src, name));
     }
     if (ALT_OPS.has(name)) {
         noteHandler.addNote(CPPError.iden.alt_op(src, name));
