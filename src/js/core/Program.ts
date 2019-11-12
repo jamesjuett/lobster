@@ -2,10 +2,10 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST } from "./declarations";
-import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup } from "./entities";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
+import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createFunctionContext } from "./constructs";
 import { FunctionCall } from "./functionCall";
 
 
@@ -182,7 +182,14 @@ export class Program {
     }
 
     private defineIntrinsics() {
-        // TODO
+        
+        let intrinsicsTU = new TranslationUnit(this, new PreprocessedSource(new SourceFile("_intrinsics.cpp", ""), {}));
+
+        let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
+        let functionContext = createFunctionContext(intrinsicsTU.context, assertDecl.declaredEntity);
+        let assertDef = new FunctionDefinition(this.context, assertDecl, 
+            )
+
     }
 
     public registerLinkedEntity(entity: LinkedEntity) {

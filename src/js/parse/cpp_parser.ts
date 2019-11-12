@@ -171,7 +171,7 @@ function peg$parse(input: string, options?: IParseOptions) {
 
   const peg$FAILED: Readonly<{}> = {};
 
-  const peg$startRuleFunctions: {[id: string]: any} = { start: peg$parsestart };
+  const peg$startRuleFunctions: {[id: string]: any} = { start: peg$parsestart, declaration: peg$parsedeclaration };
   let peg$startRuleFunction: () => any = peg$parsestart;
 
   const peg$c0 = function(d: any): any {return d};
@@ -525,7 +525,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         return track({construct_type: "sizeof_type_expression", operator:"sizeof", operand:sub}, location(), text());
   };
   const peg$c289 = function(): any {return {construct_type: "dereference_expression", operator: "*"};};
-  const peg$c290 = function(): any {return {construct_type: "address_of_expression",   operator: "&"};};
+  const peg$c290 = function(): any {return {construct_type: "address_of_expression", operator: "&"};};
   const peg$c291 = function(): any {return {construct_type: "unary_plus_expression", operator: "+"};};
   const peg$c292 = function(): any {return {construct_type: "unary_minus_expression", operator: "-"};};
   const peg$c293 = "!";
