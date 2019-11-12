@@ -392,7 +392,7 @@ export class Block extends Statement<BlockASTNode> {
         return block;
     }
 
-    public constructor(context: BlockContext) {
+    public constructor(context: FunctionContext) {
         super(context);
         this.blockContext = createBlockContext(context);
     }
@@ -474,52 +474,50 @@ export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends Runti
     // }
 }
 
-// export class FunctionBodyBlock extends Block {
 
-//     public constructor(context: ExecutableTranslationUnitContext, functionBlockScope: FunctionBlockScope, statements: readonly Statement[]) {
-//         super(context, functionBlockScope, statements);
-//     }
 
-// }
+export class OpaqueBlock extends Statement implements SuccessfullyCompiled {
+    
+    public _t_isCompiled: never;
 
-// export interface CompiledFunctionBodyBlock extends FunctionBodyBlock, SuccessfullyCompiled {
-//     readonly statements: readonly CompiledStatement[];
-// }
+    private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
 
-// export var OpaqueFunctionBodyBlock = Statement.extend({
-//     _name: "OpaqueFunctionBodyBlock",
+    public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+        super(context);
+        this.effects = effects;
+    }
 
-//     i_createFromAST : function(ast){
-//         Statements.OpaqueFunctionBodyBlock._parent.i_createFromAST.apply(this, arguments);
+    public createRuntimeStatement(parent: RuntimeStatement | RuntimeFunction) {
+        return new RuntimeOpaqueBlock(this, parent, this.effects);
+    }
 
-//         this.blockScope = FunctionBlockScope.instance(this.contextualScope);
-//         this.effects = ast.effects;
-//     },
+}
 
-//     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//     //     if (inst.index >= this.statements.length){
-//     //         this.done(sim, inst);
-//     //     }
-//     //     else{
-//     //         inst.send("index", inst.index);
-//     //         var nextStmt = this.statements[inst.index++];
-//     //         inst.childInstances.statements.push(nextStmt.createAndPushInstance(sim, inst));
-//     //     }
-//     //     return true;
-//     // },
+export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
 
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         // No work to be done here? Should be enough to delegate to statements
-//         // via upNext.
-//         this.effects(sim, inst);
-//         this.done(sim,inst);
-//         return true;
-//     },
+    private effects: (rtBlock: RuntimeOpaqueBlock) => void;
 
-//     isTailChild : function(){
-//         return {isTail: true};
-//     }
-// });
+    public constructor (model: OpaqueBlock, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+        super(model, parent);
+        this.effects = effects;
+    }
+	
+    protected upNextImpl() {
+        // Nothing to do
+    }
+
+    public stepForwardImpl() {
+        this.effects(this);
+        this.startCleanup();
+    }
+
+    
+    // isTailChild : function(child){
+    //     return {isTail: true,
+    //         reason: "The recursive call is immediately followed by a return."};
+    // }
+}
+
 
 
 export interface SelectionStatementASTNode extends ASTNode {

@@ -299,7 +299,7 @@ interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> implements CPPConstruct {
+export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -660,14 +660,46 @@ export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectTyp
     readonly initializer?: CompiledInitializer<T>;
 }
 
+export class ParameterDeclaration extends SimpleDeclaration {
+
+    protected readonly initializerAllowed = false;
+    public readonly isDefinition = false;
+
+    public readonly type?: PotentialParameterType;
+    
+    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: PotentialParameterType | undefined) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+
+        this.type = type;
+
+        if (!storageSpec.isEmpty) {
+            storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(this));
+        }
+    }
+    
+    public static createFromAST(ast: ArgumentDeclarationASTNode, context: TranslationUnitContext) : ParameterDeclaration {
+        
+        let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
+
+        // Need to create TypeSpecifier first to get the base type first for the declarators
+        let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
+        
+        // Compile declarator for each parameter (of the function-type argument itself)
+        let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.type);
+
+        return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs, declarator.type);
+    }
+}
 
 export class ParameterDefinition extends SimpleDeclaration {
 
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
 
-    public readonly type : PotentialParameterType;
-    public readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly type? : PotentialParameterType;
+    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
     public constructor(context: FunctionContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: PotentialParameterType) {
@@ -870,22 +902,7 @@ export class Declarator extends BasicCPPConstruct {
                             return;
                         }
 
-                        let paramDeclarators = postfix.args.map((argAST) => {
-                            
-                            let storageSpec = StorageSpecifier.createFromAST(argAST.specs.storageSpecs, this.context);
-                            this.attach(storageSpec);
-
-                            if (!storageSpec.isEmpty) {
-                                storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(this));
-                            }
-
-                            // Need to create TypeSpecifier first to get the base type first for the declarators
-                            let typeSpec = TypeSpecifier.createFromAST(argAST.specs.typeSpecs, this.context);
-                            this.attach(typeSpec);
-                            
-                            // Compile declarator for each parameter (of the function-type argument itself)
-                            return Declarator.createFromAST(argAST.declarator, this.context, typeSpec.type);
-                        });
+                        let paramDeclarators = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
                         (<Mutable<this>>this).parameters = paramDeclarators;
                         
                         let paramTypes = paramDeclarators.map(decl => {
@@ -1029,7 +1046,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
                 TypeSpecifier.createFromAST([], bodyContext),
                 StorageSpecifier.createFromAST([], bodyContext),
                 paramDeclarator,
-                {}, <PotentialParameterType>paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
+                {}, paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
         });
 
         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
