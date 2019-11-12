@@ -1,13 +1,17 @@
 import { PotentialFullExpression, TranslationUnitContext, RuntimePotentialFullExpression, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, Description } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier } from "./expressions";
-import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType } from "./types";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression } from "./expressions";
+import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType } from "./types";
 import { CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
 import { CPPError } from "./errors";
 import { Expression, allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory } from "./expressionBase";
+import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
+import { standardConversion } from "./standardConversions";
+import { Value } from "./runtimeEnvironment";
+import { SimulationEvent } from "./Simulation";
 
 export class FunctionCall extends PotentialFullExpression {
     
@@ -259,8 +263,7 @@ export interface FunctionCallExpressionASTNode extends ASTNode {
 type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
 type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
-// NOTE: when creating this from AST, operand must be created/compiled
-// with addition context including the compiled types of the arguments.
+
 export class FunctionCallExpression extends Expression {
     
     public readonly type?: ObjectType | VoidType;
@@ -313,8 +316,15 @@ export class FunctionCallExpression extends Expression {
         this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
     }
 
-    public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext) : FunctionCallExpression {
+    public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext) : FunctionCallExpression | MagicFunctionCallExpression {
         let args = ast.args.map(arg => createExpressionFromAST(arg, context));
+
+        if (ast.operand.construct_type === "identifier_expression") {
+            if (LOBSTER_KEYWORDS.has(ast.operand.identifier)) {
+                return new MagicFunctionCallExpression(context, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args);
+            }
+        }
+
         let contextualParamTypes = args.map(arg => arg.type);
         return new FunctionCallExpression(context,
             createExpressionFromAST(ast.operand, createExpressionContext(context, contextualParamTypes)),
@@ -382,7 +392,7 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
             return true;
         }
         else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_RETURN ) {
-            if (this.model.type instanceof VoidType) {
+            if (this.model.type.isVoidType()) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
 

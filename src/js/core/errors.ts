@@ -862,6 +862,9 @@ export const CPPError = {
         ternaryNoVoid : function(construct: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.ternaryNoVoid", "Lobster's ternary operator does not allow void operands.");
         },
+        keyword : function(construct: TranslationUnitConstruct, name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "lobster.keyword", "\""+name+"\" is a special keyword used by the Lobster system and cannot be used as an identifier.");
+        },
     }
 };
 

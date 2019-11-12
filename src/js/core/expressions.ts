@@ -7,7 +7,7 @@ import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { Mutable, Constructor, escapeString } from "../util/util";
 import { standardConversion, convertToPRValue, usualArithmeticConversions, isConvertibleToPointer, isIntegerLiteralZero, NullPointerConversion, ArrayToPointer } from "./standardConversions";
-import { checkIdentifier } from "./lexical";
+import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
 import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
 
@@ -225,13 +225,13 @@ export abstract class SimpleRuntimeExpression<T extends Type = Type, V extends V
 
     // Note: this is RuntimeConstruct rather than RuntimeExpression, because RuntimeExpression is implicitly
     //       RuntimeExpression<Type, ValueCategory> and particular instantiations may not
-    private subexpressions: RuntimeConstruct[] = [];
+    private subexpressions: readonly RuntimeConstruct[] = [];
 
     public constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
-    protected setSubexpressions(subexpressions: RuntimeConstruct[]) {
+    protected setSubexpressions(subexpressions: readonly RuntimeConstruct[]) {
         this.subexpressions = subexpressions;
     }
 
@@ -3846,3 +3846,128 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
         selected: selected
     }
 };
+
+interface MagicFunctionImpl {
+    readonly returnType: ObjectType | VoidType;
+    readonly valueCategory: ValueCategory;
+    readonly paramTypes: readonly PotentialParameterType[];
+    readonly operate: <RT extends PotentialReturnType>(rt: RuntimeMagicFunctionCallExpression<RT>) => void;
+}
+
+const MAGIC_FUNCTIONS : {[k in MAGIC_FUNCTION_NAMES]: MagicFunctionImpl} = {
+    assert: {
+        returnType: VoidType.VOID,
+        valueCategory: "prvalue",
+        paramTypes: [Bool.BOOL],
+        operate: <RT extends PotentialReturnType>(rt: RuntimeMagicFunctionCallExpression<RT>) => {
+            let arg = <Value<Bool>>rt.args[0].evalResult;
+            if (!arg) {
+                rt.sim.eventOccurred(SimulationEvent.ASSERTION_FAILURE, "An assertion failed.", true);
+            }
+        }
+    },
+    pause: {
+        returnType: VoidType.VOID,
+        valueCategory: "prvalue",
+        paramTypes: [],
+        operate: <RT extends PotentialReturnType>(rt: RuntimeMagicFunctionCallExpression<RT>) => {
+            // rt.sim.pause();
+        }
+
+    },
+    pauseIf: {
+        returnType: VoidType.VOID,
+        valueCategory: "prvalue",
+        paramTypes: [Bool.BOOL],
+        operate: <RT extends PotentialReturnType>(rt: RuntimeMagicFunctionCallExpression<RT>) => {
+            let arg = <Value<Bool>>rt.args[0].evalResult;
+            if (arg) {
+                // rt.sim.pause();
+            }
+        }
+    }
+}
+
+export class MagicFunctionCallExpression extends Expression {
+    
+    public readonly type: ObjectType | VoidType;
+    public readonly valueCategory: ValueCategory;
+
+    public readonly functionName: string;
+    public readonly functionImpl: MagicFunctionImpl;
+    public readonly args: readonly Expression[];
+
+    public constructor(context: ExpressionContext, functionName: MAGIC_FUNCTION_NAMES, args: readonly Expression[]) {
+        super(context);
+        
+        this.functionName = functionName;
+
+        let fn = this.functionImpl = MAGIC_FUNCTIONS[functionName];
+        this.type = fn.returnType;
+        this.valueCategory = fn.valueCategory;
+
+        this.args = args.map((arg, i) => {
+            if (!arg.isWellTyped()) {
+                return arg;
+            }
+
+            let targetType = fn.paramTypes[i];
+            let convertedArg = standardConversion(arg, targetType);
+            
+            if (!sameType(convertedArg.type, fn.paramTypes[i])) {
+                arg.addNote(CPPError.declaration.init.convert(arg, convertedArg.type, targetType));
+            }
+
+            return convertedArg;
+        });
+        this.attachAll(this.args);
+    }
+    
+    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeMagicFunctionCallExpression<RT>
+    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeMagicFunctionCallExpression<RT> {
+        return new RuntimeMagicFunctionCallExpression(this, parent);
+    }
+
+    // TODO
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+
+    
+
+    
+    // isTailChild : function(child){
+    //     return {isTail: child === this.funcCall
+    //     };
+    // }
+}
+
+
+type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
+type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
+
+export interface CompiledMagicFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends MagicFunctionCallExpression, SuccessfullyCompiled {
+    
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly type: FunctionResultType<RT>;
+    readonly valueCategory: FunctionVC<RT>;
+    readonly args: readonly CompiledExpression[];
+}
+
+export class RuntimeMagicFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends SimpleRuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledMagicFunctionCallExpression<RT>> {
+
+    public args: readonly RuntimeExpression[];
+
+    public constructor (model: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.args = this.model.args.map(arg => arg.createRuntimeExpression(this));
+        this.setSubexpressions(this.args);
+    }
+
+    protected operate() {
+        this.model.functionImpl.operate(this);
+    }
+
+}
