@@ -2,7 +2,7 @@ import { PotentialParameterType, ClassType, Type, ObjectType, sameType, Referenc
 import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
 import { Description, RuntimeConstruct, RuntimeFunction, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
-import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition } from "./declarations";
+import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
 import { CPPError } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -535,12 +535,11 @@ export abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEnt
     //     }
     // }
 
-    public readonly declaration: SimpleDeclaration;
+    public abstract readonly declaration: SimpleDeclaration | ParameterDefinition;
     // public readonly definition?: SimpleDeclaration;
 
-    public constructor(type: T, decl: SimpleDeclaration) {
-        super(type, decl.name);
-        this.declaration = decl;
+    public constructor(type: T, name: string) {
+        super(type, name);
     }
 
     // public setDefinition(definition: SimpleDeclaration) {
@@ -617,12 +616,15 @@ export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjec
     public readonly kind = "AutoEntity";
     public readonly isParameter: boolean;
 
+    public readonly declaration: LocalVariableDefinition | ParameterDefinition;
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
 
-    public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter?: boolean) {
-        super(type, def);
+    public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
+        super(type, def.name);
+        this.declaration = def;
         this.definition = def;
-        this.isParameter = !!isParameter;
+
+        this.isParameter = isParameter;
     }
 
     public toString() {
@@ -658,8 +660,14 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     public readonly kind = "LocalReferenceEntity";
     public readonly isParameter: boolean;
 
-    public constructor(type: T, decl: SimpleDeclaration, isParameter: boolean = false) {
-        super(type, decl);
+    public readonly declaration: LocalVariableDefinition | ParameterDefinition;
+    public readonly definition: LocalVariableDefinition | ParameterDefinition;
+
+    public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
+        super(type, def.name);
+        this.declaration = def;
+        this.definition = def;
+
         this.isParameter = isParameter;
     }
 
@@ -687,11 +695,17 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<
 export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
 
     public readonly qualifiedName: string;
+    public readonly declaration: SimpleDeclaration;
     public readonly definition?: GlobalObjectDefinition;
     
     // storage: "static",
-    constructor(type: T, decl: SimpleDeclaration) {
-        super(type, decl);
+    constructor(type: T, decl: GlobalObjectDefinition) {
+        super(type, decl.name);
+        this.declaration = decl;
+        // Note: this.definition is not set here because it is set later during the linking process.
+        // Eventually, this constructor will take in a GlobalObjectDeclaration instead, but that would
+        // require support for the extern keyword or static member variables (although that might be
+        // a separate class entirely)
         this.qualifiedName = "::" + this.name;
     }
 
@@ -867,7 +881,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
         let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
 
         // Parameter's entity to be looked up in the top stack frame
-        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity;
+        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity!;
         
         if (!(param instanceof AutoEntity)) {
             return assertFalse("Pass by value used with reference parameter.");
@@ -882,7 +896,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
-            return definition.parameters[this.num].declaredEntity.describe();
+            return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
             return {message: `Parameter #${this.num+1} of the called function`};
@@ -912,7 +926,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
         let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
 
         // Parameter's entity to be looked up in the top stack frame
-        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity;
+        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity!;
         
         if (!(param instanceof LocalReferenceEntity)) {
             return assertFalse("Pass by reference used with non-reference parameter.");
@@ -924,7 +938,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
-            return definition.parameters[this.num].declaredEntity.describe();
+            return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
             return {message: `Parameter #${this.num+1} of the called function`};
@@ -1195,11 +1209,13 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 
     
     public readonly qualifiedName: string;
+    public readonly declaration: FunctionDeclaration;
     public readonly definition?: FunctionDefinition;
     
     // storage: "static",
-    constructor(type: FunctionType, decl: SimpleDeclaration) {
-        super(type, decl);
+    constructor(type: FunctionType, decl: FunctionDeclaration) {
+        super(type, decl.name);
+        this.declaration = decl;
         this.qualifiedName = "::" + this.name;
     }
 

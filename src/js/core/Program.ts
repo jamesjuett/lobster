@@ -2,7 +2,7 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, Declaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
 import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createFunctionContext } from "./constructs";
@@ -183,12 +183,12 @@ export class Program {
 
     private defineIntrinsics() {
         
-        let intrinsicsTU = new TranslationUnit(this, new PreprocessedSource(new SourceFile("_intrinsics.cpp", ""), {}));
+        // let intrinsicsTU = new TranslationUnit(this, new PreprocessedSource(new SourceFile("_intrinsics.cpp", ""), {}));
 
-        let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
-        let functionContext = createFunctionContext(intrinsicsTU.context, assertDecl.declaredEntity);
-        let assertDef = new FunctionDefinition(this.context, assertDecl, 
-            )
+        // let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
+        // let functionContext = createFunctionContext(intrinsicsTU.context, assertDecl.declaredEntity);
+        // let assertDef = new FunctionDefinition(this.context, assertDecl, 
+        //     )
 
     }
 
@@ -554,7 +554,7 @@ export class TranslationUnit {
 
     public readonly globalScope: NamespaceScope;
     
-    public readonly topLevelDeclarations: readonly Declaration[] = [];
+    public readonly topLevelDeclarations: readonly TopLevelDeclaration[] = [];
     public readonly staticEntities: readonly StaticEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralEntity[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
