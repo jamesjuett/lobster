@@ -3,7 +3,7 @@ import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
-import { AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity } from "./entities";
+import { AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
@@ -198,7 +198,7 @@ export interface DeclarationSpecifiersASTNode {
 
 export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type Declaration = SimpleDeclaration | FunctionDefinition;
+export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 
 
 // interface t_DeclarationTypes {
@@ -320,11 +320,11 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context);
 
-        this.typeSpecifier = typeSpec;
-        this.storageSpecifier = storageSpec;
+        this.attach(this.typeSpecifier = typeSpec);
+        this.attach(this.storageSpecifier = storageSpec);
         this.otherSpecifiers = otherSpecs;
+        this.attach(this.declarator = declarator);
 
-        this.declarator = declarator;
         this.name = declarator.name!; // TODO: remove non-null assertion here once typescript supports assert based control flow analysis (soon)
         if (!declarator.name) {
             return assertFalse("Simple declarations must have a name.");
@@ -459,7 +459,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
 
-    public readonly parameterDeclarators: readonly Declarator[]; // defined if this is a declarator of function type
+    public readonly parameterDeclarations: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -470,7 +470,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
         this.declaredEntity = new FunctionEntity(type, this);
 
         assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
-        this.parameterDeclarators = this.declarator.parameters!;
+        this.parameterDeclarations = this.declarator.parameters!;
 
         // If main, should have no parameters
         if (this.declaredEntity.isMain() && this.type.paramTypes.length > 0) {
@@ -660,23 +660,53 @@ export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectTyp
     readonly initializer?: CompiledInitializer<T>;
 }
 
-export class ParameterDeclaration extends SimpleDeclaration {
+/**
+ * ParameterDeclarations are a bit different than other declarations because
+ * they do not introduce an entity into their contextual scope. For example,
+ * in the context of a function declaration that contains several parameter
+ * declarations, there is no function body (as there would be for a function
+ * definition) into whose scope the entities would even be introduced.
+ * This contrasts to ParameterDefinitions that may introduce an entity.
+ */
+export class ParameterDeclaration extends BasicCPPConstruct {
 
-    protected readonly initializerAllowed = false;
-    public readonly isDefinition = false;
+    public readonly typeSpecifier: TypeSpecifier;
+    public readonly storageSpecifier: StorageSpecifier;
+    public readonly declarator: Declarator;
+    public readonly otherSpecifiers: OtherSpecifiers;
 
-    public readonly type?: PotentialParameterType;
+    public readonly name?: string; // parameter declarations need not provide a name
+    public readonly type?: Type;
+    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: PotentialParameterType | undefined) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context);
 
-        this.type = type;
+        this.attach(this.typeSpecifier = typeSpec);
+        this.attach(this.storageSpecifier = storageSpec);
+        this.attach(this.declarator = declarator);
+        this.otherSpecifiers = otherSpecs;
+
+        this.name = declarator.name;
+        let type = this.type = declarator.type;
 
         if (!storageSpec.isEmpty) {
             storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(this));
         }
+
+        if (type && !type.isPotentialParameterType()) {
+            this.addNote(CPPError.declaration.parameter.invalid_parameter_type(this, type));
+            return;
+        }
+
+        if (this.isParameterDefinition()) {
+            (<Mutable<this>>this).declaredEntity =
+                this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
+                new AutoEntity(this.type, this, true);
+        }
+        
     }
     
     public static createFromAST(ast: ArgumentDeclarationASTNode, context: TranslationUnitContext) : ParameterDeclaration {
@@ -689,33 +719,24 @@ export class ParameterDeclaration extends SimpleDeclaration {
         // Compile declarator for each parameter (of the function-type argument itself)
         let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.type);
 
-        return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs, declarator.type);
+        return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
     }
-}
-
-export class ParameterDefinition extends SimpleDeclaration {
-
-    protected readonly initializerAllowed = true;
-    public readonly isDefinition = true;
-
-    public readonly type? : PotentialParameterType;
-    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
-    public constructor(context: FunctionContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: PotentialParameterType) {
+    public isParameterDefinition() : this is ParameterDefinition {
+        return !!this.name && !!this.type && this.type.isPotentialParameterType();
+    }
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+    public addEntityToScope(this: ParameterDefinition, context: BlockContext) {
 
-        this.type = type;
+        // If there's no type, we can't introduce an entity. If there's no name, we don't either.
+        // A parameter in a function definition with no name is technically allowed (e.g. this may
+        // indicate the programmer intends not to use the parameter in the function implementation).
 
-        this.declaredEntity = 
-            this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
-            new AutoEntity(this.type, this, true);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            context.contextualScope.addDeclaredEntity(this.declaredEntity);
 
             // Register the defined local object/reference
             context.functionLocals.registerLocalVariable(this.declaredEntity);
@@ -728,9 +749,15 @@ export class ParameterDefinition extends SimpleDeclaration {
                 throw e;
             }
         }
-
     }
 }
+
+export interface ParameterDefinition extends ParameterDeclaration {
+    readonly name: string; // parameter declarations need not provide a name
+    readonly type: PotentialParameterType;
+    readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+}
+
 
 
 interface ArrayPostfixDeclaratorASTNode {
@@ -775,7 +802,7 @@ export class Declarator extends BasicCPPConstruct {
     public readonly baseType?: Type;
     public readonly isPureVirtual?: boolean;
 
-    public readonly parameters?: readonly Declarator[]; // defined if this is a declarator of function type
+    public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
     public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext, baseType: Type | undefined) {
         return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
@@ -902,10 +929,10 @@ export class Declarator extends BasicCPPConstruct {
                             return;
                         }
 
-                        let paramDeclarators = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
-                        (<Mutable<this>>this).parameters = paramDeclarators;
+                        let paramDeclarations = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
+                        (<Mutable<this>>this).parameters = paramDeclarations;
                         
-                        let paramTypes = paramDeclarators.map(decl => {
+                        let paramTypes = paramDeclarations.map(decl => {
                             if (!decl.type) { return decl.type; }
                             if (!decl.type.isBoundedArrayType()) { return decl.type; }
                             else { return decl.type.adjustToPointerType();}
@@ -920,7 +947,7 @@ export class Declarator extends BasicCPPConstruct {
                             for (let j = 0; j < paramTypes.length; ++j) {
                                 let paramType = paramTypes[j];
                                 if (paramType && paramType.isVoidType()) {
-                                    this.addNote(CPPError.declaration.func.void_param(paramDeclarators[j]));
+                                    this.addNote(CPPError.declaration.func.void_param(paramDeclarations[j]));
                                 }
                             }
                         }
@@ -1018,7 +1045,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     public readonly kind = "FunctionDefinition";
 
     public readonly declaration: FunctionDeclaration;
-    public readonly parameters: readonly ParameterDefinition[];
+    public readonly parameters: readonly ParameterDeclaration[];
     public readonly body: Block;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
@@ -1039,14 +1066,15 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         let body = new Block(functionContext);
         let bodyContext = body.blockContext;
         
-        // Create parameters, which are given the body block's context to add declared entities to.
+        // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
-        let parameters = declaration.parameterDeclarators.map((paramDeclarator) => {
-            return new ParameterDefinition(bodyContext,
-                TypeSpecifier.createFromAST([], bodyContext),
-                StorageSpecifier.createFromAST([], bodyContext),
-                paramDeclarator,
-                {}, paramDeclarator.type); // TODO: hacky cast, can be elimited when parameter declarations are upgraded to their own construct
+        declaration.parameterDeclarations.forEach(paramDecl => {
+            if (paramDecl.isParameterDefinition()) {
+                paramDecl.addEntityToScope(bodyContext);
+            }
+            else {
+                paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
+            }
         });
 
         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
@@ -1054,12 +1082,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // added after the parameters.)
         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        return new FunctionDefinition(functionContext, declaration, parameters, body);
+        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body);
     }
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDefinition[], body: Block) {
+    public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
         super(context);
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
@@ -1309,7 +1337,8 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     // }
 }
 
-export interface CompiledFunctionDefinition<ReturnType extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
+export interface CompiledFunctionDefinition<Return_type extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
+    readonly parameters: readonly ParameterDefinition[];
     readonly body: CompiledBlock;
 }
 
