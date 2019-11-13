@@ -16,12 +16,12 @@ export abstract class TestVerifier {
     public readonly abstract verifierName: string;
 
     public verify(program: Program) : VerificationStatus {
-        try{
+        // try{
             return Object.assign({verifierName: this.verifierName}, this.verifyImpl(program));
-        }
-        catch(e) {
-            return {verifierName: this.verifierName, status: "exception", message: "The test crashed with an uncaught exception", exception: e};
-        }
+        // }
+        // catch(e) {
+        //     return {verifierName: this.verifierName, status: "exception", message: "The test crashed with an uncaught exception", exception: e};
+        // }
     }
 
     protected abstract verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName">;

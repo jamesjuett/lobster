@@ -674,6 +674,10 @@ abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T>
         return this.containingObject.isAlive;
     }
 
+    set isAlive(ignored: boolean) {
+
+    }
+
     get deallocatedBy() {
         return this.containingObject.deallocatedBy;
     }
