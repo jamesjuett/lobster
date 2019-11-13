@@ -1064,7 +1064,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // Create implementation and body block (before params and body statements added yet)
         let functionContext = createFunctionContext(context, declaration.declaredEntity);
         let body = new Block(functionContext);
-        let bodyContext = body.blockContext;
+        let bodyContext = body.context;
         
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.

@@ -98,11 +98,18 @@ $(() => {
 
   // Check that they all have the same value
   assert(var == 3);
+  assert(*ptr == 3);
+  assert(**ptr2 == 3);
+  assert(***ptr3 == 3);
+  assert(ref == 3);
+  assert(ref2 == 3);
+  assert(*ref_to_ptr == 3);
   assert(var2 == 3);
   assert(var3 == 3);
   assert(var4 == 3);
   assert(var5 == 3);
   assert(var6 == 3);
+  
 
   // Check that they have same/different addresses as they should
   assert(ptr == &var);
@@ -150,26 +157,79 @@ $(() => {
         );
     });
 
-    // ---------- Basic Statement Test ----------
+    // ---------- Basic Selection Test ----------
 
     new SingleTranslationUnitTest(
-        "Basic Statement Test",
-        `int main() {
-  int x = 3;
-  int y = 4;
+        "Basic Selection Test",
+`int main() {
+  int a = 3;
+  int b = 4;
 
-  // Basic tests for all statements
-  if (x == 3) {
-    ++x;
+  // Basic if/else
+  if (a == 3) {
+    a = a + 1;
   }
-  assert(x == 4);
+  assert(a == 4);
 
-  if (y == 10) {
+  if (b == 10) {
     assert(false);
   }
   else {
     assert(true);
   }
+
+  // Scope tests
+  int c = 0;
+  if (true) {
+    c = c + 1;
+  }
+  if (false) {
+    c = c - 1;
+  }
+  else {
+    c = c + 1;
+  }
+  assert(c == 2);
+
+  int d = 0;
+  if (true) {
+    int d = 10;
+  }
+  if (false) {
+    int d = 10;
+  }
+  else {
+    int d = 10;
+  }
+  assert(d == 0);
+  
+  int e = 0;
+  if (true) e = e + 1;
+  if (false) e = e - 1;
+  else e = e + 1;
+  assert(e == 2);
+
+  int f = 0;
+  if (true) int f = 10;
+  if (false) int f = 10;
+  else int f = 10;
+  assert(f == 0);
+
+  // TODO: add test for error when something inside selection scope is used outside
+}`,
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier()
+        ]
+    );
+
+    // ---------- Basic Iteration Test ----------
+
+    new SingleTranslationUnitTest(
+        "Basic Iteration Test",
+        `int main() {
+  int x = 4;
+  int y = 4;
 
   int count = 0;
   while (y > 0) {

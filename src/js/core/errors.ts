@@ -300,7 +300,7 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_def", name + " cannot be defined more than once in this scope.");
         },
         prev_local : function(construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_local", `This declaration of a local variable ${name} + " conflicts with an earlier declaration of ${name} in the same scope.`);
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_local", `This declaration of a local variable ${name} conflicts with an earlier declaration of ${name} in the same scope.`);
         },
         // prev_main : function(construct: TranslationUnitConstruct, name, prev) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_main", name + " cannot be defined more than once in this scope.");

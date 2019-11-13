@@ -3861,7 +3861,7 @@ const MAGIC_FUNCTIONS : {[k in MAGIC_FUNCTION_NAMES]: MagicFunctionImpl} = {
         paramTypes: [Bool.BOOL],
         operate: <RT extends PotentialReturnType>(rt: RuntimeMagicFunctionCallExpression<RT>) => {
             let arg = <Value<Bool>>rt.args[0].evalResult;
-            if (!arg) {
+            if (!arg.rawValue) {
                 rt.sim.eventOccurred(SimulationEvent.ASSERTION_FAILURE, "An assertion failed.", true);
             }
         }
