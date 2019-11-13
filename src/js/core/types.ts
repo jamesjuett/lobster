@@ -187,7 +187,7 @@ abstract class TypeBase {
         return this instanceof ArrayPointerType;
     }
 
-    public isObjectPointer() : this is ObjectPointerType {
+    public isObjectPointerType() : this is ObjectPointerType {
         return this instanceof ObjectPointerType;
     }
 
@@ -726,10 +726,6 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
         // else{
             return "0x" + value;
         // }
-    }
-
-    public isObjectPointer() {
-        return this.ptrTo.isObjectType();
     }
 
     /**

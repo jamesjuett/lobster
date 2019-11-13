@@ -517,12 +517,6 @@ export const CPPError = {
         // overloadLookup : function(construct: TranslationUnitConstruct, op) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "expr.overloadLookup", "Trying to find a function implementing an overloaded " + op + " operator...");
         // },
-        array_operand : function(construct: TranslationUnitConstruct, type: Type) {
-            return new CompilerNote(construct, NoteKind.ERROR, "expr.array_operand", "Type " + type + " cannot be subscripted.");
-        },
-        array_offset : function(construct: TranslationUnitConstruct, type: Type) {
-            return new CompilerNote(construct, NoteKind.ERROR, "expr.array_offset", "Invalid type (" + type + ") for array subscript offset.");
-        },
         assignment : {
             lhs_lvalue : function(construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_lvalue", "Lvalue required as left operand of assignment.");
@@ -591,6 +585,14 @@ export const CPPError = {
             },
             pointerToObjectType : function(construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dereference.pointerToObjectType", "Pointers to a non-object, non-function type (e.g. void pointers) cannot be dereferenced. (Current operand is " + type + " ).");
+            }
+        },
+        subscript : {
+            invalid_operand_type : function(construct: TranslationUnitConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_operand_type", "Type " + type + " cannot be subscripted.");
+            },
+            invalid_offset_type : function(construct: TranslationUnitConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_offset_type", "Invalid type (" + type + ") for array subscript offset.");
             }
         },
         dot : {

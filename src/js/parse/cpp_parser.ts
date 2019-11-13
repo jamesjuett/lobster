@@ -578,7 +578,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c327 = function(t: any, sub: any): any { return track({construct_type: "const_cast_expression", type: t, operand:sub}, location(), text());};
   const peg$c328 = function(sub: any, op: any): any {return op;};
   const peg$c329 = function(sub: any, ops: any): any { return ops.length > 0 ? track(postfixExp(ops, sub), location(), text()) : sub;};
-  const peg$c330 = function(sub: any): any { return track({construct_type:"subscript_expression", arg:sub}, location(), text()); };
+  const peg$c330 = function(sub: any): any { return track({construct_type:"subscript_expression", offset:sub}, location(), text()); };
   const peg$c331 = function(args: any): any { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); };
   const peg$c332 = ".";
   const peg$c333 = peg$literalExpectation(".", false);

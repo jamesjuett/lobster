@@ -325,17 +325,16 @@ export class Memory {
     public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>) : ArraySubobject<Elem_type>;
     public dereference<T extends ObjectType>(ptr: Value<ObjectPointerType<T>>) : CPPObject<T>;
     public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>) : CPPObject<T> | InvalidObject<T>;
-    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>) {
-        assert(ptr.type.isObjectPointer());
+    public dereference(ptr: Value<PointerType>) : CPPObject | ArraySubobject | InvalidObject {
 
         var addr = ptr.rawValue;
 
         // Handle special cases for pointers with RTTI
-        if (ptr.type instanceof ArrayPointerType) {
+        if (ptr.type.isArrayPointerType()) {
             return ptr.type.arrayObject.getArrayElemSubobjectByAddress(addr);
 
         }
-        if (ptr.type instanceof ObjectPointerType && ptr.type.isValueValid(addr)) {
+        if (ptr.type.isObjectPointerType() && ptr.type.isValueValid(addr)) {
             return ptr.type.pointedObject;
         }
 
@@ -343,7 +342,7 @@ export class Memory {
         var obj = this.objects[addr];
 
         if (obj && (similarType(obj.type, ptr.type.ptrTo) || subType(obj.type, ptr.type.ptrTo))) {
-            return <CPPObject<T>>obj;
+            return obj;
         }
 
         // If the object wasn't there or doesn't match the type we asked for (ignoring const)

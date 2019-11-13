@@ -1,6 +1,6 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType } from "./types";
 import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description, ExpressionContext, createExpressionContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
@@ -106,7 +106,7 @@ const ExpressionConstructsMap = {
     "dynamic_cast_expression" : (ast: DynamicCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "dynamic cast").setAST(ast),
     "reinterpret_cast_expression" : (ast: ReinterpretCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "reinterpret cast").setAST(ast),
     "const_cast_expression" : (ast: ConstCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "const cast").setAST(ast),
-    "subscript_expression" : (ast: SubscriptExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "subscript").setAST(ast),
+    "subscript_expression" : (ast: SubscriptExpressionASTNode, context: ExpressionContext) => SubscriptExpression.createFromAST(ast, context),
     "function_call_expression" : (ast: FunctionCallExpressionASTNode, context: ExpressionContext) => FunctionCallExpression.createFromAST(ast, context),
     "dot_expression" : (ast: DotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "dot operator").setAST(ast),
     "arrow_expression" : (ast: ArrowExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "arrow operator").setAST(ast),
@@ -2477,126 +2477,122 @@ export class RuntimeAddressOfExpression<T extends ObjectType> extends SimpleRunt
 //     }
 // });
 
+export class SubscriptExpression extends Expression {
+    
+    public readonly type?: ObjectType;
+    public readonly valueCategory = "lvalue";
 
+    public readonly operand: Expression;
+    public readonly offset: Expression;
 
-// // TODO: Allow overloading Subscript with initializer list
-// export var Subscript  = Expression.extend({
-//     _name: "Subscript",
-//     valueCategory: "lvalue",
-//     i_childrenToCreate : ["operand"],
-//     i_childrenToExecute : ["operand", "arg"],
-//     i_childrenToExecuteForMemberOverload : ["operand"], // does not include offset because function call does that
+    public constructor(context: ExpressionContext, operand: Expression, offset: Expression) {
+        super(context);
 
-//     compile : function(){
+        this.attach(this.operand = operand.isWellTyped() ? convertToPRValue(operand) : operand);
+        this.attach(this.offset = offset.isWellTyped() ? standardConversion(offset, Int.INT) : offset);
 
-//         this.operand.compile();
+        if (this.operand.isWellTyped()) {
+            if(this.operand.isPointerTyped()) {
+                this.type = this.operand.type.ptrTo;
+            }
+            else {
+                this.addNote(CPPError.expr.subscript.invalid_operand_type(this, this.operand.type));
+            }
+        }
 
-//         // Check for overload
-//         if (isA(this.operand.type, Types.Class)){
-//             this.compileMemberOverload(this.operand, [this.ast.arg], this.operand.type.isConst, "[]");
-//         }
-//         else{
-//             this.operand = standardConversion(this.operand, Types.Pointer);
-//             this.arg = this.i_createAndCompileChildExpr(this.ast.arg, Types.Int.instance());
+        if (this.offset.isWellTyped() && !this.offset.isTyped(Int)) {
+            this.addNote(CPPError.expr.subscript.invalid_offset_type(this, this.offset.type));
+        }
+    }
+    
+    public static createFromAST(ast: SubscriptExpressionASTNode, context: ExpressionContext) : SubscriptExpression {
+        return new SubscriptExpression(context,
+            createExpressionFromAST(ast.operand, context),
+            createExpressionFromAST(ast.offset, context));
+    }
 
-//             this.convert();
-//             this.typeCheck();
-//             this.compileTemporarires();
-//         }
-//     },
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) : RuntimeSubscriptExpression<T>;
+    public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression<T extends ObjectType>(this: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) : RuntimeSubscriptExpression<T> {
+        return new RuntimeSubscriptExpression(this, parent);
+    }
 
-//     typeCheck : function(){
-//         if (!isA(this.operand.type, Types.Pointer)) {
-//             this.addNote(CPPError.expr.array_operand(this, this.operand.type));
-//         }
-//         else{
-//             this.type = this.operand.type.ptrTo;
-//         }
-
-//         if (!isA(this.arg.type, Types.Int)) {
-//             this.addNote(CPPError.expr.array_offset(this, this.arg.type));
-//         }
-//     },
-
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (this.isOverload)
-//         {
-//             if (inst.index === "subexpressions"){
-//                 inst.childInstances = {};
-//                 inst.childInstances.operand = this.operand.createAndPushInstance(sim, inst);
-//                 inst.index = "operate";
-//                 return true;
-//             }
-//             else if (inst.index === "operate"){
-//                 inst.childInstances.funcCall = this.funcCall.createAndPushInstance(sim, inst, inst.childInstances.operand.evalResult);
-//                 inst.index = "done";
-//                 return true;
-//             }
-//             else{
-//                 inst.setEvalResult(inst.childInstances.funcCall.evalResult);
-//                 this.done(sim, inst);
-//                 return true;
-//             }
-//         }
-//         else{
-//             Expressions.Subscript._parent.upNext.apply(this, arguments);
-//         }
-//     },
-
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-//         // Evaluate subexpressions
-//         if (inst.index === "operate"){
-//             // sub and operand are already evaluated
-//             // result of operand should be a pointer
-//             // result of sub should be an integer
-//             var offset = inst.childInstances.arg.evalResult;
-//             var ptr = inst.childInstances.operand.evalResult;
-//             ptr = Value.instance(ptr.value+offset.value*this.type.size, ptr.type);
-//             var addr = ptr.value;
-
-
-
-//             if (Types.Pointer.isNegative(addr)){
-//                 sim.crash("Good work. You subscripted so far backwards off the beginning of the array you went to a negative address. -__-");
-//             }
-//             else if (isA(ptr.type, Types.ArrayPointer)){
-//                 // If it's an array pointer, make sure it's in bounds and not one-past
-//                 if (addr < ptr.type.min()){
-//                     sim.undefinedBehavior("That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-//                 else if (ptr.type.onePast() < addr){
-//                     sim.undefinedBehavior("That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-//                 else if (addr == ptr.type.onePast()){
-//                     // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
-//                     sim.undefinedBehavior("That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.");
-//                 }
-
-//             }
-
-//             var obj = sim.memory.dereference(ptr);
-
-//             // Note: dead object is not necessarily invalid. Invalid has to do with the value
-//             // while dead/alive has to do with the object itself. Reading from dead object does
-//             // yield an invalid value though.
-//             if (!obj.isAlive()){
-//                 DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
-//             }
-
-//             inst.setEvalResult(obj);
-//             this.done(sim, inst);
-//         }
-//     },
-
+    public describeEvalResult(depth: number): Description {
+        throw new Error("Method not implemented.");
+    }
+    
 //     isTailChild : function(child){
 //         return {isTail: false,
 //             reason: "The subscripting will happen after the recursive call returns.",
 //             others: [this]
 //         };
 //     }
-// });
+}
+
+export interface CompiledSubscriptExpression<T extends ObjectType = ObjectType> extends SubscriptExpression, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly type: T;
+
+    readonly operand: CompiledExpression<PointerType<T>, "prvalue">;
+    readonly offset: CompiledExpression<Int, "prvalue">;
+}
+
+export class RuntimeSubscriptExpression<T extends ObjectType> extends SimpleRuntimeExpression<T, "lvalue", CompiledSubscriptExpression<T>> {
+
+    public operand: RuntimeExpression<PointerType<T>, "prvalue">;
+    public offset: RuntimeExpression<Int, "prvalue">;
+
+    public constructor (model: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = this.model.operand.createRuntimeExpression(this);
+        this.offset = this.model.offset.createRuntimeExpression(this);
+        this.setSubexpressions([this.operand, this.offset]);
+    }
+
+    protected operate() {
+
+        let operand = <Value<PointerType<T>>>this.operand.evalResult;
+        let offset = <Value<Int>>this.offset.evalResult;
+        let ptr = operand.pointerOffset(offset);
+        let addr = ptr.rawValue;
+
+        if (PointerType.isNegative(addr)){
+            this.sim.eventOccurred(SimulationEvent.CRASH, "Good work. You subscripted so far backwards off the beginning of the array you went to a negative address. -__-", true);
+        }
+        else if (ptr.type.isArrayPointerType()) {
+            // If it's an array pointer, make sure it's in bounds and not one-past
+            if (addr < ptr.type.min()){
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That subscript operation goes off the beginning of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+            else if (ptr.type.onePast() < addr) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That subscript operation goes off the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+            else if (addr == ptr.type.onePast()) {
+                // TODO: technically this is not undefined behavior unless the result of the dereference undergoes an lvalue-to-rvalue conversion to look up the object
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "That subscript accesses the element one past the end of the array. This could cause a segfault, or worse - you might just access/change other memory outside the array.", true);
+            }
+
+        }
+
+        var obj = this.sim.memory.dereference(ptr);
+
+        // // Note: dead object is not necessarily invalid. Invalid has to do with the value
+        // // while dead/alive has to do with the object itself. Reading from dead object does
+        // // yield an invalid value though.
+        // // TODO: add this back in
+        // if (!obj.isAlive()){
+        //     DeadObjectMessage.instance(obj, {fromSubscript:true}).display(sim, inst);
+        // }
+
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>obj);
+    }
+
+
+
+}
+
 
 // export var Dot  = Expression.extend({
 //     _name: "Dot",
@@ -2793,6 +2789,8 @@ export interface ConstCastExpressionASTNode extends ASTNode {
 
 export interface SubscriptExpressionASTNode extends ASTNode {
     readonly construct_type: "subscript_expression";
+    readonly operand: ExpressionASTNode;
+    readonly offset: ExpressionASTNode;
 }
 
 
