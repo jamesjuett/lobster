@@ -984,7 +984,7 @@ export function eq(left: number, right: number){
 }
 
 export function ne(left: number, right: number){
-    return left == right;
+    return left != right;
 }
 
 export function bitAnd(left: number, right: number){
