@@ -71,6 +71,7 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
         else {
             let outOfBoundsObj =  new ArraySubobject(this.object, index,
                 this.memory, this.address + index * this.object.type.elemType.size);
+            outOfBoundsObj.setValidity(false);
             return outOfBoundsObj;
         }
     }
@@ -628,6 +629,12 @@ export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<
 }
 
 export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+
+    public constructor(type: T, memory: Memory, address: number) {
+        super(type, memory, address);
+        this.setValidity(false);
+        this.kill()
+    }
 
     public describe(): Description {
         return {message: "an invalid object at 0x" + this.address};

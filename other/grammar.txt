@@ -640,7 +640,7 @@ exp_postfix
       { return ops.length > 0 ? track(postfixExp(ops, sub), location(), text()) : sub;}
 
 op_postfix
-  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", arg:sub}, location(), text()); }
+  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", offset:sub}, location(), text()); }
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
   / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
   / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }
