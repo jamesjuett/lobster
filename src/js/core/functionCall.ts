@@ -321,14 +321,14 @@ export class FunctionCallExpression extends Expression {
 
         if (ast.operand.construct_type === "identifier_expression") {
             if (LOBSTER_KEYWORDS.has(ast.operand.identifier)) {
-                return new MagicFunctionCallExpression(context, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args);
+                return new MagicFunctionCallExpression(context, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args).setAST(ast);
             }
         }
 
         let contextualParamTypes = args.map(arg => arg.type);
         return new FunctionCallExpression(context,
             createExpressionFromAST(ast.operand, createExpressionContext(context, contextualParamTypes)),
-            args);
+            args).setAST(ast);
     }
     
     public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>
