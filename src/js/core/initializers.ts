@@ -9,7 +9,7 @@ import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 
-export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode;
+export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
 export abstract class Initializer extends PotentialFullExpression {
 
@@ -328,15 +328,6 @@ export interface DirectInitializerASTNode extends ASTNode {
 
 
 export abstract class DirectInitializer extends Initializer {
-
-    // NOTE: removed since I don't think it makes sense to create an initializer directly from an AST (and it doesn't match the base signature of CPPConstruct.createFromAST)
-    // public static createFromAST<T extends Type>(ast: DirectInitializerASTNode, context: TranslationUnitContext, target: ObjectEntity<T>) {
-    //     return this.create(context, target,
-    //         ast.args.map((a) => {
-    //             return Expression.createFromAST(a, context);
-    //         })
-    //     )
-    // }
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
@@ -912,6 +903,10 @@ export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer
 // });
 
 
+export interface InitializerListASTNode extends ASTNode {
+    construct_type: "initializer_list";
+    args: ExpressionASTNode[];
+}
 
 // export var InitializerList = CPPConstruct.extend({
 //     _name : "InitializerList",

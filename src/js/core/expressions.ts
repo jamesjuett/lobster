@@ -3293,7 +3293,7 @@ export class IdentifierExpression extends Expression {
     }
     
     public static createFromAST(ast: IdentifierExpressionASTNode, context: ExpressionContext) {
-        return new IdentifierExpression(context, ast.identifier);
+        return new IdentifierExpression(context, ast.identifier).setAST(ast);
     }
 
     public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) : RuntimeObjectIdentifier<T>;

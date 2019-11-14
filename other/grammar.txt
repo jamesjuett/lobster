@@ -131,8 +131,8 @@ block
   = "{" ws stmts:(stmt:statement ws {return stmt})* "}" { return {construct_type: "block", statements: stmts}; }
 
 selection_statement
-  = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"selection_statement", condition:cond, then:then, otherwise:e}; }
-  / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"selection_statement", condition:cond, then:then}; }
+  = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"if_statement", condition:cond, then:then, otherwise:e}; }
+  / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"if_statement", condition:cond, then:then}; }
 
 /* switch_statement
   = "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
@@ -147,9 +147,9 @@ iteration_statement
     { return {construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}; }
 
 for_init_statement
-  = expression_statement
-  / null_statement
-  / d:declaration_statement { return track(d, location(), text()); }
+  = s:expression_statement { return track(s, location(), text()); }
+  / s:null_statement { return track(s, location(), text()); }
+  / s:declaration_statement { return track(s, location(), text()); }
 
 jump_statement
   = "break" !identifierChar ws ";" { return {construct_type:"break_statement"}; }

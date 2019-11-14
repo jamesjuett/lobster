@@ -134,15 +134,15 @@ $(() => {
   assert(*ref_to_ptr == 5);
 
   // test basic declaration of arrays
-  int arr[3];
-  int arr2[4] = {1, 2, 3, 99};
-  int *ptrArr[2];
-  int *ptrArr2[3] = {ptr, *ptr2, ref_to_ptr};
-  assert(arr2[2] == 3);
-  assert(ptrArr2[0] == &var);
+  // int arr[3];
+  // int arr2[4] = {1, 2, 3, 99};
+  // int *ptrArr[2];
+  // int *ptrArr2[3] = {ptr, *ptr2, ref_to_ptr};
+  // assert(arr2[2] == 3);
+  // assert(ptrArr2[0] == &var);
 
-  arr2[3] = *ptrArr2[2];
-  assert(arr2[3] == var);
+  // arr2[3] = *ptrArr2[2];
+  // assert(arr2[3] == var);
 
 }`;
     var fundamentalTypesToTest = ["int", "double", "char"];
@@ -233,34 +233,34 @@ $(() => {
 
   int count = 0;
   while (y > 0) {
-    --y;
-    ++count;
+    y = y - 1;
+    count = count + 1;
   }
   assert(y == 0);
   assert(count == 4);
 
-  for(int i = 0; i < 10; ++i) {
-    ++y;
+  for(int i = 0; i < 10; i = i + 1) {
+    y = y + 1;
   }
   assert(y == 10);
 
-  int z = 3;
-  do {
-    z++;
-  }
-  while(z == 4);
-  assert(z == 5);
+  // int z = 3;
+  // do {
+  //   z =  + 1;
+  // }
+  // while(z == 4);
+  // assert(z == 5);
 
   int a = 5;
   while (a > 0) {
-    --a;
+    a = a - 1;
     if (a < 3) {
       break;
     }
   }
   assert(a == 2);
 
-  for(; a < 10; ++a) {
+  for(; a < 10; a = a + 1) {
     if (a > 3) {
       if (a > 4) {
         if (a == 5) {
@@ -272,7 +272,7 @@ $(() => {
   assert(a == 5);
 
   // Expression statements
-  ++x;
+  x = x + 1;
   x;
   x == x;
 

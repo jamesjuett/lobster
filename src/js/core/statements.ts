@@ -12,7 +12,7 @@ import { standardConversion } from "./standardConversions";
 export type StatementASTNode =
     LabeledStatementASTNode |
     BlockASTNode |
-    SelectionStatementASTNode |
+    IfStatementASTNode |
     IterationStatementASTNode |
     JumpStatementASTNode |
     DeclarationStatementASTNode |
@@ -22,10 +22,10 @@ export type StatementASTNode =
 const StatementConstructsMap = {
     "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
     "block" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context),
-    "selection_statement" : (ast: SelectionStatementASTNode, context: BlockContext) => SelectionStatement.createFromAST(ast, context),
-    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "while loop").setAST(ast),
+    "if_statement" : (ast: IfStatementASTNode, context: BlockContext) => IfStatement.createFromAST(ast, context),
+    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => WhileStatement.createFromAST(ast, context),
     "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "do-while loop").setAST(ast),
-    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "for loop").setAST(ast),
+    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => ForStatement.createFromAST(ast, context),
     "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "break statement").setAST(ast),
     "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "continue statement").setAST(ast),
     "return_statement" : (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
@@ -131,12 +131,10 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
             this.sim.push(this.expression);
             this.index = "done";
         }
-		return true;
 	}
 	
 	protected stepForwardImpl() {
         this.startCleanup();
-        return false;
 	}
 }
 
@@ -516,37 +514,39 @@ export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
 
 
 
-export interface SelectionStatementASTNode extends ASTNode {
-    readonly construct_type: "selection_statement";
+export interface IfStatementASTNode extends ASTNode {
+    readonly construct_type: "if_statement";
     readonly condition: ExpressionASTNode;
     readonly then: StatementASTNode;
     readonly otherwise?: StatementASTNode;
 }
 
-export class SelectionStatement extends Statement<SelectionStatementASTNode> {
+export class IfStatement extends Statement<IfStatementASTNode> {
 
     public readonly condition: Expression;
     public readonly then: Statement;
     public readonly otherwise?: Statement;
 
-    public static createFromAST(ast: SelectionStatementASTNode, context: BlockContext) : SelectionStatement {
+    public static createFromAST(ast: IfStatementASTNode, context: BlockContext) : IfStatement {
+
+        let condition = createExpressionFromAST(ast.condition, context);
 
         // If either of the substatements are not a block, they get their own implicit block context.
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
-        let thenContext = ast.then.construct_type === "block" ? context : createBlockContext(context);
+        let then = ast.then.construct_type === "block" ?
+            createStatementFromAST(ast.then, context) :
+            createStatementFromAST(ast.then, createBlockContext(context));
 
-        if (ast.otherwise) { // else branch is present
-            let otherwiseContext = ast.otherwise.construct_type === "block" ? context : createBlockContext(context);
-
-            return new SelectionStatement(context,
-                createExpressionFromAST(ast.condition, context),
-                createStatementFromAST(ast.then, thenContext),
-                createStatementFromAST(ast.otherwise, otherwiseContext));
+        if (!ast.otherwise) { // no else branch
+            return new IfStatement(context, condition, then);
         }
-        else { // no else branch
-            return new SelectionStatement(context,
-                createExpressionFromAST(ast.condition, context),
-                createStatementFromAST(ast.then, thenContext));
+        else { // else branch is present
+            // See note above about substatement implicit block context
+            let otherwise = ast.otherwise.construct_type === "block" ?
+                createStatementFromAST(ast.otherwise, context) :
+                createStatementFromAST(ast.otherwise, createBlockContext(context));
+
+            return new IfStatement(context, condition, then, otherwise);
         }
     }
 
@@ -566,12 +566,12 @@ export class SelectionStatement extends Statement<SelectionStatementASTNode> {
         }
         
         if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
-            this.addNote(CPPError.stmt.selection.condition_bool(this, this.condition));
+            this.addNote(CPPError.stmt.if.condition_bool(this, this.condition));
         }
     }
 
-    public createRuntimeStatement(this: CompiledSelectionStatement, parent: RuntimeStatement) {
-        return new RuntimeSelectionStatement(this, parent);
+    public createRuntimeStatement(this: CompiledIfStatement, parent: RuntimeStatement) {
+        return new RuntimeIfStatement(this, parent);
     }
 
     //     isTailChild : function(child){
@@ -585,7 +585,7 @@ export class SelectionStatement extends Statement<SelectionStatementASTNode> {
 //             if (this.otherwise){
 //                 //if (child === this.then){
 //                     return {isTail: true,
-//                         reason: "Only one branch in a selection structure (i.e. if/else) can ever execute, so don't worry about the code in the other branches."
+//                         reason: "Only one branch in an if/else structure can ever execute, so don't worry about the code in the other branches."
 //                     };
 //                 //}
 //                 //else{
@@ -603,13 +603,13 @@ export class SelectionStatement extends Statement<SelectionStatementASTNode> {
 
 }
 
-export interface CompiledSelectionStatement extends SelectionStatement, SuccessfullyCompiled {
+export interface CompiledIfStatement extends IfStatement, SuccessfullyCompiled {
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly then: CompiledStatement;
     readonly otherwise?: CompiledStatement;
 }
 
-export class RuntimeSelectionStatement extends RuntimeStatement<CompiledSelectionStatement> {
+export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
     public readonly condition: RuntimeExpression<Bool, "prvalue">;
     public readonly then: RuntimeStatement;
@@ -617,7 +617,7 @@ export class RuntimeSelectionStatement extends RuntimeStatement<CompiledSelectio
 
     private index = 0;
 
-    public constructor (model: CompiledSelectionStatement, parent: RuntimeStatement) {
+    public constructor (model: CompiledIfStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.condition = model.condition.createRuntimeExpression(this);
         this.then = model.then.createRuntimeStatement(this);
@@ -627,22 +627,24 @@ export class RuntimeSelectionStatement extends RuntimeStatement<CompiledSelectio
     }
 
     private static upNextFns = [
-        (rt: RuntimeSelectionStatement) => {
+        (rt: RuntimeIfStatement) => {
             rt.sim.push(rt.condition);
         },
-        (rt: RuntimeSelectionStatement) => {
-            if (rt.condition.evalResult.rawValue === 1) {
+        (rt: RuntimeIfStatement) => {
+            if (rt.condition.evalResult.rawValue) {
                 rt.sim.push(rt.then);
             }
             else if (rt.otherwise) {
                 rt.sim.push(rt.otherwise);
             }
+        },
+        (rt: RuntimeIfStatement) => {
             rt.startCleanup();
         },
     ]
 
     protected upNextImpl() {
-        RuntimeSelectionStatement.upNextFns[this.index++](this);
+        RuntimeIfStatement.upNextFns[this.index++](this);
     }
 
     public stepForwardImpl() {
@@ -670,11 +672,13 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
 
         // If the body substatement is not a block, it gets its own implicit block context.
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
-        let bodyContext = ast.body.construct_type === "block" ? context : createBlockContext(context);
+        let body = ast.body.construct_type === "block" ?
+            createStatementFromAST(ast.body, context) :
+            createStatementFromAST(ast.body, createBlockContext(context));
 
         return new WhileStatement(context,
             createExpressionFromAST(ast.condition, context),
-            createStatementFromAST(ast.body, bodyContext));
+            body);
     }
 
     public constructor(context: BlockContext, condition: Expression, body: Statement) {
@@ -736,7 +740,7 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
     ]
 
     protected upNextImpl() {
-        RuntimeWhileStatement.upNextFns[this.index++](this);
+        RuntimeWhileStatement.upNextFns[this.index](this);
         this.index = (this.index + 1) % RuntimeWhileStatement.upNextFns.length;
     }
 
@@ -745,6 +749,14 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
         delete (<Mutable<this>>this).body;
 
     }
+    
+//     isTailChild : function(child){
+//         return {
+//             isTail: false,
+//             reason: "If the loop goes around again, then that would be more work after the recursive call.",
+//             others: [this]
+//         };
+//     }
 }
 
 export interface DoWhileStatementASTNode extends ASTNode {
@@ -752,6 +764,11 @@ export interface DoWhileStatementASTNode extends ASTNode {
     readonly condition: ExpressionASTNode;
     readonly body: StatementASTNode;
 }
+
+// export var DoWhile = While.extend({
+//     _name: "DoWhile",
+//     initIndex: "body"
+// });
 
 export interface ForStatementASTNode extends ASTNode {
     readonly construct_type: "for_statement";
@@ -761,7 +778,121 @@ export interface ForStatementASTNode extends ASTNode {
     readonly body: StatementASTNode;
 }
 
-// export var Iteration = Statement.extend({
+
+export class ForStatement extends Statement<ForStatementASTNode> {
+
+    public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
+    public readonly condition: Expression;
+    public readonly body: Statement;
+    public readonly post: Expression;
+    
+    public static createFromAST(ast: ForStatementASTNode, context: BlockContext) : ForStatement {
+
+        // If the body substatement is not a block, it gets its own implicit block context.
+        // (If the substatement is a block, it creates its own block context, so we don't do that here.)
+        let body = ast.body.construct_type === "block" ?
+            createStatementFromAST(ast.body, context) :
+            createStatementFromAST(ast.body, createBlockContext(context));
+
+        // NOTE the use of body context for all the children.
+        // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
+        // All children (initial, condition, post, body) share the same block
+        // context and scope where i is declared.
+        return new ForStatement(context,
+            createStatementFromAST(ast.initial, body.context),
+            createExpressionFromAST(ast.condition, body.context),
+            body,
+            createExpressionFromAST(ast.post, body.context));
+    }
+
+    public constructor(context: BlockContext, initial: ExpressionStatement | NullStatement | DeclarationStatement,
+            condition: Expression, body: Statement, post: Expression) {
+
+        super(context);
+
+        this.attach(this.initial = initial);
+
+        if (condition.isWellTyped()) {
+            this.attach(this.condition = standardConversion(condition, Bool.BOOL));
+        }
+        else {
+            this.attach(this.condition = condition);
+        }
+        
+        if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+            this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
+        }
+
+        this.attach(this.body = body);
+        this.attach(this.post = post);
+    }
+
+    public createRuntimeStatement(this: CompiledForStatement, parent: RuntimeStatement) {
+        return new RuntimeForStatement(this, parent);
+    }
+
+}
+
+export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled {
+    readonly condition: CompiledExpression<Bool, "prvalue">;
+    readonly initial: CompiledExpressionStatement | CompiledNullStatement | CompiledDeclarationStatement;
+    readonly body: CompiledStatement;
+    readonly post: CompiledExpression;
+}
+
+export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> {
+
+    public readonly initial: RuntimeExpressionStatement | RuntimeNullStatement | RuntimeDeclarationStatement;
+    public readonly condition: RuntimeExpression<Bool, "prvalue">;
+    public readonly body?: RuntimeStatement;
+    public readonly post?: RuntimeExpression;
+
+    private index = 0;
+
+    public constructor (model: CompiledForStatement, parent: RuntimeStatement) {
+        super(model, parent);
+        this.initial = (<CompiledExpressionStatement & CompiledNullStatement & CompiledDeclarationStatement>model.initial).createRuntimeStatement(this); // HACK cast
+        this.condition = model.condition.createRuntimeExpression(this);
+        // Do not create body here, since it might not actually run
+    }
+
+    private static upNextFns = [
+        (rt: RuntimeForStatement) => {
+            rt.sim.push(rt.initial);
+        },
+        (rt: RuntimeForStatement) => {
+            rt.sim.push(rt.condition);
+        },
+        (rt: RuntimeForStatement) => {
+            if (rt.condition.evalResult.rawValue === 1) {
+                rt.sim.push(asMutable(rt).body = rt.model.body.createRuntimeStatement(rt));
+            }
+            else {
+                rt.startCleanup();
+            }
+        },
+        (rt: RuntimeForStatement) => {
+            rt.sim.push(asMutable(rt).post = rt.model.post.createRuntimeExpression(rt));
+        },
+        (rt: RuntimeForStatement) => {
+            // Do nothing, pass to stepForward, which will reset
+        }
+    ]
+
+    protected upNextImpl() {
+        RuntimeForStatement.upNextFns[this.index++](this);
+        if (this.index == RuntimeForStatement.upNextFns.length) {
+            this.index = 1; // reset to 1 rather than 0, since 0 is the initial which only happens once
+        }
+    }
+
+    public stepForwardImpl() {
+        (<Mutable<this>>this).condition = this.model.condition.createRuntimeExpression(this);
+        delete (<Mutable<this>>this).body;
+        delete (<Mutable<this>>this).post;
+
+    }
+    
 //     isTailChild : function(child){
 //         return {
 //             isTail: false,
@@ -769,123 +900,8 @@ export interface ForStatementASTNode extends ASTNode {
 //             others: [this]
 //         };
 //     }
-// });
+}
 
-// export var While = Iteration.extend({
-//     _name: "While",
-//     initIndex: "condition",
-
-//     i_createFromAST : function(ast) {
-//         Statements.While._parent.i_createFromAST.apply(this, arguments);
-
-//         this.body = this.i_createChild(ast.body);
-
-//         // TODO: technically, the C++ standard allows a declaration as the condition for a while loop.
-//         // This appears to be currently impossible in Lobster, but when implemented it will require
-//         // special implementation of the scope of the body if it's not already a block.
-//         // Or maybe we could just decide to parse it correctly (will still require some changes), but
-//         // then simply say it's not supported since it's such a rare thing.
-//         this.condition = this.i_createChild(ast.condition, {
-//             scope : (isA(this.body, Statements.Block) ? this.body.blockScope : this.contextualScope)
-//         });
-
-//     },
-
-//     compile : function(){
-
-//         this.condition.compile();
-//         this.condition = standardConversion(this.condition, Types.Bool.instance());
-//         if (!isA(this.condition.type, Types.Bool)){
-//             this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
-//         }
-
-//         this.body.compile();
-//     },
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-// });
-
-
-// export var DoWhile = While.extend({
-//     _name: "DoWhile",
-//     initIndex: "body"
-// });
-
-
-// export var For = Iteration.extend({
-//     _name: "For",
-//     initIndex: "init",
-
-//     init : function(ast, context) {
-//         this.initParent(ast, context);
-
-//         this.body = this.i_createChild(ast.body);
-
-//         // If the body is already a block, we can just use its scope. Otherwise, create one for the for loop.
-//         this.bodyScope = (isA(this.body, Statements.Block) ? this.body.blockScope : BlockScope.instance(this.contextualScope));
-
-//         // Note: grammar ensures this will be an expression or declaration statement
-//         this.initial = this.i_createChild(ast.initial, {scope: this.bodyScope});
-
-//         this.condition = this.i_createChild(ast.condition, {scope : this.bodyScope});
-
-//         this.post = this.i_createChild(ast.post, {scope : this.bodyScope});
-
-//     },
-
-//     compile : function(){
-//         this.initial.compile();
-
-//         this.condition.compile();
-//         this.condition = standardConversion(this.condition, Types.Bool.instance());
-//         if (!isA(this.condition.type, Types.Bool)){
-//             this.addNote(CPPError.stmt.iteration.condition_bool(this.condition, this.condition))
-//         }
-
-//         this.body.compile();
-
-//         this.post.compile();
-//     },
-
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (inst.index == "wait"){
-//             return false;
-//         }
-//         else if (inst.index == "init"){
-//             inst.initial = this.initial.createAndPushInstance(sim, inst);
-//             inst.index = "condition";
-//             return true;
-//         }
-//         else if(inst.index == "condition"){
-//             inst.send("reset");
-//             inst.condition = this.condition.createAndPushInstance(sim, inst);
-//             inst.index = "body";
-//             return true;
-//         }
-//         else if (inst.index == "body"){
-//             if(inst.condition.evalResult.value){
-//                 inst.body = this.body.createAndPushInstance(sim, inst);
-//                 inst.index = "post";
-//                 return true;
-//             }
-//             else{
-//                 this.done(sim, inst);
-//                 return true;
-//             }
-//         }
-//         else if (inst.index == "post"){
-//             inst.post = this.post.createAndPushInstance(sim, inst);
-//             inst.index = "wait";
-//             return true;
-//         }
-//     },
-
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         inst.index = "condition"; // remove the wait index on iterations after the first
-//     }
-// });
 
 
 

@@ -341,6 +341,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     public startCleanup() {
+
+        // Cleanup should not be started if you have children pending on the stack
+        assert(this === this.sim.top());
+        
         this.cleanupStarted = true;
         if (this.cleanupConstruct) {
             this.sim.push(this.cleanupConstruct);

@@ -217,8 +217,8 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c40 = peg$literalExpectation(")", false);
   const peg$c41 = "else";
   const peg$c42 = peg$literalExpectation("else", false);
-  const peg$c43 = function(cond: any, then: any, e: any): any {return {construct_type:"selection_statement", condition:cond, then:then, otherwise:e}; };
-  const peg$c44 = function(cond: any, then: any): any {return {construct_type:"selection_statement", condition:cond, then:then}; };
+  const peg$c43 = function(cond: any, then: any, e: any): any {return {construct_type:"if_statement", condition:cond, then:then, otherwise:e}; };
+  const peg$c44 = function(cond: any, then: any): any {return {construct_type:"if_statement", condition:cond, then:then}; };
   const peg$c45 = "while";
   const peg$c46 = peg$literalExpectation("while", false);
   const peg$c47 = function(cond: any, body: any): any { return {construct_type:"while_statement", condition:cond, body:body}; };
@@ -228,7 +228,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c51 = "for";
   const peg$c52 = peg$literalExpectation("for", false);
   const peg$c53 = function(init: any, cond: any, post: any, body: any): any { return {construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}; };
-  const peg$c54 = function(d: any): any { return track(d, location(), text()); };
+  const peg$c54 = function(s: any): any { return track(s, location(), text()); };
   const peg$c55 = "break";
   const peg$c56 = peg$literalExpectation("break", false);
   const peg$c57 = function(): any { return {construct_type:"break_statement"}; };
@@ -1985,9 +1985,21 @@ function peg$parse(input: string, options?: IParseOptions) {
   function peg$parsefor_init_statement(): any {
     let s0, s1;
 
-    s0 = peg$parseexpression_statement();
+    s0 = peg$currPos;
+    s1 = peg$parseexpression_statement();
+    if (s1 !== peg$FAILED) {
+      peg$savedPos = s0;
+      s1 = peg$c54(s1);
+    }
+    s0 = s1;
     if (s0 === peg$FAILED) {
-      s0 = peg$parsenull_statement();
+      s0 = peg$currPos;
+      s1 = peg$parsenull_statement();
+      if (s1 !== peg$FAILED) {
+        peg$savedPos = s0;
+        s1 = peg$c54(s1);
+      }
+      s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parsedeclaration_statement();
