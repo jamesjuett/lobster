@@ -66,6 +66,7 @@ export type ExpressionASTNode =
     IdentifierExpressionASTNode |
     ThisExpressionASTNode |
     NumericLiteralASTNode |
+    StringLiteralASTNode |
     ParenthesesExpressionASTNode;
 
 
@@ -120,6 +121,7 @@ const ExpressionConstructsMap = {
     "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "this pointer").setAST(ast),
 
     "numeric_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteral.createFromAST(ast, context),
+    "string_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "string literals").setAST(ast),
     "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => Parentheses.createFromAST(ast, context)
 }
 
@@ -3543,6 +3545,12 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 	protected stepForwardImpl() {
         // Do nothing
 	}
+}
+
+
+export interface StringLiteralASTNode extends ASTNode {
+    readonly construct_type: "string_literal";
+    readonly value: string;
 }
 
 // export class StringLiteral extends Expression {
