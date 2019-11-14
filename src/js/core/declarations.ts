@@ -280,9 +280,9 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
             else if (init.construct_type == "copy_initializer") {
                 decl.setCopyInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
             }
-            // else if (init.construct_type == "initializer_list") {
-            //     // decl.setCopyInitializer(init.args.map((a) => Expression.createFromAST(a, context)));
-            // }
+            else if (init.construct_type == "initializer_list") {
+                decl.setInitializerList(init.args.map((a) => createExpressionFromAST(a, context)));
+            }
         }
 
         // Set AST

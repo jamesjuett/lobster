@@ -757,9 +757,9 @@ export const CPPError = {
         function_definition_prohibited : function(construct: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "stmt.function_definition_prohibited", "A function definition is prohibited here (i.e. inside a statement).");
         },
-        selection : {
+        if : {
             condition_bool : function(construct: TranslationUnitConstruct, expr: TypedExpression) {
-                return new CompilerNote(expr, NoteKind.ERROR, "stmt.selection.condition_bool", "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
+                return new CompilerNote(expr, NoteKind.ERROR, "stmt.if.condition_bool", "Expression of type (" + expr.type + ") cannot be converted to boolean condition.");
             }
         },
         iteration: {
