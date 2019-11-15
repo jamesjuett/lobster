@@ -196,7 +196,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         // }
     }
 
-    private getContainedNotes() {
+    public getContainedNotes() {
         let allNotes = new NoteRecorder();
         allNotes.addNotes(this.notes.allNotes);
         this.children.forEach(child => allNotes.addNotes(child.getContainedNotes().allNotes));

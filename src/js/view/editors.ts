@@ -701,7 +701,18 @@ export class FileEditor {
 
     private onEdit() {
         (<Mutable<this>>this).file = new SourceFile(this.file.name, this.doc.getValue());
+
+        // Newer versions of CodeMirror have inconsistent syntax coloring for the * operator
+        // when used as part of a declarator vs. other operators like &, [], and (). So here
+        // we manually fix the * spans.
+        $(".cm-type").filter(function() {
+            return $(this).html().trim() === "*"
+        }).removeClass(".cm-type").addClass(".cm-operator");
+
         this.observable.send("textChanged", this.file);
+
+
+
         // if(this.i_onEditTimeout){
         //     clearTimeout(this.i_onEditTimeout);
         // }
