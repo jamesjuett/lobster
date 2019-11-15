@@ -40,6 +40,7 @@ export interface ASTNode {
 
 export interface ProgramContext {
     readonly program: Program;
+    readonly translationUnit?: TranslationUnit;
     readonly implicit?: boolean;
     readonly libraryId?: number;
     readonly libraryUnsupported?: boolean;
@@ -189,15 +190,13 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     public addNote(note: Note) {
         this.notes.addNote(note);
+        if (this.context.translationUnit) { this.context.translationUnit.addNote(note); }
         // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
         //     this.parent.addNote(note);
         // }
     }
 
-    /**
-     * Returns an array of all notes associated with this construct or any of its descendants.
-     */
-    public getContainedNotes() {
+    private getContainedNotes() {
         let allNotes = new NoteRecorder();
         allNotes.addNotes(this.notes.allNotes);
         this.children.forEach(child => allNotes.addNotes(child.getContainedNotes().allNotes));

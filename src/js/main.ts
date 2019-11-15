@@ -25,7 +25,7 @@ $(() => {
 
     let runningProgress = element.find(".runningProgress");
 
-    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "blah", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "yes"} ]);
+    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "blah", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
 
 //        console = ValueEntity.instance();
 
