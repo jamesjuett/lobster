@@ -358,7 +358,13 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, typeSpec, storageSpec, declarator, otherSpecs);
-        this.addNote(CPPError.declaration.unknown_type(this));
+
+        // Add an error, but only if the declarator doesn't have one for some reason.
+        // It should already have one, assuming that's why there's no type.
+        // This will probably never be used.
+        if (!declarator.getContainedNotes().hasErrors) {
+            this.addNote(CPPError.declaration.unknown_type(this));
+        }
     }
     
 }
@@ -931,6 +937,7 @@ export class Declarator extends BasicCPPConstruct {
 
                         let paramDeclarations = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
                         (<Mutable<this>>this).parameters = paramDeclarations;
+                        this.attachAll(paramDeclarations);
                         
                         let paramTypes = paramDeclarations.map(decl => {
                             if (!decl.type) { return decl.type; }
@@ -952,8 +959,13 @@ export class Declarator extends BasicCPPConstruct {
                             }
                         }
 
+                        if (!paramTypes.every(paramType => paramType)) {
+                            return; // if some paramTypes aren't defined, can't do anything
+                        }
+
                         if (!paramTypes.every(paramType => paramType && paramType.isPotentialParameterType())) {
                             this.addNote(CPPError.declaration.func.some_invalid_parameter_types(this));
+                            return;
                         }
 
                         // TODO clean up error immediately above and get rid of yucky cast below
