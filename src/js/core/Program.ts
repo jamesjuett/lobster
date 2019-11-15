@@ -1,6 +1,6 @@
 
 import { parse as cpp_parse} from "../parse/cpp_parser";
-import { NoteKind, SyntaxNote, CPPError, NoteRecorder } from "./errors";
+import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
 import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
@@ -53,8 +53,6 @@ export class Program {
 
             let tu = this.translationUnits[tuName] = new TranslationUnit(this,
                 new PreprocessedSource(this.sourceFiles[tuName], this.sourceFiles));
-
-            this.notes.addNotes(tu.notes.allNotes);
         });
         
         if (!this.notes.hasSyntaxErrors) {
@@ -235,6 +233,10 @@ export class Program {
 
     public isRunnable() : this is RunnableProgram {
         return this.isCompiled() && !!this.mainFunction;
+    }
+
+    public addNote(note: Note) {
+        this.notes.addNote(note);
     }
 
     // //TODO: Program itself should just register all the function calls in its translation units.
@@ -657,12 +659,10 @@ export class TranslationUnit {
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
                     asMutable(this.topLevelDeclarations).push(decl);
-                    this.notes.addNotes(decl.getContainedNotes().allNotes);
                 });
             }
             else {
                 asMutable(this.topLevelDeclarations).push(declsOrFuncDef);
-                this.notes.addNotes(declsOrFuncDef.getContainedNotes().allNotes);
             }
         });
     }
@@ -688,6 +688,11 @@ export class TranslationUnit {
 
     public getSourceReference(line: number, column: number, start: number, end: number) {
         return this.source.getSourceReference(line, column, start, end);
+    }
+
+    public addNote(note: Note) {
+        this.notes.addNote(note);
+        this.program.addNote(note);
     }
 }
 

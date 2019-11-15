@@ -1082,7 +1082,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // added after the parameters.)
         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body);
+        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
     }
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??

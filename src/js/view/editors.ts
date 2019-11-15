@@ -1,13 +1,14 @@
 import { Program, SourceFile, SourceReference } from "../core/Program";
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
-import 'codemirror/theme/monokai.css';
-import 'codemirror/mode/xml/xml.js';
+import '../../css/lobster.css';
+import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
+import { analyze } from "../core/analysis";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -58,7 +59,7 @@ export class ProjectEditor {
         assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
         this.codeMirror = CodeMirror(codeMirrorElement[0], {
             mode: CODEMIRROR_MODE,
-            theme: "monokai",
+            theme: "lobster",
             lineNumbers: true,
             tabSize: 2,
             extraKeys: {
@@ -234,6 +235,8 @@ export class ProjectEditor {
     public recompile() {
         (<Mutable<this>>this).program = new Program(this.sourceFiles,
             this.sourceFiles.map(file => file.name).filter(name => this.isTranslationUnit(name)));
+
+        analyze(this.program);
 
         Object.keys(this.fileEditors).forEach((ed: string) => {
             this.fileEditors[ed].clearMarks();
@@ -727,7 +730,7 @@ export class FileEditor {
                 num: 0
             };
         }
-        let elem = $('<div class="errorNote">'+text+'</div>');
+        let elem = $('<div class="errorNote">- '+text+'</div>');
         marker.elem.children("div").append(elem);
         ++marker.num;
         let ed = this.doc.getEditor();
