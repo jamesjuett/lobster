@@ -69,11 +69,15 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
             return this.elemObjects[index];
         }
         else {
-            let outOfBoundsObj =  new ArraySubobject(this.object, index,
+            let outOfBoundsObj = new ArraySubobject(this.object, index,
                 this.memory, this.address + index * this.object.type.elemType.size);
             outOfBoundsObj.setValidity(false);
             return outOfBoundsObj;
         }
+    }
+
+    public getArrayElemSubobjects() : readonly ArraySubobject<Elem_type>[] {
+        return this.elemObjects;
     }
 
     public getValue() {
@@ -273,6 +277,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
     public getArrayElemSubobject<AT extends BoundedArrayType>(this: CPPObject<AT>, index: number) : ArraySubobject<AT["elemType"]> {
         return this.data.getArrayElemSubobject(index);
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public getArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>) : readonly ArraySubobject<AT["elemType"]>[] {
+        return this.data.getArrayElemSubobjects();
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
