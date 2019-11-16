@@ -8,6 +8,7 @@
     "author": "James Juett",
     "license": "",
     "devDependencies": {
+        "@svgdotjs/svg.js": "^3.0.16",
         "@types/bootstrap": "^4.1.2",
         "@types/codemirror": "0.0.80",
         "@types/gapi": "^0.0.35",

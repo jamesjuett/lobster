@@ -70,7 +70,7 @@ export function analyze(program: Program) {
     // Heuristic 1
     // At least two assignments, but no variable declarations. Forgot a temporary?
     if (assignments.length >= 2 && localDefs.length == 0) {
-        swapPtdInts.declaration.addNote(new CompilerNote(swapPtdInts.declaration, NoteKind.STYLE, "analysis.1", "Consider using a temporary variable."));
+        assignments.forEach(assn => assn.addNote(new CompilerNote(assn, NoteKind.STYLE, "analysis.1", "It's just a guess, but one of these assignments might end up accidentally overwriting some important data when you run your code. Check out the simulation to see ;).")));
     }
 
     // Heuristic 2
@@ -89,7 +89,7 @@ export function analyze(program: Program) {
     }).forEach(def => {
         def.addNote(new CompilerNote(def, NoteKind.STYLE, "analysis.3",
             `This line is trying to put an address into a variable that declared to hold ${def.type!.englishString(false)} value. Pointers (which have addresses for values) can't be stored into variables that hold plain values.`));
-    })
+    });
     
     // Heuristic 4
     // Parameters that are pass-by-value (and not pass-by-pointer)

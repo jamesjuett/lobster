@@ -20,6 +20,18 @@ export function addListener(objWithObservable: {observable: Observable}, listene
     objWithObservable.observable.addListener(listener, category);
 }
 
+export function listenTo(listener: ObserverType, objWithObservable: {observable: Observable}, category?: string | string[]) {
+    objWithObservable.observable.addListener(listener, category);
+}
+
+export function removeListener(objWithObservable: {observable: Observable}, listener: ObserverType, category?: string | string[]) {
+    objWithObservable.observable.removeListener(listener, category);
+}
+
+export function stopListeningTo(listener: ObserverType, objWithObservable: {observable: Observable}, category?: string | string[]) {
+    objWithObservable.observable.removeListener(listener, category);
+}
+
 export function messageResponse(messageCategory?: string) {
     return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
         if (!target._act) { target._act = {}; }
@@ -153,12 +165,20 @@ export class Observable {
     Note: to remove a universal listener, you must call this with category==false.
     If a listener is universal, removing it from a particular category won't do anything.
     */
-    public removeListener(listener: ObserverType, category?: string) {
+    public removeListener(listener: ObserverType, category?: string | string[]) {
         if(category) {
-            // Remove from the list for a specific category (if list exists)
-            let observers = this.observers[category];
-            observers && pull(observers, listener);
-            this.listenerRemoved(listener, category);
+            if (Array.isArray(category)) {
+                // If there's an array of categories, add to all individually
+                for (var i = 0; i < category.length; ++i) {
+                    this.removeListener(listener, category[i]);
+                }
+            }
+            else {
+                // Remove from the list for a specific category (if list exists)
+                let observers = this.observers[category];
+                observers && pull(observers, listener);
+                this.listenerRemoved(listener, category);
+            }
         }
         else{
             // Remove from all categories

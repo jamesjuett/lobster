@@ -683,7 +683,7 @@ export class FileEditor {
         this.file = file;
         this.doc = CodeMirror.Doc(file.text, CODEMIRROR_MODE);
 
-        CodeMirror.on(this.doc,"change", () => { this.onEdit(); });
+        CodeMirror.on(this.doc, "change", () => { this.onEdit(); });
 
         FileEditor.instances.push(this);
     }
@@ -707,7 +707,7 @@ export class FileEditor {
         // we manually fix the * spans.
         $(".cm-type").filter(function() {
             return $(this).html().trim() === "*"
-        }).removeClass(".cm-type").addClass(".cm-operator");
+        }).removeClass("cm-type").addClass("cm-operator");
 
         this.observable.send("textChanged", this.file);
 
