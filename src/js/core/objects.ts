@@ -246,7 +246,6 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     public readonly isAlive: boolean;
     public readonly deallocatedBy?: RuntimeConstruct;
 
-
     private _isValid: boolean;
 
     public constructor(type: T, memory: Memory, address: number) {
