@@ -1,8 +1,8 @@
 import { Memory } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
-import { CPPObject } from "../core/objects";
-import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType } from "../core/types";
+import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
+import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType } from "../core/types";
 import { Mutable } from "../util/util";
 
 const FADE_DURATION = 300;
@@ -933,7 +933,7 @@ export abstract class MemoryObjectOutlet<T extends ObjectType> {
 
     public readonly object: CPPObject<T>;
     
-    private readonly memoryOutlet: MemoryOutlet;
+    protected readonly memoryOutlet: MemoryOutlet;
     
     protected readonly element: JQuery;
     protected abstract readonly objElem: JQuery;
@@ -1337,11 +1337,11 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
 //     Outlets.CPP.CPP_ANIMATIONS = temp;
 // }, 20);
 
-Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
-    _name: "ReferenceMemoryObject",
-    init: function(element, object, memoryOutlet)
-    {
-        this.initParent(element, object, memoryOutlet);
+export class ReferenceMemoryObject<T extends ObjectType> extends MemoryObjectOutlet<T> {
+
+    public constructor(element: JQuery, object: T, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+
         this.element.addClass("code-memoryObjectSingle");
 
         this.addrElem = $("<td class='address'></td>");
@@ -1376,57 +1376,60 @@ Lobster.Outlets.CPP.ReferenceMemoryObject = Outlets.CPP.MemoryObject.extend({
     })
 });
 
-Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
-    _name: "ArrayMemoryObject",
-    init: function(element, object, memoryOutlet)
-    {
-        this.initParent(element, object, memoryOutlet);
-        this.length = this.object.elemObjects.length;
+export class ArrayMemoryObject<T extends BoundedArrayType> extends MemoryObjectOutlet<T> {
+
+    protected readonly objElem : JQuery;
+    private readonly addrElem : JQuery;
+
+    private readonly elemOutlets: MemoryObjectOutlet[];
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+
         this.element.addClass("code-memoryObjectArray");
 
         this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
         this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
-        this.elemOutlets = [];
-        for(var i = 0; i < this.length; ++i) {
-            var elemElem = $('<div></div>');
-            var elemContainer = $('<div style="display: inline-block; margin-bottom: 5px; text-align: center" class="arrayElem"></div>');
+        this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T["elemType"]>, i: number) => {
+            let elemElem = $('<div></div>');
+            let elemContainer = $('<div style="display: inline-block; margin-bottom: 5px; text-align: center" class="arrayElem"></div>');
             elemContainer.append(elemElem);
             elemContainer.append('<div style="line-height: 1ch; font-size: 6pt">'+i+'</div>');
             this.objElem.append(elemContainer);
-            if (isA(this.object.type.elemType, Types.Class)) {
-                this.elemOutlets.push(createMemoryObjectOutlet(elemElem, this.object.elemObjects[i], this.memoryOutlet));
+            if (elemSubobject.type.isClassType()) {
+                this.elemOutlets.push(createMemoryObjectOutlet(elemElem, elemSubobject, this.memoryOutlet));
             }
             else{
-                this.elemOutlets.push(Outlets.CPP.ArrayElemMemoryObject.instance(elemElem, this.object.elemObjects[i], this.memoryOutlet));
+                this.elemOutlets.push(new ArrayElemMemoryObject(elemElem, elemSubobject, this.memoryOutlet));
             }
 
             // 2D array
-            if (isA(this.object.type.elemType, Types.Array)) {
-                this.objElem.append("<br />");
-            }
+            // if (isA(this.object.type.elemType, Types.Array)) {
+            //     this.objElem.append("<br />");
+            // }
             //else{
             //    this.objElem.append("<br />");
             //}
 //            if (i % 10 == 9) {
 //                this.objElem.append("<br />");
             // }
-        }
+        });
+
         this.updateObject();
         this.element.append(this.addrElem);
         this.element.append(this.nameElem).append(this.objElem);
+    }
 
-        return this;
-    },
-
-    updateObject : function() {
+    protected updateObject() {
+        // I think nothing to do here, since the array subobjects should update themselves?
 //        var elemType = this.object.type.elemType;
 //        var value = this.object.getValue();
 //        for(var i = 0; i < this.length; ++i) {
 //            this.elemOutlets[i].updateObject();
 //        }
-    },
+    }
 
 //    updateElems : function(addr, length, func) {
 //        var endAddr = addr + length;
@@ -1441,150 +1444,134 @@ Lobster.Outlets.CPP.ArrayMemoryObject = Outlets.CPP.MemoryObject.extend({
 //        }
 //    },
 
-    valueRead: function () {
-//        this.element.find(".code-memoryObject-object").addClass("get");
-    },
-    byteRead: function (data) {
-//        this.updateElems(data.addr, 1, "get")
-    },
-    bytesRead: function (data) {
-//        this.updateElems(data.addr, data.length, "get")
-    },
+//     valueRead: function () {
+// //        this.element.find(".code-memoryObject-object").addClass("get");
+//     },
+//     byteRead: function (data) {
+// //        this.updateElems(data.addr, 1, "get")
+//     },
+//     bytesRead: function (data) {
+// //        this.updateElems(data.addr, data.length, "get")
+//     },
 
-    valueWritten: function () {
-//        this.updateObject();
-//        this.element.find(".code-memoryObject-object").addClass("set");
-    },
-    byteWritten: function (data) {
-//        this.updateObject();
-//        this.updateElems(data.addr, 1, "set")
-    },
-    bytesWritten: function (data) {
-//        this.updateObject();
-//        this.updateElems(data.addr, data.values.length, "set")
-    }
-});
+//     valueWritten: function () {
+// //        this.updateObject();
+// //        this.element.find(".code-memoryObject-object").addClass("set");
+//     },
+//     byteWritten: function (data) {
+// //        this.updateObject();
+// //        this.updateElems(data.addr, 1, "set")
+//     },
+//     bytesWritten: function (data) {
+// //        this.updateObject();
+// //        this.updateElems(data.addr, data.values.length, "set")
+//     }
+}
 
-Lobster.Outlets.CPP.ArrayElemMemoryObject = Outlets.CPP.MemoryObject.extend({
-    _name: "ArrayElemMemoryObject",
-    init: function(element, object, memoryOutlet)
-    {
-        this.initParent(element, object, memoryOutlet);
+export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObjectOutlet<T> {
+
+    protected readonly objElem : JQuery;
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
 
         this.element.addClass("array");
         this.objElem = $('<span class="code-memoryObject-object"></span>');
         this.element.append(this.objElem);
 
         this.updateObject();
-        return this;
-    },
+    }
 
-    updateObject : function() {
-        var elem = this.objElem;
-        var str = this.object.valueString();
-        if (isA(this.object.type, Types.Char)) {
+    protected updateObject() {
+        let str = this.object.getValue().valueString();
+        if (this.object.type.isType(Char)) {
             str = str.substr(1,str.length-2);
         }
-        elem.html(str);
+        this.objElem.html(str);
         if (this.object.isValueValid()) {
-            elem.removeClass("invalid");
+            this.objElem.removeClass("invalid");
         }
         else{
-            elem.addClass("invalid");
+            this.objElem.addClass("invalid");
         }
     }
-});
+}
 
-Lobster.Outlets.CPP.ClassMemoryObject = Outlets.CPP.MemoryObject.extend({
-    _name: "ClassMemoryObject",
-    init: function(element, object, memoryOutlet)
-    {
-        this.initParent(element, object, memoryOutlet);
-        assert(isA(this.object.type, Types.Class));
-        this.length = this.object.subobjects.length;
+export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T> {
+
+    protected readonly objElem: JQuery;
+    private readonly addrElem: JQuery;
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+        
         this.element.addClass("code-memoryObjectClass");
-
 
         this.objElem = $("<div class='classObject'></div>");
 
-        var className = this.object.type.className + (isA(this.object, BaseSubobject) ? " (base)" : "");
-        this.classHeaderElem = $('<div class="classHeader"></div>');
-        this.objElem.append(this.classHeaderElem);
+        var className = this.object.type.className + (this.object instanceof BaseSubobject ? " (base)" : "");
+        let classHeaderElem = $('<div class="classHeader"></div>');
+        this.objElem.append(classHeaderElem);
 
         // Only show name and address for object if not a base class subobject
-        if (!isA(this.object, BaseSubobject)) {
-            if (isA(this.object, DynamicObject)) {
+        if (!(this.object instanceof BaseSubobject)) {
+            if (this.object instanceof DynamicObject) {
                 this.addrElem = $("<td class='address'>0x"+this.object.address+"</td>");
-                this.classHeaderElem.append(this.addrElem);
+                classHeaderElem.append(this.addrElem);
             }
 
             if (this.object.name) {
-                this.entityElem = $("<div class='entity'>" + (this.object.name || "") + "</div>");
-                this.classHeaderElem.append(this.entityElem);
+                let entityElem = $("<div class='entity'>" + (this.object.name || "") + "</div>");
+                classHeaderElem.append(entityElem);
             }
         }
 
-        this.classHeaderElem.append($('<span class="className">'+className+'</span>'));
+        classHeaderElem.append($('<span class="className">'+className+'</span>'));
 
 
+        let membersElem = $('<div class="members"></div>');
 
+        let memberOutlets = [];
 
-        this.membersElem = $('<div class="members"></div>');
-
-        this.memberOutlets = [];
         for(var i = 0; i < this.length; ++i) {
             var elemElem = $("<div></div>");
-            this.membersElem.append(elemElem);
-            this.memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
+            membersElem.append(elemElem);
+            memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
 //            if (i % 10 == 9) {
 //                this.objElem.append("<br />");
             // }
         }
-        this.objElem.append(this.membersElem);
-
+        this.objElem.append(membersElem);
 
         this.element.append(this.objElem);
 
         return this;
-    },
+    }
 
-    valueRead: function () {
-    },
-    byteRead: function (data) {
-    },
-    bytesRead: function (data) {
-    },
-    valueWritten: function () {
-    },
-    byteWritten: function (data) {
-    },
-    bytesWritten: function (data) {
-    },
-    updateObject : function() {}
-});
+    protected updateObject() {
+        // nothing to do. member object outlets should handle stuff
+    }
+}
 
 
 
-var createMemoryObjectOutlet = function(elem, obj, memoryOutlet) {
-    if(isA(obj.type, Types.Reference)) {
-        return Outlets.CPP.ReferenceMemoryObject.instance(elem, obj, memoryOutlet);
+export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
+    if(obj.type.isReferenceType()) {
+        return new ReferenceMemoryObject(elem, obj, memoryOutlet);
     }
-    else if(isA(obj.type, Types.Pointer)) {
-        return Outlets.CPP.PointerMemoryObject.instance(elem, obj, memoryOutlet);
+    else if(obj.type.isPointerType()) {
+        return new PointerMemoryObject(elem, <CPPObject<PointerType>>obj, memoryOutlet);
     }
-    else if(isA(obj.type, Types.Array)) {
-        return Outlets.CPP.ArrayMemoryObject.instance(elem, obj, memoryOutlet);
+    else if(obj.type.isBoundedArrayType()) {
+        return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
     }
-    else if(isA(obj.type, Types.Tree_t)) {
-        return Outlets.CPP.TreeMemoryObject.instance(elem, obj, memoryOutlet);
-    }
-    else if(isA(obj.type, Types.Class)) {
-        return Outlets.CPP.ClassMemoryObject.instance(elem, obj, memoryOutlet);
+    else if(obj.type.isClassType()) {
+        return new ClassMemoryObject(elem, <CPPObject<ClassType>>obj, memoryOutlet);
     }
     else{
-        return Outlets.CPP.SingleMemoryObject.instance(elem, obj, memoryOutlet);
+        return new SingleMemoryObject(elem, <CPPObject<AtomicType>>obj, memoryOutlet);
     }
-};
+}
 
 Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
     _name : "Outlets.CPP.StackFrame",
