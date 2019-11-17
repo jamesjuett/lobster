@@ -2,10 +2,11 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType } from "../core/types";
+import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
 import { Mutable } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
+import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -211,117 +212,21 @@ const CPP_ANIMATIONS = true;
 
 
 
+export class SimulationOutlet {
 
+    public readonly sim?: Simulation;
 
-Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
-    _name: "SimulationOutlet",
-    DEFAULT_CONFIG : {
-        initCode: "int main() {\n  \n}"
-    },
-    init: function(element, config) {
-        this.i_config = makeDefaulted(config, Outlets.CPP.SimulationOutlet.DEFAULT_CONFIG);
+    private readonly element: JQuery;
+    private readonly runningProgressElem: JQuery;
 
-        assert(element instanceof jQuery);
+    public _act!: MessageResponses;
 
-        this.initParent(element);
+    public constructor(element: JQuery) {
+        this.element = element;
 
-        this.sim = Simulation.instance(Program.instance());
-        this.listenTo(this.sim);
+        this.runningProgressElem = element.find(".runningProgress");
 
-        if (this.i_config.log !== false) {
-            this.log = UserLog.instance();
-        }
-
-        var self = this;
-//        $("#sim").load("component/sim/standard", function() {
-        self.initSuboutlets();
-        self.initListeners();
-
-//        });
-
-
-//        simulation.setCode(config.initCode);
-    },
-
-    initSuboutlets : function() {
-        var element = this.element;
-        var elem;
-
-        var self = this;
-
-        // Set up simulation and source tabs
-        // var sourceTab = element.find(".sourceTab");
-        // var simTab = element.find(".simTab");
-
-        this.i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
-
-
-        var sourcePane = element.find("#sourcePane");
-        var simPane = element.find("#simPane");
-
-        // sourceTab.click(function() {
-        //     sourceTab.addClass("active");
-        //     simTab.removeClass("active");
-        //     sourcePane.css("display", "flex");
-        //     simPane.css("display", "none");
-        // });
-        //
-        // simTab.add(element.find(".runButton")).click(function() {
-        //     simTab.addClass("active");
-        //     sourceTab.removeClass("active");
-        //     simPane.css("display", "flex");
-        //     sourcePane.css("display", "none");
-        //     self.saveFunc();
-        //     self.send("userAction", UserActions.Simulate.instance());
-        //     simPane.focus();
-        //     self.restart();
-        // });
-
-
-        // var simTab = element.find(".simTab");
-        element.find(".runButton").click(function() {
-            self.sim.setProgram(self.projectEditor.getProgram());
-            $("#simulateTab").tab("show");
-            self.restart();
-        });
-
-
-        this.projectEditor = ProjectEditor.instance(sourcePane);
-        this.listenTo(this.projectEditor);
-        this.listenTo(this.projectEditor.getProgram());
-
-        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
-            self.projectEditor.refreshEditorView();
-        });
-
-
-        this.compilationOutlet = CompilationOutlet.instance(element.find("#compilationPane"), this.projectEditor.getProgram());
-
-        this.compilationStatusOutlet = CompilationStatusOutlet.instance(element.find(".compilation-status-outlet"), this.projectEditor.getProgram());
-        this.projectSaveOutlet = ProjectSaveOutlet.instance(element.find(".project-save-outlet"), this.projectEditor);
-
-
-        this.errorStatus = ValueEntity.instance();
-
-
-        this.runningProgress = element.find(".runningProgress");
-//        this.console = ValueEntity.instance();
-
-        // if ((elem = element.find(".codeMirrorEditor")).length !== 0) {
-        //     this.editor = Outlets.CPP.FileEditor.instance(elem, this.program);
-        //     this.listenTo(this.editor);
-        //     this.listenTo(this.editor.getProgram());
-        //     this.sim.converse(this.editor);
-        //     // Dismiss any annotation messages
-        //     var self = this;
-        //     elem.click(function() {
-        //         self.hideAnnotationMessage();
-        //     })
-        // }
-        if ((elem = this.statusElem = element.find(".status")).length !== 0) {
-            this.status = Outlets.HtmlOutlet.instance(elem, true).listenTo(this.errorStatus);
-        }
+        
         if ((elem = element.find(".console")).length !== 0) {
             this.consoleOutlet = Outlets.HtmlOutlet.instance(elem, true).listenTo(this.sim.console);
         }
@@ -489,6 +394,64 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         this.alerts.find("button").click(function() {
             self.hideAlerts();
         });
+    }
+
+    public setSimulation(sim: Simulation) {
+        this.clearSimulation();
+        (<Mutable<this>>this).sim = sim;
+        listenTo(this, sim);
+    }
+
+    public clearSimulation() {
+        if (this.sim) {
+            stopListeningTo(this, this.sim);
+        }
+        delete (<Mutable<this>>this).sim;
+    }
+
+}
+
+
+export class DefaultLobsterOutlet {
+
+    public projectEditor: ProjectEditor;
+    public simulationOutlet: SimulationOutlet;
+
+    private readonly element: JQuery;
+    private readonly tabsElem: JQuery;
+
+    public _act!: MessageResponses;
+
+    public constructor(element: JQuery) {
+        this.element = element;
+
+        // Set up simulation and source tabs
+        // var sourceTab = element.find(".sourceTab");
+        // var simTab = element.find(".simTab");
+
+        this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
+
+        this.projectEditor = new ProjectEditor(element.find("#sourcePane"));
+
+        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
+            self.projectEditor.refreshEditorView();
+        });
+
+        this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
+
+        element.find(".runButton").click(() => {
+            let program = this.projectEditor.program;
+            if (program.isRunnable()) {
+                this.simulationOutlet.setSimulation(new Simulation(program));
+            }
+            $("#simulateTab").tab("show");
+        });
+
+        new CompilationOutlet(element.find("#compilationPane"), this.projectEditor);
+
+        new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
+        new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
 
         this.annotationMessages = element.find(".annotationMessages");
         this.annotationMessages.find("button").click(function() {
@@ -711,12 +674,12 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
             if (msg.source === this.projectEditor) {
                 var self = this;
                 var response = function() {
-                    self.i_tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
+                    self.tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
                     msg.data();
                 };
                 // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-                this.i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
-                this.i_tabsElem.find('a[href="#sourcePane"]').tab("show");
+                this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
+                this.tabsElem.find('a[href="#sourcePane"]').tab("show");
             }
         },
         fullCompilationFinished : function() {
@@ -735,17 +698,6 @@ Lobster.Outlets.CPP.SimulationOutlet = WebOutlet.extend({
         syntaxError : function(msg) {
             var err = msg.data;
             this.errorStatus.setValue("Syntax error at line " + err.line + ", column " + err.column/* + ": " + err.message*/);
-            this.statusElem.addClass("error");
-            this.runButton.css("display", "none");
-        },
-        semanticError : function(msg) {
-            this.errorStatus.setValue("Semantic error(s) detected.");
-            this.statusElem.addClass("error");
-            this.runButton.css("display", "none");
-
-        },
-        otherError : function(msg) {
-            this.errorStatus.setValue(msg.data);
             this.statusElem.addClass("error");
             this.runButton.css("display", "none");
         },
@@ -1732,14 +1684,14 @@ export class StackFramesOutlet {
 //            }
 //            else{
         if (Outlets.CPP.CPP_ANIMATIONS) {
-            let popped = this.frameElems.pop();
-            popped && popped.slideUp(SLIDE_DURATION, function() {
+            let popped = this.frameElems.pop()!;
+            popped.slideUp(SLIDE_DURATION, function() {
                 $(this).remove();
             });
         }
         else{
-            let popped = this.frameElems.pop();
-            popped && popped.remove();
+            let popped = this.frameElems.pop()!;
+            popped.remove();
         }
 //            }
     }
@@ -1908,12 +1860,15 @@ export class TemporaryObjectsOutlet {
     
 }
 
-export class RunningCode {
+export class RunningCodeOutlet {
 
-    private element: JQuery;
-    private sim: Simulation;
-    private simOutlet: SimulationOutlet;
-
+    protected element: JQuery;
+    protected simOutlet: SimulationOutlet;
+    protected overlayElem: JQuery;
+    protected stackFramesElem: JQuery;
+    
+    public readonly sim: Simulation;
+    
     public _act!: MessageResponses;
 
     public constructor(element: JQuery, sim: Simulation, simOutlet: SimulationOutlet) {
@@ -1921,6 +1876,12 @@ export class RunningCode {
         this.sim = sim;
         this.simOutlet = simOutlet;
         listenTo(this, sim);
+        
+        this.overlayElem = $("<div class='overlays'></div>");
+        this.stackFramesElem = $("<div class='code-simStack'></div>");
+
+        this.element.append(this.overlayElem);
+        this.element.append(this.stackFramesElem);
 
     }
 
@@ -1963,20 +1924,24 @@ export class RunningCode {
                 afterCallback();
             }
         }
-    },
-    afterFullStep : function(inst) {
-        if (!inst) { return; }
-        var self = this;
-        inst.identify("idCodeOutlet", function(codeOutlet) {
-            if (codeOutlet.simOutlet === self) {
-                self.scrollTo(codeOutlet)
-            }
-        });
-    },
-    scrollTo : Class._ABSTRACT,
+    }
+
+    // afterFullStep : function(inst) {
+    //     if (!inst) { return; }
+    //     var self = this;
+    //     inst.identify("idCodeOutlet", function(codeOutlet) {
+    //         if (codeOutlet.simOutlet === self) {
+    //             self.scrollTo(codeOutlet)
+    //         }
+    //     });
+    // }
+
+    // scrollTo : Class._ABSTRACT,
+
     started : function() {
         $(".code-memoryObject .get").removeClass("get");
-    },
+    }
+
     refresh : function() {
         this.cleared();
         this.mainCall.removeInstance();
@@ -1986,56 +1951,50 @@ export class RunningCode {
         if (last) {
             last.send("upNext");
         }
-    },
+    }
+
     _act : {
         pushed: true,
         started: true,
         cleared: true,
         afterFullStep: true
     }
-});
+}
 
-Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
-    _name: "SimulationStack",
-    init: function(element, sim, simOutlet)
-    {
-        this.initParent(element, sim, simOutlet);
+export class SimulationStackOutlet extends RunningCodeOutlet {
 
-        this.overlayElem = $("<div class='overlays'></div>");
-        this.stackFramesElem = $("<div class='code-simStack'></div>");
+    private readonly frameElems: JQuery[];
 
-        this.element.append(this.overlayElem);
-        this.element.append(this.stackFramesElem);
+    public constructor(element: JQuery, sim: Simulation, simOutlet: SimulationOutlet) {
+        super(element, sim, simOutlet);
 
         this.element.addClass("code-simulation");
 
-        this.count = 0;
-
-        this.frames = [];
+        this.frameElems = [];
         // this.framesElement = this.element;
 
 
         return this;
-    },
+    }
 
-    pushFunction : function(funcInst, callOutlet) {
-        //if (funcInst.model.isImplicit()) {
+    public pushFunction(rtFunc: RuntimeFunction, callOutlet: FunctionCallOutlet) {
+        //if (rtFunc.model.isImplicit()) {
         //    return;
         //}
 
         // Set up DOM element for outlet
-        var frame = $("<div style= 'display: none'></div>");
-        var functionElem = $("<div></div>");
+        let frame = $("<div style= 'display: none'></div>");
+        let functionElem = $("<div></div>");
         frame.append(functionElem);
-        this.frames.push(frame);
+        this.frameElems.push(frame);
         this.stackFramesElem.prepend(frame);
 
         // Create outlet using the element
-        var funcOutlet = Outlets.CPP.Function.instance(functionElem, funcInst, this, callOutlet);
+        let funcOutlet = Outlets.CPP.Function.instance(functionElem, rtFunc, this, callOutlet);
 
         // Animate!
         if (Outlets.CPP.CPP_ANIMATIONS) {
-            (this.frames.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function() {
+            (this.frameElems.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function() {
 //                elem.scrollTop = elem.scrollHeight;
                 }}));
         }
@@ -2046,15 +2005,14 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
 
 
         return funcOutlet;
-    },
+    }
 
-    popFunction : function(funcInst) {
-        //if (funcInst.model.isImplicit()) {
+    public popFunction(rtFunc: RuntimeFunction) {
+        //if (rtFunc.model.isImplicit()) {
         //    return;
         //}
-        var popped = this.frames.last();
-        this.frames.pop();
-        if (this.frames.length == 0 || !Outlets.CPP.CPP_ANIMATIONS) {
+        var popped = this.frameElems.pop()!;
+        if (this.frameElems.length == 0 || !Outlets.CPP.CPP_ANIMATIONS) {
             popped.remove();
         }
         else{
@@ -2062,25 +2020,26 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
                 $(this).remove();
             });
         }
-    },
-    cleared: function() {
-        this.frames.clear();
+    }
+
+    protected cleared() {
+        this.frameElems.clear();
         this.stackFramesElem.children().remove();
-    },
+    }
 
     //refresh : Class.ADDITIONALLY(function() {
     //    this.frames.clear();
     //    this.stackFramesElem.children().remove();
     //}),
 
-    scrollTo : function(codeOutlet) {
-        //var self = this;
-        //var thisTop = this.element.offset().top;
-        //var codeTop = codeOutlet.element.offset().top;
-        //this.element.finish().animate({
-        //    scrollTop: codeOutlet.element.offset().top - self.stackFramesElem.offset().top
-        //}, 1000);
-    }
+    // protected scrollTo(codeOutlet) {
+    //     //var self = this;
+    //     //var thisTop = this.element.offset().top;
+    //     //var codeTop = codeOutlet.element.offset().top;
+    //     //this.element.finish().animate({
+    //     //    scrollTop: codeOutlet.element.offset().top - self.stackFramesElem.offset().top
+    //     //}, 1000);
+    // }
 
 }
 
