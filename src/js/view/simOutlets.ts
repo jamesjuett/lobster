@@ -1,9 +1,11 @@
-import { Memory } from "../core/runtimeEnvironment";
-import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo } from "../util/observe";
+import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
+import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType } from "../core/types";
 import { Mutable } from "../util/util";
+import { Simulation } from "../core/Simulation";
+import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -1573,15 +1575,24 @@ export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOut
     }
 }
 
-Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
-    _name : "Outlets.CPP.StackFrame",
-    init: function(element, frame, memoryOutlet)
-    {
-        this.initParent(element, true);
-        this.frame = frame;
-        this.listenTo(frame);
+export class StackFrameOutlet {
 
+    private readonly memoryOutlet: MemoryOutlet;
+    
+    private readonly element: JQuery;
+
+    public readonly frame: MemoryFrame;
+    
+    public _act!: MessageResponses;
+
+    private readonly customizations : StackFrameCustomization;
+
+    public constructor(element: JQuery, frame: MemoryFrame, memoryOutlet: MemoryOutlet) {
+        this.element = element;
+        this.frame = frame;
         this.memoryOutlet = memoryOutlet;
+        
+        listenTo(this, frame);
 
         this.customizations = OutletCustomizations.func[this.frame.func.entityId];
         if (!this.customizations) {
@@ -1590,317 +1601,349 @@ Lobster.Outlets.CPP.StackFrame = WebOutlet.extend({
             };
         }
 
-
         this.element.addClass("code-stackFrame");
 
-        this.header = $("<div class='header'></div>");
-        this.element.append(this.header);
+        let header = $("<div class='header'></div>");
+        this.element.append(header);
 
-        this.body = $("<div class='body'></div>");
-        this.element.append(this.body);
+        let body = $("<div class='body'></div>");
+        this.element.append(body);
 
-        this.minimizeButton = $("<span class='button'></span>");
+        let minimizeButton = $("<span class='button'></span>");
 
         if(this.customizations.minimize === "show") {
-            this.minimizeButton.html("hide");
+            minimizeButton.html("hide");
         }
         else{
-            this.minimizeButton.html("show");
-            this.body.css("display", "none");
+            minimizeButton.html("show");
+            body.css("display", "none");
         }
 
-        var self = this;
-        this.minimizeButton.click(function() {
-            self.body.slideToggle();
-            if ($(this).html() === "hide") {
-                $(this).html("show");
-                self.customizations.minimize = "hide";
+        minimizeButton.click(() => {
+            body.slideToggle();
+            if (minimizeButton.html() === "hide") {
+                minimizeButton.html("show");
+                this.customizations.minimize = "hide";
             }
             else{
-                $(this).html("hide");
-                self.customizations.minimize = "show";
+                minimizeButton.html("hide");
+                this.customizations.minimize = "show";
             }
         });
-        this.header.append(this.frame.func.name);
-        this.header.append(this.minimizeButton);
+        
+        header.append(this.frame.func.name);
+        header.append(minimizeButton);
 
         // REMOVE: this is taken care of by actually adding a memory object for the this pointer
         //if (this.frame.func.isMemberFunction) {
         //    var elem = $("<div></div>");
         //    createMemoryObjectOutlet(elem, this.frame.objects[key], this.memoryOutlet);
-        //    this.body.append(elem);
+        //    body.append(elem);
         //}
 
         for(var key in this.frame.objects) {
             var elem = $("<div></div>");
             createMemoryObjectOutlet(elem, this.frame.objects[key], this.memoryOutlet);
-            this.body.prepend(elem);
+            body.prepend(elem);
         }
         for(var key in this.frame.references) {
             var elem = $("<div></div>");
             createMemoryObjectOutlet(elem, this.frame.references[key], this.memoryOutlet);
-            this.body.prepend(elem);
+            body.prepend(elem);
         }
-
-//        this.element.html(this.frame.toString());
-
-        return this;
     }
+}
 
-});
+interface StackFrameCustomization {
+    minimize: "show" | "hide";
+}
 
-var OutletCustomizations = {
-    temporaryObjects : {
+interface TemporaryObjectsCustomization {
+    minimize: "show" | "hide";
+}
+
+const OutletCustomizations = {
+    temporaryObjects : <TemporaryObjectsCustomization>{
         minimize: "hide"
     },
-    func:{
-
+    func: <{[index: string]: StackFrameCustomization}>{
+        
     }
 };
 
 
-Lobster.Outlets.CPP.StackFrames = WebOutlet.extend({
-    init: function(element, memory, memoryOutlet)
-    {
-        this.initParent(element, true);
+export class StackFramesOutlet {
 
+    private readonly element: JQuery;
+    private readonly memoryOutlet: MemoryOutlet;
+    private readonly framesElem: JQuery;
+    private readonly frameElems: JQuery[] = [];
+
+    public readonly memory: Memory;
+
+    public _act!: MessageResponses;
+    
+    public constructor(element: JQuery, memory: Memory, memoryOutlet: MemoryOutlet) {
+        this.element = element;
+        this.memoryOutlet = memoryOutlet;
         this.memory = memory;
-        this.listenTo(memory);
+
+        listenTo(this, memory);
 
         this.memoryOutlet = memoryOutlet;
 
         this.element.addClass("code-memoryStack");
 
-        this.header = $("<div class='header'>The Stack</div>");
-        this.element.append(this.header);
+        let header = $("<div class='header'>The Stack</div>");
+        this.element.append(header);
 
-        this.frameElem = $('<div class="body"></div>');
-        this.element.append(this.frameElem);
+        this.framesElem = $('<div class="body"></div>');
+        this.element.append(this.framesElem);
+    }
 
-        this.count = 0;
+    @messageResponse("framePushed")
+    private framePushed(msg: Message<MemoryFrame>) {
+        //if (msg.data.func.isImplicit()) {
+        //    return;
+        //}
+        let frame = msg.data;
+        let frameElem = $("<div style=\"display: none\"></div>");
+        new StackFrameOutlet(frameElem, frame, this.memoryOutlet);
 
-        this.frames = [];
-        // this.framesElement = this.element;
+        this.frameElems.push(frameElem);
+        this.framesElem.prepend(frameElem);
+        if (Outlets.CPP.CPP_ANIMATIONS) {
+            (this.frameElems.length == 1 ? frameElem.fadeIn(FADE_DURATION) : frameElem.slideDown(SLIDE_DURATION));
+        }
+        else{
+            frameElem.css({display: "block"});
+        }
+    }
 
-
-
-        return this;
-    },
-
-    /* Possible updates
-     *
-     */
-    _act : {
-        framePushed: function(msg) {
-            //if (msg.data.func.isImplicit()) {
-            //    return;
-            //}
-            var frame = msg.data;
-            var frameElem = $("<div style=\"display: none\"></div>");
-            Outlets.CPP.StackFrame.instance(frameElem, frame, this.memoryOutlet);
-
-            this.frames.push(frameElem);
-            this.frameElem.prepend(frameElem);
-            if (Outlets.CPP.CPP_ANIMATIONS) {
-                (this.frames.length == 1 ? frameElem.fadeIn(FADE_DURATION) : frameElem.slideDown(SLIDE_DURATION));
-            }
-            else{
-                frameElem.css({display: "block"});
-            }
-        },
-        framePopped: function(msg) {
-            //if (msg.data.func.isImplicit()) {
-            //    return;
-            //}
+    @messageResponse("framePopped")
+    private framePopped() {
+        //if (msg.data.func.isImplicit()) {
+        //    return;
+        //}
 //            if (this.frames.length == 1) {
 //                var popped = this.frames.last();
 //                this.frames.pop();
 //                popped.remove();
 //            }
 //            else{
-            if (Outlets.CPP.CPP_ANIMATIONS) {
-                var popped = this.frames.last();
-                this.frames.pop();
-                popped.slideUp(SLIDE_DURATION, function() {
-                    $(this).remove();
-                });
-            }
-            else{
-                var popped = this.frames.last();
-                this.frames.pop();
-                popped.remove();
-            }
-//            }
-        },
-        reset: function(msg) {
-            this.frames.clear();
-            this.frameElem.children("div").remove();
+        if (Outlets.CPP.CPP_ANIMATIONS) {
+            let popped = this.frameElems.pop();
+            popped && popped.slideUp(SLIDE_DURATION, function() {
+                $(this).remove();
+            });
         }
+        else{
+            let popped = this.frameElems.pop();
+            popped && popped.remove();
+        }
+//            }
     }
-});
+
+    @messageResponse("reset")
+    private reset() {
+        this.frameElems.length = 0;
+        this.framesElem.children("div").remove();
+    }
+}
 
 
-Lobster.Outlets.CPP.Heap = WebOutlet.extend({
-    init: function(element, memory, memoryOutlet)
-    {
-        this.initParent(element, true);
-        this.element.addClass("code-memoryHeap");
+export class HeapOutlet {
 
-        this.header = $("<div class='header'>The Heap</div>");
-        this.element.append(this.header);
+    private readonly element: JQuery;
+    private readonly memoryOutlet: MemoryOutlet;
+    private readonly objectsElem: JQuery;
+    private objectElems: {[index: number]: JQuery} = {};
 
-        this.objectElem = $("<div></div>");
-        this.element.append(this.objectElem);
+    public readonly memory: Memory;
 
+    public _act!: MessageResponses;
+
+    public constructor(element: JQuery, memory: Memory, memoryOutlet: MemoryOutlet) {
+        this.element = element.addClass("code-memoryHeap");
         this.memory = memory;
-        this.listenTo(memory);
-
         this.memoryOutlet = memoryOutlet;
+
+        let header = $("<div class='header'>The Heap</div>");
+        this.element.append(header);
+
+        this.objectsElem = $("<div></div>");
+        this.element.append(this.objectsElem);
+
+        listenTo(this, memory);
 
         this.objectElems = {};
 
         return this;
-    },
+    }
 
-    _act : {
-        heapObjectAllocated: function(msg) {
-            var obj = msg.data;
-            var elem = $("<div style='display: none'></div>");
-            createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
+    
+    @messageResponse("heapObjectAllocated")
+    private heapObjectAllocated(msg: Message<CPPObject>) {
+        let obj = msg.data;
+        var elem = $("<div style='display: none'></div>");
+        createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
 
-            this.objectElems[obj.address] = elem;
-            this.objectElem.prepend(elem);
-            if (Outlets.CPP.CPP_ANIMATIONS) {
-                elem.slideDown(SLIDE_DURATION);
-            }
-            else{
-                elem.css({display: "block"});
-            }
-        },
-        heapObjectDeleted: function(msg) {
-            var addr = msg.data.address;
-            if (this.objectElems[addr]) {
-                this.objectElems[addr].fadeOut(function () {
-                    $(this).remove();
-                });
-                delete this.objectElems[addr];
-            }
-        },
-        reset: function(msg) {
-            this.objects = {};
-            this.objectElem.children().remove();
+        this.objectElems[obj.address] = elem;
+        this.objectsElem.prepend(elem);
+        if (Outlets.CPP.CPP_ANIMATIONS) {
+            elem.slideDown(SLIDE_DURATION);
+        }
+        else{
+            elem.css({display: "block"});
         }
     }
-});
+    
+    @messageResponse("heapObjectDeleted")
+    private heapObjectDeleted(msg: Message<CPPObject>) {
+        var addr = msg.data.address;
+        if (this.objectElems[addr]) {
+            this.objectElems[addr].fadeOut(function () {
+                $(this).remove();
+            });
+            delete this.objectElems[addr];
+        }
+    }
+    
+    @messageResponse("reset")
+    private reset() {
+        this.objectElems = {};
+        this.objectsElem.children().remove();
+    }
+}
 
 
-Lobster.Outlets.CPP.TemporaryObjects = WebOutlet.extend({
-    init: function(element, memory, memoryOutlet)
-    {
-        this.initParent(element, true);
-        this.element.addClass("code-memoryTemporaryObjects");
+export class TemporaryObjectsOutlet {
+
+    private readonly element: JQuery;
+    private readonly memoryOutlet: MemoryOutlet;
+    private readonly objectsElem: JQuery;
+    private objectElems: {[index: number]: JQuery} = {};
+
+    public readonly memory: Memory;
+
+    private readonly customizations: TemporaryObjectsCustomization;
+
+    public _act!: MessageResponses;
+    
+    public constructor(element: JQuery, memory: Memory, memoryOutlet: MemoryOutlet) {
+        this.element = element.addClass("code-memoryTemporaryObjects");
+        this.memory = memory;
+        this.memoryOutlet = memoryOutlet;
 
         this.customizations = OutletCustomizations.temporaryObjects;
 
-        this.header = $("<div class='header'>Temporary Objects</div>");
-        this.element.append(this.header);
-        this.minimizeButton = $("<span class='button'></span>");
-
-
-        this.objectElem = $("<div></div>");
-        this.element.append(this.objectElem);
-
+        let header = $("<div class='header'>Temporary Objects</div>");
+        this.element.append(header);
+        
+        this.objectsElem = $("<div></div>");
+        this.element.append(this.objectsElem);
+        
+        let minimizeButton = $("<span class='button'></span>");
         if(this.customizations.minimize === "show") {
-            this.minimizeButton.html("hide");
+            minimizeButton.html("hide");
         }
         else{
-            this.minimizeButton.html("show");
-            this.objectElem.css("display", "none");
+            minimizeButton.html("show");
+            this.objectsElem.css("display", "none");
         }
 
-        var self = this;
-        this.minimizeButton.click(function() {
-            self.objectElem.slideToggle();
-            if ($(this).html() === "hide") {
-                $(this).html("show");
-                self.customizations.minimize = "hide";
+        minimizeButton.click(() => {
+            this.objectsElem.slideToggle();
+            if (minimizeButton.html() === "hide") {
+                minimizeButton.html("show");
+                this.customizations.minimize = "hide";
             }
             else{
-                $(this).html("hide");
-                self.customizations.minimize = "show";
+                minimizeButton.html("hide");
+                this.customizations.minimize = "show";
             }
         });
-        this.header.append(this.minimizeButton);
+        header.append(minimizeButton);
 
-        this.memory = memory;
-        this.listenTo(memory);
+        listenTo(this, memory);
 
-        this.memoryOutlet = memoryOutlet;
 
         this.objectElems = {};
 
         return this;
-    },
+    }
 
-    _act : {
-        temporaryObjectAllocated: function(msg) {
-            var obj = msg.data;
-            var elem = $("<div style='display: none'></div>");
-            createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
+    @messageResponse("temporaryObjectAllocated")
+    private temporaryObjectAllocated(msg: Message<CPPObject>) {
+        var obj = msg.data;
+        var elem = $("<div style='display: none'></div>");
+        createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
 
-            this.objectElems[obj.address] = elem;
-            this.objectElem.prepend(elem);
-            if (Outlets.CPP.CPP_ANIMATIONS) {
-                elem.slideDown(SLIDE_DURATION);
-            }
-            else{
-                elem.css({display: "block"});
-            }
-        },
-        temporaryObjectDeallocated: function(msg) {
-            var addr = msg.data.address;
-            if (this.objectElems[addr]) {
-                this.objectElems[addr].fadeOut(function () {
-                    $(this).remove();
-                });
-                delete this.objectElems[addr];
-            }
-        },
-        reset: function(msg) {
-            this.objects = {};
-            this.objectElem.children().remove();
+        this.objectElems[obj.address] = elem;
+        this.objectsElem.prepend(elem);
+        if (Outlets.CPP.CPP_ANIMATIONS) {
+            elem.slideDown(SLIDE_DURATION);
+        }
+        else{
+            elem.css({display: "block"});
         }
     }
-});
-
-Lobster.Outlets.CPP.RunningCode = WebOutlet.extend({
-    _name: "WebOutlet",
-    init: function(element, sim, simOutlet) {
-        this.initParent(element, true);
-        this.sim = sim;
-        this.listenTo(sim);
-
-        this.simOutlet = simOutlet;
-    },
-    pushed: function(codeInst) {
-        // main has no caller, so we have to handle creating the outlet here
-        if (codeInst.model.i_isMainCall) {
-            this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
+    
+    @messageResponse("temporaryObjectDeallocated")
+    private temporaryObjectDeallocated(msg: Message<CPPObject>) {
+        var addr = msg.data.address;
+        if (this.objectElems[addr]) {
+            this.objectElems[addr].fadeOut(function () {
+                $(this).remove();
+            });
+            delete this.objectElems[addr];
         }
+    }
+    
+    @messageResponse("reset")
+    private reset() {
+        this.objectElems = {};
+        this.objectsElem.children().remove();
+    }
+    
+}
 
-    },
+export class RunningCode {
 
-    valueTransferOverlay : function(fromOutlet, toOutlet, html, duration, afterCallback) {
-        var from = fromOutlet.element;
-        var to = toOutlet.element;
+    private element: JQuery;
+    private sim: Simulation;
+    private simOutlet: SimulationOutlet;
+
+    public _act!: MessageResponses;
+
+    public constructor(element: JQuery, sim: Simulation, simOutlet: SimulationOutlet) {
+        this.element = element;
+        this.sim = sim;
+        this.simOutlet = simOutlet;
+        listenTo(this, sim);
+
+    }
+
+    @messageResponse("mainCallPushed")
+    private pushed(msg: Message<RuntimeFunction<Int>>) {
+        // main has no caller, so we have to handle creating the outlet here
+        this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
+
+    }
+
+    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number, afterCallback: () => void) {
         if (Outlets.CPP.CPP_ANIMATIONS) {
-            var simOff = this.element.offset();
-            var fromOff = from.offset();
-            var toOff = to.offset();
-            var fromWidth = from.css("width");
-            var toWidth = to.css("width");
+            let simOff = this.element.offset();
+            let fromOff = from.offset();
+            let toOff = to.offset();
+            let fromWidth = from.css("width");
+            let toWidth = to.css("width");
 
-            var over = $("<div class='code overlayValue'>" + html + "</div>");
+            if (!simOff || !fromOff || !toOff) {
+                return;
+            }
+
+            let over = $("<div class='code overlayValue'>" + html + "</div>");
             over.css({left: fromOff.left - simOff.left, top : fromOff.top - simOff.top + this.element[0].scrollTop});
             over.css({width: fromWidth});
             this.overlayElem.prepend(over);
@@ -2039,142 +2082,142 @@ Lobster.Outlets.CPP.SimulationStack = Outlets.CPP.RunningCode.extend({
         //}, 1000);
     }
 
-});
+}
 
 
-Lobster.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
-    _name: "SourceSimulation",
-    init: function(element, sim, simOutlet)
-    {
-        this.initParent(element, sim, simOutlet);
+// Lobster.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
+//     _name: "SourceSimulation",
+//     init: function(element, sim, simOutlet)
+//     {
+//         this.initParent(element, sim, simOutlet);
 
-        this.overlayElem = $("<div class='overlays'></div>");
-        this.functionsElem = $("<div class='code-simStack'></div>");
+//         this.overlayElem = $("<div class='overlays'></div>");
+//         this.functionsElem = $("<div class='code-simStack'></div>");
 
-        this.element.append(this.overlayElem);
-        this.element.append(this.functionsElem);
+//         this.element.append(this.overlayElem);
+//         this.element.append(this.functionsElem);
 
-        this.element.addClass("code-simulation");
+//         this.element.addClass("code-simulation");
 
-        this.functions = {};
-        this.functionInstances = {};
-        // this.framesElement = this.element;
-
-
-        return this;
-    },
-
-    setUpTopLevelDeclarations : function() {
-        var self = this;
-        this.sim.i_topLevelDeclarations.forEach(function(decl) {
-            if (isA(decl, FunctionDefinition)) {
-                // Set up DOM element for outlet
-                var elem = $("<div style= 'display: block'></div>");
-                var functionElem = $("<div></div>");
-                elem.append(functionElem);
-                self.functionsElem.append(elem);
-
-                // Create outlet using the element
-                self.functions[decl.id] = Outlets.CPP.Function.instance(functionElem, decl, self);
-                self.functionInstances[decl.id] = [];
-            }
-        });
-    },
-
-    pushFunction : function(funcInst, callOutlet) {
-
-        var instances = this.functionInstances[funcInst.model.id];
-
-        if (instances) {
-            // Add instance to stack for each function.
-            instances.push(funcInst);
-
-            var funcOutlet = this.functions[funcInst.model.id];
-            funcOutlet.setInstance(funcInst);
-
-            return funcOutlet;
-        }
-    },
-
-    popFunction : function(funcInst) {
-
-        var insts = this.functionInstances[funcInst.model.id];
-        var funcOutlet = this.functions[funcInst.model.id];
-        if (insts && funcOutlet) {
-            insts.pop();
-            if (insts.length === 0) {
-                funcOutlet.removeInstance();
-            }
-            else{
-                funcOutlet.setInstance(insts.last());
-            }
-        }
-    },
-
-    valueTransferOverlay : function(fromOutlet, toOutlet, html, duration, afterCallback) {
-
-        // Check to see if the first function parent of the outlets are the same. If they are, don't animate.
-        // Actual check is done in big if below.
-        var fromFuncOutlet = fromOutlet;
-        var toFuncOutlet = toOutlet;
-        while(fromFuncOutlet && !isA(fromFuncOutlet, Outlets.CPP.Function)) { fromFuncOutlet = fromFuncOutlet.parent;}
-        while(toFuncOutlet && !isA(toFuncOutlet, Outlets.CPP.Function)) { toFuncOutlet = toFuncOutlet.parent;}
-
-        if (fromFuncOutlet !== toFuncOutlet) {
-            // Use parent implementation to show transfer and do callback
-            Outlets.CPP.SourceSimulation._parent.valueTransferOverlay.apply(this, arguments);
-        }
-        else{
-            // Just do callbacks (which might e.g. have parameter outlet show arg value)
-            afterCallback && afterCallback();
-        }
-    },
-
-    started: Class.ADDITIONALLY(function() {
-        this.setUpTopLevelDeclarations();
-        var self = this;
-        this.sim.peek().identify("idCodeOutlet", function(codeOutlet) {
-            if (codeOutlet.simOutlet === self) {
-                self.scrollTo(codeOutlet)
-            }
-        });
-    }),
-
-    cleared : function() {
-        this.functions = {};
-        this.functionInstances = {};
-        this.functionsElem.children().remove();
-    },
-    scrollTo : function(codeOutlet) {
-        var self = this;
-        var thisTop = this.element.offset().top;
-        var codeTop = codeOutlet.element.offset().top;
-        var halfHeight = this.element.height() / 2;
-
-        // scrollTop value which would put the codeoutlet right at the top.
-        var scrollAtTop = codeOutlet.element.offset().top - self.functionsElem.offset().top;
-        var scrollAtMiddle = scrollAtTop - halfHeight;
-
-        // compute how much we're off from the middle
-        var diff = scrollAtMiddle - this.element.scrollTop();
-
-        // If diff, the offset from the middle, is within 30 px of the half height, then scroll to middle
-        if (Math.abs(diff) > halfHeight-30) {
-            if (Outlets.CPP.CPP_ANIMATIONS) {
-                // TODO: change back to finish() and update local jquery
-                this.element.clearQueue().animate({
-                    scrollTop: scrollAtMiddle
-                }, 1000);
-            }
-            else{
-                this.element.scrollTop(scrollAtMiddle);
-            }
-        }
-
-        // target
+//         this.functions = {};
+//         this.functionInstances = {};
+//         // this.framesElement = this.element;
 
 
-    }
+//         return this;
+//     },
 
-});
+//     setUpTopLevelDeclarations : function() {
+//         var self = this;
+//         this.sim.i_topLevelDeclarations.forEach(function(decl) {
+//             if (isA(decl, FunctionDefinition)) {
+//                 // Set up DOM element for outlet
+//                 var elem = $("<div style= 'display: block'></div>");
+//                 var functionElem = $("<div></div>");
+//                 elem.append(functionElem);
+//                 self.functionsElem.append(elem);
+
+//                 // Create outlet using the element
+//                 self.functions[decl.id] = Outlets.CPP.Function.instance(functionElem, decl, self);
+//                 self.functionInstances[decl.id] = [];
+//             }
+//         });
+//     },
+
+//     pushFunction : function(funcInst, callOutlet) {
+
+//         var instances = this.functionInstances[funcInst.model.id];
+
+//         if (instances) {
+//             // Add instance to stack for each function.
+//             instances.push(funcInst);
+
+//             var funcOutlet = this.functions[funcInst.model.id];
+//             funcOutlet.setInstance(funcInst);
+
+//             return funcOutlet;
+//         }
+//     },
+
+//     popFunction : function(funcInst) {
+
+//         var insts = this.functionInstances[funcInst.model.id];
+//         var funcOutlet = this.functions[funcInst.model.id];
+//         if (insts && funcOutlet) {
+//             insts.pop();
+//             if (insts.length === 0) {
+//                 funcOutlet.removeInstance();
+//             }
+//             else{
+//                 funcOutlet.setInstance(insts.last());
+//             }
+//         }
+//     },
+
+//     valueTransferOverlay : function(fromOutlet, toOutlet, html, duration, afterCallback) {
+
+//         // Check to see if the first function parent of the outlets are the same. If they are, don't animate.
+//         // Actual check is done in big if below.
+//         var fromFuncOutlet = fromOutlet;
+//         var toFuncOutlet = toOutlet;
+//         while(fromFuncOutlet && !isA(fromFuncOutlet, Outlets.CPP.Function)) { fromFuncOutlet = fromFuncOutlet.parent;}
+//         while(toFuncOutlet && !isA(toFuncOutlet, Outlets.CPP.Function)) { toFuncOutlet = toFuncOutlet.parent;}
+
+//         if (fromFuncOutlet !== toFuncOutlet) {
+//             // Use parent implementation to show transfer and do callback
+//             Outlets.CPP.SourceSimulation._parent.valueTransferOverlay.apply(this, arguments);
+//         }
+//         else{
+//             // Just do callbacks (which might e.g. have parameter outlet show arg value)
+//             afterCallback && afterCallback();
+//         }
+//     },
+
+//     started: Class.ADDITIONALLY(function() {
+//         this.setUpTopLevelDeclarations();
+//         var self = this;
+//         this.sim.peek().identify("idCodeOutlet", function(codeOutlet) {
+//             if (codeOutlet.simOutlet === self) {
+//                 self.scrollTo(codeOutlet)
+//             }
+//         });
+//     }),
+
+//     cleared : function() {
+//         this.functions = {};
+//         this.functionInstances = {};
+//         this.functionsElem.children().remove();
+//     },
+//     scrollTo : function(codeOutlet) {
+//         var self = this;
+//         var thisTop = this.element.offset().top;
+//         var codeTop = codeOutlet.element.offset().top;
+//         var halfHeight = this.element.height() / 2;
+
+//         // scrollTop value which would put the codeoutlet right at the top.
+//         var scrollAtTop = codeOutlet.element.offset().top - self.functionsElem.offset().top;
+//         var scrollAtMiddle = scrollAtTop - halfHeight;
+
+//         // compute how much we're off from the middle
+//         var diff = scrollAtMiddle - this.element.scrollTop();
+
+//         // If diff, the offset from the middle, is within 30 px of the half height, then scroll to middle
+//         if (Math.abs(diff) > halfHeight-30) {
+//             if (Outlets.CPP.CPP_ANIMATIONS) {
+//                 // TODO: change back to finish() and update local jquery
+//                 this.element.clearQueue().animate({
+//                     scrollTop: scrollAtMiddle
+//                 }, 1000);
+//             }
+//             else{
+//                 this.element.scrollTop(scrollAtMiddle);
+//             }
+//         }
+
+//         // target
+
+
+//     }
+
+// });
 
