@@ -16,19 +16,19 @@ export interface Message<Data_type = any> {
 //     identify(category: string, func: (o:ObserverType) => any) : ObserverType;
 // }
 
-export function addListener(objWithObservable: {observable: Observable}, listener: ObserverType, category?: string | string[]) {
+export function addListener<PotentialMessages extends string>(objWithObservable: {observable: Observable<PotentialMessages>}, listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
     objWithObservable.observable.addListener(listener, category);
 }
 
-export function listenTo(listener: ObserverType, objWithObservable: {observable: Observable}, category?: string | string[]) {
+export function listenTo<PotentialMessages extends string>(listener: ObserverType, objWithObservable: {observable: Observable<PotentialMessages>}, category?: PotentialMessages | PotentialMessages[]) {
     objWithObservable.observable.addListener(listener, category);
 }
 
-export function removeListener(objWithObservable: {observable: Observable}, listener: ObserverType, category?: string | string[]) {
+export function removeListener<PotentialMessages extends string>(objWithObservable: {observable: Observable<PotentialMessages>}, listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
     objWithObservable.observable.removeListener(listener, category);
 }
 
-export function stopListeningTo(listener: ObserverType, objWithObservable: {observable: Observable}, category?: string | string[]) {
+export function stopListeningTo<PotentialMessages extends string>(listener: ObserverType, objWithObservable: {observable: Observable<PotentialMessages>}, category?: PotentialMessages | PotentialMessages[]) {
     objWithObservable.observable.removeListener(listener, category);
 }
 
@@ -103,9 +103,9 @@ function receiveMessage(observer: ObserverType, msg: Message) {
     }
 }
 
-export class Observable {
+export class Observable<PotentialMessages extends string = string> {
     private universalObservers: ObserverType[] = [];
-    private observers: {[index: string] : ObserverType[]} = {};
+    private observers: {[k in PotentialMessages] : ObserverType[]} = <any>{};
 
     private readonly source: any;
 
@@ -113,7 +113,7 @@ export class Observable {
         this.source = source;
     }
 
-    public send(category: string, data?: any) {
+    public send(category: PotentialMessages, data?: any) {
         if (this.source.silent){
             return;
         }
@@ -124,7 +124,7 @@ export class Observable {
             source: this.source
         };
 
-        let observers = this.observers[msg.category];
+        let observers = this.observers[category];
         if (observers) {
             for (let i = 0; i < observers.length; ++i) {
                 receiveMessage(observers[i], msg);
@@ -136,7 +136,7 @@ export class Observable {
         }
     }
 
-    public addListener(listener: ObserverType, category?: string | string[]) {
+    public addListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
         if (category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually
@@ -165,7 +165,7 @@ export class Observable {
     Note: to remove a universal listener, you must call this with category==false.
     If a listener is universal, removing it from a particular category won't do anything.
     */
-    public removeListener(listener: ObserverType, category?: string | string[]) {
+    public removeListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
         if(category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually
@@ -193,8 +193,8 @@ export class Observable {
         return this;
     }
 
-    protected listenerAdded(listener: ObserverType, category?: string) : void { }
-    protected listenerRemoved(listener: ObserverType, category?: string) : void { }
+    protected listenerAdded(listener: ObserverType, category?: PotentialMessages) : void { }
+    protected listenerRemoved(listener: ObserverType, category?: PotentialMessages) : void { }
 
     // public identify(category: string, func: (o:ObserverType) => any) {
     //     let other! : ObserverType; // Uses definite assignment annotation since the function is assumed to assign to other

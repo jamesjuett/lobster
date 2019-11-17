@@ -25,11 +25,22 @@ interface FileData {
  * also internally routes annotations (e.g. for compilation errors) to the appropriate
  * editor based on the source reference of the annotation.
  */
+type ProjectEditorMessages =
+    "translationUnitAdded" |
+    "translationUnitRemoved" |
+    "saveAttempted" |
+    "unsavedChanges" |
+    "saveSuccessful" |
+    "projectCleared" |
+    "projectLoaded" |
+    "compilationOutOfDate" |
+    "compilationFinished";
+
 export class ProjectEditor {
 
     private static instances: ProjectEditor[] = [];
 
-    public observable: Observable = new Observable(this);
+    public observable = new Observable<ProjectEditorMessages>(this);
     public _act!: MessageResponses;
 
     public static onBeforeUnload() {
@@ -329,7 +340,6 @@ $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
 
 export class ProjectSaveOutlet {
 
-    public observable = new Observable(this);
     public _act!: MessageResponses;
 
     private readonly projectEditor: ProjectEditor;
