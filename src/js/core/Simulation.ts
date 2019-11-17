@@ -109,6 +109,7 @@ export class Simulation {
         this.mainFunction.setReturnObject(this.mainReturnObject);
         this.mainFunction.pushStackFrame();
         this.push(this.mainFunction);
+        this.observable.send("mainCalled", this.mainFunction);
         this.mainFunction.gainControl();
     }
     
