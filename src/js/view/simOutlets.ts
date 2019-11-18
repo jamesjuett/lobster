@@ -39,7 +39,7 @@ const CPP_ANIMATIONS = true;
 //         }
 
 
-//         var self = this;
+//         
 // //        self.setList(["fact.cpp", "hailstone.cpp", "countDigits.cpp"]);
 //         this.url = url;
 //         this.programs = {};
@@ -47,7 +47,7 @@ const CPP_ANIMATIONS = true;
 //     },
 
 //     loadList : function() {
-//         var self = this;
+//         
 //         $.ajax({
 //             type: "POST",
 //             url: this.url + "codeList",
@@ -61,7 +61,7 @@ const CPP_ANIMATIONS = true;
 //     },
 
 //     setList : function(codeList) {
-//         var self = this;
+//         
 
 //         // Was one active before?
 // //        this.element.find("")
@@ -111,7 +111,7 @@ const CPP_ANIMATIONS = true;
 //         if(!this.personal && CodeList._personalList && CodeList._personalList.programs[name] && !confirm("WARNING! Loading code from the class repository will overwrite your local copy of the same name! Are you sure?")) {
 //             return;
 //         }
-//         var self = this;
+//         
 
 //         if (who) {
 //             $.ajax({
@@ -189,7 +189,7 @@ const CPP_ANIMATIONS = true;
 //     },
 
 //     i_setList : function(projects) {
-//         var self = this;
+//         
 
 //         this.i_element.empty();
 
@@ -352,29 +352,25 @@ export class SimulationOutlet {
     }
     
     private stepForward(n: number = 1) {
-        if (!this.sim) { return; }
         this.setAnimationsOn(true);
         this.runningProgressElem.css("visibility", "visible");
         setTimeout(() => {
-            this.sim.stepForward(n);
+            this.sim && this.sim.stepForward(n);
             this.runningProgressElem.css("visibility", "hidden");
         }, 1);
     }
     
-    stepOver : function() {
+    private stepOver() {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
         
-        RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
         this.sim.speed = Simulation.MAX_SPEED;
-        var self = this;
         this.sim.stepOver({
             after : function() {
-                RuntimeConstruct.prototype.silent = false;
-                self.stackFrames.refresh();
+                self.codeStackOutlet.refresh();
                 setTimeout(function() {self.setAnimationsOn(true);}, 10);
                 self.runningProgress.css("visibility", "hidden");
                 self.setEnabledButtons({
@@ -394,17 +390,17 @@ export class SimulationOutlet {
         this.setEnabledButtons({"pause":true});
         
         this.sim.speed = Simulation.MAX_SPEED;
-        var self = this;
+        
         this.sim.stepOut({
-            after : function() {
+            after : () => {
                 RuntimeConstruct.prototype.silent = false;
-                self.stackFrames.refresh();
-                setTimeout(function() {self.setAnimationsOn(true);}, 10);
-                self.runningProgress.css("visibility", "hidden");
-                self.setEnabledButtons({
+                this.codeStackOutlet.refresh();
+                setTimeout(function() {this.setAnimationsOn(true);}, 10);
+                this.runningProgress.css("visibility", "hidden");
+                this.setEnabledButtons({
                     "pause": false
                 }, true);
-                self.element.find(".simPane").focus();
+                this.element.find(".simPane").focus();
             }
         });
     }
@@ -418,11 +414,11 @@ export class SimulationOutlet {
         this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
-        var self = this;
+        
         this.sim.speed = 1;
         this.sim.autoRun({after: function() {
             //RuntimeConstruct.prototype.silent = false;
-            //self.stackFrames.refresh();
+            //self.codeStackOutlet.refresh();
             setTimeout(function() {self.setAnimationsOn(true);}, 10);
             //self.setEnabledButtons({
                 //    skipToEnd: true,
@@ -440,11 +436,11 @@ export class SimulationOutlet {
             this.setAnimationsOn(false);
             this.setEnabledButtons({"pause":true});
 
-            var self = this;
+            
             this.sim.speed = Simulation.MAX_SPEED;
             this.sim.autoRun({after: function() {
                 RuntimeConstruct.prototype.silent = false;
-                self.stackFrames.refresh();
+                self.codeStackOutlet.refresh();
                 setTimeout(function() {self.setAnimationsOn(true);}, 10);
                 //self.setEnabledButtons({
                     //    skipToEnd: true,
@@ -468,7 +464,7 @@ export class SimulationOutlet {
         if (this.ignoreStepBackward) {return;}
         
         this.runningProgressElem.css("visibility", "visible");
-        var self = this;
+        
         
         RuntimeConstruct.prototype.silent = true;
         this.setAnimationsOn(false);
@@ -476,7 +472,7 @@ export class SimulationOutlet {
         setTimeout(function() {
             self.sim.stepBackward(n);
             RuntimeConstruct.prototype.silent = false;
-            self.stackFrames.refresh();
+            self.codeStackOutlet.refresh();
             setTimeout(function() {self.setAnimationsOn(true);}, 10);
             self.setEnabledButtons({
                 "pause": false
@@ -594,7 +590,7 @@ export class DefaultLobsterOutlet {
         loadProject : "loadProject",
         requestFocus : function(msg) {
             if (msg.source === this.projectEditor) {
-                var self = this;
+                
                 var response = function() {
                     self.tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
                     msg.data();
@@ -1079,7 +1075,7 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
     //     //    return;
     //     //}
     //     //
-    //     //var self = this;
+    //     //
     //     //// Not null here
     //     //if (this.ptdArray !== arrObj) {
     //     //    if (!this.ptdArray) {
@@ -1848,7 +1844,7 @@ export class RunningCodeOutlet {
 
     // afterFullStep : function(inst) {
     //     if (!inst) { return; }
-    //     var self = this;
+    //     
     //     inst.identify("idCodeOutlet", function(codeOutlet) {
     //         if (codeOutlet.simOutlet === self) {
     //             self.scrollTo(codeOutlet)
@@ -1953,7 +1949,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     //}),
 
     // protected scrollTo(codeOutlet) {
-    //     //var self = this;
+    //     //
     //     //var thisTop = this.element.offset().top;
     //     //var codeTop = codeOutlet.element.offset().top;
     //     //this.element.finish().animate({
@@ -1987,7 +1983,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 //     },
 
 //     setUpTopLevelDeclarations : function() {
-//         var self = this;
+//         
 //         this.sim.i_topLevelDeclarations.forEach(function(decl) {
 //             if (isA(decl, FunctionDefinition)) {
 //                 // Set up DOM element for outlet
@@ -2054,7 +2050,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
 //     started: Class.ADDITIONALLY(function() {
 //         this.setUpTopLevelDeclarations();
-//         var self = this;
+//         
 //         this.sim.peek().identify("idCodeOutlet", function(codeOutlet) {
 //             if (codeOutlet.simOutlet === self) {
 //                 self.scrollTo(codeOutlet)
@@ -2068,7 +2064,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 //         this.functionsElem.children().remove();
 //     },
 //     scrollTo : function(codeOutlet) {
-//         var self = this;
+//         
 //         var thisTop = this.element.offset().top;
 //         var codeTop = codeOutlet.element.offset().top;
 //         var halfHeight = this.element.height() / 2;
