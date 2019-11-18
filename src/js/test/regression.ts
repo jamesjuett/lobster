@@ -74,7 +74,7 @@ $(() => {
         "int main() { }",
         [
             new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier()
+            new NoBadRuntimeEventsVerifier(true)
         ]
     );
 
@@ -152,7 +152,7 @@ $(() => {
             basicDeclarationTestCode.replace(/int/g, t),
             [
                 new NoErrorsNoWarningsVerifier(),
-                new NoBadRuntimeEventsVerifier()
+                new NoBadRuntimeEventsVerifier(true)
             ]
         );
     });
@@ -219,7 +219,7 @@ $(() => {
 }`,
         [
             new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier()
+            new NoBadRuntimeEventsVerifier(true)
         ]
     );
 
@@ -294,7 +294,7 @@ $(() => {
 }`,
         [
             new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier()
+            new NoBadRuntimeEventsVerifier(true)
         ]
     );
 
@@ -461,7 +461,7 @@ int main() {
 }`,
         [
             new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier()
+            new NoBadRuntimeEventsVerifier(true)
         ]
     );
 
@@ -527,7 +527,7 @@ int main() {
 }`,
         [
             new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier()
+            new NoBadRuntimeEventsVerifier(true)
         ]
     );
 });

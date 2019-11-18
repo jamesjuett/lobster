@@ -17,10 +17,23 @@ export enum SimulationEvent {
     CRASH = "crash",
 }
 
+export type SimulationMessages =
+    "started" |
+    "reset" |
+    "mainCalled" |
+    "pushed" |
+    "beforeUpNext" |
+    "afterUpNext" |
+    "beforeStepForward" |
+    "afterStepForward" |
+    "afterFullStep" |
+    "atEnded" |
+    "alert";
+
 // TODO: add observer stuff
 export class Simulation {
 
-    public readonly observable = new Observable(this);
+    public readonly observable = new Observable<SimulationMessages>(this);
 
     public readonly program: RunnableProgram;
 
@@ -32,9 +45,11 @@ export class Simulation {
     public readonly random = new CPPRandom();
 
     public readonly stepsTaken : number;
+
+    public readonly isPaused: boolean;
     public readonly atEnd: boolean;
 
-    private pendingNews : DynamicObject[];
+    private readonly pendingNews : DynamicObject[];
     private leakCheckIndex : number;
 
     // TODO: is this actually set anwhere?
@@ -82,9 +97,22 @@ export class Simulation {
         this.start();
     }
 
+    public reset() {
+        this.memory.reset();
+        this._execStack.length = 0;
 
-    public readonly isPaused = true;
+        this.pendingNews.length = 0;
+        this.leakCheckIndex = 0;
 
+        let _this = <Mutable<this>>this;
+        _this.isPaused = true;
+        _this.stepsTaken = 0;
+        _this.atEnd = false;
+
+        this.observable.send("reset");
+
+        this.start();
+    }
 
     private start() {
         this.allocateStringLiterals();
@@ -424,28 +452,6 @@ export class Simulation {
         console.log("cout: " + text);
         // this.console.setValue(this.console.value() + text);
     }
-    
-    // public undefinedBehavior : function(message) {
-    //     this.eventOccurred(Simulation.EVENT_UNDEFINED_BEHAVIOR, message, true);
-
-    // },
-    // implementationDefinedBehavior : function(message) {
-    //     this.eventOccurred(Simulation.EVENT_IMPLEMENTATION_DEFINED_BEHAVIOR, message, true);
-
-    // },
-    // unspecifiedBehavior : function(message) {
-    //     this.eventOccurred(Simulation.EVENT_UNSPECIFIED_BEHAVIOR, message, true);
-
-    // },
-    // memoryLeaked : function(message) {
-    //     this.eventOccurred(Simulation.EVENT_MEMORY_LEAK, message, true);
-    // },
-    // assertionFailure : function(message) {
-    //     this.eventOccurred(Simulation.EVENT_ASSERTION_FAILURE, message, true);
-    // },
-    // crash : function(message){
-    //     this.eventOccurred(Simulation.EVENT_CRASH, message + "\n\n (Note: This is a nasty error and I may not be able to recover. Continue at your own risk.)", true);
-    // }
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
         this._eventsOccurred[event].push(message);

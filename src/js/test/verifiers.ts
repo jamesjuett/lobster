@@ -89,13 +89,17 @@ export class NoCrashesVerifier extends TestVerifier {
 export class NoBadRuntimeEventsVerifier extends TestVerifier {
     public readonly verifierName = "NoBadRuntimeEventsVerifier";
     
+    public readonly resetAndTestAgain: boolean;
+
+    public constructor(resetAndTestAgain: boolean) {
+        super();
+        this.resetAndTestAgain = resetAndTestAgain;
+    }
+
     protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
         if (!program.isRunnable()) {
             return {status: "failure", message: "The program either failed to compile or is missing a main function."};
         }
-
-        let sim = new Simulation(program);
-        sim.stepToEnd();
 
         let eventsToCheck = [
             SimulationEvent.UNDEFINED_BEHAVIOR,
@@ -105,10 +109,24 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
             SimulationEvent.ASSERTION_FAILURE,
             SimulationEvent.CRASH];
 
+        let sim = new Simulation(program);
+        sim.stepToEnd();
+
         for(let i = 0; i < eventsToCheck.length; ++i) {
             let event = eventsToCheck[i];
             if (sim.hasEventOccurred(event)) {
                 return {status: "failure", message: "An unexpected runtime event (" + event + ") occurred."};
+            }
+        }
+
+        if (this.resetAndTestAgain) {
+            sim.reset();
+    
+            for(let i = 0; i < eventsToCheck.length; ++i) {
+                let event = eventsToCheck[i];
+                if (sim.hasEventOccurred(event)) {
+                    return {status: "failure", message: "The simulation worked the first time, but an unexpected runtime event (" + event + ") occurred after resetting and running again."};
+                }
             }
         }
 
