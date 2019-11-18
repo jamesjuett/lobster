@@ -192,16 +192,7 @@ export class Simulation {
         };
     }
 
-	public stepForward(n: number = 1) {
-
-        for(var i = 0; !this.atEnd && i < n; ++i){
-            this._stepForward();
-        }
-
-        this.observable.send("afterFullStep", this.execStack.length > 0 && this.execStack[this.execStack.length - 1]);
-	}
-
-    private _stepForward() {
+	public stepForward() {
 
         // Top rt construct will do stuff
         let rt = this.top();
@@ -222,6 +213,7 @@ export class Simulation {
         // to see if the simulation is done.
         this.upNext();
 
+        this.observable.send("afterFullStep", this.execStack.length > 0 && this.execStack[this.execStack.length - 1]);
     }
 
 	private upNext() {
