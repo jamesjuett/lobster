@@ -105,7 +105,7 @@ function receiveMessage(observer: ObserverType, msg: Message) {
 
 export class Observable<PotentialMessages extends string = string> {
     private universalObservers: ObserverType[] = [];
-    private observers: {[k in PotentialMessages] : ObserverType[]} = <any>{};
+    private observers: {[index: string] : ObserverType[] | undefined} = {};
 
     private readonly source: any;
 
@@ -148,7 +148,7 @@ export class Observable<PotentialMessages extends string = string> {
                 if (!this.observers[category]) {
                     this.observers[category] = [];
                 }
-                this.observers[category].push(listener);
+                this.observers[category]!.push(listener);
                 this.listenerAdded(listener, category);
             }
         }
@@ -182,8 +182,8 @@ export class Observable<PotentialMessages extends string = string> {
         }
         else{
             // Remove from all categories
-            for(var cat in this.observers){
-                this.removeListener(listener, cat);
+            for(let cat in this.observers){
+                this.removeListener(listener, <PotentialMessages>cat);
             }
 
             // Also remove from universal listeners

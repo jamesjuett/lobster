@@ -556,7 +556,7 @@ div .tabPane {
 	margin: 2px;
 }
 
-ul.stackFrames li{
+ul.codeStack li{
 	/*border: solid 1px black;*/
 	margin-bottom: 1em;
 }
