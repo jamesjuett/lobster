@@ -3,7 +3,7 @@ import { addListener, listenTo, MessageResponses, messageResponse, stopListening
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
-import { Mutable } from "../util/util";
+import { Mutable, assert } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
@@ -210,7 +210,21 @@ const CPP_ANIMATIONS = true;
 
 
 
+type SimulationButtonNames =
+    "restart" |
+    "stepForward" |
+    "stepOver" |
+    "stepOut" |
+    "skipToEnd" |
+    "runToEnd" |
+    "pause" |
+    "stepBackward";
 
+function findExactlyOne(element: JQuery, selector: string) {
+    let found = element.find(selector);
+    assert(found.length === 1, `Within the SimulationOutlet's element, there must be contained EXACTLY ONE element with the selector "${selector}".`);
+    return found;
+}
 
 export class SimulationOutlet {
 
@@ -218,133 +232,61 @@ export class SimulationOutlet {
 
     private readonly element: JQuery;
     private readonly runningProgressElem: JQuery;
+    private readonly buttonElems: {[k in SimulationButtonNames]: JQuery};
+    private readonly codeStackOutlet: JQuery;
+    private readonly memoryOutlet: JQuery;
+    private readonly alertsElem: JQuery;
+
+    private readonly consoleElems: JQuery;
 
     public _act!: MessageResponses;
 
     public constructor(element: JQuery) {
         this.element = element;
 
-        this.runningProgressElem = element.find(".runningProgress");
+        this.runningProgressElem = findExactlyOne(element, ".runningProgress");
+        this.consoleElems = findExactlyOne(element, ".console");
+        this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
+        this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
 
-        
-        if ((elem = element.find(".console")).length !== 0) {
-            this.consoleOutlet = Outlets.HtmlOutlet.instance(elem, true).listenTo(this.sim.console);
-        }
-        // if ((elem = element.find(".semanticProblems")).length !== 0) {
-        //     this.problemsElem = elem;
-        //     //this.problems = Outlets.List.instance(elem, $("<li></li>")).listenTo(sim.semanticProblems);
-        // }
-        if ((elem = element.find(".stackFrames")).length !== 0) {
-            if (this.useSourceSimulation) {
-                this.stackFrames = Outlets.CPP.SourceSimulation.instance(elem, this.sim, this);
-                this.listenTo(this.stackFrames);
-            }
-            else{
-                this.stackFrames = Outlets.CPP.SimulationStack.instance(elem, this.sim, this);
-                this.listenTo(this.stackFrames);
-            }
-        }
-        //if ((elem = element.find(".stackFrames2")).length !== 0) {
-        //    //this.stackFrames2 = Outlets.CPP.SimulationStack.instance(elem, sim, this);
-        //    this.stackFrames2 = Outlets.CPP.SourceSimulation.instance(elem, sim, this);
-        //    this.listenTo(this.stackFrames2);
-        //}
-        if ((elem = element.find(".memory")).length !== 0) {
-            this.memory = Outlets.CPP.Memory.instance(elem, this.sim.memory);
-        }
-        // TODO REMOVE
-        // if ((elem = element.find(".codeSelect")).length !== 0) {
-        //
-        //     this.codeName = ValueEntity.instance(false, "");
-        //     this.codeName.addListener(Actor.instance(function(msg) {
-        //
-        //         $.ajax({
-        //             type: 'GET',
-        //             url: '/api/user/jjuett/' + msg.data,
-        //             dataType: 'text',
-        //             success: function(text) {
-        //                 self.sim.code.setValue(text);
-        //             }
-        //
-        //         });
-        //
-        //     }));
-        //     this.codeSelect = Outlets.ValueOutlet.instance(elem).converse(this.codeName);
-        // }
+        let stepForwardNumElem = findExactlyOne(element, ".stepForwardNum").val(1);
+        let stepBackwardNumElem = findExactlyOne(element, ".stepBackwardNum").val(1);
 
-        this.runButton = element.find(".runButton");
+        this.buttonElems = {
+            restart : element.find(".restart").click(() => {
+                this.restart();
+            }),
+    
+            stepForward : element.find(".stepForward").click(() => {
+                this.stepForward(parseInt(""+stepForwardNumElem.val()));
+            }),
+    
+            stepOver : element.find("button.stepOver").click(() => {
+                this.stepOver();
+            }),
+    
+            stepOut : element.find("button.stepOut").click(() => {
+                this.stepOut();
+            }),
+    
+            skipToEnd : element.find("button.skipToEnd").click(() => {
+                this.skipToEnd();
+            }),
+    
+            runToEnd : element.find("button.runToEnd").click(() => {
+                this.runToEnd();
+            }),
+    
+            pause : element.find("button.pause").click(() => {
+                this.pause();
+            }),
+    
+            stepBackward : element.find(".stepBackward").click(() => {
+                this.stepBackward(parseInt(""+stepBackwardNumElem.val()));
+            }),
+        };
 
-        // if (element.find(".saveName").length !== 0) {
-        //     var filenameRegex = /^[a-zA-Z0-9\._-]+$/;
-            // this.saveNameEnt = ValueEntity.instance("saveName", "program");
-            // ValueOutlet.instance(element.find(".saveName")).converse(this.saveNameEnt);
-
-            // this.editor.saveFunc = this.saveFunc;
-
-            // this.saveButton.click(this.saveFunc);
-
-        // }
-
-
-
-
-        var buttons = this.buttons = {};
-
-        buttons.restart = element.find(".restart");
-        buttons.restart.click(function() {
-            self.restart();
-        });
-        var stepForwardNumEnt = ValueEntity.instance("stepForwardNum", "1");
-        element.find(".stepForwardNum").length !== 0 && ValueOutlet.instance(element.find(".stepForwardNum")).converse(stepForwardNumEnt);
-
-        buttons.stepForward = element.find(".stepForward");
-        buttons.stepForward.click(function() {
-            self.stepForward(parseInt(stepForwardNumEnt.value()));
-        });
-
-        buttons.stepOver = element.find("button.stepOver");
-        buttons.stepOver.click(function() {
-            self.stepOver();
-        });
-
-        buttons.stepOut = element.find("button.stepOut");
-        buttons.stepOut.click(function() {
-            self.stepOut();
-        });
-
-        buttons.skipToEnd = element.find("button.skipToEnd");
-        buttons.skipToEnd.click(function() {
-            self.skipToEnd();
-        });
-
-        buttons.runToEnd = element.find("button.runToEnd");
-        buttons.runToEnd.click(function() {
-            self.runToEnd();
-        });
-
-        buttons.pause = element.find("button.pause");
-        buttons.pause.click(function() {
-            self.pause();
-        });
-        this.skipFunctions = false;
-        //element.find("input.stepInto").change(function() {
-        //    self.skipFunctions = !$(this).is(":checked");
-        //});
-
-
-        if (element.find(".stepBackwardNum").length !== 0) {
-            var stepBackwardNumEnt = ValueEntity.instance("stepBackwardNum", "1");
-            ValueOutlet.instance(element.find(".stepBackwardNum")).converse(stepBackwardNumEnt);
-            buttons.stepBackward = element.find(".stepBackward");
-            buttons.stepBackward.click(function () {
-                self.stepBackward(parseInt(stepBackwardNumEnt.value()));
-            });
-        }
-
-
-
-        var self = this;
-        element.find(".simPane").on("mousewheel", function(e) {
+        element.find(".simPane").on("mousewheel", (e) => {
             if (e.ctrlKey) {
                 self.mousewheel(e);
             }
@@ -353,46 +295,29 @@ export class SimulationOutlet {
             }
         });
 
-        element.find(".stackFrames").on("mousedown", function(e) {
+        element.find(".stackFrames").on("mousedown", (e) => {
             element.find("#simPane").focus();
-            //alert("hi");
         });
 
-        $(document).on("keydown", function(e) {
+        $(document).on("keydown", (e) => {
             //console.log(e.which);
             if (element.find("#simPane").css("display") !== "none") {
                 if (e.which == 39 || e.which == 83) {
-                    self.stepForward();
+                    this.stepForward();
                     e.preventDefault();
                     e.stopPropagation();
                 }
                 else if (e.which == 37) {
-                    self.stepBackward();
+                    this.stepBackward();
                     e.preventDefault();
                     e.stopPropagation();
                 }
-                //else if (e.which == 40) {
-                //    self.stepOver();
-                //}
-                //else if (e.which == 38) {
-                //    self.stepOut();
-                //}
             }
         });
-        // .on("keypress", "*", function(e) {
-        //     if (element.find("#simPane").css("display") !== "none") {
-        //         if (e.which == 39 || e.which == 83 || e.which == 37) {
-        //             e.preventDefault();
-        //             e.stopPropagation();
-        //         }
-        //     }
-        // });
 
-
-
-        this.alerts = element.find(".alerts");
-        this.alerts.find("button").click(function() {
-            self.hideAlerts();
+        this.alertsElem = element.find(".alerts");
+        this.alertsElem.find("button").click(() => {
+            this.hideAlerts();
         });
     }
 
@@ -409,14 +334,198 @@ export class SimulationOutlet {
         delete (<Mutable<this>>this).sim;
     }
 
+    private setEnabledButtons(enabled: Partial<{[k in SimulationButtonNames]: boolean}>, enabledDefault: boolean = false) {
+        (Object.keys(this.buttonElems) as SimulationButtonNames[]).forEach(buttonName => {
+            if (enabled.hasOwnProperty(buttonName)) {
+                this.buttonElems[buttonName].prop("disabled", !enabled[buttonName]);
+            }
+            else{
+                this.buttonElems[buttonName].prop("disabled", !enabledDefault);
+            }
+        });
+    }
+
+    private restart() {
+        if (!this.sim) { return; }
+        this.setEnabledButtons({}, true);
+        this.sim.start();
+    }
+    
+    private stepForward(n: number = 1) {
+        if (!this.sim) { return; }
+        this.setAnimationsOn(true);
+        this.runningProgressElem.css("visibility", "visible");
+        setTimeout(() => {
+            this.sim.stepForward(n);
+            this.runningProgressElem.css("visibility", "hidden");
+        }, 1);
+    }
+    
+    stepOver : function() {
+        if (!this.sim) { return; }
+        this.runningProgressElem.css("visibility", "visible");
+        
+        RuntimeConstruct.prototype.silent = true;
+        this.setAnimationsOn(false);
+        this.setEnabledButtons({"pause":true});
+        
+        this.sim.speed = Simulation.MAX_SPEED;
+        var self = this;
+        this.sim.stepOver({
+            after : function() {
+                RuntimeConstruct.prototype.silent = false;
+                self.stackFrames.refresh();
+                setTimeout(function() {self.setAnimationsOn(true);}, 10);
+                self.runningProgress.css("visibility", "hidden");
+                self.setEnabledButtons({
+                    "pause": false
+                }, true);
+                self.element.find(".simPane").focus();
+            }
+        });
+    }
+
+    stepOut : function() {
+        if (!this.sim) { return; }
+        this.runningProgressElem.css("visibility", "visible");
+        
+        RuntimeConstruct.prototype.silent = true;
+        this.setAnimationsOn(false);
+        this.setEnabledButtons({"pause":true});
+        
+        this.sim.speed = Simulation.MAX_SPEED;
+        var self = this;
+        this.sim.stepOut({
+            after : function() {
+                RuntimeConstruct.prototype.silent = false;
+                self.stackFrames.refresh();
+                setTimeout(function() {self.setAnimationsOn(true);}, 10);
+                self.runningProgress.css("visibility", "hidden");
+                self.setEnabledButtons({
+                    "pause": false
+                }, true);
+                self.element.find(".simPane").focus();
+            }
+        });
+    }
+    
+    
+    runToEnd : function() {
+        if (!this.sim) { return; }
+        this.runningProgressElem.css("visibility", "visible");
+        
+        //RuntimeConstruct.prototype.silent = true;
+        this.setAnimationsOn(false);
+        this.setEnabledButtons({"pause":true});
+        
+        var self = this;
+        this.sim.speed = 1;
+        this.sim.autoRun({after: function() {
+            //RuntimeConstruct.prototype.silent = false;
+            //self.stackFrames.refresh();
+            setTimeout(function() {self.setAnimationsOn(true);}, 10);
+            //self.setEnabledButtons({
+                //    skipToEnd: true,
+                //    restart: true
+                //}, false);
+                self.runningProgress.css("visibility", "hidden");
+            }});
+        }
+        
+        skipToEnd : function() {
+            if (!this.sim) { return; }
+            this.runningProgressElem.css("visibility", "visible");
+            
+            RuntimeConstruct.prototype.silent = true;
+            this.setAnimationsOn(false);
+            this.setEnabledButtons({"pause":true});
+
+            var self = this;
+            this.sim.speed = Simulation.MAX_SPEED;
+            this.sim.autoRun({after: function() {
+                RuntimeConstruct.prototype.silent = false;
+                self.stackFrames.refresh();
+                setTimeout(function() {self.setAnimationsOn(true);}, 10);
+                //self.setEnabledButtons({
+                    //    skipToEnd: true,
+                    //    restart: true
+                    //}, false);
+                    self.runningProgress.css("visibility", "hidden");
+        }});
+
+        
+
+        
+    }
+    
+    pause : function() {
+        if (!this.sim) { return; }
+        this.sim.pause();
+    }
+    
+    stepBackward : function(n) {
+        if (!this.sim) { return; }
+        if (this.ignoreStepBackward) {return;}
+        
+        this.runningProgressElem.css("visibility", "visible");
+        var self = this;
+        
+        RuntimeConstruct.prototype.silent = true;
+        this.setAnimationsOn(false);
+        this.ignoreStepBackward = true;
+        setTimeout(function() {
+            self.sim.stepBackward(n);
+            RuntimeConstruct.prototype.silent = false;
+            self.stackFrames.refresh();
+            setTimeout(function() {self.setAnimationsOn(true);}, 10);
+            self.setEnabledButtons({
+                "pause": false
+            }, true);
+            self.runningProgress.css("visibility", "hidden");
+            self.ignoreStepBackward = false;
+        }, 100);
+        
+    }
+    
+    loadCode : function(program) {
+        // this.saveNameEnt.setValue(program.name);
+    }
+    
+    setAnimationsOn : function(animOn) {
+        if (animOn) {
+            //RuntimeConstruct.prototype.silent = false;
+            //        this.silent = false;
+            Outlets.CPP.CPP_ANIMATIONS = true;
+            $.fx.off = false;
+            $("body").removeClass("noTransitions").height(); // .height() is to force reflow
+
+        }
+        else{
+            $("body").addClass("noTransitions").height(); // .height() is to force reflow
+            $.fx.off = true;
+            Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
+            //        this.silent = true;
+            //            RuntimeConstruct.prototype.silent = true;
+        }
+    }
+    
+    hideAlerts : function() {
+        this.alertsElem.css("left", "450px");
+        $(".codeInstance.current").removeClass("current");
+    }
+    
+    @messageResponse("cout")
+    private cout(msg: Message<string>) {
+        this.consoleElems.html(msg.data);
+    }
 }
 
 
 export class DefaultLobsterOutlet {
-
+    
     public projectEditor: ProjectEditor;
     public simulationOutlet: SimulationOutlet;
-
+    
     private readonly element: JQuery;
     private readonly tabsElem: JQuery;
 
@@ -440,6 +549,9 @@ export class DefaultLobsterOutlet {
 
         this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
 
+
+        this.runButtonElem = element.find(".runButton");
+
         element.find(".runButton").click(() => {
             let program = this.projectEditor.program;
             if (program.isRunnable()) {
@@ -458,28 +570,7 @@ export class DefaultLobsterOutlet {
             self.hideAnnotationMessage();
         });
         this.afterAnnotation = [];
-    },
-
-    getProgram : function() {
-        return this.projectEditor.getProgram();
-    },
-
-    initListeners : function() {
-        // this.log && this.log.listenTo(this);
-        // this.log && this.log.listenTo(this.editor);
-    },
-
-    setEnabledButtons : function(enabled, def) {
-        def = def || false;
-        for(var key in this.buttons) {
-            if (enabled.hasOwnProperty(key)) {
-                this.buttons[key].prop("disabled", !enabled[key]);
-            }
-            else{
-                this.buttons[key].prop("disabled", !def);
-            }
-        }
-    },
+    }
 
     loadProject : function(projectName) {
         // TODO NEW: warn about losing unsaved changes
@@ -488,175 +579,6 @@ export class DefaultLobsterOutlet {
 
     },
 
-    restart : function() {
-        this.setEnabledButtons({}, true);
-        this.sim.start();
-    },
-
-    stepForward : function(n) {
-        this.setAnimationsOn(true);
-        this.runningProgress.css("visibility", "visible");
-        var self = this;
-        setTimeout(function() {
-            self.sim.stepForward(n);
-            self.runningProgress.css("visibility", "hidden");
-        },1);
-    },
-
-    stepOver : function() {
-        this.runningProgress.css("visibility", "visible");
-
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.setEnabledButtons({"pause":true});
-
-        this.sim.speed = Simulation.MAX_SPEED;
-        var self = this;
-        this.sim.stepOver({
-            after : function() {
-                RuntimeConstruct.prototype.silent = false;
-                self.stackFrames.refresh();
-                setTimeout(function() {self.setAnimationsOn(true);}, 10);
-                self.runningProgress.css("visibility", "hidden");
-                self.setEnabledButtons({
-                    "pause": false
-                }, true);
-                self.element.find(".simPane").focus();
-            }
-        });
-    },
-
-    stepOut : function() {
-        this.runningProgress.css("visibility", "visible");
-
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.setEnabledButtons({"pause":true});
-
-        this.sim.speed = Simulation.MAX_SPEED;
-        var self = this;
-        this.sim.stepOut({
-            after : function() {
-                RuntimeConstruct.prototype.silent = false;
-                self.stackFrames.refresh();
-                setTimeout(function() {self.setAnimationsOn(true);}, 10);
-                self.runningProgress.css("visibility", "hidden");
-                self.setEnabledButtons({
-                    "pause": false
-                }, true);
-                self.element.find(".simPane").focus();
-            }
-        });
-    },
-
-
-    // TODO this has some bugs where the thing can get skipped over lol
-    //runTo : function(data) {
-    //    this.runToEnd({stopIfTrue: function(sim) {
-    //        var topInst = sim.peek();
-    //        return topInst.model === data.code && topInst.parent === data.parentInst;
-    //    }});
-    //},
-
-    runToEnd : function() {
-        this.runningProgress.css("visibility", "visible");
-
-        //RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.setEnabledButtons({"pause":true});
-
-        var self = this;
-        this.sim.speed = 1;
-        this.sim.autoRun({after: function() {
-            //RuntimeConstruct.prototype.silent = false;
-            //self.stackFrames.refresh();
-            setTimeout(function() {self.setAnimationsOn(true);}, 10);
-            //self.setEnabledButtons({
-            //    skipToEnd: true,
-            //    restart: true
-            //}, false);
-            self.runningProgress.css("visibility", "hidden");
-        }});
-    },
-
-    skipToEnd : function() {
-        this.runningProgress.css("visibility", "visible");
-
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.setEnabledButtons({"pause":true});
-
-        var self = this;
-        this.sim.speed = Simulation.MAX_SPEED;
-        this.sim.autoRun({after: function() {
-            RuntimeConstruct.prototype.silent = false;
-            self.stackFrames.refresh();
-            setTimeout(function() {self.setAnimationsOn(true);}, 10);
-            //self.setEnabledButtons({
-            //    skipToEnd: true,
-            //    restart: true
-            //}, false);
-            self.runningProgress.css("visibility", "hidden");
-        }});
-
-
-
-
-    },
-
-    pause : function() {
-        this.sim.pause();
-    },
-
-    stepBackward : function(n) {
-        if (this.ignoreStepBackward) {return;}
-
-        this.runningProgress.css("visibility", "visible");
-        var self = this;
-
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.ignoreStepBackward = true;
-        setTimeout(function() {
-            self.sim.stepBackward(n);
-            RuntimeConstruct.prototype.silent = false;
-            self.stackFrames.refresh();
-            setTimeout(function() {self.setAnimationsOn(true);}, 10);
-            self.setEnabledButtons({
-                "pause": false
-            }, true);
-            self.runningProgress.css("visibility", "hidden");
-            self.ignoreStepBackward = false;
-        }, 100);
-
-    },
-
-    loadCode : function(program) {
-        // this.saveNameEnt.setValue(program.name);
-    },
-
-    setAnimationsOn : function(animOn) {
-        if (animOn) {
-            //RuntimeConstruct.prototype.silent = false;
-//        this.silent = false;
-            Outlets.CPP.CPP_ANIMATIONS = true;
-            $.fx.off = false;
-            $("body").removeClass("noTransitions").height(); // .height() is to force reflow
-
-        }
-        else{
-            $("body").addClass("noTransitions").height(); // .height() is to force reflow
-            $.fx.off = true;
-            Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-//        this.silent = true;
-//            RuntimeConstruct.prototype.silent = true;
-        }
-    },
-
-    hideAlerts : function() {
-        this.alerts.css("left", "450px");
-        $(".codeInstance.current").removeClass("current");
-    },
 
     hideAnnotationMessage : function() {
         this.annotationMessages.css("top", "125px");
@@ -688,8 +610,6 @@ export class DefaultLobsterOutlet {
                 this.restart();
             }
         },
-        runTo: "runTo",
-        skipToEnd: "skipToEnd",
         // compiled : function(msg) {
         //     this.errorStatus.setValue("Compilation successful!");
         //     this.statusElem.removeClass("error");
@@ -727,13 +647,13 @@ export class DefaultLobsterOutlet {
         alert : function(msg) {
             msg = msg.data;
             this.pause();
-            this.alerts.find(".alerts-message").html(msg);
-            this.alerts.css("left", "0px");
+            this.alertsElem.find(".alerts-message").html(msg);
+            this.alertsElem.css("left", "0px");
         },
         explain : function(msg) {
             msg = msg.data;
-            this.alerts.find(".alerts-message").html(msg);
-            this.alerts.css("left", "0px");
+            this.alertsElem.find(".alerts-message").html(msg);
+            this.alertsElem.css("left", "0px");
         },
         closeMessage : function() {
             this.hideAlerts();
@@ -747,14 +667,14 @@ export class DefaultLobsterOutlet {
                 "pause": false
             }, true);
             this.element.find(".simPane").focus();
-            this.runningProgress.css("visibility", "hidden");
+            this.runningProgressElem.css("visibility", "hidden");
         },
         atEnded : function(msg) {
             this.setEnabledButtons({
                 restart: true,
                 stepBackward: true
             },false);
-            this.runningProgress.css("visibility", "hidden");
+            this.runningProgressElem.css("visibility", "hidden");
         },
         beforeStepForward: function(msg) {
 //            if (data.inst.model.isA(Statements.Statement)) {
@@ -1961,7 +1881,7 @@ export class RunningCodeOutlet {
     }
 }
 
-export class SimulationStackOutlet extends RunningCodeOutlet {
+export class CodeStackOutlet extends RunningCodeOutlet {
 
     private readonly frameElems: JQuery[];
 

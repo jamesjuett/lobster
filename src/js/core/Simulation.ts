@@ -28,7 +28,8 @@ export type SimulationMessages =
     "afterStepForward" |
     "afterFullStep" |
     "atEnded" |
-    "alert";
+    "cout" |
+    "eventOccurred";
 
 // TODO: add observer stuff
 export class Simulation {
@@ -449,27 +450,19 @@ export class Simulation {
         else {
             text = escapeString(value.valueToOstreamString());
         }
-        console.log("cout: " + text);
-        // this.console.setValue(this.console.value() + text);
+        this.observable.send("cout", text);
     }
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
         this._eventsOccurred[event].push(message);
         
-        if (showAlert) {
-            this.alert(message);
-        }
+        this.observable.send("eventOccurred", {event, message});
     }
 
     public hasEventOccurred(event: SimulationEvent) {
         return this.eventsOccurred[event].length > 0;
     }
     
-    private alert(message: string) {
-        if (!this.alertsOff){
-            this.observable.send("alert", message);
-        }
-    }
 
     // explain : function(exp){
     //     //alert(exp.ignore);
