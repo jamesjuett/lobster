@@ -112,6 +112,8 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
         let sim = new Simulation(program);
         sim.stepToEnd();
 
+        let stepsTaken1 = sim.stepsTaken;
+
         for(let i = 0; i < eventsToCheck.length; ++i) {
             let event = eventsToCheck[i];
             if (sim.hasEventOccurred(event)) {
@@ -121,12 +123,19 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
 
         if (this.resetAndTestAgain) {
             sim.reset();
+            sim.stepToEnd();
+            
+            let stepsTaken2 = sim.stepsTaken;
     
             for(let i = 0; i < eventsToCheck.length; ++i) {
                 let event = eventsToCheck[i];
                 if (sim.hasEventOccurred(event)) {
                     return {status: "failure", message: "The simulation worked the first time, but an unexpected runtime event (" + event + ") occurred after resetting and running again."};
                 }
+            }
+            
+            if (stepsTaken1 !== stepsTaken2) {
+                return {status: "failure", message: "The simulation took a different number of steps to finish the 2nd time it ran (after a reset)."};
             }
         }
 
