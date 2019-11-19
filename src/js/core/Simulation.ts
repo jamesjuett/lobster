@@ -455,6 +455,12 @@ export class Simulation {
         return this.eventsOccurred[event].length > 0;
     }
     
+    public printState() {
+        return JSON.stringify({
+            memory: this.memory.printObjects(),
+            execStackIds: this.execStack.map(rt => rt.model.id)
+        }, null, 4);
+    }
 
     // explain : function(exp){
     //     //alert(exp.ignore);

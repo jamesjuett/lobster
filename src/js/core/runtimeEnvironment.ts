@@ -429,9 +429,15 @@ export class Memory {
         for(let key in this.objects) {
             let obj = this.objects[key];
             let desc = obj.describe();
-            objs[desc.name || desc.message] = obj.rawValue();
+            if (obj.type.isAtomicType()) {
+                let atomicObj = <CPPObject<AtomicType>>obj;
+                objs[desc.name || desc.message] = (atomicObj.isValueValid() ? atomicObj.rawValue() : "??");
+            }
+            else {
+                objs[desc.name || desc.message] = obj.rawValue();
+            }
         }
-        console.log(JSON.stringify(objs, null, 4));
+        return JSON.stringify(objs, null, 4);
     }
 };
 

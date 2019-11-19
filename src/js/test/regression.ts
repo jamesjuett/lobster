@@ -1,4 +1,4 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier } from "./verifiers";
+import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
 $(() => {
@@ -462,6 +462,31 @@ int main() {
         [
             new NoErrorsNoWarningsVerifier(),
             new NoBadRuntimeEventsVerifier(true)
+        ]
+    );
+    
+      // ---------- Basic SimulationRunner Test ----------
+
+      new SingleTranslationUnitTest(
+        "Basic SimulationRunner Test",
+        `int main() {
+
+  int a = 3;
+  double b = 4.5;
+  char c = 'x';
+  bool d = true;
+  a = 4;
+  b = 83.4;
+  c = 'a';
+  d = false;
+  int f = 5;
+  int g = 10;
+  assert(f + g * 2 == 25);
+  assert((f + g) * 2 == 30);
+  assert((f) + (((g)) + 2) * (2 == 25) == 5);
+}`,
+        [
+            new BasicSynchronousRunnerTest()
         ]
     );
 

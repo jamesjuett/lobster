@@ -95,7 +95,7 @@ export class SynchronousSimulationRunner {
 
 }
 
-export class AsynchronousRunner {
+export class AsynchronousSimulationRunner {
 
     public readonly simulation: Simulation;
 
@@ -129,14 +129,6 @@ export class AsynchronousRunner {
         this.delay = Math.floor(1000 / speed);
     }
 
-    /**
-     * Resets the simulation.
-     */
-    public reset() {
-        this.interrupt();
-        this.simulation.reset();
-    }
-
     private takeOneStep(delay: number = this.delay) {
 
         // If someone else was waiting on a step (or a sequence of steps),
@@ -166,6 +158,14 @@ export class AsynchronousRunner {
             delete this.rejectFn;
             rejectFn();
         }
+    }
+
+    /**
+     * Resets the simulation.
+     */
+    public reset() {
+        this.interrupt();
+        this.simulation.reset();
     }
 
     /**
@@ -250,4 +250,13 @@ export class AsynchronousRunner {
         this.stepForward(newSteps);
     }
     
+    /**
+     * If the simulation is currently running (i.e. in the middle of an asynchronous
+     * stepForward(n), stepToEnd(), stepOver(), etc.), immediately stops the simulation
+     * at the current step. The call to that asynchronous operation will return a rejected
+     * promise.
+     */
+    public pause() {
+        this.interrupt();
+    }
 }

@@ -2,6 +2,7 @@
 import {Program, SourceFile} from "../core/Program";
 import { Simulation, SimulationEvent } from "../core/Simulation";
 import { assert } from "../util/util";
+import { SynchronousSimulationRunner } from "../core/simulationRunners";
 
 interface VerificationStatus {
     readonly verifierName: string;
@@ -16,12 +17,17 @@ export abstract class TestVerifier {
     public readonly abstract verifierName: string;
 
     public verify(program: Program) : VerificationStatus {
-        // try{
+        try{
             return Object.assign({verifierName: this.verifierName}, this.verifyImpl(program));
-        // }
-        // catch(e) {
-        //     return {verifierName: this.verifierName, status: "exception", message: "The test crashed with an uncaught exception", exception: e};
-        // }
+        }
+        catch(e) {
+            if (e.status && e.status === "failure") {
+                return Object.assign({verifierName: this.verifierName}, e);
+            }
+            
+            // throw e;
+            return {verifierName: this.verifierName, status: "exception", message: "The test crashed with an uncaught exception", exception: e};
+        }
     }
 
     protected abstract verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName">;
@@ -142,6 +148,83 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
         return VERIFICATION_SUCCESSFUL;
     }
 }
+
+function checkState(sim1: Simulation, sim2: Simulation) {
+    if (sim1.printState() !== sim2.printState()) {
+        throw {status: "failure", message: "The program's state was not what was expected."};
+    }
+}
+
+export class BasicSynchronousRunnerTest extends TestVerifier {
+    public readonly verifierName = "SynchronousRunnerTest";
+
+    public constructor() {
+        super();
+    }
+
+    protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
+        if (!program.isRunnable()) {
+            return {status: "failure", message: "The program either failed to compile or is missing a main function."};
+        }
+
+        let sim = new Simulation(program);
+        let simR = new Simulation(program);
+
+        checkState(sim, simR);
+
+        let runner = new SynchronousSimulationRunner(simR);
+        checkState(sim, simR);
+
+        runner.reset();
+        checkState(sim, simR);
+
+        sim.stepForward();
+        runner.stepForward();
+        checkState(sim, simR);
+
+        sim.reset();
+        runner.reset();
+        checkState(sim, simR);
+
+        for(let i = 0; i < 10; ++i) { sim.stepForward(); }
+        runner.stepForward(10);
+        checkState(sim, simR);
+        
+        sim.reset();
+        runner.reset();
+        checkState(sim, simR);
+        
+        while(!sim.atEnd) {
+            sim.stepForward();
+        }
+        runner.stepToEnd();
+        checkState(sim, simR);
+        
+        let totalSteps = sim.stepsTaken;
+
+        sim.reset();
+        runner.reset();
+        checkState(sim, simR);
+        
+        for(let i = 0; i < totalSteps - 1; ++i) { sim.stepForward(); }
+        runner.stepToEnd();
+        runner.stepBackward();
+        checkState(sim, simR);
+        
+        sim.reset();
+        runner.reset();
+        checkState(sim, simR);
+        
+        for(let i = 0; i < 10; ++i) { sim.stepForward(); }
+        runner.stepToEnd();
+        runner.stepBackward(totalSteps - 10);
+        checkState(sim, simR);
+        
+        return VERIFICATION_SUCCESSFUL;
+    }
+}
+
+
 
 type TestReporter = (test: ProgramTest) => void;
 
