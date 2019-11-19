@@ -1,5 +1,6 @@
 import { Simulation } from "./Simulation";
 import { FunctionCall } from "./functionCall";
+import { Mutable } from "../util/util";
 
 
 export class SynchronousSimulationRunner {
@@ -11,14 +12,14 @@ export class SynchronousSimulationRunner {
     }
 
     /**
-     * Reset the simulation.
+     * Resets the simulation.
      */
     public reset() {
         this.simulation.reset();
     }
 
     /**
-     * Moves forward n steps in the simulation.
+     * Moves the simulation forward n steps.
      * @param n Number of steps to move forward. Default 1 step.
      */
     public stepForward(n: number = 1) {
@@ -58,7 +59,7 @@ export class SynchronousSimulationRunner {
 
 
     /**
-     * Steps forward until the currently executing function has returned.
+     * Steps the simulation forward until the currently executing function has returned.
      * If there is no currently executing function (e.g. code in an initializer
      * expression for a global variable with static storage duration), equivalent
      * to stepForward(1).
@@ -77,7 +78,7 @@ export class SynchronousSimulationRunner {
     }
 
     /**
-     * Moves backward n steps in the simulation. (In reality, this is done by resetting the
+     * Moves the simulation backward n steps. (In reality, this is done by resetting the
      * simulation and then stepping forward from the beginning to the point that would be
      * n steps backward from the current point in the simulation.)
      * @param n Number of steps backward.
@@ -92,4 +93,161 @@ export class SynchronousSimulationRunner {
         this.stepForward(newSteps);
     }
 
+}
+
+export class AsynchronousRunner {
+
+    public readonly simulation: Simulation;
+
+    /**
+     * Speed in steps per second. Note that very high speeds may not be meaningful,
+     * since the simulation may not be able to keep up.
+     */
+    public readonly speed: number;
+    private delay: number;
+
+    /**
+     * The handle returned by the call to setInterval() that was used to start
+     * the current run thread, or undefined if there is no current run thread.
+     */
+    private rejectFn?: () => void;
+    private timeoutHandle?: number;
+
+    /**
+     * Creates a new runner that can be used to control the given simulation.
+     * @param simulation The simulation to control.
+     * @param speed Speed in steps/second. Default 1.
+     */
+    public constructor(simulation: Simulation, speed: number = 1) {
+        this.simulation = simulation;
+        this.speed = speed;
+        this.delay = Math.floor(1000 / speed);
+    }
+    
+    public setSpeed(speed: number) {
+        (<Mutable<this>>this).speed = speed;
+        this.delay = Math.floor(1000 / speed);
+    }
+
+    /**
+     * Resets the simulation.
+     */
+    public reset() {
+        this.interrupt();
+        this.simulation.reset();
+    }
+
+    private takeOneStep(delay: number = this.delay) {
+
+        // If someone else was waiting on a step (or a sequence of steps),
+        // we want to clear the timeout and call the stored reject function
+        // to interrupt that and reject their promise. This will prevent
+        // several "threads" running at the same time which could cause chaos.
+        this.interrupt();
+
+        return new Promise((resolve, reject) => {
+
+            this.timeoutHandle = setTimeout(() => {
+                this.simulation.stepForward();
+                delete this.timeoutHandle;
+                delete this.rejectFn;
+                resolve();
+            }, this.delay);
+
+            this.rejectFn = reject;
+        })
+    }
+
+    private interrupt() {
+        if (this.rejectFn) {
+            clearTimeout(this.timeoutHandle);
+            delete this.timeoutHandle;
+            let rejectFn = this.rejectFn;
+            delete this.rejectFn;
+            rejectFn();
+        }
+    }
+
+    /**
+     * Moves the simulation forward n steps, asynchronously.
+     * @param n Number of steps to move forward. Default 1 step.
+     */
+    public async stepForward(n: number = 1) {
+        if (n === 0) {
+            return;
+        }
+
+        // Take first step with no delay
+        await this.takeOneStep(0);
+
+        // Take the rest of the steps
+        for (let i = 1; !this.simulation.atEnd && i < n; ++i) {
+            await this.takeOneStep();
+        }
+    }
+
+    /**
+     * Repeatedly steps forward until the simulation has ended.
+     */
+    public async stepToEnd() {
+        while (!this.simulation.atEnd) {
+            await this.takeOneStep();
+        }
+    }
+
+    /**
+     * If a function call is up next, repeatedly steps forward until the function call
+     * has completely finished executing. Otherwise, equivalent to a stepForward(1).
+     * Note that this does not skip over the evaluation of arguments for a function call,
+     * since in that case the arguments themselves are "up next", not the call.
+     * Basically, the idea is that you never "step into" a new function.
+     */
+    public async stepOver() {
+        let top = this.simulation.top();
+        if (top instanceof FunctionCall) {
+            while (!top.isDone) {
+                await this.takeOneStep();
+            }
+        }
+        else {
+            await this.stepForward();
+        }
+    }
+
+
+    /**
+     * Steps the simulation forward until the currently executing function has returned.
+     * If there is no currently executing function (e.g. code in an initializer
+     * expression for a global variable with static storage duration), equivalent
+     * to stepForward(1).
+     */
+    public async stepOut() {
+        let topFunc = this.simulation.topFunction();
+
+        if (!topFunc) {
+            await this.stepForward();
+            return;
+        }
+
+        while (!topFunc.isDone) {
+            await this.takeOneStep();
+        }
+    }
+
+    /**
+     * Moves the simulation backward n steps. (In reality, this is done by resetting the
+     * simulation and then stepping forward from the beginning to the point that would be
+     * n steps backward from the current point in the simulation.)
+     * @param n Number of steps backward.
+     */
+    public stepBackward(n: number = 1) {
+        if (n === 0 || this.simulation.stepsTaken === 0) {
+            return;
+        }
+
+        let newSteps = this.simulation.stepsTaken - n;
+        this.reset();
+        this.stepForward(newSteps);
+    }
+    
 }
