@@ -7,6 +7,7 @@ import { Mutable, assert } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
+import { AsynchronousSimulationRunner } from "../core/simulationRunners";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -226,9 +227,14 @@ function findExactlyOne(element: JQuery, selector: string) {
     return found;
 }
 
+const DEFAULT_RUNNER_SPEED = 1;
+
 export class SimulationOutlet {
 
     public readonly sim?: Simulation;
+
+    private simRunner?: AsynchronousSimulationRunner;
+    private runnerSpeed = DEFAULT_RUNNER_SPEED;
 
     private readonly element: JQuery;
     private readonly runningProgressElem: JQuery;
@@ -286,14 +292,14 @@ export class SimulationOutlet {
             }),
         };
 
-        element.find(".simPane").on("mousewheel", (e) => {
-            if (e.ctrlKey) {
-                self.mousewheel(e);
-            }
-            else{
-                return true;
-            }
-        });
+        // element.find(".simPane").on("mousewheel", (e) => {
+        //     if (e.ctrlKey) {
+        //         self.mousewheel(e);
+        //     }
+        //     else{
+        //         return true;
+        //     }
+        // });
 
         element.find(".stackFrames").on("mousedown", (e) => {
             element.find("#simPane").focus();
@@ -324,6 +330,7 @@ export class SimulationOutlet {
     public setSimulation(sim: Simulation) {
         this.clearSimulation();
         (<Mutable<this>>this).sim = sim;
+        this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerSpeed);
         listenTo(this, sim);
     }
 
@@ -332,6 +339,7 @@ export class SimulationOutlet {
             stopListeningTo(this, this.sim);
         }
         delete (<Mutable<this>>this).sim;
+        delete this.simRunner;
     }
 
     private setEnabledButtons(enabled: Partial<{[k in SimulationButtonNames]: boolean}>, enabledDefault: boolean = false) {
@@ -345,118 +353,116 @@ export class SimulationOutlet {
         });
     }
 
-    private restart() {
+    private async restart() {
         if (!this.sim) { return; }
         this.setEnabledButtons({}, true);
-        this.sim.start();
+        await this.simRunner!.reset();
     }
     
-    private stepForward(n: number = 1) {
-        this.setAnimationsOn(true);
+    private async stepForward(n: number = 1) {
+        if (!this.sim) { return; }
+        // this.setAnimationsOn(true);
         this.runningProgressElem.css("visibility", "visible");
-        setTimeout(() => {
-            this.sim && this.sim.stepForward(n);
-            this.runningProgressElem.css("visibility", "hidden");
-        }, 1);
+        await this.simRunner!.stepForward(n);
+        this.runningProgressElem.css("visibility", "hidden");
     }
     
-    private stepOver() {
+    private async stepOver() {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
-        
-        this.setAnimationsOn(false);
+        // this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
-        this.sim.speed = Simulation.MAX_SPEED;
-        this.sim.stepOver({
-            after : function() {
-                self.codeStackOutlet.refresh();
-                setTimeout(function() {self.setAnimationsOn(true);}, 10);
-                self.runningProgress.css("visibility", "hidden");
-                self.setEnabledButtons({
-                    "pause": false
-                }, true);
-                self.element.find(".simPane").focus();
-            }
-        });
+        // this.sim.speed = Simulation.MAX_SPEED;
+        await this.simRunner!.stepOver();
+        
+        this.codeStackOutlet.refresh();
+
+        // setTimeout(function() {this.setAnimationsOn(true);}, 10);
+        
+        this.runningProgressElem.css("visibility", "hidden");
+        this.setEnabledButtons({
+                "pause": false
+            }, true);
+        this.element.find(".simPane").focus();
     }
 
-    stepOut : function() {
+    private async stepOut() {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
         
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
+        // RuntimeConstruct.prototype.silent = true;
+        // this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
-        this.sim.speed = Simulation.MAX_SPEED;
+        // this.sim.speed = Simulation.MAX_SPEED;
         
-        this.sim.stepOut({
-            after : () => {
-                RuntimeConstruct.prototype.silent = false;
-                this.codeStackOutlet.refresh();
-                setTimeout(function() {this.setAnimationsOn(true);}, 10);
-                this.runningProgress.css("visibility", "hidden");
-                this.setEnabledButtons({
-                    "pause": false
-                }, true);
-                this.element.find(".simPane").focus();
-            }
-        });
+        await this.simRunner.stepOut();
+        
+        // RuntimeConstruct.prototype.silent = false;
+        this.codeStackOutlet.refresh();
+        // setTimeout(function() {this.setAnimationsOn(true);}, 10);
+        this.runningProgressElem.css("visibility", "hidden");
+        this.setEnabledButtons({
+            "pause": false
+        }, true);
+        this.element.find(".simPane").focus();
+       
     }
     
     
-    runToEnd : function() {
+    private async runToEnd() {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
         
         //RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
+        // this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
         
-        this.sim.speed = 1;
-        this.sim.autoRun({after: function() {
-            //RuntimeConstruct.prototype.silent = false;
-            //self.codeStackOutlet.refresh();
-            setTimeout(function() {self.setAnimationsOn(true);}, 10);
-            //self.setEnabledButtons({
-                //    skipToEnd: true,
-                //    restart: true
-                //}, false);
-                self.runningProgress.css("visibility", "hidden");
-            }});
-        }
-        
-        skipToEnd : function() {
-            if (!this.sim) { return; }
-            this.runningProgressElem.css("visibility", "visible");
-            
-            RuntimeConstruct.prototype.silent = true;
-            this.setAnimationsOn(false);
-            this.setEnabledButtons({"pause":true});
+        // this.sim.speed = 1;
+        await this.simRunner!.stepToEnd();
 
-            
-            this.sim.speed = Simulation.MAX_SPEED;
-            this.sim.autoRun({after: function() {
-                RuntimeConstruct.prototype.silent = false;
-                self.codeStackOutlet.refresh();
-                setTimeout(function() {self.setAnimationsOn(true);}, 10);
-                //self.setEnabledButtons({
-                    //    skipToEnd: true,
-                    //    restart: true
-                    //}, false);
-                    self.runningProgress.css("visibility", "hidden");
-        }});
 
-        
-
-        
+        //RuntimeConstruct.prototype.silent = false;
+        //self.codeStackOutlet.refresh();
+        // setTimeout(function() {self.setAnimationsOn(true);}, 10);
+        //self.setEnabledButtons({
+            //    skipToEnd: true,
+            //    restart: true
+            //}, false);
+        this.runningProgressElem.css("visibility", "hidden");
     }
+        
+    // private async skipToEnd() {
+    //         if (!this.sim) { return; }
+    //         this.runningProgressElem.css("visibility", "visible");
+            
+    //         RuntimeConstruct.prototype.silent = true;
+    //         this.setAnimationsOn(false);
+    //         this.setEnabledButtons({"pause":true});
+
+            
+    //         this.sim.speed = Simulation.MAX_SPEED;
+    //         this.sim.autoRun({after: function() {
+    //             RuntimeConstruct.prototype.silent = false;
+    //             self.codeStackOutlet.refresh();
+    //             setTimeout(function() {self.setAnimationsOn(true);}, 10);
+    //             //self.setEnabledButtons({
+    //                 //    skipToEnd: true,
+    //                 //    restart: true
+    //                 //}, false);
+    //                 self.runningProgressElem.css("visibility", "hidden");
+    //     }});
+
+        
+
+        
+    // }
     
-    pause : function() {
+    private async pause() {
         if (!this.sim) { return; }
-        this.sim.pause();
+        this.simRunner!.pause();
     }
     
     stepBackward : function(n) {
@@ -477,7 +483,7 @@ export class SimulationOutlet {
             self.setEnabledButtons({
                 "pause": false
             }, true);
-            self.runningProgress.css("visibility", "hidden");
+            self.runningProgressElem.css("visibility", "hidden");
             self.ignoreStepBackward = false;
         }, 100);
         
