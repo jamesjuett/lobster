@@ -163,9 +163,12 @@ export class AsynchronousSimulationRunner {
     /**
      * Resets the simulation.
      */
-    public reset() {
+    public async reset() {
         this.interrupt();
-        this.simulation.reset();
+        return new Promise(resolve => setTimeout(() => {
+            this.simulation.reset();
+            resolve();
+        }, 0));
     }
 
     /**

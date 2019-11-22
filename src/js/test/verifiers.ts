@@ -1,7 +1,7 @@
 
 import {Program, SourceFile} from "../core/Program";
 import { Simulation, SimulationEvent } from "../core/Simulation";
-import { assert } from "../util/util";
+import { assert, Mutable } from "../util/util";
 import { SynchronousSimulationRunner } from "../core/simulationRunners";
 
 interface VerificationStatus {
@@ -238,7 +238,10 @@ export class ProgramTest {
 
     public readonly name: string;
     public readonly program: Program;
+    public readonly verifiers: readonly TestVerifier[];
     public readonly results: readonly VerificationStatus[];
+    
+    protected readonly reporter: TestReporter;
     
     public constructor(name: string, sourceFiles: readonly SourceFile[], translationUnits: readonly string[],
         verifiers: TestVerifier | readonly TestVerifier[], reporter: TestReporter | undefined = ProgramTest._defaultReporter) {
@@ -246,19 +249,32 @@ export class ProgramTest {
         assert(reporter !== undefined, "Individual reporter or default reporter must be specified.");
 
         this.name = name;
+        
         if (verifiers instanceof TestVerifier) {
             verifiers = [verifiers];
         }
+        this.verifiers = verifiers;
 
         this.program = new Program(sourceFiles, translationUnits);
 
-        this.results = verifiers.map((verifier) => {
+        this.reporter = reporter!;
+
+        this.results = this.verifiers.map((verifier) => {
             return verifier.verify(this.program);
         });
 
-        reporter && reporter(this);
+        this.reporter(<FinishedProgramTest>this);
     }
 }
+
+export interface FinishedProgramTest extends ProgramTest {
+    readonly results: readonly VerificationStatus[];
+}
+
+
+
+
+
 
 export class SingleTranslationUnitTest extends ProgramTest {
 
@@ -267,3 +283,17 @@ export class SingleTranslationUnitTest extends ProgramTest {
     }
     
 }
+
+
+// export class AsynchronousProgramTest extends ProgramTest {
+
+//     protected async verifyAndReport() {
+
+//         (<Mutable<this>>this).results = this.verifiers.map((verifier) => {
+//             return verifier.verify(this.program);
+//         });
+
+//         this.reporter && this.reporter(this);
+
+//     }
+// }
