@@ -1,191 +1,160 @@
-import * as Util from "util/util";
+import { CPPConstruct, RuntimeConstruct, CompiledConstruct } from "../core/constructs";
+import { SimulationOutlet } from "./simOutlets";
+import { Mutable } from "../util/util";
+import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses } from "../util/observe";
 
-var Lobster = Lobster || {};
-Lobster.Outlets.CPP = Lobster.Outlets.CPP || {};
+const EVAL_FADE_DURATION = 500;
+const RESET_FADE_DURATION = 500;
 
-var EVAL_FADE_DURATION = 500;
-var RESET_FADE_DURATION = 500;
+export abstract class CodeOutlet<Construct_type extends CompiledConstruct = CompiledConstruct> {
 
-Lobster.Outlets.CPP.Code = WebOutlet.extend({
-    _name: "Outlets.CPP.Code",
-    init: function (element, code, simOutlet, parent) {
-        this.initParent(element);
+    protected readonly element: JQuery;
+    protected readonly construct: Construct_type;
+    protected readonly simOutlet: SimulationOutlet;
 
+    public readonly parent?: CodeOutlet;
+    public readonly inst: RuntimeConstruct<Construct_type>;
+
+    public _act!: MessageResponses;
+
+    /**
+     * Children are stored by the ID of the CPPConstruct they display.
+     */
+    private readonly children: {[index: number]: CodeOutlet} = {}; 
+    
+    public constructor(element: JQuery, construct: Construct_type, simOutlet: SimulationOutlet, parent?: CodeOutlet) {
+        this.element = element;
+        this.construct = construct;
         this.simOutlet = simOutlet;
 
-        if (code.isA(CPPConstruct)){
-            this.code = code;
-        }
-        else if (code.isA(RuntimeConstruct)){
-            this.code = code.model;
-        }
-        else{
-            assert(false); // must be one of those two
-        }
-
-        if (parent){
+        if (parent) {
             parent.addChild(this);
         }
 
-        // children are stored by the ID of the CPPConstruct they display
-        this.children = {};
-
         this.element.addClass("codeInstance");
         this.element.append("<span class=\"highlight\"></span>");
-        // this.menuElem = $('<span class="menu"></span>');
-        // this.element.append(this.menuElem);
+    }
 
-        this.createElement();
-
-        if (code.isA(RuntimeConstruct)){
-            this.setInstance(code);
+    public setRuntimeInstance(inst: RuntimeConstruct<Construct_type>) {
+        if (this.inst) {
+            this.removeInstance();
         }
-    },
 
-    createElement: function(){
-        // hook
-    },
+        (<Mutable<this>>this).inst = inst;
+        if (this.inst) {
+            listenTo(this, inst);
+        }
 
-    setInstance: function(inst){
-        if (this.inst){
-            this.removeInstance(this.inst);
-            //this.inst.removeListener(this);
-        }
-        this.inst = inst;
-        if (this.inst){
-            inst.addListener(this);
-        }
-        //this.element.addClass("hasInst");
-        this.instanceSet();
-        for(var id in this.inst.pushedChildren) {
-            this.childPushed(this.inst.pushedChildren[id]);
-        }
-//        console.log("instance set for " + this._name);
-    },
-
-    instanceSet : function(){
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
-    },
+        this.instanceSet();
 
-    removeInstance : function(){
+        for(let id in this.inst.pushedChildren) {
+            this.childPushed(this.inst.pushedChildren[id]);
+        }
+    }
+
+    protected instanceSet() {
+
+    }
+
+    public removeInstance() {
 
         // Note: should be a fact that if I have no instance, neither do my children
-        var inst = this.inst;
-        if (this.inst){
+        if (this.inst) {
 
-            // Stop listening
-            this.inst.removeListener(this);
-
-            // First remove children instances (deepest children first)
-            for (var c in this.children){
+            // First remove children instances (deepest children first, due to recursion)
+            for (let c in this.children){
                 this.children[c].removeInstance();
             }
 
-            // TODO: This comment was here but I don't know why I made that choice??? I changed it back.
-            // We don't actually delete the instance or stop listening to it here.
-            // We only do that when a different instance is set.
-            this.instanceRemoved(inst);
+            stopListeningTo(this, this.inst);
+
+            delete (<Mutable<this>>this).inst;
+            
+            this.element.removeClass("upNext");
+            this.element.removeClass("wait");
+            this.instanceRemoved();
         }
-        //this.element.removeClass("hasInst");
-    },
+    }
 
-    instanceRemoved : function(){
-        this.element.removeClass("upNext");
-        this.element.removeClass("wait");
-    },
+    protected instanceRemoved() {
 
-    addChild: function(child){
-        this.children[child.code.id] = child;
-        child.parent = this;
-        return child;
-    },
+    }
 
-    upNext: function(){
+    private addChild(child: CodeOutlet) {
+        this.children[child.construct.id] = child;
+        (<Mutable<CodeOutlet>>child).parent = this;
+    }
+
+    @messageResponse("upNext")
+    private upNext() {
         this.element.removeClass("wait");
         this.element.addClass("upNext");
+    }
 
-        //// Find function outlet in ancestors and scroll so this is visible
-        //if (!isA(this, Outlets.CPP.Statement) || isA(this, Outlets.CPP.Block)){
-        //    return;
-        //}
-        //
-        //var parent = this.element.closest(".codeInstance.function");
-        //
-        //if (parent){
-        //    var parentTop = parent.offset().top;
-        //    var top = this.element.offset().top;
-        //    if(top != parentTop){
-        //        var old = parent.scrollTop();
-        //        if (Math.abs(old - (top - parentTop)) > 50){
-        //            parent.scrollTop(top - parentTop);
-        //        }
-        //    }
-        //}
-    },
-
-    wait: function(){
+    @messageResponse("wait")
+    private wait() {
         this.element.removeClass("upNext");
         this.element.addClass("wait");
-    },
+    }
 
-    popped: function(){
-        if (this.inst.stackType == "function"){
+    // TODO: move this to a function subclass?
+    @messageResponse("popped")
+    private popped() {
+        if (this.inst.stackType == "function") {
             this.simOutlet.popFunction(this.inst);
         }
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
-    },
+    }
 
     // Called when child instance is created under any instance this
     // outlet is listening to. Looks for a child outlet of this outlet
     // that is waiting for the code model associated with the instance.
     // Propagates the child instance upward through ancestors until one
     // is found that was waiting for it.
-    childPushed : function(childInst){
-        var childOutlet = this.children[childInst.model.id];
-        if (childOutlet){
-            childOutlet.setInstance(childInst);
+    @messageResponse("childPushed")
+    private childPushed(msg: Message<RuntimeConstruct>) {
+        let childInst = msg.data;
+        let childOutlet = this.children[childInst.model.id];
+
+        // If we have a child outlet waiting, go for it
+        if (childOutlet) {
+            childOutlet.setRuntimeInstance(childInst);
             return;
         }
 
-        if (this.parent){
-            this.parent.childPushed(childInst);
+        // Otherwise, pass to parent that may have a suitable outlet
+        // TODO: does this ever actually happen?
+        if (this.parent) {
+            this.parent.childPushed(msg);
         }
         else{
             // Just ignore it?
             console.log("WARNING! Child instance pushed for which no corresponding child outlet was found! (" + childInst.model.toString() + ")");
         }
-    },
+    }
 
-    setCurrent: function(isCurrent) {
-        if (isCurrent){
-            this.addClass("current");
-        }
-        else{
-            this.removeClass("current");
-        }
-    },
+    @messageResponse("current")
+    private current() {
+        this.element.addClass("current");
+    }
+
+    @messageResponse("uncurrent")
+    private uncurrent() {
+        this.element.removeClass("current");
+    }
+
+    @messageResponse("reset")
+    private reset() {
+        this.removeInstance();
+    }
 
     _act: {
-        childPushed: "childPushed",
-        upNext: function(){
-            this.upNext();
-        },
-        wait: function(){
-            this.wait();
-        },
-        popped: function(){
-            this.popped();
-        },
-        reset: function(){
-            this.removeInstance();
-        },
-        current: "current",
-        uncurrent: true,
         idCodeOutlet: Observer._IDENTIFY
     }
-});
+}
 
 Lobster.Outlets.CPP.Function = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Function",

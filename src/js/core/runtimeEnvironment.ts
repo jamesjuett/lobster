@@ -545,9 +545,10 @@ export class MemoryFrame {
     private readonly start: number;
     private readonly end: number;
     private readonly memory: Memory;
-    private readonly func: RuntimeFunction;
 
+    public readonly func: RuntimeFunction;
     public readonly size: number;
+
     private readonly localObjectsByEntityId: {[index:number]: AutoObject} = {};
     private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined} = {};
     
