@@ -559,32 +559,25 @@ export class DefaultLobsterOutlet {
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
         new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
 
-        this.annotationMessagesElem = element.find(".annotationMessages");
-        this.annotationMessagesElem.find("button").click(() => {
-            this.hideAnnotationMessage();
-        });
-        this.afterAnnotation = [];
+        // this.annotationMessagesElem = element.find(".annotationMessages");
+        // this.annotationMessagesElem.find("button").click(() => {
+        //     this.hideAnnotationMessage();
+        // });
+        // this.afterAnnotation = [];
     }
 
-    private hideAnnotationMessage() {
-        this.annotationMessagesElem.css("top", "125px");
+    // private hideAnnotationMessage() {
+    //     this.annotationMessagesElem.css("top", "125px");
         
-        if (this.afterAnnotation.length > 0) {
-            this.afterAnnotation.forEach(fn => fn());
-            this.afterAnnotation.length = 0;
-        }
-    }
+    //     if (this.afterAnnotation.length > 0) {
+    //         this.afterAnnotation.forEach(fn => fn());
+    //         this.afterAnnotation.length = 0;
+    //     }
+    // }
 
     @messageResponse("requestFocus")
     private requestFocus(msg: Message<undefined>) {
-        msg.data === undefined;
         if (msg.source === this.projectEditor) {
-            var response = function() {
-                self.tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
-                msg.data();
-            };
-            // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-            this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
             this.tabsElem.find('a[href="#sourcePane"]').tab("show");
         }
     }
@@ -592,47 +585,24 @@ export class DefaultLobsterOutlet {
     _act : {
         loadCode : "loadCode",
         loadProject : "loadProject",
-        requestFocus : function(msg) {
-        },
-        fullCompilationFinished : function() {
-            if(!this.projectEditor.getProgram().hasErrors()) {
-                this.sim.setProgram(this.projectEditor.getProgram());
-                this.restart();
-            }
-        },
-        // compiled : function(msg) {
-        //     this.errorStatus.setValue("Compilation successful!");
-        //     this.statusElem.removeClass("error");
-        //     this.runButton.css("display", "inline-block");
+
+        // annotationMessage : function(msg) {
+        //     this.hideAnnotationMessage();
+        //     var text = msg.data.text;
+        //     if (msg.data.after) {
+        //         this.afterAnnotation.unshift(msg.data.after);
+        //     }
+        //     this.annotationMessagesElem.find(".annotation-message").html(text);
+        //     this.annotationMessagesElem.css("top", "0px");
+        //     if (msg.data.aboutRecursion) {
+        //         this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
+        //         this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
+        //     }
+        //     else{
+        //         this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
+        //         this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
+        //     }
         // },
-        syntaxError : function(msg) {
-            var err = msg.data;
-            this.errorStatus.setValue("Syntax error at line " + err.line + ", column " + err.column/* + ": " + err.message*/);
-            this.statusElem.addClass("error");
-            this.runButton.css("display", "none");
-        },
-        unknownError : function(msg) {
-            this.errorStatus.setValue("Oops! Something went wrong. You may be trying to use an unsupported feature of C++. Or you may have stumbled upon a bug. Feel free to let me know at jjuett@umich.edu if you think something is wrong.");
-            this.statusElem.addClass("error");
-            this.runButton.css("display", "none");
-        },
-        annotationMessage : function(msg) {
-            this.hideAnnotationMessage();
-            var text = msg.data.text;
-            if (msg.data.after) {
-                this.afterAnnotation.unshift(msg.data.after);
-            }
-            this.annotationMessagesElem.find(".annotation-message").html(text);
-            this.annotationMessagesElem.css("top", "0px");
-            if (msg.data.aboutRecursion) {
-                this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
-                this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
-            }
-            else{
-                this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
-                this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
-            }
-        },
 
         alert : function(msg) {
             msg = msg.data;
@@ -677,7 +647,7 @@ export class DefaultLobsterOutlet {
 //                alert("hi");
 //            }
         }
-    },
+    }
 
     mousewheel : function(ev) {
         ev.preventDefault();
@@ -687,17 +657,9 @@ export class DefaultLobsterOutlet {
         else{
 //            this.stepBackward();
         }
-    },
-
-    freeze : function() {
-
-    },
-
-    unfreeze : function() {
-
     }
 
-});
+}
 
 
 
@@ -947,19 +909,6 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
         }
     }
 }
-
-// Lobster.Outlets.CPP.TreeMemoryObject = Outlets.CPP.SingleMemoryObject.extend({
-//     _name: "TreeMemoryObject",
-
-//     init: function(element, object, memoryOutlet) {
-//         this.initParent(element, object, memoryOutlet);
-//         this.objElem.css("white-space", "pre");
-//     },
-
-//     updateObject : function() {
-//         this.objElem.html(breadthFirstTree(this.object.rawValue()));
-//     }
-// });
 
 
 // TODO: should this really extends SingleMemoryObject? it completely overrides updateObject,
@@ -1243,6 +1192,7 @@ export class ReferenceMemoryObject<T extends ObjectType> extends MemoryObjectOut
 export class ArrayMemoryObject<T extends BoundedArrayType> extends MemoryObjectOutlet<T> {
 
     protected readonly objElem : JQuery;
+    private readonly nameElem: JQuery;
     private readonly addrElem : JQuery;
 
     private readonly elemOutlets: MemoryObjectOutlet[];
@@ -1493,7 +1443,7 @@ export class StackFrameOutlet {
             }
         });
         
-        header.append(this.frame.func.name);
+        header.append(this.frame.func.model.declaration.name);
         header.append(minimizeButton);
 
         // REMOVE: this is taken care of by actually adding a memory object for the this pointer
