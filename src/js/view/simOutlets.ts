@@ -275,9 +275,9 @@ export class SimulationOutlet {
                 this.stepOut();
             }),
     
-            skipToEnd : element.find("button.skipToEnd").click(() => {
-                this.skipToEnd();
-            }),
+            // skipToEnd : element.find("button.skipToEnd").click(() => {
+            //     this.skipToEnd();
+            // }),
     
             runToEnd : element.find("button.runToEnd").click(() => {
                 this.runToEnd();
@@ -314,6 +314,7 @@ export class SimulationOutlet {
                     e.stopPropagation();
                 }
                 else if (e.which == 37) {
+                    if (this.buttonElems["stepBackward"].prop("disabled")) { return; }
                     this.stepBackward();
                     e.preventDefault();
                     e.stopPropagation();
@@ -332,14 +333,18 @@ export class SimulationOutlet {
         (<Mutable<this>>this).sim = sim;
         this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerSpeed);
         listenTo(this, sim);
+        this.codeStackOutlet.refresh();
+        this.memoryOutlet.refresh();
     }
-
+    
     public clearSimulation() {
         if (this.sim) {
             stopListeningTo(this, this.sim);
         }
         delete (<Mutable<this>>this).sim;
         delete this.simRunner;
+        this.codeStackOutlet.refresh();
+        this.memoryOutlet.refresh();
     }
 
     private setEnabledButtons(enabled: Partial<{[k in SimulationButtonNames]: boolean}>, enabledDefault: boolean = false) {
@@ -465,38 +470,27 @@ export class SimulationOutlet {
         this.simRunner!.pause();
     }
     
-    stepBackward : function(n) {
+    private async stepBackward(n: number = 1) {
         if (!this.sim) { return; }
-        if (this.ignoreStepBackward) {return;}
         
         this.runningProgressElem.css("visibility", "visible");
-        
-        
-        RuntimeConstruct.prototype.silent = true;
-        this.setAnimationsOn(false);
-        this.ignoreStepBackward = true;
-        setTimeout(function() {
-            self.sim.stepBackward(n);
-            RuntimeConstruct.prototype.silent = false;
-            self.codeStackOutlet.refresh();
-            setTimeout(function() {self.setAnimationsOn(true);}, 10);
-            self.setEnabledButtons({
-                "pause": false
-            }, true);
-            self.runningProgressElem.css("visibility", "hidden");
-            self.ignoreStepBackward = false;
-        }, 100);
-        
+                
+        // RuntimeConstruct.prototype.silent = true;
+        // this.setAnimationsOn(false);
+        this.simRunner!.stepBackward(n);
+
+        // RuntimeConstruct.prototype.silent = false;
+        this.codeStackOutlet.refresh();
+        // setTimeout(function() {this.setAnimationsOn(true);}, 10);
+        this.setEnabledButtons({
+            "pause": false
+        }, true);
+        this.runningProgressElem.css("visibility", "hidden");
     }
     
-    loadCode : function(program) {
-        // this.saveNameEnt.setValue(program.name);
-    }
     
-    setAnimationsOn : function(animOn) {
+    private setAnimationsOn(animOn: boolean) {
         if (animOn) {
-            //RuntimeConstruct.prototype.silent = false;
-            //        this.silent = false;
             Outlets.CPP.CPP_ANIMATIONS = true;
             $.fx.off = false;
             $("body").removeClass("noTransitions").height(); // .height() is to force reflow
@@ -506,12 +500,10 @@ export class SimulationOutlet {
             $("body").addClass("noTransitions").height(); // .height() is to force reflow
             $.fx.off = true;
             Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-            //        this.silent = true;
-            //            RuntimeConstruct.prototype.silent = true;
         }
     }
     
-    hideAlerts : function() {
+    private hideAlerts() {
         this.alertsElem.css("left", "450px");
         $(".codeInstance.current").removeClass("current");
     }
@@ -530,6 +522,7 @@ export class DefaultLobsterOutlet {
     
     private readonly element: JQuery;
     private readonly tabsElem: JQuery;
+    private readonly annotationMessagesElem: JQuery;
 
     public _act!: MessageResponses;
 
@@ -545,16 +538,15 @@ export class DefaultLobsterOutlet {
         this.projectEditor = new ProjectEditor(element.find("#sourcePane"));
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
-            self.projectEditor.refreshEditorView();
+        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", () => {
+            this.projectEditor.refreshEditorView();
         });
 
         this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
 
 
-        this.runButtonElem = element.find(".runButton");
-
-        element.find(".runButton").click(() => {
+        let runButtonElem = element.find(".runButton")
+            .click(() => {
             let program = this.projectEditor.program;
             if (program.isRunnable()) {
                 this.simulationOutlet.setSimulation(new Simulation(program));
@@ -567,44 +559,40 @@ export class DefaultLobsterOutlet {
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
         new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
 
-        this.annotationMessages = element.find(".annotationMessages");
-        this.annotationMessages.find("button").click(function() {
-            self.hideAnnotationMessage();
+        this.annotationMessagesElem = element.find(".annotationMessages");
+        this.annotationMessagesElem.find("button").click(() => {
+            this.hideAnnotationMessage();
         });
         this.afterAnnotation = [];
     }
 
-    loadProject : function(projectName) {
-        // TODO NEW: warn about losing unsaved changes
-
-        this.projectEditor.loadProject(projectName);
-
-    },
-
-
-    hideAnnotationMessage : function() {
-        this.annotationMessages.css("top", "125px");
+    private hideAnnotationMessage() {
+        this.annotationMessagesElem.css("top", "125px");
         
         if (this.afterAnnotation.length > 0) {
-            this.afterAnnotation.forEach(function(fn) {fn();})
+            this.afterAnnotation.forEach(fn => fn());
             this.afterAnnotation.length = 0;
         }
-    },
+    }
+
+    @messageResponse("requestFocus")
+    private requestFocus(msg: Message<undefined>) {
+        msg.data === undefined;
+        if (msg.source === this.projectEditor) {
+            var response = function() {
+                self.tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
+                msg.data();
+            };
+            // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+            this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
+            this.tabsElem.find('a[href="#sourcePane"]').tab("show");
+        }
+    }
 
     _act : {
         loadCode : "loadCode",
         loadProject : "loadProject",
         requestFocus : function(msg) {
-            if (msg.source === this.projectEditor) {
-                
-                var response = function() {
-                    self.tabsElem.find('a[href="#sourcePane"]').off("shown.bs.tab", response);
-                    msg.data();
-                };
-                // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-                this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", msg.data);
-                this.tabsElem.find('a[href="#sourcePane"]').tab("show");
-            }
         },
         fullCompilationFinished : function() {
             if(!this.projectEditor.getProgram().hasErrors()) {
@@ -634,15 +622,15 @@ export class DefaultLobsterOutlet {
             if (msg.data.after) {
                 this.afterAnnotation.unshift(msg.data.after);
             }
-            this.annotationMessages.find(".annotation-message").html(text);
-            this.annotationMessages.css("top", "0px");
+            this.annotationMessagesElem.find(".annotation-message").html(text);
+            this.annotationMessagesElem.css("top", "0px");
             if (msg.data.aboutRecursion) {
-                this.annotationMessages.find(".lobsterTeachingImage").css("display", "inline");
-                this.annotationMessages.find(".lobsterRecursionImage").css("display", "none");
+                this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
+                this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
             }
             else{
-                this.annotationMessages.find(".lobsterTeachingImage").css("display", "none");
-                this.annotationMessages.find(".lobsterRecursionImage").css("display", "inline");
+                this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
+                this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
             }
         },
 
