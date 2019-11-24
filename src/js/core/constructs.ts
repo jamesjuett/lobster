@@ -230,7 +230,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
 
-export type StackType = "statement" | "expression" |  "function" | "initializer" |"call";
+export type StackType = "statement" | "expression" |  "function" | "initializer" | "call";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 
@@ -585,9 +585,9 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
     public constructor (model: CompiledFunctionDefinition, sim: Simulation, receiver?: CPPObject<ClassType>);
     public constructor (model: CompiledFunctionDefinition, parentOrSim: RuntimeFunctionCall | Simulation, receiver?: CPPObject<ClassType>) {
         super(model, "function", parentOrSim);
-        // if (parentOrSim instanceof RuntimeFunctionCall) {
-        //     this.caller = parentOrSim;
-        // }
+        if (parentOrSim instanceof RuntimeFunctionCall) {
+            this.caller = parentOrSim;
+        }
         this.receiver = receiver;
         // A function is its own containing function context
         // this.containingRuntimeFunction = this;
