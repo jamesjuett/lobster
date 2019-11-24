@@ -434,13 +434,13 @@ export interface CompiledBlock extends Block, SuccessfullyCompiled {
     readonly statements: readonly CompiledStatement[];
 }
 
-export class RuntimeBlock<C extends CompiledBlock = CompiledBlock> extends RuntimeStatement<C> {
+export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
     public readonly statements: readonly RuntimeStatement[];
 
     private index = 0;
 
-    public constructor (model: C, parent: RuntimeStatement | RuntimeFunction) {
+    public constructor (model: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         super(model, parent);
         this.statements = model.statements.map((stmt) => stmt.createRuntimeStatement(this));
     }
@@ -834,8 +834,8 @@ export class ForStatement extends Statement<ForStatementASTNode> {
 }
 
 export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled {
-    readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly initial: CompiledExpressionStatement | CompiledNullStatement | CompiledDeclarationStatement;
+    readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly body: CompiledStatement;
     readonly post: CompiledExpression;
 }

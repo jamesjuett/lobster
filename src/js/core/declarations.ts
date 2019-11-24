@@ -1057,6 +1057,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     public readonly kind = "FunctionDefinition";
 
     public readonly declaration: FunctionDeclaration;
+    public readonly name: string;
     public readonly parameters: readonly ParameterDeclaration[];
     public readonly body: Block;
 
@@ -1101,9 +1102,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
 
     public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
         super(context);
+        
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
         this.attach(this.body = body);
+
+        this.name = declaration.name;
         
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
 

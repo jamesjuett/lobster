@@ -121,7 +121,6 @@ export class ProjectEditor {
     }
 
     private loadProject(projectName: string) {
-        // TODO NEW: warn about losing unsaved changes
         if (!this.isSaved) {
             if (!confirm("WARNING: Your current project has unsaved changes. These will be lost if you load a new project. Are you sure?")) {
                 return;
