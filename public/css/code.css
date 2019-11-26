@@ -828,9 +828,9 @@ position: relative;}
     border-bottom-width: 2px;
 }
 
-.code-unaryOp.upNext > .highlight,
-.codeInstance.code-binaryOp.upNext > .highlight,
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight{
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-unaryOp > .highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight {
     opacity: 1;
 }
 
