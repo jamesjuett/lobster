@@ -474,7 +474,7 @@ export interface CompiledComma<T extends Type = Type, V extends ValueCategory = 
     readonly right: CompiledExpression<T,V>;
 }
 
-export class RuntimeComma<T extends Type, V extends ValueCategory> extends SimpleRuntimeExpression<T,V,CompiledComma<T,V>> {
+export class RuntimeComma<T extends Type = Type, V extends ValueCategory = ValueCategory> extends SimpleRuntimeExpression<T,V,CompiledComma<T,V>> {
 
     public left: RuntimeExpression;
     public right: RuntimeExpression<T,V>;
@@ -1038,9 +1038,21 @@ export abstract class BinaryOperator extends Expression {
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
+    // Note valueCategory is defined as "prvalue" in BinaryOperator
     readonly left: CompiledExpression<AtomicType, "prvalue">
     readonly right: CompiledExpression<AtomicType, "prvalue">
 }
+
+
+export interface RuntimeBinaryOperator extends RuntimeExpression<AtomicType, "prvalue", CompiledBinaryOperator<AtomicType>> {
+
+    readonly left: RuntimeExpression<AtomicType, "prvalue">;
+    readonly right: RuntimeExpression<AtomicType, "prvalue">;
+
+}
+
+
+
 
 export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "arithmetic_binary_operator_expression";
@@ -1181,7 +1193,7 @@ class ArithmeticBinaryOperatorExpression extends BinaryOperator {
     }
 }
 
-export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> extends ArithmeticBinaryOperatorExpression, SuccessfullyCompiled {
+export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType = ArithmeticType> extends ArithmeticBinaryOperatorExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
@@ -1191,7 +1203,7 @@ export interface CompiledArithmeticBinaryOperator<T extends ArithmeticType> exte
 }
 
 // TODO: rename this or maybe create two separate classes for Arithmetic and Logical
-export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType> extends SimpleRuntimeExpression<T, "prvalue", CompiledArithmeticBinaryOperator<T>> {
+export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType = ArithmeticType> extends SimpleRuntimeExpression<T, "prvalue", CompiledArithmeticBinaryOperator<T>> {
     
     public readonly left: RuntimeExpression<T, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue">;
@@ -1539,7 +1551,7 @@ class RelationalBinaryOperator extends BinaryOperator {
     }
 }
 
-export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> extends RelationalBinaryOperator, SuccessfullyCompiled {
+export interface CompiledRelationalBinaryOperator<T extends ArithmeticType = ArithmeticType> extends RelationalBinaryOperator, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1547,7 +1559,7 @@ export interface CompiledRelationalBinaryOperator<T extends ArithmeticType> exte
     readonly right: CompiledExpression<T,"prvalue">;
 }
 
-export class RuntimeRelationalBinaryOperator<T extends ArithmeticType> extends SimpleRuntimeExpression<Bool, "prvalue", CompiledRelationalBinaryOperator<T>> {
+export class RuntimeRelationalBinaryOperator<T extends ArithmeticType = ArithmeticType> extends SimpleRuntimeExpression<Bool, "prvalue", CompiledRelationalBinaryOperator<T>> {
     
     public readonly left: RuntimeExpression<T, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue">;
@@ -1878,10 +1890,16 @@ export abstract class UnaryOperator extends Expression {
 export interface CompiledUnaryOperator<T extends ObjectType | VoidType = ObjectType | VoidType> extends UnaryOperator, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
+    readonly valueCategory: ValueCategory;
     readonly operand: CompiledExpression;
 }
 
 
+export interface RuntimeUnaryOperator extends RuntimeExpression<ObjectType | VoidType, ValueCategory, CompiledUnaryOperator<ObjectType | VoidType>> {
+
+    readonly operand: RuntimeExpression;
+
+}
 
 export class DereferenceExpression extends UnaryOperator {
     
