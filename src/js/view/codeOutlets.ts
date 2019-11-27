@@ -9,8 +9,9 @@ import { RuntimeExpression, Expression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
 import { FunctionEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator } from "../core/expressions";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral } from "../core/expressions";
 import { Bool } from "../core/types";
+import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -1395,7 +1396,7 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeArit
     }
 }
 
-export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnaryOperator> {
+export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnaryOperator> {
 
     public readonly operand: ExpressionOutlet;
 
@@ -1426,386 +1427,275 @@ export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnary
     }
 }
 
-Lobster.Outlets.CPP.NewExpression = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.NewExpression",
+// Lobster.Outlets.CPP.NewExpression = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.NewExpression",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-        this.element.addClass("code-newExpression");
-        this.exprElem.append(Util.htmlDecoratedOperator("new", "code-unaryOp"));
-        this.exprElem.append(" ");
+//         this.element.addClass("code-newExpression");
+//         this.exprElem.append(Util.htmlDecoratedOperator("new", "code-unaryOp"));
+//         this.exprElem.append(" ");
 
-        if (isA(this.construct.heapType, Types.Array) && this.construct.dynamicLength){
-            this.exprElem.append(this.construct.heapType.elemType.typeString(false, '[<span class="dynamicLength"></span>]'));
-            createCodeOutlet(this.exprElem.find(".dynamicLength"), this.construct.dynamicLength, this.simOutlet, this);
-        }
-        else{
-            this.exprElem.append(Util.htmlDecoratedType(this.construct.heapType));
-        }
+//         if (isA(this.construct.heapType, Types.Array) && this.construct.dynamicLength){
+//             this.exprElem.append(this.construct.heapType.elemType.typeString(false, '[<span class="dynamicLength"></span>]'));
+//             createCodeOutlet(this.exprElem.find(".dynamicLength"), this.construct.dynamicLength, this.simOutlet, this);
+//         }
+//         else{
+//             this.exprElem.append(Util.htmlDecoratedType(this.construct.heapType));
+//         }
 
-        if (this.construct.initializer) {
-            var initElem = $("<span></span>");
-            createCodeOutlet(initElem, this.construct.initializer, this.simOutlet, this);
-            this.exprElem.append(initElem);
-        }
-
-
-    },
-    upNext: function(){
-        Outlets.CPP.Expression.upNext.apply(this, arguments);
-        var temp = this.element.find(".code-unaryOp").first().addClass("upNext");
-//        console.log("upNext for " + this.construct.code.text);
-    }
-});
-
-Lobster.Outlets.CPP.Delete = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Delete",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        this.element.addClass("code-delete");
-        this.exprElem.append(Util.htmlDecoratedOperator("delete", "code-unaryOp"));
-        this.exprElem.append(" ");
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
-
-        if (this.construct.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this.simOutlet, this, []);
-            this.addChildOutlet(callOutlet);
-        }
-    }
-});
+//         if (this.construct.initializer) {
+//             var initElem = $("<span></span>");
+//             createCodeOutlet(initElem, this.construct.initializer, this.simOutlet, this);
+//             this.exprElem.append(initElem);
+//         }
 
 
-Lobster.Outlets.CPP.DeleteArray = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.DeleteArray",
+//     },
+//     upNext: function(){
+//         Outlets.CPP.Expression.upNext.apply(this, arguments);
+//         var temp = this.element.find(".code-unaryOp").first().addClass("upNext");
+// //        console.log("upNext for " + this.construct.code.text);
+//     }
+// });
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+// Lobster.Outlets.CPP.Delete = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.Delete",
 
-        this.element.addClass("code-deleteArray");
-        this.exprElem.append(Util.htmlDecoratedOperator("delete[]", "code-unaryOp"));
-        this.exprElem.append(" ");
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
+
+//         this.element.addClass("code-delete");
+//         this.exprElem.append(Util.htmlDecoratedOperator("delete", "code-unaryOp"));
+//         this.exprElem.append(" ");
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
+
+//         if (this.construct.funcCall){
+//             var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this.simOutlet, this, []);
+//             this.addChildOutlet(callOutlet);
+//         }
+//     }
+// });
 
 
-    }
-});
+// Lobster.Outlets.CPP.DeleteArray = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.DeleteArray",
+
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
+
+//         this.element.addClass("code-deleteArray");
+//         this.exprElem.append(Util.htmlDecoratedOperator("delete[]", "code-unaryOp"));
+//         this.exprElem.append(" ");
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
 
 
-
-Lobster.Outlets.CPP.ConstructExpression = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.ConstructExpression",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        this.element.addClass("code-constructExpression");
-        this.exprElem.append(Util.htmlDecoratedType(this.construct.type));
-
-        if (this.construct.initializer) {
-            var initElem = $("<span></span>");
-            createCodeOutlet(initElem, this.construct.initializer, this.simOutlet, this);
-            this.exprElem.append(initElem);
-        }
-    }
-});
+//     }
+// });
 
 
 
-Lobster.Outlets.CPP.LogicalNot = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.LogicalNot",
+// Lobster.Outlets.CPP.ConstructExpression = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.ConstructExpression",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-        this.element.addClass("code-logicalNot");
-        this.exprElem.append(Util.htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem)
-    }
-});
+//         this.element.addClass("code-constructExpression");
+//         this.exprElem.append(Util.htmlDecoratedType(this.construct.type));
 
-Lobster.Outlets.CPP.Prefix = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Prefix",
+//         if (this.construct.initializer) {
+//             var initElem = $("<span></span>");
+//             createCodeOutlet(initElem, this.construct.initializer, this.simOutlet, this);
+//             this.exprElem.append(initElem);
+//         }
+//     }
+// });
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+// Lobster.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.Increment",
 
-        this.element.addClass("code-prefix");
-        this.exprElem.append(Util.htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem)
-    }
-});
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-Lobster.Outlets.CPP.Dereference = Outlets.CPP.UnaryOp.extend({
-    _name: "Outlets.CPP.Dereference",
-    textOp : "*",
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
 
-        this.element.addClass("code-dereference");
-    }
-});
+//         this.exprElem.append(Util.htmlDecoratedOperator("++", "code-postfixOp"));
+//     }
+// });
+// Lobster.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.Decrement",
 
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-Lobster.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Increment",
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
-
-        this.exprElem.append(Util.htmlDecoratedOperator("++", "code-postfixOp"));
-    }
-});
-Lobster.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Decrement",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
-
-        this.exprElem.append(Util.htmlDecoratedOperator("--", "code-postfixOp"));
-    }
-});
+//         this.exprElem.append(Util.htmlDecoratedOperator("--", "code-postfixOp"));
+//     }
+// });
 
 
-Lobster.Outlets.CPP.Subscript = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Subscript",
+export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscriptExpression> {
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    public readonly operand: ExpressionOutlet;
+    public readonly offset: ExpressionOutlet;
 
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
+    public constructor(element: JQuery, construct: CompiledSubscriptExpression, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
 
         this.element.addClass("code-subscript");
+
+        this.operand = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this.simOutlet, this);
         this.exprElem.append(Util.htmlDecoratedOperator("[", "code-postfixOp"));
-
-
-        if (this.construct.funcCall){
-            var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this.simOutlet, this);
-            this.addChildOutlet(callOutlet);
-
-            this.argOutlets = callOutlet.argOutlets;
-            this.addChildOutlet(this.argOutlets[0]);
-            this.exprElem.append(this.argOutlets[0].element);
-        }
-        else{
-            var offsetElem = $("<span></span>");
-            createCodeOutlet(offsetElem, this.construct.arg, this.simOutlet, this);
-            this.exprElem.append(offsetElem);
-        }
-
+        this.offset = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.offset, this.simOutlet, this);
         this.exprElem.append(Util.htmlDecoratedOperator("]", "code-postfixOp"));
     }
-});
+}
 
-Lobster.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Dot",
+// Lobster.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.Dot",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
 
-        this.element.addClass("code-dot");
-        this.exprElem.append(Util.htmlDecoratedOperator(".", "code-postfixOp"));
+//         this.element.addClass("code-dot");
+//         this.exprElem.append(Util.htmlDecoratedOperator(".", "code-postfixOp"));
 
-        this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
-    },
+//         this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
+//     },
 
-    setEvalResult : function(value) {
+//     setEvalResult : function(value) {
 
-    }
-});
+//     }
+// });
 
-Lobster.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Arrow",
+// Lobster.Outlets.CPP.Arrow = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.Arrow",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
 
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem);
+//         var operandElem = $("<span></span>");
+//         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
+//         this.exprElem.append(operandElem);
 
-        this.element.addClass("code-dot");
-        this.exprElem.append(Util.htmlDecoratedOperator("->", "code-postfixOp"));
+//         this.element.addClass("code-dot");
+//         this.exprElem.append(Util.htmlDecoratedOperator("->", "code-postfixOp"));
 
-        this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
-    },
+//         this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
+//     },
 
-    setEvalResult : function(value) {
+//     setEvalResult : function(value) {
 
-    }
-});
+//     }
+// });
 
-Lobster.Outlets.CPP.AddressOf = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.AddressOf",
+export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    public readonly subexpression: ExpressionOutlet;
 
-        this.element.addClass("code-addressOf");
-        this.exprElem.append(Util.htmlDecoratedOperator("&", "code-unaryOp"));
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem)
-    }
-});
-
-Lobster.Outlets.CPP.UnaryPlus = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.UnaryPlus",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        this.element.addClass("code-unaryPlus");
-        this.exprElem.append(Util.htmlDecoratedOperator("+", "code-unaryOp"));
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem)
-    }
-});
-
-Lobster.Outlets.CPP.UnaryMinus = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.UnaryMinus",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
-        this.element.addClass("code-unaryMinus");
-        this.exprElem.append(Util.htmlDecoratedOperator("-", "code-unaryOp"));
-        var operandElem = $("<span></span>");
-        createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(operandElem)
-    }
-});
-
-Lobster.Outlets.CPP.Parentheses = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Parentheses",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    public constructor(element: JQuery, construct: CompiledParentheses, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
 
         this.exprElem.append("(");
-        var elem = $("<span></span>");
-        createCodeOutlet(elem, this.construct.subexpression, this.simOutlet, this);
-        this.exprElem.append(elem);
+        this.subexpression = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.subexpression, this.simOutlet, this);
         this.exprElem.append(")");
     }
-});
+}
 
-Lobster.Outlets.CPP.Identifier = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Identifier",
+export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier> {
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    public constructor(element: JQuery, construct: CompiledObjectIdentifier, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
         this.exprElem.addClass("code-name");
 
-        if (Array.isArray(this.construct.identifier)){ // Qualified name
-            this.exprElem.append(this.construct.identifier.map(function(id){return id.identifier}).join("::"));
-        }
-        else{
-            this.exprElem.append(this.construct.identifier);
-        }
-    },
-
-    setEvalResult : function(value) {
-
+        this.exprElem.append(this.construct.name);
     }
-});
 
-Lobster.Outlets.CPP.Literal = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.Literal",
+    // setEvalResult : function(value) {
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    // }
+}
+
+export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral> {
+
+    public constructor(element: JQuery, construct: CompiledNumericLiteral, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
+
         this.exprElem.addClass("code-literal");
         this.exprElem.append(this.construct.value.valueString());
     }
-});
+}
 
-Lobster.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.ThisExpression",
+// Lobster.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
+//     _name: "Outlets.CPP.ThisExpression",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-        this.exprElem.addClass("code-this");
-        this.exprElem.append("this");
-    }
-});
+//     init: function(element, code, simOutlet){
+//         this.initParent(element, code, simOutlet);
+//         this.exprElem.addClass("code-this");
+//         this.exprElem.append("this");
+//     }
+// });
 
-Lobster.Outlets.CPP.ImplicitConversion = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.ImplicitConversion",
+export class TypeConversionOutlet extends ExpressionOutlet<RuntimeImplicitConversion> {
+    
+    public readonly from: ExpressionOutlet;
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+    public constructor(element: JQuery, construct: CompiledImplicitConversion, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
 
         this.element.addClass("code-implicitConversion");
-        var fromElem = $("<span></span>");
-        createCodeOutlet(fromElem, this.construct.from, this.simOutlet, this);
-        this.exprElem.append(fromElem)
+        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this.simOutlet, this);
     }
-});
+}
 
-Lobster.Outlets.CPP.LValueToRValue = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.LValueToRValue",
+export class LValueToRValueOutlet extends ExpressionOutlet<RuntimeImplicitConversion> {
+    
+    public readonly from: ExpressionOutlet;
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
+    public constructor(element: JQuery, construct: CompiledImplicitConversion, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
         this.element.addClass("code-lValueToRValue");
-        var fromElem = $("<span></span>");
-        createCodeOutlet(fromElem, this.construct.from, this.simOutlet, this);
-        this.exprElem.append(fromElem)
+        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this.simOutlet, this);
     }
-});
+}
 
-Lobster.Outlets.CPP.QualificationConversion = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.QualificationConversion",
 
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
+export class ArrayToPointerOutlet extends ExpressionOutlet<RuntimeImplicitConversion> {
+    
+    public readonly from: ExpressionOutlet;
 
-        this.element.addClass("code-qualificationConversion");
-        var fromElem = $("<span></span>");
-        createCodeOutlet(fromElem, this.construct.from, this.simOutlet, this);
-        this.exprElem.append(fromElem)
-    }
-});
-
-Lobster.Outlets.CPP.ArrayToPointer = Outlets.CPP.Expression.extend({
-    _name: "Outlets.CPP.ArrayToPointer",
-
-    init: function(element, code, simOutlet){
-        this.initParent(element, code, simOutlet);
-
+    public constructor(element: JQuery, construct: CompiledImplicitConversion, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
         this.element.addClass("code-arrayToPointer");
-        var fromElem = $("<span></span>");
-        createCodeOutlet(fromElem, this.construct.from, this.simOutlet, this);
-        this.exprElem.append(fromElem)
+        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this.simOutlet, this);
     }
-});
+}
+
+export class QualificationConversionOutlet extends ExpressionOutlet<RuntimeImplicitConversion> {
+    
+    public readonly from: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledImplicitConversion, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
+        this.element.addClass("code-qualificationConversion");
+        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this.simOutlet, this);
+    }
+}
 
 var createCodeOutlet = function(element, code, simOutlet){
     assert(code);

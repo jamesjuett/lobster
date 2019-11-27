@@ -2561,7 +2561,7 @@ export interface CompiledSubscriptExpression<T extends ObjectType = ObjectType> 
     readonly offset: CompiledExpression<Int, "prvalue">;
 }
 
-export class RuntimeSubscriptExpression<T extends ObjectType> extends SimpleRuntimeExpression<T, "lvalue", CompiledSubscriptExpression<T>> {
+export class RuntimeSubscriptExpression<T extends ObjectType = ObjectType> extends SimpleRuntimeExpression<T, "lvalue", CompiledSubscriptExpression<T>> {
 
     public operand: RuntimeExpression<PointerType<T>, "prvalue">;
     public offset: RuntimeExpression<Int, "prvalue">;
@@ -3364,7 +3364,7 @@ export interface CompiledFunctionIdentifier extends IdentifierExpression, Succes
 }
 
 
-export class RuntimeObjectIdentifier<T extends ObjectType> extends RuntimeExpression<T, "lvalue", CompiledObjectIdentifier<T>> {
+export class RuntimeObjectIdentifier<T extends ObjectType = ObjectType> extends RuntimeExpression<T, "lvalue", CompiledObjectIdentifier<T>> {
 
     public constructor (model: CompiledObjectIdentifier<T>, parent: RuntimeConstruct) {
         super(model, parent);
