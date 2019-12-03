@@ -1,4 +1,5 @@
 import assign from "lodash/assign";
+import { Type } from "../core/types";
 
 export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
@@ -34,21 +35,21 @@ export type DiscriminateUnion<T, K extends keyof T, V extends T[K]> =
 export type MapDiscriminatedUnion<T extends Record<K, string>, K extends keyof T> =
   { [V in T[K]]: DiscriminateUnion<T, K, V> };
 
-// export function htmlDecoratedOperator(operator, cssClass){
-//     return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";
-// };
-
-// export function htmlDecoratedKeyword(keyword){
-//     return '<span class="code-keyword">' + keyword + '</span>';
-// };
-
-export function htmlDecoratedType(typeString: string) {
-    return '<span class="code-type">' + typeString + '</span>';
+export function htmlDecoratedOperator(operator: string, cssClass: string) {
+    return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";
 };
 
-// export function htmlDecoratedName(name, type){
-//     return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString() + '</span>' + name + '</span>';
-// };
+export function htmlDecoratedKeyword(keyword: string){
+    return '<span class="code-keyword">' + keyword + '</span>';
+};
+
+export function htmlDecoratedType(type: Type) {
+    return '<span class="code-type">' + type.toString() + '</span>';
+};
+
+export function htmlDecoratedName(name: string, type: Type) {
+    return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
+};
 
 // export function htmlDecoratedValue(value){
 //     return '<span class="code-literal">' + value + '</span>';
