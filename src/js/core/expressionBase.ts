@@ -1,6 +1,6 @@
 import { ExpressionASTNode } from "./expressions";
 
-import { PotentialFullExpression, ExpressionContext, RuntimeConstruct, CPPConstruct, Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./constructs";
+import { PotentialFullExpression, ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./constructs";
 
 import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType } from "./types";
 
@@ -99,7 +99,7 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return {isTail: false};
     }
 
-    public abstract describeEvalResult(depth: number) : Description;
+    public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
 export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, SuccessfullyCompiled {

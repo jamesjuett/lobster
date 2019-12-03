@@ -2,7 +2,7 @@ import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
 import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
-import { Description } from "./constructs";
+import { ConstructDescription } from "./constructs";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -297,7 +297,7 @@ abstract class TypeBase {
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
-    public describe() : Description {
+    public describe() : ConstructDescription {
         var str = this.typeString(false, "");
         return {name: str, message: str};
     }

@@ -1,9 +1,9 @@
 import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
 import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
-import { Description, RuntimeConstruct, RuntimeFunction, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
+import { RuntimeConstruct, RuntimeFunction, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
 import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration } from "./declarations";
-import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject } from "./objects";
+import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
@@ -402,6 +402,12 @@ export class NamespaceScope extends Scope {
 //     }
 // });
 
+
+export interface EntityDescription {
+    name: string;
+    message: string;
+}
+
 export type EntityID = number;
 
 export abstract class CPPEntity<T extends Type = Type> {
@@ -423,7 +429,7 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
-    public abstract describe() : Description;
+    public abstract describe() : EntityDescription;
 
     // // TODO: does this belong here?
     // public isLibraryConstruct() {
@@ -686,7 +692,7 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 
     public describe() {
-        return {message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}`};
+        return {name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}`};
     }
 };
 
@@ -777,7 +783,7 @@ export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectE
     
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
-        return {message: "the return object"};
+        return {name: "[return]", message: "the return object"};
     }
 };
 
@@ -792,7 +798,7 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
 
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
-        return {message: "the object returned by reference"};
+        return {name: "[&return]", message: "the object returned by reference"};
     }
 };
 
@@ -855,7 +861,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
     }
 
     public describe() {
-        return {message: "the string literal \"" + unescapeString(this.str) + "\""};
+        return {name: `[string literal "${this.str}"]`, message: "the string literal \"" + unescapeString(this.str) + "\""};
     }
 };
 
@@ -899,7 +905,7 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
             return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
-            return {message: `Parameter #${this.num+1} of the called function`};
+            return {name: `Parameter #${this.num+1}`, message: `Parameter #${this.num+1} of the called function`};
         }
     }
 
@@ -941,7 +947,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
             return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
-            return {message: `Parameter #${this.num+1} of the called function`};
+            return {name: `Parameter #${this.num+1}`, message: `Parameter #${this.num+1} of the called function`};
         }
     }
 };
@@ -1012,13 +1018,10 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 
     public describe() {
         let arrDesc = this.arrayEntity.describe();
-        let desc : Description = {
+        return {
+            name: arrDesc.name + "[" + this.index + "]",
             message: "element " + this.index + " of " + arrDesc.message
         };
-        if (arrDesc.name){
-            desc.name = arrDesc.name + "[" + this.index + "]";
-        }
-        return desc;
     }
 }
 
@@ -1169,11 +1172,11 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     public readonly owner: PotentialFullExpression;
     public readonly name: string;
 
-    constructor(type: T, creator: PotentialFullExpression, owner: PotentialFullExpression, description: string) {
+    constructor(type: T, creator: PotentialFullExpression, owner: PotentialFullExpression, name: string) {
         super(type);
         this.creator = creator;
         this.owner = owner;
-        this.name = name; // TODO: change when I check over usages of .name and replace with description or something
+        this.name = name;
     }
 
     public setOwner(newOwner: PotentialFullExpression) {
@@ -1198,7 +1201,7 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     }
 
     public describe() {
-        return {message: this.name}; // TOOD: eventually change implementation when I remove name
+        return {name: this.name, message: this.name}; // TOOD: eventually change implementation when I remove name
     }
 
 }
@@ -1299,7 +1302,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return this.qualifiedName === "::main";
     }
 
-    public describe(): Description {
+    public describe(): EntityDescription {
         throw new Error("Method not implemented.");
     }
 }

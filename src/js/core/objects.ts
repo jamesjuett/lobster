@@ -2,8 +2,13 @@ import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectPoint
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
-import { RuntimeConstruct, Description } from "./constructs";
+import { RuntimeConstruct } from "./constructs";
 import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
+
+export interface ObjectDescription {
+    name: string;
+    message: string;
+}
 
 abstract class ObjectData<T extends ObjectType> {
     protected readonly object: CPPObject<T>;
@@ -528,7 +533,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("validitySet", valid);
     }
 
-    public abstract describe() : Description;
+    public abstract describe() : ObjectDescription;
 
 };
 
@@ -590,14 +595,17 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
 export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
+    public readonly name: string;
+
     public readonly def: LocalVariableDefinition | ParameterDefinition
 
     public constructor(def: LocalVariableDefinition | ParameterDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.def = def;
+        this.name = def.name;
     }
 
-    public describe(): Description {
+    public describe(): ObjectDescription {
         return this.def.declaredEntity.describe();
     }
 
@@ -610,19 +618,22 @@ export class MainReturnObject extends CPPObject<Int> {
         super(Int.INT, memory, 0); // HACK: put it at address 0. probably won't cause any issues since it's not allocated
     }
 
-    public describe(): Description {
-        return {message: "The value returned from main."}
+    public describe(): ObjectDescription {
+        return {name: "[main() return]", message: "The value returned from main."}
     }
 
 }
 
 export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
+    public readonly name: string;
+
     public constructor(public readonly def: CompiledGlobalObjectDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
+        this.name = name;
     }
 
-    public describe(): Description {
+    public describe(): ObjectDescription {
         return this.def.declaredEntity.describe();
     }
 
@@ -630,8 +641,8 @@ export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T
 
 export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public describe(): Description {
-        return {message: "the heap object at 0x" + this.address};
+    public describe(): ObjectDescription {
+        return {name: `[dynamic @${this.address}]`, message: `the heap object at 0x${this.address}`};
     }
 
 }
@@ -644,14 +655,14 @@ export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<
         this.kill()
     }
 
-    public describe(): Description {
-        return {message: "an invalid object at 0x" + this.address};
+    public describe(): ObjectDescription {
+        return {name: `[invalid @${this.address}`, message: `an invalid object at 0x${this.address}`};
     }
 }
 
 export class ThisObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    public describe(): Description {
+    public describe(): ObjectDescription {
         return {name: "this", message: "the this pointer"};
     }
 
@@ -663,8 +674,8 @@ export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
         super(type, memory, address);
     }
 
-    public describe(): Description {
-        return {message: "string literal at 0x" + this.address}
+    public describe(): ObjectDescription {
+        return {name: `[string literal @${this.address}]`, message: "string literal at 0x" + this.address}
     }
 
 }
@@ -713,13 +724,10 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
     
     describe() {
         var arrDesc = this.containingObject.describe();
-        var desc : Description = {
+        return {
+            name: arrDesc.name + "[" + this.index + "]", 
             message: "element " + this.index + " of " + arrDesc.message,
         };
-        if (arrDesc.name){
-            desc.name = arrDesc.name + "[" + this.index + "]";
-        }
-        return desc;
     }
 
 }
@@ -732,8 +740,9 @@ export class BaseSubobject extends Subobject<ClassType> {
         super(containingObject, type, memory, address);
     }
 
-    public describe() : Description {
-        return {message: "the " + this.type.name + " base of " + this.containingObject.describe().message};
+    public describe() : ObjectDescription {
+        let contDesc = this.containingObject.describe();
+        return {name: `[${this.type.name} base of ${contDesc.name}]`, message: "the " + this.type.name + " base of " + contDesc.message};
     }
 }
 
@@ -750,13 +759,10 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
     public describe() {
         var parent = this.containingObject;
         let parentDesc = parent.describe();
-        let desc : Description = {
+        return {
+            name: parentDesc.name + "." + this.name,
             message: "the member " + this.name + " of " + parentDesc.message
         }
-        if (parentDesc.name){
-            desc.name = parentDesc.name + "." + this.name;
-        }
-        return desc;
     }
 }
 
@@ -765,13 +771,13 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
 
 export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    private name?: string;
+    private name: string;
 
     // public static create<T extends ObjectType>(type: T, memory: Memory, address: number, name?: string) : T extends ObjectType ? TemporaryObject<T> : never {
     //     return <any> new TemporaryObject(type, memory, address, name);
     // }
 
-    public constructor(type: T, memory: Memory, address: number, name?: string) {
+    public constructor(type: T, memory: Memory, address: number, name: string) {
         super(type, memory, address);
         this.name = name;
         // this.entityId = tempObjEntity.entityId;
@@ -781,7 +787,7 @@ export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObjec
         return "@" + this.address;
     }
     
-    public describe() : Description{
-        return name ? {name: this.name, message: "the temporary object " + this.name} : {message: "a temporary object"};
+    public describe() : ObjectDescription{
+        return {name: this.name, message: "the temporary object " + this.name};
     }
 }

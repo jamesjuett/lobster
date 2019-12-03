@@ -1,4 +1,4 @@
-import { PotentialFullExpression, TranslationUnitContext, RuntimePotentialFullExpression, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, Description } from "./constructs";
+import { PotentialFullExpression, TranslationUnitContext, RuntimePotentialFullExpression, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, ConstructDescription } from "./constructs";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression } from "./expressions";
 import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType } from "./types";
@@ -70,7 +70,7 @@ export class FunctionCall extends PotentialFullExpression {
         // Else, for a return by value, we do need to create a temporary object.
         let returnType = this.func.type.returnType;
         if ( !(returnType instanceof VoidType) && !(returnType instanceof ReferenceType)) {
-            this.returnByValueTarget = this.createTemporaryObject(returnType, (this.func.name || "unknown") + "() [return]");
+            this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
         }
 
         // TODO: need to check that it's not an auxiliary function call before adding these?
@@ -338,7 +338,7 @@ export class FunctionCallExpression extends Expression {
     }
 
     // TODO
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
