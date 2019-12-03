@@ -22,6 +22,7 @@ export type SimulationMessages =
     "reset" |
     "mainCalled" |
     "pushed" |
+    "popped" |
     "beforeUpNext" |
     "afterUpNext" |
     "beforeStepForward" |
@@ -165,6 +166,7 @@ export class Simulation {
         //     if (popped.stackType === "statement" || popped.stackType === "function") {
         //         this.leakCheck(); // TODO leak checking
         //     }
+            this.observable.send("popped", popped);
         }
         return popped;
     }

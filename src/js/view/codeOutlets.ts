@@ -1,10 +1,10 @@
 import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction } from "../core/constructs";
 import { SimulationOutlet } from "./simOutlets";
-import { Mutable, asMutable, assertFalse } from "../util/util";
+import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration } from "../core/declarations";
-import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer } from "../core/initializers";
+import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement } from "../core/statements";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, CopyInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
 import { FunctionEntity } from "../core/entities";
@@ -12,6 +12,7 @@ import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral } from "../core/expressions";
 import { Bool } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
+import { mixin } from "lodash";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -136,9 +137,6 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     @messageResponse("popped")
     private popped() {
         // this.inst! must be defined if this function is called, since it would have had to send the message
-        if (this.inst!.stackType == "function") {
-            this.simOutlet.popFunction(this.inst);
-        }
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
     }
@@ -198,7 +196,7 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         //     this.element.append("\n : ");
         //     for(let i = 0; i < memInits.length; ++i){
         //         let mem = memInits[i];
-        //         this.element.append(Util.htmlDecoratedName(mem.entity.name, mem.entity.type));
+        //         this.element.append(htmlDecoratedName(mem.entity.name, mem.entity.type));
         //         let memElem = $("<span></span>");
         //         createCodeOutlet(memElem, mem, this.simOutlet, this);
         //         this.element.append(memElem);
@@ -439,7 +437,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
         declarationElem.addClass("codeInstance");
         declarationElem.addClass("declaration");
-        declarationElem.append(Util.htmlDecoratedType(this.construct.declarations[0].typeSpecifier.type));
+        declarationElem.append(htmlDecoratedType(this.construct.declarations[0].type));
         declarationElem.append(" ");
 
         this.construct.declarations.forEach((declaration, i) => {
@@ -447,7 +445,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
             // Create element for declarator
             let declElem = $('<span class="codeInstance code-declarator"><span class="highlight"></span></span>');
             this.declaratorElems.push(declElem);
-            declElem.append(declaration.type.declaratorString(Util.htmlDecoratedName(declaration.name, declaration.type)));
+            declElem.append(declaration.type.declaratorString(htmlDecoratedName(declaration.name, declaration.type)));
             declarationElem.append(declElem);
 
             // Create element for initializer, if there is one
@@ -506,6 +504,16 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
 
 }
 
+export class NullStatementOutlet extends StatementOutlet<RuntimeNullStatement> {
+
+    public constructor(element: JQuery, construct: CompiledNullStatement, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
+        super(element, construct, simOutlet, parent);
+
+        this.element.append(";");
+    }
+
+}
+
 export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
     
     public readonly condition: ExpressionOutlet;
@@ -532,7 +540,7 @@ export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
 
         if (this.construct.otherwise){
             this.element.append("<br />");
-            this.element.append(Util.htmlDecoratedKeyword("else"));
+            this.element.append(htmlDecoratedKeyword("else"));
             this.element.append(" ");
             let elseElem = $("<span></span>");
             this.otherwise = createCodeOutlet(elseElem, this.construct.otherwise, this.simOutlet, this);
@@ -551,7 +559,7 @@ export class WhileStatementOutlet extends StatementOutlet<RuntimeWhileStatement>
 
         this.element.addClass("code-while");
 
-        this.element.append(Util.htmlDecoratedKeyword("while"));
+        this.element.append(htmlDecoratedKeyword("while"));
         this.element.append("(");
 
         var condElem = $("<span></span>");
@@ -575,13 +583,13 @@ export class WhileStatementOutlet extends StatementOutlet<RuntimeWhileStatement>
 //     },
 
 //     createElement: function(){
-//         this.element.append(Util.htmlDecoratedKeyword("do"));
+//         this.element.append(htmlDecoratedKeyword("do"));
 
 //         var bodyElem = $("<span></span>")
 //         this.addChildOutlet(this.body = createCodeOutlet(bodyElem, this.construct.body, this.simOutlet));
 //         this.element.append(bodyElem);
 
-//         this.element.append("\n" + Util.htmlDecoratedKeyword("while") + "(");
+//         this.element.append("\n" + htmlDecoratedKeyword("while") + "(");
 
 //         var condElem = $("<span></span>")
 //         this.addChildOutlet(this.condition = createCodeOutlet(condElem, this.construct.condition, this.simOutlet));
@@ -614,7 +622,7 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
         this.element.addClass("code-for");
 
-        this.element.append(Util.htmlDecoratedKeyword("for"));
+        this.element.append(htmlDecoratedKeyword("for"));
         this.element.append("(");
 
         var initElem = $("<span></span>");
@@ -688,7 +696,7 @@ export class ReturnOutlet extends StatementOutlet<RuntimeReturnStatement> {
 //         this.initParent(element, code, simOutlet);
 //         this.element.addClass("break");
 
-//         this.element.append(Util.htmlDecoratedKeyword("break"));
+//         this.element.append(htmlDecoratedKeyword("break"));
 //         this.element.append(";");
 //     },
 
@@ -717,11 +725,11 @@ Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
         if(this.inst){
             // If it's associated with an instance of an initializer
             var obj = this.construct.entity.runtimeLookup(this.simOutlet.simOutlet.sim, this.inst);
-            this.element.append(obj.type.typeString(false, Util.htmlDecoratedName(obj.name, obj.type), true));
+            this.element.append(obj.type.typeString(false, htmlDecoratedName(obj.name, obj.type), true));
         }
         else{
             // If it's associated with a non-instance parameter
-            this.element.append(this.construct.entity.type.typeString(false, Util.htmlDecoratedName(this.construct.entity.name, this.construct.entity.type), true));
+            this.element.append(this.construct.entity.type.typeString(false, htmlDecoratedName(this.construct.entity.name, this.construct.entity.type), true));
         }
 
         //this.element.append("<br />");
@@ -1080,7 +1088,7 @@ export class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExpression> 
     }
 }
 
-const ASSIGNMENT_OP_HTML = Util.htmlDecoratedOperator("=", "code-assignmentOp");
+const ASSIGNMENT_OP_HTML = htmlDecoratedOperator("=", "code-assignmentOp");
 
 export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignment> {
 
@@ -1139,8 +1147,8 @@ export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignme
 //     }, true)
 }
 
-const TERNARY_OP_HTML1 = Util.htmlDecoratedOperator("?", "code-ternaryOp");
-const TERNARY_OP_HTML2 = Util.htmlDecoratedOperator(":", "code-ternaryOp");
+const TERNARY_OP_HTML1 = htmlDecoratedOperator("?", "code-ternaryOp");
+const TERNARY_OP_HTML2 = htmlDecoratedOperator(":", "code-ternaryOp");
 
 
 export class TernaryExpressionOutlet extends ExpressionOutlet<RuntimeTernary> {
@@ -1172,7 +1180,7 @@ export class TernaryExpressionOutlet extends ExpressionOutlet<RuntimeTernary> {
     }
 }
 
-const COMMA_OP_HTML = Util.htmlDecoratedOperator(",", "code-binaryOp");
+const COMMA_OP_HTML = htmlDecoratedOperator(",", "code-binaryOp");
 
 export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
     
@@ -1207,13 +1215,13 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
 //         //createCodeOutlet(lhsElem, this.construct.rhs.left, this.simOutlet, this);
 //         //this.exprElem.append(lhsElem);
 //         //
-//         //this.exprElem.append(" " + Util.htmlDecoratedOperator(this.construct.operator, "code-compoundAssignmentOp") + " ");
+//         //this.exprElem.append(" " + htmlDecoratedOperator(this.construct.operator, "code-compoundAssignmentOp") + " ");
 
 //         let rhsElem = $("<span></span>");
 //         let rhsOutlet = createCodeOutlet(rhsElem, this.construct.rhs, this.simOutlet);
 //         this.addChildOutlet(rhsOutlet);
 //         this.exprElem.append(rhsElem);
-//         rhsElem.find(".code-binaryOp").first().replaceWith(Util.htmlDecoratedOperator(this.construct.operator, "code-compoundAssignmentOp"));
+//         rhsElem.find(".code-binaryOp").first().replaceWith(htmlDecoratedOperator(this.construct.operator, "code-compoundAssignmentOp"));
 //     }
 // });
 
@@ -1363,7 +1371,7 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeArit
         //         var elem = $("<span></span>");
         //         createCodeOutlet(elem, this.construct.left, this.simOutlet, this);
         //         this.exprElem.append(elem);
-        //         this.exprElem.append(" " + Util.htmlDecoratedOperator(this.construct.operator, "code-binaryOp") + " ");
+        //         this.exprElem.append(" " + htmlDecoratedOperator(this.construct.operator, "code-binaryOp") + " ");
         //     }
 
         //     var self = this;
@@ -1388,7 +1396,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
     public constructor(element: JQuery, construct: CompiledUnaryOperator, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
         super(element, construct, simOutlet, parent);
 
-        this.exprElem.append(Util.htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
+        this.exprElem.append(htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
 
         // if (this.construct.funcCall) {
         //     var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this.simOutlet, this);
@@ -1419,7 +1427,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         this.initParent(element, code, simOutlet);
 
 //         this.element.addClass("code-newExpression");
-//         this.exprElem.append(Util.htmlDecoratedOperator("new", "code-unaryOp"));
+//         this.exprElem.append(htmlDecoratedOperator("new", "code-unaryOp"));
 //         this.exprElem.append(" ");
 
 //         if (isA(this.construct.heapType, Types.Array) && this.construct.dynamicLength){
@@ -1427,7 +1435,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //             createCodeOutlet(this.exprElem.find(".dynamicLength"), this.construct.dynamicLength, this.simOutlet, this);
 //         }
 //         else{
-//             this.exprElem.append(Util.htmlDecoratedType(this.construct.heapType));
+//             this.exprElem.append(htmlDecoratedType(this.construct.heapType));
 //         }
 
 //         if (this.construct.initializer) {
@@ -1452,7 +1460,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         this.initParent(element, code, simOutlet);
 
 //         this.element.addClass("code-delete");
-//         this.exprElem.append(Util.htmlDecoratedOperator("delete", "code-unaryOp"));
+//         this.exprElem.append(htmlDecoratedOperator("delete", "code-unaryOp"));
 //         this.exprElem.append(" ");
 //         var operandElem = $("<span></span>");
 //         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
@@ -1473,7 +1481,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         this.initParent(element, code, simOutlet);
 
 //         this.element.addClass("code-deleteArray");
-//         this.exprElem.append(Util.htmlDecoratedOperator("delete[]", "code-unaryOp"));
+//         this.exprElem.append(htmlDecoratedOperator("delete[]", "code-unaryOp"));
 //         this.exprElem.append(" ");
 //         var operandElem = $("<span></span>");
 //         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
@@ -1492,7 +1500,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         this.initParent(element, code, simOutlet);
 
 //         this.element.addClass("code-constructExpression");
-//         this.exprElem.append(Util.htmlDecoratedType(this.construct.type));
+//         this.exprElem.append(htmlDecoratedType(this.construct.type));
 
 //         if (this.construct.initializer) {
 //             var initElem = $("<span></span>");
@@ -1512,7 +1520,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
 //         this.exprElem.append(operandElem);
 
-//         this.exprElem.append(Util.htmlDecoratedOperator("++", "code-postfixOp"));
+//         this.exprElem.append(htmlDecoratedOperator("++", "code-postfixOp"));
 //     }
 // });
 // Lobster.Outlets.CPP.Decrement = Outlets.CPP.Expression.extend({
@@ -1525,7 +1533,7 @@ export abstract class UnaryOperatorExpressionOutlet extends ExpressionOutlet<Run
 //         createCodeOutlet(operandElem, this.construct.operand, this.simOutlet, this);
 //         this.exprElem.append(operandElem);
 
-//         this.exprElem.append(Util.htmlDecoratedOperator("--", "code-postfixOp"));
+//         this.exprElem.append(htmlDecoratedOperator("--", "code-postfixOp"));
 //     }
 // });
 
@@ -1541,9 +1549,9 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
         this.element.addClass("code-subscript");
 
         this.operand = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this.simOutlet, this);
-        this.exprElem.append(Util.htmlDecoratedOperator("[", "code-postfixOp"));
+        this.exprElem.append(htmlDecoratedOperator("[", "code-postfixOp"));
         this.offset = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.offset, this.simOutlet, this);
-        this.exprElem.append(Util.htmlDecoratedOperator("]", "code-postfixOp"));
+        this.exprElem.append(htmlDecoratedOperator("]", "code-postfixOp"));
     }
 }
 
@@ -1558,9 +1566,9 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
 //         this.exprElem.append(operandElem);
 
 //         this.element.addClass("code-dot");
-//         this.exprElem.append(Util.htmlDecoratedOperator(".", "code-postfixOp"));
+//         this.exprElem.append(htmlDecoratedOperator(".", "code-postfixOp"));
 
-//         this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
+//         this.exprElem.append(htmlDecoratedName(this.construct.memberName, this.construct.type));
 //     },
 
 //     setEvalResult : function(value) {
@@ -1579,9 +1587,9 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
 //         this.exprElem.append(operandElem);
 
 //         this.element.addClass("code-dot");
-//         this.exprElem.append(Util.htmlDecoratedOperator("->", "code-postfixOp"));
+//         this.exprElem.append(htmlDecoratedOperator("->", "code-postfixOp"));
 
-//         this.exprElem.append(Util.htmlDecoratedName(this.construct.memberName, this.construct.type));
+//         this.exprElem.append(htmlDecoratedName(this.construct.memberName, this.construct.type));
 //     },
 
 //     setEvalResult : function(value) {

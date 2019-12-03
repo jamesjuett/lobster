@@ -216,7 +216,6 @@ type SimulationButtonNames =
     "stepForward" |
     "stepOver" |
     "stepOut" |
-    "skipToEnd" |
     "runToEnd" |
     "pause" |
     "stepBackward";
@@ -236,11 +235,12 @@ export class SimulationOutlet {
     private simRunner?: AsynchronousSimulationRunner;
     private runnerSpeed = DEFAULT_RUNNER_SPEED;
 
+    public readonly codeStackOutlet: CodeStackOutlet;
+    public readonly memoryOutlet: MemoryOutlet;
+
     private readonly element: JQuery;
     private readonly runningProgressElem: JQuery;
     private readonly buttonElems: {[k in SimulationButtonNames]: JQuery};
-    private readonly codeStackOutlet: JQuery;
-    private readonly memoryOutlet: JQuery;
     private readonly alertsElem: JQuery;
 
     private readonly consoleElems: JQuery;
@@ -331,20 +331,27 @@ export class SimulationOutlet {
     public setSimulation(sim: Simulation) {
         this.clearSimulation();
         (<Mutable<this>>this).sim = sim;
-        this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerSpeed);
         listenTo(this, sim);
-        this.codeStackOutlet.refresh();
-        this.memoryOutlet.refresh();
+        this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerSpeed);
+
+        this.codeStackOutlet.setSimulation(sim);
+        this.memoryOutlet.setMemory(sim.memory);
     }
     
     public clearSimulation() {
+        this.codeStackOutlet.clearSimulation();
+        this.memoryOutlet.clearMemory();
+
         if (this.sim) {
             stopListeningTo(this, this.sim);
         }
         delete (<Mutable<this>>this).sim;
         delete this.simRunner;
-        this.codeStackOutlet.refresh();
-        this.memoryOutlet.refresh();
+    }
+
+    private refreshSimulation() {
+        this.codeStackOutlet.refreshSimulation();
+        this.memoryOutlet.refreshMemory();
     }
 
     private setEnabledButtons(enabled: Partial<{[k in SimulationButtonNames]: boolean}>, enabledDefault: boolean = false) {
@@ -381,7 +388,7 @@ export class SimulationOutlet {
         // this.sim.speed = Simulation.MAX_SPEED;
         await this.simRunner!.stepOver();
         
-        this.codeStackOutlet.refresh();
+        this.refreshSimulation();
 
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         
@@ -402,10 +409,11 @@ export class SimulationOutlet {
         
         // this.sim.speed = Simulation.MAX_SPEED;
         
-        await this.simRunner.stepOut();
+        await this.simRunner!.stepOut();
         
         // RuntimeConstruct.prototype.silent = false;
-        this.codeStackOutlet.refresh();
+        this.refreshSimulation();
+
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         this.runningProgressElem.css("visibility", "hidden");
         this.setEnabledButtons({
@@ -480,7 +488,7 @@ export class SimulationOutlet {
         this.simRunner!.stepBackward(n);
 
         // RuntimeConstruct.prototype.silent = false;
-        this.codeStackOutlet.refresh();
+        this.refreshSimulation();
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         this.setEnabledButtons({
             "pause": false
@@ -489,19 +497,19 @@ export class SimulationOutlet {
     }
     
     
-    private setAnimationsOn(animOn: boolean) {
-        if (animOn) {
-            Outlets.CPP.CPP_ANIMATIONS = true;
-            $.fx.off = false;
-            $("body").removeClass("noTransitions").height(); // .height() is to force reflow
+    // private setAnimationsOn(animOn: boolean) {
+    //     if (animOn) {
+    //         Outlets.CPP.CPP_ANIMATIONS = true;
+    //         $.fx.off = false;
+    //         $("body").removeClass("noTransitions").height(); // .height() is to force reflow
 
-        }
-        else{
-            $("body").addClass("noTransitions").height(); // .height() is to force reflow
-            $.fx.off = true;
-            Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
-        }
-    }
+    //     }
+    //     else{
+    //         $("body").addClass("noTransitions").height(); // .height() is to force reflow
+    //         $.fx.off = true;
+    //         Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
+    //     }
+    // }
     
     private hideAlerts() {
         this.alertsElem.css("left", "450px");
@@ -512,6 +520,25 @@ export class SimulationOutlet {
     private cout(msg: Message<string>) {
         this.consoleElems.html(msg.data);
     }
+    
+    @messageResponse("paused")
+    private paused() {
+        //this.i_paused = true;
+        this.setEnabledButtons({
+            "pause": false
+        }, true);
+        this.element.find(".simPane").focus();
+        this.runningProgressElem.css("visibility", "hidden");
+    }
+
+    @messageResponse("atEnded")
+    private atEnded() {
+        this.setEnabledButtons({
+            restart: true,
+            stepBackward: true
+        },false);
+        this.runningProgressElem.css("visibility", "hidden");
+    }
 }
 
 
@@ -520,9 +547,11 @@ export class DefaultLobsterOutlet {
     public projectEditor: ProjectEditor;
     public simulationOutlet: SimulationOutlet;
     
+    public readonly sim?: Simulation;
+
     private readonly element: JQuery;
     private readonly tabsElem: JQuery;
-    private readonly annotationMessagesElem: JQuery;
+    // private readonly annotationMessagesElem: JQuery;
 
     public _act!: MessageResponses;
 
@@ -566,6 +595,23 @@ export class DefaultLobsterOutlet {
         // this.afterAnnotation = [];
     }
 
+    public setSimulation(sim: Simulation) {
+        this.clearSimulation();
+        (<Mutable<this>>this).sim = sim;
+        listenTo(this, sim);
+
+        this.simulationOutlet.setSimulation(sim);
+    }
+    
+    public clearSimulation() {
+        this.simulationOutlet.clearSimulation();
+
+        if (this.sim) {
+            stopListeningTo(this, this.sim);
+        }
+        delete (<Mutable<this>>this).sim;
+    }
+
     // private hideAnnotationMessage() {
     //     this.annotationMessagesElem.css("top", "125px");
         
@@ -580,6 +626,17 @@ export class DefaultLobsterOutlet {
         if (msg.source === this.projectEditor) {
             this.tabsElem.find('a[href="#sourcePane"]').tab("show");
         }
+    }
+
+    
+    @messageResponse("beforeStepForward")
+    private beforeStepForward(msg: Message<RuntimeConstruct>) {
+        var oldGets = $(".code-memoryObject .get");
+        var oldSets = $(".code-memoryObject .set");
+        setTimeout(() => {
+            oldGets.removeClass("get");
+            oldSets.removeClass("set");
+        }, 300);
     }
 
     _act : {
@@ -604,60 +661,34 @@ export class DefaultLobsterOutlet {
         //     }
         // },
 
-        alert : function(msg) {
-            msg = msg.data;
-            this.pause();
-            this.alertsElem.find(".alerts-message").html(msg);
-            this.alertsElem.css("left", "0px");
-        },
-        explain : function(msg) {
-            msg = msg.data;
-            this.alertsElem.find(".alerts-message").html(msg);
-            this.alertsElem.css("left", "0px");
-        },
-        closeMessage : function() {
-            this.hideAlerts();
-        },
-        started : function(msg) {
-            this.hideAlerts();
-        },
-        paused : function(msg) {
-            //this.i_paused = true;
-            this.setEnabledButtons({
-                "pause": false
-            }, true);
-            this.element.find(".simPane").focus();
-            this.runningProgressElem.css("visibility", "hidden");
-        },
-        atEnded : function(msg) {
-            this.setEnabledButtons({
-                restart: true,
-                stepBackward: true
-            },false);
-            this.runningProgressElem.css("visibility", "hidden");
-        },
-        beforeStepForward: function(msg) {
-//            if (data.inst.model.isA(Statements.Statement)) {
-            var oldGets = $(".code-memoryObject .get");
-            var oldSets = $(".code-memoryObject .set");
-            setTimeout(function() {
-                oldGets.removeClass("get");
-                oldSets.removeClass("set");
-            }, 300);
-//                alert("hi");
-//            }
-        }
+        // alert : function(msg) {
+        //     msg = msg.data;
+        //     this.pause();
+        //     this.alertsElem.find(".alerts-message").html(msg);
+        //     this.alertsElem.css("left", "0px");
+        // },
+        // explain : function(msg) {
+        //     msg = msg.data;
+        //     this.alertsElem.find(".alerts-message").html(msg);
+        //     this.alertsElem.css("left", "0px");
+        // },
+        // closeMessage : function() {
+        //     this.hideAlerts();
+        // },
+        // started : function(msg) {
+        //     this.hideAlerts();
+        // },
     }
 
-    mousewheel : function(ev) {
-        ev.preventDefault();
-        if (ev.deltaY < 0) {
-            this.stepForward();
-        }
-        else{
-//            this.stepBackward();
-        }
-    }
+//     mousewheel : function(ev) {
+//         ev.preventDefault();
+//         if (ev.deltaY < 0) {
+//             this.stepForward();
+//         }
+//         else{
+// //            this.stepBackward();
+//         }
+//     }
 
 }
 
@@ -668,7 +699,7 @@ var SVG_DEFS : {[index: string]: }= {};
 
 export class MemoryOutlet {
 
-    public readonly memory: Memory;
+    public readonly memory?: Memory;
     
     public readonly temporaryObjectsOutlet: TemporaryObjectsOutlet;
     public readonly stackFramesOutlet: StackFramesOutlet;
@@ -678,13 +709,11 @@ export class MemoryOutlet {
     private readonly svgElem: JQuery;
     private readonly svg: SVG.Dom;
     
+    public _act!: MessageResponses;
     
-    public constructor(element: JQuery, memory: Memory) {
+    public constructor(element: JQuery) {
         
         this.element = element.addClass("memory");
-        this.memory = memory;
-
-        listenTo(this, memory);
 
         this.svgElem = $('<div style="position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 10"></div>');
         this.svg = SVG.SVG(this.svgElem[0]);
@@ -710,6 +739,21 @@ export class MemoryOutlet {
         this.stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), this.memory, this);
         this.heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), this.memory, this);
 
+    }
+
+    public setMemory(memory: Memory) {
+        this.clearMemory();
+        (<Mutable<this>>this).memory = memory;
+        listenTo(this, memory);
+        this.refreshMemory();
+    }
+    
+    public clearMemory() {
+        if (this.memory) {
+            stopListeningTo(this, this.memory);
+        }
+        delete (<Mutable<this>>this).memory;
+        this.refreshMemory();
     }
 
     // private updateArrow : function(arrow, start, end) {
@@ -1723,37 +1767,45 @@ export class TemporaryObjectsOutlet {
 export class RunningCodeOutlet {
 
     protected element: JQuery;
-    protected simOutlet: SimulationOutlet;
     protected overlayElem: JQuery;
     protected stackFramesElem: JQuery;
     
-    public readonly sim: Simulation;
+    public readonly sim?: Simulation;
     
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, sim: Simulation, simOutlet: SimulationOutlet) {
+    public constructor(element: JQuery) {
         this.element = element;
-        this.sim = sim;
-        this.simOutlet = simOutlet;
-        listenTo(this, sim);
         
         this.overlayElem = $("<div class='overlays'></div>");
         this.stackFramesElem = $("<div class='code-simStack'></div>");
 
         this.element.append(this.overlayElem);
         this.element.append(this.stackFramesElem);
-
     }
 
-    @messageResponse("mainCallPushed")
-    private pushed(msg: Message<RuntimeFunction<Int>>) {
-        // main has no caller, so we have to handle creating the outlet here
-        this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
-
+    public setSimulation(sim: Simulation) {
+        this.clearSimulation();
+        (<Mutable<this>>this).sim = sim;
+        listenTo(this, sim);
+        this.refreshSimulation();
     }
+    
+    public clearSimulation() {
+        if (this.sim) {
+            stopListeningTo(this, this.sim);
+        }
+        delete (<Mutable<this>>this).sim;
+        this.refreshSimulation();
+    }
+
+
+    public abstract pushFunction(rtFunc: RuntimeFunction, callOutlet: FunctionCallOutlet) : void;
+
+    public abstract popFunction(rtFunc: RuntimeFunction) : void;
 
     public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number, afterCallback: () => void) {
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             let simOff = this.element.offset();
             let fromOff = from.offset();
             let toOff = to.offset();
@@ -1798,11 +1850,13 @@ export class RunningCodeOutlet {
 
     // scrollTo : Class._ABSTRACT,
 
-    started : function() {
-        $(".code-memoryObject .get").removeClass("get");
-    }
+    // started : function() {
+    //     $(".code-memoryObject .get").removeClass("get");
+    // }
 
-    refresh : function() {
+
+
+    public refreshSimulation() {
         this.cleared();
         this.mainCall.removeInstance();
         this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainCallInstance(), this);
@@ -1813,8 +1867,22 @@ export class RunningCodeOutlet {
         }
     }
 
+    @messageResponse("mainCallPushed")
+    private mainCallPushed(msg: Message<RuntimeFunction<Int>>) {
+        // main has no caller, so we have to handle creating the outlet here
+        this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
+
+    }
+
+    @messageResponse("popped")
+    private popped(msg: Message<RuntimeConstruct>) {
+        if (msg.data instanceof RuntimeFunction) {
+            this.popFunction(msg.data);
+        }
+    }
+
+
     _act : {
-        pushed: true,
         started: true,
         cleared: true,
         afterFullStep: true
@@ -1825,8 +1893,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
     private readonly frameElems: JQuery[];
 
-    public constructor(element: JQuery, sim: Simulation, simOutlet: SimulationOutlet) {
-        super(element, sim, simOutlet);
+    public constructor(element: JQuery) {
+        super(element);
 
         this.element.addClass("code-simulation");
 
