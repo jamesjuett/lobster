@@ -204,9 +204,9 @@ export class Simulation {
         }
 
         // Step forward on the rt construct
-        this.observable.send("beforeStepForward", {rt: rt});
+        this.observable.send("beforeStepForward", rt);
         rt.stepForward();
-        this.observable.send("afterStepForward", {rt: rt});
+        this.observable.send("afterStepForward", rt);
 
         ++(<Mutable<this>>this).stepsTaken;
 

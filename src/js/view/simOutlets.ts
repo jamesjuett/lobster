@@ -639,46 +639,46 @@ export class DefaultLobsterOutlet {
         }, 300);
     }
 
-    _act : {
-        loadCode : "loadCode",
-        loadProject : "loadProject",
+    // _act : {
+    //     loadCode : "loadCode",
+    //     loadProject : "loadProject",
 
-        // annotationMessage : function(msg) {
-        //     this.hideAnnotationMessage();
-        //     var text = msg.data.text;
-        //     if (msg.data.after) {
-        //         this.afterAnnotation.unshift(msg.data.after);
-        //     }
-        //     this.annotationMessagesElem.find(".annotation-message").html(text);
-        //     this.annotationMessagesElem.css("top", "0px");
-        //     if (msg.data.aboutRecursion) {
-        //         this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
-        //         this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
-        //     }
-        //     else{
-        //         this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
-        //         this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
-        //     }
-        // },
+    //     annotationMessage : function(msg) {
+    //         this.hideAnnotationMessage();
+    //         var text = msg.data.text;
+    //         if (msg.data.after) {
+    //             this.afterAnnotation.unshift(msg.data.after);
+    //         }
+    //         this.annotationMessagesElem.find(".annotation-message").html(text);
+    //         this.annotationMessagesElem.css("top", "0px");
+    //         if (msg.data.aboutRecursion) {
+    //             this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
+    //             this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
+    //         }
+    //         else{
+    //             this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
+    //             this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
+    //         }
+    //     },
 
-        // alert : function(msg) {
-        //     msg = msg.data;
-        //     this.pause();
-        //     this.alertsElem.find(".alerts-message").html(msg);
-        //     this.alertsElem.css("left", "0px");
-        // },
-        // explain : function(msg) {
-        //     msg = msg.data;
-        //     this.alertsElem.find(".alerts-message").html(msg);
-        //     this.alertsElem.css("left", "0px");
-        // },
-        // closeMessage : function() {
-        //     this.hideAlerts();
-        // },
-        // started : function(msg) {
-        //     this.hideAlerts();
-        // },
-    }
+    //     alert : function(msg) {
+    //         msg = msg.data;
+    //         this.pause();
+    //         this.alertsElem.find(".alerts-message").html(msg);
+    //         this.alertsElem.css("left", "0px");
+    //     },
+    //     explain : function(msg) {
+    //         msg = msg.data;
+    //         this.alertsElem.find(".alerts-message").html(msg);
+    //         this.alertsElem.css("left", "0px");
+    //     },
+    //     closeMessage : function() {
+    //         this.hideAlerts();
+    //     },
+    //     started : function(msg) {
+    //         this.hideAlerts();
+    //     },
+    // }
 
 //     mousewheel : function(ev) {
 //         ev.preventDefault();
@@ -694,12 +694,12 @@ export class DefaultLobsterOutlet {
 
 
 
-var SVG_DEFS : {[index: string]: }= {};
+// var SVG_DEFS : {[index: string]: ???} = {};
 
 
 export class MemoryOutlet {
 
-    public readonly memory?: Memory;
+    public readonly memory: Memory;
     
     public readonly temporaryObjectsOutlet: TemporaryObjectsOutlet;
     public readonly stackFramesOutlet: StackFramesOutlet;
@@ -711,7 +711,7 @@ export class MemoryOutlet {
     
     public _act!: MessageResponses;
     
-    public constructor(element: JQuery) {
+    public constructor(element: JQuery, memory: Memory) {
         
         this.element = element.addClass("memory");
 
@@ -735,26 +735,27 @@ export class MemoryOutlet {
 
         this.element.append(this.svgElem);
 
-        this.temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), this.memory, this);
-        this.stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), this.memory, this);
-        this.heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), this.memory, this);
+        this.memory = memory;
 
+        this.temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
+        this.stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
+        this.heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
     }
 
-    public setMemory(memory: Memory) {
-        this.clearMemory();
-        (<Mutable<this>>this).memory = memory;
-        listenTo(this, memory);
-        this.refreshMemory();
-    }
+    // public setMemory(memory: Memory) {
+    //     this.clearMemory();
+    //     (<Mutable<this>>this).memory = memory;
+    //     listenTo(this, memory);
+    //     this.refreshMemory();
+    // }
     
-    public clearMemory() {
-        if (this.memory) {
-            stopListeningTo(this, this.memory);
-        }
-        delete (<Mutable<this>>this).memory;
-        this.refreshMemory();
-    }
+    // public clearMemory() {
+    //     if (this.memory) {
+    //         stopListeningTo(this, this.memory);
+    //     }
+    //     delete (<Mutable<this>>this).memory;
+    //     this.refreshMemory();
+    // }
 
     // private updateArrow : function(arrow, start, end) {
     //     start = start || arrow && arrow.oldStart;

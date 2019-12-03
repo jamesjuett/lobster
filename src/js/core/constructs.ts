@@ -13,15 +13,14 @@ import { RuntimeFunctionCall } from "./functionCall";
 
 
 
-export interface Description {
+
+export interface ConstructDescription {
     name?: string;
     message: string;
-    ignore?: boolean; // TODO: check what this is used for
 }
 
 export interface Explanation {
     message: string;
-    ignore?: boolean; // TODO: check what this is used for
 }
 
 
@@ -184,7 +183,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return {message: "[No explanation available.]", ignore: true};
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : Description {
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : ConstructDescription {
         return {message: "[No description available.]", ignore: false};
     }
 
@@ -389,7 +388,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         return this.model.explain(this.sim, this);
     }
 
-    public describe() : Description {
+    public describe() : ConstructDescription {
         return this.model.describe(this.sim, this);
     }
 }
@@ -485,9 +484,9 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         tempObjEnt.setOwner(this);
     }
 
-    public createTemporaryObject<T extends ObjectType>(type: T, description: string) : TemporaryObjectEntity<T>{
+    public createTemporaryObject<T extends ObjectType>(type: T, name: string) : TemporaryObjectEntity<T>{
         let fe = this.findFullExpression();
-        var tempObjEnt = new TemporaryObjectEntity(type, this, fe, description);
+        var tempObjEnt = new TemporaryObjectEntity(type, this, fe, name);
         this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;
         return tempObjEnt;
     }

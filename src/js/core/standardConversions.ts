@@ -1,6 +1,6 @@
 import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointerType, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
 import { SimpleRuntimeExpression, NumericLiteral, AuxiliaryExpression } from "./expressions";
-import { Description, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
+import { ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
 import { CompiledExpression, Expression, VCResultTypes, RuntimeExpression, ValueCategory, TypedExpression, SpecificTypedExpression } from "./expressionBase";
@@ -36,7 +36,7 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
     public abstract operate(fromEvalResult: VCResultTypes<FromType, FromVC>) : VCResultTypes<ToType, ToVC>;
 
     
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }

@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType } from "./types";
-import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, Description, ExpressionContext, createExpressionContext } from "./constructs";
+import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ConstructDescription, ExpressionContext, createExpressionContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -147,7 +147,7 @@ export class UnsupportedExpression extends Expression {
         throw new Error("Cannot create a runtime instance of an unsupported construct.");
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         return {
             message: "an unsupported expression"
         }
@@ -575,7 +575,7 @@ export class TernaryExpression extends Expression {
     }
 
     // TODO
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
@@ -711,7 +711,7 @@ export class AssignmentExpression extends Expression {
     }
     
     // TODO
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
@@ -1188,7 +1188,7 @@ class ArithmeticBinaryOperatorExpression extends BinaryOperator {
         return new RuntimeArithmeticBinaryOperator(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -1268,7 +1268,7 @@ export class PointerDifference extends BinaryOperator {
         return new RuntimePointerDifference(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -1376,7 +1376,7 @@ export class PointerOffset extends BinaryOperator {
         return new RuntimePointerOffset(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -1546,7 +1546,7 @@ class RelationalBinaryOperator extends BinaryOperator {
         return new RuntimeRelationalBinaryOperator(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -1621,7 +1621,7 @@ export class PointerComparison extends BinaryOperator {
         return new RuntimePointerComparison(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -1714,7 +1714,7 @@ class LogicalBinaryOperator extends BinaryOperator {
         return new RuntimeLogicalBinaryOperator(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
     
@@ -1943,7 +1943,7 @@ export class DereferenceExpression extends UnaryOperator {
         return new RuntimeDereferenceExpression(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -2079,7 +2079,7 @@ export class AddressOfExpression extends UnaryOperator {
         return new RuntimeAddressOfExpression(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 }
@@ -2539,7 +2539,7 @@ export class SubscriptExpression extends Expression {
         return new RuntimeSubscriptExpression(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
     
@@ -3328,7 +3328,7 @@ export class IdentifierExpression extends Expression {
         }
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
@@ -3526,7 +3526,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
         return new RuntimeNumericLiteral(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
@@ -3645,7 +3645,7 @@ export class Parentheses extends Expression {
         return new RuntimeParentheses(this, parent);
     }
 
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
@@ -3956,7 +3956,7 @@ export class MagicFunctionCallExpression extends Expression {
     }
 
     // TODO
-    public describeEvalResult(depth: number): Description {
+    public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
 
