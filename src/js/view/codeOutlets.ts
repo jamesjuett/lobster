@@ -59,10 +59,10 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
 
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
-        this.instanceSet();
+        this.instanceSet(inst);
 
         for(let id in inst.pushedChildren) {
-            this.childPushed(inst.pushedChildren[id]);
+            this.setChildInstance(inst.pushedChildren[id]);
         }
     }
 
@@ -429,20 +429,65 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
 
 export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarationStatement> {
 
-    public readonly declaration: DeclarationOutlet;
-    
+    private declaratorElems : JQuery[] = [];
+    private currentDeclarationIndex : number | null = null;
+
     public constructor(element: JQuery, construct: CompiledDeclarationStatement, simOutlet: SimulationOutlet, parent?: ConstructOutlet) {
         super(element, construct, simOutlet, parent);
 
-        var elem = $("<span></span>")
-        // TODO: needs to support the possibility of multiple declarations on one line.
-        //       That was originally implemented in the DeclarationOutlet class, but should
-        //       be moved here now that there is a presumption that the declaration itself
-        //       will only declare one thing, but a declaration statement may have multiple
-        //       declarations.
-        this.declaration = createCodeOutlet(elem, this.construct.declaration, this.simOutlet, this);
-        this.element.append(elem);
+        let declarationElem = $("<span></span>")
+
+        declarationElem.addClass("codeInstance");
+        declarationElem.addClass("declaration");
+        declarationElem.append(Util.htmlDecoratedType(this.construct.declarations[0].typeSpecifier.type));
+        declarationElem.append(" ");
+
+        this.construct.declarations.forEach((declaration, i) => {
+
+            // Create element for declarator
+            let declElem = $('<span class="codeInstance code-declarator"><span class="highlight"></span></span>');
+            this.declaratorElems.push(declElem);
+            declElem.append(declaration.type.declaratorString(Util.htmlDecoratedName(declaration.name, declaration.type)));
+            declarationElem.append(declElem);
+
+            // Create element for initializer, if there is one
+            if(declaration.initializer) {
+                let initElem = $("<span></span>");
+                createCodeOutlet(initElem, declaration.initializer, this.simOutlet, this);
+                declarationElem.append(initElem);
+            }
+
+            // Add commas where needed
+            if (i < this.construct.declarations.length - 1) {
+                declarationElem.append(", ");
+            }
+        });
+
+        this.element.append(declarationElem);
         this.element.append(";");
+    }
+
+    protected instanceRemoved() {
+
+    }
+
+    private setCurrentDeclarationIndex(current: number | null) {
+
+        // Remove from previous current
+        if (this.currentDeclarationIndex !== null) {
+            this.declaratorElems[this.currentDeclarationIndex].removeClass("active");
+        }
+
+        // Set new or set to null
+        this.currentDeclarationIndex = current;
+        if (current !== null) {
+            this.declaratorElems[current].addClass("active");
+        }
+    }
+
+    @messageResponse("initializing")
+    private initializing(msg: Message<number>) {
+        this.setCurrentDeclarationIndex(msg.data);
     }
 }
 
@@ -650,67 +695,7 @@ export class ReturnOutlet extends StatementOutlet<RuntimeReturnStatement> {
 //     createElement: function(){}
 // });
 
-// export class SimpleDeclarationOutlet extends ConstructOutlet<> {
-//     _name: "Outlets.CPP.Declaration",
 
-// //    init: function(element, code, simOutlet){
-// //        this.initParent(element, code, simOutlet);
-// //    },
-
-//     createElement: function(){
-//         this.element.addClass("codeInstance");
-//         this.element.addClass("declaration");
-//         this.element.append(Util.htmlDecoratedType(this.construct.typeSpec.type));
-//         this.element.append(" ");
-
-//         var declaratorElems = this.declaratorElems = [];
-//         for(var i = 0; i < this.construct.declarators.length; ++i){
-
-//             // Create element for declarator
-//             var decl = this.construct.declarators[i];
-//             var declElem = $('<span class="codeInstance code-declarator"><span class="highlight"></span></span>');
-//             declaratorElems.push(declElem);
-//             declElem.append(decl.type.declaratorString(Util.htmlDecoratedName(decl.name, decl.type)));
-//             this.element.append(declElem);
-
-//             // Create element for initializer, if there is one
-//             if(this.construct.initializers[i]){
-//                 var initElem = $("<span></span>");
-//                 createCodeOutlet(initElem, this.construct.initializers[i], this.simOutlet, this);
-//                 this.element.append(initElem);
-//             }
-
-//             // Add commas where needed
-//             if (i < this.construct.declarators.length - 1){
-//                 this.element.append(", ");
-//             }
-//         }
-
-//     },
-//     instanceRemoved : function(){
-//         this.setCurrentDeclaratorIndex(null);
-//     },
-//     setCurrentDeclaratorIndex : function(decl){
-//         // Remove from old
-//         if (this.currentDeclarator){
-//             this.currentDeclarator.removeClass("active");
-//         }
-
-//         // Set new or set to null
-//         if (decl || decl === 0){
-//             this.currentDeclarator = this.declaratorElems[decl];
-//             this.currentDeclarator.addClass("active");
-//         }
-//         else{
-//             this.currentDeclarator = null;
-//         }
-//     },
-//     _act : mixin({}, Outlets.CPP.Code._act, {
-//         initializing: function(msg){
-//             this.setCurrentDeclaratorIndex(msg.data);
-//         }
-//     })
-// });
 
 Lobster.Outlets.CPP.Parameter = Outlets.CPP.Code.extend({
     _name: "Outlets.CPP.Parameter",
@@ -1697,7 +1682,7 @@ export class QualificationConversionOutlet extends ExpressionOutlet<RuntimeImpli
     }
 }
 
-var createCodeOutlet = function(element, code, simOutlet){
+var createCodeOutlet = function(element, code, simOutlet, parent){
     assert(code);
     assert(simOutlet);
     var outletClass = DEFAULT_CODE_OUTLETS[code._class];
