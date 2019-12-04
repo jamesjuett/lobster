@@ -800,7 +800,7 @@ export class MemoryOutlet {
     // },
 }
 
-export abstract class MemoryObjectOutlet<T extends ObjectType> {
+export abstract class MemoryObjectOutlet<T extends ObjectType = ObjectType> {
 
     public readonly object: CPPObject<T>;
     
@@ -813,8 +813,7 @@ export abstract class MemoryObjectOutlet<T extends ObjectType> {
     
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet)
-    {
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         this.element = element.addClass("code-memoryObject");
         this.object = object;
         this.memoryOutlet = memoryOutlet;
@@ -879,7 +878,7 @@ export abstract class MemoryObjectOutlet<T extends ObjectType> {
         callback(this);
     }
 
-    useSVG() {
+    protected useSVG() {
         this.svgElem = $('<div style="position: absolute; width: 100%; height: 100%; left: 0px; top: 0px; pointer-events: none"></div>');
         this.svg = SVG.SVG(this.svgElem[0]);
         this.element.append(this.svgElem);
@@ -931,9 +930,8 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
 
         if (this.object.name) {
             this.element.append("<span> </span>");
-            this.entityElem = $("<div class='entity'>" + (this.object.name || "") + "</div>");
+            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
         }
-        this.element.append(this.entityElem);
 
         this.updateObject();
         
@@ -1195,10 +1193,16 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
 //     Outlets.CPP.CPP_ANIMATIONS = temp;
 // }, 20);
 
-export class ReferenceMemoryObject<T extends ObjectType> extends MemoryObjectOutlet<T> {
+export class ReferenceMemoryOutlet<T extends ObjectType> {
 
-    public constructor(element: JQuery, object: T, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+    public readonly object?: CPPObject<T>;
+    
+    protected readonly memoryOutlet: MemoryOutlet;
+    
+    protected readonly element: JQuery;
+
+    public constructor(element: JQuery, memoryOutlet: MemoryOutlet) {
+        this.element = element;
 
         this.element.addClass("code-memoryObjectSingle");
 
@@ -1234,7 +1238,7 @@ export class ReferenceMemoryObject<T extends ObjectType> extends MemoryObjectOut
     })
 });
 
-export class ArrayMemoryObject<T extends BoundedArrayType> extends MemoryObjectOutlet<T> {
+export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
     protected readonly objElem : JQuery;
     private readonly nameElem: JQuery;
@@ -1242,7 +1246,7 @@ export class ArrayMemoryObject<T extends BoundedArrayType> extends MemoryObjectO
 
     private readonly elemOutlets: MemoryObjectOutlet[];
 
-    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+    public constructor(element: JQuery, object: CPPObject<BoundedArrayType<T>>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
 
         this.element.addClass("code-memoryObjectArray");
@@ -1251,17 +1255,17 @@ export class ArrayMemoryObject<T extends BoundedArrayType> extends MemoryObjectO
         this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
-        this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T["elemType"]>, i: number) => {
+        this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T>, i: number) => {
             let elemElem = $('<div></div>');
             let elemContainer = $('<div style="display: inline-block; margin-bottom: 5px; text-align: center" class="arrayElem"></div>');
             elemContainer.append(elemElem);
             elemContainer.append('<div style="line-height: 1ch; font-size: 6pt">'+i+'</div>');
             this.objElem.append(elemContainer);
             if (elemSubobject.type.isClassType()) {
-                this.elemOutlets.push(createMemoryObjectOutlet(elemElem, elemSubobject, this.memoryOutlet));
+                return createMemoryObjectOutlet(elemElem, elemSubobject, this.memoryOutlet);
             }
             else{
-                this.elemOutlets.push(new ArrayElemMemoryObject(elemElem, elemSubobject, this.memoryOutlet));
+                return new ArrayElemMemoryObjectOutlet(elemElem, <ArraySubobject<AtomicType>>elemSubobject, this.memoryOutlet);
             }
 
             // 2D array
@@ -1359,7 +1363,7 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
 export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T> {
 
     protected readonly objElem: JQuery;
-    private readonly addrElem: JQuery;
+    private readonly addrElem?: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
@@ -1392,15 +1396,15 @@ export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T
 
         let memberOutlets = [];
 
-        for(var i = 0; i < this.length; ++i) {
-            var elemElem = $("<div></div>");
-            membersElem.append(elemElem);
-            memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
-//            if (i % 10 == 9) {
-//                this.objElem.append("<br />");
-            // }
-        }
-        this.objElem.append(membersElem);
+//         for(var i = 0; i < this.length; ++i) {
+//             var elemElem = $("<div></div>");
+//             membersElem.append(elemElem);
+//             memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
+// //            if (i % 10 == 9) {
+// //                this.objElem.append("<br />");
+//             // }
+//         }
+//         this.objElem.append(membersElem);
 
         this.element.append(this.objElem);
 
@@ -1415,10 +1419,7 @@ export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T
 
 
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
-    if(obj.type.isReferenceType()) {
-        return new ReferenceMemoryObject(elem, obj, memoryOutlet);
-    }
-    else if(obj.type.isPointerType()) {
+    if(obj.type.isPointerType()) {
         return new PointerMemoryObject(elem, <CPPObject<PointerType>>obj, memoryOutlet);
     }
     else if(obj.type.isBoundedArrayType()) {
@@ -1438,6 +1439,7 @@ export class StackFrameOutlet {
     
     private readonly element: JQuery;
 
+    public readonly func: RuntimeFunction;
     public readonly frame: MemoryFrame;
     
     public _act!: MessageResponses;
@@ -1447,13 +1449,16 @@ export class StackFrameOutlet {
     public constructor(element: JQuery, frame: MemoryFrame, memoryOutlet: MemoryOutlet) {
         this.element = element;
         this.frame = frame;
+        this.func = frame.func;
         this.memoryOutlet = memoryOutlet;
         
         listenTo(this, frame);
 
-        this.customizations = OutletCustomizations.func[this.frame.func.entityId];
+        let funcId = this.frame.func.model.constructId;
+
+        this.customizations = OutletCustomizations.func[funcId];
         if (!this.customizations) {
-            this.customizations = OutletCustomizations.func[this.frame.func.entityId] = {
+            this.customizations = OutletCustomizations.func[funcId] = {
                 minimize: "show"
             };
         }
@@ -1488,7 +1493,7 @@ export class StackFrameOutlet {
             }
         });
         
-        header.append(this.frame.func.model.declaration.name);
+        header.append(this.func.model.declaration.name);
         header.append(minimizeButton);
 
         // REMOVE: this is taken care of by actually adding a memory object for the this pointer
@@ -1498,16 +1503,15 @@ export class StackFrameOutlet {
         //    body.append(elem);
         //}
 
-        for(var key in this.frame.objects) {
+        this.frame.localObjects.forEach(obj => {
             var elem = $("<div></div>");
-            createMemoryObjectOutlet(elem, this.frame.objects[key], this.memoryOutlet);
+            createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
             body.prepend(elem);
-        }
-        for(var key in this.frame.references) {
-            var elem = $("<div></div>");
-            createMemoryObjectOutlet(elem, this.frame.references[key], this.memoryOutlet);
-            body.prepend(elem);
-        }
+        });
+
+        this.func.model.context.functionLocals.localReferences.forEach(ref => {
+            new ReferenceMemoryOutlet($("<div></div>").prependTo(body), this.frame.references[key], this.memoryOutlet);
+        });
     }
 }
 
@@ -1523,7 +1527,7 @@ const OutletCustomizations = {
     temporaryObjects : <TemporaryObjectsCustomization>{
         minimize: "hide"
     },
-    func: <{[index: string]: StackFrameCustomization}>{
+    func: <{[index: number]: StackFrameCustomization}>{
         
     }
 };
@@ -1569,7 +1573,7 @@ export class StackFramesOutlet {
 
         this.frameElems.push(frameElem);
         this.framesElem.prepend(frameElem);
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             (this.frameElems.length == 1 ? frameElem.fadeIn(FADE_DURATION) : frameElem.slideDown(SLIDE_DURATION));
         }
         else{
@@ -1588,7 +1592,7 @@ export class StackFramesOutlet {
 //                popped.remove();
 //            }
 //            else{
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             let popped = this.frameElems.pop()!;
             popped.slideUp(SLIDE_DURATION, function() {
                 $(this).remove();
@@ -1647,7 +1651,7 @@ export class HeapOutlet {
 
         this.objectElems[obj.address] = elem;
         this.objectsElem.prepend(elem);
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             elem.slideDown(SLIDE_DURATION);
         }
         else{
@@ -1738,7 +1742,7 @@ export class TemporaryObjectsOutlet {
 
         this.objectElems[obj.address] = elem;
         this.objectsElem.prepend(elem);
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             elem.slideDown(SLIDE_DURATION);
         }
         else{
@@ -1892,7 +1896,7 @@ export class RunningCodeOutlet {
 
 export class CodeStackOutlet extends RunningCodeOutlet {
 
-    private readonly frameElems: JQuery[];
+    private frameElems: JQuery[];
 
     public constructor(element: JQuery) {
         super(element);
@@ -1922,7 +1926,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         let funcOutlet = Outlets.CPP.Function.instance(functionElem, rtFunc, this, callOutlet);
 
         // Animate!
-        if (Outlets.CPP.CPP_ANIMATIONS) {
+        if (CPP_ANIMATIONS) {
             (this.frameElems.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function() {
 //                elem.scrollTop = elem.scrollHeight;
                 }}));
@@ -1941,7 +1945,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         //    return;
         //}
         var popped = this.frameElems.pop()!;
-        if (this.frameElems.length == 0 || !Outlets.CPP.CPP_ANIMATIONS) {
+        if (this.frameElems.length == 0 || !CPP_ANIMATIONS) {
             popped.remove();
         }
         else{
@@ -1952,7 +1956,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     }
 
     protected cleared() {
-        this.frameElems.clear();
+        this.frameElems = [];
         this.stackFramesElem.children().remove();
     }
 

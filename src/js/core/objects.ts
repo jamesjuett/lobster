@@ -246,6 +246,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 
     public readonly observable = new Observable(this);
 
+    /**
+     * Objects that result from a named declaration will have a name. For others
+     * (e.g. dynamically allocated objects, temporary objects), this will be undefined.
+     */
+    public readonly name?: string;
     public readonly type: T;
     public readonly size: number;
     public readonly address: number;
@@ -311,11 +316,6 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     public toString() {
         return "@"+ this.address;
     }
-
-    // TODO: figure out precisely what this is used for and make sure overrides actually provide appropriate strings
-    // public nameString() {
-    //     return "@" + this.address;
-    // }
 
     public kill(rt?: RuntimeConstruct) {
         (<Mutable<this>>this).isAlive = false;
@@ -771,23 +771,19 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
 
 export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
-    private name: string;
+    private description: string;
 
     // public static create<T extends ObjectType>(type: T, memory: Memory, address: number, name?: string) : T extends ObjectType ? TemporaryObject<T> : never {
     //     return <any> new TemporaryObject(type, memory, address, name);
     // }
 
-    public constructor(type: T, memory: Memory, address: number, name: string) {
+    public constructor(type: T, memory: Memory, address: number, description: string) {
         super(type, memory, address);
-        this.name = name;
+        this.description = description;
         // this.entityId = tempObjEntity.entityId;
-    }
-
-    public nameString() {
-        return "@" + this.address;
     }
     
     public describe() : ObjectDescription{
-        return {name: this.name, message: "the temporary object " + this.name};
+        return {name: this.description, message: "the temporary object " + this.name};
     }
 }
