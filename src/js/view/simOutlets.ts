@@ -8,6 +8,7 @@ import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";
+import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -699,11 +700,11 @@ export class DefaultLobsterOutlet {
 
 export class MemoryOutlet {
 
-    public readonly memory: Memory;
+    public readonly memory?: Memory;
     
-    public readonly temporaryObjectsOutlet: TemporaryObjectsOutlet;
-    public readonly stackFramesOutlet: StackFramesOutlet;
-    public readonly heapOutlet: HeapOutlet;
+    public readonly temporaryObjectsOutlet?: TemporaryObjectsOutlet;
+    public readonly stackFramesOutlet?: StackFramesOutlet;
+    public readonly heapOutlet?: HeapOutlet;
 
     private readonly element: JQuery;
     private readonly svgElem: JQuery;
@@ -711,7 +712,7 @@ export class MemoryOutlet {
     
     public _act!: MessageResponses;
     
-    public constructor(element: JQuery, memory: Memory) {
+    public constructor(element: JQuery) {
         
         this.element = element.addClass("memory");
 
@@ -735,27 +736,30 @@ export class MemoryOutlet {
 
         this.element.append(this.svgElem);
 
-        this.memory = memory;
-
-        this.temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
-        this.stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        this.heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
     }
 
-    // public setMemory(memory: Memory) {
-    //     this.clearMemory();
-    //     (<Mutable<this>>this).memory = memory;
-    //     listenTo(this, memory);
-    //     this.refreshMemory();
-    // }
+    public setMemory(memory: Memory) {
+        this.clearMemory();
+        (<Mutable<this>>this).memory = memory;
+        listenTo(this, memory);
+        this.refreshMemory();
+        
+        (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
+        (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
+        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+    }
     
-    // public clearMemory() {
-    //     if (this.memory) {
-    //         stopListeningTo(this, this.memory);
-    //     }
-    //     delete (<Mutable<this>>this).memory;
-    //     this.refreshMemory();
-    // }
+    public clearMemory() {
+        delete (<Mutable<this>>this).temporaryObjectsOutlet;
+        delete (<Mutable<this>>this).stackFramesOutlet;
+        delete (<Mutable<this>>this).heapOutlet;
+
+        if (this.memory) {
+            stopListeningTo(this, this.memory);
+        }
+        delete (<Mutable<this>>this).memory;
+        this.refreshMemory();
+    }
 
     // private updateArrow : function(arrow, start, end) {
     //     start = start || arrow && arrow.oldStart;
@@ -821,7 +825,7 @@ export abstract class MemoryObjectOutlet<T extends ObjectType = ObjectType> {
         listenTo(this, object);
     }
 
-    abstract protected updateObject() : void;
+    protected abstract updateObject() : void;
 
     @messageResponse("valueRead")
     @messageResponse("byteRead")
@@ -1193,21 +1197,23 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
 //     Outlets.CPP.CPP_ANIMATIONS = temp;
 // }, 20);
 
-export class ReferenceMemoryOutlet<T extends ObjectType> {
+export class ReferenceMemoryOutlet<T extends ObjectType = ObjectType> {
 
+    public readonly entity: (UnboundReferenceEntity | BoundReferenceEntity) & NamedEntity;
     public readonly object?: CPPObject<T>;
     
-    protected readonly memoryOutlet: MemoryOutlet;
-    
-    protected readonly element: JQuery;
+    private readonly element: JQuery;
+    private readonly addrElem: JQuery;
+    private readonly objElem: JQuery;
 
-    public constructor(element: JQuery, memoryOutlet: MemoryOutlet) {
+    public constructor(element: JQuery, entity: UnboundReferenceEntity & NamedEntity) {
         this.element = element;
+        this.entity = entity;
 
         this.element.addClass("code-memoryObjectSingle");
 
         this.addrElem = $("<td class='address'></td>");
-        this.objElem = $("<td><div class='entity'>"+(this.object.name || "")+
+        this.objElem = $("<td><div class='entity'>"+(entity.name || "")+
             "</div><div class='code-memoryObject-object'>"+
             "</div></td>");
         this.element.append("<table><tr></tr></table>");
@@ -1215,28 +1221,19 @@ export class ReferenceMemoryOutlet<T extends ObjectType> {
         this.objElem = this.objElem.find(".code-memoryObject-object");
 
         return this;
-    },
+    }
 
-    bound : function() {
-        if (this.object.refersTo.name) {
-            this.objElem.html(this.object.refersTo.name);
+    public bind(object: CPPObject<T>) {
+        (<Mutable<this>>this).object = object;
+
+        if (object.name) {
+            this.objElem.html(object.name);
         }
         else{
-            this.objElem.html("@"+this.object.refersTo.address);
+            this.objElem.html("@"+object.address);
         }
-//            this.objElem = $("<td><div class='entity'>"+(this.object.name || "")+
-//                "</div><div class='code-memoryObject-object'>"+this.object.valueString()+
-//                "</div></td>");
-        this.bytesWritten();
-    },
-
-    updateObject : function() {
-//        this.objElem.html(this.object.valueString());
-    },
-    _act: copyMixin(Outlets.CPP.MemoryObject._act, {
-        bound: "bound"
-    })
-});
+    }
+}
 
 export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
@@ -1442,6 +1439,8 @@ export class StackFrameOutlet {
     public readonly func: RuntimeFunction;
     public readonly frame: MemoryFrame;
     
+    private readonly referenceOutletsByEntityId : {[index: number]: ReferenceMemoryOutlet} = {};
+
     public _act!: MessageResponses;
 
     private readonly customizations : StackFrameCustomization;
@@ -1510,8 +1509,14 @@ export class StackFrameOutlet {
         });
 
         this.func.model.context.functionLocals.localReferences.forEach(ref => {
-            new ReferenceMemoryOutlet($("<div></div>").prependTo(body), this.frame.references[key], this.memoryOutlet);
+            this.referenceOutletsByEntityId[ref.entityId] = new ReferenceMemoryOutlet($("<div></div>").prependTo(body), ref);
         });
+    }
+
+    @messageResponse("referenceBound")
+    private referenceBound(msg: Message<{entity: BoundReferenceEntity, object: CPPObject}>) {
+        let {entity, object} = msg.data;
+        this.referenceOutletsByEntityId[entity.entityId].bind(object)
     }
 }
 
@@ -1769,7 +1774,7 @@ export class TemporaryObjectsOutlet {
     
 }
 
-export class RunningCodeOutlet {
+export abstract class RunningCodeOutlet {
 
     protected element: JQuery;
     protected overlayElem: JQuery;
@@ -1843,22 +1848,6 @@ export class RunningCodeOutlet {
         }
     }
 
-    // afterFullStep : function(inst) {
-    //     if (!inst) { return; }
-    //     
-    //     inst.identify("idCodeOutlet", function(codeOutlet) {
-    //         if (codeOutlet.simOutlet === self) {
-    //             self.scrollTo(codeOutlet)
-    //         }
-    //     });
-    // }
-
-    // scrollTo : Class._ABSTRACT,
-
-    // started : function() {
-    //     $(".code-memoryObject .get").removeClass("get");
-    // }
-
 
 
     public refreshSimulation() {
@@ -1886,12 +1875,27 @@ export class RunningCodeOutlet {
         }
     }
 
+    // afterFullStep : function(inst) {
+    //     if (!inst) { return; }
+    //     
+    //     inst.identify("idCodeOutlet", function(codeOutlet) {
+    //         if (codeOutlet.simOutlet === self) {
+    //             self.scrollTo(codeOutlet)
+    //         }
+    //     });
+    // }
 
-    _act : {
-        started: true,
-        cleared: true,
-        afterFullStep: true
-    }
+    // scrollTo : Class._ABSTRACT,
+
+    // started : function() {
+    //     $(".code-memoryObject .get").removeClass("get");
+    // }
+
+    // _act : {
+    //     started: true,
+    //     cleared: true,
+    //     afterFullStep: true
+    // }
 }
 
 export class CodeStackOutlet extends RunningCodeOutlet {

@@ -617,7 +617,7 @@ export class MemoryFrame {
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = obj;
-        this.observable.send("referenceBound", entity);
+        this.observable.send("referenceBound", {entity: entity, object: obj});
     }
 
     // public setUpReferenceInstances() {
