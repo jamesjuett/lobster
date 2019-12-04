@@ -97,7 +97,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //     return construct;
     // },
     
-    public readonly id: number;
+    public readonly constructId: number;
 
     public readonly notes = new NoteRecorder();
 
@@ -113,7 +113,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public readonly children: readonly CPPConstruct[] = [];
     
     protected constructor(context: ContextType) {
-        this.id = CPPConstruct.NEXT_ID++;
+        this.constructId = CPPConstruct.NEXT_ID++;
 
         this.context = context;
 
@@ -180,11 +180,11 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
-        return {message: "[No explanation available.]", ignore: true};
+        return {message: "[No explanation available.]"};
     }
 
     public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : ConstructDescription {
-        return {message: "[No description available.]", ignore: false};
+        return {message: "[No description available.]"};
     }
 
     public addNote(note: Note) {
@@ -359,7 +359,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     private addChild(child: RuntimeConstruct) {
-        this.pushedChildren[child.model.id] = child;
+        this.pushedChildren[child.model.constructId] = child;
         this.observable.send("childPushed", child);
     }
     
@@ -378,7 +378,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public findParentByModel(model: CPPConstruct) {
         var parent = this.parent;
-        while(parent && parent.model.id != model.id){
+        while(parent && parent.model.constructId != model.constructId){
             parent = parent.parent;
         }
         return parent;

@@ -537,10 +537,13 @@ class MemoryHeap {
 }
 
 
+type MemoryFrameMessages =
+    "referenceBound";
+
 export class MemoryFrame {
     private static readonly _name = "MemoryFrame";
     
-    public readonly observable = new Observable(this);
+    public readonly observable = new Observable<MemoryFrameMessages>(this);
 
     private readonly start: number;
     private readonly end: number;
@@ -549,10 +552,11 @@ export class MemoryFrame {
     public readonly func: RuntimeFunction;
     public readonly size: number;
 
+    public readonly localObjects: readonly AutoObject[];
+
     private readonly localObjectsByEntityId: {[index:number]: AutoObject} = {};
     private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined} = {};
     
-
     public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
         this.memory = memory;
         this.start = start;
@@ -573,19 +577,18 @@ export class MemoryFrame {
         // }
 
         // Push objects for all entities in the block
-        rtFunc.model.context.functionLocals.localObjects.forEach((objEntity) => {
+        this.localObjects = rtFunc.model.context.functionLocals.localObjects.map((objEntity) => {
 
-            if (objEntity instanceof AutoEntity) {
-                // Create and allocate the object
-                let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
-                this.memory.allocateObject(obj);
-                this.localObjectsByEntityId[objEntity.entityId] = obj;
+            // Create and allocate the object
+            let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
+            this.memory.allocateObject(obj);
+            this.localObjectsByEntityId[objEntity.entityId] = obj;
 
-                // Move on to next address afterward
-                addr += obj.size;
-                (<Mutable<this>>this).size += obj.size;
-            }
+            // Move on to next address afterward
+            addr += obj.size;
+            (<Mutable<this>>this).size += obj.size;
 
+            return obj;
         });
 
         this.end = this.start + this.size;
@@ -614,6 +617,7 @@ export class MemoryFrame {
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = obj;
+        this.observable.send("referenceBound", entity);
     }
 
     // public setUpReferenceInstances() {

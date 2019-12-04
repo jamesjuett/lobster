@@ -96,12 +96,12 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     }
 
     private addChildOutlet(child: ConstructOutlet) {
-        this.children[child.construct.id] = child;
+        this.children[child.construct.constructId] = child;
         (<Mutable<ConstructOutlet>>child).parent = this;
     }
     
     private setChildInstance(childInst: RuntimeConstruct) {
-        let childOutlet = this.children[childInst.model.id];
+        let childOutlet = this.children[childInst.model.constructId];
 
         // If we have a child outlet waiting, go for it
         if (childOutlet) {

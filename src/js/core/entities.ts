@@ -1234,11 +1234,6 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return this.name;
     }
 
-    public nameString() {
-        return this.name;
-    }
-
-
     public mergeInto(existingEntity: DeclaredObjectEntity | FunctionEntity[]) {
         if (!Array.isArray(existingEntity)) { // It's not a function overload group
             throw CPPError.declaration.type_mismatch(this.declaration, this, existingEntity);
