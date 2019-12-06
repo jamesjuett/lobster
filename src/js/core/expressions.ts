@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType } from "./types";
-import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ConstructDescription, ExpressionContext, createExpressionContext } from "./constructs";
+import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -10,6 +10,7 @@ import { standardConversion, convertToPRValue, usualArithmeticConversions, isCon
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
 import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet } from "../view/codeOutlets";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -133,6 +134,7 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
 
 export class UnsupportedExpression extends Expression {
 
+
     public readonly type = undefined;
     public readonly valueCategory = undefined;
 
@@ -145,6 +147,10 @@ export class UnsupportedExpression extends Expression {
     // never satisfy the required this context of CompiledExpression
     public createRuntimeExpression(this: CompiledExpression, parent: RuntimeConstruct) : never {
         throw new Error("Cannot create a runtime instance of an unsupported construct.");
+    }
+    
+    public createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet) : never {
+        throw new Error("Cannot create an outlet for an unsupported construct.");
     }
 
     public describeEvalResult(depth: number): ConstructDescription {
@@ -366,7 +372,7 @@ type t_OverloadableOperators =
 //         return new RuntimeOperatorOverload(this, parent);
 //     }
     
-//     public describeEvalResult(depth: number): Description {
+//     public describeEvalResult(depth: number): ConstructDescription {
 //         throw new Error("Method not implemented.");
 //     }
 
@@ -415,10 +421,8 @@ export interface CommaASTNode extends ASTNode {
     readonly associativity: "left";
 }
 
-export class CommaExpression extends Expression {
-    
-    // TODO: what is this for?
-    public static readonly constructKind = Symbol("Comma");
+export class CommaExpression extends Expression<CommaASTNode> {
+
 
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
@@ -444,6 +448,10 @@ export class CommaExpression extends Expression {
 
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledComma<T,V>, parent: RuntimeConstruct) : RuntimeComma<T,V> {
         return new RuntimeComma(<CompiledComma<T,V>>this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledComma, element: JQuery, parent?: ConstructOutlet) {
+        return new CommaExpressionOutlet(element, this, parent);
     }
 
     // public isTailChild(child: CPPConstruct) {
@@ -499,7 +507,8 @@ export interface TernaryASTNode extends ASTNode {
     readonly otherwise: ExpressionASTNode;
 }
 
-export class TernaryExpression extends Expression {
+export class TernaryExpression extends Expression<TernaryASTNode> {
+
     
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
@@ -572,6 +581,10 @@ export class TernaryExpression extends Expression {
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledTernary<T,V>, parent: RuntimeConstruct) : RuntimeTernary<T,V> {
         return new RuntimeTernary(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledTernary, element: JQuery, parent?: ConstructOutlet) {
+        return new TernaryExpressionOutlet(element, this, parent);
     }
 
     // TODO
@@ -648,7 +661,8 @@ export interface AssignmentExpressionASTNode extends ASTNode {
     readonly rhs: ExpressionASTNode;
 }
 
-export class AssignmentExpression extends Expression {
+export class AssignmentExpression extends Expression<AssignmentExpressionASTNode> {
+
     // public readonly 
     // valueCategory : "lvalue",
     // isOverload : false,
@@ -708,6 +722,10 @@ export class AssignmentExpression extends Expression {
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
     public createRuntimeExpression<T extends AtomicType>(this: CompiledAssignment<T>, parent: RuntimeConstruct) : RuntimeAssignment<T> {
         return new RuntimeAssignment(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledAssignment, element: JQuery, parent?: ConstructOutlet) {
+        return new AssignmentExpressionOutlet(element, this, parent);
     }
     
     // TODO
@@ -1033,6 +1051,9 @@ export abstract class BinaryOperator extends Expression {
         this.operator = operator;
     }
 
+    public createDefaultOutlet(this: CompiledBinaryOperator, element: JQuery, parent?: ConstructOutlet) {
+        return new BinaryOperatorExpressionOutlet(element, this, parent);
+    }
 }
 
 export interface CompiledBinaryOperator<T extends AtomicType = AtomicType> extends BinaryOperator, SuccessfullyCompiled {
@@ -1105,6 +1126,7 @@ const ARITHMETIC_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
 }
 
 class ArithmeticBinaryOperatorExpression extends BinaryOperator {
+
     
     public readonly type?: ArithmeticType;
 
@@ -1884,6 +1906,10 @@ export abstract class UnaryOperator extends Expression {
     protected constructor(context: ExpressionContext) {
         super(context)
     }
+    
+    public createDefaultOutlet(this: CompiledUnaryOperator, element: JQuery, parent?: ConstructOutlet) {
+        return new UnaryOperatorExpressionOutlet(element, this, parent);
+    }
 
 }
 
@@ -2537,6 +2563,10 @@ export class SubscriptExpression extends Expression {
     public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
     public createRuntimeExpression<T extends ObjectType>(this: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) : RuntimeSubscriptExpression<T> {
         return new RuntimeSubscriptExpression(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledSubscriptExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new SubscriptExpressionOutlet(element, this, parent);
     }
 
     public describeEvalResult(depth: number): ConstructDescription {
@@ -3327,6 +3357,10 @@ export class IdentifierExpression extends Expression {
             return new RuntimeObjectIdentifier(<any>this, parent);
         }
     }
+    
+    public createDefaultOutlet(this: CompiledObjectIdentifier | CompiledFunctionIdentifier, element: JQuery, parent?: ConstructOutlet) {
+        return new IdentifierOutlet(element, this, parent);
+    }
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
@@ -3525,6 +3559,10 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
     public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteral<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T> {
         return new RuntimeNumericLiteral(this, parent);
     }
+    
+    public createDefaultOutlet(this: CompiledNumericLiteral, element: JQuery, parent?: ConstructOutlet) {
+        return new NumericLiteralOutlet(element, this, parent);
+    }
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
@@ -3577,7 +3615,7 @@ export interface StringLiteralASTNode extends ASTNode {
 //     public createRuntimeExpression(parent: RuntimeConstruct<CPPConstruct>): RuntimeExpressionBase<Expression> {
 //         throw new Error("Method not implemented.");
 //     }
-//     public describeEvalResult(depth: number): Description {
+//     public describeEvalResult(depth: number): ConstructDescription {
 //         throw new Error("Method not implemented.");
 //     }
 //     _name: "StringLiteral",
@@ -3643,6 +3681,10 @@ export class Parentheses extends Expression {
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParentheses<T,V>, parent: RuntimeConstruct) : RuntimeParentheses<T,V> {
         return new RuntimeParentheses(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledParentheses, element: JQuery, parent?: ConstructOutlet) {
+        return new ParenthesesOutlet(element, this, parent);
     }
 
     public describeEvalResult(depth: number): ConstructDescription {
@@ -3716,6 +3758,10 @@ export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory 
 
     public createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T, V>, parent: RuntimeConstruct) : never {
         throw new Error("Auxiliary expressions must never be instantiated at runtime.");
+    }
+    
+    public createDefaultOutlet(this: CompiledArithmeticBinaryOperator, element: JQuery, parent?: ConstructOutlet) : never {
+        throw new Error("Cannot create an outlet for an auxiliary expression. (They should never be used at runtime.)");
     }
 
     public describeEvalResult(depth: number) : never {

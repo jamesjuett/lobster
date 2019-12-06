@@ -764,6 +764,10 @@ export interface ParameterDefinition extends ParameterDeclaration {
     readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 }
 
+export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends ParameterDefinition, SuccessfullyCompiled {
+    readonly type: T;
+}
+
 
 
 interface ArrayPostfixDeclaratorASTNode {
@@ -1354,7 +1358,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
 }
 
 export interface CompiledFunctionDefinition<Return_type extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
-    readonly parameters: readonly ParameterDefinition[];
+    readonly parameters: readonly CompiledParameterDefinition[];
     readonly body: CompiledBlock;
 }
 

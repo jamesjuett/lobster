@@ -1810,7 +1810,7 @@ export abstract class RunningCodeOutlet {
     }
 
 
-    public abstract pushFunction(rtFunc: RuntimeFunction, callOutlet: FunctionCallOutlet) : void;
+    public abstract pushFunction(rtFunc: RuntimeFunction) : void;
 
     public abstract popFunction(rtFunc: RuntimeFunction) : void;
 
@@ -1866,6 +1866,13 @@ export abstract class RunningCodeOutlet {
         // main has no caller, so we have to handle creating the outlet here
         this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
 
+    }
+
+    @messageResponse("pushed")
+    private pushed(msg: Message<RuntimeConstruct>) {
+        if (msg.data instanceof RuntimeFunction) {
+            this.pushFunction(msg.data);
+        }
     }
 
     @messageResponse("popped")
