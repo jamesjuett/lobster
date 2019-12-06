@@ -514,7 +514,7 @@ export abstract class SimpleType extends AtomicType {
             && other.simpleType === this.simpleType;
     }
 
-	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+	public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
         if (excludeBase) {
             return varname ? varname : "";
         }

@@ -460,7 +460,7 @@ export class Simulation {
     public printState() {
         return JSON.stringify({
             memory: this.memory.printObjects(),
-            execStackIds: this.execStack.map(rt => rt.model.id)
+            execStackIds: this.execStack.map(rt => rt.model.constructId)
         }, null, 4);
     }
 

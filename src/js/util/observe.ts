@@ -34,7 +34,16 @@ export function stopListeningTo<PotentialMessages extends string>(listener: Obse
 
 export function messageResponse(messageCategory?: string) {
     return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-        if (!target._act) { target._act = {}; }
+        if (!target._act) {
+            // no _act object, and no base class has one either
+            target._act = {};
+        }
+        else if (!target.hasOwnPropety("_act")) {
+            // we don't have an _act object, but a base class does, so we create one
+            // for us that has the base class one as a prototype
+            target._act = Object.create(target._act);
+        }
+        
         target._act[messageCategory || propertyKey] = target[propertyKey];
     };
 }
