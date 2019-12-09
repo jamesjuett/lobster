@@ -8,6 +8,7 @@ import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
+import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet } from "../view/codeOutlets";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -16,6 +17,8 @@ export abstract class Initializer extends PotentialFullExpression {
     public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
     public abstract createRuntimeInitializer(parent: RuntimeConstruct) : RuntimeInitializer;
+
+    public abstract createDefaultOutlet(this: CompiledInitializer, element: JQuery, parent?: ConstructOutlet): InitializerOutlet;
 
     public isTailChild(child: CPPConstruct) {
         return {isTail: true};
@@ -95,6 +98,10 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
     public createRuntimeInitializer(parent: RuntimeConstruct) : never {
         return assertFalse("A default initializer for a reference is not allowed.");
     }
+    
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet) {
+        return assertFalse("Cannot create an outlet for a reference default initializer, since such an initializer is always ill-formed.");
+    }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : never {
         return assertFalse("A default initializer for a reference is not allowed.");
@@ -118,6 +125,10 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
     public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledAtomicDefaultInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDefaultInitializerOutlet {
+        return new AtomicDefaultInitializerOutlet(element, this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -183,6 +194,10 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
     public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledArrayDefaultInitializer, element: JQuery, parent?: ConstructOutlet) : ArrayDefaultInitializerOutlet {
+        return new ArrayDefaultInitializerOutlet(element, this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -415,6 +430,10 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         return new RuntimeReferenceDirectInitializer(<CompiledReferenceDirectInitializer<T>>this, parent);
     }
 
+    public createDefaultOutlet(this: CompiledReferenceDirectInitializer, element: JQuery, parent?: ConstructOutlet) : ReferenceDirectInitializerOutlet {
+        return new ReferenceDirectInitializerOutlet(element, this, parent);
+    }
+
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.describe();
         let rhsDesc = this.args[0].describeEvalResult(0);
@@ -503,6 +522,10 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
     public createRuntimeInitializer<T extends AtomicType>(this: any, parent: RuntimeConstruct) : RuntimeAtomicDirectInitializer<T> {
         return new RuntimeAtomicDirectInitializer(<CompiledAtomicDirectInitializer<T>>this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDirectInitializerOutlet {
+        return new AtomicDirectInitializerOutlet(element, this, parent);
     }
 
     // TODO; change explain everywhere to be separate between compile time and runtime constructs

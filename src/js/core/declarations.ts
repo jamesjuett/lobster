@@ -340,6 +340,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
 export interface CompiledSimpleDeclaration extends SimpleDeclaration, SuccessfullyCompiled {
     readonly type: Type;
+    readonly initializer?: CompiledInitializer;
 }
 
 
