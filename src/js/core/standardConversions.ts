@@ -4,6 +4,7 @@ import { ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocato
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
 import { CompiledExpression, Expression, VCResultTypes, RuntimeExpression, ValueCategory, TypedExpression, SpecificTypedExpression } from "./expressionBase";
+import { ConstructOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet } from "../view/codeOutlets";
 
 export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
     
@@ -85,6 +86,10 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
         // TODO: add alert if value is invalid
         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     }
+    
+    public createDefaultOutlet(this: CompiledLValueToRValue, element: JQuery, parent?: ConstructOutlet) {
+        return new LValueToRValueOutlet(element, this, parent);
+    }
 
     // describeEvalResult : function(depth, sim, inst){
     //     if (inst && inst.evalResult){
@@ -104,6 +109,11 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
 
 }
 
+export interface CompiledLValueToRValue<T extends AtomicType = AtomicType> extends LValueToRValue<T>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and LValueToRValue structure
+}
+
 export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
 
     public constructor(from: TypedExpression<T, "lvalue">) {
@@ -113,10 +123,19 @@ export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversi
     public operate(fromEvalResult: VCResultTypes<BoundedArrayType, "lvalue">) {
         return new Value(fromEvalResult.address, new ArrayPointerType(fromEvalResult));
     }
+    
+    public createDefaultOutlet(this: CompiledArrayToPointer, element: JQuery, parent?: ConstructOutlet) {
+        return new ArrayToPointerOutlet(element, this, parent);
+    }
 
     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //     return {message: "In this case (and most others), using the name of an array in an expression will yield a the address of its first element. That's what happens here."};
     // }
+}
+
+export interface CompiledArrayToPointer<T extends BoundedArrayType = BoundedArrayType> extends ArrayToPointer<T>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and ArrayToPointer structure
 }
 
 
@@ -150,7 +169,16 @@ abstract class TypeConversion<FromType extends AtomicType, ToType extends Atomic
     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
         super(from, toType.cvQualified(from.type.isConst, from.type.isVolatile), "prvalue");
     }
+    
+    public createDefaultOutlet(this: CompiledTypeConversion, element: JQuery, parent?: ConstructOutlet) : TypeConversionOutlet{
+        return new TypeConversionOutlet(element, this, parent);
+    }
 
+}
+
+export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypeConversion<FromType, ToType>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly from: CompiledExpression<FromType, "prvalue">; // satisfies CompiledImplicitConversion and TypeConversion structure
 }
 
 class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
@@ -245,16 +273,26 @@ export class FloatingToIntegralConversion<T extends FloatingPointType> extends T
 
 // Qualification conversions
 
-export class QualificationConversion<T extends AtomicType> extends ImplicitConversion<T, "prvalue", T, "prvalue"> {
+export class QualificationConversion<T extends AtomicType = AtomicType> extends ImplicitConversion<T, "prvalue", T, "prvalue"> {
 
     public constructor(from: TypedExpression<T, "prvalue">, toType: T) {
         super(from, toType, "prvalue");
         assert(similarType(from.type, toType));
     }
     
+    public createDefaultOutlet(this: CompiledQualificationConversion, element: JQuery, parent?: ConstructOutlet) {
+        return new QualificationConversionOutlet(element, this, parent);
+    }
+    
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         return <VCResultTypes<T, "prvalue">>new Value(fromEvalResult.rawValue, this.type); // Cast technically necessary here
     }
+
+}
+
+export interface CompiledQualificationConversion<T extends AtomicType = AtomicType> extends QualificationConversion<T>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly from: CompiledExpression<T, "prvalue">; // satisfies CompiledImplicitConversion and QualificationConversion structure
 }
 
 export function convertToPRValue<T extends AtomicType>(from: SpecificTypedExpression<T>) : TypedExpression<T, "prvalue">;

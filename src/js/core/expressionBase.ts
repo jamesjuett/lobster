@@ -11,7 +11,7 @@ import { FunctionEntity } from "./entities";
 import { Value } from "./runtimeEnvironment";
 
 import { CPPObject } from "./objects";
-import { ConstructOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 
 
 export type ValueCategory = "prvalue" | "lvalue";
@@ -28,7 +28,7 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 
-    public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ConstructOutlet;
+    public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
 
     public isWellTyped() : this is SpecificTypedExpression<Type,ValueCategory> {
         return !!this.type && !!this.valueCategory;

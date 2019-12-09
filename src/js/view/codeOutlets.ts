@@ -4,12 +4,12 @@ import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, 
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, RuntimeAtomicCopyInitializer, CompiledAtomicCopyInitializer } from "../core/initializers";
-import { RuntimeExpression, Expression } from "../core/expressionBase";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, RuntimeAtomicCopyInitializer, CompiledAtomicCopyInitializer, RuntimeReferenceDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceCopyInitializer, CompiledReferenceCopyInitializer } from "../core/initializers";
+import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
 import { FunctionEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier } from "../core/expressions";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression } from "../core/expressions";
 import { Bool } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
@@ -110,7 +110,6 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
         }
 
         // Otherwise, pass to parent that may have a suitable outlet
-        // TODO: does this ever actually happen?
         if (this.parent) {
             this.parent.setChildInstance(childInst);
         }
@@ -200,8 +199,8 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
 
     private readonly paramsElem: JQuery;
 
-    public constructor(element: JQuery, rtFunc: RuntimeFunction, parent?: FunctionCallOutlet) {
-        super(element, rtFunc.model, parent);
+    public constructor(element: JQuery, rtFunc: RuntimeFunction) {
+        super(element, rtFunc.model);
 
         this.element.addClass("function");
 
@@ -332,7 +331,7 @@ export class BlockOutlet extends ConstructOutlet<RuntimeBlock> {
         this.construct.statements.forEach(stmt => {
             let lineElem = $('<span class="blockLine"></span>');
             let elem = $("<span></span>");
-            let child = createCodeOutlet(elem, stmt, this);
+            let child = createStatementOutlet(elem, stmt, this);
 
             // let gotoLink = $('<span class="gotoLink link">>></span>');
             // lineElem.append(gotoLink);
@@ -456,6 +455,8 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
 
 export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarationStatement> {
 
+    public readonly initializerOutlets: readonly (InitializerOutlet | undefined)[] = [];
+
     private declaratorElems : JQuery[] = [];
     private currentDeclarationIndex : number | null = null;
 
@@ -479,9 +480,12 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
             // Create element for initializer, if there is one
             if(declaration.initializer) {
-                let initElem = $("<span></span>");
-                createCodeOutlet(initElem, declaration.initializer, this);
-                declarationElem.append(initElem);
+                asMutable(this.initializerOutlets).push(
+                    createInitializerOutlet($("<span></span>").appendTo(declarationElem), declaration.initializer, this)
+                );
+            }
+            else {
+                asMutable(this.initializerOutlets).push(undefined);
             }
 
             // Add commas where needed
@@ -526,7 +530,7 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
         super(element, construct, parent);
 
         let elem = $("<span></span>")
-        this.expression = createCodeOutlet(elem, this.construct.expression, this);
+        this.expression = createExpressionOutlet(elem, this.construct.expression, this);
         this.element.append(elem);
         this.element.append(";");
     }
@@ -558,13 +562,13 @@ export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
         this.element.append('(');
 
         let ifElem = $("<span></span>");
-        this.condition = createCodeOutlet(ifElem, this.construct.condition, this);
+        this.condition = createExpressionOutlet(ifElem, this.construct.condition, this);
         this.element.append(ifElem);
 
         this.element.append(") ");
 
         let thenElem = $("<span></span>");
-        this.then = createCodeOutlet(thenElem, this.construct.then, this);
+        this.then = createStatementOutlet(thenElem, this.construct.then, this);
         this.element.append(thenElem);
 
         if (this.construct.otherwise){
@@ -572,7 +576,7 @@ export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
             this.element.append(htmlDecoratedKeyword("else"));
             this.element.append(" ");
             let elseElem = $("<span></span>");
-            this.otherwise = createCodeOutlet(elseElem, this.construct.otherwise, this);
+            this.otherwise = createStatementOutlet(elseElem, this.construct.otherwise, this);
             this.element.append(elseElem);
         }
     }
@@ -592,13 +596,13 @@ export class WhileStatementOutlet extends StatementOutlet<RuntimeWhileStatement>
         this.element.append("(");
 
         var condElem = $("<span></span>");
-        this.condition = createCodeOutlet(condElem, this.construct.condition, this);
+        this.condition = createExpressionOutlet(condElem, this.construct.condition, this);
         this.element.append(condElem);
 
         this.element.append(") ");
 
         var bodyElem = $("<span></span>");
-        this.body = createCodeOutlet(bodyElem, this.construct.body, this);
+        this.body = createStatementOutlet(bodyElem, this.construct.body, this);
         this.element.append(bodyElem);
     }
 }
@@ -641,9 +645,9 @@ export class WhileStatementOutlet extends StatementOutlet<RuntimeWhileStatement>
 
 export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
-    public readonly initial: ExpressionStatementOutlet | NullStatementOutlet | DeclarationStatementOutlet;
-    public readonly condition: ExpressionStatementOutlet;
-    public readonly post: ExpressionStatementOutlet;
+    public readonly initial: StatementOutlet;
+    public readonly condition: ExpressionOutlet;
+    public readonly post: ExpressionOutlet;
     public readonly body: StatementOutlet;
 
     public constructor(element: JQuery, construct: CompiledForStatement, parent?: ConstructOutlet) {
@@ -655,25 +659,25 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
         this.element.append("(");
 
         var initElem = $("<span></span>");
-        this.initial = createCodeOutlet(initElem, this.construct.initial, this);
+        this.initial = createStatementOutlet(initElem, this.construct.initial, this);
         this.element.append(initElem);
 
         this.element.append(" ");
 
         var condElem = $("<span></span>");
-        this.condition = createCodeOutlet(condElem, this.construct.condition, this);
+        this.condition = createExpressionOutlet(condElem, this.construct.condition, this);
         this.element.append(condElem);
 
         this.element.append("; ");
 
         var postElem = $("<span></span>");
-        this.post = createCodeOutlet(postElem, this.construct.post, this);
+        this.post = createExpressionOutlet(postElem, this.construct.post, this);
         this.element.append(postElem);
 
         this.element.append(") ");
 
         var bodyElem = $("<span></span>");
-        this.body = createCodeOutlet(bodyElem, this.construct.body, this);
+        this.body = createStatementOutlet(bodyElem, this.construct.body, this);
         this.element.append(bodyElem);
 
     }
@@ -693,7 +697,7 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
         let exprElem = $("<span></span>");
         if (this.construct.returnInitializer) {
             this.element.append(" ");
-            asMutable(this.args).push(this.expression = createCodeOutlet(exprElem, this.construct.returnInitializer, this));
+            asMutable(this.args).push(this.expression = createExpressionOutlet(exprElem, this.construct.returnInitializer.args[0], this));
         }
         this.element.append(exprElem);
 
@@ -822,7 +826,17 @@ export class ParameterOutlet {
 //     })
 // });
 
-export class DefaultInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeDefaultInitializer> {
+
+export class InitializerOutlet<RT extends RuntimeInitializer = RuntimeInitializer> extends PotentialFullExpressionOutlet<RT> {
+    
+    public constructor(element: JQuery, construct: CompiledInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    }
+    
+}
+
+
+export class DefaultInitializerOutlet extends InitializerOutlet<RuntimeDefaultInitializer> {
     
     public constructor(element: JQuery, construct: CompiledDefaultInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -831,29 +845,29 @@ export class DefaultInitializerOutlet extends PotentialFullExpressionOutlet<Runt
     
 }
 
-export class AtomicDefaultInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeAtomicDefaultInitializer> {
+export class AtomicDefaultInitializerOutlet extends InitializerOutlet<RuntimeAtomicDefaultInitializer> {
     
     // Nothing to add based on being atomic
     
 }
 
-export class ArrayDefaultInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeArrayDefaultInitializer> {
+export class ArrayDefaultInitializerOutlet extends InitializerOutlet<RuntimeArrayDefaultInitializer> {
     
-    public readonly elementInitializerOutlets?: readonly DefaultInitializerOutlet[];
+    public readonly elementInitializerOutlets?: readonly InitializerOutlet[];
 
     public constructor(element: JQuery, construct: CompiledArrayDefaultInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
         if (this.construct.elementInitializers) {
             this.elementInitializerOutlets = this.construct.elementInitializers.map(
-                elemInit => createCodeOutlet(element, elemInit, this)
+                elemInit => createInitializerOutlet(element, elemInit, this)
             );
         }
     }
     
 }
 
-// export class ClassDefaultInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeClassDefaultInitializer> {
+// export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClassDefaultInitializer> {
     
 //     public constructor(element: JQuery, construct: CompiledClassDefaultInitializer, parent?: ConstructOutlet) {
 //         super(element, construct, parent);
@@ -864,7 +878,7 @@ export class ArrayDefaultInitializerOutlet extends PotentialFullExpressionOutlet
 // }
 
 
-export class DirectInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeDirectInitializer> {
+export class DirectInitializerOutlet extends InitializerOutlet<RuntimeDirectInitializer> {
     
     public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -872,7 +886,7 @@ export class DirectInitializerOutlet extends PotentialFullExpressionOutlet<Runti
     }
 }
 
-export class AtomicDirectInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeAtomicDirectInitializer> {
+export class AtomicDirectInitializerOutlet extends InitializerOutlet<RuntimeAtomicDirectInitializer> {
     
     public readonly argOutlet: ExpressionOutlet;
 
@@ -880,7 +894,7 @@ export class AtomicDirectInitializerOutlet extends PotentialFullExpressionOutlet
         super(element, construct, parent);
     
         this.element.append("(");
-        this.argOutlet = createCodeOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
         this.element.append(")");
 
     }
@@ -888,7 +902,23 @@ export class AtomicDirectInitializerOutlet extends PotentialFullExpressionOutlet
 }
 
 
-// export class ClassDirectInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeClassDirectInitializer> {
+export class ReferenceDirectInitializerOutlet extends InitializerOutlet<RuntimeReferenceDirectInitializer> {
+    
+    public readonly argOutlet: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledReferenceDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    
+        this.element.append("(");
+        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.element.append(")");
+
+    }
+    
+}
+
+
+// export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
     
 //     public readonly argOutlets: readonly ExpressionOutlet[];
 
@@ -915,7 +945,7 @@ export class AtomicDirectInitializerOutlet extends PotentialFullExpressionOutlet
 
 
 
-export class CopyInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeCopyInitializer> {
+export abstract class CopyInitializerOutlet extends InitializerOutlet<RuntimeCopyInitializer> {
     
     public constructor(element: JQuery, construct: CompiledCopyInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -923,7 +953,7 @@ export class CopyInitializerOutlet extends PotentialFullExpressionOutlet<Runtime
     }
 }
 
-export class AtomicCopyInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeAtomicCopyInitializer> {
+export class AtomicCopyInitializerOutlet extends InitializerOutlet<RuntimeAtomicCopyInitializer> {
     
     public readonly argOutlet: ExpressionOutlet;
 
@@ -931,13 +961,26 @@ export class AtomicCopyInitializerOutlet extends PotentialFullExpressionOutlet<R
         super(element, construct, parent);
     
         this.element.append(" = ");
-        this.argOutlet = createCodeOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+    }
+    
+}
+
+export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeReferenceCopyInitializer> {
+    
+    public readonly argOutlet: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledReferenceCopyInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    
+        this.element.append(" = ");
+        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
     }
     
 }
 
 
-// export class ClassDirectInitializerOutlet extends PotentialFullExpressionOutlet<RuntimeClassDirectInitializer> {
+// export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
     
 //     public readonly argOutlets: readonly ExpressionOutlet[];
 
@@ -1074,12 +1117,12 @@ export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignme
         this.element.addClass("assignment");
 
         let lhsElem = $("<span></span>").appendTo(this.exprElem);
-        this.lhs = createCodeOutlet(lhsElem, this.construct.lhs, this);
+        this.lhs = createExpressionOutlet(lhsElem, this.construct.lhs, this);
 
         this.exprElem.append(" " + ASSIGNMENT_OP_HTML + " ");
 
         let rhsElem = $("<span></span>").appendTo(this.exprElem);
-        this.rhs = createCodeOutlet(rhsElem, this.construct.rhs, this);
+        this.rhs = createExpressionOutlet(rhsElem, this.construct.rhs, this);
 
 
         // if (this.construct.funcCall){
@@ -1136,19 +1179,19 @@ export class TernaryExpressionOutlet extends ExpressionOutlet<RuntimeTernary> {
         this.element.addClass("code-ternary");
 
         let elem = $("<span></span>");
-        this.condition = createCodeOutlet(elem, this.construct.condition, this);
+        this.condition = createExpressionOutlet(elem, this.construct.condition, this);
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + TERNARY_OP_HTML1 + " ");
 
         elem = $("<span></span>");
-        this.then = createCodeOutlet(elem, this.construct.then, this);
+        this.then = createExpressionOutlet(elem, this.construct.then, this);
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + TERNARY_OP_HTML2 + " ");
 
         elem = $("<span></span>");
-        this.otherwise = createCodeOutlet(elem, this.construct.otherwise, this);
+        this.otherwise = createExpressionOutlet(elem, this.construct.otherwise, this);
         this.exprElem.append(elem);
     }
 }
@@ -1166,13 +1209,13 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
         this.element.addClass("code-comma");
 
         let elem = $("<span></span>");
-        this.left = createCodeOutlet(elem, this.construct.left, this);
+        this.left = createExpressionOutlet(elem, this.construct.left, this);
         this.exprElem.append(elem);
 
         this.exprElem.append(" " + COMMA_OP_HTML + " ");
 
         elem = $("<span></span>");
-        this.right = createCodeOutlet(elem, this.construct.right, this);
+        this.right = createExpressionOutlet(elem, this.construct.right, this);
         this.exprElem.append(elem);
     }
 }
@@ -1198,69 +1241,69 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
 //     }
 // });
 
-export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
+// export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
 
-    // public readonly returnOutlet;
-    public readonly functionOutlet?: FunctionOutlet;
-    public readonly argOutlets: readonly CopyInitializerOutlet[];
+//     // public readonly returnOutlet;
+//     public readonly functionOutlet?: FunctionOutlet;
+//     public readonly argOutlets: readonly CopyInitializerOutlet[];
 
-    public constructor(element: JQuery, construct: CompiledFunctionCall, parent?: ConstructOutlet) {
-        super(element, construct, parent);
+//     public constructor(element: JQuery, construct: CompiledFunctionCall, parent?: ConstructOutlet) {
+//         super(element, construct, parent);
         
-        // this.returnOutlet = returnOutlet;
+//         // this.returnOutlet = returnOutlet;
 
-        this.argOutlets = this.construct.argInitializers.map((argInit) => 
-            new CopyInitializerOutlet($("<span></span>"), argInit)
-        );
-    }
+//         this.argOutlets = this.construct.argInitializers.map((argInit) => 
+//             new CopyInitializerOutlet($("<span></span>"), argInit)
+//         );
+//     }
 
-    // protected instanceSet(inst: RuntimeFunctionCall) {
-    //     inst.calledFunction.isActive
-    //     if (this.inst.hasBeenCalled && this.inst.func.isActive) {
-    //         var funcOutlet = this.simOutlet.pushFunction(this.inst.func, this);
-    //         funcOutlet && this.listenTo(funcOutlet);
-    //     }
-    // }
+//     // protected instanceSet(inst: RuntimeFunctionCall) {
+//     //     inst.calledFunction.isActive
+//     //     if (this.inst.hasBeenCalled && this.inst.func.isActive) {
+//     //         var funcOutlet = this.simOutlet.pushFunction(this.inst.func, this);
+//     //         funcOutlet && this.listenTo(funcOutlet);
+//     //     }
+//     // }
 
-    // _act: mixin({}, Outlets.CPP.Code._act, {
+//     // _act: mixin({}, Outlets.CPP.Code._act, {
 
-    //     returned: function(msg){
-    //         // This may be the case for main, constructors, destructors, etc.
-    //         if (!this.returnOutlet){
-    //             return;
-    //         }
-    //         var sourceOutlet = msg.data;
+//     //     returned: function(msg){
+//     //         // This may be the case for main, constructors, destructors, etc.
+//     //         if (!this.returnOutlet){
+//     //             return;
+//     //         }
+//     //         var sourceOutlet = msg.data;
 
-    //         var self = this;
-    //         var data = sourceOutlet.inst && sourceOutlet.inst.childInstances && sourceOutlet.inst.childInstances.args && sourceOutlet.inst.childInstances.args[0] && sourceOutlet.inst.childInstances.args[0].evalResult;
-    //         if (!data){
-    //             return;
-    //         }
-    //         this.simOutlet.valueTransferOverlay(sourceOutlet, this.returnOutlet, Util.htmlDecoratedValue(data.instanceString()), 500,
-    //             function () {
-    //                 if(self.returnOutlet) { // may have evaporated if we're moving too fast
-    //                     self.returnOutlet.setEvalResult(data);
-    //                 }
-    //             });
-    //     },
-    //     tailCalled : function(msg){
-    //         var callee = msg.data;
-    //         callee.send("tailCalled", this);
-    //     },
-    //     called : function(msg){
-    //         var callee = msg.data;
-    //         assert(this.simOutlet);
-    //         if (!this.simOutlet.simOutlet.autoRunning || !this.simOutlet.simOutlet.skipFunctions){
-    //             var funcOutlet = this.simOutlet.pushFunction(this.inst.func, this);
-    //             funcOutlet && this.listenTo(funcOutlet);
-    //         }
-    //     }
-    // }, true)
-}
+//     //         var self = this;
+//     //         var data = sourceOutlet.inst && sourceOutlet.inst.childInstances && sourceOutlet.inst.childInstances.args && sourceOutlet.inst.childInstances.args[0] && sourceOutlet.inst.childInstances.args[0].evalResult;
+//     //         if (!data){
+//     //             return;
+//     //         }
+//     //         this.simOutlet.valueTransferOverlay(sourceOutlet, this.returnOutlet, Util.htmlDecoratedValue(data.instanceString()), 500,
+//     //             function () {
+//     //                 if(self.returnOutlet) { // may have evaporated if we're moving too fast
+//     //                     self.returnOutlet.setEvalResult(data);
+//     //                 }
+//     //             });
+//     //     },
+//     //     tailCalled : function(msg){
+//     //         var callee = msg.data;
+//     //         callee.send("tailCalled", this);
+//     //     },
+//     //     called : function(msg){
+//     //         var callee = msg.data;
+//     //         assert(this.simOutlet);
+//     //         if (!this.simOutlet.simOutlet.autoRunning || !this.simOutlet.simOutlet.skipFunctions){
+//     //             var funcOutlet = this.simOutlet.pushFunction(this.inst.func, this);
+//     //             funcOutlet && this.listenTo(funcOutlet);
+//     //         }
+//     //     }
+//     // }, true)
+// }
 
 export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFunctionCallExpression> {
 
-    public readonly argOutlets: readonly CopyInitializerOutlet[];
+    public readonly argOutlets: readonly ExpressionOutlet[];
     
     public constructor(element: JQuery, construct: CompiledFunctionCallExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -1274,16 +1317,16 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
         //     this.element.addClass("tail");
         // }
 
-        createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+        createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
 
         this.exprElem.append("(");
 
 
-        this.argOutlets = this.construct.call.argInitializers.map((argInit, i) => {
+        this.argOutlets = this.construct.args.map((argInit, i) => {
             if (i > 0) {
                 this.exprElem.append(", ");
             }
-            return new CopyInitializerOutlet($("<span></span>").appendTo(this.exprElem), argInit, this)
+            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), argInit, this)
         });
 
         this.exprElem.append(")");
@@ -1312,6 +1355,53 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 
 //     }, true)
 }
+
+
+
+export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeMagicFunctionCallExpression> {
+
+    public readonly argOutlets: readonly ExpressionOutlet[];
+    
+    public constructor(element: JQuery, construct: CompiledMagicFunctionCallExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+        this.element.addClass("functionCall");
+
+        this.exprElem.append(this.construct.functionName + "(");
+
+        this.argOutlets = this.construct.args.map((argInit, i) => {
+            if (i > 0) {
+                this.exprElem.append(", ");
+            }
+            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), argInit, this)
+        });
+
+        this.exprElem.append(")");
+        // if (this.construct.funcCall.func.isVirtual()){
+        //     this.exprElem.append("<sub>v</sub>");
+        // }
+    }
+
+//     _act: mixin({}, Outlets.CPP.Expression._act, {
+
+// //        calleeOutlet : function(callee, source){
+// //            this.addChildOutlet(callee);
+// //        },
+
+//         returned: function(msg){
+//             var value = msg.data;
+//             this.setEvalResult(value);
+
+//             this.evalResultElem.removeClass("lobster-hidden-expression");
+//             this.exprElem.addClass("lobster-hidden-expression");
+//         },
+//         tailCalled : function(msg){
+//             var callee = msg.data;
+//             callee.send("tailCalled", this);
+//         }
+
+//     }, true)
+}
+
 
 export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBinaryOperator> {
 
@@ -1345,9 +1435,9 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBina
         //         }
         //     });
         // }
-        this.left = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.left, this);
+        this.left = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.left, this);
         this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='highlight'></span></span> ");
-        this.right = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.right, this);
+        this.right = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.right, this);
     }
 }
 
@@ -1377,7 +1467,7 @@ export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnary
         //     }
         // }
         // else{
-            this.operand = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+            this.operand = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
         // }
     }
 }
@@ -1510,9 +1600,9 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
 
         this.element.addClass("code-subscript");
 
-        this.operand = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+        this.operand = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
         this.exprElem.append(htmlDecoratedOperator("[", "code-postfixOp"));
-        this.offset = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.offset, this);
+        this.offset = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.offset, this);
         this.exprElem.append(htmlDecoratedOperator("]", "code-postfixOp"));
     }
 }
@@ -1567,7 +1657,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
         super(element, construct, parent);
 
         this.exprElem.append("(");
-        this.subexpression = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.subexpression, this);
+        this.subexpression = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.subexpression, this);
         this.exprElem.append(")");
     }
 }
@@ -1614,7 +1704,7 @@ export class TypeConversionOutlet extends ExpressionOutlet<RuntimeImplicitConver
         super(element, construct, parent);
 
         this.element.addClass("code-implicitConversion");
-        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
     }
 }
 
@@ -1625,7 +1715,7 @@ export class LValueToRValueOutlet extends ExpressionOutlet<RuntimeImplicitConver
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-lValueToRValue");
-        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
     }
 }
 
@@ -1637,7 +1727,7 @@ export class ArrayToPointerOutlet extends ExpressionOutlet<RuntimeImplicitConver
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-arrayToPointer");
-        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
     }
 }
 
@@ -1648,88 +1738,96 @@ export class QualificationConversionOutlet extends ExpressionOutlet<RuntimeImpli
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-qualificationConversion");
-        this.from = createCodeOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
     }
 }
 
-export function createExpressionOutlet(element: JQuery, construct: Expression, parent?: ConstructOutlet) {
-
+export function createExpressionOutlet(element: JQuery, construct: CompiledExpression, parent?: ConstructOutlet) {
+    return construct.createDefaultOutlet(element, parent);
 }
 
-var createCodeOutlet = function(element, code, parent){
-    assert(code);
-    assert(simOutlet);
-    var outletClass = DEFAULT_CODE_OUTLETS[code._class];
-    if (outletClass) {
-        return outletClass.instance(element, code, simOutlet);
-    }
-    else if(code.isA(Expressions.BinaryOperator)){
-        return Outlets.CPP.BinaryOperator.instance(element, code, simOutlet);
-    }
-    else if(code.isA(Conversions.ImplicitConversion)){
-        return Outlets.CPP.ImplicitConversion.instance(element, code, simOutlet);
-    }
-    else if(code.isA(Expressions.Expression)){
-        return Outlets.CPP.Expression.instance(element, code, simOutlet);
-    }
-    else{
-        return Outlets.CPP.Code.instance(element, code, simOutlet);
-    }
+export function createInitializerOutlet(element: JQuery, construct: CompiledInitializer, parent?: ConstructOutlet) {
+    return construct.createDefaultOutlet(element, parent);
+}
 
-};
+export function createStatementOutlet(element: JQuery, construct: CompiledStatement, parent?: ConstructOutlet) {
+    return construct.createDefaultOutlet(element, parent);
+}
 
-var DEFAULT_CODE_OUTLETS = {};
-DEFAULT_CODE_OUTLETS[Statements.Block] = Outlets.CPP.Block;
-DEFAULT_CODE_OUTLETS[Statements.FunctionBodyBlock] = Outlets.CPP.Block;
-DEFAULT_CODE_OUTLETS[Statements.OpaqueFunctionBodyBlock] = Outlets.CPP.OpaqueFunctionBodyBlock;
-DEFAULT_CODE_OUTLETS[Statements.DeclarationStatement] = Outlets.CPP.DeclarationStatement;
-DEFAULT_CODE_OUTLETS[Statements.ExpressionStatement] = Outlets.CPP.ExpressionStatement;
-DEFAULT_CODE_OUTLETS[Statements.Selection] = Outlets.CPP.Selection;
-DEFAULT_CODE_OUTLETS[Statements.While] = Outlets.CPP.While;
-DEFAULT_CODE_OUTLETS[Statements.DoWhile] = Outlets.CPP.DoWhile;
-DEFAULT_CODE_OUTLETS[Statements.For] = Outlets.CPP.For;
-DEFAULT_CODE_OUTLETS[Statements.Return] = Outlets.CPP.Return;
-DEFAULT_CODE_OUTLETS[Statements.Break] = Outlets.CPP.Break;
-DEFAULT_CODE_OUTLETS[Declarations.Declaration] = Outlets.CPP.Declaration;
-DEFAULT_CODE_OUTLETS[Declarations.Parameter] = Outlets.CPP.Parameter;
-//DEFAULT_CODE_OUTLETS[Initializer] = Outlets.CPP.Initializer;
-DEFAULT_CODE_OUTLETS[DefaultInitializer] = Outlets.CPP.DefaultInitializer;
-DEFAULT_CODE_OUTLETS[DefaultMemberInitializer] = Outlets.CPP.DefaultInitializer;
-DEFAULT_CODE_OUTLETS[MemberInitializer] = Outlets.CPP.DirectInitializer;
-DEFAULT_CODE_OUTLETS[DirectInitializer] = Outlets.CPP.DirectInitializer;
-DEFAULT_CODE_OUTLETS[CopyInitializer] = Outlets.CPP.CopyInitializer;
-DEFAULT_CODE_OUTLETS[ParameterInitializer] = Outlets.CPP.ParameterInitializer;
-DEFAULT_CODE_OUTLETS[ReturnInitializer] = Outlets.CPP.ReturnInitializer;
-DEFAULT_CODE_OUTLETS[InitializerList] = Outlets.CPP.InitializerList;
-DEFAULT_CODE_OUTLETS[Expressions.Expression] = Outlets.CPP.Expression;
-DEFAULT_CODE_OUTLETS[Expressions.BinaryOperator] = Outlets.CPP.BinaryOperator;
-//DEFAULT_CODE_OUTLETS[Expressions.BINARY_OPS["+"]] = Outlets.CPP.BinaryOperator;
-DEFAULT_CODE_OUTLETS[Expressions.Assignment] = Outlets.CPP.Assignment;
-DEFAULT_CODE_OUTLETS[Expressions.Ternary] = Outlets.CPP.Ternary;
-DEFAULT_CODE_OUTLETS[Expressions.Comma] = Outlets.CPP.Comma;
-DEFAULT_CODE_OUTLETS[Expressions.CompoundAssignment] = Outlets.CPP.CompoundAssignment;
-DEFAULT_CODE_OUTLETS[Expressions.FunctionCallExpression] = Outlets.CPP.FunctionCallExpression;
-DEFAULT_CODE_OUTLETS[Expressions.Subscript] = Outlets.CPP.Subscript;
-DEFAULT_CODE_OUTLETS[Expressions.Dot] = Outlets.CPP.Dot;
-DEFAULT_CODE_OUTLETS[Expressions.Arrow] = Outlets.CPP.Arrow;
-DEFAULT_CODE_OUTLETS[Expressions.Increment] = Outlets.CPP.Increment;
-DEFAULT_CODE_OUTLETS[Expressions.Decrement] = Outlets.CPP.Decrement;
-DEFAULT_CODE_OUTLETS[Expressions.NewExpression] = Outlets.CPP.NewExpression;
-DEFAULT_CODE_OUTLETS[Expressions.Delete] = Outlets.CPP.Delete;
-DEFAULT_CODE_OUTLETS[Expressions.DeleteArray] = Outlets.CPP.DeleteArray;
-DEFAULT_CODE_OUTLETS[Expressions.Construct] = Outlets.CPP.ConstructExpression;
-DEFAULT_CODE_OUTLETS[Expressions.LogicalNot] = Outlets.CPP.LogicalNot;
-DEFAULT_CODE_OUTLETS[Expressions.Prefix] = Outlets.CPP.Prefix;
-DEFAULT_CODE_OUTLETS[Expressions.Dereference] = Outlets.CPP.Dereference;
-DEFAULT_CODE_OUTLETS[Expressions.AddressOf] = Outlets.CPP.AddressOf;
-DEFAULT_CODE_OUTLETS[Expressions.UnaryPlus] = Outlets.CPP.UnaryPlus;
-DEFAULT_CODE_OUTLETS[Expressions.UnaryMinus] = Outlets.CPP.UnaryMinus;
-DEFAULT_CODE_OUTLETS[Expressions.Parentheses] = Outlets.CPP.Parentheses;
-DEFAULT_CODE_OUTLETS[Expressions.Identifier] = Outlets.CPP.Identifier;
-DEFAULT_CODE_OUTLETS[Expressions.Literal] = Outlets.CPP.Literal;
-DEFAULT_CODE_OUTLETS[Expressions.ThisExpression] = Outlets.CPP.ThisExpression;
+// var createCodeOutlet = function(element, code, parent){
+//     assert(code);
+//     assert(simOutlet);
+//     var outletClass = DEFAULT_CODE_OUTLETS[code._class];
+//     if (outletClass) {
+//         return outletClass.instance(element, code, simOutlet);
+//     }
+//     else if(code.isA(Expressions.BinaryOperator)){
+//         return Outlets.CPP.BinaryOperator.instance(element, code, simOutlet);
+//     }
+//     else if(code.isA(Conversions.ImplicitConversion)){
+//         return Outlets.CPP.ImplicitConversion.instance(element, code, simOutlet);
+//     }
+//     else if(code.isA(Expressions.Expression)){
+//         return Outlets.CPP.Expression.instance(element, code, simOutlet);
+//     }
+//     else{
+//         return Outlets.CPP.Code.instance(element, code, simOutlet);
+//     }
+
+// };
+
+// var DEFAULT_CODE_OUTLETS = {};
+// DEFAULT_CODE_OUTLETS[Statements.Block] = Outlets.CPP.Block;
+// DEFAULT_CODE_OUTLETS[Statements.FunctionBodyBlock] = Outlets.CPP.Block;
+// DEFAULT_CODE_OUTLETS[Statements.OpaqueFunctionBodyBlock] = Outlets.CPP.OpaqueFunctionBodyBlock;
+// DEFAULT_CODE_OUTLETS[Statements.DeclarationStatement] = Outlets.CPP.DeclarationStatement;
+// DEFAULT_CODE_OUTLETS[Statements.ExpressionStatement] = Outlets.CPP.ExpressionStatement;
+// DEFAULT_CODE_OUTLETS[Statements.Selection] = Outlets.CPP.Selection;
+// DEFAULT_CODE_OUTLETS[Statements.While] = Outlets.CPP.While;
+// DEFAULT_CODE_OUTLETS[Statements.DoWhile] = Outlets.CPP.DoWhile;
+// DEFAULT_CODE_OUTLETS[Statements.For] = Outlets.CPP.For;
+// DEFAULT_CODE_OUTLETS[Statements.Return] = Outlets.CPP.Return;
+// DEFAULT_CODE_OUTLETS[Statements.Break] = Outlets.CPP.Break;
+// DEFAULT_CODE_OUTLETS[Declarations.Declaration] = Outlets.CPP.Declaration;
+// DEFAULT_CODE_OUTLETS[Declarations.Parameter] = Outlets.CPP.Parameter;
+// //DEFAULT_CODE_OUTLETS[Initializer] = Outlets.CPP.Initializer;
+// DEFAULT_CODE_OUTLETS[DefaultInitializer] = Outlets.CPP.DefaultInitializer;
+// DEFAULT_CODE_OUTLETS[DefaultMemberInitializer] = Outlets.CPP.DefaultInitializer;
+// DEFAULT_CODE_OUTLETS[MemberInitializer] = Outlets.CPP.DirectInitializer;
+// DEFAULT_CODE_OUTLETS[DirectInitializer] = Outlets.CPP.DirectInitializer;
+// DEFAULT_CODE_OUTLETS[CopyInitializer] = Outlets.CPP.CopyInitializer;
+// DEFAULT_CODE_OUTLETS[ParameterInitializer] = Outlets.CPP.ParameterInitializer;
+// DEFAULT_CODE_OUTLETS[ReturnInitializer] = Outlets.CPP.ReturnInitializer;
+// DEFAULT_CODE_OUTLETS[InitializerList] = Outlets.CPP.InitializerList;
+// DEFAULT_CODE_OUTLETS[Expressions.Expression] = Outlets.CPP.Expression;
+// DEFAULT_CODE_OUTLETS[Expressions.BinaryOperator] = Outlets.CPP.BinaryOperator;
+// //DEFAULT_CODE_OUTLETS[Expressions.BINARY_OPS["+"]] = Outlets.CPP.BinaryOperator;
+// DEFAULT_CODE_OUTLETS[Expressions.Assignment] = Outlets.CPP.Assignment;
+// DEFAULT_CODE_OUTLETS[Expressions.Ternary] = Outlets.CPP.Ternary;
+// DEFAULT_CODE_OUTLETS[Expressions.Comma] = Outlets.CPP.Comma;
+// DEFAULT_CODE_OUTLETS[Expressions.CompoundAssignment] = Outlets.CPP.CompoundAssignment;
+// DEFAULT_CODE_OUTLETS[Expressions.FunctionCallExpression] = Outlets.CPP.FunctionCallExpression;
+// DEFAULT_CODE_OUTLETS[Expressions.Subscript] = Outlets.CPP.Subscript;
+// DEFAULT_CODE_OUTLETS[Expressions.Dot] = Outlets.CPP.Dot;
+// DEFAULT_CODE_OUTLETS[Expressions.Arrow] = Outlets.CPP.Arrow;
+// DEFAULT_CODE_OUTLETS[Expressions.Increment] = Outlets.CPP.Increment;
+// DEFAULT_CODE_OUTLETS[Expressions.Decrement] = Outlets.CPP.Decrement;
+// DEFAULT_CODE_OUTLETS[Expressions.NewExpression] = Outlets.CPP.NewExpression;
+// DEFAULT_CODE_OUTLETS[Expressions.Delete] = Outlets.CPP.Delete;
+// DEFAULT_CODE_OUTLETS[Expressions.DeleteArray] = Outlets.CPP.DeleteArray;
+// DEFAULT_CODE_OUTLETS[Expressions.Construct] = Outlets.CPP.ConstructExpression;
+// DEFAULT_CODE_OUTLETS[Expressions.LogicalNot] = Outlets.CPP.LogicalNot;
+// DEFAULT_CODE_OUTLETS[Expressions.Prefix] = Outlets.CPP.Prefix;
+// DEFAULT_CODE_OUTLETS[Expressions.Dereference] = Outlets.CPP.Dereference;
+// DEFAULT_CODE_OUTLETS[Expressions.AddressOf] = Outlets.CPP.AddressOf;
+// DEFAULT_CODE_OUTLETS[Expressions.UnaryPlus] = Outlets.CPP.UnaryPlus;
+// DEFAULT_CODE_OUTLETS[Expressions.UnaryMinus] = Outlets.CPP.UnaryMinus;
+// DEFAULT_CODE_OUTLETS[Expressions.Parentheses] = Outlets.CPP.Parentheses;
+// DEFAULT_CODE_OUTLETS[Expressions.Identifier] = Outlets.CPP.Identifier;
+// DEFAULT_CODE_OUTLETS[Expressions.Literal] = Outlets.CPP.Literal;
+// DEFAULT_CODE_OUTLETS[Expressions.ThisExpression] = Outlets.CPP.ThisExpression;
 
 
-DEFAULT_CODE_OUTLETS[Conversions.ArrayToPointer] = Outlets.CPP.ArrayToPointer;
-DEFAULT_CODE_OUTLETS[Conversions.LValueToRValue] = Outlets.CPP.LValueToRValue;
-DEFAULT_CODE_OUTLETS[Conversions.QualificationConversion] = Outlets.CPP.QualificationConversion;
+// DEFAULT_CODE_OUTLETS[Conversions.ArrayToPointer] = Outlets.CPP.ArrayToPointer;
+// DEFAULT_CODE_OUTLETS[Conversions.LValueToRValue] = Outlets.CPP.LValueToRValue;
+// DEFAULT_CODE_OUTLETS[Conversions.QualificationConversion] = Outlets.CPP.QualificationConversion;

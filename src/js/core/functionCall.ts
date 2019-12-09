@@ -264,7 +264,7 @@ type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,V
 type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 
-export class FunctionCallExpression extends Expression {
+export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
     
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
@@ -335,6 +335,10 @@ export class FunctionCallExpression extends Expression {
     public createRuntimeExpression<T extends ObjectType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
     public createRuntimeExpression<RT extends PotentialReturnType>(this: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT> {
         return new RuntimeFunctionCallExpression(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledFunctionCallExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new FunctionCallExpressionOutlet(element, this, parent);
     }
 
     // TODO

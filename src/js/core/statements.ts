@@ -8,6 +8,7 @@ import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, Lo
 import { Mutable, asMutable } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { standardConversion } from "./standardConversions";
+import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -41,6 +42,8 @@ export function createStatementFromAST<ASTType extends StatementASTNode>(ast: AS
 export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
 
     public abstract createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : RuntimeStatement;
+
+    public abstract createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
 
 }
 
@@ -80,6 +83,10 @@ export class UnsupportedStatement extends Statement {
     public createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : never {
         throw new Error("Cannot create a runtime instance of an unsupported construct.");
     }
+    
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet) : never {
+        throw new Error("Cannot create an outlet for an unsupported construct.");
+    }
 }
 
 
@@ -105,6 +112,10 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public createRuntimeStatement(this: CompiledExpressionStatement, parent: RuntimeStatement) {
         return new RuntimeExpressionStatement(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledExpressionStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new ExpressionStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
@@ -147,6 +158,10 @@ export class NullStatement extends Statement<NullStatementASTNode> {
 
     public createRuntimeStatement(this: CompiledNullStatement, parent: RuntimeStatement) {
         return new RuntimeNullStatement(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledNullStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new NullStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
@@ -207,6 +222,10 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 
     public createRuntimeStatement(this: CompiledDeclarationStatement, parent: RuntimeStatement) {
         return new RuntimeDeclarationStatement(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledDeclarationStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new DeclarationStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
@@ -319,6 +338,10 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         return new RuntimeReturnStatement(this, parent);
     }
     
+    public createDefaultOutlet(this: CompiledReturnStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new ReturnStatementOutlet(element, this, parent);
+    }
+    
     // isTailChild : function(child){
     //     return {isTail: true,
     //         reason: "The recursive call is immediately followed by a return."};
@@ -399,6 +422,12 @@ export class Block extends Statement<BlockASTNode> {
     public createRuntimeStatement(this: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         return new RuntimeBlock(this, parent);
     }
+    
+    public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) : BlockOutlet;
+    public createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet) : never;
+    public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) {
+        return new BlockOutlet(element, this, parent);
+    }
 
     // isTailChild : function(child){
     //     var last = this.statements.last();
@@ -470,47 +499,47 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
 
 
-export class OpaqueBlock extends Statement implements SuccessfullyCompiled {
+// export class OpaqueBlock extends Statement implements SuccessfullyCompiled {
     
-    public _t_isCompiled: never;
+//     public _t_isCompiled: never;
 
-    private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
 
-    public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
-        super(context);
-        this.effects = effects;
-    }
+//     public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//         super(context);
+//         this.effects = effects;
+//     }
 
-    public createRuntimeStatement(parent: RuntimeStatement | RuntimeFunction) {
-        return new RuntimeOpaqueBlock(this, parent, this.effects);
-    }
+//     public createRuntimeStatement(parent: RuntimeStatement | RuntimeFunction) {
+//         return new RuntimeOpaqueBlock(this, parent, this.effects);
+//     }
 
-}
+// }
 
-export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
+// export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
 
-    private effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private effects: (rtBlock: RuntimeOpaqueBlock) => void;
 
-    public constructor (model: OpaqueBlock, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
-        super(model, parent);
-        this.effects = effects;
-    }
+//     public constructor (model: OpaqueBlock, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//         super(model, parent);
+//         this.effects = effects;
+//     }
 	
-    protected upNextImpl() {
-        // Nothing to do
-    }
+//     protected upNextImpl() {
+//         // Nothing to do
+//     }
 
-    public stepForwardImpl() {
-        this.effects(this);
-        this.startCleanup();
-    }
+//     public stepForwardImpl() {
+//         this.effects(this);
+//         this.startCleanup();
+//     }
 
     
-    // isTailChild : function(child){
-    //     return {isTail: true,
-    //         reason: "The recursive call is immediately followed by a return."};
-    // }
-}
+//     // isTailChild : function(child){
+//     //     return {isTail: true,
+//     //         reason: "The recursive call is immediately followed by a return."};
+//     // }
+// }
 
 
 
@@ -572,6 +601,10 @@ export class IfStatement extends Statement<IfStatementASTNode> {
 
     public createRuntimeStatement(this: CompiledIfStatement, parent: RuntimeStatement) {
         return new RuntimeIfStatement(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledIfStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new IfStatementOutlet(element, this, parent);
     }
 
     //     isTailChild : function(child){
@@ -702,6 +735,10 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
         return new RuntimeWhileStatement(this, parent);
     }
 
+    public createDefaultOutlet(this: CompiledWhileStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new WhileStatementOutlet(element, this, parent);
+    }
+
 }
 
 export interface CompiledWhileStatement extends WhileStatement, SuccessfullyCompiled {
@@ -829,6 +866,10 @@ export class ForStatement extends Statement<ForStatementASTNode> {
 
     public createRuntimeStatement(this: CompiledForStatement, parent: RuntimeStatement) {
         return new RuntimeForStatement(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledForStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new ForStatementOutlet(element, this, parent);
     }
 
 }
