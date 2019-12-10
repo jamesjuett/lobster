@@ -7,7 +7,10 @@ export function asMutable<T>(obj: T) : Mutable<T> {
     return <Mutable<T>>obj;
 }
 
-
+// https://github.com/microsoft/TypeScript/issues/5101
+export function isInstance<T>(ctor: new(...args: any[]) => T): (x: any) => x is T {
+    return <(x: any) => x is T>(x => x instanceof ctor);
+} 
 
 export function assert(condition: boolean, message: string = "") {
     if (!condition)

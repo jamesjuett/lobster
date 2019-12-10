@@ -449,7 +449,9 @@ class MemoryStack {
     private top: number;
     private readonly start: number;
     private readonly memory: Memory;
-    private readonly frames: MemoryFrame[];
+    
+    private readonly _frames: MemoryFrame[] = [];
+    public readonly frames: readonly MemoryFrame[] = this._frames;
 
     constructor(memory: Memory, start: number) {
         this.memory = memory;
@@ -470,13 +472,13 @@ class MemoryStack {
     public pushFrame(rtFunc: RuntimeFunction) {
         var frame = new MemoryFrame(this.memory, this.top, rtFunc);
         this.top += frame.size;
-        this.frames.push(frame);
+        this._frames.push(frame);
         this.memory.observable.send("framePushed", frame);
         return frame;
     }
 
     public popFrame(rtConstruct: RuntimeConstruct) {
-        let frame = this.frames.pop();
+        let frame = this._frames.pop();
         if (!frame) {
             return assertFalse();
         }
@@ -504,7 +506,8 @@ class MemoryHeap {
     private bottom: number;
     private readonly end: number;
     private readonly memory: Memory;
-    private readonly objectMap: {[index:number]: DynamicObject};
+
+    public readonly objectMap: {[index:number]: DynamicObject};
 
     public constructor(memory: Memory, end: number) {
         this.memory = memory;

@@ -12,6 +12,7 @@ import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { standardConversion } from "./standardConversions";
 import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
+import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 
 export class FunctionCall extends PotentialFullExpression {
     

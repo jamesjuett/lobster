@@ -32,7 +32,7 @@ export function stopListeningTo<PotentialMessages extends string>(listener: Obse
     objWithObservable.observable.removeListener(listener, category);
 }
 
-export function messageResponse(messageCategory?: string) {
+export function messageResponse(messageCategory?: string, unwrap? : "unwrap") {
     return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
         if (!target._act) {
             // no _act object, and no base class has one either
@@ -43,8 +43,14 @@ export function messageResponse(messageCategory?: string) {
             // for us that has the base class one as a prototype
             target._act = Object.create(target._act);
         }
-        
-        target._act[messageCategory || propertyKey] = target[propertyKey];
+
+        if (unwrap) {
+            let action = target[propertyKey];
+            target._act[messageCategory || propertyKey] = function(msg: any) { this.action(msg); };
+        }
+        else {
+            target._act[messageCategory || propertyKey] = target[propertyKey];
+        }
     };
 }
 
