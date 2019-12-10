@@ -1145,7 +1145,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     }
 
     public createRuntimeFunction<ReturnType extends PotentialReturnType>(this: CompiledFunctionDefinition<ReturnType>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>) : RuntimeFunction<ReturnType>{
-        return new RuntimeFunction(this, parent, receiver);
+        return new RuntimeFunction(this, parent.sim, parent, receiver);
     }
 
     // callSearch : function(callback, options){

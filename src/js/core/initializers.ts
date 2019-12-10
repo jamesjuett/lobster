@@ -1,4 +1,5 @@
-import { ASTNode, PotentialFullExpression, SuccessfullyCompiled, RuntimePotentialFullExpression, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";

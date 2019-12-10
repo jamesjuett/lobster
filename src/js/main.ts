@@ -1,4 +1,5 @@
 import {ProjectEditor, CompilationOutlet, CompilationStatusOutlet, ProjectSaveOutlet} from "./view/editors";
+import { DefaultLobsterOutlet } from "./view/simOutlets";
 
 $(() => {
 
@@ -6,26 +7,16 @@ $(() => {
 
     let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-    let sourcePane = element.find("#sourcePane");
-    let projectEditor = new ProjectEditor(sourcePane);
-
-    // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-    i_tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", function() {
-        projectEditor.refreshEditorView();
-    });
-
-    let compilationOutlet = new CompilationOutlet(element.find("#compilationPane"), projectEditor);
-
-    let compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), projectEditor);
-    let projectSaveOutlet = new ProjectSaveOutlet(element.find(".project-save-outlet"), projectEditor);
-
+    // let sourcePane = element.find("#sourcePane");
+    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"));
+    let projectEditor = lobsterOutlet.projectEditor;
 
     // let errorStatus = ValueEntity.instance();
 
 
-    let runningProgress = element.find(".runningProgress");
+    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
 
-    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "blah", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
+
 
 //        console = ValueEntity.instance();
 
