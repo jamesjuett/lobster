@@ -3,12 +3,14 @@ import { addListener, listenTo, MessageResponses, messageResponse, stopListening
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
-import { Mutable, assert } from "../util/util";
+import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
+import { FunctionOutlet } from "./codeOutlets";
+import { RuntimeFunctionIdentifier } from "../core/expressions";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -759,6 +761,10 @@ export class MemoryOutlet {
         }
         delete (<Mutable<this>>this).memory;
         this.refreshMemory();
+    }
+
+    public refreshMemory() {
+
     }
 
     // private updateArrow : function(arrow, start, end) {
@@ -1565,14 +1571,12 @@ export class StackFramesOutlet {
 
         this.framesElem = $('<div class="body"></div>');
         this.element.append(this.framesElem);
+
+        this.memory.stack.frames.forEach(frame => this.pushFrame(frame));
     }
 
-    @messageResponse("framePushed")
-    private framePushed(msg: Message<MemoryFrame>) {
-        //if (msg.data.func.isImplicit()) {
-        //    return;
-        //}
-        let frame = msg.data;
+    private pushFrame(frame: MemoryFrame) {
+
         let frameElem = $("<div style=\"display: none\"></div>");
         new StackFrameOutlet(frameElem, frame, this.memoryOutlet);
 
@@ -1586,17 +1590,12 @@ export class StackFramesOutlet {
         }
     }
 
-    @messageResponse("framePopped")
-    private framePopped() {
-        //if (msg.data.func.isImplicit()) {
-        //    return;
-        //}
-//            if (this.frames.length == 1) {
-//                var popped = this.frames.last();
-//                this.frames.pop();
-//                popped.remove();
-//            }
-//            else{
+    @messageResponse("framePushed")
+    private framePushed(msg: Message<MemoryFrame>) {
+        this.pushFrame(msg.data);
+    }
+
+    private popFrame() {
         if (CPP_ANIMATIONS) {
             let popped = this.frameElems.pop()!;
             popped.slideUp(SLIDE_DURATION, function() {
@@ -1607,7 +1606,11 @@ export class StackFramesOutlet {
             let popped = this.frameElems.pop()!;
             popped.remove();
         }
-//            }
+    }
+
+    @messageResponse("framePopped")
+    private framePopped() {
+        this.popFrame;
     }
 
     @messageResponse("reset")
@@ -1644,13 +1647,15 @@ export class HeapOutlet {
 
         this.objectElems = {};
 
-        return this;
+        for (let key in this.memory.heap.objectMap) {
+            this.heapObjectAllocated(this.memory.heap.objectMap[key]);
+        }
     }
 
     
-    @messageResponse("heapObjectAllocated")
-    private heapObjectAllocated(msg: Message<CPPObject>) {
-        let obj = msg.data;
+
+    @messageResponse("heapObjectAllocated", "unwrap")
+    private heapObjectAllocated(obj: DynamicObject) {
         var elem = $("<div style='display: none'></div>");
         createMemoryObjectOutlet(elem, obj, this.memoryOutlet);
 
@@ -1848,25 +1853,7 @@ export abstract class RunningCodeOutlet {
         }
     }
 
-
-
-    public refreshSimulation() {
-        this.cleared();
-        this.mainCall.removeInstance();
-        this.mainCall = Outlets.CPP.FunctionCall.instance(this.sim.mainCallInstance(), this);
-        this.started();
-        var last = this.sim.i_execStack.last();
-        if (last) {
-            last.send("upNext");
-        }
-    }
-
-    @messageResponse("mainCallPushed")
-    private mainCallPushed(msg: Message<RuntimeFunction<Int>>) {
-        // main has no caller, so we have to handle creating the outlet here
-        this.mainCall = Outlets.CPP.FunctionCall.instance(codeInst, this);
-
-    }
+    public abstract refreshSimulation() : void;
 
     @messageResponse("pushed")
     private pushed(msg: Message<RuntimeConstruct>) {
@@ -1921,7 +1908,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         return this;
     }
 
-    public pushFunction(rtFunc: RuntimeFunction, callOutlet: FunctionCallOutlet) {
+    public pushFunction(rtFunc: RuntimeFunction) {
         //if (rtFunc.model.isImplicit()) {
         //    return;
         //}
@@ -1934,7 +1921,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.stackFramesElem.prepend(frame);
 
         // Create outlet using the element
-        let funcOutlet = Outlets.CPP.Function.instance(functionElem, rtFunc, this, callOutlet);
+        let funcOutlet = new FunctionOutlet(functionElem, rtFunc);
 
         // Animate!
         if (CPP_ANIMATIONS) {
@@ -1951,7 +1938,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         return funcOutlet;
     }
 
-    public popFunction(rtFunc: RuntimeFunction) {
+    public popFunction() {
         //if (rtFunc.model.isImplicit()) {
         //    return;
         //}
@@ -1966,9 +1953,21 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         }
     }
 
-    protected cleared() {
+
+    public refreshSimulation() {
         this.frameElems = [];
         this.stackFramesElem.children().remove();
+        
+        if (!this.sim || this.sim.execStack.length === 0) {
+            return;
+        }
+
+        this.sim.execStack
+            .filter(isInstance(RuntimeFunction))
+            .forEach(rtFunc => this.pushFunction(rtFunc));
+
+        var last = this.sim.execStack[this.sim.execStack.length - 1];
+        // TODO: find outlet for last and send it an "upNext"
     }
 
     //refresh : Class.ADDITIONALLY(function() {
