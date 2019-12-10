@@ -263,27 +263,27 @@ export class SimulationOutlet {
 
         this.buttonElems = {
             restart : element.find(".restart").click(() => {
-                this.restart();
+                this.restart().catch(() => {});
             }),
     
             stepForward : element.find(".stepForward").click(() => {
-                this.stepForward(parseInt(""+stepForwardNumElem.val()));
+                this.stepForward(parseInt(""+stepForwardNumElem.val())).catch(() => {});
             }),
     
             stepOver : element.find("button.stepOver").click(() => {
-                this.stepOver();
+                this.stepOver().catch(() => {});
             }),
     
             stepOut : element.find("button.stepOut").click(() => {
-                this.stepOut();
+                this.stepOut().catch(() => {});
             }),
     
             // skipToEnd : element.find("button.skipToEnd").click(() => {
-            //     this.skipToEnd();
+            //     this.skipToEnd().catch(() => {});
             // }),
     
             runToEnd : element.find("button.runToEnd").click(() => {
-                this.runToEnd();
+                this.runToEnd().catch(() => {});
             }),
     
             pause : element.find("button.pause").click(() => {
@@ -291,7 +291,7 @@ export class SimulationOutlet {
             }),
     
             stepBackward : element.find(".stepBackward").click(() => {
-                this.stepBackward(parseInt(""+stepBackwardNumElem.val()));
+                this.stepBackward(parseInt(""+stepBackwardNumElem.val())).catch(() => {});
             }),
         };
 
@@ -476,9 +476,15 @@ export class SimulationOutlet {
         
     // }
     
-    private async pause() {
+    private pause() {
         if (!this.sim) { return; }
         this.simRunner!.pause();
+
+        this.setEnabledButtons({
+            "pause": false
+        }, true);
+        this.element.find(".simPane").focus();
+        this.runningProgressElem.css("visibility", "hidden");
     }
     
     private async stepBackward(n: number = 1) {
@@ -526,16 +532,6 @@ export class SimulationOutlet {
     
     @messageResponse("reset")
     private reset() {
-        //this.i_paused = true;
-        this.setEnabledButtons({
-            "pause": false
-        }, true);
-        this.element.find(".simPane").focus();
-        this.runningProgressElem.css("visibility", "hidden");
-    }
-    
-    @messageResponse("paused")
-    private paused() {
         //this.i_paused = true;
         this.setEnabledButtons({
             "pause": false
