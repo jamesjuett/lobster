@@ -144,10 +144,10 @@ export class AsynchronousSimulationRunner {
                 delete this.timeoutHandle;
                 delete this.rejectFn;
                 resolve();
-            }, this.delay);
+            }, delay);
 
             this.rejectFn = reject;
-        })
+        });
     }
 
     private interrupt() {
@@ -243,14 +243,14 @@ export class AsynchronousSimulationRunner {
      * n steps backward from the current point in the simulation.)
      * @param n Number of steps backward.
      */
-    public stepBackward(n: number = 1) {
+    public async stepBackward(n: number = 1) {
         if (n === 0 || this.simulation.stepsTaken === 0) {
             return;
         }
 
         let newSteps = this.simulation.stepsTaken - n;
-        this.reset();
-        this.stepForward(newSteps);
+        await this.reset();
+        await this.stepForward(newSteps);
     }
     
     /**
