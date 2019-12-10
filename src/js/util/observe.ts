@@ -38,7 +38,7 @@ export function messageResponse(messageCategory?: string, unwrap? : "unwrap") {
             // no _act object, and no base class has one either
             target._act = {};
         }
-        else if (!target.hasOwnPropety("_act")) {
+        else if (!target.hasOwnProperty("_act")) {
             // we don't have an _act object, but a base class does, so we create one
             // for us that has the base class one as a prototype
             target._act = Object.create(target._act);

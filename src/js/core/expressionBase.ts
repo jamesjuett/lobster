@@ -1,6 +1,7 @@
 import { ExpressionASTNode } from "./expressions";
 
-import { PotentialFullExpression, ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./constructs";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType } from "./types";
 

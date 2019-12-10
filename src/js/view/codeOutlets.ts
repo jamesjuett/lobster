@@ -1,4 +1,5 @@
-import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction, RuntimePotentialFullExpression } from "../core/constructs";
+import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction } from "../core/constructs";
+import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";

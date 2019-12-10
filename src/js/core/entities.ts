@@ -1,7 +1,8 @@
 import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
 import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct, RuntimeFunction, PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs";
+import { RuntimeConstruct, RuntimeFunction } from "./constructs";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError } from "./errors";
@@ -1194,10 +1195,10 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // Some hacky casts and assertions in this implementation
-        if (!(rtConstruct instanceof RuntimePotentialFullExpression)) {
-            return assertFalse();
-        }
-        return <TemporaryObject<T>>rtConstruct.containingFullExpression.temporaryObjects[this.entityId];
+        // if (!(rtConstruct instanceof RuntimePotentialFullExpression)) { // removed since it causes an issue with a circular import dependency
+        //     return assertFalse();
+        // }
+        return <TemporaryObject<T>>(<RuntimePotentialFullExpression>rtConstruct).containingFullExpression.temporaryObjects[this.entityId];
     }
 
     public describe() {
