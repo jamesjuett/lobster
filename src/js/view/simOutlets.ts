@@ -524,6 +524,16 @@ export class SimulationOutlet {
         this.consoleElems.html(msg.data);
     }
     
+    @messageResponse("reset")
+    private reset() {
+        //this.i_paused = true;
+        this.setEnabledButtons({
+            "pause": false
+        }, true);
+        this.element.find(".simPane").focus();
+        this.runningProgressElem.css("visibility", "hidden");
+    }
+    
     @messageResponse("paused")
     private paused() {
         //this.i_paused = true;
@@ -1816,8 +1826,7 @@ export abstract class RunningCodeOutlet {
 
 
     public abstract pushFunction(rtFunc: RuntimeFunction) : void;
-
-    public abstract popFunction(rtFunc: RuntimeFunction) : void;
+    public abstract popFunction() : void;
 
     public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number, afterCallback: () => void) {
         if (CPP_ANIMATIONS) {
@@ -1855,6 +1864,11 @@ export abstract class RunningCodeOutlet {
 
     public abstract refreshSimulation() : void;
 
+    @messageResponse("reset")
+    private reset() {
+        this.refreshSimulation();
+    }
+
     @messageResponse("pushed")
     private pushed(msg: Message<RuntimeConstruct>) {
         if (msg.data instanceof RuntimeFunction) {
@@ -1865,7 +1879,7 @@ export abstract class RunningCodeOutlet {
     @messageResponse("popped")
     private popped(msg: Message<RuntimeConstruct>) {
         if (msg.data instanceof RuntimeFunction) {
-            this.popFunction(msg.data);
+            this.popFunction();
         }
     }
 
@@ -1952,7 +1966,6 @@ export class CodeStackOutlet extends RunningCodeOutlet {
             });
         }
     }
-
 
     public refreshSimulation() {
         this.frameElems = [];
