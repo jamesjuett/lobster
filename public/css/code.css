@@ -769,10 +769,13 @@
             /*box-sizing: border-box;*/
 /*}*/
 
-.code-keyword,
-.code-type,
-.code-returnType
+.code-keyword
 {color: #f92672;}
+
+.code-type,
+.code-returnType {
+    color: #9effff;
+}
 
 .code-name,
 .code-functionName

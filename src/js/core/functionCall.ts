@@ -3,7 +3,6 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression } from "./expressions";
 import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType } from "./types";
-import { CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer } from "./initializers";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
@@ -14,6 +13,7 @@ import { standardConversion } from "./standardConversions";
 import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
+import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 
 export class FunctionCall extends PotentialFullExpression {
     
@@ -21,7 +21,7 @@ export class FunctionCall extends PotentialFullExpression {
     public readonly args: readonly TypedExpression[];
     public readonly receiver?: ObjectEntity<ClassType>;
 
-    public readonly argInitializers: readonly CopyInitializer[];
+    public readonly argInitializers: readonly DirectInitializer[];
     
     public readonly returnByValueTarget?: TemporaryObjectEntity;
     /**
@@ -56,10 +56,10 @@ export class FunctionCall extends PotentialFullExpression {
         this.argInitializers = args.map((arg, i) => {
             let paramType = this.func.type.paramTypes[i];
             if (paramType.isReferenceType()) {
-                return CopyInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg]);
+                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg], "copy");
             }
             else {
-                return CopyInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg]);
+                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
             }
         });
         this.attachAll(this.argInitializers);
@@ -163,7 +163,7 @@ export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialR
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     
     readonly args: readonly TypedExpression[];
-    readonly argInitializers: readonly CompiledCopyInitializer[];
+    readonly argInitializers: readonly CompiledDirectInitializer[];
     readonly returnByValueTarget?: T extends ObjectType ? TemporaryObjectEntity<T> : undefined;
 }
 
@@ -177,7 +177,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     // public readonly functionDef : FunctionDefinition;
     public readonly calledFunction : RuntimeFunction<T>;
-    public readonly argInitializers: readonly RuntimeCopyInitializer[];
+    public readonly argInitializers: readonly RuntimeDirectInitializer[];
 
     public readonly receiver?: CPPObject<ClassType>
 

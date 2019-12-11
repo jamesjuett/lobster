@@ -9,7 +9,7 @@ import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
-import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet } from "../view/codeOutlets";
+import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet } from "../view/codeOutlets";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -345,23 +345,23 @@ export interface DirectInitializerASTNode extends ASTNode {
 
 export abstract class DirectInitializer extends Initializer {
 
-    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]) : ReferenceDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) : AtomicDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) : ArrayDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) : ClassDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[]) : DirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]) : DirectInitializer {
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") : ReferenceDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: "direct" | "copy") : AtomicDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: "direct" | "copy") : ArrayDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: "direct" | "copy") : ClassDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
-            return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args);
+            return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
         else if (target.type instanceof AtomicType) {
-            return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args);
+            return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args, kind);
         }
         // else if (target.type instanceof BoundedArrayType) {
-        //     return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args);
+        //     return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args, kind);
         // }
         // else if (target.type instanceof ClassType) {
-        //     return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args);
+        //     return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args, kind);
         // }
         else{
             return assertFalse();
@@ -369,6 +369,13 @@ export abstract class DirectInitializer extends Initializer {
     }
 
     public abstract readonly args: readonly Expression[];
+
+    public readonly kind: "direct" | "copy";
+    
+    public constructor(context: TranslationUnitContext, kind: "direct" | "copy") {
+        super(context);
+        this.kind = kind;
+    }
 
     public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeDirectInitializer<T>;
 }
@@ -395,8 +402,8 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]) {
-        super(context);
+    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") {
+        super(context, kind);
         this.target = target;
         
         this.args = args;
@@ -432,7 +439,9 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     }
 
     public createDefaultOutlet(this: CompiledReferenceDirectInitializer, element: JQuery, parent?: ConstructOutlet) : ReferenceDirectInitializerOutlet {
-        return new ReferenceDirectInitializerOutlet(element, this, parent);
+        return this.kind === "direct" ?
+            new ReferenceDirectInitializerOutlet(element, this, parent) :
+            new ReferenceCopyInitializerOutlet(element, this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
@@ -485,8 +494,8 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]) {
-        super(context);
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: "direct" | "copy") {
+        super(context, kind);
         
         this.target = target;
         
@@ -526,7 +535,9 @@ export class AtomicDirectInitializer extends DirectInitializer {
     }
 
     public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDirectInitializerOutlet {
-        return new AtomicDirectInitializerOutlet(element, this, parent);
+        return this.kind === "direct" ?
+            new AtomicDirectInitializerOutlet(element, this, parent) :
+            new AtomicCopyInitializerOutlet(element, this, parent);
     }
 
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
@@ -756,17 +767,17 @@ export interface CopyInitializerASTNode extends ASTNode {
 
 // TODO: These should really be "class aliases" rather than derived classes, however
 // it doesn't seem like Typescript has any proper mechanism for this.
-export abstract class CopyInitializer extends DirectInitializer { };
-export interface CompiledCopyInitializer<T extends ObjectType = ObjectType> extends CompiledDirectInitializer<T> { };
-export abstract class RuntimeCopyInitializer extends RuntimeDirectInitializer { };
+// export abstract class CopyInitializer extends DirectInitializer { };
+// export interface CompiledCopyInitializer<T extends ObjectType = ObjectType> extends CompiledDirectInitializer<T> { };
+// export abstract class RuntimeCopyInitializer extends RuntimeDirectInitializer { };
 
-export class ReferenceCopyInitializer extends ReferenceDirectInitializer { };
-export interface CompiledReferenceCopyInitializer<T extends ObjectType = ObjectType> extends CompiledReferenceDirectInitializer<T> { };
-export class RuntimeReferenceCopyInitializer extends RuntimeReferenceDirectInitializer { };
+// export class ReferenceCopyInitializer extends ReferenceDirectInitializer { };
+// export interface CompiledReferenceCopyInitializer<T extends ObjectType = ObjectType> extends CompiledReferenceDirectInitializer<T> { };
+// export class RuntimeReferenceCopyInitializer extends RuntimeReferenceDirectInitializer { };
 
-export class AtomicCopyInitializer extends AtomicDirectInitializer { };
-export interface CompiledAtomicCopyInitializer<T extends AtomicType = AtomicType> extends CompiledAtomicDirectInitializer<T> { };
-export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer { };
+// export class AtomicCopyInitializer extends AtomicDirectInitializer { };
+// export interface CompiledAtomicCopyInitializer<T extends AtomicType = AtomicType> extends CompiledAtomicDirectInitializer<T> { };
+// export class RuntimeAtomicCopyInitializer extends RuntimeAtomicDirectInitializer { };
 // export class ArrayCopyInitializer extends ArrayDirectInitializer { };
 // export class RuntimeArrayCopyInitializer extends RuntimeArrayDirectInitializer { };
 // export class ClassCopyInitializer extends ClassDirectInitializer { };

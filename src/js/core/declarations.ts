@@ -2,7 +2,7 @@ import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, Invali
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, CopyInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
+import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
 import { AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
@@ -550,11 +550,11 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
     }
 
     public setDirectInitializer(args: readonly Expression[]) {
-        return this.setInitializer(DirectInitializer.create(this.context, this.declaredEntity, args));
+        return this.setInitializer(DirectInitializer.create(this.context, this.declaredEntity, args, "direct"));
     }
 
     public setCopyInitializer(args: readonly Expression[]) {
-        return this.setInitializer(CopyInitializer.create(this.context, this.declaredEntity, args));
+        return this.setInitializer(DirectInitializer.create(this.context, this.declaredEntity, args, "copy"));
     }
 
     public setInitializerList(args: readonly Expression[]) {
@@ -1063,6 +1063,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
 
     public readonly declaration: FunctionDeclaration;
     public readonly name: string;
+    public readonly type: FunctionType;
     public readonly parameters: readonly ParameterDeclaration[];
     public readonly body: Block;
 
@@ -1113,6 +1114,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         this.attach(this.body = body);
 
         this.name = declaration.name;
+        this.type = declaration.type;
         
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
 
