@@ -65,11 +65,6 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
         }
     }
 
-    public afterPopped() {
-        super.afterPopped();
-        this.observable.send("reset");
-    }
-
 }
 
 export class UnsupportedStatement extends Statement {
@@ -241,25 +236,26 @@ export interface CompiledDeclarationStatement extends DeclarationStatement, Succ
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
 
-    private index = 0;
+    public readonly currentDeclarationIndex : number | null = null;
 
     public constructor (model: CompiledDeclarationStatement, parent: RuntimeStatement) {
         super(model, parent);
     }
 	
     protected upNextImpl() {
+        let nextIndex = this.currentDeclarationIndex === null ? 0 : this.currentDeclarationIndex + 1;
+        (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
 
         let initializers = this.model.declarations.map(d => d.initializer);
-        if (this.index < initializers.length) {
-            let init = initializers[this.index];
+        if (nextIndex < initializers.length) {
+            let init = initializers[nextIndex];
             if(init) {
                 // Only declarations with an initializer (e.g. a variable definition) have something
                 // to do at runtime. Others (e.g. typedefs) do nothing.
-                this.observable.send("initializing", this.index);
+                this.observable.send("initializing", nextIndex);
                 let runtimeInit = init.createRuntimeInitializer(this);
                 this.sim.push(runtimeInit);
             }
-            ++this.index;
         }
         else{
             this.startCleanup();
