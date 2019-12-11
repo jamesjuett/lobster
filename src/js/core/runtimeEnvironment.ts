@@ -457,7 +457,6 @@ class MemoryStack {
         this.memory = memory;
         this.start = start;
         this.top = start;
-        this.frames = [];
     }
 
     // public clear() {

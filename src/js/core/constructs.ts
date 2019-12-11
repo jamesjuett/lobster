@@ -326,7 +326,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         this.pauses["upNext"] = {pauseWhenUpNext: true};
     }
 
-    protected wait() {
+    public wait() {
         this.observable.send("wait");
     }
 

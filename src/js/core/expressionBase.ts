@@ -186,5 +186,6 @@ export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCa
 
     protected setEvalResult(value: VCResultTypes<T,V>) {
         (<Mutable<this>>this).evalResult = value;
+        this.observable.send("evaluated", value);
     }
 }

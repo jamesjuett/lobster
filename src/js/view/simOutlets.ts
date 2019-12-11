@@ -354,7 +354,12 @@ export class SimulationOutlet {
 
     private refreshSimulation() {
         this.codeStackOutlet.refreshSimulation();
-        this.memoryOutlet.refreshMemory();
+        if (this.sim) {
+            this.memoryOutlet.setMemory(this.sim.memory)
+        }
+        else {
+            this.memoryOutlet.clearMemory();
+        }
     }
 
     private setEnabledButtons(enabled: Partial<{[k in SimulationButtonNames]: boolean}>, enabledDefault: boolean = false) {
@@ -750,7 +755,6 @@ export class MemoryOutlet {
         this.clearMemory();
         (<Mutable<this>>this).memory = memory;
         listenTo(this, memory);
-        this.refreshMemory();
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
@@ -768,11 +772,6 @@ export class MemoryOutlet {
             stopListeningTo(this, this.memory);
         }
         delete (<Mutable<this>>this).memory;
-        this.refreshMemory();
-    }
-
-    public refreshMemory() {
-
     }
 
     // private updateArrow : function(arrow, start, end) {
