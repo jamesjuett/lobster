@@ -100,11 +100,10 @@ export class AsynchronousSimulationRunner {
     public readonly simulation: Simulation;
 
     /**
-     * Speed in steps per second. Note that very high speeds may not be meaningful,
-     * since the simulation may not be able to keep up.
+     * When performing a run operation that involves several steps, this
+     * is the delay (in milliseconds) between consecutive steps.
      */
-    public readonly speed: number;
-    private delay: number;
+    public readonly delay: number;
 
     /**
      * The handle returned by the call to setInterval() that was used to start
@@ -116,20 +115,27 @@ export class AsynchronousSimulationRunner {
     /**
      * Creates a new runner that can be used to control the given simulation.
      * @param simulation The simulation to control.
-     * @param speed Speed in steps/second. Default 1.
+     * @param delay Delay between consecutive steps in milliseconds. Default 1000 ms.
      */
-    public constructor(simulation: Simulation, speed: number = 1) {
+    public constructor(simulation: Simulation, delay: number = 1000) {
         this.simulation = simulation;
-        this.speed = speed;
-        this.delay = Math.floor(1000 / speed);
+        this.delay = delay;
     }
     
     public setSpeed(speed: number) {
-        (<Mutable<this>>this).speed = speed;
-        this.delay = Math.floor(1000 / speed);
+        (<Mutable<this>>this).delay = Math.floor(1000 / speed);
+    }
+    
+    /**
+     * Sets the delay between steps for any run operation that involves
+     * multiple steps (e.g. stepOver, stepToEnd, etc.)
+     * @param delay The delay in milliseconds. Set to 0 to go as fast as possible.
+     */
+    public setDelay(delay: number) {
+        (<Mutable<this>>this).delay = delay;
     }
 
-    private takeOneStep(delay: number = this.delay) {
+    private takeOneStep(delay: number) {
 
         // If someone else was waiting on a step (or a sequence of steps),
         // we want to clear the timeout and call the stored reject function
@@ -175,7 +181,7 @@ export class AsynchronousSimulationRunner {
      * Moves the simulation forward n steps, asynchronously.
      * @param n Number of steps to move forward. Default 1 step.
      */
-    public async stepForward(n: number = 1) {
+    public async stepForward(n: number = 1, delay: number = this.delay) {
         if (n === 0) {
             return;
         }
@@ -183,18 +189,18 @@ export class AsynchronousSimulationRunner {
         // Take first step with no delay
         await this.takeOneStep(0);
 
-        // Take the rest of the steps
+        // Take the rest of the steps with given delay
         for (let i = 1; !this.simulation.atEnd && i < n; ++i) {
-            await this.takeOneStep();
+            await this.takeOneStep(delay);
         }
     }
 
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public async stepToEnd() {
+    public async stepToEnd(delay: number = this.delay) {
         while (!this.simulation.atEnd) {
-            await this.takeOneStep();
+            await this.takeOneStep(delay);
         }
     }
 
@@ -205,11 +211,11 @@ export class AsynchronousSimulationRunner {
      * since in that case the arguments themselves are "up next", not the call.
      * Basically, the idea is that you never "step into" a new function.
      */
-    public async stepOver() {
+    public async stepOver(delay: number = this.delay) {
         let top = this.simulation.top();
         if (top instanceof FunctionCall) {
             while (!top.isDone) {
-                await this.takeOneStep();
+                await this.takeOneStep(delay);
             }
         }
         else {
@@ -224,7 +230,7 @@ export class AsynchronousSimulationRunner {
      * expression for a global variable with static storage duration), equivalent
      * to stepForward(1).
      */
-    public async stepOut() {
+    public async stepOut(delay: number = this.delay) {
         let topFunc = this.simulation.topFunction();
 
         if (!topFunc) {
@@ -233,7 +239,7 @@ export class AsynchronousSimulationRunner {
         }
 
         while (!topFunc.isDone) {
-            await this.takeOneStep();
+            await this.takeOneStep(delay);
         }
     }
 
@@ -250,7 +256,7 @@ export class AsynchronousSimulationRunner {
 
         let newSteps = this.simulation.stepsTaken - n;
         await this.reset();
-        await this.stepForward(newSteps);
+        await this.stepForward(newSteps, 0);
     }
     
     /**

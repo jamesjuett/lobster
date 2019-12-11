@@ -229,14 +229,14 @@ function findExactlyOne(element: JQuery, selector: string) {
     return found;
 }
 
-const DEFAULT_RUNNER_SPEED = 1;
+const DEFAULT_RUNNER_DELAY = 1000;
 
 export class SimulationOutlet {
 
     public readonly sim?: Simulation;
 
     private simRunner?: AsynchronousSimulationRunner;
-    private runnerSpeed = DEFAULT_RUNNER_SPEED;
+    private runnerDelay = DEFAULT_RUNNER_DELAY;
 
     public readonly codeStackOutlet: CodeStackOutlet;
     public readonly memoryOutlet: MemoryOutlet;
@@ -335,7 +335,7 @@ export class SimulationOutlet {
         this.clearSimulation();
         (<Mutable<this>>this).sim = sim;
         listenTo(this, sim);
-        this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerSpeed);
+        this.simRunner = new AsynchronousSimulationRunner(this.sim!, this.runnerDelay);
 
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
@@ -761,6 +761,8 @@ export class MemoryOutlet {
         delete (<Mutable<this>>this).temporaryObjectsOutlet;
         delete (<Mutable<this>>this).stackFramesOutlet;
         delete (<Mutable<this>>this).heapOutlet;
+
+        this.element.children().filter((index, element) => element !== this.svgElem[0]).remove();
 
         if (this.memory) {
             stopListeningTo(this, this.memory);
