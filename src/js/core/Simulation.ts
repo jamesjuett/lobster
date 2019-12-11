@@ -144,6 +144,13 @@ export class Simulation {
     }
     
     public push(rt: RuntimeConstruct) {
+        
+        // whatever was previously on top of the stack is now waiting
+        let prevTop = this.top();
+        if (prevTop) {
+            prevTop.wait();
+        }
+
         this._execStack.push(rt);
         this.observable.send("pushed", rt);
         rt.afterPushed();

@@ -1009,13 +1009,16 @@ export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeRef
 export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExpression> extends PotentialFullExpressionOutlet<RT> {
     
     public readonly showingEvalResult: boolean = false;
+    public readonly animateEvaluation: boolean;
     
     protected readonly evalResultElem: JQuery;
     protected readonly wrapperElem: JQuery;
     protected readonly exprElem: JQuery;
 
-    public constructor(element: JQuery, construct: RT["model"], parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: RT["model"], parent?: ConstructOutlet, animateEvaluation = true) {
         super(element, construct, parent);
+
+        this.animateEvaluation = animateEvaluation;
 
         this.element.addClass("expression");
         if (this.construct.isFullExpression()) {this.element.addClass("fullExpression");}
@@ -1033,7 +1036,12 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
     }
 
     private setEvalResult(result: RT["evalResult"], suppressAnimation: boolean = false) {
+        
         (<Mutable<this>>this).showingEvalResult = true;
+
+        if (!this.animateEvaluation) {
+            return;
+        }
 
         if (result instanceof CPPObject || result instanceof FunctionEntity) {
             this.evalResultElem.html(result.describe().name);
@@ -1064,6 +1072,10 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
     private removeEvalValue() {
         (<Mutable<this>>this).showingEvalResult = false;
+
+        if (!this.animateEvaluation) {
+            return;
+        }
 //        if(CODE_ANIMATIONS) {
 //            this.wrapperElem.animate({
 //                width: this.exprElem.css("width")
@@ -1100,7 +1112,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
     }
 
     @messageResponse("evaluated")
-    private evaluated(msg: Message<RT["evalResult"]>) {
+    protected evaluated(msg: Message<RT["evalResult"]>) {
         this.setEvalResult(msg.data);
     }
 }
@@ -1655,7 +1667,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
     public readonly subexpression: ExpressionOutlet;
 
     public constructor(element: JQuery, construct: CompiledParentheses, parent?: ConstructOutlet) {
-        super(element, construct, parent);
+        super(element, construct, parent, false);
 
         this.exprElem.append("(");
         this.subexpression = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.subexpression, this);
@@ -1666,25 +1678,23 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
 export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier | RuntimeFunctionIdentifier> {
 
     public constructor(element: JQuery, construct: CompiledObjectIdentifier | CompiledFunctionIdentifier, parent?: ConstructOutlet) {
-        super(element, construct, parent);
+        super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
 
         this.exprElem.append(this.construct.name);
     }
-
-    // setEvalResult : function(value) {
-
-    // }
+    
 }
 
 export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral> {
 
     public constructor(element: JQuery, construct: CompiledNumericLiteral, parent?: ConstructOutlet) {
-        super(element, construct, parent);
+        super(element, construct, parent, false);
 
         this.exprElem.addClass("code-literal");
         this.exprElem.append(this.construct.value.valueString());
     }
+
 }
 
 // Lobster.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({

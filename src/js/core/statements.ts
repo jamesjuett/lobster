@@ -260,7 +260,6 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
                 this.sim.push(runtimeInit);
             }
             ++this.index;
-            this.wait();
         }
         else{
             this.startCleanup();
