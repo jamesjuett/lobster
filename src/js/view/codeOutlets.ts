@@ -5,7 +5,7 @@ import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, 
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, CopyInitializer, CompiledCopyInitializer, RuntimeCopyInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, RuntimeAtomicCopyInitializer, CompiledAtomicCopyInitializer, RuntimeReferenceDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceCopyInitializer, CompiledReferenceCopyInitializer } from "../core/initializers";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
 import { FunctionEntity } from "../core/entities";
@@ -207,9 +207,9 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
 
         // Set up DOM and child outlets
         // if (!isA(this.code, ConstructorDefinition) && !isA(this.code, DestructorDefinition)){ // Constructors/destructors use this outlet too for now and they don't have return type
-        //     var returnTypeElem = $('<span class="code-returnType">' + this.construct.type.returnType.toString() + "</span>");
-        //     this.element.append(returnTypeElem);
-        //     this.element.append(" ");
+            var returnTypeElem = $('<span class="code-returnType">' + this.construct.type.returnType.toString() + "</span>");
+            this.element.append(returnTypeElem);
+            this.element.append(" ");
         // }
         var nameElem = $('<span class="code-functionName">' + this.construct.name + "</span>");
         this.element.append(nameElem);
@@ -946,19 +946,19 @@ export class ReferenceDirectInitializerOutlet extends InitializerOutlet<RuntimeR
 
 
 
-export abstract class CopyInitializerOutlet extends InitializerOutlet<RuntimeCopyInitializer> {
+export abstract class CopyInitializerOutlet extends InitializerOutlet<RuntimeDirectInitializer> {
     
-    public constructor(element: JQuery, construct: CompiledCopyInitializer, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-copyInitializer");
     }
 }
 
-export class AtomicCopyInitializerOutlet extends InitializerOutlet<RuntimeAtomicCopyInitializer> {
+export class AtomicCopyInitializerOutlet extends InitializerOutlet<RuntimeAtomicDirectInitializer> {
     
     public readonly argOutlet: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledAtomicCopyInitializer, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledAtomicDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
     
         this.element.append(" = ");
@@ -967,11 +967,11 @@ export class AtomicCopyInitializerOutlet extends InitializerOutlet<RuntimeAtomic
     
 }
 
-export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeReferenceCopyInitializer> {
+export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeReferenceDirectInitializer> {
     
     public readonly argOutlet: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledReferenceCopyInitializer, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledReferenceDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
     
         this.element.append(" = ");
@@ -1683,7 +1683,7 @@ export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier |
 
         this.exprElem.append(this.construct.name);
     }
-    
+
 }
 
 export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral> {
