@@ -135,7 +135,7 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
 
     // TODO: move this to a function subclass?
     @messageResponse("popped")
-    private popped() {
+    protected popped() {
         // this.inst! must be defined if this function is called, since it would have had to send the message
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
@@ -447,8 +447,9 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
     //     }
     // }
     
-    @messageResponse("reset")
-    private reset() {
+    @messageResponse("popped")
+    protected popped() {
+        super.popped();
         this.removeInstance();
     }
 
@@ -499,8 +500,12 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
         this.element.append(";");
     }
 
-    protected instanceRemoved() {
+    protected instanceSet(inst: RuntimeDeclarationStatement) {
+        this.setCurrentDeclarationIndex(inst.currentDeclarationIndex);
+    }
 
+    protected instanceRemoved() {
+        this.setCurrentDeclarationIndex(null);
     }
 
     private setCurrentDeclarationIndex(current: number | null) {
