@@ -4,7 +4,7 @@ import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition } from "../core/declarations";
-import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement } from "../core/statements";
+import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
@@ -14,7 +14,7 @@ import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary,
 import { Bool } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
-import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression } from "../core/functionCall";
+import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall } from "../core/functionCall";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -63,8 +63,8 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
         this.element.removeClass("wait");
         this.instanceSet(inst);
 
-        for(let id in inst.pushedChildren) {
-            this.setChildInstance(inst.pushedChildren[id]);
+        for(let id in inst.children) {
+            this.setChildInstance(inst.children[id]);
         }
     }
 
@@ -83,16 +83,16 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
             }
 
             stopListeningTo(this, this.inst);
-
+            let oldInst = this.inst;
             delete (<Mutable<this>>this).inst;
             
             this.element.removeClass("upNext");
             this.element.removeClass("wait");
-            this.instanceRemoved();
+            this.instanceRemoved(oldInst);
         }
     }
 
-    protected instanceRemoved() {
+    protected instanceRemoved(oldInst: RTConstruct_type) {
 
     }
 
@@ -110,13 +110,19 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
             return;
         }
 
+        // TODO: took this out. not currently used. decide if I actually want this
+        // Although we didn't find an outlet for this child construct here,
+        // we should give its children a chance to get added here
+        // for(let id in childInst.children) {
+        //     this.setChildInstance(childInst.children[id]);
+        // }
+
         // Otherwise, pass to parent that may have a suitable outlet
         if (this.parent) {
             this.parent.setChildInstance(childInst);
         }
         else{
-            // Just ignore it?
-            console.log("WARNING! Child instance pushed for which no corresponding child outlet was found! (" + childInst.model.toString() + ")");
+            console.log("WARNING! Child instance pushed for which no corresponding child outlet was found! (" + childInst.model.constructId + ")");
         }
     }
 
@@ -146,8 +152,8 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     // that is waiting for the code model associated with the instance.
     // Propagates the child instance upward through ancestors until one
     // is found that was waiting for it.
-    @messageResponse("childPushed")
-    private childPushed(msg: Message<RuntimeConstruct>) {
+    @messageResponse("childInstanceCreated")
+    private childInstanceCreated(msg: Message<RuntimeConstruct>) {
         this.setChildInstance(msg.data);
     }
 
@@ -321,10 +327,11 @@ export class BlockOutlet extends ConstructOutlet<RuntimeBlock> {
         
         this.element.removeClass("codeInstance");
         this.element.addClass("braces");
+        this.element.append(" "); // spaces before braces :)
         this.element.append(curlyOpen);
         this.element.append("<br />");
         let innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
-        innerElem.addClass("block");
+        innerElem.addClass("code-indentedBlockBody");
         this.element.append(innerElem);
 
         // this.gotoLinks = [];
@@ -422,7 +429,7 @@ export class BlockOutlet extends ConstructOutlet<RuntimeBlock> {
 //         this.element.append(curlyOpen);
 //         this.element.append("<br />");
 //         var inner = this.innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
-//         inner.addClass("block");
+//         inner.addClass("code-indentedBlockBody");
 //         this.element.append(inner);
 //         var lineElem = $('<span class="blockLine">// Implementation not shown</span>');
 //         inner.append(lineElem);
@@ -573,9 +580,7 @@ export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
 
         this.element.append(") ");
 
-        let thenElem = $("<span></span>");
-        this.then = createStatementOutlet(thenElem, this.construct.then, this);
-        this.element.append(thenElem);
+        this.then = addChildStatementOutlet(this.element, this.construct.then, this);
 
         if (this.construct.otherwise){
             this.element.append("<br />");
@@ -693,6 +698,7 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
 
     public readonly args: readonly ExpressionOutlet[];
     public readonly expression?: ExpressionOutlet;
+    public readonly returtnInitializer?: ReturnInitializerOutlet;
 
     public constructor(element: JQuery, construct: CompiledReturnStatement, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -701,9 +707,10 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
         this.element.append('<span class="code-keyword">return</span>');
 
         let exprElem = $("<span></span>");
-        if (this.construct.returnInitializer) {
+        if (construct.returnInitializer) {
             this.element.append(" ");
-            asMutable(this.args).push(this.expression = createExpressionOutlet(exprElem, this.construct.returnInitializer.args[0], this));
+            asMutable(this.args).push(this.expression = createExpressionOutlet(exprElem, construct.returnInitializer.args[0], this));
+            this.returtnInitializer = new ReturnInitializerOutlet(element, construct.returnInitializer, this);
         }
         this.element.append(exprElem);
 
@@ -726,6 +733,13 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
     //     }
     // }),
 
+}
+
+export class ReturnInitializerOutlet extends ConstructOutlet<RuntimeDirectInitializer> {
+    
+    public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    }
 }
 
 // Lobster.Outlets.CPP.Break = Outlets.CPP.Statement.extend({
@@ -1321,7 +1335,9 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
 
 export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFunctionCallExpression> {
 
+    public readonly operandOutlet: ExpressionOutlet;
     public readonly argOutlets: readonly ExpressionOutlet[];
+    public readonly callOutlet: FunctionCallOutlet;
     
     public constructor(element: JQuery, construct: CompiledFunctionCallExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -1335,17 +1351,18 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
         //     this.element.addClass("tail");
         // }
 
-        createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+        this.operandOutlet = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), construct.operand, this);
 
         this.exprElem.append("(");
 
-
-        this.argOutlets = this.construct.args.map((argInit, i) => {
+        this.argOutlets = construct.call.args.map((arg, i) => {
             if (i > 0) {
                 this.exprElem.append(", ");
             }
-            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), argInit, this)
+            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), arg, this)
         });
+
+        this.callOutlet = new FunctionCallOutlet(element, construct.call, this);
 
         this.exprElem.append(")");
         // if (this.construct.funcCall.func.isVirtual()){
@@ -1374,6 +1391,32 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 //     }, true)
 }
 
+export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
+
+    public readonly argInitializerOutlets: readonly ArgumentInitializerOutlet[];
+    
+    public constructor(element: JQuery, construct: CompiledFunctionCall, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.argInitializerOutlets = construct.argInitializers.map(argInit =>
+            new ArgumentInitializerOutlet(element, argInit, this));
+    }
+    
+    protected instanceSet() {
+        console.log("here");
+    }
+}
+
+export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInitializer> {
+    
+    public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    }
+    
+    protected instanceSet() {
+        console.log("here2");
+    }
+}
 
 
 export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeMagicFunctionCallExpression> {
@@ -1769,6 +1812,16 @@ export function createInitializerOutlet(element: JQuery, construct: CompiledInit
 export function createStatementOutlet(element: JQuery, construct: CompiledStatement, parent?: ConstructOutlet) {
     return construct.createDefaultOutlet(element, parent);
 }
+
+export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent?: ConstructOutlet, indented: boolean = true) {
+    let childElem = $("<span></span>");
+    if (!construct.isBlock()) {
+        parentElement.append("<br />");
+        childElem.addClass("code-indentedBlockBody")
+    }
+    return createStatementOutlet(childElem.appendTo(parentElement), construct, parent);
+}
+
 
 // var createCodeOutlet = function(element, code, parent){
 //     assert(code);

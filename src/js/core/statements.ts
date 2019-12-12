@@ -45,6 +45,10 @@ export abstract class Statement<ASTType extends StatementASTNode = StatementASTN
 
     public abstract createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
 
+    public isBlock() : this is Block {
+        return false;
+    }
+
 }
 
 export interface CompiledStatement extends Statement, SuccessfullyCompiled {
@@ -244,10 +248,10 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
 	
     protected upNextImpl() {
         let nextIndex = this.currentDeclarationIndex === null ? 0 : this.currentDeclarationIndex + 1;
-        (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
 
         let initializers = this.model.declarations.map(d => d.initializer);
         if (nextIndex < initializers.length) {
+            (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
             let init = initializers[nextIndex];
             if(init) {
                 // Only declarations with an initializer (e.g. a variable definition) have something
@@ -407,6 +411,10 @@ export class Block extends Statement<BlockASTNode> {
 
     public constructor(context: FunctionContext) {
         super(createBlockContext(context));
+    }
+
+    public isBlock() : this is Block {
+        return true;
     }
 
     public addStatement(statement: Statement) {

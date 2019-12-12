@@ -46,7 +46,7 @@ export function messageResponse(messageCategory?: string, unwrap? : "unwrap") {
 
         if (unwrap) {
             let action = target[propertyKey];
-            target._act[messageCategory || propertyKey] = function(msg: any) { this.action(msg); };
+            target._act[messageCategory || propertyKey] = function(msg: any) { action.call(this, msg.data); };
         }
         else {
             target._act[messageCategory || propertyKey] = target[propertyKey];

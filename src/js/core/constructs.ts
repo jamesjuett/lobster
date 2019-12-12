@@ -240,7 +240,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly model: C;
     public readonly stackType: StackType;
 
-    public readonly pushedChildren: {[index: string]: RuntimeConstruct} = {}; // TODO: change name (the children are not necessarily pushed)
+    public readonly children: {[index: string]: RuntimeConstruct} = {};
 
     public readonly parent?: RuntimeConstruct;
 
@@ -360,8 +360,8 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     private addChild(child: RuntimeConstruct) {
-        this.pushedChildren[child.model.constructId] = child;
-        this.observable.send("childPushed", child);
+        this.children[child.model.constructId] = child;
+        this.observable.send("childInstanceCreated", child);
     }
     
     // findParent : function(stackType){

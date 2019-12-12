@@ -385,12 +385,13 @@
     border-bottom-color: purple;
 }
 
-.codeInstance .block{
+.code-indentedBlockBody {
     display: inline-block;
     position: relative;
     box-sizing: border-box;
     margin-left: 2ch;
 }
+
 
 /*.codeInstance.wait > .block > .highlight{*/
     /*display: block;*/

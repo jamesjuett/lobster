@@ -14,11 +14,11 @@ import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-
 export class FunctionCall extends PotentialFullExpression {
+
     
     public readonly func: FunctionEntity;
-    public readonly args: readonly TypedExpression[];
+    public readonly args: readonly Expression[];
     public readonly receiver?: ObjectEntity<ClassType>;
 
     public readonly argInitializers: readonly DirectInitializer[];
@@ -47,7 +47,6 @@ export class FunctionCall extends PotentialFullExpression {
         super(context);
 
         this.func = func;
-        this.args = clone(args);
         this.receiver = receiver;
 
         // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
@@ -63,6 +62,9 @@ export class FunctionCall extends PotentialFullExpression {
             }
         });
         this.attachAll(this.argInitializers);
+        
+        // For convenience, an array with reference to the final arguments (i.e. including conversions) for the call
+        this.args = this.argInitializers.map(argInit => argInit.args[0]);
 
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
@@ -162,7 +164,7 @@ export class FunctionCall extends PotentialFullExpression {
 export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialReturnType> extends FunctionCall, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     
-    readonly args: readonly TypedExpression[];
+    readonly args: readonly CompiledExpression[];
     readonly argInitializers: readonly CompiledDirectInitializer[];
     readonly returnByValueTarget?: T extends ObjectType ? TemporaryObjectEntity<T> : undefined;
 }
@@ -272,14 +274,14 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
     public readonly valueCategory?: ValueCategory;
 
     public readonly operand: Expression
-    public readonly args: readonly Expression[];
+    public readonly originalArgs: readonly Expression[];
     public readonly call?: FunctionCall;
 
     public constructor(context: ExpressionContext, operand: Expression, args: readonly Expression[]) {
         super(context);
         
         this.attach(this.operand = operand);
-        this.args = args;
+        this.originalArgs = args;
 
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
@@ -315,7 +317,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         // So the cast below should be fine.
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
         // TODO: allow member function calls. (or make them a separate class idk)
-        this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args);
+        this.attach(this.call = new FunctionCall(context, operand.entity, <readonly TypedExpression<ObjectType, ValueCategory>[]>args));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext) : FunctionCallExpression | MagicFunctionCallExpression {
@@ -365,7 +367,7 @@ export interface CompiledFunctionCallExpression<RT extends PotentialReturnType =
     readonly valueCategory: FunctionVC<RT>;
     
     readonly operand: CompiledFunctionIdentifier;
-    readonly args: readonly CompiledExpression[];
+    readonly originalArgs: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<RT>;
 }
 
@@ -375,7 +377,6 @@ const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
 export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledFunctionCallExpression<RT>> {
 
     public readonly operand: RuntimeFunctionIdentifier;
-    public readonly args: readonly RuntimeExpression[];
     public readonly call: RuntimeFunctionCall<RT>;
 
     private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
@@ -383,7 +384,6 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
     public constructor (model: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) {
         super(model, parent);
         this.operand = this.model.operand.createRuntimeExpression(this);
-        this.args = this.model.args.map((arg) => arg.createRuntimeExpression(this));
         this.call = this.model.call.createRuntimeFunctionCall(this);
     }
 
