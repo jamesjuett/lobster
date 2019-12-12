@@ -3,7 +3,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { ExpressionASTNode } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
-import { assertFalse } from "../util/util";
+import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
@@ -406,7 +406,11 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         super(context, kind);
         this.target = target;
         
+        assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
         this.args = args;
+
+        // Note: It is ONLY ok to attach them all right away because no conversions are
+        // layered over the expressions for a reference initialization
         args.forEach((a) => {this.attach(a);});
 
         // Note: With a reference, no conversions are done
@@ -501,23 +505,26 @@ export class AtomicDirectInitializer extends DirectInitializer {
         
         let targetType = target.type;
 
-        this.args = args;
-        args.forEach((a) => {this.attach(a);});
+        assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
 
         if (args.length > 1){
+            this.attachAll(this.args = args);
             this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
             return;
         }
         
-        this.arg = args[0];
+        let arg = args[0];
 
         //Attempt standard conversion to declared type, including lvalue to rvalue conversions
-        if (!this.arg.isWellTyped()) {
+        if (!arg.isWellTyped()) {
+            this.args = args;
+            this.attach(this.arg = arg); // only need to attach this one, because we're guaranteed args.length === 1 at this point
             return;
         }
 
-        let typedArg = standardConversion(this.arg, targetType);
-        this.arg = typedArg;
+        let typedArg = standardConversion(arg, targetType);
+        this.args = [typedArg];
+        this.attach(this.arg = typedArg);
 
         if (!sameType(typedArg.type, targetType)) {
             this.addNote(CPPError.declaration.init.convert(this, typedArg.type, targetType));

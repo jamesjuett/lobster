@@ -1810,12 +1810,14 @@ export abstract class RunningCodeOutlet {
         this.clearSimulation();
         (<Mutable<this>>this).sim = sim;
         listenTo(this, sim);
+        listenTo(this, sim.memory);
         this.refreshSimulation();
     }
     
     public clearSimulation() {
         if (this.sim) {
             stopListeningTo(this, this.sim);
+            stopListeningTo(this, this.sim.memory);
         }
         delete (<Mutable<this>>this).sim;
         this.refreshSimulation();
@@ -1866,11 +1868,9 @@ export abstract class RunningCodeOutlet {
         this.refreshSimulation();
     }
 
-    @messageResponse("pushed")
-    private pushed(msg: Message<RuntimeConstruct>) {
-        if (msg.data instanceof RuntimeFunction) {
-            this.pushFunction(msg.data);
-        }
+    @messageResponse("framePushed", "unwrap")
+    private pushed(frame: MemoryFrame) {
+        this.pushFunction(frame.func);
     }
 
     @messageResponse("popped")
