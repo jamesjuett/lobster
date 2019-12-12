@@ -671,6 +671,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
     private index = 0;
     private justDestructed: boolean = false;
+    public readonly parent!: RuntimePotentialFullExpression; // narrows type from base class
 
     public constructor (model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
         super(model, "expression", parent);
@@ -698,7 +699,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
             //     this.justDestructed = true;
             // }
             // else {
-                this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this));
+                this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this.parent));
                 ++this.index;
                 // this.justDestructed = false;
             // }

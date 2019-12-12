@@ -29,10 +29,7 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         }
     }
     public isFullExpression(): boolean {
-        if (!this.parent || !(this.parent instanceof PotentialFullExpression)) {
-            return true;
-        }
-        return !this.parent.isFullExpression();
+        return !this.parent || !(this.parent instanceof PotentialFullExpression);
     }
     // TODO: this function can probably be cleaned up so that it doesn't require these ugly runtime checks
     /**
