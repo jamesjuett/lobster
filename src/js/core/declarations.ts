@@ -96,7 +96,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
     
     public readonly typeName?: string;
 
-    public readonly type?: Type;
+    public readonly baseType?: Type;
 
     public static createFromAST(ast: TypeSpecifierASTNode, context: TranslationUnitContext) {
         return new TypeSpecifier(context, ast);
@@ -161,7 +161,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
 
         // Check to see if type name is one of the built in types
         if (isBuiltInTypeName(this.typeName)) {
-            asMutable(this).type = new builtInTypes[this.typeName](this.const, this.volatile);
+            asMutable(this).baseType = new builtInTypes[this.typeName](this.const, this.volatile);
             return;
         }
 
@@ -226,7 +226,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
 
     // Need to create TypeSpecifier first to get the base type first for the declarators
     let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
-    let baseType = typeSpec.type;
+    let baseType = typeSpec.baseType;
     let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
     // Use map to create an array of the individual declarations (since multiple on the same line
@@ -339,7 +339,6 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 }
 
 export interface CompiledSimpleDeclaration extends SimpleDeclaration, SuccessfullyCompiled {
-    readonly type: Type;
     readonly initializer?: CompiledInitializer;
 }
 
@@ -536,6 +535,7 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
 
     public readonly initializer?: Initializer;
 
+    public abstract readonly type : ObjectType | ReferenceType;
     public abstract readonly declaredEntity: VariableEntity;
 
     private setInitializer(init: Initializer) {
@@ -620,6 +620,8 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 
 export class GlobalObjectDefinition extends VariableDefinition {
     public readonly kind = "GlobalObjectDefinition";
+    
+    // TODO: I don't think these two properties are used, clean them up here and in LocalOjectDefinition
     protected readonly initializerAllowed = true;
     public readonly isDefinition = true;
 
@@ -724,7 +726,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
         
         // Compile declarator for each parameter (of the function-type argument itself)
-        let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.type);
+        let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.baseType);
 
         return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
     }

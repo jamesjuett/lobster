@@ -3,7 +3,7 @@ import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression"
 import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";
-import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition } from "../core/declarations";
+import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
@@ -462,6 +462,10 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
 
 }
 
+function allVariableDefinitions(declarations: readonly CompiledSimpleDeclaration[]) : declarations is CompiledVariableDefinition[] {
+    return declarations.every(decl => decl instanceof VariableDefinition);
+}
+
 export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarationStatement> {
 
     public readonly initializerOutlets: readonly (InitializerOutlet | undefined)[] = [];
@@ -476,10 +480,20 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
         declarationElem.addClass("codeInstance");
         declarationElem.addClass("declaration");
-        declarationElem.append(htmlDecoratedType(this.construct.declarations[0].type));
+
+        // TODO: add support for other kinds of declarations that aren't variable definitions
+        let declarations = this.construct.declarations;
+        if (!allVariableDefinitions(declarations)) {
+            return;
+        }
+
+        // Non-null assertion below because type specifier's baseType must be defined if
+        // the declarator of this variable definition got created.
+        declarationElem.append(htmlDecoratedType(declarations[0].typeSpecifier.baseType!));
+
         declarationElem.append(" ");
 
-        this.construct.declarations.forEach((declaration, i) => {
+        declarations.forEach((declaration, i) => {
 
             // Create element for declarator
             let declElem = $('<span class="codeInstance code-declarator"><span class="highlight"></span></span>');
@@ -498,7 +512,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
             }
 
             // Add commas where needed
-            if (i < this.construct.declarations.length - 1) {
+            if (i < declarations.length - 1) {
                 declarationElem.append(", ");
             }
         });
