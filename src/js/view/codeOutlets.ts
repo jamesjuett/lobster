@@ -14,7 +14,7 @@ import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary,
 import { Bool } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
-import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall } from "../core/functionCall";
+import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -59,8 +59,6 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
             listenTo(this, inst);
         }
 
-        this.element.removeClass("upNext");
-        this.element.removeClass("wait");
         this.instanceSet(inst);
 
         for(let id in inst.children) {
@@ -69,7 +67,8 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     }
 
     protected instanceSet(inst: RTConstruct_type) {
-
+        this.element.toggleClass("upNext", inst.isUpNext);
+        this.element.toggleClass("wait", inst.isWaiting);
     }
 
     public removeInstance() {
@@ -86,14 +85,13 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
             let oldInst = this.inst;
             delete (<Mutable<this>>this).inst;
             
-            this.element.removeClass("upNext");
-            this.element.removeClass("wait");
             this.instanceRemoved(oldInst);
         }
     }
 
     protected instanceRemoved(oldInst: RTConstruct_type) {
-
+        this.element.removeClass("upNext");
+        this.element.removeClass("wait");
     }
 
     private addChildOutlet(child: ConstructOutlet) {
@@ -264,6 +262,7 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
     }
 
     protected instanceSet(inst: RuntimeFunction) {
+        super.instanceSet(inst);
 
         if (inst.hasControl) {
             this.element.addClass("hasControl");
@@ -522,11 +521,13 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
     }
 
     protected instanceSet(inst: RuntimeDeclarationStatement) {
+        super.instanceSet(inst);
         this.setCurrentDeclarationIndex(inst.currentDeclarationIndex);
     }
 
-    protected instanceRemoved() {
+    protected instanceRemoved(oldInst: RuntimeDeclarationStatement) {
         this.setCurrentDeclarationIndex(null);
+        super.instanceRemoved(oldInst);
     }
 
     private setCurrentDeclarationIndex(current: number | null) {
@@ -1132,6 +1133,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
     }
 
     protected instanceSet(inst: RT) {
+        super.instanceSet(inst);
         if (inst.evalResult) {
             this.setEvalResult(inst.evalResult, true);
         }
@@ -1140,8 +1142,9 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
         }
     }
 
-    protected instanceRemoved() {
+    protected instanceRemoved(oldInst: RT) {
         this.removeEvalValue();
+        super.instanceRemoved(oldInst);
     }
 
     @messageResponse("evaluated")
@@ -1350,7 +1353,6 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
 export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFunctionCallExpression> {
 
     public readonly operandOutlet: ExpressionOutlet;
-    public readonly argOutlets: readonly ExpressionOutlet[];
     public readonly callOutlet: FunctionCallOutlet;
     
     public constructor(element: JQuery, construct: CompiledFunctionCallExpression, parent?: ConstructOutlet) {
@@ -1365,18 +1367,11 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
         //     this.element.addClass("tail");
         // }
 
-        this.operandOutlet = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), construct.operand, this);
+        this.operandOutlet = createExpressionOutlet($('<span class="functionCall-operand"></span>').appendTo(this.exprElem), construct.operand, this);
 
         this.exprElem.append("(");
 
-        this.argOutlets = construct.call.args.map((arg, i) => {
-            if (i > 0) {
-                this.exprElem.append(", ");
-            }
-            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), arg, this)
-        });
-
-        this.callOutlet = new FunctionCallOutlet(element, construct.call, this);
+        this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this);
 
         this.exprElem.append(")");
         // if (this.construct.funcCall.func.isVirtual()){
@@ -1384,6 +1379,28 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
         // }
     }
 
+    protected instanceSet(inst: RuntimeFunctionCallExpression) {
+        super.instanceSet(inst);
+        listenTo(this, inst.call, ["called", "returned"]);
+
+        this.element.toggleClass("called", !inst.cleanupStarted && inst.call.index > INDEX_FUNCTION_CALL_CALL)
+    }
+
+    protected instanceRemoved(oldInst: RuntimeFunctionCallExpression) {
+        stopListeningTo(this, oldInst.call, ["called", "returned"]);
+        this.element.removeClass("called");
+        super.instanceRemoved(oldInst);
+    }
+
+    @messageResponse("called")
+    protected called() {
+        this.element.addClass("called");
+    }
+
+    @messageResponse("returned")
+    protected returned() {
+        this.element.removeClass("returned");
+    }
 //     _act: mixin({}, Outlets.CPP.Expression._act, {
 
 // //        calleeOutlet : function(callee, source){
@@ -1412,23 +1429,24 @@ export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
     public constructor(element: JQuery, construct: CompiledFunctionCall, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
-        this.argInitializerOutlets = construct.argInitializers.map(argInit =>
-            new ArgumentInitializerOutlet(element, argInit, this));
-    }
-    
-    protected instanceSet() {
-        console.log("here");
+        this.argInitializerOutlets = construct.argInitializers.map((argInit, i) => {
+            if (i > 0) {
+                this.element.append(", ");
+            }
+            return new ArgumentInitializerOutlet($("<span></span>").appendTo(this.element), argInit, this);
+        });
     }
 }
 
 export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInitializer> {
     
+    public readonly expressionOutlet: ExpressionOutlet;
+
     public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
-    }
-    
-    protected instanceSet() {
-        console.log("here2");
+        this.element.addClass("code-argumentInitializer");
+
+        this.expressionOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.args[0], this);
     }
 }
 
@@ -1441,7 +1459,7 @@ export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeM
         super(element, construct, parent);
         this.element.addClass("functionCall");
 
-        this.exprElem.append(this.construct.functionName + "(");
+        this.exprElem.append(htmlDecoratedName(this.construct.functionName) + "(");
 
         this.argOutlets = this.construct.args.map((argInit, i) => {
             if (i > 0) {

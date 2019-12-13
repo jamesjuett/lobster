@@ -155,6 +155,7 @@
 .codeInstance.code-defaultInitializer > .highlight,
 .codeInstance.code-directInitializer > .highlight,
 .codeInstance.code-copyInitializer > .highlight,
+.codeInstance.code-argumentInitializer > .highlight,
 .codeInstance.code-declarator > .highlight
  {
     border-bottom-color: #00A138;
@@ -363,13 +364,8 @@
     /*text-decoration: line-through;*/
 }
 
-.codeInstance.expression.functionCall {
-    /*color: purple;*/
-}
-
 .codeInstance.expression.functionCall.virtual {
-    /*color: purple;*/
-    /*font-style: italic;*/
+    font-style: italic;
 }
 
 .codeInstance.expression.functionCall.tail > .highlight{
@@ -380,7 +376,7 @@
 .codeInstance.expression.functionCall.wait > .highlight
 {
     border-bottom-style: solid;
-    border-bottom-width: 2px;
+    border-bottom-width: 1px;
     opacity: 1;
     border-bottom-color: purple;
 }

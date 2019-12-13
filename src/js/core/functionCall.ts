@@ -14,6 +14,7 @@ import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import { Mutable } from "../util/util";
 export class FunctionCall extends PotentialFullExpression {
 
     
@@ -169,10 +170,10 @@ export interface CompiledFunctionCall<T extends PotentialReturnType = PotentialR
     readonly returnByValueTarget?: T extends ObjectType ? TemporaryObjectEntity<T> : undefined;
 }
 
-const INDEX_FUNCTION_CALL_PUSH = 0;
-const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
-const INDEX_FUNCTION_CALL_CALL = 2;
-const INDEX_FUNCTION_CALL_RETURN = 3;
+export const INDEX_FUNCTION_CALL_PUSH = 0;
+export const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
+export const INDEX_FUNCTION_CALL_CALL = 2;
+export const INDEX_FUNCTION_CALL_RETURN = 3;
 export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturnType> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
 
     public readonly model!: CompiledFunctionCall<T>; // narrows type of member in base class
@@ -185,7 +186,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
 
     // public readonly hasBeenCalled: boolean = false;
 
-    private index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN;
+    public readonly index : typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN;
 
     public constructor (model: CompiledFunctionCall<T>, parent: RuntimeConstruct) {
         super(model, "call", parent);
@@ -223,11 +224,12 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             for(var i = this.argInitializers.length-1; i >= 0; --i) {
                 this.sim.push(this.argInitializers[i]);
             }
-            this.index = INDEX_FUNCTION_CALL_CALL;
+            (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_CALL;
         }
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
             this.containingRuntimeFunction.gainControl();
+            this.observable.send("called");
             this.startCleanup();
         }
     }
@@ -238,7 +240,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
 
             this.calledFunction.pushStackFrame();
-            this.index = INDEX_FUNCTION_CALL_ARGUMENTS;
+            (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_ARGUMENTS;
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
 
@@ -250,7 +252,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             // (<Mutable<this>>this).hasBeenCalled = true;
             this.observable.send("called", this.calledFunction);
             
-            this.index = INDEX_FUNCTION_CALL_RETURN;
+            (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_RETURN;
         }
         
     }
@@ -371,15 +373,15 @@ export interface CompiledFunctionCallExpression<RT extends PotentialReturnType =
     readonly call: CompiledFunctionCall<RT>;
 }
 
-const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
-const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
-const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
+export const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
+export const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
+export const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
 export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<FunctionResultType<RT>, FunctionVC<RT>, CompiledFunctionCallExpression<RT>> {
 
     public readonly operand: RuntimeFunctionIdentifier;
     public readonly call: RuntimeFunctionCall<RT>;
 
-    private index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
+    public readonly index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
     public constructor (model: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) {
         super(model, parent);
@@ -390,12 +392,11 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
 	protected upNextImpl() {
         if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_OPERAND) {
             this.sim.push(this.operand);
-            this.index = INDEX_FUNCTION_CALL_EXPRESSION_CALL;
+            (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_EXPRESSION_CALL;
         }
         else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_CALL) {
             this.sim.push(this.call);
-            this.index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
-            return true;
+            (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
         }
         else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_RETURN ) {
             if (this.model.type.isVoidType()) {
