@@ -141,10 +141,13 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
             this.sim.push(this.expression);
             this.index = "done";
         }
+        else {
+            this.startCleanup();
+        }
 	}
 	
 	protected stepForwardImpl() {
-        this.startCleanup();
+        
 	}
 }
 
