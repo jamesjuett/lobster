@@ -50,8 +50,13 @@ export function htmlDecoratedType(type: Type) {
     return '<span class="code-type">' + type.toString() + '</span>';
 };
 
-export function htmlDecoratedName(name: string, type: Type) {
-    return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
+export function htmlDecoratedName(name: string, type?: Type) {
+    if (type) {
+        return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
+    }
+    else {
+        return '<span class="code-name"><span class = "highlight"></span>' + name + '</span>';
+    }
 };
 
 // export function htmlDecoratedValue(value){

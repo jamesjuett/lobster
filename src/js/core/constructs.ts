@@ -255,10 +255,12 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
+    public readonly isUpNext: boolean = false;
+    public readonly isWaiting: boolean = false;
     public readonly isDone: boolean = false;
 
     private cleanupConstruct?: RuntimeConstruct;
-    private cleanupStarted: boolean = false;
+    public readonly cleanupStarted: boolean = false;
 
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: {[index:string]: any} = {}; // TODO: remove any type
@@ -298,6 +300,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     protected abstract stepForwardImpl() : void;
 
     public upNext() {
+        (<Mutable<this>>this).isUpNext = true;
         this.observable.send("upNext");
 
         // for(var key in this.pauses){
@@ -327,6 +330,8 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     public wait() {
+        (<Mutable<this>>this).isUpNext = false;
+        (<Mutable<this>>this).isWaiting = true;
         this.observable.send("wait");
     }
 
@@ -344,7 +349,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         // Cleanup should not be started if you have children pending on the stack
         assert(this === this.sim.top());
         
-        this.cleanupStarted = true;
+        (<Mutable<this>>this).cleanupStarted = true;
         if (this.cleanupConstruct) {
             this.sim.push(this.cleanupConstruct);
         }
@@ -354,8 +359,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     public afterPopped() {
+        (<Mutable<this>>this).isActive = false;
+        (<Mutable<this>>this).isUpNext = false;
+        (<Mutable<this>>this).isWaiting = false;
         (<Mutable<this>>this).isDone = true;
-        (<boolean>this.isActive) = false;
         this.observable.send("popped", this);
     }
 
@@ -688,29 +695,32 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
         // this.done(sim, inst);
         // return true;
 
+        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
+        this.model.temporaryObjects.forEach(tempObj => this.sim.memory.deallocateTemporaryObject(tempObj.runtimeLookup(this.parent)));
+
 
         // let dtors = this.model.dtors;
-        let dtors : readonly null[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
-        if (this.index < dtors.length) {
-            // let dtor = dtors[this.index];
-            // if (!this.justDestructed && dtor) {
-            //     dtor.createRuntimeConstruct(this);
-            //     this.sim.push(dtor);
-            //     this.justDestructed = true;
-            // }
-            // else {
-                this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this.parent));
-                ++this.index;
-                // this.justDestructed = false;
-            // }
-        }
-        else{
+        // let dtors : readonly null[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
+        // if (this.index < dtors.length) {
+        //     // let dtor = dtors[this.index];
+        //     // if (!this.justDestructed && dtor) {
+        //     //     dtor.createRuntimeConstruct(this);
+        //     //     this.sim.push(dtor);
+        //     //     this.justDestructed = true;
+        //     // }
+        //     // else {
+        //         this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this.parent));
+        //         ++this.index;
+        //         // this.justDestructed = false;
+        //     // }
+        // }
+        // else{
             this.startCleanup();
-        }
+        // }
     }
 
     public stepForwardImpl() {
-        return false;
+        
     }
 }
 

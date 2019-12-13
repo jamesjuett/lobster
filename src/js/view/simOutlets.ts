@@ -312,13 +312,13 @@ export class SimulationOutlet {
             //console.log(e.which);
             if (element.find("#simPane").css("display") !== "none") {
                 if (e.which == 39 || e.which == 83) {
-                    this.stepForward();
+                    this.stepForward().catch(() => {});
                     e.preventDefault();
                     e.stopPropagation();
                 }
                 else if (e.which == 37) {
                     if (this.buttonElems["stepBackward"].prop("disabled")) { return; }
-                    this.stepBackward();
+                    this.stepBackward().catch(() => {});
                     e.preventDefault();
                     e.stopPropagation();
                 }
