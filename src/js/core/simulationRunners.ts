@@ -115,9 +115,9 @@ export class AsynchronousSimulationRunner {
     /**
      * Creates a new runner that can be used to control the given simulation.
      * @param simulation The simulation to control.
-     * @param delay Delay between consecutive steps in milliseconds. Default 1000 ms.
+     * @param delay Delay between consecutive steps in milliseconds. Default 0 ms (i.e. as fast as possible)
      */
-    public constructor(simulation: Simulation, delay: number = 1000) {
+    public constructor(simulation: Simulation, delay: number = 0) {
         this.simulation = simulation;
         this.delay = delay;
     }
@@ -268,4 +268,16 @@ export class AsynchronousSimulationRunner {
     public pause() {
         this.interrupt();
     }
+}
+
+export async function asyncCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
+    let newSim = new Simulation(sim.program);
+    await (new AsynchronousSimulationRunner(newSim).stepForward(stepsTaken));
+    return newSim;
+}
+
+export function synchronousCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
+    let newSim = new Simulation(sim.program);
+    new SynchronousSimulationRunner(newSim).stepForward(stepsTaken);
+    return newSim;
 }

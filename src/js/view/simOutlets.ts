@@ -7,7 +7,7 @@ import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
-import { AsynchronousSimulationRunner } from "../core/simulationRunners";
+import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
 import { FunctionOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
@@ -499,10 +499,13 @@ export class SimulationOutlet {
                 
         // RuntimeConstruct.prototype.silent = true;
         // this.setAnimationsOn(false);
-        await this.simRunner!.stepBackward(n);
+
+        // Temporarily detach from simulation
+        let newSim = await asyncCloneSimulation(this.sim, this.sim.stepsTaken - 1);
+        // await this.simRunner!.stepBackward(n);
 
         // RuntimeConstruct.prototype.silent = false;
-        this.refreshSimulation();
+        this.setSimulation(newSim);
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         this.setEnabledButtons({
             "pause": false
