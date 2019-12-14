@@ -692,25 +692,21 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
 export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatement> {
 
-    public readonly args: readonly ExpressionOutlet[];
     public readonly expression?: ExpressionOutlet;
     public readonly returtnInitializer?: ReturnInitializerOutlet;
 
     public constructor(element: JQuery, construct: CompiledReturnStatement, parent?: ConstructOutlet) {
         super(element, construct, parent);
-        this.element.addClass("return");
-        this.args = [];
-        this.element.append('<span class="code-keyword">return</span>');
+        element.addClass("return");
+        element.append('<span class="code-keyword">return</span>');
 
-        let exprElem = $("<span></span>");
         if (construct.returnInitializer) {
-            this.element.append(" ");
-            asMutable(this.args).push(this.expression = createExpressionOutlet(exprElem, construct.returnInitializer.args[0], this));
+            element.append(" ");
+            this.expression = addChildExpressionOutlet(element, construct.returnInitializer.args[0], this);
             this.returtnInitializer = new ReturnInitializerOutlet(element, construct.returnInitializer, this);
         }
-        this.element.append(exprElem);
 
-        this.element.append(";");
+        element.append(";");
     }
 
     // _act : mixin({}, Outlets.CPP.Code._act, {
@@ -910,7 +906,7 @@ export class AtomicDirectInitializerOutlet extends InitializerOutlet<RuntimeAtom
         super(element, construct, parent);
     
         this.element.append("(");
-        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
         this.element.append(")");
 
     }
@@ -926,7 +922,7 @@ export class ReferenceDirectInitializerOutlet extends InitializerOutlet<RuntimeR
         super(element, construct, parent);
     
         this.element.append("(");
-        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
         this.element.append(")");
 
     }
@@ -977,7 +973,7 @@ export class AtomicCopyInitializerOutlet extends InitializerOutlet<RuntimeAtomic
         super(element, construct, parent);
     
         this.element.append(" = ");
-        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
     }
     
 }
@@ -990,7 +986,7 @@ export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeRef
         super(element, construct, parent);
     
         this.element.append(" = ");
-        this.argOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.arg, this);
+        this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
     }
     
 }
@@ -1146,13 +1142,11 @@ export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignme
 
         this.element.addClass("assignment");
 
-        let lhsElem = $("<span></span>").appendTo(this.exprElem);
-        this.lhs = createExpressionOutlet(lhsElem, this.construct.lhs, this);
+        this.lhs = addChildExpressionOutlet(this.exprElem, this.construct.lhs, this);
 
         this.exprElem.append(" " + ASSIGNMENT_OP_HTML + " ");
 
-        let rhsElem = $("<span></span>").appendTo(this.exprElem);
-        this.rhs = createExpressionOutlet(rhsElem, this.construct.rhs, this);
+        this.rhs = addChildExpressionOutlet(this.exprElem, this.construct.rhs, this);
 
 
         // if (this.construct.funcCall){
@@ -1208,21 +1202,15 @@ export class TernaryExpressionOutlet extends ExpressionOutlet<RuntimeTernary> {
 
         this.element.addClass("code-ternary");
 
-        let elem = $("<span></span>");
-        this.condition = createExpressionOutlet(elem, this.construct.condition, this);
-        this.exprElem.append(elem);
+        this.condition = addChildExpressionOutlet(this.exprElem, this.construct.condition, this);
 
         this.exprElem.append(" " + TERNARY_OP_HTML1 + " ");
 
-        elem = $("<span></span>");
-        this.then = createExpressionOutlet(elem, this.construct.then, this);
-        this.exprElem.append(elem);
+        this.then = addChildExpressionOutlet(this.exprElem, this.construct.then, this);
 
         this.exprElem.append(" " + TERNARY_OP_HTML2 + " ");
 
-        elem = $("<span></span>");
-        this.otherwise = createExpressionOutlet(elem, this.construct.otherwise, this);
-        this.exprElem.append(elem);
+        this.otherwise = addChildExpressionOutlet(this.exprElem, this.construct.otherwise, this);
     }
 }
 
@@ -1238,15 +1226,11 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
 
         this.element.addClass("code-comma");
 
-        let elem = $("<span></span>");
-        this.left = createExpressionOutlet(elem, this.construct.left, this);
-        this.exprElem.append(elem);
+        this.left = addChildExpressionOutlet(this.exprElem, this.construct.left, this);
 
         this.exprElem.append(" " + COMMA_OP_HTML + " ");
 
-        elem = $("<span></span>");
-        this.right = createExpressionOutlet(elem, this.construct.right, this);
-        this.exprElem.append(elem);
+        this.right = addChildExpressionOutlet(this.exprElem, this.construct.right, this);
     }
 }
 
@@ -1427,7 +1411,7 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
         super(element, construct, parent);
         this.element.addClass("code-argumentInitializer");
 
-        this.expressionOutlet = createExpressionOutlet($("<span></span>").appendTo(this.element), construct.args[0], this);
+        this.expressionOutlet = addChildExpressionOutlet(this.element, construct.args[0], this);
     }
 }
 
@@ -1446,7 +1430,7 @@ export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeM
             if (i > 0) {
                 this.exprElem.append(", ");
             }
-            return createExpressionOutlet($("<span></span>").appendTo(this.exprElem), argInit, this)
+            return addChildExpressionOutlet(this.exprElem, argInit, this)
         });
 
         this.exprElem.append(")");
@@ -1509,9 +1493,9 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBina
         //         }
         //     });
         // }
-        this.left = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.left, this);
+        this.left = addChildExpressionOutlet(this.exprElem, this.construct.left, this);
         this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='highlight'></span></span> ");
-        this.right = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.right, this);
+        this.right = addChildExpressionOutlet(this.exprElem, this.construct.right, this);
     }
 }
 
@@ -1541,7 +1525,7 @@ export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnary
         //     }
         // }
         // else{
-            this.operand = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+            this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
         // }
     }
 }
@@ -1674,9 +1658,9 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
 
         this.element.addClass("code-subscript");
 
-        this.operand = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.operand, this);
+        this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
         this.exprElem.append(htmlDecoratedOperator("[", "code-postfixOp"));
-        this.offset = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.offset, this);
+        this.offset = addChildExpressionOutlet(this.exprElem, this.construct.offset, this);
         this.exprElem.append(htmlDecoratedOperator("]", "code-postfixOp"));
     }
 }
@@ -1731,7 +1715,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
         super(element, construct, parent, false);
 
         this.exprElem.append("(");
-        this.subexpression = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.subexpression, this);
+        this.subexpression = addChildExpressionOutlet(this.exprElem, this.construct.subexpression, this);
         this.exprElem.append(")");
     }
 }
@@ -1776,7 +1760,7 @@ export class TypeConversionOutlet extends ExpressionOutlet<RuntimeImplicitConver
         super(element, construct, parent);
 
         this.element.addClass("code-implicitConversion");
-        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = addChildExpressionOutlet(this.exprElem, this.construct.from, this);
     }
 }
 
@@ -1787,7 +1771,7 @@ export class LValueToRValueOutlet extends ExpressionOutlet<RuntimeImplicitConver
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-lValueToRValue");
-        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = addChildExpressionOutlet(this.exprElem, this.construct.from, this);
     }
 }
 
@@ -1799,7 +1783,7 @@ export class ArrayToPointerOutlet extends ExpressionOutlet<RuntimeImplicitConver
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-arrayToPointer");
-        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = addChildExpressionOutlet(this.exprElem, this.construct.from, this);
     }
 }
 
@@ -1810,7 +1794,7 @@ export class QualificationConversionOutlet extends ExpressionOutlet<RuntimeImpli
     public constructor(element: JQuery, construct: CompiledImplicitConversion, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("code-qualificationConversion");
-        this.from = createExpressionOutlet($("<span></span>").appendTo(this.exprElem), this.construct.from, this);
+        this.from = addChildExpressionOutlet(this.exprElem, this.construct.from, this);
     }
 }
 
