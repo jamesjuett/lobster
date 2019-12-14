@@ -32,6 +32,9 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     public _act!: MessageResponses;
     public readonly observable = new Observable(this);
 
+    private static _ID = 0;
+    private outletID = ConstructOutlet._ID++;
+
     /**
      * Children are stored by the ID of the CPPConstruct they display.
      */
@@ -137,10 +140,8 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
         this.element.addClass("wait");
     }
 
-    // TODO: move this to a function subclass?
     @messageResponse("popped")
     protected popped() {
-        // this.inst! must be defined if this function is called, since it would have had to send the message
         this.element.removeClass("upNext");
         this.element.removeClass("wait");
     }

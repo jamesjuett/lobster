@@ -123,6 +123,7 @@ export class Observable<PotentialMessages extends string = string> {
     private observers: {[index: string] : ObserverType[] | undefined} = {};
 
     private readonly source: any;
+    // private markedForRemoval: boolean[] = [];
 
     constructor(source: any) {
         this.source = source;
@@ -141,17 +142,31 @@ export class Observable<PotentialMessages extends string = string> {
 
         let observers = this.observers[category];
         if (observers) {
-            for (let i = 0; i < observers.length; ++i) {
-                receiveMessage(observers[i], msg);
-            }
+            this.sendMessageToObservers(observers, msg);
         }
 
-        for (let i = 0; i < this.universalObservers.length; ++i) {
-            receiveMessage(this.universalObservers[i], msg);
+        this.sendMessageToObservers(this.universalObservers, msg);
+    }
+
+    private sendMessageToObservers(observers: ObserverType[], msg: Message) {
+        observers = observers.slice(0); // create a clone of the array so we avoid issues with concurrent modification
+        for (let i = 0; i < observers.length; ++i) {
+            // this.markedForRemoval.push(false);
+            receiveMessage(observers[i], msg);
+            // if (this.markedForRemoval[this.markedForRemoval.length - 1]) {
+            //     observers.splice(i, 1);
+            //     --i;
+            // }
+            // this.markedForRemoval.pop();
         }
     }
 
+    // public stopListening() {
+    //     this.markedForRemoval[this.markedForRemoval.length - 1] = true;
+    // }
+
     public addListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
+        
         if (category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually
@@ -181,6 +196,7 @@ export class Observable<PotentialMessages extends string = string> {
     If a listener is universal, removing it from a particular category won't do anything.
     */
     public removeListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
+        
         if(category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually
@@ -197,7 +213,7 @@ export class Observable<PotentialMessages extends string = string> {
         }
         else{
             // Remove from all categories
-            for(let cat in this.observers){
+            for(let cat in this.observers) {
                 this.removeListener(listener, <PotentialMessages>cat);
             }
 

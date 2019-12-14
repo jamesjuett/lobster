@@ -1906,6 +1906,7 @@ export abstract class RunningCodeOutlet {
 export class CodeStackOutlet extends RunningCodeOutlet {
 
     private frameElems: JQuery[];
+    private functionOutlets: FunctionOutlet[] = [];
 
     public constructor(element: JQuery) {
         super(element);
@@ -1933,6 +1934,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
         // Create outlet using the element
         let funcOutlet = new FunctionOutlet(functionElem, rtFunc);
+        this.functionOutlets.push(funcOutlet);
 
         // Animate!
         if (CPP_ANIMATIONS) {
@@ -1953,7 +1955,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         //if (rtFunc.model.isImplicit()) {
         //    return;
         //}
-        var popped = this.frameElems.pop()!;
+        let popped = this.frameElems.pop()!;
         if (this.frameElems.length == 0 || !CPP_ANIMATIONS) {
             popped.remove();
         }
@@ -1962,11 +1964,15 @@ export class CodeStackOutlet extends RunningCodeOutlet {
                 $(this).remove();
             });
         }
+
+        this.functionOutlets.pop()!.removeInstance();
     }
 
     public refreshSimulation() {
         this.frameElems = [];
         this.stackFramesElem.children().remove();
+        this.functionOutlets.forEach(functionOutlet => functionOutlet.removeInstance());
+        this.functionOutlets = [];
         
         if (!this.sim || this.sim.execStack.length === 0) {
             return;
@@ -1978,6 +1984,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
         var last = this.sim.execStack[this.sim.execStack.length - 1];
         // TODO: find outlet for last and send it an "upNext"
+        // ^^^ Do we actually need to do that, assuming the outlets have correct instanceSet functions?
     }
 
     //refresh : Class.ADDITIONALLY(function() {
