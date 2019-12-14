@@ -179,13 +179,10 @@
 }
 
 .codeInstance.statement.upNext > .highlight,
-.codeInstance.function.upNext > .highlight {
+.codeInstance.statement.wait > .highlight {
     opacity: 1;
     border-left-style: solid;
     border-left-width: 2px;
-}
-
-.codeInstance.statement > .highlight {
     border-left-color: #006FDE;
 }
 
