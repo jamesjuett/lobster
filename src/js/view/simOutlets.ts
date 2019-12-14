@@ -499,7 +499,7 @@ export class SimulationOutlet {
                 
         // RuntimeConstruct.prototype.silent = true;
         // this.setAnimationsOn(false);
-        this.simRunner!.stepBackward(n);
+        await this.simRunner!.stepBackward(n);
 
         // RuntimeConstruct.prototype.silent = false;
         this.refreshSimulation();
