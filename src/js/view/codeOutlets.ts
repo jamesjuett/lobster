@@ -557,9 +557,7 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
     public constructor(element: JQuery, construct: CompiledExpressionStatement, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
-        let elem = $("<span></span>")
-        this.expression = createExpressionOutlet(elem, this.construct.expression, this);
-        this.element.append(elem);
+        this.expression = addChildExpressionOutlet(this.element, this.construct.expression, this);
         this.element.append(";");
     }
 
@@ -589,21 +587,16 @@ export class IfStatementOutlet extends StatementOutlet<RuntimeIfStatement> {
         this.element.append(htmlDecoratedKeyword("if"));
         this.element.append('(');
 
-        let ifElem = $("<span></span>");
-        this.condition = createExpressionOutlet(ifElem, this.construct.condition, this);
-        this.element.append(ifElem);
+        this.condition = addChildExpressionOutlet(this.element, construct.condition, this);
 
-        this.element.append(") ");
+        this.element.append(")");
 
         this.then = addChildStatementOutlet(this.element, this.construct.then, this);
 
         if (this.construct.otherwise){
             this.element.append("<br />");
             this.element.append(htmlDecoratedKeyword("else"));
-            this.element.append(" ");
-            let elseElem = $("<span></span>");
-            this.otherwise = createStatementOutlet(elseElem, this.construct.otherwise, this);
-            this.element.append(elseElem);
+            this.otherwise = addChildStatementOutlet(this.element, this.construct.otherwise, this);
         }
     }
 }
@@ -621,15 +614,11 @@ export class WhileStatementOutlet extends StatementOutlet<RuntimeWhileStatement>
         this.element.append(htmlDecoratedKeyword("while"));
         this.element.append("(");
 
-        var condElem = $("<span></span>");
-        this.condition = createExpressionOutlet(condElem, this.construct.condition, this);
-        this.element.append(condElem);
+        this.condition = addChildExpressionOutlet(this.element, construct.condition, this);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>");
-        this.body = createStatementOutlet(bodyElem, this.construct.body, this);
-        this.element.append(bodyElem);
+        this.body = addChildStatementOutlet(this.element, construct.body, this);
     }
 }
 
@@ -684,27 +673,19 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
         this.element.append(htmlDecoratedKeyword("for"));
         this.element.append("(");
 
-        var initElem = $("<span></span>");
-        this.initial = createStatementOutlet(initElem, this.construct.initial, this);
-        this.element.append(initElem);
+        this.initial = addChildStatementOutlet(this.element, construct.initial, this);
 
         this.element.append(" ");
 
-        var condElem = $("<span></span>");
-        this.condition = createExpressionOutlet(condElem, this.construct.condition, this);
-        this.element.append(condElem);
+        this.condition = addChildExpressionOutlet(this.element, construct.condition, this);
 
         this.element.append("; ");
 
-        var postElem = $("<span></span>");
-        this.post = createExpressionOutlet(postElem, this.construct.post, this);
-        this.element.append(postElem);
+        this.post = addChildExpressionOutlet(this.element, construct.post, this);
 
         this.element.append(") ");
 
-        var bodyElem = $("<span></span>");
-        this.body = createStatementOutlet(bodyElem, this.construct.body, this);
-        this.element.append(bodyElem);
+        this.body = addChildStatementOutlet(this.element, construct.body, this);
 
     }
 }
@@ -1845,7 +1826,11 @@ export function createStatementOutlet(element: JQuery, construct: CompiledStatem
     return construct.createDefaultOutlet(element, parent);
 }
 
-export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent?: ConstructOutlet, indented: boolean = true) {
+export function addChildExpressionOutlet(parentElement: JQuery, construct: CompiledExpression, parent: ConstructOutlet) {
+    return createExpressionOutlet($("<span></span>").appendTo(parentElement), construct, parent);
+}
+
+export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent: ConstructOutlet, indented: boolean = true) {
     let childElem = $("<span></span>");
     if (!construct.isBlock()) {
         parentElement.append("<br />");
