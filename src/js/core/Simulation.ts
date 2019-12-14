@@ -99,6 +99,14 @@ export class Simulation {
         this.start();
     }
 
+    public clone(stepsTaken = this.stepsTaken) {
+        let newSim = new Simulation(this.program);
+        for(let i = 0; i < stepsTaken; ++i) {
+            newSim.stepForward();
+        }
+        return newSim;
+    }
+
     public reset() {
         this.memory.reset();
         this._execStack.length = 0;
