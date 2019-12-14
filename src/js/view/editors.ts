@@ -4,6 +4,7 @@ import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
+import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
@@ -73,6 +74,7 @@ export class ProjectEditor {
             theme: "lobster",
             lineNumbers: true,
             tabSize: 2,
+            keyMap: "sublime",
             extraKeys: {
                 "Ctrl-S" : () => {
                     if (!this.isSaved) {
