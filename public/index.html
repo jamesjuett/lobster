@@ -3,15 +3,15 @@
 <head>
     <meta charset="utf-8" />
 
-    <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
-    <script src="js/lib/codemirror.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <!-- <script src="js/lib/codemirror.js"></script>
     <script src="js/lib/clike.js"></script>
     <script src="js/lib/jquery-3.1.1.min.js"></script>
     <script src="js/lib/jquery.mousewheel.min.js"></script>
     <script src="js/lib/peg-0.10.0.min.js"></script>
     <script src="js/lib/svg.min.js"></script>
     <script src="js/lib/seedrandom.js"></script>
-    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script> -->
     <!--<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>-->
     <script src="bootstrap/js/bootstrap.js"></script>
 
@@ -21,27 +21,28 @@
 
     <title>Lobster</title>
     <meta name="description" content="" />
-    <meta name="author" content="James" />
-    <meta name="google-signin-client_id" content="355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com">
+    <meta name="author" content="James Juett" />
+    <!-- <meta name="google-signin-client_id" content="355743019649-mrm7gtmkujj5gicc4rftl0ckm959ui7d.apps.googleusercontent.com"> -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css">
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.css">
     <link rel="stylesheet" href="css/buttons.css">
     <link rel="stylesheet" href="font-awesome-4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="css/codemirror.css">
-    <link rel="stylesheet" href="css/monokai.css">
-    <link rel="stylesheet" href="css/lobster.css">
+    <!-- <link rel="stylesheet" href="css/codemirror.css">
+    <link rel="stylesheet" href="css/monokai.css"> -->
+    <!-- <link rel="stylesheet" href="css/lobster.css"> -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/code.css">
     <link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
 
-    <script src = "js/lib/diff_match_patch.js"></script>
+    <!-- <script src = "js/lib/diff_match_patch.js"></script>
     <script src = "js/lib/underscore-min.js"></script>
-    <script src = "js/lib/math.min.js"></script>
-    <script src = "js/util/util.js"></script>
+    <script src = "js/lib/math.min.js"></script> -->
+
+    <!-- <script src = "js/util/util.js"></script>
     <script src = "js/util/utilEntities.js"></script>
     <script src = "js/util/outlet.js"></script>
     <script src = "js/core/runtimeEnvironment.js"></script>
@@ -64,7 +65,10 @@
     <script src = "js/view/codeOutlets.js"></script>
     <script src = "js/core/parsing.js"></script>
     <script src = "js/core/parsing2.js"></script>
-    <script src = "js/core/analysis.js"></script>
+    <script src = "js/core/analysis.js"></script> -->
+
+    <!-- <script src = "js/main.js"></script> -->
+    <script src = "lobster/js/main.bundle.js"></script>
 
 </head>
 
@@ -145,7 +149,6 @@
 
                     <div style = "height: 22px; padding: 2px; background-color: lightgray;">
                         <button class = "runButton" style="display: inline-block">Simulate</button>
-                        <span class="status"></span>
                     </div>
                     <ul class = "semanticProblems" style = "width: 100%; max-height: 100px; overflow-y: auto; box-sizing: border-box;"></ul>
                     <div class="codeMirrorEditor" style = "position: relative; height:400px; background-color: #272822">
@@ -213,7 +216,7 @@
                                 </div>
                             </td>
                             <td style="vertical-align: top;">
-                                <div class = "stackFrames readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; text-wrap: avoid; position: relative; white-space: nowrap;"> </div>
+                                <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; text-wrap: avoid; position: relative; white-space: nowrap;"> </div>
                             </td>
                         </tr>
                     </table>
@@ -233,7 +236,7 @@
             <!--(<a href="https://drive.google.com/file/d/0B49xEM_rtERAMHRFZW5oREdGdjA/view?usp=sharing" target="_blank">Usage Guide</a>)-->
             <!--&lt;!&ndash;(Press the "s" or "->" key to step forward, or scroll while holding ctrl)&ndash;&gt;-->
         <!--</div>-->
-        <!--<div id="labster1" style="display:flex; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch; flex: 1 1 auto; -webkit-flex: 1 1 auto; -ms-flex: 1 1 auto; margin-top: 5px; margin-bottom: 5px; overflow-y: scroll">-->
+        <!--<div id="lobster1" style="display:flex; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch; flex: 1 1 auto; -webkit-flex: 1 1 auto; -ms-flex: 1 1 auto; margin-top: 5px; margin-bottom: 5px; overflow-y: scroll">-->
             <!--<div style="width: 175px; margin-right: 5px; display: flex; flex-direction:column;-webkit-flex-direction: column;-ms-flex-direction: column; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch;">-->
                 <!--<div style="margin-top: 2ch; text-align: center">My Projects</div>-->
                 <!--<ul class="projectList coursePills nav nav-pills nav-stacked"></ul>-->
@@ -347,112 +350,5 @@
         <!--</div>-->
     <!--</div>-->
 
-    <script>
-        var ID_TOKEN = "";
-
-        var firstTime = true;
-        var handleWhoAmI = function(data){
-            if (!firstTime) {
-                return;
-            }
-            firstTime = false;
-            data.lab2group = "2"; // hack to make everyone have Maize
-            Outlets.CPP.SimulationOutlet.useSourceSimulation = false;
-
-            var simOutlet = Outlets.CPP.SimulationOutlet.instance($("#lobster1"), {
-                log : false
-            });
-
-            var elem = $(".codeListAll");
-            var codeList = CodeList.instance(elem, "api/", simOutlet.projectEditor, false);
-            simOutlet.listenTo(codeList);
-
-            elem = $(".codeListMe");
-            codeList = CodeList.instance(elem, "api/me/", simOutlet.projectEditor, true);
-            simOutlet.listenTo(codeList);
-
-            var projectList = ProjectList.instance($(".projectList"));
-            simOutlet.listenTo(projectList);
-
-
-            $(".friendCodeButton").click(function(){
-                codeList.loadCode($(".friendsProgramName").val(), $(".friendsUniqname").val());
-            });
-
-            codeList.loadCode(data["lastFile"]);
-
-
-            var dcCount = 0;
-            setInterval(function(){
-
-                if (CodeList.ajaxSuccessful){
-                    $.ajax({
-                        type: "GET",
-                        url: "api/ping",
-                        success: function(xhr, statusText){
-                            dcCount = 0;
-                        },
-                        error: function(xhr, statusText){
-                            console.log("Ping failed " + (dcCount+1) + " times.");
-                            if (dcCount > 2){
-                                alert("Uh oh. It looks like you're not logged in anymore (or your internet/wireless may have died for a moment). You may want to copy the contents of the current editor just in case you didn't save earlier. Then try reloading the page to log in again.");
-                                dcCount = 0;
-                            }
-                            else{
-                                ++dcCount;
-                            }
-                        }
-                    });
-                }
-            }, 10000);
-//        simOutlet.editor.listenTo(codeList);
-
-
-
-            createDefaultOutlets();
-
-
-        };
-
-        function onSignIn(googleUser) {
-            var profile = googleUser.getBasicProfile();
-            console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
-            console.log('Name: ' + profile.getName());
-            console.log('Image URL: ' + profile.getImageUrl());
-            console.log('Email: ' + profile.getEmail());
-            ID_TOKEN = googleUser.getAuthResponse().id_token;
-
-            $.ajax({
-                type: "POST",
-                url: "api/whoami",
-                data: {idtoken: ID_TOKEN},
-                success: function(data){
-                    handleWhoAmI(data);
-                },
-                error: function(){
-                    handleWhoAmI({
-                        lastProgram : "program.cpp",
-                        lab2Group: 2
-                    });
-                },
-                dataType: "json"
-            });
-        }
-
-        $.ajax({
-            type: "POST",
-            url: "api/whoami",
-            data: {idtoken: ID_TOKEN},
-            success: function(data){
-                handleWhoAmI(data);
-            },
-            error: function(){
-
-            },
-            dataType: "json"
-        });
-
-
-    </script>
 </body>
 </html>

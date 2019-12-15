@@ -3,3 +3,7 @@
 .idea
 
 /public/vendor
+
+/public/queue/js/
+/public/lobster/js/
+/node_modules/

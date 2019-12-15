@@ -333,7 +333,7 @@ div .tabPane {
 	border-bottom: solid 2px red;
 }
 
-.codeMark.breakInterface{
+.codeMark.style{
 	top: -45%;
 	border-bottom: solid 2px #bc3fff;
 }
@@ -556,7 +556,7 @@ div .tabPane {
 	margin: 2px;
 }
 
-ul.stackFrames li{
+ul.codeStack li{
 	/*border: solid 1px black;*/
 	margin-bottom: 1em;
 }

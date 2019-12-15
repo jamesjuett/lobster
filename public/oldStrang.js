@@ -1,7 +1,7 @@
 // // Add in special includes
 // // For now, just add strang
 //
-// var copyFromCString = function(sim, inst, ptrValue) {
+// var copyFromCString = function(sim: Simulation, rtConstruct: RuntimeConstruct, ptrValue) {
 //     if (Types.Pointer.isNull(ptrValue.rawValue())) {
 //         sim.undefinedBehavior("Oops, the char* you're using passed to the string constructor was null. This results in undefined behavior.");
 //         return;
@@ -11,7 +11,7 @@
 //     var outOfBounds = false;
 //     var seenInvalidChar = false;
 //
-//     var c = sim.memory.getObject(ptrValue).getValue();
+//     var c = sim.memory.dereference(ptrValue).getValue();
 //     // Copy in-bounds characters until null char
 //     while (ptrValue.isValueDereferenceable() && !Types.Char.isNullChar(c.rawValue())) {
 //         if (!c.isValueValid()) {
@@ -19,7 +19,7 @@
 //         }
 //         charValuesToCopy.push(seenInvalidChar ? c.invalidate() : c);
 //         ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//         c = sim.memory.getObject(ptrValue).getValue();
+//         c = sim.memory.dereference(ptrValue).getValue();
 //     }
 //
 //     if (!ptrValue.isValueDereferenceable()) {
@@ -34,7 +34,7 @@
 //             // value is a coincidence because we were off the end of an arary in no man's land
 //             charValuesToCopy.push(c.invalidate());
 //             ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//             c = sim.memory.getObject(ptrValue).getValue();
+//             c = sim.memory.dereference(ptrValue).getValue();
 //             ++count;
 //         }
 //
@@ -95,7 +95,7 @@
 //     this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
 // };
 //
-// var resizeStrang = function(sim, inst, n, c) {
+// var resizeStrang = function(sim: Simulation, rtConstruct: RuntimeConstruct, n, c) {
 //     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //     var rawSize = rec.getMemberSubobject("_size").rawValue();
 //     var rawCapacity = rec.getMemberSubobject("_capacity").rawValue();
@@ -114,7 +114,7 @@
 //     }
 //     else if (rawN < rawCapacity) {
 //         // We want more, and we have enough capacity (for n chars plus null char)
-//         var arrObj = sim.memory.getObject(rec.getMemberSubobject("data_ptr")).arrObj;
+//         var arrObj = sim.memory.dereference(rec.getMemberSubobject("data_ptr")).arrObj;
 //         for(var i = rawSize; i < rawN; ++i) {
 //             arrObj.getArrayElemSubobject(i).writeValue(c);
 //         }
@@ -125,7 +125,7 @@
 //     }
 //     else {
 //         // We want more, but don't have enough capacity. make new array
-//         var arrObj = sim.memory.getObject(rec.getMemberSubobject("data_ptr")).arrObj;
+//         var arrObj = sim.memory.dereference(rec.getMemberSubobject("data_ptr")).arrObj;
 //
 //         var charsToCopy = [];
 //         var i = 0;
@@ -162,7 +162,7 @@
 //     rec.getMemberSubobject("_size").writeValue(n);
 // };
 //
-// var replaceStrangArrayWith = function(sim, inst, contents) {
+// var replaceStrangArrayWith = function(sim: Simulation, rtConstruct: RuntimeConstruct, contents) {
 //
 //     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //
@@ -210,7 +210,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst).writeValue(initialStrangCapacity);
 //                             this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).writeValue(0);
 //
@@ -232,7 +232,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
 //
@@ -264,7 +264,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
@@ -304,7 +304,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
 //
@@ -343,7 +343,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
 //                             copyFromCString.call(this, sim, inst, ptrValue);
 //
@@ -358,7 +358,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
 //                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             var numToCopy = n.rawValue();
@@ -373,7 +373,7 @@
 //                             var charValuesToCopy = [];
 //                             var outOfBounds = false;
 //
-//                             var c = sim.memory.getObject(ptrValue).getValue();
+//                             var c = sim.memory.dereference(ptrValue).getValue();
 //                             while (numToCopy > 0) {
 //                                 if (!ptrValue.isValueDereferenceable()) {
 //                                     outOfBounds = true;
@@ -381,14 +381,14 @@
 //                                 }
 //                                 charValuesToCopy.push(c);
 //                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.getObject(ptrValue).getValue();
+//                                 c = sim.memory.dereference(ptrValue).getValue();
 //                                 --numToCopy;
 //                             }
 //
 //                             while (numToCopy > 0) {
 //                                 charValuesToCopy.push(c.invalidate());
 //                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.getObject(ptrValue).getValue();
+//                                 c = sim.memory.dereference(ptrValue).getValue();
 //                                 --numToCopy;
 //                             }
 //
@@ -427,7 +427,7 @@
 //                     initializer : null,
 //                     name : { identifier : "strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             var c = this.blockScope.requiredLookup("c").runtimeLookup(sim, inst).getValue();
 //
@@ -461,7 +461,7 @@
 //                     construct_type : "destructor_definition",
 //                     name : {identifier: "~strang"},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             deleteHeapArray(sim, inst, rec.getMemberSubobject("data_ptr"));
 //                         }
@@ -474,7 +474,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&operator=(const strang &rhs)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["strang"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //                             var rhs = this.blockScope.requiredLookup("rhs").runtimeLookup(sim, inst);
 //
@@ -519,7 +519,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&operator=(const char *cstr)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["strang"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //
 //                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
 //
@@ -541,7 +541,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&operator=(char c)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["strang"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //
 //                             replaceStrangArrayWith.call(this, sim, inst, [this.blockScope.requiredLookup("c").runtimeLookup(sim, inst).getValue()]);
 //
@@ -576,7 +576,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("size() const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
@@ -590,7 +590,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("length() const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
@@ -608,7 +608,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("resize(size_t n, char c)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["void"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             var c = this.blockScope.requiredLookup("c").runtimeLookup(sim, inst);
 //                             resizeStrang.call(this, sim, inst, n, c);
@@ -623,7 +623,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("resize(size_t n)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["void"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
 //                             resizeStrang.call(this, sim, inst, n, Types.Char.NULL_CHAR);
 //                         }
@@ -636,7 +636,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("capacity() const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["size_t"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var size = this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst);
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size);
@@ -656,7 +656,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("clear()", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["void"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             replaceStrangArrayWith.call(this, sim, inst, []);
 //                         }
 //                     }, null)
@@ -668,7 +668,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("empty() const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["bool"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var size = this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).getValue();
 //                             var returnObject = this.containingFunction().getReturnObject(sim, inst.containingRuntimeFunction());
 //                             returnObject.writeValue(size.equals(0));
@@ -686,7 +686,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&operator[](size_t pos)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
@@ -695,7 +695,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -711,7 +711,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&operator[](size_t pos) const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
@@ -720,7 +720,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -736,7 +736,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&at(size_t pos)", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
@@ -745,7 +745,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -761,7 +761,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&at(size_t pos) const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
@@ -770,7 +770,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -786,14 +786,14 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&front()", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //
 //                             if (!ptr.isValueValid()) {
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
@@ -809,7 +809,7 @@
 //                     declarator : Lobster.cPlusPlusParser.parse("&at(size_t pos) const", {startRule : "declarator"}),
 //                     specs : {storageSpecs : [], typeSpecs : ["const", "char"]},
 //                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim, inst) {
+//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
 //                             var ptr = this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).getValue();
 //                             var pos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst);
 //                             ptr.setRawValue(ptr.rawValue() + pos.rawValue() * ptr.type.ptrTo.size);
@@ -818,7 +818,7 @@
 //                                 sim.undefinedBehavior("It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
 //                             }
 //
-//                             var obj = sim.memory.getObject(ptr);
+//                             var obj = sim.memory.dereference(ptr);
 //
 //                             var returnRef = ReturnEntity.instance(this.containingFunction().type.returnType).runtimeLookup(sim, inst);
 //                             returnRef.bindTo(obj);
