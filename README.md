@@ -46,3 +46,9 @@ To access the mysql database while ssh'ed into the VM, username and password are
 
 If login randomly stops working, it might be that the system time on your virtual machine somehow got thrown off.
 To fix this, ssh into the VM and follow the answer here: http://askubuntu.com/questions/254826/how-to-force-a-clock-update-using-ntp
+
+
+Command to generate parser module:
+```console
+./node_modules/pegjs/bin/pegjs --plugin ./node_modules/ts-pegjs/src/tspegjs --allowed-start-rules start,declaration -o src/js/parse/cpp_parser.ts other/grammar.txt
+```

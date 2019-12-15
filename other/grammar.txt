@@ -1,12 +1,10 @@
 {
-  function composeBinaryOp(first, rest, assoc, exprType){
-    assoc = assoc || "left";
-    exprType = exprType || "binary_expression";
+  function composeBinaryOp(first: any, rest: any, assoc: "left" | "right", exprType: string) : any {
     if(!rest || rest.length === 0){
       return first;
     }
     if (assoc === "left"){
-      var right = rest.pop();
+      let right = rest.pop();
       return {
         construct_type: exprType,
         operator: right[0],
@@ -16,7 +14,7 @@
       }
     }
     else{
-      var left = rest.shift();
+      let left = rest.shift();
       return {
         construct_type: exprType,
         operator: left[0],
@@ -27,9 +25,9 @@
     }
   }
 
-  function absorb(eater, eaten){
+  function absorb(eater: any, eaten: any){
     if (!eaten){ return eater; }
-    for (var attr in eaten){
+    for (let attr in eaten){
       if(attr != "start" && attr != "end"){
         eater[attr] = eaten[attr];
       }
@@ -37,8 +35,8 @@
     return eater;
   }
 
-  function track(obj, location, text){
-    obj.code = {
+  function track(obj: any, location: any, text: string) {
+    obj.source = {
       location : location,
       start : location.start.offset,
       text : text,
@@ -49,65 +47,29 @@
     return obj;
   }
 
-  function makeArray(obj){
-    if (Array.isArray(obj)){
-      return obj;
-    }
-    else{
-      return [obj];
-    }
-  }
-
-  function addImplicitJump(control){
-    control.body.push({jump:"implicit"});
-    return control;
-  }
-
-  function insideOut(obj, sub, result_in){
-    sub = sub || "sub";
-    var result = result_in || {};
-    if (obj[sub]){
-      var temp = insideOut(obj[sub], sub, result);
-      delete obj[sub];
-      temp[sub] = obj;
-      return (result_in ? temp.sub : result.sub);
-    }
-    else{
-      // No sub property means last piece
-      result.sub = obj
-      return obj;
-    }
-  }
-
-  function postfixExp(ops, sub){
+  function postfixExp(ops: any, sub: any){
     if(ops.length == 0){
       return sub;
     }
     else{
-      var op = ops.pop();
+      let op = ops.pop();
       op.operand = postfixExp(ops, sub);
       return op;
     }
   }
 
-  var vars = {abstract: false};
+  let _userTypeNames = {};
 
-  function arrayContains(arr, elem){
-    return arr.indexOf(elem) != -1;
-  }
-
-  var _userTypeNames = {list_t:true, tree_t:true};
-
-  function getUserTypeNames(){
-    if (typeof Types !== "undefined"){
-      return Types.userTypeNames;
-    }
-    else{
+  function getUserTypeNames() : any {
+    //if (typeof Types !== "undefined"){
+    //  return Types.userTypeNames;
+    //}
+    //else{
       return _userTypeNames;
-    }
+    //}
   }
 
-  function isUserTypeName(name){
+  function isUserTypeName(name: string) {
     return getUserTypeNames()[name];
   }
 
@@ -116,7 +78,7 @@
 
 
 start
-  = ws decls:(d:decl_or_comment ws {return d})* {return decls.filter(function(elem){return elem!=="comment";});}
+  = ws decls:(d:decl_or_comment ws {return d})* {return {construct_type: "translation_unit", declarations: decls.filter((elem: any) => elem!=="comment")};}
 
 decl_or_comment
   = comment {return "comment";}
@@ -134,9 +96,11 @@ statement_tracked
   = stmt:labeled_statement
     {return absorb({construct_type:"labeled_statement"}, stmt); }
 
-  / stmt:compound_statement
+  / stmt:block
 
   / stmt:selection_statement
+
+  /*/ stmt:switch_statement*/
 
   / stmt:iteration_statement
 
@@ -146,25 +110,32 @@ statement_tracked
 
   / expression_statement
 
+  / null_statement
+
   /*/ asm_statement
   / try_except_statement
   / try_finally_statement*/
 
 labeled_statement
-  = label:identifier ws ":" ws stmt:statement {return {label:label, statement: stmt}; }
-  / "case" WS c:exp_const ws ":" ws stmt:statement { return {case:c, statement:stmt}; }
-  / "default" ws ":" ws stmt:statement { return {default:true, stmt:stmt}; }
+  = label:identifier ws ":" ws stmt:statement {return {construct_type: "labeled_statement", label:label, statement: stmt}; }
+  / "case" WS c:exp_const ws ":" ws stmt:statement { return {construct_type: "labeled_statement", case:c, statement:stmt}; }
+  / "default" ws ":" ws stmt:statement { return {construct_type: "labeled_statement", default:true, stmt:stmt}; }
 
 expression_statement
-  = expr:expression? ws ";" { expr = expr || {construct_type: "null_statement"}; return {construct_type: "expression_statement", expression:expr}; }
+  = expr:expression ws ";" { return {construct_type: "expression_statement", expression:expr}; }
 
-compound_statement
-  = "{" ws stmts:(stmt:statement ws {return stmt})* "}" { return {construct_type: "compound_statement", statements: stmts}; }
+null_statement
+  = ws ";" { return {construct_type: "null_statement"}; }
+
+block
+  = "{" ws stmts:(stmt:statement ws {return stmt})* "}" { return {construct_type: "block", statements: stmts}; }
 
 selection_statement
-  = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"selection_statement", condition:cond, then:then, otherwise:e}; }
-  / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"selection_statement", condition:cond, then:then}; }
-  /*/ "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
+  = "if" ws "(" ws cond:expression ws ")" ws then:statement ws "else" ws e:statement {return {construct_type:"if_statement", condition:cond, then:then, otherwise:e}; }
+  / "if" ws "(" ws cond:expression ws ")" ws then:statement {return {construct_type:"if_statement", condition:cond, then:then}; }
+
+/* switch_statement
+  = "switch" ws "(" ws cond:expression ws ")" ws stmt:statement { return {construct_type:"switch_statement", condition:cond, stmt:stmt}; }*/
 
 iteration_statement
   = "while" ws "(" ws cond:expression ws ")" ws body:statement
@@ -176,8 +147,9 @@ iteration_statement
     { return {construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}; }
 
 for_init_statement
-  = expression_statement
-  / d:declaration_statement { return track(d, location(), text()); }
+  = s:expression_statement { return track(s, location(), text()); }
+  / s:null_statement { return track(s, location(), text()); }
+  / s:declaration_statement { return track(s, location(), text()); }
 
 jump_statement
   = "break" !identifierChar ws ";" { return {construct_type:"break_statement"}; }
@@ -235,7 +207,7 @@ mem_initializer
   = i:identifier ws "(" ws args:exp_list? ws ")" {return track({construct_type: "member_initializer", member: i, args:args || []}, location(), text()); }
 
 function_body
-  = compound_statement
+  = block
 
 decl_specifiers
   = before:(s:decl_specifier WS {return s})* t:simple_type_name after:(WS s:decl_specifier {return s})*
@@ -243,13 +215,13 @@ decl_specifiers
       before.push({typeSpec:t});
       var rest = before.concat(after);
 
-      var declSpecs = {
+      var declSpecs : any = {
         typeSpecs: [],
         storageSpecs: []
       };
 
       for(var i = 0; i < rest.length; ++i){
-        var spec = rest[i];
+        let spec = rest[i];
         if (spec.typeSpec){
           declSpecs.typeSpecs.push(spec.typeSpec);
         }
@@ -325,7 +297,8 @@ _simple_type_name
   / id:identifier &{return isUserTypeName(id.identifier);} {return id.identifier;}
 
 enum_specifier
-  = "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }
+  /*= "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }*/
+  = "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return "enum"; }
 
 enumerator
   = name:identifier value:(ws "=" ws e:exp_const {return e;}) {return {name:name, value:value}; }
@@ -362,14 +335,12 @@ initializer_list
 declarator
   = d:_declarator
     {
-    //d = insideOut(d);
     var d2 = track(absorb({construct_type:"declarator"}, d), location(), text());
    return d2;
   }
 
 abstract_declarator
   = d:_abs_declarator {
-    //d = insideOut(d);
     var d2 = track(absorb({construct_type:"declarator", abstract: true}, d), location(), text());
     return d2;
   }
@@ -403,9 +374,9 @@ declarator_postfixes
 
 declarator_postfix
   = "(" ws args:argument_declaration_list ws ")" ws cv:cv_qualifier?
-    { return absorb({type:"function", args:args}, cv); }
+    { return absorb({kind:"function", args:args}, cv); }
   / "[" ws size:exp_const? ws "]"
-    { return {type:"array", size:size}; }
+    { return {kind:"array", size:size}; }
 
 
 
@@ -500,31 +471,31 @@ exp_cond
 
 exp_or
   = first:exp_and rest:(ws op:("||" / "or" !identifierChar) ws e:exp_and {return ["||",e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "logical_binary_operator_expression"), location(), text()); }
 
 exp_and
   = first:exp_or_bit rest:(ws op:("&&" / "and" !identifierChar) ws e:exp_or_bit {return ["&&",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "logical_binary_operator_expression"), location(), text()); }
 
 exp_or_bit
   = first:exp_xor_bit rest:(ws op:("|" / "bitor" !identifierChar) ws e:exp_xor_bit {return ["|",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_xor_bit
   = first:exp_and_bit rest:(ws op:("^" / "xor") ws e:exp_and_bit {return ["^",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_and_bit
   = first:exp_eq rest:(ws op:("&" !"&" / "bitand" !identifierChar) ws e:exp_eq {return ["&",e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 exp_eq
   = first:exp_rel rest:(ws op:("==" / ("!=" / "not_eq" !identifierChar {return "!=";})) ws e:exp_rel {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "relational_binary_operator_expression"), location(), text()); }
 
 exp_rel
   = first:exp_shift rest:(ws op:op_rel ws e:exp_shift {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "relational_binary_operator_expression"), location(), text()); }
 
 op_rel
   = "<="
@@ -534,7 +505,7 @@ op_rel
 
 exp_shift
   = first:exp_add rest:(ws op:op_shift ws e:exp_add {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_shift
   = "<<"
@@ -542,7 +513,7 @@ op_shift
 
 exp_add
   = first:exp_mult rest:(ws op:op_add ws e:exp_mult {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest, "left"), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_add
   = "+"
@@ -550,7 +521,7 @@ op_add
 
 exp_mult
   = first:exp_pm rest:(ws op:op_mult ws e:exp_pm {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "arithmetic_binary_operator_expression"), location(), text()); }
 
 op_mult
   = "*"
@@ -559,7 +530,7 @@ op_mult
 
 exp_pm
   = first:exp_cast rest:(ws op:op_pm ws e:exp_cast {return [op,e];} )*
-      { return track(composeBinaryOp(first, rest), location(), text()); }
+      { return track(composeBinaryOp(first, rest, "left", "pointer_to_member_expression"), location(), text()); }
 
 op_pm
   = ".*"
@@ -567,7 +538,7 @@ op_pm
 
 exp_cast
   = "(" ws t:type_id ws ")" ws sub:exp_cast {
-      return track({construct_type: "cast_expression", type:t, operand:sub}, location(), text());
+      return track({construct_type: "c_style_cast_expression", type:t, operand:sub}, location(), text());
 }
   / exp_unary
 
@@ -592,7 +563,7 @@ exp_unary
 
 op_unary
   = "*" {return {construct_type: "dereference_expression", operator: "*"};}
-  / "&" {return {construct_type: "address_of_expression",   operator: "&"};}
+  / "&" {return {construct_type: "address_of_expression", operator: "&"};}
   / "+" {return {construct_type: "unary_plus_expression", operator: "+"};}
   / "-" {return {construct_type: "unary_minus_expression", operator: "-"};}
   / "!" {return {construct_type: "logical_not_expression", operator: "!"};}
@@ -619,7 +590,6 @@ new_type_id
 
 
 new_declarator = d:_new_declarator {
-  //d = insideOut(d);
   var d2 = track(absorb({construct_type:"declarator"}, d), location(), text());
   return d2;
 
@@ -670,7 +640,7 @@ exp_postfix
       { return ops.length > 0 ? track(postfixExp(ops, sub), location(), text()) : sub;}
 
 op_postfix
-  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", arg:sub}, location(), text()); }
+  = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", offset:sub}, location(), text()); }
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
   / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
   / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }
@@ -744,15 +714,15 @@ unoverloadable_op
 
 literal
   = lit:literal_float
-    {return track({construct_type: "literal", type:"float", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"float", value:lit}, location(), text());}
   / lit:literal_int
-    {return track({construct_type: "literal", type:"int", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"int", value:lit}, location(), text());}
   / lit:literal_char
-    {return track({construct_type: "literal", type:"char", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"char", value:lit}, location(), text());}
   / lit:literal_string
     {return track({construct_type: "string_literal", type:"string", value:lit}, location(), text());}
   / lit:literal_boolean
-    {return track({construct_type: "literal", type:"bool", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal", type:"bool", value:lit}, location(), text());}
 
 literal_int
   = neg:"-"? digits:[0-9]+ { return parseInt((neg ? neg : "") + digits.join("")); }

@@ -155,6 +155,7 @@
 .codeInstance.code-defaultInitializer > .highlight,
 .codeInstance.code-directInitializer > .highlight,
 .codeInstance.code-copyInitializer > .highlight,
+.codeInstance.code-argumentInitializer > .highlight,
 .codeInstance.code-declarator > .highlight
  {
     border-bottom-color: #00A138;
@@ -178,13 +179,10 @@
 }
 
 .codeInstance.statement.upNext > .highlight,
-.codeInstance.function.upNext > .highlight {
+.codeInstance.statement.wait > .highlight {
     opacity: 1;
     border-left-style: solid;
     border-left-width: 2px;
-}
-
-.codeInstance.statement > .highlight {
     border-left-color: #006FDE;
 }
 
@@ -363,13 +361,8 @@
     /*text-decoration: line-through;*/
 }
 
-.codeInstance.expression.functionCall {
-    /*color: purple;*/
-}
-
 .codeInstance.expression.functionCall.virtual {
-    /*color: purple;*/
-    /*font-style: italic;*/
+    font-style: italic;
 }
 
 .codeInstance.expression.functionCall.tail > .highlight{
@@ -380,17 +373,18 @@
 .codeInstance.expression.functionCall.wait > .highlight
 {
     border-bottom-style: solid;
-    border-bottom-width: 2px;
+    border-bottom-width: 1px;
     opacity: 1;
     border-bottom-color: purple;
 }
 
-.codeInstance .block{
+.code-indentedBlockBody {
     display: inline-block;
     position: relative;
     box-sizing: border-box;
     margin-left: 2ch;
 }
+
 
 /*.codeInstance.wait > .block > .highlight{*/
     /*display: block;*/
@@ -769,10 +763,13 @@
             /*box-sizing: border-box;*/
 /*}*/
 
-.code-keyword,
-.code-type,
-.code-returnType
+.code-keyword
 {color: #f92672;}
+
+.code-type,
+.code-returnType {
+    color: #9effff;
+}
 
 .code-name,
 .code-functionName
@@ -828,9 +825,9 @@ position: relative;}
     border-bottom-width: 2px;
 }
 
-.code-unaryOp.upNext > .highlight,
-.codeInstance.code-binaryOp.upNext > .highlight,
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight{
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-unaryOp > .highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight {
     opacity: 1;
 }
 
