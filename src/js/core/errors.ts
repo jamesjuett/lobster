@@ -849,6 +849,9 @@ export const CPPError = {
     preprocess : {
         recursiveInclude : function(sourceRef: SourceReference) {
              return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
+        },
+        fileNotFound : function(sourceRef: SourceReference, name: string) {
+             return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.fileNotFound", `The file ${name} does not exist.`);
         }
     },
     lobster : {
