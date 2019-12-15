@@ -307,163 +307,228 @@ $(() => {
 
         // ---------- Basic Expression Test ----------
 
-    new SingleTranslationUnitTest(
-        "Basic Expression Test",
-        `int plus2(int x) {
-  return x + 2;
+        new SingleTranslationUnitTest(
+          "Basic Expression Test",
+          `int plus2(int x) {
+    return x + 2;
+  }
+  
+  int func(int x, int &y, int *z) {
+    x = 2;
+    y = 2;
+    *z = 2;
+    z = 0;
+    return 2;
+  }
+  
+  class TestClass {
+  public:
+    int mem1;
+    double mem2;
+  };
+  
+  int main() {
+  
+    // Literals
+    int a = 3;
+    double b = 4.5;
+    char c = 'x';
+    bool d = true;
+    a = 4;
+    b = 83.4;
+    c = 'a';
+    d = false;
+  
+    // Identifiers implicitly tested in other tests
+  
+    // Parentheses
+    int f = 5;
+    int g = 10;
+    assert(f + g * 2 == 25);
+    assert((f + g) * 2 == 30);
+    assert((f) + (((g)) + 2) * (2 == 25) == 5);
+  
+    // Subscript
+    int arr_a[5] = {5, 6, 7, 8, 9};
+    assert(arr_a[0] == 5);
+    assert(arr_a[3] == 8);
+    assert(arr_a[4] == 9);
+    arr_a[0] = 10;
+    int *ptr_a = &arr_a[1];
+    assert(ptr_a[0] == 6);
+    assert(ptr_a[-1] == 10);
+    assert(ptr_a[2] == 8);
+    assert(ptr_a == arr_a + 1);
+  
+    // Function call
+    int h = plus2(3);
+    assert(h == 5);
+    assert(plus2(5) == 7);
+    int i1 = 5;
+    int i2 = 5;
+    int i3 = 5;
+    int *i3_ptr = &i3;
+    int i4 = func(i1, i2, i3_ptr);
+    assert(i1 == 5);
+    assert(i2 == 2);
+    assert(i3 == 2);
+    assert(i4 == 2);
+    assert(i3_ptr == &i3);
+  
+    // Function call with function pointer
+    int (*func_ptr)(int, int&, int*) = func;
+    int (*func_ptr2)(int, int&, int*) = &func;
+    int (*func_ptr3)(int, int&, int*) = *func;
+    i1 = i2 = i3 = 5;
+    func_ptr(i1, i2, i3_ptr);
+    assert(i1 == 5);
+    assert(i2 == 2);
+    assert(i3 == 2);
+    assert(i4 == 2);
+    assert(i3_ptr == &i3);
+    i1 = i2 = i3 = 5;
+    (*func_ptr)(i1, i2, i3_ptr);
+    assert(i1 == 5);
+    assert(i2 == 2);
+    assert(i3 == 2);
+    assert(i4 == 2);
+    assert(i3_ptr == &i3);
+  
+    // Member access with . and ->
+    TestClass j;
+    j.mem1 = 5;
+    j.mem2 = 4.5;
+    assert(j.mem1 + 2 == 5 + 2);
+    assert(j.mem2 + 2.1 == 4.5 + 2.1);
+    TestClass *j_ptr = &j;
+    j_ptr->mem1 = 2;
+    j_ptr->mem2 = 3.14;
+    assert(j_ptr->mem1 + 1 == 2 + 1);
+    assert(j_ptr->mem2 + 0.99 == 3.14 + 0.99);
+  
+    // Increment/decrement
+    int k = 5;
+    assert(++k == 6);
+    assert(k == 6);
+    assert(k++ == 6);
+    assert(k == 7);
+    ++k = 10;
+    assert(k == 10);
+  
+    int l = 5;
+    assert(--l == 4);
+    assert(l == 4);
+    assert(l-- == 4);
+    assert(l == 3);
+    --l = 10;
+    assert(l == 10);
+  
+    int m = 5;
+    assert((++m)-- == 6);
+    assert(m == 5);
+  
+    // Unary operators
+    int n = 5;
+    int n1 = +n; assert(n1 == 5);
+    int n2 = +6; assert(n2 == 6);
+    int n3 = -n; assert(n3 == -5);
+    int n4 = -6; assert(n4 == -6);
+    bool o = true;
+    o = !o;
+    assert(o == false);
+    assert(!o);
+    assert(!!!o);
+    assert(!!true);
+  
+    // Address of and dereference
+    int p = 5;
+    int *p_ptr = &p;
+    int &p_ref = p;
+    assert(*p_ptr == p);
+    assert(p_ptr == &p);
+    assert(**&p_ptr == p);
+    assert(*p_ptr = 10);
+    assert(p == 10);
+  
+    // new/delete/delete[]
+    int *q1 = new int(3);
+    double *q2 = new double(4.5);
+    double **q3 = new (double*)(q2);
+  
+    delete q1;
+    delete *q3;
+    delete q3;
+  }`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
+
+
+
+
+      // ---------- Basic Parameter Test ----------
+
+  new SingleTranslationUnitTest(
+      "Basic Parameter Test",
+      `int func1(int x, int y) {
+  x = x + 10;
+  y = y + 10;
+  return x;
 }
 
-int func(int x, int &y, int *z) {
-  x = 2;
-  y = 2;
-  *z = 2;
-  z = 0;
-  return 2;
+int *func2(int &x, int *ptr) {
+  x = x + 10;
+  *ptr = *ptr + 10;
+  return ptr;
 }
 
-class TestClass {
-public:
-  int mem1;
-  double mem2;
-};
+int & func3(int *ptr) {
+  *ptr = *ptr + 10;
+  return *ptr;
+}
 
 int main() {
-
-  // Literals
-  int a = 3;
-  double b = 4.5;
-  char c = 'x';
-  bool d = true;
-  a = 4;
-  b = 83.4;
-  c = 'a';
-  d = false;
-
-  // Identifiers implicitly tested in other tests
-
-  // Parentheses
-  int f = 5;
-  int g = 10;
-  assert(f + g * 2 == 25);
-  assert((f + g) * 2 == 30);
-  assert((f) + (((g)) + 2) * (2 == 25) == 5);
-
-  // Subscript
-  int arr_a[5] = {5, 6, 7, 8, 9};
-  assert(arr_a[0] == 5);
-  assert(arr_a[3] == 8);
-  assert(arr_a[4] == 9);
-  arr_a[0] = 10;
-  int *ptr_a = &arr_a[1];
-  assert(ptr_a[0] == 6);
-  assert(ptr_a[-1] == 10);
-  assert(ptr_a[2] == 8);
-  assert(ptr_a == arr_a + 1);
-
-  // Function call
-  int h = plus2(3);
-  assert(h == 5);
-  assert(plus2(5) == 7);
-  int i1 = 5;
-  int i2 = 5;
-  int i3 = 5;
-  int *i3_ptr = &i3;
-  int i4 = func(i1, i2, i3_ptr);
-  assert(i1 == 5);
-  assert(i2 == 2);
-  assert(i3 == 2);
-  assert(i4 == 2);
-  assert(i3_ptr == &i3);
-
-  // Function call with function pointer
-  int (*func_ptr)(int, int&, int*) = func;
-  int (*func_ptr2)(int, int&, int*) = &func;
-  int (*func_ptr3)(int, int&, int*) = *func;
-  i1 = i2 = i3 = 5;
-  func_ptr(i1, i2, i3_ptr);
-  assert(i1 == 5);
-  assert(i2 == 2);
-  assert(i3 == 2);
-  assert(i4 == 2);
-  assert(i3_ptr == &i3);
-  i1 = i2 = i3 = 5;
-  (*func_ptr)(i1, i2, i3_ptr);
-  assert(i1 == 5);
-  assert(i2 == 2);
-  assert(i3 == 2);
-  assert(i4 == 2);
-  assert(i3_ptr == &i3);
-
-  // Member access with . and ->
-  TestClass j;
-  j.mem1 = 5;
-  j.mem2 = 4.5;
-  assert(j.mem1 + 2 == 5 + 2);
-  assert(j.mem2 + 2.1 == 4.5 + 2.1);
-  TestClass *j_ptr = &j;
-  j_ptr->mem1 = 2;
-  j_ptr->mem2 = 3.14;
-  assert(j_ptr->mem1 + 1 == 2 + 1);
-  assert(j_ptr->mem2 + 0.99 == 3.14 + 0.99);
-
-  // Increment/decrement
-  int k = 5;
-  assert(++k == 6);
-  assert(k == 6);
-  assert(k++ == 6);
-  assert(k == 7);
-  ++k = 10;
-  assert(k == 10);
-
-  int l = 5;
-  assert(--l == 4);
-  assert(l == 4);
-  assert(l-- == 4);
-  assert(l == 3);
-  --l = 10;
-  assert(l == 10);
-
-  int m = 5;
-  assert((++m)-- == 6);
-  assert(m == 5);
-
-  // Unary operators
-  int n = 5;
-  int n1 = +n; assert(n1 == 5);
-  int n2 = +6; assert(n2 == 6);
-  int n3 = -n; assert(n3 == -5);
-  int n4 = -6; assert(n4 == -6);
-  bool o = true;
-  o = !o;
-  assert(o == false);
-  assert(!o);
-  assert(!!!o);
-  assert(!!true);
-
-  // Address of and dereference
-  int p = 5;
-  int *p_ptr = &p;
-  int &p_ref = p;
-  assert(*p_ptr == p);
-  assert(p_ptr == &p);
-  assert(**&p_ptr == p);
-  assert(*p_ptr = 10);
-  assert(p == 10);
-
-  // new/delete/delete[]
-  int *q1 = new int(3);
-  double *q2 = new double(4.5);
-  double **q3 = new (double*)(q2);
-
-  delete q1;
-  delete *q3;
-  delete q3;
+  int a = 1;
+  int b = 2;
+  int c = func1(a, b);
+  assert(a == 1);
+  assert(b == 2);
+  assert(c == 11);
+  
+  int *d = func2(a, &b);
+  assert(a == 11);
+  assert(b == 12);
+  assert(*d == 12);
+  
+  int e = 2;
+  int f = func3(&e);
+  f = f + 10;
+  assert(e = 12);
+  assert(f = 22);
+  assert(&e != &f);
+  
+  int g = 2;
+  int &h = func3(&g);
+  h = h + 10;
+  assert(g == 22);
+  assert(h == 22);
+  assert(&g == &h);
+  
+  int i = 3;
+  int &j = *func2(i, &i);
+  j = j + 10;
+  assert(i == 33);
+  assert(j == 33);
+  
 }`,
-        [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
-        ]
-    );
+      [
+          new NoErrorsNoWarningsVerifier(),
+          new NoBadRuntimeEventsVerifier(true)
+      ]
+  );
     
       // ---------- Basic SimulationRunner Test ----------
 

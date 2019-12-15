@@ -1345,28 +1345,6 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
         // }
     }
 
-    protected instanceSet(inst: RuntimeFunctionCallExpression) {
-        super.instanceSet(inst);
-        listenTo(this, inst.call, ["called", "returned"]);
-
-        this.element.toggleClass("called", !inst.cleanupStarted && inst.call.index > INDEX_FUNCTION_CALL_CALL)
-    }
-
-    protected instanceRemoved(oldInst: RuntimeFunctionCallExpression) {
-        stopListeningTo(this, oldInst.call, ["called", "returned"]);
-        this.element.removeClass("called");
-        super.instanceRemoved(oldInst);
-    }
-
-    @messageResponse("called")
-    protected called() {
-        this.element.addClass("called");
-    }
-
-    @messageResponse("returned")
-    protected returned() {
-        this.element.removeClass("returned");
-    }
 //     _act: mixin({}, Outlets.CPP.Expression._act, {
 
 // //        calleeOutlet : function(callee, source){
