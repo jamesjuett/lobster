@@ -153,7 +153,7 @@ export class Program {
                     (<Mutable<this>>this).mainFunction = mainLookup[0];
                 }
                 else {
-                    mainLookup.forEach(mainDef => this.notes.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
+                    mainLookup.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
                 }
             }
             // TODO else it is apparently a global object. need to double check whether that's allowed
@@ -201,7 +201,7 @@ export class Program {
         }
         else {
             // One definition rule violation
-            this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            this.addNote(CPPError.link.multiple_def(def, qualifiedName));
         }
     }
 
@@ -212,14 +212,14 @@ export class Program {
         }
         else if (!Array.isArray(prevDef)) {
             // Previous definition that isn't a function overload group
-            this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            this.addNote(CPPError.link.multiple_def(def, qualifiedName));
         }
         else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
             let conflictingDef = selectOverloadedDefinition(prevDef, def.declaration.type);
             if (conflictingDef) {
-                this.notes.addNote(CPPError.link.multiple_def(def, qualifiedName));
+                this.addNote(CPPError.link.multiple_def(def, qualifiedName));
             }
             else {
                 prevDef.push(def);
@@ -343,14 +343,14 @@ export class SourceReference {
 }
 
 interface IncludeMapping {
-    startLine: number;
-    startOffset: number;
-    numLines: number;
-    endLine: number;
-    lineDelta: number;
-    lengthDelta: number;
-    included: PreprocessedSource;
-    lineIncluded: number;
+    readonly startLine: number;
+    readonly startOffset: number;
+    readonly numLines: number;
+    readonly endLine: number;
+    readonly lineDelta: number;
+    readonly lengthDelta: number;
+    readonly included: PreprocessedSource;
+    readonly lineIncluded: number;
 }
 
 class PreprocessedSource {
@@ -392,7 +392,7 @@ class PreprocessedSource {
         this.preprocessedText = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
             (includeLine, filename, offset, original) => {
 
-                let mapping: Partial<IncludeMapping> = {};
+                let mapping: Mutable<Partial<IncludeMapping>> = {};
 
                 // Find the line number of this include by adding up the number of newline characters
                 // since the offset of the last match up to the current one. Add this to the line number.
@@ -431,7 +431,7 @@ class PreprocessedSource {
                     Object.assign({}, alreadyIncluded));
 
                 Object.assign(this.includedSourceFiles, included.includedSourceFiles);
-
+                this.notes.addNotes(included.notes.allNotes);
 
                 mapping.numLines = included.numLines;
                 mapping.endLine = mapping.startLine + included.numLines;
@@ -574,6 +574,7 @@ export class TranslationUnit {
     public constructor(program: Program, preprocessedSource: PreprocessedSource) {
         this.program = program;
         this.source = preprocessedSource;
+        this.notes.addNotes(preprocessedSource.notes.allNotes);
         this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
         this.context = createTranslationUnitContext(program.context, this, this.globalScope);
@@ -597,7 +598,7 @@ export class TranslationUnit {
 		}
 		catch(err) {
 			if (err.name == "SyntaxError"){
-				this.notes.addNote(new SyntaxNote(
+				this.addNote(new SyntaxNote(
                     this.getSourceReference(err.location.start.line, err.location.start.column, 
                                             err.location.start.offset, err.location.start.offset + 1),
                     NoteKind.ERROR,
