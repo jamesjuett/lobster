@@ -399,15 +399,22 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
         }
         else if (this.index === INDEX_FUNCTION_CALL_EXPRESSION_RETURN ) {
-            if (this.model.type.isVoidType()) {
+            
+            // Note: cannot use this.model.type here, since that is the type of the function
+            // call expression, which would have had the reference type removed if this was return
+            // by reference. Instead, use the return type of the called function itself, which will have
+            // the reference type intact.
+            let returnType = this.model.call.func.type.returnType;
+            
+            if (returnType.isVoidType()) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
 
-            if (this.model.isReferenceTyped()) {
+            if (returnType.isReferenceType()) {
                 // Return by reference is lvalue and yields the returned object
                 this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
             }
-            else if (this.model.isAtomicTyped()) {
+            else if (returnType.isAtomicType()) {
                 // Return by value of atomic type. In this case, we can look up
                 // the value of the return object and use that as the eval result
                 let retObj = <CPPObject<AtomicType>><unknown>this.call.calledFunction.returnObject!; // I don't understand why Typescript forces the hard cast here
