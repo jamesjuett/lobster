@@ -357,7 +357,7 @@ class PreprocessedSource {
 
     public readonly primarySourceFile: SourceFile;
     public readonly name: string;
-    public readonly availableToInclude: {[index: string]: SourceFile};
+    public readonly availableToInclude: {[index: string]: SourceFile | undefined};
 
     public readonly notes = new NoteRecorder();
 
@@ -370,7 +370,7 @@ class PreprocessedSource {
     public readonly numLines: number;
     public readonly length: number;
 
-    public constructor(sourceFile: SourceFile, availableToInclude: {[index: string]: SourceFile}, alreadyIncluded: {[index: string]: boolean} = {}) {
+    public constructor(sourceFile: SourceFile, availableToInclude: {[index: string]: SourceFile | undefined}, alreadyIncluded: {[index: string]: boolean} = {}) {
         this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
         this.availableToInclude = availableToInclude;
@@ -424,10 +424,17 @@ class PreprocessedSource {
                 }
 
                 // Recursively preprocess the included file
-                var includedSourceFile = this.availableToInclude[filename];
+                let includedSourceFile = this.availableToInclude[filename];
                 //TODO: what happens if the file doesn't exist?
+                if (!includedSourceFile) {
+                    this.notes.addNote(CPPError.preprocess.fileNotFound(
+                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
 
-                var included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
+                    // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
+                    return Array(includeLine.length + 1).join(" ");
+                }
+
+                let included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
                     Object.assign({}, alreadyIncluded));
 
                 Object.assign(this.includedSourceFiles, included.includedSourceFiles);
@@ -574,7 +581,7 @@ export class TranslationUnit {
     public constructor(program: Program, preprocessedSource: PreprocessedSource) {
         this.program = program;
         this.source = preprocessedSource;
-        this.notes.addNotes(preprocessedSource.notes.allNotes);
+        preprocessedSource.notes.allNotes.forEach(note => this.addNote(note)); // Don't use this.notes.addNotes here since that would miss adding them to the program as well
         this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
         this.context = createTranslationUnitContext(program.context, this, this.globalScope);
