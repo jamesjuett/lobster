@@ -311,7 +311,7 @@ export class SimulationOutlet {
         $(document).on("keydown", (e) => {
             //console.log(e.which);
             if (element.find("#simPane").css("display") !== "none") {
-                if (e.which == 39 || e.which == 83) {
+                if (e.which == 39) {
                     this.stepForward().catch(() => {});
                     e.preventDefault();
                     e.stopPropagation();
