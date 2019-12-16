@@ -326,10 +326,10 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         }
 
         if (returnType instanceof ReferenceType) {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType.refTo), [expression], "direct");
+            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType.refTo), [expression], "copy");
         }
         else {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "direct");
+            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "copy");
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.

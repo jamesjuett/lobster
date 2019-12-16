@@ -342,15 +342,16 @@ export interface DirectInitializerASTNode extends ASTNode {
 }
 
 
+export type DirectInitializerKind = "direct" | "copy" | "parameter" | "return";
 
 export abstract class DirectInitializer extends Initializer {
 
-    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") : ReferenceDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: "direct" | "copy") : AtomicDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: "direct" | "copy") : ArrayDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: "direct" | "copy") : ClassDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer {
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : ReferenceDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) : AtomicDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: DirectInitializerKind) : ArrayDirectInitializer;
+    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer {
         if ((<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
@@ -370,9 +371,9 @@ export abstract class DirectInitializer extends Initializer {
 
     public abstract readonly args: readonly Expression[];
 
-    public readonly kind: "direct" | "copy";
+    public readonly kind: DirectInitializerKind;
     
-    public constructor(context: TranslationUnitContext, kind: "direct" | "copy") {
+    public constructor(context: TranslationUnitContext, kind: DirectInitializerKind) {
         super(context);
         this.kind = kind;
     }
@@ -393,6 +394,15 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
         super(model, parent);
     }
 
+    protected notifyPassing() {
+        if (this.model.kind === "parameter") {
+            this.sim.parameterPassed(this)
+        }
+        else if (this.model.kind === "return") {
+            this.sim.returnPassed(this);
+        }
+    }
+
 }
 
 
@@ -402,7 +412,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") {
+    public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) {
         super(context, kind);
         this.target = target;
         
@@ -487,6 +497,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     public stepForwardImpl() {
         let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         this.observable.send("initialized", rtRef);
+        this.notifyPassing();
         this.startCleanup();
     }
 }
@@ -498,7 +509,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public readonly args: readonly Expression[];
     public readonly arg?: Expression;
 
-    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: "direct" | "copy") {
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) {
         super(context, kind);
         
         this.target = target;
