@@ -5,7 +5,7 @@ import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
 import { Int, PointerType, Char } from "./types";
-import { Initializer } from "./initializers";
+import { Initializer, RuntimeDirectInitializer } from "./initializers";
 
 
 export enum SimulationEvent {
@@ -29,6 +29,8 @@ export type SimulationMessages =
     "afterStepForward" |
     "afterFullStep" |
     "atEnded" |
+    "parameterPassed" |
+    "returnPassed" |
     "cout" |
     "eventOccurred";
 
@@ -444,6 +446,14 @@ export class Simulation {
     //     // Start timeout
     //     this.startRunThread(func);
     // },
+
+    public parameterPassed(rt: RuntimeDirectInitializer) {
+        this.observable.send("parameterPassed", rt);
+    }
+
+    public returnPassed(rt: RuntimeDirectInitializer) {
+        this.observable.send("returnPassed", rt);
+    }
 
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
