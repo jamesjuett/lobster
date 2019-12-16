@@ -244,6 +244,9 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public readonly parent?: RuntimeConstruct;
 
+    private static NEXT_ID = 0;
+    public readonly runtimeId: number = RuntimeConstruct.NEXT_ID++;
+
     /**
      * WARNING: The containingRuntimeFunction property may be undefined, even though it's type suggests it will always
      * be defined. In most places where it is accessed, there is an implicit assumption that a runtime construct
@@ -503,6 +506,20 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         assert(!this.returnObject);
         (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
 
+    }
+
+    public getParameterObject(num: number) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(this.stackFrame);
+        return this.stackFrame.localObjectLookup(param);
+    }
+
+    public bindReferenceParameter(num: number, obj: CPPObject) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof LocalReferenceEntity, "Can't bind an object parameter like a reference.");
+        assert(this.stackFrame);
+        return this.stackFrame.bindLocalReference(param, obj);
     }
 
     public gainControl() {
