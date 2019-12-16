@@ -240,6 +240,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
 
             this.calledFunction.pushStackFrame();
+            this.sim.setPendingCalledFunction(this.calledFunction);
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_ARGUMENTS;
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {

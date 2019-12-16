@@ -12,7 +12,7 @@ export function isInstance<T>(ctor: new(...args: any[]) => T): (x: any) => x is 
     return <(x: any) => x is T>(x => x instanceof ctor);
 } 
 
-export function assert(condition: boolean, message: string = "") {
+export function assert(condition: any, message: string = "") : asserts condition {
     if (!condition)
         throw Error("Assert failed: " + message);
 };

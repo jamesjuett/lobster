@@ -1,7 +1,7 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
@@ -152,7 +152,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
     protected upNextImpl() {
         // No initialization. Object has junk value.
         let target = this.model.target.runtimeLookup(this);
-        this.observable.send("initialized", target);
+        this.observable.send("objectInitialized", target);
         this.startCleanup();
     }
 
@@ -246,7 +246,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
         }
         else {
             let target = this.model.target.runtimeLookup(this);
-            this.observable.send("initialized", target);
+            this.observable.send("objectInitialized", target);
             this.startCleanup();
         }
     }
@@ -488,17 +488,25 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 
     private notifyPassing() {
         if (this.model.kind === "parameter") {
-            this.sim.parameterPassedByReference(<PassByReferenceParameterEntity<T>>this.model.target, this.arg);
+            this.observable.send("passByReference",
+                {
+                    target: <PassByReferenceParameterEntity<T>>this.model.target,
+                    arg: this.arg
+                });
         }
         else if (this.model.kind === "return") {
-            this.sim.returnPassed(this);
+            this.observable.send("returnByReference",
+                {
+                    target: <ReturnByReferenceEntity<T>>this.model.target,
+                    arg: this.arg
+                });
         }
     }
     
     public stepForwardImpl() {
-        let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
+        this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         this.notifyPassing();
-        this.observable.send("initialized", rtRef);
+        this.observable.send("referenceBound", this.model.target);
         this.startCleanup();
     }
 }
@@ -593,10 +601,18 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
     private notifyPassing() {
         if (this.model.kind === "parameter") {
-            this.sim.parameterPassedByAtomicValue(<PassByValueParameterEntity<T>>this.model.target, this.arg);
+            this.observable.send("passByAtomicValue",
+                {
+                    target: <PassByValueParameterEntity<T>>this.model.target,
+                    arg: this.arg
+                });
         }
         else if (this.model.kind === "return") {
-            this.sim.returnPassed(this);
+            this.observable.send("returnByAtomicValue",
+                {
+                    target: <ReturnObjectEntity<T>>this.model.target,
+                    arg: this.arg
+                });
         }
     }
 
@@ -604,7 +620,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
         let target = this.model.target.runtimeLookup(this);
         target.writeValue(this.arg.evalResult);
         this.notifyPassing();
-        this.observable.send("initialized", target);
+        this.observable.send("objectInitialized", target);
         this.startCleanup();
     }
 }

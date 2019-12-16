@@ -9,13 +9,14 @@ import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
-import { FunctionOutlet } from "./codeOutlets";
+import { FunctionOutlet, ConstructOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
+const VALUE_TRANSFER_DURATION = 500;
 
 const CPP_ANIMATIONS = true;
 
@@ -1832,7 +1833,7 @@ export abstract class RunningCodeOutlet {
     public abstract pushFunction(rtFunc: RuntimeFunction) : void;
     public abstract popFunction() : void;
 
-    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number, afterCallback: () => void) {
+    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number = VALUE_TRANSFER_DURATION, afterCallback?: () => void) {
         if (CPP_ANIMATIONS) {
             let simOff = this.element.offset();
             let fromOff = from.offset();
@@ -1853,16 +1854,12 @@ export abstract class RunningCodeOutlet {
                 top: toOff.top - simOff.top + this.element[0].scrollTop,
                 width: toWidth
             }, duration, function () {
-                if(afterCallback) {
-                    afterCallback();
-                }
+                afterCallback && afterCallback();
                 $(this).remove();
             });
         }
         else{
-            if (afterCallback) {
-                afterCallback();
-            }
+            afterCallback && afterCallback();
         }
     }
 
@@ -1915,6 +1912,14 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     
     public _act!: MessageResponses;
 
+    private readonly pendingValueTransfers : {
+        [index: number]: {
+            start: JQuery | undefined;
+            end: JQuery | undefined;
+            html: string | undefined;
+        } | undefined;
+    } = {};
+
     public constructor(element: JQuery) {
         super(element);
 
@@ -1942,6 +1947,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         // Create outlet using the element
         let funcOutlet = new FunctionOutlet(functionElem, rtFunc);
         this.functionOutlets.push(funcOutlet);
+        listenTo(this, funcOutlet);
 
         // Animate!
         if (CPP_ANIMATIONS) {
@@ -1972,7 +1978,10 @@ export class CodeStackOutlet extends RunningCodeOutlet {
             });
         }
 
-        this.functionOutlets.pop()!.removeInstance();
+        let funcOutlet = this.functionOutlets.pop()!;
+        funcOutlet.removeInstance(); // TODO: may not be necessary since the function should remove itself when popped?
+        stopListeningTo(this, funcOutlet);
+
     }
 
     public refreshSimulation() {
@@ -2008,29 +2017,53 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     //     //}, 1000);
     // }
 
-    @messageResponse("parameterPassedByReference", "unwrap")
-    protected parameterPassedByReference<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
-        let {target, arg} = data;
-        console.log("parameter passed by reference");
-        console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
-        console.log(`parameter number: ${target.num}`);
-        console.log(`arg construct ID: ${arg.model.constructId}`);
-        console.log(`arg eval result name: ${arg.evalResult.name}, address: ${arg.evalResult.address}`);
+    // @messageResponse("parameterPassedByReference", "unwrap")
+    // protected parameterPassedByReference<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
+    //     let {target, arg} = data;
+    //     console.log("parameter passed by reference");
+    //     console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+    //     console.log(`parameter number: ${target.num}`);
+    //     console.log(`arg construct ID: ${arg.model.constructId}`);
+    //     console.log(`arg eval result name: ${arg.evalResult.name}, address: ${arg.evalResult.address}`);
+    // }
+
+    // @messageResponse("parameterPassedByAtomicValue", "unwrap")
+    // protected parameterPassedByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
+    //     let {target, arg} = data;
+    //     console.log("parameter passed by value");
+    //     console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+    //     console.log(`parameter number: ${target.num}`);
+    //     console.log(`arg construct ID: ${arg.model.constructId}`);
+    //     console.log(`arg eval result value: ${arg.evalResult.rawValue}, type: ${arg.evalResult.type}`);
+    // }
+    
+    // @messageResponse("returnPassed", "unwrap")
+    // protected returnPassed(rt: RuntimeDirectInitializer) {
+    //     console.log("return passed");
+    // }
+
+    @messageResponse("childOutletAdded", "unwrap")
+    protected childOutletAdded(data: {parent: ConstructOutlet, child: ConstructOutlet}) {
+        listenTo(this, data.child);
     }
 
-    @messageResponse("parameterPassedByAtomicValue", "unwrap")
-    protected parameterPassedByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
-        let {target, arg} = data;
-        console.log("parameter passed by value");
-        console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
-        console.log(`parameter number: ${target.num}`);
-        console.log(`arg construct ID: ${arg.model.constructId}`);
-        console.log(`arg eval result value: ${arg.evalResult.rawValue}, type: ${arg.evalResult.type}`);
+    @messageResponse("valueTransferStart", "unwrap")
+    protected valueTransferStart(data: {runtimeId: number, start: JQuery, html: string}) {
+        let {runtimeId, start, html} = data;
+        let end = this.pendingValueTransfers[runtimeId]?.end;
+        if (end) {
+            // a partial entry was already present with an endpoint, so go ahead and animate
+            this.valueTransferOverlay(start, end, html);
+        }
+        else {
+            // either no entry, or a partial entry with start info that should be replaced (probably will never happen)
+            this.pendingValueTransfers[runtimeId] = {...data, end: undefined};
+        }
     }
-    
-    @messageResponse("returnPassed", "unwrap")
-    protected returnPassed(rt: RuntimeDirectInitializer) {
-        console.log("return passed");
+
+    @messageResponse("valueTransferEnd", "unwrap")
+    protected valueTransferEnd(data: {}) {
+        let {runtimeId, end} = data;
     }
 }
 

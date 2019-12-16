@@ -8,10 +8,10 @@ import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, Runti
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject } from "../core/objects";
-import { FunctionEntity } from "../core/entities";
+import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression } from "../core/expressions";
-import { Bool } from "../core/types";
+import { Bool, ObjectType, AtomicType } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
@@ -20,6 +20,8 @@ const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
 
 export const CODE_ANIMATIONS = true;
+
+type ConstructOutletMessages = "childOutletAdded";
 
 export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct = RuntimeConstruct> {
 
@@ -30,7 +32,7 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     public readonly inst?: RTConstruct_type;
 
     public _act!: MessageResponses;
-    public readonly observable = new Observable(this);
+    public readonly observable = new Observable<ConstructOutletMessages>(this);
 
     private static _ID = 0;
     private outletID = ConstructOutlet._ID++;
@@ -100,6 +102,7 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     private addChildOutlet(child: ConstructOutlet) {
         this.children[child.construct.constructId] = child;
         (<Mutable<ConstructOutlet>>child).parent = this;
+        this.observable.send("childOutletAdded", {parent: this, child: child});
     }
     
     private setChildInstance(childInst: RuntimeConstruct) {
@@ -1391,6 +1394,20 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
         this.element.addClass("code-argumentInitializer");
 
         this.expressionOutlet = addChildExpressionOutlet(this.element, construct.args[0], this);
+    }
+
+    @messageResponse("passByReference", "unwrap")
+    private parameterPassed<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
+        this.send("valueTransferStart", {
+            runtimeId: data.arg.runtimeId,
+            start: this.element,
+            html: data.arg.
+        });
+    }
+
+    @messageResponse("passByAtomicValue", "unwrap")
+    private passByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
+
     }
 }
 
