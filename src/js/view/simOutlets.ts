@@ -8,9 +8,11 @@ import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
-import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
+import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
 import { FunctionOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
+import { RuntimeDirectInitializer } from "../core/initializers";
+import { RuntimeExpression } from "../core/expressionBase";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -1910,6 +1912,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
     private frameElems: JQuery[];
     private functionOutlets: FunctionOutlet[] = [];
+    
+    public _act!: MessageResponses;
 
     public constructor(element: JQuery) {
         super(element);
@@ -2004,6 +2008,30 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     //     //}, 1000);
     // }
 
+    @messageResponse("parameterPassedByReference", "unwrap")
+    protected parameterPassedByReference<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
+        let {target, arg} = data;
+        console.log("parameter passed by reference");
+        console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+        console.log(`parameter number: ${target.num}`);
+        console.log(`arg construct ID: ${arg.model.constructId}`);
+        console.log(`arg eval result name: ${arg.evalResult.name}, address: ${arg.evalResult.address}`);
+    }
+
+    @messageResponse("parameterPassedByAtomicValue", "unwrap")
+    protected parameterPassedByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
+        let {target, arg} = data;
+        console.log("parameter passed by value");
+        console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+        console.log(`parameter number: ${target.num}`);
+        console.log(`arg construct ID: ${arg.model.constructId}`);
+        console.log(`arg eval result value: ${arg.evalResult.rawValue}, type: ${arg.evalResult.type}`);
+    }
+    
+    @messageResponse("returnPassed", "unwrap")
+    protected returnPassed(rt: RuntimeDirectInitializer) {
+        console.log("return passed");
+    }
 }
 
 

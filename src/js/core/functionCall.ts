@@ -56,10 +56,10 @@ export class FunctionCall extends PotentialFullExpression {
         this.argInitializers = args.map((arg, i) => {
             let paramType = this.func.type.paramTypes[i];
             if (paramType.isReferenceType()) {
-                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg], "copy");
+                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg], "parameter");
             }
             else {
-                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
+                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "parameter");
             }
         });
         this.attachAll(this.argInitializers);

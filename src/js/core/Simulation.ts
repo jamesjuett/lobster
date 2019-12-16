@@ -4,8 +4,10 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char } from "./types";
+import { Int, PointerType, Char, ObjectType, AtomicType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
+import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 
 
 export enum SimulationEvent {
@@ -29,7 +31,8 @@ export type SimulationMessages =
     "afterStepForward" |
     "afterFullStep" |
     "atEnded" |
-    "parameterPassed" |
+    "parameterPassedByReference" |
+    "parameterPassedByAtomicValue" |
     "returnPassed" |
     "cout" |
     "eventOccurred";
@@ -447,8 +450,12 @@ export class Simulation {
     //     this.startRunThread(func);
     // },
 
-    public parameterPassed(rt: RuntimeDirectInitializer) {
-        this.observable.send("parameterPassed", rt);
+    public parameterPassedByReference<T extends ObjectType>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">) {
+        this.observable.send("parameterPassedByReference", {target: target, arg: arg});
+    }
+
+    public parameterPassedByAtomicValue<T extends AtomicType>(target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">) {
+        this.observable.send("parameterPassedByAtomicValue", {target: target, arg: arg});
     }
 
     public returnPassed(rt: RuntimeDirectInitializer) {
