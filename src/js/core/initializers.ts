@@ -1,7 +1,7 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
@@ -369,6 +369,7 @@ export abstract class DirectInitializer extends Initializer {
         }
     }
 
+    public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
     public abstract readonly args: readonly Expression[];
 
     public readonly kind: DirectInitializerKind;
@@ -392,15 +393,6 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
 
     protected constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
-    }
-
-    protected notifyPassing() {
-        if (this.model.kind === "parameter") {
-            this.sim.parameterPassed(this)
-        }
-        else if (this.model.kind === "return") {
-            this.sim.returnPassed(this);
-        }
     }
 
 }
@@ -493,15 +485,23 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
             this.alreadyPushed = true;
         }
     }
+
+    private notifyPassing() {
+        if (this.model.kind === "parameter") {
+            this.sim.parameterPassedByReference(<PassByReferenceParameterEntity<T>>this.model.target, this.arg);
+        }
+        else if (this.model.kind === "return") {
+            this.sim.returnPassed(this);
+        }
+    }
     
     public stepForwardImpl() {
         let rtRef = this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
-        this.observable.send("initialized", rtRef);
         this.notifyPassing();
+        this.observable.send("initialized", rtRef);
         this.startCleanup();
     }
 }
-
 
 export class AtomicDirectInitializer extends DirectInitializer {
 
@@ -591,9 +591,19 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
         }
     }
 
+    private notifyPassing() {
+        if (this.model.kind === "parameter") {
+            this.sim.parameterPassedByAtomicValue(<PassByValueParameterEntity<T>>this.model.target, this.arg);
+        }
+        else if (this.model.kind === "return") {
+            this.sim.returnPassed(this);
+        }
+    }
+
     public stepForwardImpl() {
         let target = this.model.target.runtimeLookup(this);
         target.writeValue(this.arg.evalResult);
+        this.notifyPassing();
         this.observable.send("initialized", target);
         this.startCleanup();
     }

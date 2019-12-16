@@ -867,7 +867,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
 };
 
 // TODO: will need to add a class for ReferenceParameterEntity
-export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class PassByValueParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
     public readonly type: T;
