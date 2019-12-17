@@ -17,7 +17,6 @@ import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer 
 import { Mutable } from "../util/util";
 export class FunctionCall extends PotentialFullExpression {
 
-    
     public readonly func: FunctionEntity;
     public readonly args: readonly Expression[];
     public readonly receiver?: ObjectEntity<ClassType>;
@@ -56,10 +55,10 @@ export class FunctionCall extends PotentialFullExpression {
         this.argInitializers = args.map((arg, i) => {
             let paramType = this.func.type.paramTypes[i];
             if (paramType.isReferenceType()) {
-                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg], "parameter");
+                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType.refTo, i), [arg], "copy");
             }
             else {
-                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "parameter");
+                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
             }
         });
         this.attachAll(this.argInitializers);

@@ -1912,14 +1912,6 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     
     public _act!: MessageResponses;
 
-    private readonly pendingValueTransfers : {
-        [index: number]: {
-            start: JQuery | undefined;
-            end: JQuery | undefined;
-            html: string | undefined;
-        } | undefined;
-    } = {};
-
     public constructor(element: JQuery) {
         super(element);
 
@@ -1945,9 +1937,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.stackFramesElem.prepend(frame);
 
         // Create outlet using the element
-        let funcOutlet = new FunctionOutlet(functionElem, rtFunc);
+        let funcOutlet = new FunctionOutlet(functionElem, rtFunc, this);
         this.functionOutlets.push(funcOutlet);
-        listenTo(this, funcOutlet);
 
         // Animate!
         if (CPP_ANIMATIONS) {
@@ -1994,9 +1985,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
             return;
         }
 
-        this.sim.execStack
-            .filter(isInstance(RuntimeFunction))
-            .forEach(rtFunc => this.pushFunction(rtFunc));
+        this.sim.memory.stack.frames
+            .forEach(frame => this.pushFunction(frame.func));
 
         var last = this.sim.execStack[this.sim.execStack.length - 1];
         // TODO: find outlet for last and send it an "upNext"
@@ -2047,23 +2037,11 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         listenTo(this, data.child);
     }
 
-    @messageResponse("valueTransferStart", "unwrap")
-    protected valueTransferStart(data: {runtimeId: number, start: JQuery, html: string}) {
-        let {runtimeId, start, html} = data;
-        let end = this.pendingValueTransfers[runtimeId]?.end;
-        if (end) {
-            // a partial entry was already present with an endpoint, so go ahead and animate
-            this.valueTransferOverlay(start, end, html);
-        }
-        else {
-            // either no entry, or a partial entry with start info that should be replaced (probably will never happen)
-            this.pendingValueTransfers[runtimeId] = {...data, end: undefined};
-        }
-    }
-
-    @messageResponse("valueTransferEnd", "unwrap")
-    protected valueTransferEnd(data: {}) {
-        let {runtimeId, end} = data;
+    @messageResponse("parameterPassed", "unwrap")
+    protected valueTransferStart(data: {num: number, start: JQuery, html: string}) {
+        let {num, start, html} = data;
+        let end = this.functionOutlets[this.functionOutlets.length - 1].parameterOutlets[num].passedValueElem;
+        this.valueTransferOverlay(start, end, html);
     }
 }
 
