@@ -52,7 +52,7 @@ export abstract class DefaultInitializer extends Initializer {
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
-        if ((<UnboundReferenceEntity>target).bindTo) {
+        if (!!(<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);
         }
         else if (target.type instanceof AtomicType) {
@@ -152,7 +152,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
     protected upNextImpl() {
         // No initialization. Object has junk value.
         let target = this.model.target.runtimeLookup(this);
-        this.observable.send("objectInitialized", target);
+        this.observable.send("atomicObjectInitialized", this);
         this.startCleanup();
     }
 
@@ -246,7 +246,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
         }
         else {
             let target = this.model.target.runtimeLookup(this);
-            this.observable.send("objectInitialized", target);
+            this.observable.send("arrayObjectInitialized", this);
             this.startCleanup();
         }
     }
@@ -342,7 +342,7 @@ export interface DirectInitializerASTNode extends ASTNode {
 }
 
 
-export type DirectInitializerKind = "direct" | "copy" | "parameter" | "return";
+export type DirectInitializerKind = "direct" | "copy";
 
 export abstract class DirectInitializer extends Initializer {
 
@@ -352,7 +352,7 @@ export abstract class DirectInitializer extends Initializer {
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer {
-        if ((<UnboundReferenceEntity>target).bindTo) {
+        if (!!(<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
         else if (target.type instanceof AtomicType) {
@@ -390,6 +390,9 @@ export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> ex
 }
 
 export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
+
+    public abstract readonly args: readonly RuntimeExpression<T>[];
+    public abstract readonly arg?: RuntimeExpression<T>;
 
     protected constructor (model: C, parent: RuntimeConstruct) {
         super(model, parent);
@@ -469,7 +472,8 @@ export interface CompiledReferenceDirectInitializer<T extends ObjectType = Objec
 }
 
 export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
-
+    
+    public readonly args: readonly RuntimeExpression<T, "lvalue">[];
     public readonly arg: RuntimeExpression<T, "lvalue">;
 
     private alreadyPushed = false;
@@ -477,6 +481,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     public constructor (model: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.arg = this.model.arg.createRuntimeExpression(this);
+        this.args = [this.arg];
     }
 
     protected upNextImpl() {
@@ -486,27 +491,27 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
         }
     }
 
-    private notifyPassing() {
-        if (this.model.kind === "parameter") {
-            this.observable.send("passByReference",
-                {
-                    target: <PassByReferenceParameterEntity<T>>this.model.target,
-                    arg: this.arg
-                });
-        }
-        else if (this.model.kind === "return") {
-            this.observable.send("returnByReference",
-                {
-                    target: <ReturnByReferenceEntity<T>>this.model.target,
-                    arg: this.arg
-                });
-        }
-    }
+    // private notifyPassing() {
+    //     if (this.model.kind === "parameter") {
+    //         this.observable.send("passByReference",
+    //             {
+    //                 target: <PassByReferenceParameterEntity<T>>this.model.target,
+    //                 arg: this.arg
+    //             });
+    //     }
+    //     else if (this.model.kind === "return") {
+    //         this.observable.send("returnByReference",
+    //             {
+    //                 target: <ReturnByReferenceEntity<T>>this.model.target,
+    //                 arg: this.arg
+    //             });
+    //     }
+    // }
     
     public stepForwardImpl() {
         this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
-        this.notifyPassing();
-        this.observable.send("referenceBound", this.model.target);
+        // this.notifyPassing();
+        this.observable.send("referenceInitialized", this);
         this.startCleanup();
     }
 }
@@ -583,6 +588,7 @@ export interface CompiledAtomicDirectInitializer<T extends AtomicType = AtomicTy
 
 export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> extends RuntimeDirectInitializer<T, CompiledAtomicDirectInitializer<T>> {
 
+    public readonly args: readonly RuntimeExpression<T, "prvalue">[];
     public readonly arg: RuntimeExpression<T, "prvalue">;
 
     private alreadyPushed = false;
@@ -590,6 +596,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
     public constructor (model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         this.arg = this.model.arg.createRuntimeExpression(this);
+        this.args = [this.arg];
     }
 
     protected upNextImpl() {
@@ -599,28 +606,23 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
         }
     }
 
-    private notifyPassing() {
-        if (this.model.kind === "parameter") {
-            this.observable.send("passByAtomicValue",
-                {
-                    target: <PassByValueParameterEntity<T>>this.model.target,
-                    arg: this.arg
-                });
-        }
-        else if (this.model.kind === "return") {
-            this.observable.send("returnByAtomicValue",
-                {
-                    target: <ReturnObjectEntity<T>>this.model.target,
-                    arg: this.arg
-                });
-        }
-    }
+    // private notifyPassing() {
+    //     if (this.model.kind === "parameter") {
+    //     }
+    //     else if (this.model.kind === "return") {
+    //         this.observable.send("returnByAtomicValue",
+    //             {
+    //                 target: <ReturnObjectEntity<T>>this.model.target,
+    //                 arg: this.arg
+    //             });
+    //     }
+    // }
 
     public stepForwardImpl() {
         let target = this.model.target.runtimeLookup(this);
         target.writeValue(this.arg.evalResult);
-        this.notifyPassing();
-        this.observable.send("objectInitialized", target);
+        this.observable.send("atomicObjectInitialized", this);
+        // this.notifyPassing();
         this.startCleanup();
     }
 }

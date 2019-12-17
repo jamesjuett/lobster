@@ -2,12 +2,12 @@ import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction } fr
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
-import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable } from "../util/observe";
+import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
-import { CPPObject } from "../core/objects";
+import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression } from "../core/expressions";
@@ -21,7 +21,7 @@ const RESET_FADE_DURATION = 500;
 
 export const CODE_ANIMATIONS = true;
 
-type ConstructOutletMessages = "childOutletAdded";
+type ConstructOutletMessages = "childOutletAdded" | "parameterPassed";
 
 export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct = RuntimeConstruct> {
 
@@ -207,10 +207,11 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
     public readonly body: BlockOutlet;
 
     private readonly paramsElem: JQuery;
+    public parameterOutlets: ParameterOutlet[] = [];
 
-    public constructor(element: JQuery, rtFunc: RuntimeFunction) {
+    public constructor(element: JQuery, rtFunc: RuntimeFunction, listener?: ObserverType) {
         super(element, rtFunc.model);
-
+        listener && listenTo(listener, this);
         this.element.addClass("function");
 
         // Set up DOM and child outlets
@@ -283,7 +284,8 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         this.paramsElem.append("(");
         //let paramElems = [];
         let paramDefs = inst.model.parameters;
-        paramDefs.forEach((paramDef, i) => {
+
+        this.parameterOutlets = paramDefs.map((paramDef, i) => {
             let elem = $("<span></span>");
             let paramOutlet = new ParameterOutlet(elem, paramDef);
             //this.addChildOutlet(paramOutlet);
@@ -292,6 +294,7 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
             if (i < paramDefs.length - 1) {
                 this.paramsElem.append(", ");
             }
+            return paramOutlet;
         });
         this.paramsElem.append(")");
     }
@@ -306,7 +309,12 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         this.element.removeClass("hasControl");
     }
 
+    @messageResponse("valueWritten")
+    private valueWritten(msg: Message<AtomicType>) {
+        let obj : AutoObject = msg.source;
 
+
+    }
 
     // _act: mixin({}, Outlets.CPP.Code._act, {
 
@@ -319,6 +327,67 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
 
     // }, true)
 }
+
+export class ParameterOutlet {
+
+    private readonly element: JQuery;
+    public readonly passedValueElem: JQuery;
+
+    public constructor(element: JQuery, paramDef: CompiledParameterDefinition) {
+        this.element = element;
+
+        this.element.addClass("codeInstance");
+        this.element.addClass("declaration");
+        this.element.addClass("parameter");
+
+        this.element.append(this.passedValueElem = $("<div> </div>"));
+
+        this.element.append(paramDef.type.typeString(false, htmlDecoratedName(paramDef.name, paramDef.type), true));
+
+    }
+
+
+
+    // _act: copyMixin(Outlets.CPP.Code._act, {
+    //     initialized : function(msg){
+    //         var obj = msg.data;
+    //         var val;
+    //         if (isA(obj, ReferenceEntityInstance)){
+    //             val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
+    //         }
+    //         else{
+    //             val = obj.valueString();
+    //         }
+    //         val = Util.htmlDecoratedValue(val);
+    //         var argOutlet = this.inst.identify("idArgOutlet");
+    //         if (argOutlet && argOutlet.simOutlet === this.simOutlet){
+    //             var self = this;
+    //             this.simOutlet.valueTransferOverlay(argOutlet, this, val, 500, function(){
+    //                 // I decided that the parameter text shouldn't change. It already changes in memory display.
+    //                 // Changed my mind again. Now it does display underneath.
+    //                 self.passedValueElem.html(val);
+    //             });
+    //         }
+    //         else{
+    //             this.passedValueElem.html(val);
+    //         }
+    //     }
+    // })
+}
+
+// export class PassByValueParameterOutlet extends ParameterOutlet {
+
+//     private object: AutoObject;
+
+//     public _act!: MessageResponses;
+
+//     public constructor(element: JQuery, paramDef: CompiledParameterDefinition, object: AutoObject) {
+//         super(element, paramDef);
+//         this.object = object;
+//         listenTo(this, object);
+//     }
+
+// }
 
 var curlyOpen = "<span class=\"curly-open\">{</span>";
 var curlyClose = "<span class=\"curly-close\">}</span>";
@@ -754,50 +823,7 @@ export class ReturnInitializerOutlet extends ConstructOutlet<RuntimeDirectInitia
 
 
 
-export class ParameterOutlet {
 
-    private readonly element: JQuery;
-    private readonly passedValueElem: JQuery;
-
-    public constructor(element: JQuery, paramDef: CompiledParameterDefinition) {
-        this.element = element;
-
-        this.element.addClass("codeInstance");
-        this.element.addClass("declaration");
-        this.element.addClass("parameter");
-
-        this.element.append(this.passedValueElem = $("<div> </div>"));
-
-        this.element.append(paramDef.type.typeString(false, htmlDecoratedName(paramDef.name, paramDef.type), true));
-
-    }
-
-    // _act: copyMixin(Outlets.CPP.Code._act, {
-    //     initialized : function(msg){
-    //         var obj = msg.data;
-    //         var val;
-    //         if (isA(obj, ReferenceEntityInstance)){
-    //             val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
-    //         }
-    //         else{
-    //             val = obj.valueString();
-    //         }
-    //         val = Util.htmlDecoratedValue(val);
-    //         var argOutlet = this.inst.identify("idArgOutlet");
-    //         if (argOutlet && argOutlet.simOutlet === this.simOutlet){
-    //             var self = this;
-    //             this.simOutlet.valueTransferOverlay(argOutlet, this, val, 500, function(){
-    //                 // I decided that the parameter text shouldn't change. It already changes in memory display.
-    //                 // Changed my mind again. Now it does display underneath.
-    //                 self.passedValueElem.html(val);
-    //             });
-    //         }
-    //         else{
-    //             this.passedValueElem.html(val);
-    //         }
-    //     }
-    // })
-}
 
 
 // export class Initializer<RTInitializer_type extends RuntimeInitializer = RuntimeInitializer> extends ConstructOutlet<RTInitializer_type> {
@@ -1396,18 +1422,22 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
         this.expressionOutlet = addChildExpressionOutlet(this.element, construct.args[0], this);
     }
 
-    @messageResponse("passByReference", "unwrap")
-    private parameterPassed<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
-        this.send("valueTransferStart", {
-            runtimeId: data.arg.runtimeId,
+    @messageResponse("referenceInitialized", "unwrap")
+    private referenceInitialized(data: RuntimeReferenceDirectInitializer) {
+        this.observable.send("parameterPassed", {
+            num: (<PassByReferenceParameterEntity>data.model.target).num,
             start: this.element,
-            html: data.arg.
+            html: data.args[0].evalResult.name
         });
     }
 
-    @messageResponse("passByAtomicValue", "unwrap")
-    private passByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
-
+    @messageResponse("atomicObjectInitialized", "unwrap")
+    private atomicObjectInitialized(data: RuntimeAtomicDirectInitializer) {
+        this.observable.send("parameterPassed", {
+            num: (<PassByValueParameterEntity>data.model.target).num,
+            start: this.element,
+            html: data.args[0].evalResult.valueString()
+        });
     }
 }
 

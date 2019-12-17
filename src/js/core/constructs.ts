@@ -4,11 +4,11 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type } from "./types";
+import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
 import { CPPObject } from "./objects";
 import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
-import { MemoryFrame } from "./runtimeEnvironment";
+import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
@@ -513,6 +513,14 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         return this.stackFrame.localObjectLookup(param);
+    }
+
+    public initializeParameterObject(num: number, value: Value<AtomicType>) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(this.stackFrame);
+        assert(param.type.isAtomicType());
+        this.stackFrame.initializeLocalObject(<AutoEntity<AtomicType>>param, <Value<AtomicType>>value);
     }
 
     public bindReferenceParameter(num: number, obj: CPPObject) {
