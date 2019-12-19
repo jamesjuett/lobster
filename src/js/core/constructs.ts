@@ -4,11 +4,11 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type } from "./types";
+import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
 import { CPPObject } from "./objects";
 import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
-import { MemoryFrame } from "./runtimeEnvironment";
+import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
@@ -243,6 +243,9 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly children: {[index: string]: RuntimeConstruct} = {};
 
     public readonly parent?: RuntimeConstruct;
+
+    private static NEXT_ID = 0;
+    public readonly runtimeId: number = RuntimeConstruct.NEXT_ID++;
 
     /**
      * WARNING: The containingRuntimeFunction property may be undefined, even though it's type suggests it will always
@@ -491,6 +494,10 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         (<Mutable<this>>this).stackFrame = this.sim.memory.stack.pushFrame(this);
     }
 
+    public popStackFrame() {
+        this.sim.memory.stack.popFrame(this);
+    }
+
     /**
      * Sets the return object for this function. May only be invoked once.
      * e.g.
@@ -503,6 +510,28 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         assert(!this.returnObject);
         (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
 
+    }
+
+    public getParameterObject(num: number) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(this.stackFrame);
+        return this.stackFrame.localObjectLookup(param);
+    }
+
+    public initializeParameterObject(num: number, value: Value<AtomicType>) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(this.stackFrame);
+        assert(param.type.isAtomicType());
+        this.stackFrame.initializeLocalObject(<AutoEntity<AtomicType>>param, <Value<AtomicType>>value);
+    }
+
+    public bindReferenceParameter(num: number, obj: CPPObject) {
+        let param = this.model.parameters[num].declaredEntity;
+        assert(param instanceof LocalReferenceEntity, "Can't bind an object parameter like a reference.");
+        assert(this.stackFrame);
+        return this.stackFrame.bindLocalReference(param, obj);
     }
 
     public gainControl() {
@@ -547,6 +576,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     protected upNextImpl(): void {
         if (this.body.isDone) {
+            this.popStackFrame();
             this.startCleanup();
         }
         else {

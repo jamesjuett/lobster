@@ -772,14 +772,14 @@ export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEnt
  * object.
  * @throws Throws an exception if the return object does not exist.
  */
-export class ReturnObjectEntity extends CPPEntity<ObjectType> implements ObjectEntity<ObjectType> {
+export class ReturnObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<ObjectType> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
         let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
         if (!returnObject) {
             throw "Error: Runtime lookup performed for the return object of a function, but the return object does not currently exist.";
         }
-        return returnObject;
+        return <CPPObject<T>>returnObject;
     }
     
     public describe() {
@@ -867,7 +867,7 @@ export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements 
 };
 
 // TODO: will need to add a class for ReferenceParameterEntity
-export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class PassByValueParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
     public readonly type: T;
@@ -882,20 +882,12 @@ export class PassByValueParameterEntity<T extends ObjectType> extends CPPEntity<
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        // Note that using sim.topFunction() here is incorrect, because the called function
-        // isn't yet on the execution stack. However, the stack frame for that function is on
-        // the top of the memory stack.
-        let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
 
-        // Parameter's entity to be looked up in the top stack frame
-        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity!;
-        
-        if (!(param instanceof AutoEntity)) {
-            return assertFalse("Pass by value used with reference parameter.");
-        }
+        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        assert(pendingCalledFunction);
+        assert(pendingCalledFunction.model === this.calledFunction.definition);
 
-        let paramObj = topStackFrame.localObjectLookup(param);
-        
+        let paramObj = pendingCalledFunction.getParameterObject(this.num);
         assert(sameType(paramObj.type, this.type));
         return <AutoObject<T>>paramObj;
     }
@@ -927,19 +919,11 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
     }
 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
-        // Note that using sim.topFunction() here is incorrect, because the called function
-        // isn't yet on the execution stack. However, the stack frame for that function is on
-        // the top of the memory stack.
-        let topStackFrame = rtConstruct.sim.memory.stack.topFrame()!;
+        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        assert(pendingCalledFunction);
+        assert(pendingCalledFunction.model === this.calledFunction.definition);
 
-        // Parameter's entity to be looked up in the top stack frame
-        let param = this.calledFunction.definition!.parameters[this.num].declaredEntity!;
-        
-        if (!(param instanceof LocalReferenceEntity)) {
-            return assertFalse("Pass by reference used with non-reference parameter.");
-        }
-
-        topStackFrame.bindLocalReference(param, obj);
+        pendingCalledFunction.bindReferenceParameter(this.num, obj);
     }
     
     public describe() {

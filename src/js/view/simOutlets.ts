@@ -8,12 +8,15 @@ import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
-import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
-import { FunctionOutlet } from "./codeOutlets";
+import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
+import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
+import { RuntimeDirectInitializer } from "../core/initializers";
+import { RuntimeExpression } from "../core/expressionBase";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
+const VALUE_TRANSFER_DURATION = 500;
 
 const CPP_ANIMATIONS = true;
 
@@ -1008,7 +1011,7 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
         this.ptdArrayElem = $('<div class="ptd-array"></div>');
         this.element.append(this.ptdArrayElem);
 
-        PointerMemoryObject.instances.push(this);
+        PointerMemoryObject.instances.push(this); // TODO: memory leak
     }
 
     private updateArrow() {
@@ -1620,7 +1623,7 @@ export class StackFramesOutlet {
 
     @messageResponse("framePopped")
     private framePopped() {
-        this.popFrame;
+        this.popFrame();
     }
 
     @messageResponse("reset")
@@ -1830,7 +1833,7 @@ export abstract class RunningCodeOutlet {
     public abstract pushFunction(rtFunc: RuntimeFunction) : void;
     public abstract popFunction() : void;
 
-    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number, afterCallback: () => void) {
+    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, afterCallback?: () => void, duration: number = VALUE_TRANSFER_DURATION) {
         if (CPP_ANIMATIONS) {
             let simOff = this.element.offset();
             let fromOff = from.offset();
@@ -1851,16 +1854,12 @@ export abstract class RunningCodeOutlet {
                 top: toOff.top - simOff.top + this.element[0].scrollTop,
                 width: toWidth
             }, duration, function () {
-                if(afterCallback) {
-                    afterCallback();
-                }
+                afterCallback && afterCallback();
                 $(this).remove();
             });
         }
         else{
-            if (afterCallback) {
-                afterCallback();
-            }
+            afterCallback && afterCallback();
         }
     }
 
@@ -1910,6 +1909,14 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
     private frameElems: JQuery[];
     private functionOutlets: FunctionOutlet[] = [];
+    
+    public _act!: MessageResponses;
+
+    /**
+     * Maps from runtime ID of a RuntimeFunction to the outlet
+     * that represents the call to that function.
+     */
+    private callOutlets: {[index: number]: FunctionCallOutlet | undefined } = {};
 
     public constructor(element: JQuery) {
         super(element);
@@ -1936,7 +1943,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.stackFramesElem.prepend(frame);
 
         // Create outlet using the element
-        let funcOutlet = new FunctionOutlet(functionElem, rtFunc);
+        let funcOutlet = new FunctionOutlet(functionElem, rtFunc, this);
         this.functionOutlets.push(funcOutlet);
 
         // Animate!
@@ -1968,7 +1975,10 @@ export class CodeStackOutlet extends RunningCodeOutlet {
             });
         }
 
-        this.functionOutlets.pop()!.removeInstance();
+        let funcOutlet = this.functionOutlets.pop()!;
+        funcOutlet.removeInstance(); // TODO: may not be necessary since the function should remove itself when popped?
+        stopListeningTo(this, funcOutlet);
+
     }
 
     public refreshSimulation() {
@@ -1976,14 +1986,14 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.stackFramesElem.children().remove();
         this.functionOutlets.forEach(functionOutlet => functionOutlet.removeInstance());
         this.functionOutlets = [];
+        this.callOutlets = {};
         
         if (!this.sim || this.sim.execStack.length === 0) {
             return;
         }
 
-        this.sim.execStack
-            .filter(isInstance(RuntimeFunction))
-            .forEach(rtFunc => this.pushFunction(rtFunc));
+        this.sim.memory.stack.frames
+            .forEach(frame => this.pushFunction(frame.func));
 
         var last = this.sim.execStack[this.sim.execStack.length - 1];
         // TODO: find outlet for last and send it an "upNext"
@@ -2004,6 +2014,59 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     //     //}, 1000);
     // }
 
+    // @messageResponse("parameterPassedByReference", "unwrap")
+    // protected parameterPassedByReference<T extends ObjectType>(data: {target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">}) {
+    //     let {target, arg} = data;
+    //     console.log("parameter passed by reference");
+    //     console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+    //     console.log(`parameter number: ${target.num}`);
+    //     console.log(`arg construct ID: ${arg.model.constructId}`);
+    //     console.log(`arg eval result name: ${arg.evalResult.name}, address: ${arg.evalResult.address}`);
+    // }
+
+    // @messageResponse("parameterPassedByAtomicValue", "unwrap")
+    // protected parameterPassedByAtomicValue<T extends AtomicType>(data: {target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">}) {
+    //     let {target, arg} = data;
+    //     console.log("parameter passed by value");
+    //     console.log(`target function entity ID: ${target.calledFunction.entityId}, name: ${target.calledFunction.name}`);
+    //     console.log(`parameter number: ${target.num}`);
+    //     console.log(`arg construct ID: ${arg.model.constructId}`);
+    //     console.log(`arg eval result value: ${arg.evalResult.rawValue}, type: ${arg.evalResult.type}`);
+    // }
+    
+    // @messageResponse("returnPassed", "unwrap")
+    // protected returnPassed(rt: RuntimeDirectInitializer) {
+    //     console.log("return passed");
+    // }
+
+    @messageResponse("childOutletAdded", "unwrap")
+    protected childOutletAdded(data: {parent: ConstructOutlet, child: ConstructOutlet}) {
+        listenTo(this, data.child);
+    }
+
+    @messageResponse("parameterPassed", "unwrap")
+    protected valueTransferStart(data: {num: number, start: JQuery, html: string}) {
+        let {num, start, html} = data;
+        let paramOutlet = this.functionOutlets[this.functionOutlets.length - 1].parameterOutlets[num]
+        let end = paramOutlet.passedValueElem;
+        this.valueTransferOverlay(start, end, html, () => paramOutlet.setPassedContents(html));
+    }
+    
+    @messageResponse("registerCallOutlet", "unwrap")
+    protected functionCalled(data: {outlet: FunctionCallOutlet, func: RuntimeFunction}) {
+        this.callOutlets[data.func.runtimeId] = data.outlet;
+    }
+
+    @messageResponse("returnPassed", "unwrap")
+    protected returnPassed(data: {func: RuntimeFunction, start: JQuery, html: string, result: any}) {
+        let {func, start, html, result} = data;
+        let callOutlet = this.callOutlets[func.runtimeId];
+        if (callOutlet?.returnOutlet) {
+            let end = callOutlet.returnOutlet.returnDestinationElement;
+            this.valueTransferOverlay(start, end, html, () => callOutlet?.returnOutlet?.setReturnedResult(result));
+            delete this.callOutlets[func.runtimeId];
+        }
+    }
 }
 
 
