@@ -59,9 +59,9 @@ export function htmlDecoratedName(name: string, type?: Type) {
     }
 };
 
-// export function htmlDecoratedValue(value){
-//     return '<span class="code-literal">' + value + '</span>';
-// };
+export function htmlDecoratedValue(value: string){
+    return '<span class="code-literal">' + value + '</span>';
+};
 
 
 var escapes = ["\\\"", "\\'", "\\?", "\\\\", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\0"];

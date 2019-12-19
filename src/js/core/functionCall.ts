@@ -228,7 +228,6 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
             this.containingRuntimeFunction.gainControl();
-            this.observable.send("called");
             this.startCleanup();
         }
     }

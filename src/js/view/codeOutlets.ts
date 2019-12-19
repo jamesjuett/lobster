@@ -1,14 +1,14 @@
 import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction } from "../core/constructs";
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { SimulationOutlet } from "./simOutlets";
-import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert } from "../util/util";
+import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
-import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
+import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression } from "../core/expressions";
 import { Bool, ObjectType, AtomicType } from "../core/types";
@@ -21,7 +21,7 @@ const RESET_FADE_DURATION = 500;
 
 export const CODE_ANIMATIONS = true;
 
-type ConstructOutletMessages = "childOutletAdded" | "parameterPassed";
+type ConstructOutletMessages = "childOutletAdded" | "parameterPassed" | "registerCallOutlet" | "returnPassed";
 
 export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct = RuntimeConstruct> {
 
@@ -346,33 +346,9 @@ export class ParameterOutlet {
 
     }
 
-
-
-    // _act: copyMixin(Outlets.CPP.Code._act, {
-    //     initialized : function(msg){
-    //         var obj = msg.data;
-    //         var val;
-    //         if (isA(obj, ReferenceEntityInstance)){
-    //             val = "@"+obj.refersTo.nameString(); // TODO make a different animation for reference binding
-    //         }
-    //         else{
-    //             val = obj.valueString();
-    //         }
-    //         val = Util.htmlDecoratedValue(val);
-    //         var argOutlet = this.inst.identify("idArgOutlet");
-    //         if (argOutlet && argOutlet.simOutlet === this.simOutlet){
-    //             var self = this;
-    //             this.simOutlet.valueTransferOverlay(argOutlet, this, val, 500, function(){
-    //                 // I decided that the parameter text shouldn't change. It already changes in memory display.
-    //                 // Changed my mind again. Now it does display underneath.
-    //                 self.passedValueElem.html(val);
-    //             });
-    //         }
-    //         else{
-    //             this.passedValueElem.html(val);
-    //         }
-    //     }
-    // })
+    public setPassedContents(html: string) {
+        this.passedValueElem.html(html);
+    }
 }
 
 // export class PassByValueParameterOutlet extends ParameterOutlet {
@@ -765,8 +741,7 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
 export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatement> {
 
-    public readonly expression?: ExpressionOutlet;
-    public readonly returtnInitializer?: ReturnInitializerOutlet;
+    public readonly returnInitializer?: ReturnInitializerOutlet;
 
     public constructor(element: JQuery, construct: CompiledReturnStatement, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -775,8 +750,8 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
 
         if (construct.returnInitializer) {
             element.append(" ");
-            this.expression = addChildExpressionOutlet(element, construct.returnInitializer.args[0], this);
-            this.returtnInitializer = new ReturnInitializerOutlet(element, construct.returnInitializer, this);
+            this.returnInitializer = new ReturnInitializerOutlet(
+                $("<span></span>").appendTo(element), construct.returnInitializer, this);
         }
 
         element.append(";");
@@ -802,8 +777,34 @@ export class ReturnStatementOutlet extends StatementOutlet<RuntimeReturnStatemen
 
 export class ReturnInitializerOutlet extends ConstructOutlet<RuntimeDirectInitializer> {
     
+    public readonly expression: ExpressionOutlet;
+
     public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
+        this.expression = addChildExpressionOutlet(element, construct.args[0], this);
+    }
+
+    
+    @messageResponse("referenceInitialized", "unwrap")
+    private referenceInitialized(data: RuntimeReferenceDirectInitializer) {
+        let obj = data.args[0].evalResult;
+        this.observable.send("returnPassed", {
+            func: data.containingRuntimeFunction,
+            start: this.element,
+            html: htmlDecoratedName(obj.name ?? `@${obj.address}`),
+            result: obj
+        });
+    }
+
+    @messageResponse("atomicObjectInitialized", "unwrap")
+    private atomicObjectInitialized(data: RuntimeAtomicDirectInitializer) {
+        let value = data.args[0].evalResult;
+        this.observable.send("returnPassed", {
+            func: data.containingRuntimeFunction,
+            start: this.element,
+            html: htmlDecoratedValue(value.valueString()),
+            result: value
+        });
     }
 }
 
@@ -1076,8 +1077,12 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
     }
 
-    private setEvalResult(result: RT["evalResult"], suppressAnimation: boolean = false) {
+    protected setEvalResult(result: RT["evalResult"], suppressAnimation: boolean = false) {
         
+        if (this.showingEvalResult) {
+            return;
+        }
+
         (<Mutable<this>>this).showingEvalResult = true;
 
         if (!this.animateEvaluation) {
@@ -1349,10 +1354,12 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 
     public readonly operandOutlet: ExpressionOutlet;
     public readonly callOutlet: FunctionCallOutlet;
+    public readonly returnDestinationElement: JQuery;
     
     public constructor(element: JQuery, construct: CompiledFunctionCallExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("functionCall");
+        this.returnDestinationElement = this.exprElem;
 
         // if (this.construct.funcCall.func.isVirtual()){
         //     this.element.addClass("virtual");
@@ -1366,12 +1373,16 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 
         this.exprElem.append("(");
 
-        this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this);
+        this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this);
 
         this.exprElem.append(")");
         // if (this.construct.funcCall.func.isVirtual()){
         //     this.exprElem.append("<sub>v</sub>");
         // }
+    }
+
+    public setReturnedResult(result: RuntimeFunctionCallExpression["evalResult"], suppressAnimation: boolean = false) {
+        this.setEvalResult(result);
     }
 
 //     _act: mixin({}, Outlets.CPP.Expression._act, {
@@ -1398,9 +1409,11 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
 
     public readonly argInitializerOutlets: readonly ArgumentInitializerOutlet[];
+    public readonly returnOutlet?: FunctionCallExpressionOutlet;
     
-    public constructor(element: JQuery, construct: CompiledFunctionCall, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledFunctionCall, parent: ConstructOutlet, returnOutlet?: FunctionCallExpressionOutlet) {
         super(element, construct, parent);
+        this.returnOutlet = returnOutlet;
 
         this.argInitializerOutlets = construct.argInitializers.map((argInit, i) => {
             if (i > 0) {
@@ -1408,6 +1421,21 @@ export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
             }
             return new ArgumentInitializerOutlet($("<span></span>").appendTo(this.element), argInit, this);
         });
+    }
+
+    protected instanceSet(inst: RuntimeFunctionCall) {
+        // Only need to register if it's active. If it's not active it
+        // either hasn't been called yet and will be registered when it is,
+        // or it's already returned and been popped off the stack so it
+        // doesn't need to be registered.
+        if (inst.isActive) {
+            this.registerCallOutlet(inst.calledFunction);
+        }
+    }
+
+    @messageResponse("called", "unwrap")
+    private registerCallOutlet(data: RuntimeFunction) {
+        this.observable.send("registerCallOutlet", {outlet: this, func: data});
     }
 }
 
@@ -1424,10 +1452,11 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
 
     @messageResponse("referenceInitialized", "unwrap")
     private referenceInitialized(data: RuntimeReferenceDirectInitializer) {
+        let obj = data.args[0].evalResult;
         this.observable.send("parameterPassed", {
             num: (<PassByReferenceParameterEntity>data.model.target).num,
             start: this.element,
-            html: data.args[0].evalResult.name
+            html: htmlDecoratedName(obj.name ?? `@${obj.address}`)
         });
     }
 
@@ -1436,7 +1465,7 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
         this.observable.send("parameterPassed", {
             num: (<PassByValueParameterEntity>data.model.target).num,
             start: this.element,
-            html: data.args[0].evalResult.valueString()
+            html: htmlDecoratedValue(data.args[0].evalResult.valueString())
         });
     }
 }
