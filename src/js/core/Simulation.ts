@@ -4,8 +4,10 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char } from "./types";
-import { Initializer } from "./initializers";
+import { Int, PointerType, Char, ObjectType, AtomicType } from "./types";
+import { Initializer, RuntimeDirectInitializer } from "./initializers";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
+import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 
 
 export enum SimulationEvent {
@@ -29,6 +31,9 @@ export type SimulationMessages =
     "afterStepForward" |
     "afterFullStep" |
     "atEnded" |
+    "parameterPassedByReference" |
+    "parameterPassedByAtomicValue" |
+    "returnPassed" |
     "cout" |
     "eventOccurred";
 
@@ -43,6 +48,8 @@ export class Simulation {
 
     private readonly _execStack: RuntimeConstruct[];
     public readonly execStack: readonly RuntimeConstruct[];
+
+    public readonly pendingCalledFunction?: RuntimeFunction;
 
     public readonly random = new CPPRandom();
 
@@ -110,6 +117,8 @@ export class Simulation {
     public reset() {
         this.memory.reset();
         this._execStack.length = 0;
+
+        delete (<Mutable<this>>this).pendingCalledFunction;
 
         this.pendingNews.length = 0;
         this.leakCheckIndex = 0;
@@ -200,6 +209,10 @@ export class Simulation {
                 return runtimeConstruct;
             }
         }
+    }
+
+    public setPendingCalledFunction(rtFunc: RuntimeFunction) {
+        (<Mutable<this>>this).pendingCalledFunction = rtFunc;
     }
 
     private allocateStringLiterals() {
@@ -444,6 +457,18 @@ export class Simulation {
     //     // Start timeout
     //     this.startRunThread(func);
     // },
+
+    public parameterPassedByReference<T extends ObjectType>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">) {
+        this.observable.send("parameterPassedByReference", {target: target, arg: arg});
+    }
+
+    public parameterPassedByAtomicValue<T extends AtomicType>(target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">) {
+        this.observable.send("parameterPassedByAtomicValue", {target: target, arg: arg});
+    }
+
+    public returnPassed(rt: RuntimeDirectInitializer) {
+        this.observable.send("returnPassed", rt);
+    }
 
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
