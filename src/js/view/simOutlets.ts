@@ -9,7 +9,7 @@ import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
-import { FunctionOutlet, ConstructOutlet } from "./codeOutlets";
+import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
@@ -1011,7 +1011,7 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
         this.ptdArrayElem = $('<div class="ptd-array"></div>');
         this.element.append(this.ptdArrayElem);
 
-        PointerMemoryObject.instances.push(this);
+        PointerMemoryObject.instances.push(this); // TODO: memory leak
     }
 
     private updateArrow() {
@@ -1623,7 +1623,7 @@ export class StackFramesOutlet {
 
     @messageResponse("framePopped")
     private framePopped() {
-        this.popFrame;
+        this.popFrame();
     }
 
     @messageResponse("reset")
@@ -1833,7 +1833,7 @@ export abstract class RunningCodeOutlet {
     public abstract pushFunction(rtFunc: RuntimeFunction) : void;
     public abstract popFunction() : void;
 
-    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, duration: number = VALUE_TRANSFER_DURATION, afterCallback?: () => void) {
+    public valueTransferOverlay(from: JQuery, to: JQuery, html: string, afterCallback?: () => void, duration: number = VALUE_TRANSFER_DURATION) {
         if (CPP_ANIMATIONS) {
             let simOff = this.element.offset();
             let fromOff = from.offset();
@@ -1912,6 +1912,12 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     
     public _act!: MessageResponses;
 
+    /**
+     * Maps from runtime ID of a RuntimeFunction to the outlet
+     * that represents the call to that function.
+     */
+    private callOutlets: {[index: number]: FunctionCallOutlet | undefined } = {};
+
     public constructor(element: JQuery) {
         super(element);
 
@@ -1980,6 +1986,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.stackFramesElem.children().remove();
         this.functionOutlets.forEach(functionOutlet => functionOutlet.removeInstance());
         this.functionOutlets = [];
+        this.callOutlets = {};
         
         if (!this.sim || this.sim.execStack.length === 0) {
             return;
@@ -2040,8 +2047,25 @@ export class CodeStackOutlet extends RunningCodeOutlet {
     @messageResponse("parameterPassed", "unwrap")
     protected valueTransferStart(data: {num: number, start: JQuery, html: string}) {
         let {num, start, html} = data;
-        let end = this.functionOutlets[this.functionOutlets.length - 1].parameterOutlets[num].passedValueElem;
-        this.valueTransferOverlay(start, end, html);
+        let paramOutlet = this.functionOutlets[this.functionOutlets.length - 1].parameterOutlets[num]
+        let end = paramOutlet.passedValueElem;
+        this.valueTransferOverlay(start, end, html, () => paramOutlet.setPassedContents(html));
+    }
+    
+    @messageResponse("registerCallOutlet", "unwrap")
+    protected functionCalled(data: {outlet: FunctionCallOutlet, func: RuntimeFunction}) {
+        this.callOutlets[data.func.runtimeId] = data.outlet;
+    }
+
+    @messageResponse("returnPassed", "unwrap")
+    protected returnPassed(data: {func: RuntimeFunction, start: JQuery, html: string, result: any}) {
+        let {func, start, html, result} = data;
+        let callOutlet = this.callOutlets[func.runtimeId];
+        if (callOutlet?.returnOutlet) {
+            let end = callOutlet.returnOutlet.returnDestinationElement;
+            this.valueTransferOverlay(start, end, html, () => callOutlet?.returnOutlet?.setReturnedResult(result));
+            delete this.callOutlets[func.runtimeId];
+        }
     }
 }
 

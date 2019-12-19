@@ -494,6 +494,10 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
         (<Mutable<this>>this).stackFrame = this.sim.memory.stack.pushFrame(this);
     }
 
+    public popStackFrame() {
+        this.sim.memory.stack.popFrame(this);
+    }
+
     /**
      * Sets the return object for this function. May only be invoked once.
      * e.g.
@@ -572,6 +576,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     protected upNextImpl(): void {
         if (this.body.isDone) {
+            this.popStackFrame();
             this.startCleanup();
         }
         else {
