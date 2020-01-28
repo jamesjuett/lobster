@@ -3528,11 +3528,8 @@ export interface BoolLiteralASTNode extends ASTNode {
 
 export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression {
     
-
     public readonly type: T;
     public readonly valueCategory = "prvalue";
-
-
     
     public readonly value: Value<T>;
 
@@ -3542,8 +3539,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
     // var conv = literalJSParse[this.ast.type];
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-
-    constructor(context: ExpressionContext, type: T, value: RawValueType) {
+    public constructor(context: ExpressionContext, type: T, value: RawValueType) {
         super(context);
 
         this.type = type;
@@ -3609,6 +3605,64 @@ export interface StringLiteralASTNode extends ASTNode {
     readonly construct_type: "string_literal";
     readonly value: string;
 }
+
+export class StringLiteralExpression extends Expression {
+    
+    public readonly type: BoundedArrayType<Char>;
+    public readonly valueCategory = "lvalue";
+
+    public readonly str: string;
+    // create from ast code:
+    // TODO: are there some literal types without conversion functions? There shouldn't be...
+
+    // var conv = literalJSParse[this.ast.type];
+    // var val = (conv ? conv(this.ast.value) : this.ast.value);
+
+    public constructor(context: ExpressionContext, contents: string) {
+        super(context);
+        this.str = contents;
+        this.type = new BoundedArrayType(Char.CHAR, contents.length);
+    }
+    
+    public static createFromAST(ast: StringLiteralASTNode, context: ExpressionContext) {
+        return new StringLiteralExpression(context, ast.value);
+    }
+
+    public createRuntimeExpression(this: CompiledStringLiteralExpression, parent: RuntimeConstruct) : RuntimeStringLiteralExpression;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledStringLiteralExpression, parent: RuntimeConstruct) : RuntimeStringLiteralExpression {
+        return new RuntimeStringLiteralExpression(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledStringLiteralExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new StringLiteralExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledStringLiteralExpression extends StringLiteralExpression, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+}
+
+export class RuntimeStringLiteralExpression extends RuntimeExpression<BoundedArrayType<Char>, "lvalue", CompiledStringLiteralExpression> {
+
+    public constructor (model: CompiledStringLiteralExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+
+	protected upNextImpl() {
+        this.setEvalResult(this.sim.memory.getStringLiteral(this.model.str)!);
+        this.startCleanup();
+	}
+	
+	protected stepForwardImpl() {
+        // Do nothing
+	}
+}
+
 
 // export class StringLiteral extends Expression {
 //     public valueCategory: string;

@@ -351,7 +351,7 @@ export abstract class DirectInitializer extends Initializer {
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: "direct" | "copy") : ClassDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: "direct" | "copy") : DirectInitializer {
-        if ((<UnboundReferenceEntity>target).bindTo) {
+        if (!!(<UnboundReferenceEntity>target).bindTo) { // check for presence of bindTo to detect reference entities
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
         else if (target.type instanceof AtomicType) {
@@ -589,92 +589,92 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 }
 
 
-// /**
-//  * Note: Only allowed use is to initialize a char array from a string literal, but this can readily be
-//  * created in the course of compiling a program if the code attempts to directly initialize an array. That's
-//  * desirable, because this class will give the appropriate error messages if it's anything other than a
-//  * char array initialized from a string literal.
-//  */
-// export class ArrayDirectInitializer extends DirectInitializer {
+/**
+ * Note: Only allowed use is to initialize a char array from a string literal, but this can readily be
+ * created in the course of compiling a program if the code attempts to directly initialize an array. That's
+ * desirable, because this class will give the appropriate error messages if it's anything other than a
+ * char array initialized from a string literal.
+ */
+export class ArrayDirectInitializer extends DirectInitializer {
 
-//     public readonly target: ObjectEntity<BoundedArrayType>;
-//     public readonly args: readonly Expression[];
-//     public readonly arg?: StringLiteral;
+    public readonly target: ObjectEntity<BoundedArrayType>;
+    public readonly args: readonly Expression[];
+    public readonly arg?: StringLiteral;
 
-//     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
-//         super(context);
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
+        super(context);
         
-//         this.target = target;
-//         let targetType = target.type;
+        this.target = target;
+        let targetType = target.type;
 
-//         // TS type system ensures target is array type, need to check element type and that args are a single string literal
-//         if (targetType.elemType instanceof Char && args.length === 1 && args[0] instanceof StringLiteral) {
-//             let arg = this.arg = <StringLiteral>args[0];
+        // TS type system ensures target is array type, need to check element type and that args are a single string literal
+        if (targetType.elemType instanceof Char && args.length === 1 && args[0] instanceof StringLiteral) {
+            let arg = this.arg = <StringLiteral>args[0];
             
-//             if (arg.type.length > targetType.length){
-//                 this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, targetType.length));
-//             }
-//         }
-//         else {
-//             this.addNote(CPPError.declaration.init.array_string_literal(this, targetType));
-//         }
+            if (arg.type.length > targetType.length){
+                this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, targetType.length));
+            }
+        }
+        else {
+            this.addNote(CPPError.declaration.init.array_string_literal(this, targetType));
+        }
 
-//         this.args = args;
-//         args.forEach((a) => {this.attach(a);});
+        this.args = args;
+        args.forEach((a) => {this.attach(a);});
         
-//     }
+    }
 
-//     public createRuntimeInitializer(parent: RuntimeConstruct) {
-//         return new RuntimeArrayDirectInitializer(this, parent);
-//     }
+    public createRuntimeInitializer(parent: RuntimeConstruct) {
+        return new RuntimeArrayDirectInitializer(this, parent);
+    }
 
-//     // TODO; change explain everywhere to be separate between compile time and runtime constructs
-//     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
-//         let rhsDesc = this.args[0].describeEvalResult(0);
-//         return {message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!"};
-//     }
-// }
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalResult(0);
+        return {message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!"};
+    }
+}
 
-// export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, SuccessfullyCompiled {
-//     readonly target: ObjectEntity<BoundedArrayType<Char>>;
-//     readonly args: CompiledExpression[];
-//     readonly arg: CompiledStringLiteral;
-// }
+export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, SuccessfullyCompiled {
+    readonly target: ObjectEntity<BoundedArrayType<Char>>;
+    readonly args: CompiledExpression[];
+    readonly arg: CompiledStringLiteral;
+}
 
-// export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<BoundedArrayType<Char>, CompiledArrayDirectInitializer> {
+export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<BoundedArrayType<Char>, CompiledArrayDirectInitializer> {
 
-//     public readonly arg: RuntimeStringLiteral;
+    public readonly arg: RuntimeStringLiteral;
 
-//     private alreadyPushed = false;
+    private alreadyPushed = false;
 
-//     public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
-//         super(model, parent);
-//         this.arg = this.model.arg.createRuntimeExpression(this);
-//     }
+    public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.arg = this.model.arg.createRuntimeExpression(this);
+    }
 
-//     protected upNextImpl() {
-//         if (!this.alreadyPushed) {
-//             this.sim.push(this.arg);
-//             this.alreadyPushed = true;
-//         }
-//     }
+    protected upNextImpl() {
+        if (!this.alreadyPushed) {
+            this.sim.push(this.arg);
+            this.alreadyPushed = true;
+        }
+    }
 
-//     public stepForwardImpl() {
+    public stepForwardImpl() {
         
-//         lettarget = this.model.target.runtimeLookup(this);
-//         var charsToWrite = this.arg.evalResult.rawValue();
+        lettarget = this.model.target.runtimeLookup(this);
+        var charsToWrite = this.arg.evalResult.rawValue();
 
-//         // pad with zeros
-//         while (charsToWrite.length < target.type.length) {
-//             charsToWrite.push(Char.NULL_CHAR);
-//         }
+        // pad with zeros
+        while (charsToWrite.length < target.type.length) {
+            charsToWrite.push(Char.NULL_CHAR);
+        }
 
-//         target.writeValue(charsToWrite);
-//         this.observable.send("initialized", target);
-//         this.startCleaningUp();
-//     }
-// }
+        target.writeValue(charsToWrite);
+        this.observable.send("initialized", target);
+        this.startCleaningUp();
+    }
+}
 
 
 // export class ClassDirectInitializer extends DirectInitializer {
