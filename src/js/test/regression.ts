@@ -157,6 +157,21 @@ $(() => {
         );
     });
 
+        // ---------- Basic String Literal Test ----------
+
+        new SingleTranslationUnitTest(
+          "Basic String Literal Test",
+`int main() {
+  char str[4] = "hey";
+  const char *str2 = "hey";
+  char const *str3 = "hey";
+}`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
     // ---------- Basic Selection Test ----------
 
     new SingleTranslationUnitTest(
