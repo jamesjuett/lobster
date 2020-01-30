@@ -676,7 +676,7 @@ export class TranslationUnit {
         });
     }
 
-    public addStringLiteral(literal: StringLiteralExpression) {
+    public registerStringLiteral(literal: StringLiteralExpression) {
         asMutable(this.stringLiterals).push(literal);
     }
 

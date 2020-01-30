@@ -1,4 +1,4 @@
-import { ExpressionASTNode } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression } from "./expressions";
 
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -93,6 +93,10 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     public isLvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"lvalue"> {
         return this.valueCategory === "lvalue";
+    }
+
+    public isStringLiteralExpression() : this is StringLiteralExpression {
+        return false;
     }
 
     // public isSuccessfullyCompiled() : this is Compiled<this> {
