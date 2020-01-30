@@ -1,8 +1,8 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
-import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType } from "./types";
+import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -10,6 +10,7 @@ import { CPPObject } from "./objects";
 import { standardConversion } from "./standardConversions";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet } from "../view/codeOutlets";
+import { Value } from "./runtimeEnvironment";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -52,7 +53,7 @@ export abstract class DefaultInitializer extends Initializer {
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
-        if ((<UnboundReferenceEntity>target).bindTo) {
+        if (!!(<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);
         }
         else if (target.type instanceof AtomicType) {
@@ -357,9 +358,9 @@ export abstract class DirectInitializer extends Initializer {
         else if (target.type instanceof AtomicType) {
             return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args, kind);
         }
-        // else if (target.type instanceof BoundedArrayType) {
-        //     return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args, kind);
-        // }
+        else if (target.type instanceof BoundedArrayType) {
+            return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args, kind);
+        }
         // else if (target.type instanceof ClassType) {
         //     return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args, kind);
         // }
@@ -599,33 +600,40 @@ export class ArrayDirectInitializer extends DirectInitializer {
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly args: readonly Expression[];
-    public readonly arg?: StringLiteral;
+    public readonly arg?: StringLiteralExpression;
 
-    public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) {
-        super(context);
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: "direct" | "copy") {
+        super(context, kind);
         
         this.target = target;
+        this.args = args;
+        args.forEach((a) => {this.attach(a);});
+        
+        // TS type system ensures target is array type, but need to check element type and that args are a single string literal
         let targetType = target.type;
-
-        // TS type system ensures target is array type, need to check element type and that args are a single string literal
-        if (targetType.elemType instanceof Char && args.length === 1 && args[0] instanceof StringLiteral) {
-            let arg = this.arg = <StringLiteral>args[0];
+        let firstArg = args[0];
+        if (targetType.elemType.isType(Char) && args.length === 1 && firstArg.isStringLiteralExpression()) {
+            this.arg = firstArg;
             
-            if (arg.type.length > targetType.length){
-                this.addNote(CPPError.declaration.init.stringLiteralLength(this, arg.type.length, targetType.length));
+            if (firstArg.type.length > targetType.length){
+                this.addNote(CPPError.declaration.init.stringLiteralLength(this, firstArg.type.length, targetType.length));
             }
         }
         else {
             this.addNote(CPPError.declaration.init.array_string_literal(this, targetType));
         }
-
-        this.args = args;
-        args.forEach((a) => {this.attach(a);});
-        
     }
 
-    public createRuntimeInitializer(parent: RuntimeConstruct) {
+    public createRuntimeInitializer(this: CompiledArrayDirectInitializer, parent: RuntimeConstruct) : RuntimeArrayDirectInitializer;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer(this: any, parent: RuntimeConstruct) : RuntimeArrayDirectInitializer {
         return new RuntimeArrayDirectInitializer(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDirectInitializerOutlet {
+        return this.kind === "direct" ?
+            new AtomicDirectInitializerOutlet(element, this, parent) :
+            new AtomicCopyInitializerOutlet(element, this, parent);
     }
 
     // TODO; change explain everywhere to be separate between compile time and runtime constructs
@@ -637,14 +645,15 @@ export class ArrayDirectInitializer extends DirectInitializer {
 }
 
 export interface CompiledArrayDirectInitializer extends ArrayDirectInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<BoundedArrayType<Char>>;
-    readonly args: CompiledExpression[];
-    readonly arg: CompiledStringLiteral;
+    readonly args: readonly CompiledExpression[];
+    readonly arg: CompiledStringLiteralExpression;
 }
 
 export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<BoundedArrayType<Char>, CompiledArrayDirectInitializer> {
 
-    public readonly arg: RuntimeStringLiteral;
+    public readonly arg: RuntimeStringLiteralExpression;
 
     private alreadyPushed = false;
 
@@ -662,7 +671,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
     public stepForwardImpl() {
         
-        lettarget = this.model.target.runtimeLookup(this);
+        let target = this.model.target.runtimeLookup(this);
         var charsToWrite = this.arg.evalResult.rawValue();
 
         // pad with zeros
@@ -670,9 +679,15 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
             charsToWrite.push(Char.NULL_CHAR);
         }
 
-        target.writeValue(charsToWrite);
+        let arrayElemSubobjects = target.getArrayElemSubobjects();
+
+        // should be true if compilation was successful
+        assert(charsToWrite.length == arrayElemSubobjects.length);
+
+        charsToWrite.forEach((c, i) => arrayElemSubobjects[i].writeValue(new Value(c, Char.CHAR)));
+
         this.observable.send("initialized", target);
-        this.startCleaningUp();
+        this.startCleanup();
     }
 }
 

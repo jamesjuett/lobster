@@ -11,7 +11,7 @@ import { standardConversion, convertToPRValue, usualArithmeticConversions, isCon
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
 import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet } from "../view/codeOutlets";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -123,7 +123,7 @@ const ExpressionConstructsMap = {
     "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "this pointer").setAST(ast),
 
     "numeric_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteral.createFromAST(ast, context),
-    "string_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "string literals").setAST(ast),
+    "string_literal" : (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => Parentheses.createFromAST(ast, context)
 }
 
@@ -3621,7 +3621,15 @@ export class StringLiteralExpression extends Expression {
     public constructor(context: ExpressionContext, contents: string) {
         super(context);
         this.str = contents;
-        this.type = new BoundedArrayType(Char.CHAR, contents.length);
+
+        // type is const char
+        this.type = new BoundedArrayType(new Char(true), contents.length);
+
+        this.context.translationUnit.registerStringLiteral(this);
+    }
+
+    public isStringLiteralExpression() {
+        return true;
     }
     
     public static createFromAST(ast: StringLiteralASTNode, context: ExpressionContext) {
