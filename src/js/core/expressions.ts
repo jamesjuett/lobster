@@ -3618,12 +3618,12 @@ export class StringLiteralExpression extends Expression {
     // var conv = literalJSParse[this.ast.type];
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-    public constructor(context: ExpressionContext, contents: string) {
+    public constructor(context: ExpressionContext, str: string) {
         super(context);
-        this.str = contents;
+        this.str = str;
 
         // type is const char
-        this.type = new BoundedArrayType(new Char(true), contents.length);
+        this.type = new BoundedArrayType(new Char(true), str.length + 1);
 
         this.context.translationUnit.registerStringLiteral(this);
     }
