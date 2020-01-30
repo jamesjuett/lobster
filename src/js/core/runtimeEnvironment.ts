@@ -620,6 +620,10 @@ export class MemoryFrame {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
+    public initializeLocalObject<T extends AtomicType>(entity: AutoEntity<T>, newValue: Value<T>) {
+        this.localObjectLookup(entity).writeValue(newValue);
+    }
+
     public localReferenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
         return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }

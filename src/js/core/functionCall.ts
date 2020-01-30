@@ -17,7 +17,6 @@ import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer 
 import { Mutable } from "../util/util";
 export class FunctionCall extends PotentialFullExpression {
 
-    
     public readonly func: FunctionEntity;
     public readonly args: readonly Expression[];
     public readonly receiver?: ObjectEntity<ClassType>;
@@ -229,7 +228,6 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
             this.containingRuntimeFunction.gainControl();
-            this.observable.send("called");
             this.startCleanup();
         }
     }
@@ -240,6 +238,7 @@ export class RuntimeFunctionCall<T extends PotentialReturnType = PotentialReturn
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
 
             this.calledFunction.pushStackFrame();
+            this.sim.setPendingCalledFunction(this.calledFunction);
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_ARGUMENTS;
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
