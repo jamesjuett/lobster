@@ -189,7 +189,7 @@ class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     }
     
     public operate(fromEvalResult: VCResultTypes<FromType, "prvalue">) {
-        return <VCResultTypes<ToType, "prvalue">>new Value(fromEvalResult.rawValue, this.type); // Cast technically necessary here
+        return <VCResultTypes<ToType, "prvalue">>new Value(fromEvalResult.rawValue, this.type, fromEvalResult.isValid); // Cast technically necessary here
     }
 }
 
@@ -211,11 +211,20 @@ export class PointerConversion<FromType extends PointerType, ToType extends Poin
 
 }
 
-export class PointerToBooleanConversion extends NoOpTypeConversion<PointerType, Bool> {
-    public constructor(from: TypedExpression<PointerType, "prvalue">) {
+class ToBooleanConversionBase<T extends AtomicType> extends TypeConversion<T, Bool> {
+
+    public constructor(from: TypedExpression<T, "prvalue">) {
         super(from, Bool.BOOL);
     }
+
+    public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
+        return new Value(fromEvalResult.rawValue === 0 ? 0 : 1, Bool.BOOL, fromEvalResult.isValid);
+    }
 }
+
+export class PointerToBooleanConversion<T extends PointerType> extends ToBooleanConversionBase<T> { }
+export class FloatingToBooleanConversion<T extends FloatingPointType> extends ToBooleanConversionBase<T> { }
+export class IntegralToBooleanConversion<T extends IntegralType> extends ToBooleanConversionBase<T> { }
 
 export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
 
@@ -245,9 +254,9 @@ export class FloatingToIntegralConversion<T extends FloatingPointType> extends T
 
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         if (this.type.isType(Bool)) {
-            return new Value(fromEvalResult.rawValue === 0 ? 0 : 1, Int.INT);
+            return new Value(fromEvalResult.rawValue === 0 ? 0 : 1, Int.INT, fromEvalResult.isValid);
         }
-        return new Value(Math.trunc(fromEvalResult.rawValue), Int.INT);
+        return new Value(Math.trunc(fromEvalResult.rawValue), Int.INT, fromEvalResult.isValid);
     }
 
 }
@@ -285,7 +294,7 @@ export class QualificationConversion<T extends AtomicType = AtomicType> extends 
     }
     
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
-        return <VCResultTypes<T, "prvalue">>new Value(fromEvalResult.rawValue, this.type); // Cast technically necessary here
+        return <VCResultTypes<T, "prvalue">>new Value(fromEvalResult.rawValue, this.type, fromEvalResult.isValid); // Cast technically necessary here
     }
 
 }
@@ -354,8 +363,16 @@ export function typeConversion(from: TypedExpression<AtomicType, "prvalue">, toT
         return new PointerConversion(from, new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile)));
     }
 
-    if (toType.isType(Bool) && from.isPointerTyped()) {
+    if (toType.isType(Bool)) {
+        if (from.isPointerTyped()) {
         return new PointerToBooleanConversion(from);
+        }
+        else if (from.isFloatingPointTyped()) {
+            return new FloatingToBooleanConversion(from);
+        }
+        else if (from.isIntegralTyped()) {
+            return new IntegralToBooleanConversion(from);
+        }
     }
 
     if (toType.isType(Double) && from.isTyped(Float)) {
