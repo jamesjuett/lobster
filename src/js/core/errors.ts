@@ -521,6 +521,9 @@ export const CPPError = {
             lhs_lvalue : function(construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_lvalue", "Lvalue required as left operand of assignment.");
             },
+            lhs_not_assignable : function(construct: TranslationUnitConstruct, lhs: TypedExpression) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_not_assignable", `The left hand side of this expression has type ${lhs.type}, which is not assignable.`);
+            },
             lhs_const : function(construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
             },

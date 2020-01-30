@@ -337,6 +337,8 @@ abstract class TypeBase {
     }
 
     protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
+
+    public abstract areLValuesAssignable() : boolean;
 };
 
 // /**
@@ -403,6 +405,10 @@ export class VoidType extends TypeBase {
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new VoidType(isConst, isVolatile);
+    }
+    
+    public areLValuesAssignable() {
+        return false;
     }
 }
 
@@ -481,6 +487,10 @@ abstract class ValueType extends ObjectTypeBase {
      */
     public valueToOstreamString(value: RawValueType) {
         return this.valueToString(value);
+    }
+    
+    public areLValuesAssignable() {
+        return true;
     }
 }
 
@@ -851,6 +861,10 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ReferenceType(this.refTo);
     }
+    
+    public areLValuesAssignable() {
+        return false;
+    }
 }
 
 export type NoRefType<T extends ObjectType | ReferenceType | VoidType> = T extends ReferenceType<infer RefTo> ? RefTo : T;
@@ -945,6 +959,10 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
+
+    public areLValuesAssignable() {
+        return false;
+    }
 }
 
 
@@ -991,6 +1009,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }
+
+    public areLValuesAssignable() {
+        return false;
+    }
 }
 
 // TODO: Add a type for an incomplete class
@@ -1036,6 +1058,10 @@ export class ClassType extends ObjectTypeBase {
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         // TODO
         return new ClassType(isConst, isVolatile);
+    }
+
+    public areLValuesAssignable() {
+        return false;
     }
 }
 
@@ -1368,6 +1394,10 @@ export class FunctionType extends TypeBase {
     public englishString(plural: boolean) {
         return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
                (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
+    }
+
+    public areLValuesAssignable() {
+        return false;
     }
 }
 
