@@ -690,11 +690,15 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
             return;
         }
 
-        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-
-        if (lhs.valueCategory && lhs.valueCategory != "lvalue") {
+        if (lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
+        else if (!lhs.type.areLValuesAssignable()) {
+            this.addNote(CPPError.expr.assignment.lhs_not_assignable(this, lhs));
+        }
+
+        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
+
 
         // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
 
