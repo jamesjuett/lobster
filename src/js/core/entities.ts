@@ -1246,11 +1246,6 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         (<Mutable<this>>this).definition = overload;
     }
 
-    // TODO: check on what this is here for
-    // public getPointerTo() {
-    //     return new Value(this, this.type);
-    // }
-
     public isMain() {
         return this.qualifiedName === "::main";
     }
