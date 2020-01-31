@@ -713,11 +713,11 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
     public stepForwardImpl() {
         
         let target = this.model.target.runtimeLookup(this);
-        var charsToWrite = this.arg.evalResult.rawValue();
+        let charsToWrite = this.arg.evalResult.getValue();
 
         // pad with zeros
         while (charsToWrite.length < target.type.length) {
-            charsToWrite.push(Char.NULL_CHAR);
+            charsToWrite.push(new Value(Char.NULL_CHAR, Char.CHAR));
         }
 
         let arrayElemSubobjects = target.getArrayElemSubobjects();
@@ -725,7 +725,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
         // should be true if compilation was successful
         assert(charsToWrite.length == arrayElemSubobjects.length);
 
-        charsToWrite.forEach((c, i) => arrayElemSubobjects[i].writeValue(new Value(c, Char.CHAR)));
+        charsToWrite.forEach((c, i) => arrayElemSubobjects[i].writeValue(c));
 
         this.observable.send("initialized", target);
         this.startCleanup();

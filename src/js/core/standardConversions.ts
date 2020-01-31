@@ -160,14 +160,16 @@ export interface CompiledArrayToPointer<T extends BoundedArrayType = BoundedArra
 // Type 2 Conversions
 
 /**
- * All type conversions ignore cv-qualifications on the given destination type. Instead,
- * the converted type retains the cv-qualifications of the source type.
+ * All type conversions ignore (top-level) cv-qualifications on the given destination
+ * type. This is because type conversions only operate on prvalues of atomic type,
+ * which cannot be cv-qualified. For convenience, the user may still specify a
+ * cv-qualified type and the cv-unqualified version will be used instead.
  */
 abstract class TypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     extends ImplicitConversion<FromType, "prvalue", ToType, "prvalue"> {
 
     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
-        super(from, toType.cvQualified(from.type.isConst, from.type.isVolatile), "prvalue");
+        super(from, toType.cvUnqualified(), "prvalue");
     }
     
     public createDefaultOutlet(this: CompiledTypeConversion, element: JQuery, parent?: ConstructOutlet) : TypeConversionOutlet{
@@ -294,7 +296,7 @@ export class QualificationConversion<T extends AtomicType = AtomicType> extends 
     }
     
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
-        return <VCResultTypes<T, "prvalue">>new Value(fromEvalResult.rawValue, this.type, fromEvalResult.isValid); // Cast technically necessary here
+        return <VCResultTypes<T, "prvalue">>fromEvalResult.cvQualified(this.type.isConst, this.type.isVolatile);
     }
 
 }
@@ -358,7 +360,7 @@ export function typeConversion(from: TypedExpression<AtomicType, "prvalue">, toT
         from.isPointerTyped() && from.type.ptrTo.isClassType() &&
         subType(from.type.ptrTo, toType.ptrTo)) {
         // Note that cv qualifications on the new destination pointer type don't need to be set, since
-        // they are ignored by the PointerConversion anyway (the source type's cv qualifications are set).
+        // they are ignored by the PointerConversion anyway (the result is always cv-unqualified).
         // However, we do need to preserve the cv-qualifications on the pointed-to type.
         return new PointerConversion(from, new PointerType(toType.ptrTo.cvQualified(from.type.ptrTo.isConst, from.type.ptrTo.isVolatile)));
     }
