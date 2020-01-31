@@ -3,10 +3,11 @@ import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
-import { LinkedEntity, NamespaceScope, StaticEntity, StringLiteralEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
+import { LinkedEntity, NamespaceScope, StaticEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
+import { StringLiteralExpression } from "./expressions";
 
 
 /**
@@ -565,7 +566,7 @@ export class TranslationUnit {
     
     public readonly topLevelDeclarations: readonly TopLevelDeclaration[] = [];
     public readonly staticEntities: readonly StaticEntity[] = [];
-    public readonly stringLiterals: readonly StringLiteralEntity[] = [];
+    public readonly stringLiterals: readonly StringLiteralExpression[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
 
     public readonly parsedAST?: TranslationUnitAST;
@@ -675,7 +676,7 @@ export class TranslationUnit {
         });
     }
 
-    public addStringLiteral(literal: StringLiteralEntity) {
+    public registerStringLiteral(literal: StringLiteralExpression) {
         asMutable(this.stringLiterals).push(literal);
     }
 

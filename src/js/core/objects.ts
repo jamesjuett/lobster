@@ -220,24 +220,13 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
 type ObjectValueRepresentation<T extends ObjectType> =
     T extends AtomicType ? Value<T> :
-    T extends BoundedArrayType<infer Elem_type> ? ObjectValueRepresentationArray<Elem_type> :
-    T extends ClassType ? ObjectValueRepresentationClass : never;
-
-interface ObjectValueRepresentationArray<T extends ObjectType> extends Array<ObjectValueRepresentation<T>> {};
-interface ObjectValueRepresentationClass {
-    [index: string] : ObjectValueRepresentation<ObjectType>;
-};
-
+    T extends BoundedArrayType<infer Elem_type> ? ObjectValueRepresentation<Elem_type>[] :
+    T extends ClassType ? {[index: string] : ObjectRawValueRepresentation<ObjectType>} : never;
 
 type ObjectRawValueRepresentation<T extends ObjectType> =
     T extends AtomicType ? RawValueType :
-    T extends BoundedArrayType<infer Elem_type> ? ObjectRawValueRepresentationArray<Elem_type> :
-    T extends ClassType ? ObjectRawValueRepresentationClass : unknown;
-
-interface ObjectRawValueRepresentationArray<T extends ObjectType> extends Array<ObjectRawValueRepresentation<T>> {};
-interface ObjectRawValueRepresentationClass {
-    [index: string] : ObjectRawValueRepresentation<ObjectType>;
-};
+    T extends BoundedArrayType<infer Elem_type> ? ObjectRawValueRepresentation<Elem_type>[] :
+    T extends ClassType ? {[index: string] : ObjectRawValueRepresentation<ObjectType>} : unknown;
 
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
@@ -351,7 +340,8 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this._isValid = newValue.isValid;
 
         // Accept new RTTI
-        asMutable(this).type = newValue.type;
+        // However, we need to retain our own CV qualifiers
+        asMutable(this).type = newValue.type.cvQualified(this.type.isConst, this.type.isVolatile);
         
         this.data.setRawValue(newValue.rawValue, write);
 

@@ -799,7 +799,12 @@ position: relative;}
     /*display: block;*/
 /*}*/
 
-.code-literal{
+.code-literal {
+    white-space: pre;
+    color: #ae81ff;
+}
+
+.code-string-literal {
     white-space: pre;
     color: #ae81ff;
 }

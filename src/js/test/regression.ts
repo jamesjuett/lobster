@@ -157,6 +157,63 @@ $(() => {
         );
     });
 
+        // ---------- Basic String Literal Test ----------
+
+        new SingleTranslationUnitTest(
+          "Basic String Literal Test",
+`bool strs_equal(const char *str1, const char *str2) {
+  while(*str1 || *str2) {
+    if (*str1 != *str2) {
+      return false;
+    }
+    str1 = str1 + 1;
+    str2 = str2 + 1;
+  }
+  return true;
+}
+
+void strcpy(char *dst, const char *src) {
+  while(*src) {
+    *dst = *src;
+    src = src + 1;
+    dst = dst + 1;
+  }
+  *dst = '\0';
+}
+
+int main() {
+  char str[4] = "hey";
+  int x = 2 + 3;
+  const char *str2 = "hey";
+  char const *str3 = "hey";
+  
+  assert(str != "hey");
+  assert(str != str2);
+  assert(str2 == str3);
+  
+  str2 = "hello";
+  str3 = "hello";
+  
+  assert(str2 == str3);
+  
+  char big[10] = "hi";
+  
+  assert(big[2] == 0);
+  assert(big[3] == 0);
+  assert(big[9] == 0);
+  char test = *big;
+  strcpy(big, str2);
+  assert(strs_equal(big, "hello"));
+  strcpy(big, "hey");
+  
+  assert(strs_equal(big, "hey"));
+}`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
     // ---------- Basic Selection Test ----------
 
     new SingleTranslationUnitTest(
