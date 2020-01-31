@@ -218,7 +218,7 @@ export class Simulation {
     private allocateStringLiterals() {
         let tus = this.program.translationUnits;
         for(let tuName in tus) {
-            tus[tuName].stringLiterals.forEach((lit) => { this.memory.allocateStringLiteral(lit); });
+            tus[tuName].stringLiterals.forEach((lit) => { this.memory.allocateStringLiteral(lit.str); });
         };
     }
 

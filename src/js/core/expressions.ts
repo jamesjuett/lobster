@@ -11,7 +11,7 @@ import { standardConversion, convertToPRValue, usualArithmeticConversions, isCon
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
 import { Expression, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet } from "../view/codeOutlets";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -123,7 +123,7 @@ const ExpressionConstructsMap = {
     "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "this pointer").setAST(ast),
 
     "numeric_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteral.createFromAST(ast, context),
-    "string_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "string literals").setAST(ast),
+    "string_literal" : (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => Parentheses.createFromAST(ast, context)
 }
 
@@ -690,11 +690,15 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
             return;
         }
 
-        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-
-        if (lhs.valueCategory && lhs.valueCategory != "lvalue") {
+        if (lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
         }
+        else if (!lhs.type.areLValuesAssignable()) {
+            this.addNote(CPPError.expr.assignment.lhs_not_assignable(this, lhs));
+        }
+
+        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
+
 
         // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
 
@@ -3528,11 +3532,8 @@ export interface BoolLiteralASTNode extends ASTNode {
 
 export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends Expression {
     
-
     public readonly type: T;
     public readonly valueCategory = "prvalue";
-
-
     
     public readonly value: Value<T>;
 
@@ -3542,13 +3543,12 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
     // var conv = literalJSParse[this.ast.type];
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-
-    constructor(context: ExpressionContext, type: T, value: RawValueType) {
+    public constructor(context: ExpressionContext, type: T, value: RawValueType) {
         super(context);
 
         this.type = type;
 
-        this.value = new Value(value, this.type);  //TODO fix this (maybe with a factory function for values?)
+        this.value = new Value(value, this.type);
 	}
     
     public static createFromAST(ast: NumericLiteralASTNode, context: ExpressionContext) {
@@ -3609,6 +3609,72 @@ export interface StringLiteralASTNode extends ASTNode {
     readonly construct_type: "string_literal";
     readonly value: string;
 }
+
+export class StringLiteralExpression extends Expression {
+    
+    public readonly type: BoundedArrayType<Char>;
+    public readonly valueCategory = "lvalue";
+
+    public readonly str: string;
+    // create from ast code:
+    // TODO: are there some literal types without conversion functions? There shouldn't be...
+
+    // var conv = literalJSParse[this.ast.type];
+    // var val = (conv ? conv(this.ast.value) : this.ast.value);
+
+    public constructor(context: ExpressionContext, str: string) {
+        super(context);
+        this.str = str;
+
+        // type is const char
+        this.type = new BoundedArrayType(new Char(true), str.length + 1);
+
+        this.context.translationUnit.registerStringLiteral(this);
+    }
+
+    public isStringLiteralExpression() {
+        return true;
+    }
+    
+    public static createFromAST(ast: StringLiteralASTNode, context: ExpressionContext) {
+        return new StringLiteralExpression(context, ast.value);
+    }
+
+    public createRuntimeExpression(this: CompiledStringLiteralExpression, parent: RuntimeConstruct) : RuntimeStringLiteralExpression;
+    public createRuntimeExpression<T extends AtomicType, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    public createRuntimeExpression(this: CompiledStringLiteralExpression, parent: RuntimeConstruct) : RuntimeStringLiteralExpression {
+        return new RuntimeStringLiteralExpression(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledStringLiteralExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new StringLiteralExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface CompiledStringLiteralExpression extends StringLiteralExpression, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+}
+
+export class RuntimeStringLiteralExpression extends RuntimeExpression<BoundedArrayType<Char>, "lvalue", CompiledStringLiteralExpression> {
+
+    public constructor (model: CompiledStringLiteralExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+
+	protected upNextImpl() {
+        this.setEvalResult(this.sim.memory.getStringLiteral(this.model.str)!);
+        this.startCleanup();
+	}
+	
+	protected stepForwardImpl() {
+        // Do nothing
+	}
+}
+
 
 // export class StringLiteral extends Expression {
 //     public valueCategory: string;

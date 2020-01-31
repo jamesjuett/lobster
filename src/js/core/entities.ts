@@ -839,33 +839,6 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
 //     }
 // };
 
-export class StringLiteralEntity extends CPPEntity<BoundedArrayType> implements ObjectEntity<BoundedArrayType> {
-
-    public readonly str: string;
-    public readonly type!: BoundedArrayType<Char>; // handled by parent
-
-    public constructor(str: string) {
-        super(new BoundedArrayType(new Char(true), str.length + 1)); // + 1 for null char
-        this.str = str;
-    }
-
-    public objectInstance(memory: Memory, address: number) {
-        return new StringLiteralObject(this.type, memory, address);
-    }
-
-    public toString() {
-        return "string literal \"" + unescapeString(this.str) + "\"";
-    }
-
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        return rtConstruct.sim.memory.getStringLiteral(this.str);
-    }
-
-    public describe() {
-        return {name: `[string literal "${this.str}"]`, message: "the string literal \"" + unescapeString(this.str) + "\""};
-    }
-};
-
 // TODO: will need to add a class for ReferenceParameterEntity
 export class PassByValueParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
@@ -1272,11 +1245,6 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         
         (<Mutable<this>>this).definition = overload;
     }
-
-    // TODO: check on what this is here for
-    // public getPointerTo() {
-    //     return new Value(this, this.type);
-    // }
 
     public isMain() {
         return this.qualifiedName === "::main";

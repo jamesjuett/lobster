@@ -408,8 +408,7 @@ export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = Pote
             if (returnType.isVoidType()) {
                 // this.setEvalResult(null); // TODO: type system won't allow this currently
             }
-
-            if (returnType.isReferenceType()) {
+            else if (returnType.isReferenceType()) {
                 // Return by reference is lvalue and yields the returned object
                 this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
             }

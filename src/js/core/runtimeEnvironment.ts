@@ -1,9 +1,9 @@
 import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
-import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType } from "./types";
+import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
 import last from "lodash/last";
-import { StaticEntity, AutoEntity, LocalReferenceEntity, StringLiteralEntity, TemporaryObjectEntity } from "./entities";
+import { StaticEntity, AutoEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CompiledGlobalObjectDefinition, GlobalObjectDefinition } from "./declarations";
 
@@ -37,6 +37,14 @@ export class Value<T extends AtomicType = AtomicType> {
 
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value<T>(valueToClone, this.type, this.isValid);
+    }
+    
+    public cvUnqualified() {
+        return new Value<T>(this.rawValue, this.type.cvUnqualified(), this.isValid);
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean = false) {
+        return new Value<T>(this.rawValue, this.type.cvQualified(isConst, isVolatile), this.isValid);
     }
 
     public invalidated() {
@@ -149,7 +157,7 @@ export class Memory {
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
     private objects!: { [index: number]: CPPObject<ObjectType> };
-    private stringLiteralMap!: { [index: string]: StringLiteralObject };
+    private stringLiteralMap!: { [index: string]: StringLiteralObject | undefined };
     private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
     public readonly stack!: MemoryStack;
@@ -351,7 +359,7 @@ export class Memory {
     }
     
 
-    public allocateObject(object: CPPObject<ObjectType>) {
+    public allocateObject(object: CPPObject<ObjectType>) { // TODO: allocateObject is not the best name for this
         this.objects[object.address] = object;
     }
 
@@ -368,25 +376,34 @@ export class Memory {
         }
     }
 
-    public allocateStringLiteral(stringLiteralEntity: StringLiteralEntity) {
-        var str = stringLiteralEntity.str;
-        if (!this.stringLiteralMap[str]) {
+    /**
+     * Allocates and returns a string literal object, unless a string literal with exactly
+     * the same contents has already been allocated, in which case that same object is returned.
+     * @param contents 
+     */
+    public allocateStringLiteral(contents: string) {
+        let previousObj = this.stringLiteralMap[contents];
+        if (previousObj) {
+            return previousObj;
+        }
+        else {
             // only need to allocate a string literal object if we didn't already have an identical one
-            var object = stringLiteralEntity.objectInstance(this, this.staticTop);
+            // length + 1 below is for null character
+            let object = new StringLiteralObject(new BoundedArrayType(Char.CHAR, contents.length + 1), this, this.staticTop);
             this.allocateObject(object);
 
             // record the string literal in case we see more that are the same in the future
-            this.stringLiteralMap[str] = object;
+            this.stringLiteralMap[contents] = object;
 
             // write value of string literal into the object
-            Char.jsStringToNullTerminatedCharArray(str).forEach((c, i) => {
+            Char.jsStringToNullTerminatedCharArray(contents).forEach((c, i) => {
                 object.getArrayElemSubobject(i).setValue(new Value(c, Char.CHAR));
             });
 
             // adjust location for next static object
             this.staticTop += object.size;
+            return object;
         }
-
     }
 
     public getStringLiteral(str: string) {
@@ -399,8 +416,6 @@ export class Memory {
         this.staticTop += obj.size;
         this.staticObjects[def.declaredEntity.qualifiedName] = obj;
     }
-
-    
 
     public staticLookup<T extends ObjectType>(staticEntity: StaticEntity<T>) {
         return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];

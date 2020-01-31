@@ -5,13 +5,13 @@ import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, 
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer } from "../core/initializers";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression } from "../core/expressions";
-import { Bool, ObjectType, AtomicType } from "../core/types";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression } from "../core/expressions";
+import { Bool, AtomicType } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
@@ -961,6 +961,28 @@ export class ReferenceDirectInitializerOutlet extends InitializerOutlet<RuntimeR
 }
 
 
+export class ArrayDirectInitializerOutlet extends InitializerOutlet<RuntimeArrayDirectInitializer> {
+    
+    public readonly argOutlet: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledArrayDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+    
+        if (construct.kind === "direct") {
+            this.element.append(")");
+            this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
+            this.element.append("(");
+        }
+        else {
+            this.element.append(" = ");
+            this.argOutlet = addChildExpressionOutlet(this.element, construct.arg, this);
+        }
+        
+    }
+    
+}
+
+
 // export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
     
 //     public readonly argOutlets: readonly ExpressionOutlet[];
@@ -1793,6 +1815,19 @@ export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral
 
         this.exprElem.addClass("code-literal");
         this.exprElem.append(this.construct.value.valueString());
+    }
+
+}
+
+
+
+export class StringLiteralExpressionOutlet extends ExpressionOutlet<RuntimeStringLiteralExpression> {
+
+    public constructor(element: JQuery, construct: CompiledStringLiteralExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent, false);
+
+        this.exprElem.addClass("code-string-literal");
+        this.exprElem.append(`"${this.construct.str}"`);
     }
 
 }
