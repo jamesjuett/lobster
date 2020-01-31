@@ -3548,7 +3548,7 @@ export class NumericLiteral<T extends ArithmeticType = ArithmeticType> extends E
 
         this.type = type;
 
-        this.value = new Value(value, this.type);  //TODO fix this (maybe with a factory function for values?)
+        this.value = new Value(value, this.type);
 	}
     
     public static createFromAST(ast: NumericLiteralASTNode, context: ExpressionContext) {

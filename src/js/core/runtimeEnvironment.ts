@@ -38,6 +38,14 @@ export class Value<T extends AtomicType = AtomicType> {
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value<T>(valueToClone, this.type, this.isValid);
     }
+    
+    public cvUnqualified() {
+        return new Value<T>(this.rawValue, this.type.cvUnqualified(), this.isValid);
+    }
+    
+    public cvQualified(isConst: boolean, isVolatile: boolean = false) {
+        return new Value<T>(this.rawValue, this.type.cvQualified(isConst, isVolatile), this.isValid);
+    }
 
     public invalidated() {
         return new Value<T>(this.rawValue, this.type, false);
