@@ -1,5 +1,8 @@
 <?php
 
+// THIS FILE CONTAINS ENDPOINTS FOR LOGGING USER ACTIONS
+// THE ENDPOINTS HERE DO NOT NEED TO BE IMPLEMENTED IN THE NEW BACKEND (YET)
+
 require_once 'vendor/autoload.php';
 require_once '../php/auth.php';
 
