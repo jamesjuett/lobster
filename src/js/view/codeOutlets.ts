@@ -604,7 +604,7 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
 
     protected instanceSet(inst: RuntimeExpressionStatement) {
         super.instanceSet(inst);
-        this.expression.hideEvalValue();
+        this.expression.hideEvalValueRecursive();
     }
     
     @messageResponse("popped")
@@ -1103,16 +1103,6 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
     protected setEvalResult(result: RT["evalResult"], suppressAnimation: boolean = false) {
         
-        if (this.showingEvalResult) {
-            return;
-        }
-
-        (<Mutable<this>>this).showingEvalResult = true;
-
-        if (!this.animateEvaluation) {
-            return;
-        }
-
         if (result instanceof CPPObject || result instanceof FunctionEntity) {
             this.evalResultElem.html(result.describe().name);
             this.evalResultElem.addClass("lvalue");
@@ -1128,6 +1118,21 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
             assertFalse("unexpected evalResult type for expression outlet");
         }
 
+        this.showEvalResult(suppressAnimation);
+    }
+
+    public showEvalResult(suppressAnimation: boolean = false) {
+        
+        if (this.showingEvalResult) {
+            return;
+        }
+
+        (<Mutable<this>>this).showingEvalResult = true;
+
+        if (!this.animateEvaluation) {
+            return;
+        }
+
         if(CODE_ANIMATIONS && !suppressAnimation) {
             this.wrapperElem.animate({
                 width: this.evalResultElem.css("width")
@@ -1140,7 +1145,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
         this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
     }
 
-    private removeEvalValue() {
+    public removeEvalValue() {
         (<Mutable<this>>this).showingEvalResult = false;
 
         if (!this.animateEvaluation) {
@@ -1168,12 +1173,12 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
         //}, 2000);
     }
 
-    public hideEvalValue() {
+    public hideEvalValueRecursive() {
         this.removeEvalValue();
         for (let cKey in this.children) {
             let c = this.children[cKey];
             if (c instanceof ExpressionOutlet) {
-                c.hideEvalValue();
+                c.hideEvalValueRecursive();
             }
         }
     }
