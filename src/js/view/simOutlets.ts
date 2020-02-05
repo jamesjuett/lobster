@@ -1994,10 +1994,6 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
         this.sim.memory.stack.frames
             .forEach(frame => this.pushFunction(frame.func));
-
-        var last = this.sim.execStack[this.sim.execStack.length - 1];
-        // TODO: find outlet for last and send it an "upNext"
-        // ^^^ Do we actually need to do that, assuming the outlets have correct instanceSet functions?
     }
 
     //refresh : Class.ADDITIONALLY(function() {

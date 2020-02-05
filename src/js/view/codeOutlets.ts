@@ -40,7 +40,7 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
     /**
      * Children are stored by the ID of the CPPConstruct they display.
      */
-    private readonly children: {[index: number]: ConstructOutlet} = {}; 
+    protected readonly children: {[index: number]: ConstructOutlet} = {}; 
     
     public constructor(element: JQuery, construct: RTConstruct_type["model"], parent?: ConstructOutlet) {
         this.element = element;
@@ -64,11 +64,11 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
             listenTo(this, inst);
         }
 
-        this.instanceSet(inst);
-
         for(let id in inst.children) {
             this.setChildInstance(inst.children[id]);
         }
+        
+        this.instanceSet(inst);
     }
 
     protected instanceSet(inst: RTConstruct_type) {
@@ -493,20 +493,12 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
         super(element, construct, parent);
         this.element.addClass("statement");
     }
-
-    // TODO: I don't think this is important, so it should probably be removed
-    // // Statements get reset after being popped
-    // setInstance : function(inst){
-    //     if (inst.isActive){
-    //         Outlets.CPP.Statement._parent.setInstance.apply(this, arguments);
-    //     }
-    // }
     
-    @messageResponse("popped")
-    protected popped() {
-        super.popped();
-        this.removeInstance();
-    }
+    // @messageResponse("popped")
+    // protected popped() {
+    //     super.popped();
+    //     this.removeInstance();
+    // }
 
 }
 
@@ -610,6 +602,16 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
         this.element.append(";");
     }
 
+    protected instanceSet(inst: RuntimeExpressionStatement) {
+        super.instanceSet(inst);
+        this.expression.hideEvalValue();
+    }
+    
+    @messageResponse("popped")
+    protected popped() {
+        super.popped();
+        this.removeInstance();
+    }
 }
 
 export class NullStatementOutlet extends StatementOutlet<RuntimeNullStatement> {
@@ -1157,13 +1159,23 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 ////                });
 //        }
         //setTimeout(function() {
-            this.exprElem.removeClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 1);
-            this.evalResultElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0);
+            this.exprElem.removeClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 1).finish();
+            this.evalResultElem.addClass("lobster-hidden-expression").fadeTo(RESET_FADE_DURATION, 0).finish();
 
             this.element.removeClass("rvalue");
             this.element.removeClass("lvalue");
             this.wrapperElem.css("width", "auto");
         //}, 2000);
+    }
+
+    public hideEvalValue() {
+        this.removeEvalValue();
+        for (let cKey in this.children) {
+            let c = this.children[cKey];
+            if (c instanceof ExpressionOutlet) {
+                c.hideEvalValue();
+            }
+        }
     }
 
     protected instanceSet(inst: RT) {
