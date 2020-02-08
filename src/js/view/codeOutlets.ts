@@ -563,7 +563,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
     protected instanceSet(inst: RuntimeDeclarationStatement) {
         super.instanceSet(inst);
-        this.setCurrentDeclarationIndex(inst.currentDeclarationIndex);
+        this.setCurrentDeclarationIndex(inst.isActive ? inst.currentDeclarationIndex : null);
     }
 
     protected instanceRemoved(oldInst: RuntimeDeclarationStatement) {
@@ -589,6 +589,12 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
     private initializing(msg: Message<number>) {
         this.setCurrentDeclarationIndex(msg.data);
     }
+    
+    @messageResponse("popped")
+    protected popped() {
+        super.popped();
+        this.setCurrentDeclarationIndex(null);
+    }
 }
 
 export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpressionStatement> {
@@ -604,13 +610,15 @@ export class ExpressionStatementOutlet extends StatementOutlet<RuntimeExpression
 
     protected instanceSet(inst: RuntimeExpressionStatement) {
         super.instanceSet(inst);
-        this.expression.hideEvalValueRecursive();
+        if (!inst.isActive) {
+            this.expression.hideEvalValueRecursive();
+        }
     }
     
     @messageResponse("popped")
     protected popped() {
         super.popped();
-        this.removeInstance();
+        this.expression.hideEvalValueRecursive();
     }
 }
 
