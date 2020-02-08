@@ -529,7 +529,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
         // Non-null assertion below because type specifier's baseType must be defined if
         // the declarator of this variable definition got created.
-        declarationElem.append(htmlDecoratedType(declarations[0].typeSpecifier.baseType!));
+        declarationElem.append(htmlDecoratedType(declarations[0].typeSpecifier.baseType!.toString()));
 
         declarationElem.append(" ");
 
