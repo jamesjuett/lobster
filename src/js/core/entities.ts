@@ -1251,7 +1251,10 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
     }
 
     public describe(): EntityDescription {
-        throw new Error("Method not implemented.");
+        return {
+            name: this.name,
+            message: `the ${this.name} function`
+        };
     }
 }
 
