@@ -1,5 +1,5 @@
 import { Simulation } from "./Simulation";
-import { FunctionCall } from "./functionCall";
+import { FunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Mutable } from "../util/util";
 
 
@@ -213,7 +213,7 @@ export class AsynchronousSimulationRunner {
      */
     public async stepOver(delay: number = this.delay) {
         let top = this.simulation.top();
-        if (top instanceof FunctionCall) {
+        if (top instanceof RuntimeFunctionCall) {
             while (!top.isDone) {
                 await this.takeOneStep(delay);
             }
