@@ -46,8 +46,8 @@ export function htmlDecoratedKeyword(keyword: string){
     return '<span class="code-keyword">' + keyword + '</span>';
 };
 
-export function htmlDecoratedType(type: Type) {
-    return '<span class="code-type">' + type.toString() + '</span>';
+export function htmlDecoratedType(type: string) {
+    return '<span class="code-type">' + type + '</span>';
 };
 
 export function htmlDecoratedName(name: string, type?: Type) {
