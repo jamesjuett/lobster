@@ -167,6 +167,7 @@ declaration_statement
 
 declaration
   = simple_declaration
+  / class_declaration
   / class_definition
   / function_definition
 
@@ -179,6 +180,11 @@ simple_declaration
 declarator_list
   = first:declarator_init rest:(ws "," ws d:declarator_init {return d;})*
     {rest.unshift(first); return rest; }
+
+class_declaration
+  = key:class_key WS name:class_name ";" {
+    return track({construct_type: "class_declaration", name: name}, location(), text());
+  }
 
 class_definition
   = spec:class_specifier ws ";" {
@@ -793,7 +799,7 @@ class_name
   // / simple_template_id
 
 class_specifier
-  = head:class_head !{getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
+  = head:class_head ws "{" ws mems:member_specification* ws "}"
     { return track({head: head, member_specs: mems}, location(), text()); }
 
 class_head
