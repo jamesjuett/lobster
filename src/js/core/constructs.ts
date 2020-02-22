@@ -6,7 +6,7 @@ import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
 import { CPPObject } from "./objects";
-import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition } from "./declarations";
+import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -80,6 +80,37 @@ export interface BlockContext extends FunctionContext {
 
 export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
     return context.contextualScope instanceof BlockScope;
+}
+
+
+
+export class ClassMembers {
+
+    // public readonly localObjects: readonly AutoEntity[] = [];
+    // public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    // public readonly localVariablesByEntityId: {
+    //     [index: number] : LocalVariableEntity
+    // } = {};
+
+    // public registerLocalVariable(local: LocalVariableEntity) {
+    //     assert(!this.localVariablesByEntityId[local.entityId]);
+    //     this.localVariablesByEntityId[local.entityId] = local;
+    //     if (local.kind === "AutoEntity") {
+    //         asMutable(this.localObjects).push(local)
+    //     }
+    //     else {
+    //         asMutable(this.localReferences).push(local);
+    //     }
+    // }
+}
+
+export interface ClassContext extends TranslationUnitContext {
+    readonly classEntity: ClassEntity;
+    readonly classMembers: ClassMembers;
+}
+
+export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity) : ClassContext {
+    return Object.assign({}, context, {classEntity: classEntity, classMembers: new ClassMembers()});
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
