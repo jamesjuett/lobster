@@ -167,7 +167,7 @@ declaration_statement
 
 declaration
   = simple_declaration
-  / class_declaration
+  / class_definition
   / function_definition
 
   /* TODO: template declaration */
@@ -180,9 +180,9 @@ declarator_list
   = first:declarator_init rest:(ws "," ws d:declarator_init {return d;})*
     {rest.unshift(first); return rest; }
 
-class_declaration
+class_definition
   = spec:class_specifier ws ";" {
-    return track(absorb({construct_type: "class_declaration"}, spec), location(), text());
+    return track(absorb({construct_type: "class_definition"}, spec), location(), text());
   }
 
 function_definition
@@ -255,17 +255,19 @@ decl_specifier
   / "friend"
 
 type_specifiers
-  = before:(s:type_specifier WS {return s})* t:simple_type_name after:(WS s:type_specifier {return s})*
-    { before.push(t);
-      before = before.concat(after);
-      return track(before, location(), text()); }
+  = first:type_specifier rest:(WS s:type_specifier {return s})*
+    { rest.unshift(first);
+      return track(rest, location(), text()); }
 
 type_specifier
-  //= simple_type_name
-  //= class_key WS identifier
+  = simple_type_name
+  = elaborated_type_specifier
   = enum_specifier
   / "const"
   / "volatile"
+
+elaborated_type_specifier
+  = class_key WS name:class_name {return name;}
 
 storage_class_specifier
   = "register"
@@ -294,7 +296,8 @@ _simple_type_name
   / "float"
   / "double"
   / "void"
-  / id:identifier &{return isUserTypeName(id.identifier);} {return id.identifier;}
+  / class_name
+//  / id:identifier &{return isUserTypeName(id.identifier);} {return id.identifier;}
 
 enum_specifier
   /*= "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }*/
