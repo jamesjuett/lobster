@@ -512,9 +512,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
             }
         }
 
-        // A function declaration has linkage, unless it is a local function declaration in a block scope
-        // (which has no linkage). The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword to specify internal linkage.
+        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or unnamed namespaces to specify internal linkage.
         if (this.context.contextualScope instanceof NamespaceScope) {
             this.context.translationUnit.program.registerLinkedEntity(this.declaredEntity);
         }
@@ -1408,22 +1407,18 @@ export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> 
         }
 
         // TODO CLASSES: is this comment true?
-        // A class declaration has linkage, unless it is a local class declaration in a block scope
-        // (which has no linkage). The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword to specify internal linkage.
+        // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
+        // not support. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or an unnamed namespace to specify internal linkage.
         if (this.context.contextualScope instanceof NamespaceScope) {
             this.context.translationUnit.program.registerLinkedEntity(this.declaredEntity);
         }
     }
-
-    // TODO create object with linkage if appropriate
-            // this.context.translationUnit.registerDefinition(entity, this);
 }
 
 
-export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalObjectDefinition, SuccessfullyCompiled {
-    readonly declaredEntity: StaticEntity<T>;
-    readonly initializer?: CompiledInitializer<T>;
+export interface CompiledClassDeclaration extends ClassDeclaration, SuccessfullyCompiled {
+    
 }
 
 export interface ClassDefinitionASTNode extends ASTNode {
