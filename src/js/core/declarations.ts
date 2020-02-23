@@ -196,7 +196,7 @@ export interface DeclarationSpecifiersASTNode {
     readonly virtual?: boolean;
 }
 
-export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
+export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDeclarationASTNode | ClassDefinitionASTNode;
 
 export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 
@@ -208,7 +208,8 @@ export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 
 export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition;
+export function createDeclarationFromAST(ast: ClassDeclarationASTNode, context: TranslationUnitContext) : ClassDeclaration;
+export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) {
     if (ast.construct_type === "simple_declaration") {
         return createSimpleDeclarationFromAST(ast, context);
@@ -216,9 +217,13 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
     else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
     }
-    else {
-        return new UnsupportedConstruct(context, "Classes/Structs");
+    else if (ast.construct_type === "class_declaration") {
+        return ClassDeclaration.createFromAST(ast, context);
     }
+    else if (ast.construct_type === "class_definition") {
+        return ClassDefinition.createFromAST(ast, context);
+    }
+    // TODO CLASSES: check if the above compiles with one case missing. how do we ensure it's exhaustive
 } 
 
 
@@ -1373,7 +1378,52 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 export interface ClassDeclarationASTNode {
     readonly construct_type: "class_declaration";
+}
+export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
 
+    public readonly type : ClassType;
+    public readonly declaredEntity!: ClassEntity; // only allows undefined because global references are not yet supported
+    
+    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
+
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+
+        this.type = type;
+
+        this.declaredEntity = new ClassEntity(type, this);
+
+        // Attempt to add the declared entity to the scope. If it fails, note the error.
+        // (e.g. an entity with the same name was already declared in the same scope)
+        try{
+            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+        }
+        catch(e) {
+            if (e instanceof Note) {
+                this.addNote(e);
+            }
+            else{
+                throw e;
+            }
+        }
+
+        // TODO CLASSES: is this comment true?
+        // A class declaration has linkage, unless it is a local class declaration in a block scope
+        // (which has no linkage). The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword to specify internal linkage.
+        if (this.context.contextualScope instanceof NamespaceScope) {
+            this.context.translationUnit.program.registerLinkedEntity(this.declaredEntity);
+        }
+    }
+
+    // TODO create object with linkage if appropriate
+            // this.context.translationUnit.registerDefinition(entity, this);
+}
+
+
+export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalObjectDefinition, SuccessfullyCompiled {
+    readonly declaredEntity: StaticEntity<T>;
+    readonly initializer?: CompiledInitializer<T>;
 }
 
 export interface ClassDefinitionASTNode extends ASTNode {
@@ -1382,437 +1432,438 @@ export interface ClassDefinitionASTNode extends ASTNode {
 
 export class ClassDefinition extends BasicCPPConstruct<FunctionContext> {
 
-    public readonly declaration: ClassDeclaration;
-    public readonly name: string;
-    public readonly type: ClassType;
-    public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
+    public readonly blah: number = 2;
+//     public readonly declaration: ClassDeclaration;
+//     public readonly name: string;
+//     public readonly type: ClassType;
+//     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
-    public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
+//     public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
         
-        let declaration = createSimpleDeclarationFromAST({
-            construct_type: "simple_declaration",
-            declarators: [ast.declarator],
-            specs: ast.specs,
-            source: ast.declarator.source
-        }, context)[0];
+//         let declaration = createSimpleDeclarationFromAST({
+//             construct_type: "simple_declaration",
+//             declarators: [ast.declarator],
+//             specs: ast.specs,
+//             source: ast.declarator.source
+//         }, context)[0];
         
-        if (!(declaration instanceof FunctionDeclaration)) {
-            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
-        }
+//         if (!(declaration instanceof FunctionDeclaration)) {
+//             return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
+//         }
 
-        // Create implementation and body block (before params and body statements added yet)
-        let functionContext = createFunctionContext(context, declaration.declaredEntity);
-        let body = new Block(functionContext);
-        let bodyContext = body.context;
+//         // Create implementation and body block (before params and body statements added yet)
+//         let functionContext = createFunctionContext(context, declaration.declaredEntity);
+//         let body = new Block(functionContext);
+//         let bodyContext = body.context;
         
-        // Add declared entities from the parameters to the body block's context.
-        // As the context refers back to the implementation, local objects/references will be registerd there.
-        declaration.parameterDeclarations.forEach(paramDecl => {
-            if (paramDecl.isParameterDefinition()) {
-                paramDecl.addEntityToScope(bodyContext);
-            }
-            else {
-                paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
-            }
-        });
+//         // Add declared entities from the parameters to the body block's context.
+//         // As the context refers back to the implementation, local objects/references will be registerd there.
+//         declaration.parameterDeclarations.forEach(paramDecl => {
+//             if (paramDecl.isParameterDefinition()) {
+//                 paramDecl.addEntityToScope(bodyContext);
+//             }
+//             else {
+//                 paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
+//             }
+//         });
 
-        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-        // added after the parameters.)
-        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+//         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
+//         // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
+//         // added after the parameters.)
+//         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
-    }
+//         return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
+//     }
 
-    // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
+//     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
-        super(context);
+//     public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
+//         super(context);
         
-        this.attach(this.declaration = declaration);
-        this.attachAll(this.parameters = parameters);
-        this.attach(this.body = body);
+//         this.attach(this.declaration = declaration);
+//         this.attachAll(this.parameters = parameters);
+//         this.attach(this.body = body);
 
-        this.name = declaration.name;
-        this.type = declaration.type;
+//         this.name = declaration.name;
+//         this.type = declaration.type;
         
-        this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
-
-        // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
-        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-        //     return isA(obj.type, Types.Class);
-        // });
-
-        // this.bodyScope.automaticObjects.filter(function(obj){
-        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-        // }).map(function(arr){
-        //   for(var i = 0; i < arr.type.length; ++i){
-        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-        //   }
-        // });
+//         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
+
+//         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
+//         // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
+//         //     return isA(obj.type, Types.Class);
+//         // });
+
+//         // this.bodyScope.automaticObjects.filter(function(obj){
+//         //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
+//         // }).map(function(arr){
+//         //   for(var i = 0; i < arr.type.length; ++i){
+//         //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
+//         //   }
+//         // });
 
-        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-        //     var dest = entityToDestruct.type.destructor;
-        //     if (dest){
-        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-        //         call.compile({
-        //             func: dest,
-        //             receiver: entityToDestruct});
-        //         return call;
-        //     }
-        //     else{
-        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-        //     }
+//         // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
+//         //     var dest = entityToDestruct.type.destructor;
+//         //     if (dest){
+//         //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
+//         //         call.compile({
+//         //             func: dest,
+//         //             receiver: entityToDestruct});
+//         //         return call;
+//         //     }
+//         //     else{
+//         //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
+//         //     }
 
-        // });
-    }
+//         // });
+//     }
 
 
 
-    compile : function(){
-        assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
-    },
+//     compile : function(){
+//         assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
+//     },
 
-    compileDeclaration : function(){
-        var ast = this.ast;
+//     compileDeclaration : function(){
+//         var ast = this.ast;
 
 
-        this.key = ast.head.key;
-        this.name = ast.head.name.identifier;
-        this.members = [];
+//         this.key = ast.head.key;
+//         this.name = ast.head.name.identifier;
+//         this.members = [];
 
-
-        // Base classes
-
-        if (this.ast.head.bases && this.ast.head.bases.length > 0){
-            if (this.ast.head.bases.length > 1){
-                this.addNote(CPPError.class_def.multiple_inheritance(this));
-                return;
-            }
+
+//         // Base classes
+
+//         if (this.ast.head.bases && this.ast.head.bases.length > 0){
+//             if (this.ast.head.bases.length > 1){
+//                 this.addNote(CPPError.class_def.multiple_inheritance(this));
+//                 return;
+//             }
 
-            try{
-                var baseCode = this.ast.head.bases[0];
+//             try{
+//                 var baseCode = this.ast.head.bases[0];
 
-                // TODO NEW: Use an actual Identifier expression for this
-                this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
-
-                if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
-                    this.addNote(CPPError.class_def.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
-                }
-
-                if (baseCode.virtual){
-                    this.addNote(CPPError.class_def.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
-                }
-            }
-            catch(e){
-                if (isA(e, SemanticExceptions.BadLookup)){
-                    this.addNote(e.annotation(this));
-                }
-                else{
-                    throw e;
-                }
-            }
-        }
-
-
-
-        // Check that no other type with the same name already exists
-        try {
-//            console.log("addingEntity " + this.name);
-            // class type. will be incomplete initially, but made complete at end of class declaration
-            this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
-            this.classTypeClass = this.type;
-
-            this.classScope = this.type.classScope;
-
-            this.entity = TypeEntity.instance(this);
-
-            this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
-
-            this.contextualScope.addDeclaredEntity(this.entity);
-        }
-        catch(e){
-            if (isA(e, Note)){
-                this.addNote(e);
-                return;
-            }
-            else {
-                throw e;
-            }
-        }
-
-
-
-
-        // Compile the members
-
-
-        var memDecls = this.memDecls = [];
-        for(var i = 0; i < ast.member_specs.length; ++i){
-            var spec = ast.member_specs[i];
-            var access = spec.access || "private";
-            for(var j = 0; j < spec.members.length; ++j){
-                spec.members[j].access = access;
-                var memDecl = SimpleDeclaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
-
-                // Within member function definitions, class is considered as complete even though it isn't yet
-                if (isA(memDecl, FunctionDefinition)){
-                    this.type.setTemporarilyComplete();
-                }
-
-                memDecl.compileDeclaration();
-
-                // Remove temporarily complete
-                this.type.unsetTemporarilyComplete();
-
-                memDecls.push(memDecl);
-            }
-        }
-
-        // If there are no constructors, then we need an implicit default constructor
-        if(this.type.constructors.length == 0){
-            var idc = this.createImplicitDefaultConstructor();
-            if (idc){
-                idc.compile();
-                assert(!idc.hasErrors());
-            }
-        }
-
-        let hasCopyConstructor = false;
-        for(var i = 0; i < this.type.constructors.length; ++i){
-            if (this.type.constructors[i].decl.isCopyConstructor){
-                hasCopyConstructor = true;
-                break;
-            }
-        }
-
-
-        var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
-
-        // Rule of the Big Three
-        var bigThreeYes = [];
-        var bigThreeNo = [];
-        (hasCopyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
-        (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
-        (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
-
-        if (0 < bigThreeYes.length && bigThreeYes.length < 3){
-            // If it's only because of an empty destructor, suppress warning
-            if (bigThreeYes.length === 1 && this.type.destructor && this.type.destructor.decl.emptyBody()){
-
-            }
-            else{
-                this.addNote(CPPError.class_def.big_three(this, bigThreeYes, bigThreeNo));
-            }
-        }
-
-        this.customBigThree = bigThreeYes.length > 0;
-
-        if (!hasCopyConstructor) {
-            // Create implicit copy constructor
-            var icc = this.createImplicitCopyConstructor();
-            if (icc) {
-                icc.compile();
-                assert(!icc.hasErrors());
-            }
-        }
-
-        if (!this.type.destructor) {
-            // Create implicit destructor
-            var idd = this.createImplicitDestructor();
-            if (idd) {
-                idd.compile();
-                assert(!idd.hasErrors());
-            }
-        }
-        if (!hasUserDefinedAssignmentOperator){
-
-            // Create implicit assignment operator
-            var iao = this.createImplicitAssignmentOperator();
-            if (iao){
-                iao.compile();
-                assert(!iao.hasErrors());
-            }
-        }
-    },
-
-    compileDefinition : function() {
-        if (this.hasErrors()){
-            return;
-        }
-        for(var i = 0; i < this.memDecls.length; ++i){
-            this.memDecls[i].compileDefinition();
-        }
-    },
-
-
-    createImplicitDefaultConstructor : function(){
-        var self = this;
-
-        // If any data members are of reference type, do not create the implicit default constructor
-        if (!this.type.memberSubobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Reference);
-            })){
-            return;
-        }
-
-        // If any const data members do not have a user-provided default constructor
-        if (!this.type.memberSubobjectEntities.every(function(subObj){
-                if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
-                    return true;
-                }
-                var defCon = subObj.type.getDefaultConstructor();
-                return defCon && !defCon.decl.isImplicit();
-            })){
-            return;
-        }
-
-        // If any subobjects do not have a default constructor or destructor
-        if (!this.type.subobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getDefaultConstructor() &&
-                    subObj.type.destructor;
-            })){
-            return;
-        }
-
-
-        var src = this.name + "() {}";
-        //TODO: initialize members (i.e. that are classes)
-        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    },
-
-    createImplicitCopyConstructor : function(){
-        var self = this;
-        // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-        if (!this.type.subobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Class) ||
-                    subObj.type.getCopyConstructor(subObj.type.isConst);
-            })){
-            return;
-        }
-
-        // If any subobjects are missing a destructor, do not create implicit copy ctor
-        if (!this.type.subobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Class) ||
-                    subObj.type.destructor;
-            })){
-            return;
-        }
-
-        var src = this.name + "(const " + this.name + " &other)";
-
-        if (this.type.subobjectEntities.length > 0){
-            src += "\n : ";
-        }
-        src += this.type.baseClassEntities.map(function(subObj){
-            return subObj.type.className + "(other)";
-        }).concat(this.type.memberEntities.map(function(subObj){
-            return subObj.name + "(other." + subObj.name + ")";
-        })).join(", ");
-
-        src += " {}";
-        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-
-        return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    },
-
-    createImplicitAssignmentOperator : function () {
-        var self = this;
-        // Parameter will only be const if all subobjects have assignment ops that take const params
-        var canMakeConst = this.type.subobjectEntities.every(function(subObj){
-            return !isA(subObj.type, Types.Class) ||
-                subObj.type.getAssignmentOperator(true);
-        });
-
-        var canMakeNonConst = canMakeConst || this.type.subobjectEntities.every(function(subObj){
-            return !isA(subObj.type, Types.Class) ||
-                subObj.type.getAssignmentOperator(false);
-        });
-
-        // If we can't make non-const, we also can't make const, and we can't make any implicit assignment op
-        if (!canMakeNonConst){
-            return;
-        }
-        var constPart = canMakeConst ? "const " : "";
-
-        // If any data member is a reference, we can't make implicit assignment operator
-        if (!this.type.memberSubobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Reference);
-            })){
-            return;
-        }
-
-        // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-        if (!this.type.memberSubobjectEntities.every(function(subObj){
-                //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
-                //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
-                return !subObj.type.isConst
-                    && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
-            })){
-            return;
-        }
-
-        var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
-
-        src += this.type.baseClassEntities.map(function(subObj){
-            return subObj.type.className + "::operator=(rhs);";
-        }).join("\n");
-
-        var mems = this.type.memberSubobjectEntities;
-        for(var i = 0; i < mems.length; ++i){
-            var mem = mems[i];
-            if (isA(mem.type, Types.Array)){
-                var tempType = mem.type;
-                var subscriptNum = isA(tempType.elemType, Types.Array) ? 1 : "";
-                var subscripts = "";
-                var closeBrackets = "";
-                while(isA(tempType, Types.Array)){
-                    src += "for(int i"+subscriptNum+"=0; i"+subscriptNum+"<"+tempType.length+"; ++i"+subscriptNum+"){";
-                    subscripts += "[i"+subscriptNum+"]";
-                    closeBrackets += "}";
-                    tempType = tempType.elemType;
-                    subscriptNum += 1;
-                }
-                src += mem.name + subscripts + " = rhs." + mem.name + "" + subscripts + ";";
-                src += closeBrackets;
-            }
-            else{
-                src += mems[i].name + " = rhs." + mems[i].name + ";";
-            }
-        }
-        src += "return *this;}";
-        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    },
-
-    createImplicitDestructor : function(){
-        var self = this;
-        // If any subobjects are missing a destructor, do not create implicit destructor
-        if (!this.type.subobjectEntities.every(function(subObj){
-                return !isA(subObj.type, Types.Class) ||
-                    subObj.type.destructor;
-            })){
-            return;
-        }
-
-        var src = "~" + this.type.name + "(){}";
-        src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-        return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    },
-
-    createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-        return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
-    },
-
-    upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    },
-
-    stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    }
+//                 // TODO NEW: Use an actual Identifier expression for this
+//                 this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
+
+//                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
+//                     this.addNote(CPPError.class_def.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
+//                 }
+
+//                 if (baseCode.virtual){
+//                     this.addNote(CPPError.class_def.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
+//                 }
+//             }
+//             catch(e){
+//                 if (isA(e, SemanticExceptions.BadLookup)){
+//                     this.addNote(e.annotation(this));
+//                 }
+//                 else{
+//                     throw e;
+//                 }
+//             }
+//         }
+
+
+
+//         // Check that no other type with the same name already exists
+//         try {
+// //            console.log("addingEntity " + this.name);
+//             // class type. will be incomplete initially, but made complete at end of class declaration
+//             this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
+//             this.classTypeClass = this.type;
+
+//             this.classScope = this.type.classScope;
+
+//             this.entity = TypeEntity.instance(this);
+
+//             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
+
+//             this.contextualScope.addDeclaredEntity(this.entity);
+//         }
+//         catch(e){
+//             if (isA(e, Note)){
+//                 this.addNote(e);
+//                 return;
+//             }
+//             else {
+//                 throw e;
+//             }
+//         }
+
+
+
+
+//         // Compile the members
+
+
+//         var memDecls = this.memDecls = [];
+//         for(var i = 0; i < ast.member_specs.length; ++i){
+//             var spec = ast.member_specs[i];
+//             var access = spec.access || "private";
+//             for(var j = 0; j < spec.members.length; ++j){
+//                 spec.members[j].access = access;
+//                 var memDecl = SimpleDeclaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
+
+//                 // Within member function definitions, class is considered as complete even though it isn't yet
+//                 if (isA(memDecl, FunctionDefinition)){
+//                     this.type.setTemporarilyComplete();
+//                 }
+
+//                 memDecl.compileDeclaration();
+
+//                 // Remove temporarily complete
+//                 this.type.unsetTemporarilyComplete();
+
+//                 memDecls.push(memDecl);
+//             }
+//         }
+
+//         // If there are no constructors, then we need an implicit default constructor
+//         if(this.type.constructors.length == 0){
+//             var idc = this.createImplicitDefaultConstructor();
+//             if (idc){
+//                 idc.compile();
+//                 assert(!idc.hasErrors());
+//             }
+//         }
+
+//         let hasCopyConstructor = false;
+//         for(var i = 0; i < this.type.constructors.length; ++i){
+//             if (this.type.constructors[i].decl.isCopyConstructor){
+//                 hasCopyConstructor = true;
+//                 break;
+//             }
+//         }
+
+
+//         var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
+
+//         // Rule of the Big Three
+//         var bigThreeYes = [];
+//         var bigThreeNo = [];
+//         (hasCopyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
+//         (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
+//         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
+
+//         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
+//             // If it's only because of an empty destructor, suppress warning
+//             if (bigThreeYes.length === 1 && this.type.destructor && this.type.destructor.decl.emptyBody()){
+
+//             }
+//             else{
+//                 this.addNote(CPPError.class_def.big_three(this, bigThreeYes, bigThreeNo));
+//             }
+//         }
+
+//         this.customBigThree = bigThreeYes.length > 0;
+
+//         if (!hasCopyConstructor) {
+//             // Create implicit copy constructor
+//             var icc = this.createImplicitCopyConstructor();
+//             if (icc) {
+//                 icc.compile();
+//                 assert(!icc.hasErrors());
+//             }
+//         }
+
+//         if (!this.type.destructor) {
+//             // Create implicit destructor
+//             var idd = this.createImplicitDestructor();
+//             if (idd) {
+//                 idd.compile();
+//                 assert(!idd.hasErrors());
+//             }
+//         }
+//         if (!hasUserDefinedAssignmentOperator){
+
+//             // Create implicit assignment operator
+//             var iao = this.createImplicitAssignmentOperator();
+//             if (iao){
+//                 iao.compile();
+//                 assert(!iao.hasErrors());
+//             }
+//         }
+//     },
+
+//     compileDefinition : function() {
+//         if (this.hasErrors()){
+//             return;
+//         }
+//         for(var i = 0; i < this.memDecls.length; ++i){
+//             this.memDecls[i].compileDefinition();
+//         }
+//     },
+
+
+//     createImplicitDefaultConstructor : function(){
+//         var self = this;
+
+//         // If any data members are of reference type, do not create the implicit default constructor
+//         if (!this.type.memberSubobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Reference);
+//             })){
+//             return;
+//         }
+
+//         // If any const data members do not have a user-provided default constructor
+//         if (!this.type.memberSubobjectEntities.every(function(subObj){
+//                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
+//                     return true;
+//                 }
+//                 var defCon = subObj.type.getDefaultConstructor();
+//                 return defCon && !defCon.decl.isImplicit();
+//             })){
+//             return;
+//         }
+
+//         // If any subobjects do not have a default constructor or destructor
+//         if (!this.type.subobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Class) ||
+//                     subObj.type.getDefaultConstructor() &&
+//                     subObj.type.destructor;
+//             })){
+//             return;
+//         }
+
+
+//         var src = this.name + "() {}";
+//         //TODO: initialize members (i.e. that are classes)
+//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+//         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+//     },
+
+//     createImplicitCopyConstructor : function(){
+//         var self = this;
+//         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
+//         if (!this.type.subobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Class) ||
+//                     subObj.type.getCopyConstructor(subObj.type.isConst);
+//             })){
+//             return;
+//         }
+
+//         // If any subobjects are missing a destructor, do not create implicit copy ctor
+//         if (!this.type.subobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Class) ||
+//                     subObj.type.destructor;
+//             })){
+//             return;
+//         }
+
+//         var src = this.name + "(const " + this.name + " &other)";
+
+//         if (this.type.subobjectEntities.length > 0){
+//             src += "\n : ";
+//         }
+//         src += this.type.baseClassEntities.map(function(subObj){
+//             return subObj.type.className + "(other)";
+//         }).concat(this.type.memberEntities.map(function(subObj){
+//             return subObj.name + "(other." + subObj.name + ")";
+//         })).join(", ");
+
+//         src += " {}";
+//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+
+//         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+//     },
+
+//     createImplicitAssignmentOperator : function () {
+//         var self = this;
+//         // Parameter will only be const if all subobjects have assignment ops that take const params
+//         var canMakeConst = this.type.subobjectEntities.every(function(subObj){
+//             return !isA(subObj.type, Types.Class) ||
+//                 subObj.type.getAssignmentOperator(true);
+//         });
+
+//         var canMakeNonConst = canMakeConst || this.type.subobjectEntities.every(function(subObj){
+//             return !isA(subObj.type, Types.Class) ||
+//                 subObj.type.getAssignmentOperator(false);
+//         });
+
+//         // If we can't make non-const, we also can't make const, and we can't make any implicit assignment op
+//         if (!canMakeNonConst){
+//             return;
+//         }
+//         var constPart = canMakeConst ? "const " : "";
+
+//         // If any data member is a reference, we can't make implicit assignment operator
+//         if (!this.type.memberSubobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Reference);
+//             })){
+//             return;
+//         }
+
+//         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
+//         if (!this.type.memberSubobjectEntities.every(function(subObj){
+//                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
+//                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
+//                 return !subObj.type.isConst
+//                     && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
+//             })){
+//             return;
+//         }
+
+//         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
+
+//         src += this.type.baseClassEntities.map(function(subObj){
+//             return subObj.type.className + "::operator=(rhs);";
+//         }).join("\n");
+
+//         var mems = this.type.memberSubobjectEntities;
+//         for(var i = 0; i < mems.length; ++i){
+//             var mem = mems[i];
+//             if (isA(mem.type, Types.Array)){
+//                 var tempType = mem.type;
+//                 var subscriptNum = isA(tempType.elemType, Types.Array) ? 1 : "";
+//                 var subscripts = "";
+//                 var closeBrackets = "";
+//                 while(isA(tempType, Types.Array)){
+//                     src += "for(int i"+subscriptNum+"=0; i"+subscriptNum+"<"+tempType.length+"; ++i"+subscriptNum+"){";
+//                     subscripts += "[i"+subscriptNum+"]";
+//                     closeBrackets += "}";
+//                     tempType = tempType.elemType;
+//                     subscriptNum += 1;
+//                 }
+//                 src += mem.name + subscripts + " = rhs." + mem.name + "" + subscripts + ";";
+//                 src += closeBrackets;
+//             }
+//             else{
+//                 src += mems[i].name + " = rhs." + mems[i].name + ";";
+//             }
+//         }
+//         src += "return *this;}";
+//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+//         return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+//     },
+
+//     createImplicitDestructor : function(){
+//         var self = this;
+//         // If any subobjects are missing a destructor, do not create implicit destructor
+//         if (!this.type.subobjectEntities.every(function(subObj){
+//                 return !isA(subObj.type, Types.Class) ||
+//                     subObj.type.destructor;
+//             })){
+//             return;
+//         }
+
+//         var src = "~" + this.type.name + "(){}";
+//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+//         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+//     },
+
+//     createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
+//     },
+
+//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//     },
+
+//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+//     }
 }
 
 // export var MemberDeclaration = SimpleDeclaration.extend({
