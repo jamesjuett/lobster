@@ -313,10 +313,6 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
     public abstract readonly type?: Type;
     public readonly name: string;
-     
-    // Allow subclasses to customize behavior
-    protected abstract readonly initializerAllowed: boolean;
-    public abstract readonly isDefinition: boolean;
     
     public readonly initializer?: Initializer;
     public readonly declaredEntity?: CPPEntity;
@@ -350,12 +346,6 @@ export interface CompiledSimpleDeclaration extends SimpleDeclaration, Successful
 
 export class UnknownTypeDeclaration extends SimpleDeclaration {
 
-    // If the declared type cannot be determined, we don't want to give
-    // a meaningless error that an initializer is not allowed, so we set
-    // this to true.
-    protected readonly initializerAllowed = true;
-
-    public readonly isDefinition = false;
 
     public readonly type: undefined;
     
@@ -376,12 +366,6 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
 
 export class VoidDeclaration extends SimpleDeclaration {
 
-    // Suppress meaningless error, since a void declaration is
-    // always ill-formed, whether or not it has an initializer.
-    protected readonly initializerAllowed = true;
-
-    public readonly isDefinition = false;
-
     public readonly type = VoidType.VOID;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
@@ -394,9 +378,6 @@ export class VoidDeclaration extends SimpleDeclaration {
 }
 
 export class TypedefDeclaration extends SimpleDeclaration {
-
-    protected readonly initializerAllowed = false;
-    public readonly isDefinition = false;
 
     public readonly type: undefined; // will change when typedef is implemented
     
@@ -416,9 +397,6 @@ export class TypedefDeclaration extends SimpleDeclaration {
 }
 
 export class FriendDeclaration extends SimpleDeclaration {
-
-    protected readonly initializerAllowed = false;
-    public readonly isDefinition = false;
     
     public readonly type: undefined; // will change when friend is implemented
     
@@ -442,13 +420,6 @@ export class FriendDeclaration extends SimpleDeclaration {
 
 export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 
-    // This class should only be created in cases where the size of
-    // the array cannot be determined from its initializer, which is
-    // problematic, but the initializer itself is not prohibited.
-    protected readonly initializerAllowed = true;
-
-    public readonly isDefinition = false;
-
     public readonly type: ArrayOfUnknownBoundType;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
@@ -463,9 +434,6 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 }
 
 export class FunctionDeclaration extends SimpleDeclaration {
-
-    protected readonly initializerAllowed = false;
-    public readonly isDefinition = false;
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
@@ -576,9 +544,6 @@ export interface CompiledVariableDefinition<T extends ObjectType = ObjectType> e
 
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
 
-    protected readonly initializerAllowed = true;
-    public readonly isDefinition = true;
-
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
@@ -624,10 +589,6 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 
 export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitContext> {
     public readonly kind = "GlobalObjectDefinition";
-    
-    // TODO: I don't think these two properties are used, clean them up here and in LocalOjectDefinition
-    protected readonly initializerAllowed = true;
-    public readonly isDefinition = true;
 
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity!: StaticEntity<ObjectType>; // only allows undefined because global references are not yet supported
