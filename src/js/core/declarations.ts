@@ -469,7 +469,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
         // this.checkOverloadSemantics();
 
         try{
-            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -567,7 +567,7 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            this.context.contextualScope.declareVariableEntity(this.declaredEntity);
             this.context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         catch(e) {
@@ -610,7 +610,7 @@ export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitCo
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            this.context.contextualScope.declareVariableEntity(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -710,7 +710,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            context.contextualScope.declareVariableEntity(this.declaredEntity);
 
             // Register the defined local object/reference
             context.functionLocals.registerLocalVariable(this.declaredEntity);
