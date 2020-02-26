@@ -478,6 +478,8 @@ export abstract class CPPEntity<T extends Type = Type> {
     // }
 
     //TODO: function for isOdrUsed()?
+    
+    public abstract isVariableEntity() : ent is VariableEntity<T>;
 };
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
@@ -793,6 +795,7 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Decla
 };
 
 export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T>;
+
 
 // TODO: implement global references
 // export class GlobalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
