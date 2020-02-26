@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration } from "./declarations";
+import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, FunctionDefinitionGroup } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -64,7 +64,7 @@ export class Scope {
     //     return ents;
     // }
 
-    // TODO NEW: this documentation is kind of messy (but hey, at least it exists!)
+    // TODO NEW: this documentation is wrong-ish
     /**
      * Attempts to add a new entity to this scope.
      * @param {DeclaredEntity} newEntity - The entity to attempt to add.
@@ -79,6 +79,41 @@ export class Scope {
             return this.entities[newEntity.name] = newEntity instanceof FunctionEntity ? new FunctionOverloadGroup([newEntity]) : newEntity;
         }
         
+        return newEntity.mergeInto(existingEntity);
+    }
+
+
+    public declareFunctionEntity(newEntity: FunctionEntity) {
+        let existingEntity = this.entities[newEntity.name];
+        
+        // No previous declaration for this name
+        if (!existingEntity) {
+            return this.entities[newEntity.name] = new FunctionOverloadGroup([newEntity]);
+        }
+
+        // Previous declaration for this name, but different kind of symbol
+        if (!(existingEntity instanceof FunctionOverloadGroup)) {
+            throw CPPError.declaration.symbol_mismatch(newEntity.declaration, newEntity);
+        }
+
+        // Previous declaration of function overload group
+        return newEntity.mergeInto(existingEntity);
+    }
+
+    public declareVariableEntity(newEntity: VariableEntity) {
+        let existingEntity = this.entities[newEntity.name];
+        
+        // No previous declaration for this name
+        if (!existingEntity) {
+            return this.entities[newEntity.name] = newEntity;
+        }
+
+        // Previous declaration for this name, but different kind of symbol
+        if (!(existingEntity instanceof VariableEntity)) {
+            throw CPPError.declaration.symbol_mismatch(newEntity.declaration, newEntity);
+        }
+
+        // Previous declaration of function overload group
         return newEntity.mergeInto(existingEntity);
     }
 
@@ -171,13 +206,13 @@ export class Scope {
             return this.parent.lookup(name, options);
         }
 
-        // If we didn't find anything, return null
+        // If we didn't find anything, return undefined
         if (!ent) {
             return undefined;
         }
 
         if (!(ent instanceof FunctionOverloadGroup)) {
-            // If it's not an array, it's a single entity so return it
+            // If it's not an function overload group, it's a single entity so return it
             return ent;
         }
         else {
@@ -569,12 +604,12 @@ export abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEnt
 
 export class FunctionOverloadGroup {
     public readonly name: string;
-    private readonly _overloads: FunctionEntity[] = [];
-    public readonly overloads: readonly FunctionEntity[] = this._overloads;
+    private readonly _overloads: FunctionEntity[];
+    public readonly overloads: readonly FunctionEntity[];
 
     public constructor(overloads: readonly FunctionEntity[]) {
             this.name = overloads[0].name;
-            overloads.forEach((f) => this._overloads.push(f));
+            this.overloads = this._overloads = overloads.slice();
     }
 
     public addOverload(overload: FunctionEntity) {
@@ -586,8 +621,7 @@ export type DeclaredEntity = DeclaredObjectEntity | FunctionEntity | ClassEntity
 
 export type DeclaredScopeEntry = DeclaredObjectEntity | FunctionOverloadGroup | ClassEntity;
 
-
-export type LinkedEntity = StaticEntity | FunctionEntity;
+export type LinkedEntity = GlobalObjectEntity | FunctionEntity | ClassEntity;
 
 // abstract class LinkedEntity<T extends Type = Type> extends DeclaredEntity<T> {
 
@@ -636,7 +670,7 @@ export abstract class DeclaredObjectEntity<T extends ObjectType = ObjectType> ex
     }
 }
 
-export class AutoEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
+export class LocalObjectEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
     public readonly kind = "AutoEntity";
     public readonly isParameter: boolean;
 
@@ -714,9 +748,9 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Dec
     }
 };
 
-export type LocalVariableEntity<T extends ObjectType = ObjectType> = AutoEntity<T> | LocalReferenceEntity<T>;
+export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObjectEntity<T> | LocalReferenceEntity<T>;
 
-export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
+export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends DeclaredObjectEntity<T> {
 
     public readonly qualifiedName: string;
     public readonly declaration: SimpleDeclaration;
@@ -738,13 +772,15 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObj
     }
 
     public link(def: LinkedDefinition | undefined) {
-        if (!def || Array.isArray(def)) {
-            // Either undefined, or linked against a function overload group
+        if (def instanceof GlobalObjectDefinition) {
+            (<Mutable<this>>this).definition = def;
+        }
+        else {
+            // Either undefined, or linked against a function overload group or class definition
             this.declaration.addNote(CPPError.link.def_not_found(this.declaration, this));
             return;
         }
         
-        (<Mutable<this>>this).definition = def;
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {
@@ -756,7 +792,7 @@ export class StaticEntity<T extends ObjectType = ObjectType> extends DeclaredObj
     }
 };
 
-export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | StaticEntity<T>;
+export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T>;
 
 // TODO: implement global references
 // export class GlobalReferenceEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
@@ -1209,58 +1245,55 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return this.name;
     }
 
-    public mergeInto(existingEntity: DeclaredScopeEntry) {
-        if (!Array.isArray(existingEntity)) { // It's not a function overload group
-            throw CPPError.declaration.type_mismatch(this.declaration, this, existingEntity);
-        }
-        else { // It is a function overload group, check each other function found
-            let matchingFunction = selectOverloadedEntity(existingEntity, this.type);
-            
-            if (!matchingFunction) {
-                // If none were found with the same signature, this is a new overload, so go ahead and add it
-                existingEntity.push(this);
-                return this;
-            }
-
-            // If they have mismatched return types, that's a problem.
-            if (!this.type.sameReturnType(matchingFunction.type)) {
-                throw CPPError.declaration.func.returnTypesMatch([this.declaration, matchingFunction.declaration], this.name);
-            }
-
-            // As a sanity check, make sure they're the same type.
-            // But this should already be true, given that they have the same signature and return type.
-            if (!sameType(this.type, matchingFunction.type)) { // an array indicates a function overload group was found
-                throw CPPError.declaration.type_mismatch(this.declaration, this, matchingFunction);
-            }
-
-            return matchingFunction;
-
+    public mergeInto(existingEntity: FunctionOverloadGroup) {
+        //check each other function found
+        let matchingFunction = selectOverloadedEntity(existingEntity.overloads, this.type);
+        
+        if (!matchingFunction) {
+            // If none were found with the same signature, this is a new overload, so go ahead and add it
+            existingEntity.addOverload(this);
+            return this;
         }
 
+        // If they have mismatched return types, that's a problem.
+        if (!this.type.sameReturnType(matchingFunction.type)) {
+            throw CPPError.declaration.func.returnTypesMatch([this.declaration, matchingFunction.declaration], this.name);
+        }
+
+        // As a sanity check, make sure they're the same type.
+        // But this should already be true, given that they have the same signature and return type.
+        if (!sameType(this.type, matchingFunction.type)) { // an array indicates a function overload group was found
+            throw CPPError.declaration.type_mismatch(this.declaration, this, matchingFunction);
+        }
+
+        return matchingFunction;
     }
 
     public link(def: LinkedDefinition | undefined) {
-        if (!def || !Array.isArray(def)) {
+        
+        if (def instanceof FunctionDefinitionGroup) {
+            // found an overload group of function definitions, check for one
+            // with matching signature to the given linked entity
+            let overload = selectOverloadedDefinition(def.definitions, this.type);
+            if (!overload) {
+                this.declaration.addNote(CPPError.link.func.no_matching_overload(this.declaration, this));
+                return;
+            }
+
+            // check return type
+            if (!this.type.sameReturnType(overload.declaration.type)) {
+                this.declaration.addNote(CPPError.link.func.returnTypesMatch(this.declaration, this));
+                return;
+            }
+            
+            (<Mutable<this>>this).definition = overload;
+        }
+        else {
             // Either undefined, or linked against something other than a function overload group
             this.declaration.addNote(CPPError.link.func.def_not_found(this.declaration, this));
             return;
         }
-        
-        // found an overload group of function definitions, check for one
-        // with matching signature to the given linked entity
-        let overload = selectOverloadedDefinition(def, this.type);
-        if (!overload) {
-            this.declaration.addNote(CPPError.link.func.no_matching_overload(this.declaration, this));
-            return;
-        }
 
-        // check return type
-        if (!this.type.sameReturnType(overload.declaration.type)) {
-            this.declaration.addNote(CPPError.link.func.returnTypesMatch(this.declaration, this));
-            return;
-        }
-        
-        (<Mutable<this>>this).definition = overload;
     }
 
     public isMain() {

@@ -1,5 +1,5 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity, FunctionEntity, AutoEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
@@ -465,7 +465,7 @@ export class InvalidConstruct extends BasicCPPConstruct {
 
 export class FunctionLocals {
 
-    public readonly localObjects: readonly AutoEntity[] = [];
+    public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
     public readonly localVariablesByEntityId: {
         [index: number] : LocalVariableEntity
@@ -545,17 +545,17 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     public getParameterObject(num: number) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         return this.stackFrame.localObjectLookup(param);
     }
 
     public initializeParameterObject(num: number, value: Value<AtomicType>) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         assert(param.type.isAtomicType());
-        this.stackFrame.initializeLocalObject(<AutoEntity<AtomicType>>param, <Value<AtomicType>>value);
+        this.stackFrame.initializeLocalObject(<LocalObjectEntity<AtomicType>>param, <Value<AtomicType>>value);
     }
 
     public bindReferenceParameter(num: number, obj: CPPObject) {

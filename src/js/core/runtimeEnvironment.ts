@@ -3,7 +3,7 @@ import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
 import last from "lodash/last";
-import { StaticEntity, AutoEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
+import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CompiledGlobalObjectDefinition, GlobalObjectDefinition } from "./declarations";
 
@@ -417,7 +417,7 @@ export class Memory {
         this.staticObjects[def.declaredEntity.qualifiedName] = obj;
     }
 
-    public staticLookup<T extends ObjectType>(staticEntity: StaticEntity<T>) {
+    public staticLookup<T extends ObjectType>(staticEntity: GlobalObjectEntity<T>) {
         return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];
     }
 
@@ -624,11 +624,11 @@ export class MemoryFrame {
         return str;
     }
 
-    public localObjectLookup<T extends ObjectType>(entity: AutoEntity<T>) {
+    public localObjectLookup<T extends ObjectType>(entity: LocalObjectEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
-    public initializeLocalObject<T extends AtomicType>(entity: AutoEntity<T>, newValue: Value<T>) {
+    public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
         this.localObjectLookup(entity).writeValue(newValue);
     }
 

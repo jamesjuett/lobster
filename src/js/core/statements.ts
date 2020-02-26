@@ -4,7 +4,7 @@ import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
 import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
-import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, AutoEntity, LocalReferenceEntity } from "./entities";
+import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { Mutable, asMutable } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { standardConversion } from "./standardConversions";
