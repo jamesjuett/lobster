@@ -1,7 +1,7 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity, StaticEntity } from "./entities";
+import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
@@ -276,7 +276,7 @@ export const CPPError = {
             }
         },
         dtor : {
-            no_destructor_auto : function(construct: TranslationUnitConstruct, entity: AutoEntity) {
+            no_destructor_auto : function(construct: TranslationUnitConstruct, entity: LocalObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_auto", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
             // no_destructor_member : function(construct: TranslationUnitConstruct, entity: ObjectEntity, containingClass) {
@@ -500,6 +500,9 @@ export const CPPError = {
         type_mismatch : function(construct: TranslationUnitConstruct, newEntity: DeclaredEntity, existingEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.type_mismatch", `Type mismatch. This declaration for ${newEntity.name} has type ${newEntity.type}, but a previous declaration of ${existingEntity.name} has type ${existingEntity.type}`);
         },
+        symbol_mismatch : function(construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.symbol_mismatch", `Cannot redeclare ${newEntity.name} as a different kind of symbol.`);
+        }
 	},
 	type : {
         
@@ -811,7 +814,7 @@ export const CPPError = {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This declaration of the function " + func.name + " has a different return type than its definition.");
             }
         },
-        def_not_found : function(construct: TranslationUnitConstruct, ent: StaticEntity) {
+        def_not_found : function(construct: TranslationUnitConstruct, ent: GlobalObjectEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for object " + ent.name + ". (It is declared, so I know it's a variable and what type it is, but it's never defined anywhere.)");
         },
         main_multiple_def : function(construct: TranslationUnitConstruct) {

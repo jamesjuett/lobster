@@ -3,7 +3,7 @@ import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
-import { AutoEntity, LocalReferenceEntity, StaticEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
@@ -545,7 +545,7 @@ export interface CompiledVariableDefinition<T extends ObjectType = ObjectType> e
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
 
     public readonly type : ObjectType | ReferenceType;
-    public readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
     public constructor(context: BlockContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
@@ -555,7 +555,7 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         this.type = type;
 
         this.declaredEntity = 
-            type.isReferenceType() ? new LocalReferenceEntity(type.refTo, this) : new AutoEntity(type, this);
+            type.isReferenceType() ? new LocalReferenceEntity(type.refTo, this) : new LocalObjectEntity(type, this);
 
 
         // Note extern unsupported error is added in the base Declaration class, so no need to add here
@@ -582,7 +582,7 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
     }
 }
 export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectType> extends LocalVariableDefinition, SuccessfullyCompiled {
-    readonly declaredEntity: AutoEntity<T> | LocalReferenceEntity<T>
+    readonly declaredEntity: LocalObjectEntity<T> | LocalReferenceEntity<T>
     readonly initializer?: CompiledInitializer<T>;
 }
 
@@ -591,7 +591,7 @@ export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitCo
     public readonly kind = "GlobalObjectDefinition";
 
     public readonly type : ObjectType | ReferenceType;
-    public readonly declaredEntity!: StaticEntity<ObjectType>; // only allows undefined because global references are not yet supported
+    public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
@@ -605,7 +605,7 @@ export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitCo
             return;
         }
 
-        this.declaredEntity = new StaticEntity(type, this);
+        this.declaredEntity = new GlobalObjectEntity(type, this);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
@@ -630,7 +630,7 @@ export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitCo
 
 
 export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalObjectDefinition, SuccessfullyCompiled {
-    readonly declaredEntity: StaticEntity<T>;
+    readonly declaredEntity: GlobalObjectEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
 
@@ -651,7 +651,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
 
     public readonly name?: string; // parameter declarations need not provide a name
     public readonly type?: Type;
-    public readonly declaredEntity?: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly declaredEntity?: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -678,7 +678,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         if (this.isParameterDefinition()) {
             (<Mutable<this>>this).declaredEntity =
                 this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
-                new AutoEntity(this.type, this, true);
+                new LocalObjectEntity(this.type, this, true);
         }
         
     }
@@ -729,7 +729,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
 export interface ParameterDefinition extends ParameterDeclaration {
     readonly name: string; // parameter declarations need not provide a name
     readonly type: PotentialParameterType;
-    readonly declaredEntity: AutoEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 }
 
 export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends ParameterDefinition, SuccessfullyCompiled {
@@ -2213,4 +2213,21 @@ export class ClassDefinition extends BasicCPPConstruct<FunctionContext> {
 //     }
 // });
 
-export type LinkedDefinition = GlobalObjectDefinition | FunctionDefinition[] | ClassDefinition;
+
+
+export class FunctionDefinitionGroup {
+    public readonly name: string;
+    private readonly _definitions: FunctionDefinition[];
+    public readonly definitions: readonly FunctionDefinition[];
+
+    public constructor(definitions: readonly FunctionDefinition[]) {
+            this.name = definitions[0].name;
+            this.definitions = this._definitions = definitions.slice();
+    }
+
+    public addDefinition(overload: FunctionDefinition) {
+        this._definitions.push(overload);
+    }
+}
+
+export type LinkedDefinition = GlobalObjectDefinition | FunctionDefinitionGroup | ClassDefinition;

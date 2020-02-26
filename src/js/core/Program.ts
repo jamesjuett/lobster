@@ -2,8 +2,8 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST } from "./declarations";
-import { LinkedEntity, NamespaceScope, StaticEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup } from "./declarations";
+import { LinkedEntity, NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
@@ -209,21 +209,21 @@ export class Program {
     public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
         let prevDef = this.definitions[qualifiedName];
         if (!prevDef) {
-            this.definitions[qualifiedName] = [def];
+            this.definitions[qualifiedName] = new FunctionDefinitionGroup([def]);
         }
-        else if (!Array.isArray(prevDef)) {
+        else if (!(prevDef instanceof FunctionDefinitionGroup)) {
             // Previous definition that isn't a function overload group
             this.addNote(CPPError.link.multiple_def(def, qualifiedName));
         }
         else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
-            let conflictingDef = selectOverloadedDefinition(prevDef, def.declaration.type);
+            let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
             if (conflictingDef) {
                 this.addNote(CPPError.link.multiple_def(def, qualifiedName));
             }
             else {
-                prevDef.push(def);
+                prevDef.addDefinition(def);
             }
         }
     }
@@ -565,7 +565,7 @@ export class TranslationUnit {
     public readonly globalScope: NamespaceScope;
     
     public readonly topLevelDeclarations: readonly TopLevelDeclaration[] = [];
-    public readonly staticEntities: readonly StaticEntity[] = [];
+    public readonly staticEntities: readonly GlobalObjectEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralExpression[] = [];
     public readonly functionCalls: readonly FunctionCall[] = [];
 
