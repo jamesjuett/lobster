@@ -1,5 +1,5 @@
 import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
-import { assert, Mutable, unescapeString, assertFalse } from "../util/util";
+import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -33,6 +33,7 @@ export class Scope {
     // private static NO_MATCH = Symbol("NO_MATCH");
 
     private readonly entities: {[index:string]: DeclaredScopeEntry | undefined} = {};
+    private readonly hiddenClassEntities: {[index:string]: DeclaredScopeEntry | undefined} = {};
     private readonly typeEntities: {[index:string]: ClassEntity | undefined} = {};
     public readonly parent?: Scope;
 
@@ -40,42 +41,27 @@ export class Scope {
         this.parent = parent;
     }
 
-    public toString() {
-        let str = "";
-        for(let key in this.entities) {
-            str += this.entities[key] + "\n";
-        }
-        return str;
-    }
-
-    // public allEntities() {
-    //     var ents = [];
-    //     for(var name in this.entities) {
-    //         if (Array.isArray(this.entities[name])) {
-    //             var e = <CPPEntity[]>this.entities[name];
-    //             for(let i = 0; i < e.length; ++i) {
-    //                 ents.push(e[i]);
-    //             }
-    //         }
-    //         else{
-    //             ents.push(this.entities[name]);
-    //         }
-    //     }
-    //     return ents;
-    // }
-
-    /** Attempts to declare a new variable in this scope.
-     * @param {VariableEntity} newEntity - The variable being declared.
-     * @returns {VariableEntity} Either the entity that was added, or an existing one already there, assuming it was compatible.
-     * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. A previous declaration
+    /** Attempts to declare a variable in this scope.
+     * @param newEntity - The variable being declared.
+     * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
+     * @throws {CompilerNote} If an error prevents the entity being added successfully. (e.g. A previous declaration
      * with the same name but a different type.)
      */
     public declareVariableEntity<T extends ObjectType>(newEntity: VariableEntity<T>) : VariableEntity<T> {
-        let existingEntity = this.entities[newEntity.name];
+        let entityName = newEntity.name;
+        let existingEntity = this.entities[entityName];
         
         // No previous declaration for this name
         if (!existingEntity) {
-            return this.entities[newEntity.name] = newEntity;
+            return this.entities[entityName] = newEntity;
+        }
+
+        // If there is an existing class entity, it may be displaced and effectively hidden.
+        if (existingEntity.declarationKind === "class") {
+            // Note: because a class entity cannot displace another class entity, we can
+            // assume that there is no hidden class entity already
+            this.hiddenClassEntities[entityName] = existingEntity;
+            return this.entities[entityName] = newEntity;
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -83,22 +69,31 @@ export class Scope {
             throw CPPError.declaration.symbol_mismatch(newEntity.declaration, newEntity);
         }
 
-        // Previous declaration of function overload group
+        // Previous declaration of variable with same name, attempt to merge
         return newEntity.mergeInto(existingEntity);
     }
 
-    /** Attempts to declare a new function in this scope.
-     * @param {FunctionEntity} newEntity - The function being declared.
-     * @returns {FunctionEntity} Either the entity that was added, or an existing one already there, assuming it was compatible.
-     * @throws  {SemanticException} If an error prevents the entity being added successfully. (e.g. A previous variable declaration
-     * with the same name, or a previous function declarations with the same signature but a different return type.)
+    /** Attempts to declare a function in this scope.
+     * @param newEntity - The function being declared.
+     * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
+     * @throws {CompilerNote} If an error prevents the entity being added successfully. (e.g. A previous function
+     * declaration with the same signature but a different return type.)
      */
     public declareFunctionEntity(newEntity: FunctionEntity) {
-        let existingEntity = this.entities[newEntity.name];
+        let entityName = newEntity.name;
+        let existingEntity = this.entities[entityName];
         
         // No previous declaration for this name
         if (!existingEntity) {
-            return this.entities[newEntity.name] = new FunctionOverloadGroup([newEntity]);
+            return this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
+        }
+
+        // If there is an existing class entity, it may be displaced and effectively hidden.
+        if (existingEntity.declarationKind === "class") {
+            // Note: because a class entity cannot displace another class entity, we can
+            // assume that there is no hidden class entity already
+            this.hiddenClassEntities[entityName] = existingEntity;
+            return this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -106,7 +101,36 @@ export class Scope {
             throw CPPError.declaration.symbol_mismatch(newEntity.declaration, newEntity);
         }
 
-        // Previous declaration of function overload group
+        // Function overload group of previously existing functions, attempt to merge
+        return newEntity.mergeInto(existingEntity);
+    }
+
+    
+    /** Attempts to declare a class in this scope.
+     * @param newEntity - The class being declared.
+     * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
+     * @throws {CompilerNote} If an error prevents the entity being added successfully. (e.g. An error due to
+     * multiple definitions of the same class within a single translation unit.)
+     */
+    public declareClassEntity(newEntity: ClassEntity) {
+        let entityName = newEntity.name;
+        let existingEntity = this.entities[entityName];
+        
+        // No previous declaration for this name
+        if (!existingEntity) {
+            return this.entities[entityName] = newEntity;
+        }
+
+        // Previous declaration for this name, but different kind of symbol
+        if (!(existingEntity instanceof ClassEntity)) {
+            throw CPPError.declaration.symbol_mismatch(newEntity.declaration, newEntity);
+        }
+        
+        // Note that we don't displace existing class entities as new variables or functions do.
+        // Instead, either the new/existing class entities are compatible (i.e. they do result in
+        // a multiple definition error), or they will generate an error.
+
+        // There was a previous class declaration, attempt to merge
         return newEntity.mergeInto(existingEntity);
     }
 
@@ -186,11 +210,23 @@ export class Scope {
     //     return result;
     // }
 
+    /**
+     * Performs unqualified name lookup of a given name in this scope. Returns the entity found, or undefined
+     * if no entity can be found. Note that the entity found may be a function overload group. Lookup may
+     * may search through parent scopes. The lookup process can be customized by providing a set of `NameLookupOptions` (
+     * see documentation for the `NameLookupOptions` type for more details.)
+     * @param name An unqualified name to be looked up.
+     * @param options A set of options to customize the lookup process.
+     * @returns 
+     */
     public lookup(name: string, options: NameLookupOptions = {kind:"normal"}) : DeclaredScopeEntry | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
 
+        // Note: We do not need to check this.hiddenClassEntities here. If a class entity
+        // is hidden by another entity of the same name in the same scope, the only way to
+        // access it is through an elaborated type specifier
         let ent = this.entities[name];
 
         // If we don't have an entity in this scope and we didn't specify we
@@ -486,6 +522,8 @@ export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
     }
 }
 
+export type DeclarationKind = "variable" | "function" | "class";
+
 abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> {
 
     // /**
@@ -570,7 +608,7 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     //     }
     // }
 
-    public abstract readonly declarationKind: string;
+    public abstract readonly declarationKind: DeclarationKind;
 
     public abstract readonly declaration: SimpleDeclaration | ParameterDefinition;
     // public readonly definition?: SimpleDeclaration;
@@ -1314,13 +1352,12 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 }
 
 export class ClassEntity extends DeclaredEntityBase<ClassType> {
-    public readonly declarationKind = "type";
+    public readonly declarationKind = "class";
     
     public readonly qualifiedName: string;
     public readonly declaration: ClassDeclaration;
     public readonly definition?: ClassDefinition;
     
-    // storage: "static",
     constructor(type: ClassType, decl: ClassDeclaration) {
         super(type, decl.name);
         this.declaration = decl;
@@ -1331,33 +1368,44 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
         return this.name;
     }
 
-    public mergeInto(existingEntity: DeclaredScopeEntry) {
-        
-
+    /**
+     * Merge this class entity into a previous existing class entity.
+     * If exactly one of the entities has a definition, the other one assumes
+     * that definition as well. If both have a definition, an error is thrown
+     * unless the two are literally the same definition. (Note that an error
+     * is thrown in the case of separate definitions with the same exact source
+     * tokens, because the use of `mergeInto` means these definitions occur in the
+     * same translation unit, which is prohibited.)
+     * @param existingEntity 
+     * @throws {CompilerNote} If the entities have multiple definitions.
+     */
+    public mergeInto(existingEntity: ClassEntity) {
+        if (this.definition && existingEntity.definition) {
+            if (this.definition !== existingEntity.definition) {
+                // not literally same definition, so throw an error
+                throw CPPError.declaration.classes.multiple_def(this.definition, existingEntity.definition);
+            }
+        }
+        else if (this.definition) {
+            // we have a definition but they don't
+            asMutable(existingEntity).definition = this.definition;
+        }
+        else if (existingEntity.definition) {
+            // they have a definition but we don't
+            asMutable(this).definition = existingEntity.definition;
+        }
+        else {
+            // Neither had a definition, nothing to do.
+        }
     }
 
-    public link(def: LinkedDefinition | undefined) {
-        if (!def || !Array.isArray(def)) {
-            // Either undefined, or linked against something other than a function overload group
-            this.declaration.addNote(CPPError.link.func.def_not_found(this.declaration, this));
+    public link(def: ClassDefinition | undefined) {
+        if (!def) {
+            this.declaration.addNote(CPPError.link.classes.def_not_found(this.declaration, this));
             return;
         }
         
-        // found an overload group of function definitions, check for one
-        // with matching signature to the given linked entity
-        let overload = selectOverloadedDefinition(def, this.type);
-        if (!overload) {
-            this.declaration.addNote(CPPError.link.func.no_matching_overload(this.declaration, this));
-            return;
-        }
-
-        // check return type
-        if (!this.type.sameReturnType(overload.declaration.type)) {
-            this.declaration.addNote(CPPError.link.func.returnTypesMatch(this.declaration, this));
-            return;
-        }
-        
-        (<Mutable<this>>this).definition = overload;
+        (<Mutable<this>>this).definition = def;
     }
 
     public isMain() {

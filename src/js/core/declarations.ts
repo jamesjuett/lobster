@@ -3,7 +3,7 @@ import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
@@ -212,6 +212,7 @@ export function createDeclarationFromAST(ast: ClassDeclarationASTNode, context: 
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) {
     if (ast.construct_type === "simple_declaration") {
+        // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
     }
     else if (ast.construct_type === "function_definition") {
