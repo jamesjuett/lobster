@@ -167,7 +167,6 @@ declaration_statement
 
 declaration
   = simple_declaration
-  / class_declaration
   / class_definition
   / function_definition
 
@@ -180,11 +179,6 @@ simple_declaration
 declarator_list
   = first:declarator_init rest:(ws "," ws d:declarator_init {return d;})*
     {rest.unshift(first); return rest; }
-
-class_declaration
-  = key:class_key WS name:class_name ";" {
-    return track({construct_type: "class_declaration", name: name}, location(), text());
-  }
 
 class_definition
   = spec:class_specifier ws ";" {
@@ -273,7 +267,7 @@ type_specifier
   / "volatile"
 
 elaborated_type_specifier
-  = class_key WS name:class_name {return name;}
+  = class_key WS name:class_name {track({construct_type: "elaborated_type_specifier", name:name}, location(), text());}
 
 storage_class_specifier
   = "register"

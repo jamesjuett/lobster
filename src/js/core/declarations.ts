@@ -181,14 +181,6 @@ export class TypeSpecifier extends BasicCPPConstruct {
 
 
 interface OtherSpecifiers {
-    readonly virtual? : boolean;
-    readonly typedef? : boolean;
-    readonly friend? : boolean;
-}
-
-export interface DeclarationSpecifiersASTNode {
-    readonly typeSpecs: TypeSpecifierASTNode;
-    readonly storageSpecs: StorageSpecifierASTNode;
     readonly friend?: boolean;
     readonly typedef?: boolean;
     readonly inline?: boolean;
@@ -196,7 +188,25 @@ export interface DeclarationSpecifiersASTNode {
     readonly virtual?: boolean;
 }
 
-export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDeclarationASTNode | ClassDefinitionASTNode;
+export type ClassKey = "struct" | "class";
+export interface ElaboratedTypeSpecifier {
+    readonly construct_type: "elaborated_type_specifier";
+    readonly class_key: ClassKey;
+    readonly name: string;
+}
+
+export interface DeclarationSpecifiersASTNode {
+    readonly typeSpecs: TypeSpecifierASTNode;
+    readonly storageSpecs: StorageSpecifierASTNode;
+    readonly elaboratedTypeSpecifiers: readonly ElaboratedTypeSpecifier[];
+    readonly friend?: boolean;
+    readonly typedef?: boolean;
+    readonly inline?: boolean;
+    readonly explicit?: boolean;
+    readonly virtual?: boolean;
+}
+
+export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
 export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 
@@ -208,7 +218,6 @@ export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 
 export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition;
-export function createDeclarationFromAST(ast: ClassDeclarationASTNode, context: TranslationUnitContext) : ClassDeclaration;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) {
     if (ast.construct_type === "simple_declaration") {
@@ -217,9 +226,6 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
     }
     else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
-    }
-    else if (ast.construct_type === "class_declaration") {
-        return ClassDeclaration.createFromAST(ast, context);
     }
     else if (ast.construct_type === "class_definition") {
         return ClassDefinition.createFromAST(ast, context);
@@ -1337,13 +1343,10 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 
 
-export interface ClassDeclarationASTNode {
-    readonly construct_type: "class_declaration";
-}
 export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
 
     public readonly type : ClassType;
-    public readonly declaredEntity!: ClassEntity; // only allows undefined because global references are not yet supported
+    public readonly declaredEntity: ClassEntity;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
@@ -1354,10 +1357,17 @@ export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> 
 
         this.declaredEntity = new ClassEntity(type, this);
 
+        if (!this.storageSpecifier.isEmpty) {
+            this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
+        }
+
+        // NOTE: none of the "other specifiers" are currently supported in Lobster.
+        // When they are added, we should add errors for them rather than just ignoring them here.
+
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         // (e.g. an entity with the same name was already declared in the same scope)
         try{
-            this.context.contextualScope.addDeclaredEntity(this.declaredEntity);
+            this.context.contextualScope.declareClassEntity(this.declaredEntity);
         }
         catch(e) {
             if (e instanceof Note) {
@@ -1395,42 +1405,42 @@ export class ClassDefinition extends BasicCPPConstruct<FunctionContext> {
 //     public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
-//     public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
+    public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
         
-//         let declaration = createSimpleDeclarationFromAST({
-//             construct_type: "simple_declaration",
-//             declarators: [ast.declarator],
-//             specs: ast.specs,
-//             source: ast.declarator.source
-//         }, context)[0];
+        let declaration = createSimpleDeclarationFromAST({
+            construct_type: "simple_declaration",
+            declarators: [ast.declarator],
+            specs: ast.specs,
+            source: ast.declarator.source
+        }, context)[0];
         
-//         if (!(declaration instanceof FunctionDeclaration)) {
-//             return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
-//         }
+        if (!(declaration instanceof FunctionDeclaration)) {
+            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
+        }
 
-//         // Create implementation and body block (before params and body statements added yet)
-//         let functionContext = createFunctionContext(context, declaration.declaredEntity);
-//         let body = new Block(functionContext);
-//         let bodyContext = body.context;
+        // Create implementation and body block (before params and body statements added yet)
+        let functionContext = createFunctionContext(context, declaration.declaredEntity);
+        let body = new Block(functionContext);
+        let bodyContext = body.context;
         
-//         // Add declared entities from the parameters to the body block's context.
-//         // As the context refers back to the implementation, local objects/references will be registerd there.
-//         declaration.parameterDeclarations.forEach(paramDecl => {
-//             if (paramDecl.isParameterDefinition()) {
-//                 paramDecl.addEntityToScope(bodyContext);
-//             }
-//             else {
-//                 paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
-//             }
-//         });
+        // Add declared entities from the parameters to the body block's context.
+        // As the context refers back to the implementation, local objects/references will be registerd there.
+        declaration.parameterDeclarations.forEach(paramDecl => {
+            if (paramDecl.isParameterDefinition()) {
+                paramDecl.addEntityToScope(bodyContext);
+            }
+            else {
+                paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
+            }
+        });
 
-//         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-//         // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-//         // added after the parameters.)
-//         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
+        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
+        // added after the parameters.)
+        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-//         return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
-//     }
+        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
+    }
 
 //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
