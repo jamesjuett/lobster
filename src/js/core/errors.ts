@@ -1,8 +1,8 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration } from "./declarations";
+import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
 import { IdentifierExpression } from "./expressions";
@@ -345,6 +345,11 @@ export const CPPError = {
             definition_non_function_type : function(construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgt the parentheses?");
             }
+        },
+        classes: {
+            multiple_def : function(construct: ClassDefinition, prev: ClassDefinition) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.multiple_def", `The class ${construct.name} cannot be defined more than once.`);
+            },
         },
         pointer: {
             reference : function(construct: TranslationUnitConstruct) {
@@ -804,7 +809,7 @@ export const CPPError = {
             return new LinkerNote(construct, NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
-            def_not_found : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
+            def_not_found : function(construct: ClassDeclaration, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
             no_matching_overload : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
@@ -813,6 +818,11 @@ export const CPPError = {
             returnTypesMatch : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This declaration of the function " + func.name + " has a different return type than its definition.");
             }
+        },
+        classes : {
+            def_not_found : function(construct: TranslationUnitConstruct, c: ClassEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.classes.def_not_found", "Cannot find definition for class " + c.name + ". The class is declared, but I wasn't able to find the actual class definition to link to it.");
+            },
         },
         def_not_found : function(construct: TranslationUnitConstruct, ent: GlobalObjectEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for object " + ent.name + ". (It is declared, so I know it's a variable and what type it is, but it's never defined anywhere.)");

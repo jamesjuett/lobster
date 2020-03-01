@@ -2,7 +2,7 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup } from "./declarations";
+import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
 import { LinkedEntity, NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
@@ -226,6 +226,10 @@ export class Program {
                 prevDef.addDefinition(def);
             }
         }
+    }
+
+    public registerClassDefinition(qualifiedName, def: ClassDefinition) {
+
     }
 
     public isCompiled() : this is CompiledProgram {
