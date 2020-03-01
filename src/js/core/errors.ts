@@ -2,7 +2,7 @@ import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, ClassDeclarationASTNode, StorageSpecifier } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
 import { IdentifierExpression } from "./expressions";
@@ -350,6 +350,9 @@ export const CPPError = {
             multiple_def : function(construct: ClassDefinition, prev: ClassDefinition) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.multiple_def", `The class ${construct.name} cannot be defined more than once.`);
             },
+            storage_prohibited : function(construct: StorageSpecifier) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.storage_prohibited", `Storage specifiers are not permitted in class declarations.`);
+            }
         },
         pointer: {
             reference : function(construct: TranslationUnitConstruct) {
@@ -483,7 +486,7 @@ export const CPPError = {
             }
         },
         parameter : {
-            storage_prohibited : function(construct: TranslationUnitConstruct) {
+            storage_prohibited : function(construct: StorageSpecifier) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.storage_prohibited", "Storage specifiers are not permitted in parameter declarations.");
             },
             invalid_parameter_type : function(construct: TranslationUnitConstruct, type: Type) {

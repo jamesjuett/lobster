@@ -308,48 +308,7 @@ export class Scope {
 
 export class BlockScope extends Scope {
 
-    // protected declaredEntityAdded(ent: DeclaredEntity) {
-    //     if (ent instanceof AutoEntity) {
-            
-    //     }
-    // }
-
-    // private addAutomaticEntity : function(obj){
-    //     assert(this.parent, "Objects with automatic storage duration should always be inside some block scope inside a function.");
-    //     this.parent.addAutomaticEntity(obj);
-    // },
-    // private addReferenceEntity : function(obj){
-    //     assert(this.parent);
-    //     this.parent.addReferenceEntity(obj);
-    // },
-    // private addStaticEntity : function(ent) {
-    //     this.sim.addStaticEntity(ent);
-    // },
-    // merge : function() {
-        // Nothing in here should have linkage, right?
-        // Unless I allow function/class declarations, etc. inside blocks, which I currently don't
-    // }
-
-
 }
-
-// export class FunctionBlockScope extends BlockScope {
-//     _name: "FunctionBlockScope",
-//     init: function(parent, sim){
-//         this.initParent(parent, sim);
-//         this.automaticObjects = [];
-//         this.referenceObjects = [];
-//     },
-//     addAutomaticEntity : function(obj){
-//         this.automaticObjects.push(obj);
-//     },
-//     addReferenceEntity : function(obj){
-//         this.referenceObjects.push(obj);
-//     },
-//     addStaticEntity : function(ent) {
-//         this.sim.addStaticEntity(ent);
-//     }
-// }
 
 export class NamespaceScope extends Scope {
 
@@ -371,49 +330,6 @@ export class NamespaceScope extends Scope {
             this.children[child.name] = child;
         }
     }
-    // addAutomaticEntity : function(obj){
-    //     assert(false, "Can't add an automatic entity to a namespace scope.");
-    // },
-    // addReferenceEntity : function(obj){
-    //     assert(false, "TODO");
-    // },
-    // addStaticEntity : function(ent) {
-    //     this.sim.addStaticEntity(ent);
-    // },
-
-    // merge : function (otherScope, onErr) {
-    //     for(var name in otherScope.entities){
-    //         var otherEntity = otherScope.entities[name];
-    //         if (Array.isArray(otherEntity)) {
-    //             for(var i = 0; i < otherEntity.length; ++i) {
-    //                 try {
-    //                     this.addDeclaredEntity(otherEntity[i]);
-    //                 }
-    //                 catch (e) {
-    //                     onErr(e);
-    //                 }
-    //             }
-    //         }
-    //         else{
-    //             try {
-    //                 this.addDeclaredEntity(otherEntity);
-    //             }
-    //             catch (e) {
-    //                 onErr(e);
-    //             }
-    //         }
-    //     }
-
-    //     // Merge in all child scopes from the other
-    //     for(var childName in otherScope.children) {
-    //         if (!this.children[childName]) {
-    //             // If a matching child scope doesn't already exist, create it
-    //             this.children[childName] = NamespaceScope.instance(childName, this, this.sim);
-    //         }
-
-    //         this.children[childName].merge(otherScope.children[childName], onErr);
-    //     }
-    // }
 }
 
 
