@@ -210,10 +210,9 @@ function_body
   = block
 
 decl_specifiers
-  = before:(s:decl_specifier WS {return s})* t:simple_type_name after:(WS s:decl_specifier {return s})*
+  = first:decl_specifier rest:(WS s:decl_specifier {return s})*
     {
-      before.push({typeSpec:t});
-      var rest = before.concat(after);
+      rest.unshift(first);
 
       var declSpecs : any = {
         typeSpecs: [],
@@ -260,9 +259,13 @@ type_specifiers
       return track(rest, location(), text()); }
 
 type_specifier
+  = trailing_type_specifier
+  / class_specifier
+  / enum_specifier
+
+trailing_type_specifier
   = simple_type_name
-  = elaborated_type_specifier
-  = enum_specifier
+  / elaborated_type_specifier
   / "const"
   / "volatile"
 
@@ -794,11 +797,11 @@ class_name
 
 class_specifier
   = head:class_head ws "{" ws mems:member_specification* ws "}"
-    { return track({head: head, member_specs: mems}, location(), text()); }
+    { return track({construct_type: "class_specifier", head: head, member_specs: mems}, location(), text()); }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
-    { return track({key:key, name:name, bases:bases}, location(), text()); }
+    { return track({construct_type: "class_head", key:key, name:name, bases:bases}, location(), text()); }
   // = key:class_key WS base:base_clause?
   //   { return track({key:key, base:base}, location(), text()); }
 
