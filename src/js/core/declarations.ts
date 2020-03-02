@@ -231,7 +231,7 @@ export interface DeclarationSpecifiersASTNode {
 
 export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
+export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 
 // interface t_DeclarationTypes {
@@ -1370,50 +1370,50 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 
 
-// export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
+export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
 
-//     public readonly type : ClassType;
-//     public readonly declaredEntity: ClassEntity;
+    public readonly type : ClassType;
+    public readonly declaredEntity: ClassEntity;
     
-//     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-//         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
+    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
 
-//         super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
-//         this.type = type;
+        this.type = type;
 
-//         this.declaredEntity = new ClassEntity(type, this);
+        this.declaredEntity = new ClassEntity(type, this);
 
-//         if (!this.storageSpecifier.isEmpty) {
-//             this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
-//         }
+        if (!this.storageSpecifier.isEmpty) {
+            this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
+        }
 
-//         // NOTE: none of the "other specifiers" are currently supported in Lobster.
-//         // When they are added, we should add errors for them rather than just ignoring them here.
+        // NOTE: none of the "other specifiers" are currently supported in Lobster.
+        // When they are added, we should add errors for them rather than just ignoring them here.
 
-//         // Attempt to add the declared entity to the scope. If it fails, note the error.
-//         // (e.g. an entity with the same name was already declared in the same scope)
-//         try{
-//             this.context.contextualScope.declareClassEntity(this.declaredEntity);
-//         }
-//         catch(e) {
-//             if (e instanceof Note) {
-//                 this.addNote(e);
-//             }
-//             else{
-//                 throw e;
-//             }
-//         }
+        // Attempt to add the declared entity to the scope. If it fails, note the error.
+        // (e.g. an entity with the same name was already declared in the same scope)
+        try{
+            this.context.contextualScope.declareClassEntity(this.declaredEntity);
+        }
+        catch(e) {
+            if (e instanceof Note) {
+                this.addNote(e);
+            }
+            else{
+                throw e;
+            }
+        }
 
-//         // TODO CLASSES: is this comment true?
-//         // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
-//         // not support. The linkage is presumed to be external, because Lobster does not
-//         // support using the static keyword or an unnamed namespace to specify internal linkage.
-//         if (this.context.contextualScope instanceof NamespaceScope) {
-//             this.context.translationUnit.program.registerClassEntity(this.declaredEntity);
-//         }
-//     }
-// }
+        // TODO CLASSES: is this comment true?
+        // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
+        // not support. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or an unnamed namespace to specify internal linkage.
+        if (this.context.contextualScope instanceof NamespaceScope) {
+            this.context.translationUnit.program.registerClassEntity(this.declaredEntity);
+        }
+    }
+}
 
 
 // export interface CompiledClassDeclaration extends ClassDeclaration, SuccessfullyCompiled {

@@ -734,6 +734,9 @@ export const CPPError = {
         no_match : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.no_match", "No matching function found for call to \""+name+"\" with these parameter types.");
         },
+        class_entity_found : function(construct: TranslationUnitConstruct, name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "iden.class_entity_found", `The name "${name}" refers to a class type in this context. The class itself cannot be used in an expression.`);
+        },
         // not_declared : function(construct: TranslationUnitConstruct, name) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "iden.not_declared", "\""+name+"\" was not declared in this scope.");
         // },
@@ -743,7 +746,7 @@ export const CPPError = {
         alt_op : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\""+name+"\" is a C++ operator and cannot be used as an identifier.");
         },
-        not_found : function(construct: IdentifierExpression, name: string) {
+        not_found : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find a variable or function called "${name}" in this scope.`);
         }
 	},
@@ -809,10 +812,10 @@ export const CPPError = {
             return new LinkerNote(construct, NoteKind.ERROR, "link.type_mismatch", "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
         class_same_tokens : function(newDef: ClassDefinition, prevDef: ClassDefinition) {
-            return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+            return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + newDef.name + " do not match exactly.");
         },
         func : {
-            def_not_found : function(construct: FunctionDefinition, func: FunctionEntity) {
+            def_not_found : function(construct: FunctionDeclaration, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
             no_matching_overload : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
@@ -823,7 +826,7 @@ export const CPPError = {
             }
         },
         classes : {
-            def_not_found : function(construct: ClassDefinition, c: ClassEntity) {
+            def_not_found : function(construct: ClassDeclaration, c: ClassEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.classes.def_not_found", "Cannot find definition for class " + c.name + ". The class is declared, but I wasn't able to find the actual class definition to link to it.");
             },
         },

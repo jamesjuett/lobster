@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, FunctionDefinitionGroup } from "./declarations";
+import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -583,6 +583,9 @@ export class FunctionOverloadGroup {
     /**
      * Selects a function from the given overload group based on the signature of
      * the provided function type. (Note there's no consideration of function names here.)
+     * WARNING: This function does NOT perform overload resolution. For example, it does
+     * not consider the possibility of implicit conversions, which is a part of full overload
+     * resolution. It simply looks for an overload with a matching signature.
      */
     public selectOverloadBySignature(type: FunctionType) {
         return this.overloads.find(func => type.sameSignature(func.type));
@@ -707,14 +710,12 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
         return this.name + " (" + this.type + ")";
     }
 
-    public link(def: LinkedDefinition | undefined) {
-        if (def instanceof GlobalObjectDefinition) {
+    public link(def: GlobalObjectDefinition | undefined) {
+        if (def) {
             (<Mutable<this>>this).definition = def;
         }
         else {
-            // Either undefined, or linked against a function overload group or class definition
             this.declaration.addNote(CPPError.link.def_not_found(this.declaration, this));
-            return;
         }
         
     }
@@ -1206,9 +1207,9 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return matchingFunction;
     }
 
-    public link(def: LinkedDefinition | undefined) {
+    public link(def: FunctionDefinitionGroup | undefined) {
         
-        if (def instanceof FunctionDefinitionGroup) {
+        if (def) {
             // found an overload group of function definitions, check for one
             // with matching signature to the given linked entity
             let overload = selectOverloadedDefinition(def.definitions, this.type);
@@ -1226,9 +1227,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
             (<Mutable<this>>this).definition = overload;
         }
         else {
-            // Either undefined, or linked against something other than a function overload group
             this.declaration.addNote(CPPError.link.func.def_not_found(this.declaration, this));
-            return;
         }
 
     }
@@ -1294,12 +1293,13 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     }
 
     public link(def: ClassDefinition | undefined) {
-        if (!def) {
+        if (def) {
+            (<Mutable<this>>this).definition = def;
+        }
+        else {
             this.declaration.addNote(CPPError.link.classes.def_not_found(this.declaration, this));
-            return;
         }
         
-        (<Mutable<this>>this).definition = def;
     }
 
     public isMain() {

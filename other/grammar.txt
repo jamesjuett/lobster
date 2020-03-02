@@ -73,6 +73,8 @@
     return getUserTypeNames()[name];
   }
 
+  var _type_specifier_user_type_allowed_stack = true;
+
 }
 
 
@@ -172,8 +174,10 @@ declaration
 
   /* TODO: template declaration */
 
+// The ! identifer part below is to prevent e.g. int constblah; parsing as int const blah;
+// This wouldn't be necessary if we had a separate lexing phase
 simple_declaration
-  = specs:decl_specifiers ! identifier ws declarators:declarator_list ws ";"
+  = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:declarator_list ws ";"
     { return track({construct_type: "simple_declaration", specs:specs, declarators:declarators}, location(), text()); }
 
 declarator_list
@@ -210,13 +214,15 @@ function_body
   = block
 
 decl_specifiers
-  = first:decl_specifier rest:(WS s:decl_specifier {return s})*
+  = nonTypeDeclSpecs:_decl_specifiers_non_type ws firstTypeSpec:decl_specifier? rest:(WS s:decl_specifier_non_user_type_name {return s;})*
     {
-      rest.unshift(first);
+      firstTypeSpec && rest.unshift(firstTypeSpec);
+      rest = nonTypeDeclSpecs.concat(rest);
 
       var declSpecs : any = {
         typeSpecs: [],
-        storageSpecs: []
+        storageSpecs: [],
+        length: 0
       };
 
       for(var i = 0; i < rest.length; ++i){
@@ -242,12 +248,38 @@ decl_specifiers
         else if (spec === "virtual"){
           declSpecs.virtual = true;
         }
+        ++declSpecs.length;
       }
+
 
       return track(declSpecs, location(), text()); }
 
+_decl_specifiers_non_type
+  = first:decl_specifier_non_type? rest:(WS s:decl_specifier_non_type ! identifier {return s;})* {first && rest.unshift(first); return rest;}
+
 decl_specifier
   = t:type_specifier { return {typeSpec:t}; }
+  / s:storage_class_specifier { return {storageSpec:s}; }
+  / function_specifier
+  / "typedef"
+  / "friend"
+
+decl_specifier_non_type
+  = "const" {return {typeSpec: "const"};}
+  / "volatile" {return {typeSpec: "volatile"};}
+  / s:storage_class_specifier { return {storageSpec:s}; }
+  / function_specifier
+  / "typedef"
+  / "friend"
+  
+
+decl_specifier_non_user_type_name
+  = t:simple_type_name_non_user { return {typeSpec:t}; }
+  / t:elaborated_type_specifier { return {typeSpec:t}; }
+  / "const" {return {typeSpec: "const"};}
+  / "volatile" {return {typeSpec: "volatile"};}
+  / class_specifier
+  / enum_specifier
   / s:storage_class_specifier { return {storageSpec:s}; }
   / function_specifier
   / "typedef"
@@ -299,8 +331,23 @@ _simple_type_name
   / "float"
   / "double"
   / "void"
-  / class_name
-//  / id:identifier &{return isUserTypeName(id.identifier);} {return id.identifier;}
+  / n:class_name {return n.identifer;}
+
+simple_type_name_non_user "simple type name"
+  = t:_simple_type_name_non_user !identifierChar {return t;}
+
+_simple_type_name_non_user
+  /*= qualified_type_name*/
+  = "char"
+  / "short"
+  / "int"
+  / "bool"
+  / "long"
+  / "signed"
+  / "unsigned"
+  / "float"
+  / "double"
+  / "void"
 
 enum_specifier
   /*= "enum" WS name:identifier? ws "{" first:enumerator rest:(ws "," ws e:enumerator {return e;})* ws "}" { return {enum:name, values:composeBinaryOp(first, rest)}; }*/
@@ -432,14 +479,14 @@ argument_declaration_list
 
 argument_declaration
 
-  = specs:decl_specifiers ws decl:declarator ws "=" ws init:exp_assn
+  = specs:decl_specifiers ! {return specs.length === 0;} ws decl:declarator ws "=" ws init:exp_assn
     {return {construct_type:"parameter_declaration", declarator:decl, specs:specs, initializer:init}; }
-  / specs:decl_specifiers ws decl:declarator
+  / specs:decl_specifiers ! {return specs.length === 0;} ws decl:declarator
     {return track({construct_type:"parameter_declaration", specs:specs, declarator:decl}, location(), text()); }
 
-  / specs:decl_specifiers ws decl:abstract_declarator ws "=" ws init:exp_assn
+  / specs:decl_specifiers ! {return specs.length === 0;} ws decl:abstract_declarator ws "=" ws init:exp_assn
     {return {construct_type:"parameter_declaration", declarator:decl, specs:specs, initializer:init}; }
-  / specs:decl_specifiers ws decl:abstract_declarator
+  / specs:decl_specifiers ! {return specs.length === 0;} ws decl:abstract_declarator
     {return track({construct_type:"parameter_declaration", specs:specs, declarator:decl}, location(), text()); }
 
   /* TODO abstract arg declarations */

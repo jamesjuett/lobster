@@ -1,7 +1,7 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
-import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition } from "./declarations";
+import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -198,7 +198,7 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
 
-    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition /* | ClassDefinition*/;
+    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
@@ -206,8 +206,13 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         ).setAST(ast);
     }
 
-    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition /* | ClassDefinition*/) {
+    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
         super(context);
+
+        if (declarations instanceof InvalidConstruct) {
+            this.attach(this.declarations = declarations);
+            return;
+        }
 
         if (declarations instanceof FunctionDefinition) {
             this.addNote(CPPError.stmt.function_definition_prohibited(this));
@@ -215,11 +220,13 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
             return;
         }
 
+        if (declarations instanceof ClassDefinition) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
+            this.attach(this.declarations = declarations);
+            return;
+        }
+
         this.attachAll(this.declarations = declarations);
-        
-        // else if (declaration instanceof ClassDefinition) {
-        //     this.addNote(CPPError.lobster.unsupported_feature(this, "local classes"));
-        // }
     }
 
     public createRuntimeStatement(this: CompiledDeclarationStatement, parent: RuntimeStatement) {
@@ -237,7 +244,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 
 export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
     
-    // narrows to compiled version and rules out a FunctionDefinition or ClassDefinition
+    // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
     readonly declarations: readonly CompiledSimpleDeclaration[];
 }
 

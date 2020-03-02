@@ -21,6 +21,11 @@ export function assertFalse(message: string = "") : never {
     throw Error("Assert failed: " + message);
 };
 
+// https://www.typescriptlang.org/docs/handbook/advanced-types.html#exhaustiveness-checking
+export function assertNever(x: never): never {
+    throw new Error("Unexpected object: " + x);
+}
+
 
 export function createMethodMixin<TargetType, MethodName extends keyof TargetType>(mix: TargetType[MethodName]) {
     return (targetProto: TargetType, name: MethodName) => {
