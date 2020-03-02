@@ -112,7 +112,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
         specs.forEach((spec) => {
 
             if (spec instanceof Object && spec.construct_type === "elaborated_type_specifier") {
-                this.addNote(CPPError.lobster.unsupported_feature(this, "elaborated type specifiers"));
+                this.addNote(CPPError.lobster.unsupported_feature(this, "class declarations or elaborated type specifiers"));
                 return;
             }
 
@@ -242,6 +242,7 @@ export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition;
 export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition | InvalidConstruct;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) {
     if (ast.construct_type === "simple_declaration") {
         // Note: Simple declarations include function declarations, but NOT class declarations
@@ -250,10 +251,9 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
     else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
     }
-    else if (ast.construct_type === "class_definition") {
+    else {
         return ClassDefinition.createFromAST(ast, context);
     }
-    // TODO CLASSES: check if the above compiles with one case missing. how do we ensure it's exhaustive
 } 
 
 
@@ -515,7 +515,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
         // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
         // support using the static keyword or unnamed namespaces to specify internal linkage.
         if (this.context.contextualScope instanceof NamespaceScope) {
-            this.context.translationUnit.program.registerLinkedEntity(this.declaredEntity);
+            this.context.translationUnit.program.registerFunctionEntity(this.declaredEntity);
         }
     }
     
@@ -1066,7 +1066,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     public readonly parameters: readonly ParameterDeclaration[];
     public readonly body: Block;
 
-    public static  createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+    public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
         
         let declaration = createSimpleDeclarationFromAST({
             construct_type: "simple_declaration",
@@ -1370,55 +1370,55 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 
 
-export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
+// export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
 
-    public readonly type : ClassType;
-    public readonly declaredEntity: ClassEntity;
+//     public readonly type : ClassType;
+//     public readonly declaredEntity: ClassEntity;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
+//     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+//         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+//         super(context, typeSpec, storageSpec, declarator, otherSpecs);
 
-        this.type = type;
+//         this.type = type;
 
-        this.declaredEntity = new ClassEntity(type, this);
+//         this.declaredEntity = new ClassEntity(type, this);
 
-        if (!this.storageSpecifier.isEmpty) {
-            this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
-        }
+//         if (!this.storageSpecifier.isEmpty) {
+//             this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
+//         }
 
-        // NOTE: none of the "other specifiers" are currently supported in Lobster.
-        // When they are added, we should add errors for them rather than just ignoring them here.
+//         // NOTE: none of the "other specifiers" are currently supported in Lobster.
+//         // When they are added, we should add errors for them rather than just ignoring them here.
 
-        // Attempt to add the declared entity to the scope. If it fails, note the error.
-        // (e.g. an entity with the same name was already declared in the same scope)
-        try{
-            this.context.contextualScope.declareClassEntity(this.declaredEntity);
-        }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
-        }
+//         // Attempt to add the declared entity to the scope. If it fails, note the error.
+//         // (e.g. an entity with the same name was already declared in the same scope)
+//         try{
+//             this.context.contextualScope.declareClassEntity(this.declaredEntity);
+//         }
+//         catch(e) {
+//             if (e instanceof Note) {
+//                 this.addNote(e);
+//             }
+//             else{
+//                 throw e;
+//             }
+//         }
 
-        // TODO CLASSES: is this comment true?
-        // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
-        // not support. The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword or an unnamed namespace to specify internal linkage.
-        if (this.context.contextualScope instanceof NamespaceScope) {
-            this.context.translationUnit.program.registerLinkedEntity(this.declaredEntity);
-        }
-    }
-}
+//         // TODO CLASSES: is this comment true?
+//         // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
+//         // not support. The linkage is presumed to be external, because Lobster does not
+//         // support using the static keyword or an unnamed namespace to specify internal linkage.
+//         if (this.context.contextualScope instanceof NamespaceScope) {
+//             this.context.translationUnit.program.registerClassEntity(this.declaredEntity);
+//         }
+//     }
+// }
 
 
-export interface CompiledClassDeclaration extends ClassDeclaration, SuccessfullyCompiled {
+// export interface CompiledClassDeclaration extends ClassDeclaration, SuccessfullyCompiled {
     
-}
+// }
 
 export interface ClassDefinitionASTNode extends ASTNode {
     readonly construct_type: "class_definition";
@@ -1426,9 +1426,9 @@ export interface ClassDefinitionASTNode extends ASTNode {
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 
-    public readonly blah: number = 2;
+    // public readonly name: number = 2;
 //     public readonly declaration: ClassDeclaration;
-//     public readonly name: string;
+    public readonly name!: string;
 //     public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 

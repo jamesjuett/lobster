@@ -3,7 +3,7 @@ import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
-import { LinkedEntity, NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, isDefinitionOverloadGroup, FunctionEntity } from "./entities";
+import { LinkedEntity, NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
@@ -32,11 +32,13 @@ export class Program {
     
     private readonly functionCalls: readonly FunctionCall[] = [];
     
-    public readonly definitions: {
-        [index: string] : LinkedDefinition | undefined
-    } = {};
+    public readonly linkedObjectDefinitions: {[index: string] : GlobalObjectDefinition | undefined} = {};
+    public readonly linkedFunctionDefinitions: {[index: string] : FunctionDefinitionGroup | undefined} = {};
+    public readonly linkedClassDefinitions: {[index: string] : ClassDefinition | undefined} = {};
 
-    public readonly linkedEntities: readonly LinkedEntity[] = [];
+    public readonly linkedObjectEntities: readonly GlobalObjectEntity[] = [];
+    public readonly linkedFunctionEntities: readonly FunctionEntity[] = [];
+    public readonly linkedClassEntities: readonly ClassEntity[] = [];
 
     public readonly notes = new NoteRecorder();
 
@@ -143,21 +145,24 @@ export class Program {
         // Note that the definition provided might not match at all or might
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
-        this.linkedEntities.forEach(le => 
-            le.link(this.definitions[le.qualifiedName])
+        this.linkedObjectEntities.forEach(le =>
+            le.link(this.linkedObjectDefinitions[le.qualifiedName])
+        );
+        this.linkedFunctionEntities.forEach(le =>
+            le.link(this.linkedFunctionDefinitions[le.qualifiedName])
+        );
+        this.linkedClassEntities.forEach(le =>
+            le.link(this.linkedClassDefinitions[le.qualifiedName])
         );
 
-        let mainLookup = this.definitions["::main"];
+        let mainLookup = this.linkedFunctionDefinitions["::main"];
         if (mainLookup) {
-            if (isDefinitionOverloadGroup(mainLookup)) {
-                if (mainLookup.length === 1) {
-                    (<Mutable<this>>this).mainFunction = mainLookup[0];
-                }
-                else {
-                    mainLookup.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
-                }
+            if (mainLookup.definitions.length === 1) {
+                (<Mutable<this>>this).mainFunction = mainLookup.definitions[0];
             }
-            // TODO else it is apparently a global object. need to double check whether that's allowed
+            else {
+                mainLookup.definitions.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
+            }
         }
 
         (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
@@ -191,13 +196,21 @@ export class Program {
 
     }
 
-    public registerLinkedEntity(entity: LinkedEntity) {
-        asMutable(this.linkedEntities).push(entity);
+    public registerGlobalObjectEntity(entity: GlobalObjectEntity) {
+        asMutable(this.linkedObjectEntities).push(entity);
+    }
+
+    public registerFunctionEntity(entity: FunctionEntity) {
+        asMutable(this.linkedFunctionEntities).push(entity);
+    }
+    
+    public registerClassEntity(entity: ClassEntity) {
+        asMutable(this.linkedClassEntities).push(entity);
     }
 
     public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalObjectDefinition) {
-        if (!this.definitions[qualifiedName]) {
-            this.definitions[qualifiedName] = def;
+        if (!this.linkedObjectDefinitions[qualifiedName]) {
+            this.linkedObjectDefinitions[qualifiedName] = def;
             asMutable(this.globalObjects).push(def);
         }
         else {
@@ -207,13 +220,9 @@ export class Program {
     }
 
     public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
-        let prevDef = this.definitions[qualifiedName];
+        let prevDef = this.linkedFunctionDefinitions[qualifiedName];
         if (!prevDef) {
-            this.definitions[qualifiedName] = new FunctionDefinitionGroup([def]);
-        }
-        else if (!(prevDef instanceof FunctionDefinitionGroup)) {
-            // Previous definition that isn't a function overload group
-            this.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            this.linkedFunctionDefinitions[qualifiedName] = new FunctionDefinitionGroup([def]);
         }
         else {
             // Already some definitions for functions with this same name. Check if there's
@@ -228,8 +237,40 @@ export class Program {
         }
     }
 
-    public registerClassDefinition(qualifiedName, def: ClassDefinition) {
+    /**
+     * TODO: reword this more nicely. registers definition. if there was already one, returns that.
+     * this is important since the code attempting to register the duplicate defintion can instead
+     * use the existing one, to avoid multiple instances of identical definitions. If there was a
+     * conflict, returns the newly added definition.
+     * @param qualifiedName 
+     * @param def 
+     */
+    public registerClassDefinition(qualifiedName: string, def: ClassDefinition) {
+        let prevDef = this.linkedClassDefinitions[qualifiedName];
+        if (!prevDef) {
+            return this.linkedClassDefinitions[qualifiedName] = def;
+        }
+        else {
+            // Multiple definitions. If they are from the same translation unit, this is always
+            // prohibited, but the error will be generated by the scope in that translation unit,
+            // so we do not need to handle it here. However, multiple definitions in different
+            // translation units are only allowed if the definitions consist of exactly the same tokens.
 
+            // Literally same definition object - ok
+            if (def === prevDef) {
+                return prevDef;
+            }
+
+            // Same tokens - ok
+            let prevDefText = prevDef.ast?.source.text;
+            let defText = def.ast?.source.text;
+            if (prevDefText && defText && prevDefText.replace(/\s/g,'') === defText.replace(/\s/g,'')) {
+                return prevDef;
+            }
+
+            def.addNote(CPPError.link.class_same_tokens(def, prevDef));
+            return def;
+        }
     }
 
     public isCompiled() : this is CompiledProgram {

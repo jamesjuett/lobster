@@ -2,7 +2,7 @@ import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, ClassDeclarationASTNode, StorageSpecifier } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
 import { IdentifierExpression } from "./expressions";
@@ -808,11 +808,11 @@ export const CPPError = {
         type_mismatch : function(construct: TranslationUnitConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.type_mismatch", "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
-        class_same_tokens : function(construct: TranslationUnitConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
-            return new LinkerNote(construct, NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+        class_same_tokens : function(newDef: ClassDefinition, prevDef: ClassDefinition) {
+            return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
         },
         func : {
-            def_not_found : function(construct: ClassDeclaration, func: FunctionEntity) {
+            def_not_found : function(construct: FunctionDefinition, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
             no_matching_overload : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
@@ -823,7 +823,7 @@ export const CPPError = {
             }
         },
         classes : {
-            def_not_found : function(construct: TranslationUnitConstruct, c: ClassEntity) {
+            def_not_found : function(construct: ClassDefinition, c: ClassEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.classes.def_not_found", "Cannot find definition for class " + c.name + ". The class is declared, but I wasn't able to find the actual class definition to link to it.");
             },
         },
