@@ -27,6 +27,19 @@ interface ExactLookupOptions {
 
 export type NameLookupOptions = NormalLookupOptions | ExactLookupOptions;
 
+
+/**
+ * Discriminated union over entities introduced into a scope by a declaration.
+ * Discriminated by .declarationKind property.
+ */
+export type DeclaredEntity = VariableEntity | FunctionEntity | ClassEntity;
+
+/**
+ * Possible results of name lookup.
+ */
+export type DeclaredScopeEntry = VariableEntity | FunctionOverloadGroup | ClassEntity;
+
+
 export class Scope {
 
     // private static HIDDEN = Symbol("HIDDEN");
@@ -575,41 +588,6 @@ export class FunctionOverloadGroup {
         return this.overloads.find(func => type.sameSignature(func.type));
     }
 }
-
-/**
- * Discriminated union over entities introduced into a scope by a declaration.
- * Discriminated by .declarationKind property.
- */
-export type DeclaredEntity = VariableEntity | FunctionEntity | ClassEntity;
-
-export type DeclaredScopeEntry = VariableEntity | FunctionOverloadGroup | ClassEntity;
-
-export type LinkedEntity = GlobalObjectEntity | FunctionEntity | ClassEntity;
-
-// abstract class LinkedEntity<T extends Type = Type> extends DeclaredEntity<T> {
-
-//     public readonly qualifiedName: string;
-
-//     public constructor(type: T, decl: SimpleDeclaration) {
-//         super(type, decl);
-//         this.qualifiedName = "::" + this.name; // TODO: when namespaces are implemented, fix this to actually do something
-//     }
-
-//     public abstract link(def: GlobalObjectDefinition | FunctionDefinition) : void;
-
-//     // public isDefined() {
-//     //     return !!this.definition;
-//     // }
-
-
-//     // public isLibraryConstruct() {
-//     //     return this.decl.isLibraryConstruct();
-//     // }
-
-//     // public isLibraryUnsupported() {
-//     //     return this.decl.isLibraryUnsupported();
-//     // }
-// }
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
     runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
@@ -1506,8 +1484,4 @@ function convLen(args: readonly Expression[]) {
  */
 export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.declaration.type));
-}
-
-export function isDefinitionOverloadGroup(def: LinkedDefinition) : def is FunctionDefinition[] {
-    return Array.isArray(def);
 }
