@@ -160,13 +160,8 @@ export class TypeSpecifier extends BasicCPPConstruct {
             this.typeName = "int";
         }
 
-        // If we don't have a typeName by now, it means there wasn't one.
-        // This (old) code presumes the only time this would be parsed successfully
-        // and make it here is in the context of a function declaration. I don't think
-        // that's quite correct.
-        // TODO: probably get rid of this and just let the function declaration check for this
+        // If we don't have a typeName by now, it means the declaration didn't specify a type.
         if (!this.typeName) {
-            this.addNote(CPPError.declaration.func.no_return_type(this));
             return;
         }
 

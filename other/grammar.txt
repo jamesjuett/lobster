@@ -331,7 +331,7 @@ _simple_type_name
   / "float"
   / "double"
   / "void"
-  / n:class_name {return n.identifer;}
+  / n:class_name {return n.identifier;}
 
 simple_type_name_non_user "simple type name"
   = t:_simple_type_name_non_user !identifierChar {return t;}
@@ -839,12 +839,12 @@ WS "whitespace"
 
 
 class_name
-  = identifier
+  = id:identifier & {return isUserTypeName(id.identifier);} {return id;}
   // / simple_template_id
 
 class_specifier
-  = head:class_head ws "{" ws mems:member_specification* ws "}"
-    { return track({construct_type: "class_specifier", head: head, member_specs: mems}, location(), text()); }
+  = head:class_head &{return getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
+    { return track({head: head, member_specs: mems}, location(), text()); }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
@@ -853,7 +853,7 @@ class_head
   //   { return track({key:key, base:base}, location(), text()); }
 
 class_head_name
-  = /* nested_name_specifier? ws */ class_name
+  = /* nested_name_specifier? ws */ identifier
 
 class_key
   = "class"
