@@ -1,4 +1,4 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct } from "./constructs";
+import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
@@ -84,7 +84,7 @@ export class StorageSpecifier extends BasicCPPConstruct {
 export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
 export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
 
-export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassSpecifierASTNode)[];
+export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
 export class TypeSpecifier extends BasicCPPConstruct {
 
@@ -116,7 +116,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
                 return;
             }
 
-            if (spec instanceof Object && spec.construct_type === "class_specifier") {
+            if (spec instanceof Object && spec.construct_type === "class_definition") {
                 this.addNote(CPPError.lobster.unsupported_feature(this, "inline class definitions"));
                 return;
             } 
@@ -198,7 +198,7 @@ export interface DeclarationSpecifiersASTNode {
     readonly typeSpecs: TypeSpecifierASTNode;
     readonly storageSpecs: StorageSpecifierASTNode;
     readonly elaboratedTypeSpecifiers: readonly ElaboratedTypeSpecifierASTNode[];
-    readonly classSpecifiers: readonly ClassSpecifierASTNode[];
+    readonly classSpecifiers: readonly ClassDefinitionASTNode[];
     readonly friend?: boolean;
     readonly typedef?: boolean;
     readonly inline?: boolean;
@@ -220,7 +220,7 @@ export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context:
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition | InvalidConstruct;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) {
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
     if (ast.construct_type === "simple_declaration") {
         // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
@@ -1347,29 +1347,21 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 
 
-export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> {
+export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> {
 
-    public readonly type : ClassType;
+    public readonly name: string;
+    public readonly type: ClassType;
     public readonly declaredEntity: ClassEntity;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ClassType) {
+    public constructor(context: TranslationUnitContext, name: string, type: ClassType) {
+        super(context);
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
-
+        this.name = name;
         this.type = type;
-
+        
         this.declaredEntity = new ClassEntity(type, this);
 
-        if (!this.storageSpecifier.isEmpty) {
-            this.addNote(CPPError.declaration.classes.storage_prohibited(storageSpec));
-        }
-
-        // NOTE: none of the "other specifiers" are currently supported in Lobster.
-        // When they are added, we should add errors for them rather than just ignoring them here.
-
         // Attempt to add the declared entity to the scope. If it fails, note the error.
-        // (e.g. an entity with the same name was already declared in the same scope)
         try{
             this.context.contextualScope.declareClassEntity(this.declaredEntity);
         }
@@ -1411,8 +1403,8 @@ export interface ClassHeadASTNode extends ASTNode {
     readonly name: IdentifierASTNode;
 }
 
-export interface ClassSpecifierASTNode extends ASTNode {
-    readonly construct_type: "class_specifier";
+export interface ClassDefinitionASTNode extends ASTNode {
+    readonly construct_type: "class_definition";
     readonly head: ClassHeadASTNode;
     readonly memberSpecs: readonly MemberSpecificationASTNode[];
 }
@@ -1470,48 +1462,56 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 //     public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
+
+// export interface SimpleDeclarationASTNode extends ASTNode {
+//     readonly construct_type: "simple_declaration";
+//     readonly specs: DeclarationSpecifiersASTNode;
+//     readonly declarators: readonly DeclaratorInitASTNode[];
+// }
+
     public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
-        let declaration = createSimpleDeclarationFromAST({
-            construct_type: "simple_declaration",
-            declarators: [ast.declarator],
-            specs: ast.specs,
-            source: ast.declarator.source
-        }, context)[0];
-        
-        if (!(declaration instanceof FunctionDeclaration)) {
-            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
-        }
 
-        // Create implementation and body block (before params and body statements added yet)
-        let functionContext = createFunctionContext(context, declaration.declaredEntity);
-        let body = new Block(functionContext);
-        let bodyContext = body.context;
-        
-        // Add declared entities from the parameters to the body block's context.
-        // As the context refers back to the implementation, local objects/references will be registerd there.
-        declaration.parameterDeclarations.forEach(paramDecl => {
-            if (paramDecl.isParameterDefinition()) {
-                paramDecl.addEntityToScope(bodyContext);
-            }
-            else {
-                paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
-            }
-        });
+        // Ask the type system for the appropriate type.
+        // Because Lobster only supports mechanisms for class declaration that yield
+        // classes with external linkage, it is sufficient to use the fully qualified
+        // class name to distinguish types from each other. Also, because Lobster does
+        // not support namespaces, the unqualified name is sufficient.
+        let classType = ClassType.createType(ast.head.name.identifier);
 
-        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-        // added after the parameters.)
-        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        let declaration = new ClassDeclaration(context, ast.head.name.identifier, classType);
         
-        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
+        // Create class context based on class entity from the declaration
+        let classContext = createClassContext(context, declaration.declaredEntity);
+
+        // let body = new Block(functionContext);
+        // let bodyContext = body.context;
+        
+        // // Add declared entities from the parameters to the body block's context.
+        // // As the context refers back to the implementation, local objects/references will be registerd there.
+        // declaration.parameterDeclarations.forEach(paramDecl => {
+        //     if (paramDecl.isParameterDefinition()) {
+        //         paramDecl.addEntityToScope(bodyContext);
+        //     }
+        //     else {
+        //         paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
+        //     }
+        // });
+
+        // // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
+        // // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
+        // // added after the parameters.)
+        // ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        
+        return new ClassDefinition(classContext, declaration).setAST(ast);
     }
 
 //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-//     public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
-//         super(context);
+    public constructor(context: ClassContext, declaration: ClassDeclaration) {
+        super(context);
         
-//         this.attach(this.declaration = declaration);
+        this.attach(this.declaration = declaration);
+    }
 //         this.attachAll(this.parameters = parameters);
 //         this.attach(this.body = body);
 

@@ -844,7 +844,7 @@ class_name
 
 class_specifier
   = head:class_head &{return getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
-    { return track({construct_type: "class_specifier", head: head, memberSpecs: mems}, location(), text()); }
+    { return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text()); }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
