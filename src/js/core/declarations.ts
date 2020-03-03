@@ -84,7 +84,7 @@ export class StorageSpecifier extends BasicCPPConstruct {
 export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
 export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
 
-export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifier | ClassSpecifier)[];
+export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassSpecifierASTNode)[];
 
 export class TypeSpecifier extends BasicCPPConstruct {
 
@@ -194,29 +194,11 @@ interface OtherSpecifiers {
     readonly virtual?: boolean;
 }
 
-export type ClassKey = "struct" | "class";
-export interface ElaboratedTypeSpecifier {
-    readonly construct_type: "elaborated_type_specifier";
-    readonly classKey: ClassKey;
-    readonly name: string;
-}
-
-export interface ClassHead {
-    readonly construct_type: "class_head";
-    readonly classKey: ClassKey;
-    readonly name: string;
-}
-
-export interface ClassSpecifier {
-    readonly construct_type: "class_specifier";
-    readonly head: ClassHead;
-}
-
 export interface DeclarationSpecifiersASTNode {
     readonly typeSpecs: TypeSpecifierASTNode;
     readonly storageSpecs: StorageSpecifierASTNode;
-    readonly elaboratedTypeSpecifiers: readonly ElaboratedTypeSpecifier[];
-    readonly classSpecifiers: readonly ElaboratedTypeSpecifier[];
+    readonly elaboratedTypeSpecifiers: readonly ElaboratedTypeSpecifierASTNode[];
+    readonly classSpecifiers: readonly ClassSpecifierASTNode[];
     readonly friend?: boolean;
     readonly typedef?: boolean;
     readonly inline?: boolean;
@@ -325,7 +307,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
 }
 
 
-interface SimpleDeclarationASTNode extends ASTNode {
+export interface SimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarators: readonly DeclaratorInitASTNode[];
@@ -1415,55 +1397,114 @@ export class ClassDeclaration extends SimpleDeclaration<TranslationUnitContext> 
     
 // }
 
-export interface ClassDefinitionASTNode extends ASTNode {
-    readonly construct_type: "class_definition";
+
+export type ClassKey = "struct" | "class";
+export interface ElaboratedTypeSpecifierASTNode extends ASTNode {
+    readonly construct_type: "elaborated_type_specifier";
+    readonly classKey: ClassKey;
+    readonly name: IdentifierASTNode;
+}
+
+export interface ClassHeadASTNode extends ASTNode {
+    readonly construct_type: "class_head";
+    readonly classKey: ClassKey;
+    readonly name: IdentifierASTNode;
+}
+
+export interface ClassSpecifierASTNode extends ASTNode {
+    readonly construct_type: "class_specifier";
+    readonly head: ClassHeadASTNode;
+    readonly memberSpecs: readonly MemberSpecificationASTNode[];
+}
+
+export type AccessSpecifier = "private" | "protected" | "public";
+export interface MemberSpecificationASTNode extends ASTNode {
+    readonly construct_type: "member_specification";
+    readonly access?: AccessSpecifier;
+    readonly members: readonly MemberDeclarationASTNode[];
+}
+
+export type MemberDeclarationASTNode =
+    SimpleMemberDeclarationASTNode |
+    ConstructorDefinitionASTNode |
+    DestructorDefinitionASTNode |
+    FunctionDefinitionASTNode;
+
+export interface SimpleMemberDeclarationASTNode extends ASTNode {
+    readonly construct_type: "simple_member_declaration";
+    readonly specs: DeclarationSpecifiersASTNode;
+    readonly declarators: readonly DeclaratorInitASTNode[];
+}
+
+export interface ConstructorDefinitionASTNode extends ASTNode {
+    readonly construct_type: "constructor_definition";
+    readonly name: IdentifierASTNode;
+    readonly body: FunctionBodyASTNode;
+    readonly ctorInitializer: CtorInitializerASTNode;
+    readonly args: readonly ArgumentDeclarationASTNode[];
+}
+
+export interface CtorInitializerASTNode extends ASTNode {
+    readonly construct_type: "ctor_initializer";
+    readonly initializers: readonly MemberInitializerASTNode[];
+}
+
+export interface MemberInitializerASTNode extends ASTNode {
+    readonly construct_type: "member_initializer";
+    readonly member: IdentifierASTNode;
+    readonly args: readonly ExpressionASTNode[];
+}
+
+export interface DestructorDefinitionASTNode extends ASTNode {
+    readonly construct_type: "destructor_definition";
+    readonly name: IdentifierASTNode;
+    readonly body: FunctionBodyASTNode;
+    readonly virtual?: true;
 }
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 
     // public readonly name: number = 2;
-//     public readonly declaration: ClassDeclaration;
+    public readonly declaration: ClassDeclaration;
     public readonly name!: string;
 //     public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
     public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
-        return new ClassDefinition(context);
+        let declaration = createSimpleDeclarationFromAST({
+            construct_type: "simple_declaration",
+            declarators: [ast.declarator],
+            specs: ast.specs,
+            source: ast.declarator.source
+        }, context)[0];
+        
+        if (!(declaration instanceof FunctionDeclaration)) {
+            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
+        }
+
+        // Create implementation and body block (before params and body statements added yet)
+        let functionContext = createFunctionContext(context, declaration.declaredEntity);
+        let body = new Block(functionContext);
+        let bodyContext = body.context;
+        
+        // Add declared entities from the parameters to the body block's context.
+        // As the context refers back to the implementation, local objects/references will be registerd there.
+        declaration.parameterDeclarations.forEach(paramDecl => {
+            if (paramDecl.isParameterDefinition()) {
+                paramDecl.addEntityToScope(bodyContext);
+            }
+            else {
+                paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
+            }
+        });
+
+        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
+        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
+        // added after the parameters.)
+        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        
+        return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
     }
-    //     let declaration = createSimpleDeclarationFromAST({
-    //         construct_type: "simple_declaration",
-    //         declarators: [ast.declarator],
-    //         specs: ast.specs,
-    //         source: ast.declarator.source
-    //     }, context)[0];
-        
-    //     if (!(declaration instanceof FunctionDeclaration)) {
-    //         return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
-    //     }
-
-    //     // Create implementation and body block (before params and body statements added yet)
-    //     let functionContext = createFunctionContext(context, declaration.declaredEntity);
-    //     let body = new Block(functionContext);
-    //     let bodyContext = body.context;
-        
-    //     // Add declared entities from the parameters to the body block's context.
-    //     // As the context refers back to the implementation, local objects/references will be registerd there.
-    //     declaration.parameterDeclarations.forEach(paramDecl => {
-    //         if (paramDecl.isParameterDefinition()) {
-    //             paramDecl.addEntityToScope(bodyContext);
-    //         }
-    //         else {
-    //             paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
-    //         }
-    //     });
-
-    //     // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-    //     // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-    //     // added after the parameters.)
-    //     ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
-        
-    //     return new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body).setAST(ast);
-    // }
 
 //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
