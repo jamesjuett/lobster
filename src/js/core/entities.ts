@@ -539,7 +539,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
 
     public abstract readonly declarationKind: DeclarationKind;
 
-    public abstract readonly declaration: SimpleDeclaration | ParameterDefinition;
+    // TODO: not sure this should really be here as an abstract property?
+    public abstract readonly declaration: SimpleDeclaration | ParameterDefinition | ClassDeclaration;
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
