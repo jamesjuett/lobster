@@ -3,7 +3,7 @@ import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
-import { LocalVariableDefinition, GlobalObjectDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
+import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
 
 export interface ObjectDescription {
     name: string;

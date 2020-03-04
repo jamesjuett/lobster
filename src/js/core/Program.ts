@@ -2,7 +2,7 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalObjectDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
+import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
@@ -27,12 +27,12 @@ export class Program {
     public readonly sourceFiles : { [index: string]: SourceFile } = {};
     public readonly translationUnits : { [index: string]: TranslationUnit } = {};
     
-    public readonly globalObjects: readonly GlobalObjectDefinition[] = [];
+    public readonly globalObjects: readonly GlobalVariableDefinition[] = [];
     public readonly globalObjectAllocator!: GlobalObjectAllocator;
     
     private readonly functionCalls: readonly FunctionCall[] = [];
     
-    public readonly linkedObjectDefinitions: {[index: string] : GlobalObjectDefinition | undefined} = {};
+    public readonly linkedObjectDefinitions: {[index: string] : GlobalVariableDefinition | undefined} = {};
     public readonly linkedFunctionDefinitions: {[index: string] : FunctionDefinitionGroup | undefined} = {};
     public readonly linkedClassDefinitions: {[index: string] : ClassDefinition | undefined} = {};
 
@@ -146,13 +146,13 @@ export class Program {
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
         this.linkedObjectEntities.forEach(le =>
-            le.link(this.linkedObjectDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName])
         );
         this.linkedFunctionEntities.forEach(le =>
-            le.link(this.linkedFunctionDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName])
         );
         this.linkedClassEntities.forEach(le =>
-            le.link(this.linkedClassDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName])
         );
 
         let mainLookup = this.linkedFunctionDefinitions["::main"];
@@ -208,7 +208,7 @@ export class Program {
         asMutable(this.linkedClassEntities).push(entity);
     }
 
-    public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalObjectDefinition) {
+    public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalVariableDefinition) {
         if (!this.linkedObjectDefinitions[qualifiedName]) {
             this.linkedObjectDefinitions[qualifiedName] = def;
             asMutable(this.globalObjects).push(def);
