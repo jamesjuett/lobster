@@ -3,7 +3,7 @@ import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
-import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalObjectDefinition, ParameterDefinition } from "./declarations";
+import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition } from "./declarations";
 
 export interface ObjectDescription {
     name: string;
@@ -618,7 +618,7 @@ export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T
 
     public readonly name: string;
 
-    public constructor(public readonly def: CompiledGlobalObjectDefinition, type: T, memory: Memory, address: number) {
+    public constructor(public readonly def: CompiledGlobalVariableDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.name = name;
     }

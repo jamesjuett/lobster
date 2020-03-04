@@ -6,7 +6,7 @@ import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
 import { CPPObject } from "./objects";
-import { GlobalVariableDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -914,7 +914,7 @@ export class GlobalObjectAllocator extends CPPConstruct {
 }
 
 export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {
-    readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+    readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
 }
 
 export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGlobalObjectAllocator> {

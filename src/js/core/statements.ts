@@ -405,7 +405,7 @@ export interface BlockASTNode extends ASTNode {
 
 function createBlockContext(context: FunctionContext) : BlockContext {
     return Object.assign({}, context, {
-        contextualScope: new BlockScope(context.contextualScope)
+        contextualScope: new BlockScope(context.translationUnit, context.contextualScope)
     });
 }
 

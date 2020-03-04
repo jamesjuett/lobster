@@ -3928,7 +3928,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
         // Check argument types against parameter types
         let candidateParamTypes = candidate.type.paramTypes;
         if (argTypes.length !== candidateParamTypes.length) {
-            notes.push(CPPError.param.numParams(candidate.declaration));
+            notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
         // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
@@ -3943,7 +3943,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
                 if (candidateParamType.isReferenceType()) {
                     // tempArgs.push(args[i]);
                     if(!referenceCompatible(argType, candidateParamType.refTo)) {
-                        notes.push(CPPError.param.paramReferenceType(candidate.declaration, argType, candidateParamType));
+                        notes.push(CPPError.param.paramReferenceType(candidate.firstDeclaration, argType, candidateParamType));
                     }
                     //else if (args[i].valueCategory !== "lvalue"){
                     //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
@@ -3958,7 +3958,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
                     let convertedArg = standardConversion(auxArg, candidateParamType);
 
                     if(!sameType(convertedArg.type, candidateParamType)) {
-                        notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
+                        notes.push(CPPError.param.paramType(candidate.firstDeclaration, argType, candidateParamType));
                     }
 
                 }
