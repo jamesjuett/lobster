@@ -274,12 +274,12 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         }
         else {
             // Determine the appropriate kind of object definition based on the contextual scope
-            let decl : LocalVariableDefinition | GlobalObjectDefinition;
+            let decl : LocalVariableDefinition | GlobalVariableDefinition;
             if (isBlockContext(context)) {
                 decl = new LocalVariableDefinition(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
             else {
-                decl = new GlobalObjectDefinition(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+                decl = new GlobalVariableDefinition(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
             declaration = decl;
     
@@ -496,7 +496,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
         }
     }
     
-
+    
 
     // checkOverloadSemantics : function(){
     //     if (this.name === "operator=" || this.name === "operator()" || this.name === "operator[]"){
@@ -596,7 +596,7 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 }
 
 
-export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitContext> {
+export class GlobalVariableDefinition extends VariableDefinition<TranslationUnitContext> {
     public readonly kind = "GlobalObjectDefinition";
 
     public readonly type : ObjectType | ReferenceType;
@@ -638,7 +638,7 @@ export class GlobalObjectDefinition extends VariableDefinition<TranslationUnitCo
 }
 
 
-export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalObjectDefinition, SuccessfullyCompiled {
+export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalVariableDefinition, SuccessfullyCompiled {
     readonly declaredEntity: GlobalObjectEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
@@ -2305,4 +2305,4 @@ export class FunctionDefinitionGroup {
     }
 }
 
-export type LinkedDefinition = GlobalObjectDefinition | FunctionDefinitionGroup | ClassDefinition;
+export type LinkedDefinition = GlobalVariableDefinition | FunctionDefinitionGroup | ClassDefinition;
