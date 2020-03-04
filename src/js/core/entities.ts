@@ -8,6 +8,7 @@ import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObje
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
+import { TranslationUnit } from "./Program";
 
 
 
@@ -48,9 +49,13 @@ export class Scope {
     private readonly entities: {[index:string]: DeclaredScopeEntry | undefined} = {};
     private readonly hiddenClassEntities: {[index:string]: ClassEntity | undefined} = {};
     private readonly typeEntities: {[index:string]: ClassEntity | undefined} = {};
+
+    public readonly translationUnit: TranslationUnit;
     public readonly parent?: Scope;
 
-    public constructor(parent?: Scope) {
+    public constructor(translationUnit: TranslationUnit, parent?: Scope) {
+        assert(!parent || translationUnit === parent.translationUnit);
+        this.translationUnit = translationUnit;
         this.parent = parent;
     }
 
@@ -60,12 +65,13 @@ export class Scope {
      * If an error prevents the entity being added successfully, returns the error instead. (e.g. A previous
      * declaration with the same name but a different type.)
      */
-    public declareVariableEntity<T extends ObjectType>(newEntity: VariableEntity<T>) : VariableEntity | CompilerNote {
+    public declareVariableEntity<EntityT extends VariableEntity>(newEntity: EntityT) : EntityT | CompilerNote {
         let entityName = newEntity.name;
         let existingEntity = this.entities[entityName];
         
         // No previous declaration for this name
         if (!existingEntity) {
+            this.variableEntityCreated(newEntity);
             return this.entities[entityName] = newEntity;
         }
 
@@ -74,6 +80,7 @@ export class Scope {
             // Note: because a class entity cannot displace another class entity, we can
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
+            this.variableEntityCreated(newEntity);
             return this.entities[entityName] = newEntity;
         }
 
@@ -83,7 +90,21 @@ export class Scope {
         }
 
         // Previous declaration of variable with same name, attempt to merge
-        return newEntity.mergeInto(existingEntity);
+        let entityOrError = newEntity.mergeInto(existingEntity);
+
+        // If we got the new entity back, it means it was added to the scope for the first time
+        if (entityOrError === newEntity) {
+            this.variableEntityCreated(newEntity);
+        }
+
+        // Cast below is based on trusting mergeInto will only ever return the
+        // existing entity if the types and types of entities matched.
+        return <EntityT | CompilerNote>entityOrError;
+    }
+
+    protected variableEntityCreated(newEntity: VariableEntity) {
+        // Do nothing. Subclasses may choose to register entities.
+        // e.g. Namespace scopes will register global object entities with linker.
     }
 
     /** Attempts to declare a function in this scope.
@@ -99,6 +120,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
+            this.functionEntityCreated(newEntity);
             return newEntity;
         }
 
@@ -108,6 +130,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
+            this.functionEntityCreated(newEntity);
             return newEntity;
         }
 
@@ -117,10 +140,23 @@ export class Scope {
         }
 
         // Function overload group of previously existing functions, attempt to merge
-        return newEntity.mergeInto(existingEntity);
+        let entityOrError = newEntity.mergeInto(existingEntity);
+        
+        // If we got the new entity back, it means it was added to the scope for the first time
+        if (entityOrError === newEntity) {
+            this.functionEntityCreated(newEntity);
+        }
+
+        return entityOrError;
+    }
+    
+    protected functionEntityCreated(newEntity: FunctionEntity) {
+        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or unnamed namespaces to specify internal linkage.
+        // It has linkage regardless of whether this is a namespace scope or a block scope.
+        newEntity.registerWithLinker();
     }
 
-    
     /** Attempts to declare a class in this scope.
      * @param newEntity - The class being declared.
      * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
@@ -133,6 +169,7 @@ export class Scope {
         
         // No previous declaration for this name
         if (!existingEntity) {
+            this.classEntityCreated(newEntity);
             return this.entities[entityName] = newEntity;
         }
 
@@ -146,7 +183,21 @@ export class Scope {
         // a multiple definition error), or they will generate an error.
 
         // There was a previous class declaration, attempt to merge
-        return newEntity.mergeInto(existingEntity);
+        let entityOrError = newEntity.mergeInto(existingEntity);
+
+        // If we got the new entity back, it means it was added to the scope for the first time
+        if (entityOrError === newEntity) {
+            this.classEntityCreated(newEntity);
+        }
+
+        return entityOrError;
+    }
+
+    protected classEntityCreated(newEntity: ClassEntity) {
+        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or unnamed namespaces to specify internal linkage.
+        // It has linkage regardless of whether this is a namespace scope or a block scope.
+        newEntity.registerWithLinker();
     }
 
     // protected declaredEntityAdded(ent: DeclaredEntity) {
@@ -330,13 +381,20 @@ export class NamespaceScope extends Scope {
     public readonly name: string;
     private readonly children: {[index:string]: NamespaceScope | undefined};
 
-    public constructor(name: string, parent?: NamespaceScope) {
-        super(parent);
+    public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope) {
+        super(translationUnit, parent);
         assert(!parent || parent instanceof NamespaceScope);
         this.name = name;
         this.children = {};
         if(parent) {
             parent.addChild(this);
+        }
+    }
+
+    protected variableEntityCreated(newEntity: VariableEntity) {
+        super.variableEntityCreated(newEntity);
+        if (newEntity instanceof GlobalObjectEntity) {
+            this.translationUnit.context.program.registerGlobalObjectEntity(newEntity);
         }
     }
 
@@ -746,12 +804,16 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
         return this.name + " (" + this.type + ")";
     }
 
-    public mergeInto(existingEntity: VariableEntity) {
+    public mergeInto(existingEntity: VariableEntity) : VariableEntity | CompilerNote {
         if (!sameType(this.type, existingEntity.type)) {
             return CPPError.declaration.type_mismatch(this.firstDeclaration, this, existingEntity);
         }
         return mergeDefinitionInto(this, existingEntity) ??
             CPPError.declaration.variable.multiple_def(this.definition!, existingEntity.definition!);
+    }
+
+    public registerWithLinker() {
+        this.firstDeclaration.context.translationUnit.program.registerGlobalObjectEntity(this);
     }
 
     public link(def: GlobalVariableDefinition | undefined) {
@@ -1264,6 +1326,19 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return mergeDefinitionInto(this, matchingFunction) ??
             CPPError.declaration.func.multiple_def(this.definition!, matchingFunction.definition!);
     }
+    
+    public setDefinition(def: FunctionDefinition) {
+        if (!this.definition) {
+            (<Mutable<this>>this).definition = def;
+        }
+        else {
+            def.addNote(CPPError.declaration.func.multiple_def(def, this.definition));
+        }
+    }
+
+    public registerWithLinker() {
+        this.firstDeclaration.context.translationUnit.program.registerFunctionEntity(this);
+    }
 
     public link(def: FunctionDefinitionGroup | undefined) {
         assert(!this.definition, "link() should not be called for an entity that is already defined.");
@@ -1348,6 +1423,19 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
             CPPError.declaration.classes.multiple_def(this.definition!, existingEntity.definition!);
     }
 
+    public setDefinition(def: ClassDefinition) {
+        if (!this.definition) {
+            (<Mutable<this>>this).definition = def;
+        }
+        else {
+            def.addNote(CPPError.declaration.classes.multiple_def(def, this.definition));
+        }
+    }
+
+    public registerWithLinker() {
+        this.firstDeclaration.context.translationUnit.program.registerClassEntity(this);
+    }
+
     public link(def: ClassDefinition | undefined) {
         assert(!this.definition, "link() should not be called for an entity that is already defined.");
         if (def) {
@@ -1356,7 +1444,6 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
         else {
             this.declarations.forEach((decl) => decl.addNote(CPPError.link.classes.def_not_found(decl, this)));
         }
-        
     }
 
     public isMain() {

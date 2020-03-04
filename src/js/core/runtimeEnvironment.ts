@@ -5,7 +5,7 @@ import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, 
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
-import { CompiledGlobalObjectDefinition, GlobalVariableDefinition } from "./declarations";
+import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -410,7 +410,7 @@ export class Memory {
         return this.stringLiteralMap[str];
     }
 
-    public allocateStatic(def: CompiledGlobalObjectDefinition) {
+    public allocateStatic(def: CompiledGlobalVariableDefinition) {
         var obj = new StaticObject(def, def.declaredEntity.type, this, this.staticTop);
         this.allocateObject(obj);
         this.staticTop += obj.size;

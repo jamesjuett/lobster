@@ -2,7 +2,7 @@
 import { parse as cpp_parse} from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalObjectDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
+import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, SimpleDeclaration, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
@@ -305,7 +305,7 @@ export class Program {
 
 export interface CompiledProgram extends Program {
     readonly mainFunction?: CompiledFunctionDefinition;
-    readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+    readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
     readonly globalObjectAllocator: CompiledGlobalObjectAllocator;
 }
 
@@ -628,7 +628,7 @@ export class TranslationUnit {
         this.program = program;
         this.source = preprocessedSource;
         preprocessedSource.notes.allNotes.forEach(note => this.addNote(note)); // Don't use this.notes.addNotes here since that would miss adding them to the program as well
-        this.globalScope = new NamespaceScope(preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
+        this.globalScope = new NamespaceScope(this, preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
         this.name = preprocessedSource.name;
         this.context = createTranslationUnitContext(program.context, this, this.globalScope);
 

@@ -1,5 +1,5 @@
 import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
-import { CPPError, Note } from "./errors";
+import { CPPError, Note, CompilerNote } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
@@ -477,26 +477,17 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
         // this.checkOverloadSemantics();
 
-        try{
-            this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
+        let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
+        
+        if (entityOrError instanceof FunctionEntity) {
+            this.declaredEntity = entityOrError;
         }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
-        }
-
-        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword or unnamed namespaces to specify internal linkage.
-        if (this.context.contextualScope instanceof NamespaceScope) {
-            this.context.translationUnit.program.registerFunctionEntity(this.declaredEntity);
+        else {
+            this.addNote(entityOrError);
         }
     }
     
-    
+
 
     // checkOverloadSemantics : function(){
     //     if (this.name === "operator=" || this.name === "operator()" || this.name === "operator[]"){
@@ -574,20 +565,15 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         // This means a locally declared variable does not have linkage, and we don't need to do any linking stuff here.
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
-        // (e.g. an entity with the same name was already declared in the same scope)
-        try{
-            this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        
+        if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
+            this.declaredEntity = entityOrError;
             this.context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
+        else {
+            this.addNote(entityOrError);
         }
-        
     }
 }
 export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectType> extends LocalVariableDefinition, SuccessfullyCompiled {
@@ -597,7 +583,7 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 
 
 export class GlobalVariableDefinition extends VariableDefinition<TranslationUnitContext> {
-    public readonly kind = "GlobalObjectDefinition";
+    public readonly kind = "GlobalVariableDefinition";
 
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
@@ -616,29 +602,22 @@ export class GlobalVariableDefinition extends VariableDefinition<TranslationUnit
 
         this.declaredEntity = new GlobalObjectEntity(type, this);
 
-        // Attempt to add the declared entity to the scope. If it fails, note the error.
-        // (e.g. an entity with the same name was already declared in the same scope)
-        try{
-            this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        
+        if (entityOrError instanceof GlobalObjectEntity) {
+            this.declaredEntity = entityOrError;
+            this.context.translationUnit.program.registerGlobalObjectDefinition(this.declaredEntity.qualifiedName, this);
         }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
+        else {
+            this.addNote(entityOrError);
         }
 
-        this.context.translationUnit.program.registerGlobalObjectDefinition(this.declaredEntity.qualifiedName, this);
     }
 
-    // TODO create object with linkage if appropriate
-            // this.context.translationUnit.registerDefinition(entity, this);
 }
 
 
-export interface CompiledGlobalObjectDefinition<T extends ObjectType = ObjectType> extends GlobalVariableDefinition, SuccessfullyCompiled {
+export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectType> extends GlobalVariableDefinition, SuccessfullyCompiled {
     readonly declaredEntity: GlobalObjectEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
@@ -717,20 +696,14 @@ export class ParameterDeclaration extends BasicCPPConstruct {
 
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
-        // (e.g. an entity with the same name was already declared in the same scope)
-        try{
-            context.contextualScope.declareVariableEntity(this.declaredEntity);
-
-            // Register the defined local object/reference
+        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        
+        if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
+            (<Mutable<this>>this).declaredEntity = entityOrError;
             context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
+        else {
+            this.addNote(entityOrError);
         }
     }
 }
@@ -1094,6 +1067,9 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         this.name = declaration.name;
         this.type = declaration.type;
         
+
+        this.declaration.declaredEntity.setDefinition(this);
+        
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
 
         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
@@ -1361,26 +1337,16 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> 
         
         this.declaredEntity = new ClassEntity(type, this);
 
-        // Attempt to add the declared entity to the scope. If it fails, note the error.
-        try{
-            this.context.contextualScope.declareClassEntity(this.declaredEntity);
+        let entityOrError = this.context.contextualScope.declareClassEntity(this.declaredEntity);
+        
+        if (entityOrError instanceof ClassEntity) {
+            this.declaredEntity = entityOrError;
         }
-        catch(e) {
-            if (e instanceof Note) {
-                this.addNote(e);
-            }
-            else{
-                throw e;
-            }
+        else {
+            this.addNote(entityOrError);
         }
 
-        // TODO CLASSES: is this comment true?
-        // A class declaration has linkage unless it is an unnamed class declaration, which lobster does
-        // not support. The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword or an unnamed namespace to specify internal linkage.
-        if (this.context.contextualScope instanceof NamespaceScope) {
-            this.context.translationUnit.program.registerClassEntity(this.declaredEntity);
-        }
+
     }
 }
 
@@ -1458,7 +1424,7 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 
     // public readonly name: number = 2;
     public readonly declaration: ClassDeclaration;
-    public readonly name!: string;
+    public readonly name: string;
 //     public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
@@ -1510,7 +1476,11 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
     public constructor(context: ClassContext, declaration: ClassDeclaration) {
         super(context);
         
+        this.name = declaration.name;
+
         this.attach(this.declaration = declaration);
+
+        this.declaration.declaredEntity.setDefinition(this);
     }
 //         this.attachAll(this.parameters = parameters);
 //         this.attach(this.body = body);
