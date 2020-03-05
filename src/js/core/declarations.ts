@@ -565,7 +565,7 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
         // This means a locally declared variable does not have linkage, and we don't need to do any linking stuff here.
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
-        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
@@ -602,7 +602,7 @@ export class GlobalVariableDefinition extends VariableDefinition<TranslationUnit
 
         this.declaredEntity = new GlobalObjectEntity(type, this);
 
-        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         
         if (entityOrError instanceof GlobalObjectEntity) {
             this.declaredEntity = entityOrError;
@@ -696,7 +696,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
 
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
-        let entityOrError = this.context.contextualScope.declareVariableEntity(this.declaredEntity);
+        let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             (<Mutable<this>>this).declaredEntity = entityOrError;
@@ -1067,7 +1067,6 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         this.name = declaration.name;
         this.type = declaration.type;
         
-
         this.declaration.declaredEntity.setDefinition(this);
         
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
@@ -1337,7 +1336,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> 
         
         this.declaredEntity = new ClassEntity(type, this);
 
-        let entityOrError = this.context.contextualScope.declareClassEntity(this.declaredEntity);
+        let entityOrError = context.contextualScope.declareClassEntity(this.declaredEntity);
         
         if (entityOrError instanceof ClassEntity) {
             this.declaredEntity = entityOrError;
