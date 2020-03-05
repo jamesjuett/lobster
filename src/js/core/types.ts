@@ -1032,11 +1032,22 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 
     // TODO: HACK to make ClassType exist but do nothing for now
 export class ClassType extends ObjectTypeBase {
+
+    public static createType(name: string) {
+        return new ClassType(name);
+    }
+
     public size: number= 0;
     public readonly precedence: number = 0;
     public readonly isComplete: boolean = false;
     public readonly className: string = "";
-    public readonly name: string = "";
+    public readonly name: string;
+
+    /** Don't use this ctor unless you know what you're doing. Use the static `createType()` function instead. */
+    public constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
+        super(isConst, isVolatile);
+        this.name = name;
+    }
 
     public sameType(other: Type): boolean {
         throw new Error("Method not implemented.");
@@ -1058,7 +1069,7 @@ export class ClassType extends ObjectTypeBase {
     
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         // TODO
-        return new ClassType(isConst, isVolatile);
+        return new ClassType(this.name, isConst, isVolatile);
     }
 
     public areLValuesAssignable() {
