@@ -3,6 +3,7 @@ import {Program, SourceFile} from "../core/Program";
 import { Simulation, SimulationEvent } from "../core/Simulation";
 import { assert, Mutable } from "../util/util";
 import { SynchronousSimulationRunner } from "../core/simulationRunners";
+import { Line } from "@svgdotjs/svg.js";
 
 interface VerificationStatus {
     readonly verifierName: string;
@@ -44,6 +45,76 @@ export class NoErrorsNoWarningsVerifier extends TestVerifier {
         }
         else {
             return {status: "failure", message: "There were errors or warnings, but there shouldn't have been."};
+        }
+    }
+}
+
+export interface NoteVerification {
+    readonly line: number | undefined;
+    readonly id: string;
+}
+
+export class NoteVerifier extends TestVerifier {
+    public readonly verifierName = "NoteVerifier";
+
+    public readonly notesToVerify: readonly NoteVerification[];
+
+    public constructor(notesToVerify: readonly NoteVerification[]) {
+        super();
+        this.notesToVerify = notesToVerify;
+    }
+
+    protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
+        
+        let verifiedNotes : NoteVerification[] = [];
+        let missingNotes : NoteVerification[] = [];
+        let extraNotes : NoteVerification[] = [];
+
+        let notesMap: {[index:string]: (number | undefined)[]} = {};
+        program.notes.allNotes.forEach((note) => {
+            let notes = notesMap[note.id] ?? (notesMap[note.id] = []);
+            notes.push(note.primarySourceReference?.line);
+        });
+        
+        this.notesToVerify.forEach(n => {
+            let matchingNotes = notesMap[n.id];
+            if (matchingNotes) {
+                let i = matchingNotes.indexOf(n.line);
+                if (i !== -1) {
+                    verifiedNotes.push(n);
+                    matchingNotes.splice(i, 1);
+                    return;
+                }
+            }
+
+            missingNotes.push(n);
+        });
+
+        for (let id in notesMap) {
+            notesMap[id].forEach((line) => extraNotes.push({line: line, id: id}))
+        }
+
+        if (missingNotes.length === 0 && extraNotes.length === 0) {
+            return VERIFICATION_SUCCESSFUL;
+        }
+        else {
+            return {status: "failure", message:
+`There were missing or extra notes.
+Verified:
+<pre>
+${JSON.stringify(verifiedNotes, null, 2)}
+</pre>
+
+Missing:
+<pre>
+${JSON.stringify(missingNotes, null, 2)}
+</pre>
+
+Extra:
+<pre>
+${JSON.stringify(extraNotes, null, 2)}
+</pre>
+`};
         }
     }
 }
