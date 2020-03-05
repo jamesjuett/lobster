@@ -27,33 +27,9 @@ export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) 
     return value;
 };
 
-// TODO: ensure that an expression is never considered compiled unless its children are compiled
-
 /**
- * TODO: this comment is out of date
- * Standard compilation phase for expressions:
- *   1. Compile children (with no special context - if this is needed, you'll need to override compile())
- *   2. Perform any conversions specified in this.i_childrenToConvert. the lvalue-to-rvalue conversion is not suppressed
- *   3. If any errors have been reported by children, abort. The rest of the sequence is skipped
- *   4. Call the this.convert() hook. Put custom conversion code here.
- *   5. Call the this.typeCheck() hook. Put custom typechecking here. After this function is called, the expression should
- *      have this.type and this.valueCategory set correct, although this does not mean the function necessarily has to do
- *      this (e.g. some expressions always have the same type or value category, so these properties may be set initially
- *      at the class level).
- *   6. Compile any temporary objects for whom this is the enclosing full expression.
- *
+ * Union of potential expression AST types for a generic expression.
  */
-
-// export interface TypedAndCompiled<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<T,V>, SuccessfullyCompiled {
-
-// }
-
-// type CompiledExpressionBase<E extends Expression, T extends Type, V extends ValueCategory> = E & TypedAndCompiled<T,V>;
-
-// TODO: is this used anymore?
-type SimilarTypedCompiledExpression<CE extends CompiledExpression> = CompiledExpression<CE["type"], CE["valueCategory"]>;
-
-
 export type ExpressionASTNode =
     CommaASTNode |
     TernaryASTNode |
@@ -127,14 +103,22 @@ const ExpressionConstructsMap = {
     "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => Parentheses.createFromAST(ast, context)
 }
 
+/**
+ * Creates an expression construct based on a given expression AST node.
+ * If the `ast` argument has a union type that is a subtype of `ExpressionASTNode`,
+ * this function's return type is inferred as corresponding union of construct types.
+ * @param ast An expression AST node.
+ * @param context The context in which this expression occurs.
+ */
 export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext) : ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
     return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
 }
 
 
-
+/**
+ * An expression not currently supported by Lobster.
+ */
 export class UnsupportedExpression extends Expression {
-
 
     public readonly type = undefined;
     public readonly valueCategory = undefined;
