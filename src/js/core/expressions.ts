@@ -6,7 +6,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
-import { Mutable, Constructor, escapeString } from "../util/util";
+import { Mutable, Constructor, escapeString, assertNever } from "../util/util";
 import { standardConversion, convertToPRValue, usualArithmeticConversions, isConvertibleToPointer, isIntegerLiteralZero, NullPointerConversion, ArrayToPointer } from "./standardConversions";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
@@ -3312,18 +3312,20 @@ export class IdentifierExpression extends Expression {
         if (!lookupResult) {
             this.addNote(CPPError.iden.not_found(this, this.name));
         }
-        else if (Array.isArray(lookupResult)) {
-
-            if (lookupResult.length === 1) {
+        else if (lookupResult.declarationKind === "variable") {
+            this.entity = lookupResult;
+        }
+        else if (lookupResult.declarationKind === "function") {
+            if (lookupResult.overloads.length === 1) {
                 // Only one function with that name found, so we just grab it.
                 // Any errors will be detected later e.g. when a function call is attempted.
-                this.entity = lookupResult[0];
+                this.entity = lookupResult.overloads[0];
             }
             else {
                 // Need to perform overload resolution to select the appropriate function
                 // from the function overload group. This depends on contextual parameter types.
                 if (this.context.contextualParameterTypes) {
-                    let overloadResult = overloadResolution(lookupResult, this.context.contextualParameterTypes, this.context.contextualReceiverType);
+                    let overloadResult = overloadResolution(lookupResult.overloads, this.context.contextualParameterTypes, this.context.contextualReceiverType);
 
                     if (overloadResult.selected) {
                         // If a best result has been selected, use that
@@ -3340,8 +3342,11 @@ export class IdentifierExpression extends Expression {
                 }
             }
         }
+        else if (lookupResult.declarationKind === "class") {
+            this.addNote(CPPError.iden.class_entity_found(this, this.name));
+        }
         else {
-            this.entity = lookupResult;
+            assertNever(lookupResult);
         }
 
         this.type = this.entity && this.entity.type;
@@ -3923,7 +3928,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
         // Check argument types against parameter types
         let candidateParamTypes = candidate.type.paramTypes;
         if (argTypes.length !== candidateParamTypes.length) {
-            notes.push(CPPError.param.numParams(candidate.declaration));
+            notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
         // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
@@ -3938,7 +3943,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
                 if (candidateParamType.isReferenceType()) {
                     // tempArgs.push(args[i]);
                     if(!referenceCompatible(argType, candidateParamType.refTo)) {
-                        notes.push(CPPError.param.paramReferenceType(candidate.declaration, argType, candidateParamType));
+                        notes.push(CPPError.param.paramReferenceType(candidate.firstDeclaration, argType, candidateParamType));
                     }
                     //else if (args[i].valueCategory !== "lvalue"){
                     //    problems.push(CPPError.param.paramReferenceLvalue(args[i]));
@@ -3953,7 +3958,7 @@ export function overloadResolution(candidates: readonly FunctionEntity[], argTyp
                     let convertedArg = standardConversion(auxArg, candidateParamType);
 
                     if(!sameType(convertedArg.type, candidateParamType)) {
-                        notes.push(CPPError.param.paramType(candidate.declaration, argType, candidateParamType));
+                        notes.push(CPPError.param.paramType(candidate.firstDeclaration, argType, candidateParamType));
                     }
 
                 }

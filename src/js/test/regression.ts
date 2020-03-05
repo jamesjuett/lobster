@@ -1,4 +1,4 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest } from "./verifiers";
+import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
 $(() => {
@@ -65,9 +65,6 @@ $(() => {
 
     ProgramTest.setDefaultReporter(showTest);
 
-    // Empty program
-
-
     // Empty main
     new SingleTranslationUnitTest(
         "Empty Main",
@@ -76,6 +73,22 @@ $(() => {
             new NoErrorsNoWarningsVerifier(),
             new NoBadRuntimeEventsVerifier(true)
         ]
+    );
+
+    // ---------- Basic Declaration Tests ----------
+    
+    new SingleTranslationUnitTest(
+      "Simple Error",
+`int main() {
+  int &x;
+  int *ptr = 3;
+}`,
+      [
+          new NoteVerifier([
+            {line: 2, id: "declaration.init.referenceBind"},
+            {line: 3, id: "declaration.init.convert"},
+          ])
+      ]
     );
 
     // ---------- Basic Declaration Tests ----------
@@ -678,3 +691,22 @@ int main() {
         ]
     );
 });
+
+/**
+ * Complicated class declarations and stuff
+class A;
+class * B;
+class C * D;
+class {} * E;
+class {} F;
+class G H;
+extern class G2 H2;
+class I {} J;
+class K {} & L = K();
+const class M {} & N = M();
+const class O & P = O();
+
+int main() {
+
+}
+ */

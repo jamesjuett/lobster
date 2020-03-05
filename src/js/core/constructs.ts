@@ -1,12 +1,12 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity, FunctionEntity, AutoEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
 import { CPPObject } from "./objects";
-import { GlobalObjectDefinition, CompiledGlobalObjectDefinition, CompiledFunctionDefinition } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -80,6 +80,37 @@ export interface BlockContext extends FunctionContext {
 
 export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
     return context.contextualScope instanceof BlockScope;
+}
+
+
+
+export class ClassMembers {
+
+    // public readonly localObjects: readonly AutoEntity[] = [];
+    // public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    // public readonly localVariablesByEntityId: {
+    //     [index: number] : LocalVariableEntity
+    // } = {};
+
+    // public registerLocalVariable(local: LocalVariableEntity) {
+    //     assert(!this.localVariablesByEntityId[local.entityId]);
+    //     this.localVariablesByEntityId[local.entityId] = local;
+    //     if (local.kind === "AutoEntity") {
+    //         asMutable(this.localObjects).push(local)
+    //     }
+    //     else {
+    //         asMutable(this.localReferences).push(local);
+    //     }
+    // }
+}
+
+export interface ClassContext extends TranslationUnitContext {
+    readonly classEntity: ClassEntity;
+    readonly classMembers: ClassMembers;
+}
+
+export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity) : ClassContext {
+    return Object.assign({}, context, {classEntity: classEntity, classMembers: new ClassMembers()});
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
@@ -434,7 +465,7 @@ export class InvalidConstruct extends BasicCPPConstruct {
 
 export class FunctionLocals {
 
-    public readonly localObjects: readonly AutoEntity[] = [];
+    public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
     public readonly localVariablesByEntityId: {
         [index: number] : LocalVariableEntity
@@ -514,17 +545,17 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
     public getParameterObject(num: number) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         return this.stackFrame.localObjectLookup(param);
     }
 
     public initializeParameterObject(num: number, value: Value<AtomicType>) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof AutoEntity, "Can't look up an object for a reference parameter.");
+        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         assert(param.type.isAtomicType());
-        this.stackFrame.initializeLocalObject(<AutoEntity<AtomicType>>param, <Value<AtomicType>>value);
+        this.stackFrame.initializeLocalObject(<LocalObjectEntity<AtomicType>>param, <Value<AtomicType>>value);
     }
 
     public bindReferenceParameter(num: number, obj: CPPObject) {
@@ -862,9 +893,9 @@ export class GlobalObjectAllocator extends CPPConstruct {
     
 
     public readonly parent?: undefined;
-    public readonly globalObjects: readonly GlobalObjectDefinition[];
+    public readonly globalObjects: readonly GlobalVariableDefinition[];
 
-    public constructor(context: ProgramContext, globalObjects: readonly GlobalObjectDefinition[] ) {
+    public constructor(context: ProgramContext, globalObjects: readonly GlobalVariableDefinition[] ) {
         super(context);
         this.globalObjects = globalObjects;
     }
@@ -883,7 +914,7 @@ export class GlobalObjectAllocator extends CPPConstruct {
 }
 
 export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {
-    readonly globalObjects: readonly CompiledGlobalObjectDefinition[];
+    readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
 }
 
 export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGlobalObjectAllocator> {

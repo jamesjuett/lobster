@@ -1,8 +1,8 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, AutoEntity, TemporaryObjectEntity, FunctionEntity, StaticEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration } from "./declarations";
+import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, SimpleDeclaration, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
 import { IdentifierExpression } from "./expressions";
@@ -276,7 +276,7 @@ export const CPPError = {
             }
         },
         dtor : {
-            no_destructor_auto : function(construct: TranslationUnitConstruct, entity: AutoEntity) {
+            no_destructor_auto : function(construct: TranslationUnitConstruct, entity: LocalObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_auto", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
             // no_destructor_member : function(construct: TranslationUnitConstruct, entity: ObjectEntity, containingClass) {
@@ -343,7 +343,23 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
             },
             definition_non_function_type : function(construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgt the parentheses?");
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgot the parentheses?");
+            },
+            multiple_def : function(def: FunctionDefinition, prevDef: FunctionDefinition) {
+                return new CompilerNote(def, NoteKind.ERROR, "declaration.func.multiple_def", `The function ${def.name} cannot be defined more than once.`);
+            }
+        },
+		variable : {
+            multiple_def : function(def: VariableDefinition | ParameterDefinition, prevDef: VariableDefinition | ParameterDefinition) {
+                return new CompilerNote(def, NoteKind.ERROR, "declaration.variable.multiple_def", `The function ${def.name} cannot be defined more than once.`);
+            }
+        },
+        classes: {
+            multiple_def : function(construct: ClassDefinition, prev: ClassDefinition) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.multiple_def", `The class ${construct.name} cannot be defined more than once.`);
+            },
+            storage_prohibited : function(construct: StorageSpecifier) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.storage_prohibited", `Storage specifiers are not permitted in class declarations.`);
             }
         },
         pointer: {
@@ -478,7 +494,7 @@ export const CPPError = {
             }
         },
         parameter : {
-            storage_prohibited : function(construct: TranslationUnitConstruct) {
+            storage_prohibited : function(construct: StorageSpecifier) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.storage_prohibited", "Storage specifiers are not permitted in parameter declarations.");
             },
             invalid_parameter_type : function(construct: TranslationUnitConstruct, type: Type) {
@@ -500,6 +516,9 @@ export const CPPError = {
         type_mismatch : function(construct: TranslationUnitConstruct, newEntity: DeclaredEntity, existingEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.type_mismatch", `Type mismatch. This declaration for ${newEntity.name} has type ${newEntity.type}, but a previous declaration of ${existingEntity.name} has type ${existingEntity.type}`);
         },
+        symbol_mismatch : function(construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.symbol_mismatch", `Cannot redeclare ${newEntity.name} as a different kind of symbol.`);
+        }
 	},
 	type : {
         
@@ -723,6 +742,9 @@ export const CPPError = {
         no_match : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.no_match", "No matching function found for call to \""+name+"\" with these parameter types.");
         },
+        class_entity_found : function(construct: TranslationUnitConstruct, name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "iden.class_entity_found", `The name "${name}" refers to a class type in this context. The class itself cannot be used in an expression.`);
+        },
         // not_declared : function(construct: TranslationUnitConstruct, name) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "iden.not_declared", "\""+name+"\" was not declared in this scope.");
         // },
@@ -732,7 +754,7 @@ export const CPPError = {
         alt_op : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\""+name+"\" is a C++ operator and cannot be used as an identifier.");
         },
-        not_found : function(construct: IdentifierExpression, name: string) {
+        not_found : function(construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find a variable or function called "${name}" in this scope.`);
         }
 	},
@@ -797,11 +819,11 @@ export const CPPError = {
         type_mismatch : function(construct: TranslationUnitConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.type_mismatch", "Multiple declarations found for " + ent1.name + ", but with different types.");
         },
-        class_same_tokens : function(construct: TranslationUnitConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) {
-            return new LinkerNote(construct, NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + ent1.name + " do not match exactly.");
+        class_same_tokens : function(newDef: ClassDefinition, prevDef: ClassDefinition) {
+            return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + newDef.name + " do not match exactly.");
         },
         func : {
-            def_not_found : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
+            def_not_found : function(construct: FunctionDeclaration, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
             no_matching_overload : function(construct: TranslationUnitConstruct, func: FunctionEntity) {
@@ -811,7 +833,12 @@ export const CPPError = {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.returnTypesMatch", "This declaration of the function " + func.name + " has a different return type than its definition.");
             }
         },
-        def_not_found : function(construct: TranslationUnitConstruct, ent: StaticEntity) {
+        classes : {
+            def_not_found : function(construct: ClassDeclaration, c: ClassEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.classes.def_not_found", "Cannot find definition for class " + c.name + ". The class is declared, but I wasn't able to find the actual class definition to link to it.");
+            },
+        },
+        def_not_found : function(construct: TranslationUnitConstruct, ent: GlobalObjectEntity) {
             return new LinkerNote(construct, NoteKind.ERROR, "link.def_not_found", "Cannot find definition for object " + ent.name + ". (It is declared, so I know it's a variable and what type it is, but it's never defined anywhere.)");
         },
         main_multiple_def : function(construct: TranslationUnitConstruct) {
