@@ -1,4 +1,4 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest } from "./verifiers";
+import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
 $(() => {
@@ -65,9 +65,6 @@ $(() => {
 
     ProgramTest.setDefaultReporter(showTest);
 
-    // Empty program
-
-
     // Empty main
     new SingleTranslationUnitTest(
         "Empty Main",
@@ -76,6 +73,22 @@ $(() => {
             new NoErrorsNoWarningsVerifier(),
             new NoBadRuntimeEventsVerifier(true)
         ]
+    );
+
+    // ---------- Basic Declaration Tests ----------
+    
+    new SingleTranslationUnitTest(
+      "Simple Error",
+`int main() {
+  int &x;
+  int *ptr = 3;
+}`,
+      [
+          new NoteVerifier([
+            {line: 2, id: "declaration.init.referenceBind"},
+            {line: 3, id: "declaration.init.convert"},
+          ])
+      ]
     );
 
     // ---------- Basic Declaration Tests ----------
