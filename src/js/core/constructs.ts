@@ -245,11 +245,20 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
 
-    public abstract readonly t_compiled: SuccessfullyCompiled;
+    public abstract readonly t_compiled: CompiledConstruct;
 
     public isSuccessfullyCompiled() : this is this["t_compiled"] {
         return !this.getContainedNotes().hasErrors;
     }
+    
+}
+
+/**
+ * This function calls the `.isSuccessfullyCompiled()` member on the given construct
+ * @param construct 
+ */
+export function isSuccessfullyCompiled<T extends CPPConstruct>(construct: T) : construct is T & T["t_compiled"] {
+    return construct.isSuccessfullyCompiled();
 }
 
 export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;

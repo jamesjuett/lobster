@@ -1,7 +1,7 @@
 import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note, CompilerNote } from "./errors";
-import { asMutable, assertFalse, assert, Mutable } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType } from "./types";
+import { asMutable, assertFalse, assert, Mutable, Constructor } from "../util/util";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -323,6 +323,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
 }
 
 export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+    public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -333,7 +334,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly name: string;
     
     public readonly initializer?: Initializer;
-    public readonly declaredEntity?: CPPEntity;
+    public abstract readonly declaredEntity?: CPPEntity;
 
     protected constructor(context: ContextType, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -355,9 +356,77 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             this.addNote(CPPError.declaration.virtual_prohibited(this));
         }
     }
+
+    public isWellTyped() : this is TypedSimpleDeclaration<Type> {
+        return !!this.type && !!this.declaredEntity;
+    }
+
+    public isTyped<T extends Type>(ctor: Constructor<T>) : this is TypedSimpleDeclaration<T> {
+        return !!this.type && !!this.declaredEntity && this.type.isType(ctor);
+    }
+
+    public isObjectTyped() : this is TypedSimpleDeclaration<ObjectType> {
+        return !!this.type && !!this.declaredEntity && this.type.isObjectType();
+    }
+
+    public isAtomicTyped() : this is TypedSimpleDeclaration<AtomicType> {
+        return !!this.type && !!this.declaredEntity && this.type.isAtomicType();
+    }
+
+    public isArithmeticTyped() : this is TypedSimpleDeclaration<ArithmeticType> {
+        return !!this.type && !!this.declaredEntity && this.type.isArithmeticType();
+    }
+
+    public isIntegralTyped() : this is TypedSimpleDeclaration<IntegralType> {
+        return !!this.type && !!this.declaredEntity && this.type.isIntegralType();
+    }
+
+    public isFloatingPointTyped() : this is TypedSimpleDeclaration<FloatingPointType> {
+        return !!this.type && !!this.declaredEntity && this.type.isFloatingPointType();
+    }
+
+    public isPointerTyped() : this is TypedSimpleDeclaration<PointerType> {
+        return !!this.type && !!this.declaredEntity && this.type.isPointerType();
+    }
+
+    public isReferenceTyped() : this is TypedSimpleDeclaration<ReferenceType> {
+        return !!this.type && !!this.declaredEntity && this.type.isReferenceType();
+    }
+
+    public isClassTyped() : this is TypedSimpleDeclaration<ClassType> {
+        return !!this.type && !!this.declaredEntity && this.type.isClassType();
+    }
+
+    public isBoundedArrayTyped() : this is TypedSimpleDeclaration<BoundedArrayType> {
+        return !!this.type && !!this.declaredEntity && this.type.isBoundedArrayType();
+    }
+
+    public isArrayOfUnknownBoundTyped() : this is TypedSimpleDeclaration<ArrayOfUnknownBoundType> {
+        return !!this.type && !!this.declaredEntity && this.type.isArrayOfUnknownBoundType();
+    }
+
+    public isGenericArrayTyped() : this is TypedSimpleDeclaration<BoundedArrayType | ArrayOfUnknownBoundType> {
+        return !!this.type && !!this.declaredEntity && this.type.isGenericArrayType();
+    }
+
+    public isFunctionTyped() : this is TypedSimpleDeclaration<FunctionType> {
+        return !!this.type && !!this.declaredEntity && this.type.isFunctionType();
+    }
 }
 
+export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
+    readonly type: T;
+    readonly declaredEntity?: CPPEntity<T>
+} 
+
 export interface CompiledSimpleDeclaration extends SimpleDeclaration, SuccessfullyCompiled {
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
+    readonly type: Type;
+    
+    readonly declaredEntity: CPPEntity;
     readonly initializer?: CompiledInitializer;
 }
 
@@ -366,6 +435,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly t_compiled!: never;
 
     public readonly type: undefined;
+    public readonly declaredEntity: undefined;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -386,6 +456,7 @@ export class VoidDeclaration extends SimpleDeclaration {
     public readonly t_compiled!: never;
     
     public readonly type = VoidType.VOID;
+    public readonly declaredEntity: undefined;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -400,6 +471,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
     public readonly t_compiled!: never;
 
     public readonly type: undefined; // will change when typedef is implemented
+    public readonly declaredEntity: undefined;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -420,6 +492,7 @@ export class FriendDeclaration extends SimpleDeclaration {
     public readonly t_compiled!: never;
     
     public readonly type: undefined; // will change when friend is implemented
+    public readonly declaredEntity: undefined;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -443,6 +516,7 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     public readonly t_compiled!: never;
 
     public readonly type: ArrayOfUnknownBoundType;
+    public readonly declaredEntity: undefined;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ArrayOfUnknownBoundType) {
@@ -460,6 +534,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
+    public readonly initializer: undefined;
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
     
@@ -518,6 +593,10 @@ export class FunctionDeclaration extends SimpleDeclaration {
 }
 
 export interface CompiledFunctionDeclaration extends FunctionDeclaration, SuccessfullyCompiled {
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
 }
 
@@ -556,6 +635,11 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
 }
 
 export interface CompiledVariableDefinition<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType = ObjectType> extends VariableDefinition<ContextType>, SuccessfullyCompiled {
+    
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
     readonly declaredEntity: VariableEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
@@ -597,6 +681,11 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
     }
 }
 export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectType> extends LocalVariableDefinition, SuccessfullyCompiled {
+    
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
     readonly declaredEntity: LocalObjectEntity<T> | LocalReferenceEntity<T>
     readonly initializer?: CompiledInitializer<T>;
 }
@@ -639,6 +728,11 @@ export class GlobalVariableDefinition extends VariableDefinition<TranslationUnit
 
 
 export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectType> extends GlobalVariableDefinition, SuccessfullyCompiled {
+    
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
     readonly declaredEntity: GlobalObjectEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
