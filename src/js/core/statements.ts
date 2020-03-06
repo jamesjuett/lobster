@@ -72,10 +72,13 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 }
 
 export class UnsupportedStatement extends Statement {
+    public readonly t_compiled: never;
+
     public constructor(context: BlockContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
+
 
     // Will never be called since an UnsupportedStatement will always have errors and
     // never satisfy the required this context of CompiledStatement
@@ -95,6 +98,7 @@ export interface ExpressionStatementASTNode extends ASTNode {
 }
 
 export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
+    public readonly t_compiled!: CompiledExpressionStatement;
 
     public readonly expression: Expression;
 
@@ -157,6 +161,7 @@ export interface NullStatementASTNode extends ASTNode {
 }
 
 export class NullStatement extends Statement<NullStatementASTNode> {
+    public readonly t_compiled!: CompiledNullStatement;
 
     public createRuntimeStatement(this: CompiledNullStatement, parent: RuntimeStatement) {
         return new RuntimeNullStatement(this, parent);
@@ -197,6 +202,7 @@ export interface DeclarationStatementASTNode extends ASTNode {
 }
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
+    public readonly t_compiled!: CompiledDeclarationStatement;
 
     public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
@@ -298,6 +304,7 @@ export interface ReturnStatementASTNode extends ASTNode {
 }
 
 export class ReturnStatement extends Statement<ReturnStatementASTNode> {
+    public readonly t_compiled!: CompiledReturnStatement;
 
     public readonly expression?: Expression;
 
@@ -410,6 +417,7 @@ function createBlockContext(context: FunctionContext) : BlockContext {
 }
 
 export class Block extends Statement<BlockASTNode> {
+    public readonly t_compiled!: CompiledBlock;
 
     public readonly statements: readonly Statement[] = [];
 
@@ -564,6 +572,7 @@ export interface IfStatementASTNode extends ASTNode {
 }
 
 export class IfStatement extends Statement<IfStatementASTNode> {
+    public readonly t_compiled!: CompiledIfStatement;
 
     public readonly condition: Expression;
     public readonly then: Statement;
@@ -710,6 +719,7 @@ export interface WhileStatementASTNode extends ASTNode {
 }
 
 export class WhileStatement extends Statement<WhileStatementASTNode> {
+    public readonly t_compiled!: CompiledWhileStatement;
 
     public readonly condition: Expression;
     public readonly body: Statement;
@@ -830,6 +840,7 @@ export interface ForStatementASTNode extends ASTNode {
 
 
 export class ForStatement extends Statement<ForStatementASTNode> {
+    public readonly t_compiled!: CompiledForStatement;
 
     public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
     public readonly condition: Expression;

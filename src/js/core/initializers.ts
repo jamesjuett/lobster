@@ -15,6 +15,7 @@ import { Value } from "./runtimeEnvironment";
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
 export abstract class Initializer extends PotentialFullExpression {
+    public abstract readonly t_compiled: CompiledInitializer;
 
     public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
@@ -46,6 +47,7 @@ export abstract class RuntimeInitializer<C extends CompiledInitializer = Compile
 
 
 export abstract class DefaultInitializer extends Initializer {
+    public abstract readonly t_compiled: CompiledDefaultInitializer; 
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
@@ -86,6 +88,7 @@ export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectTyp
 }
 
 export class ReferenceDefaultInitializer extends DefaultInitializer {
+    public readonly t_compiled!: never;
 
     public readonly target: UnboundReferenceEntity;
 
@@ -115,6 +118,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
 
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
+    public readonly t_compiled!: CompiledAtomicDefaultInitializer;
 
     public readonly target: ObjectEntity<AtomicType>;
 
@@ -163,6 +167,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
 }
 
 export class ArrayDefaultInitializer extends DefaultInitializer {
+    public readonly t_compiled!: CompiledArrayDefaultInitializer;
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly elementInitializers?: DefaultInitializer[];
@@ -346,6 +351,7 @@ export interface DirectInitializerASTNode extends ASTNode {
 export type DirectInitializerKind = "direct" | "copy";
 
 export abstract class DirectInitializer extends Initializer {
+    public abstract readonly t_compiled: CompiledDirectInitializer;
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : ReferenceDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) : AtomicDirectInitializer;
@@ -403,6 +409,7 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
 
 
 export class ReferenceDirectInitializer extends DirectInitializer {
+    public readonly t_compiled!: CompiledReferenceDirectInitializer;
 
     public readonly target: UnboundReferenceEntity;
     public readonly args: readonly Expression[];
@@ -518,6 +525,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 }
 
 export class AtomicDirectInitializer extends DirectInitializer {
+    public readonly t_compiled!: CompiledAtomicDirectInitializer;
 
     public readonly target: ObjectEntity<AtomicType>;
     public readonly args: readonly Expression[];
@@ -636,6 +644,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
  * char array initialized from a string literal.
  */
 export class ArrayDirectInitializer extends DirectInitializer {
+    public readonly t_compiled!: CompiledArrayDirectInitializer;
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly args: readonly Expression[];
@@ -824,8 +833,8 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
 
 export interface CopyInitializerASTNode extends ASTNode {
-    construct_type: "copy_initializer";
-    args: ExpressionASTNode[];
+    readonly construct_type: "copy_initializer";
+    readonly args: ExpressionASTNode[];
 }
 
 // TODO: These should really be "class aliases" rather than derived classes, however
@@ -1002,8 +1011,8 @@ export interface CopyInitializerASTNode extends ASTNode {
 
 
 export interface InitializerListASTNode extends ASTNode {
-    construct_type: "initializer_list";
-    args: ExpressionASTNode[];
+    readonly construct_type: "initializer_list";
+    readonly args: ExpressionASTNode[];
 }
 
 // export var InitializerList = CPPConstruct.extend({

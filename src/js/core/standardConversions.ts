@@ -1,5 +1,5 @@
 import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointerType, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
-import { SimpleRuntimeExpression, NumericLiteral, AuxiliaryExpression } from "./expressions";
+import { SimpleRuntimeExpression, NumericLiteralExpression, AuxiliaryExpression, CompiledNumericLiteralExpression } from "./expressions";
 import { ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
@@ -7,6 +7,7 @@ import { CompiledExpression, Expression, VCResultTypes, RuntimeExpression, Value
 import { ConstructOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet } from "../view/codeOutlets";
 
 export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
+    public abstract readonly t_compiled: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC> 
     
     public readonly from: TypedExpression<FromType, FromVC>;
     public readonly type: ToType;
@@ -75,7 +76,8 @@ export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType,
 // LValueToRValue, ArrayToPointer, FunctionToPointer
 
 
-export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
+export class LValueToRValueConversion<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
+    public readonly t_compiled!: CompiledLValueToRValueConversion<T>;
     
     public constructor(from: TypedExpression<T, "lvalue">) {
         super(from, from.type.cvUnqualified(), "prvalue");
@@ -87,7 +89,7 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
     }
     
-    public createDefaultOutlet(this: CompiledLValueToRValue, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledLValueToRValueConversion, element: JQuery, parent?: ConstructOutlet) {
         return new LValueToRValueOutlet(element, this, parent);
     }
 
@@ -109,12 +111,13 @@ export class LValueToRValue<T extends AtomicType> extends ImplicitConversion<T, 
 
 }
 
-export interface CompiledLValueToRValue<T extends AtomicType = AtomicType> extends LValueToRValue<T>, SuccessfullyCompiled {
+export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicType> extends LValueToRValueConversion<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and LValueToRValue structure
 }
 
-export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
+export class ArrayToPointerConversion<T extends BoundedArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
+    public readonly t_compiled!: CompiledArrayToPointerConversion<T>;
 
     public constructor(from: TypedExpression<T, "lvalue">) {
         super(from, from.type.adjustToPointerType(), "prvalue");
@@ -124,7 +127,7 @@ export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversi
         return new Value(fromEvalResult.address, new ArrayPointerType(fromEvalResult));
     }
     
-    public createDefaultOutlet(this: CompiledArrayToPointer, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledArrayToPointerConversion, element: JQuery, parent?: ConstructOutlet) {
         return new ArrayToPointerOutlet(element, this, parent);
     }
 
@@ -133,7 +136,7 @@ export class ArrayToPointer<T extends BoundedArrayType> extends ImplicitConversi
     // }
 }
 
-export interface CompiledArrayToPointer<T extends BoundedArrayType = BoundedArrayType> extends ArrayToPointer<T>, SuccessfullyCompiled {
+export interface CompiledArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends ArrayToPointerConversion<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and ArrayToPointer structure
 }
@@ -167,6 +170,7 @@ export interface CompiledArrayToPointer<T extends BoundedArrayType = BoundedArra
  */
 abstract class TypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     extends ImplicitConversion<FromType, "prvalue", ToType, "prvalue"> {
+    public abstract readonly t_compiled: CompiledTypeConversion<FromType, ToType>;
 
     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
         super(from, toType.cvUnqualified(), "prvalue");
@@ -183,7 +187,7 @@ export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType
     readonly from: CompiledExpression<FromType, "prvalue">; // satisfies CompiledImplicitConversion and TypeConversion structure
 }
 
-class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
+abstract class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     extends TypeConversion<FromType, ToType> {
 
     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
@@ -195,12 +199,13 @@ class NoOpTypeConversion<FromType extends AtomicType, ToType extends AtomicType>
     }
 }
 
-export interface IntegerLiteralZero extends NumericLiteral {
+export interface IntegerLiteralZero extends CompiledNumericLiteralExpression {
     readonly type: Int;
     readonly value: Value<Int> & {rawValue: 0};
 }
 
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
+    public readonly t_compiled!: CompiledNullPointerConversion<P>
 
     public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
@@ -209,11 +214,22 @@ export class NullPointerConversion<P extends PointerType> extends NoOpTypeConver
 
 }
 
+export interface CompiledNullPointerConversion<P extends PointerType> extends NullPointerConversion<P>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly from: IntegerLiteralZero;
+}
+
 export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpTypeConversion<FromType, ToType> {
+    public readonly t_compiled!: CompiledPointerConversion<FromType, ToType>;
+
+}
+
+export interface CompiledPointerConversion<FromType extends PointerType, ToType extends PointerType> extends CompiledTypeConversion<FromType, ToType>, SuccessfullyCompiled {
 
 }
 
 class ToBooleanConversionBase<T extends AtomicType> extends TypeConversion<T, Bool> {
+    public readonly t_compiled!: CompiledTypeConversion<T, Bool>;
 
     public constructor(from: TypedExpression<T, "prvalue">) {
         super(from, Bool.BOOL);
@@ -229,30 +245,36 @@ export class FloatingToBooleanConversion<T extends FloatingPointType> extends To
 export class IntegralToBooleanConversion<T extends IntegralType> extends ToBooleanConversionBase<T> { }
 
 export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+    public readonly t_compiled!: CompiledTypeConversion<FromType, ToType>;
 
 }
 
 export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
+    public readonly t_compiled!: CompiledTypeConversion<FromType, ToType>;
 
 }
 
 
 export class FloatingPointPromotion extends NoOpTypeConversion<Float, Double> {
+    public readonly t_compiled!: CompiledTypeConversion<Float, Double>;
     public constructor(from: TypedExpression<Float, "prvalue">) {
         super(from, Double.DOUBLE);
     }
 }
 
 export class FloatingPointConversion<FromType extends FloatingPointType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
+    public readonly t_compiled!: CompiledTypeConversion<FromType, ToType>;
 
 }
 
 export class IntegralToFloatingConversion<FromType extends IntegralType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
+    public readonly t_compiled!: CompiledTypeConversion<FromType, ToType>;
 
 }
 
 
 export class FloatingToIntegralConversion<T extends FloatingPointType> extends TypeConversion<T, IntegralType> {
+    public readonly t_compiled!: CompiledTypeConversion<T, IntegralType>;
 
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         if (this.type.isType(Bool)) {
@@ -285,6 +307,7 @@ export class FloatingToIntegralConversion<T extends FloatingPointType> extends T
 // Qualification conversions
 
 export class QualificationConversion<T extends AtomicType = AtomicType> extends ImplicitConversion<T, "prvalue", T, "prvalue"> {
+    public readonly t_compiled!: CompiledQualificationConversion<T>;
 
     public constructor(from: TypedExpression<T, "prvalue">, toType: T) {
         super(from, toType, "prvalue");
@@ -314,7 +337,7 @@ export function convertToPRValue(from: TypedExpression) : TypedExpression;
 export function convertToPRValue(from: TypedExpression) {
 
     if (from.isBoundedArrayTyped()) {
-        return new ArrayToPointer(from);
+        return new ArrayToPointerConversion(from);
     }
 
     if (!from.isAtomicTyped()) {
@@ -335,7 +358,7 @@ export function convertToPRValue(from: TypedExpression) {
     //     return new FunctionToPointer(from);
     // }
 
-    return new LValueToRValue(from);
+    return new LValueToRValueConversion(from);
 };
 
 export function typeConversion(from: TypedExpression<PointerType, "prvalue">, toType: Bool) : TypedExpression<Bool, "prvalue">;
@@ -459,7 +482,7 @@ export function integralPromotion(expr: TypedExpression<IntegralType, "prvalue">
 };
 
 export function isIntegerLiteralZero(from: Expression) : from is IntegerLiteralZero {
-    return from instanceof NumericLiteral && isType(from.type, Int) && from.value.rawValue === 0;
+    return from instanceof NumericLiteralExpression && isType(from.type, Int) && from.value.rawValue === 0;
 }
 
 export function isConvertibleToPointer(from: Expression) : from is SpecificTypedExpression<PointerType> | TypedExpression<BoundedArrayType, "lvalue"> | IntegerLiteralZero {

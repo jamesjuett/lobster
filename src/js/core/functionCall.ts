@@ -16,6 +16,7 @@ import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutle
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { Mutable } from "../util/util";
 export class FunctionCall extends PotentialFullExpression {
+    public readonly t_compiled!: CompiledFunctionCall;
 
     public readonly func: FunctionEntity;
     public readonly args: readonly Expression[];
@@ -270,6 +271,7 @@ type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lv
 
 
 export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
+    public readonly t_compiled!: CompiledFunctionCallExpression;
     
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
