@@ -356,61 +356,25 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             this.addNote(CPPError.declaration.virtual_prohibited(this));
         }
     }
-
-    public isWellTyped() : this is TypedSimpleDeclaration<Type> {
-        return !!this.type && !!this.declaredEntity;
+    
+    public static typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) : (decl: SimpleDeclaration) => decl is TypedSimpleDeclaration<T> {
+        return <(decl: SimpleDeclaration) => decl is TypedSimpleDeclaration<T>>((decl) => !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
     }
 
-    public isTyped<T extends Type>(ctor: Constructor<T>) : this is TypedSimpleDeclaration<T> {
-        return !!this.type && !!this.declaredEntity && this.type.isType(ctor);
+    public typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) {
+        return (<typeof SimpleDeclaration>this.constructor).typedPredicate(typePredicate);
+    }
+    
+    public static compiledPredicate<T extends Type = Type>(typePredicate?: (o: Type) => o is T) : (decl: SimpleDeclaration) => decl is CompiledSimpleDeclaration<T> {
+        return <(decl: SimpleDeclaration) => decl is CompiledSimpleDeclaration<T>>((decl) => decl.isSuccessfullyCompiled() && (!typePredicate || typePredicate(decl.type)));
     }
 
-    public isObjectTyped() : this is TypedSimpleDeclaration<ObjectType> {
-        return !!this.type && !!this.declaredEntity && this.type.isObjectType();
+    public compiledPredicate<T extends Type = Type>(typePredicate?: (o: Type) => o is T) {
+        return (<typeof SimpleDeclaration>this.constructor).compiledPredicate(typePredicate);
     }
 
-    public isAtomicTyped() : this is TypedSimpleDeclaration<AtomicType> {
-        return !!this.type && !!this.declaredEntity && this.type.isAtomicType();
-    }
-
-    public isArithmeticTyped() : this is TypedSimpleDeclaration<ArithmeticType> {
-        return !!this.type && !!this.declaredEntity && this.type.isArithmeticType();
-    }
-
-    public isIntegralTyped() : this is TypedSimpleDeclaration<IntegralType> {
-        return !!this.type && !!this.declaredEntity && this.type.isIntegralType();
-    }
-
-    public isFloatingPointTyped() : this is TypedSimpleDeclaration<FloatingPointType> {
-        return !!this.type && !!this.declaredEntity && this.type.isFloatingPointType();
-    }
-
-    public isPointerTyped() : this is TypedSimpleDeclaration<PointerType> {
-        return !!this.type && !!this.declaredEntity && this.type.isPointerType();
-    }
-
-    public isReferenceTyped() : this is TypedSimpleDeclaration<ReferenceType> {
-        return !!this.type && !!this.declaredEntity && this.type.isReferenceType();
-    }
-
-    public isClassTyped() : this is TypedSimpleDeclaration<ClassType> {
-        return !!this.type && !!this.declaredEntity && this.type.isClassType();
-    }
-
-    public isBoundedArrayTyped() : this is TypedSimpleDeclaration<BoundedArrayType> {
-        return !!this.type && !!this.declaredEntity && this.type.isBoundedArrayType();
-    }
-
-    public isArrayOfUnknownBoundTyped() : this is TypedSimpleDeclaration<ArrayOfUnknownBoundType> {
-        return !!this.type && !!this.declaredEntity && this.type.isArrayOfUnknownBoundType();
-    }
-
-    public isGenericArrayTyped() : this is TypedSimpleDeclaration<BoundedArrayType | ArrayOfUnknownBoundType> {
-        return !!this.type && !!this.declaredEntity && this.type.isGenericArrayType();
-    }
-
-    public isFunctionTyped() : this is TypedSimpleDeclaration<FunctionType> {
-        return !!this.type && !!this.declaredEntity && this.type.isFunctionType();
+    public meetsTypePredicate<T extends Type>(typePredicate: (o: Type) => o is T): this is TypedSimpleDeclaration<T> {
+        return this.typedPredicate(typePredicate)(this);
     }
 }
 
@@ -419,14 +383,11 @@ export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaratio
     readonly declaredEntity?: CPPEntity<T>
 } 
 
-export interface CompiledSimpleDeclaration extends SimpleDeclaration, SuccessfullyCompiled {
+export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator;
 
-    readonly type: Type;
-    
-    readonly declaredEntity: CPPEntity;
     readonly initializer?: CompiledInitializer;
 }
 
@@ -644,12 +605,18 @@ export interface CompiledVariableDefinition<ContextType extends TranslationUnitC
     readonly initializer?: CompiledInitializer<T>;
 }
 
-
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
     public readonly t_compiled!: CompiledLocalVariableDefinition;
-
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+
+    // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
+    //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition);
+    // }
+
+    // public static typedPredicate<T extends ObjectType | ReferenceType>(typePredicate: (o: ObjectType | ReferenceType) => o is T) {
+    //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition && !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
+    // }
     
     public constructor(context: BlockContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
@@ -679,7 +646,17 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
             this.addNote(entityOrError);
         }
     }
+    
+    // public typedPredicate<T extends ObjectType | ReferenceType>(typePredicate: (o: ObjectType | ReferenceType) => o is T) : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
+    //     return <(decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T>>((decl) => !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
+    // }
 }
+
+export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceType> extends LocalVariableDefinition {
+    readonly type: T;
+    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+} 
+
 export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectType> extends LocalVariableDefinition, SuccessfullyCompiled {
     
     readonly typeSpecifier: CompiledTypeSpecifier;

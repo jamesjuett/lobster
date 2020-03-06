@@ -702,13 +702,13 @@ export class LocalObjectEntity<T extends ObjectType = ObjectType> extends Variab
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
-    public readonly declarations: readonly (LocalVariableDefinition | ParameterDefinition)[];
+    public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
         this.firstDeclaration = def;
-        this.declarations = [def];
+        this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
         this.isParameter = isParameter;
@@ -748,13 +748,13 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Var
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
-    public readonly declarations: readonly (LocalVariableDefinition | ParameterDefinition)[];
+    public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
         this.firstDeclaration = def;
-        this.declarations = [def];
+        this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
         this.isParameter = isParameter;

@@ -4,25 +4,25 @@ import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpressio
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, SimpleDeclaration, CompiledSimpleDeclaration } from "./declarations";
+import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, SimpleDeclaration, CompiledSimpleDeclaration, TypedLocalVariableDefinition } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
-import { BoundedArrayType } from "./types";
+import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType } from "./types";
 import { Expression } from "./expressionBase";
 
-export type CPPConstructTest<T extends CPPConstruct> = (construct: CPPConstruct) => construct is T;
+export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 
 export type CPPConstructFunctor<T extends CPPConstruct> = (construct: T) => void;
 
-export function constructTest<T extends CPPConstruct>(constructClass: Function & { prototype: T }) {
-    return <CPPConstructTest<T>>((construct: CPPConstruct) => construct instanceof constructClass);
+export function constructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
+    return <CPPConstructTest<Original, T>>((construct: Original) => construct instanceof constructClass);
 }
 
-export function compiledConstructTest<T extends CPPConstruct>(constructClass: Function & { prototype: T }) {
-    return <CPPConstructTest<T["t_compiled"]>>((construct: CPPConstruct) => construct instanceof constructClass && construct.isSuccessfullyCompiled());
-}
+// export function compiledConstructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
+//     return <CPPConstructTest<Original, T["t_compiled"]>>((construct: Original) => construct instanceof constructClass && construct.isSuccessfullyCompiled());
+// }
 
-export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<T>, fn: CPPConstructFunctor<T>) {
+export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
 
     if (root instanceof Program) {
         for(let tuName in root.translationUnits) {
@@ -43,13 +43,41 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
     root.children.forEach(child => exploreConstructs(child, test, fn));
 }
 
-export function findConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<T>) {
+export function findConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>) {
     let found : T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
     });
     return found;
 }
+
+// type TypedFilterable<Original extends CPPConstruct, Narrowed extends Original> = Original & {
+//     typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) : (decl: Original) => decl is Narrowed;
+// }
+
+// export function filterConstructsByType<T extends Type, Original extends CPPConstruct, Narrowed extends Original>(typePredicate: (o: Type) => o is T, constructs: readonly Original[] & readonly TypedFilterable<Original, Narrowed>[]) {
+//     if (constructs.length === 0) {
+//         return [];
+//     }
+
+//     return constructs.filter(createTypeConstructFilter(typePredicate));
+// }
+
+// // export function createTypeConstructFilter<OriginalT extends Type, T extends OriginalT>(typePredicate: (o: OriginalT) => o is T) {
+// //     return <Original extends CPPConstruct, Narrowed extends Original>(arr: readonly (OriginalT & TypedFilterable<Original, Narrowed, OriginalT>)[]) => arr.filter(typePredicate);
+// // } 
+
+// interface TypeConstructFilter<Original extends CPPConstruct, Narrowed extends Original> {
+//     (original: Original) : original is Narrowed;
+// }
+
+// export function createTypeConstructFilter<OriginalT extends Type, T extends OriginalT>(typePredicate: (o: OriginalT) => o is T) {
+//     return <Original extends CPPConstruct, Narrowed extends Original>(original: TypedFilterable<Original, Narrowed, OriginalT>) => original.typedPredicate(typePredicate)(original);
+// } 
+
+// export function filterConstructs<Original extends CPPConstruct, T extends Original>(constructs: readonly Original[], test: CPPConstructTest<Original, T>) {
+//     return constructs.filter(test);
+// }
 
 export function analyze(program: Program) {
 
@@ -129,34 +157,47 @@ export function analyze(program: Program) {
     analyze2(program);
 }
 
-function isBoundedArrayType(decl: SimpleDeclaration) : decl is SimpleDeclaration & {type: BoundedArrayType} {
-    return !!decl.type?.isBoundedArrayType();
-}
-
 function analyze2(program: Program) {
-    let varDefs = findConstructs(program, constructTest(LocalVariableDefinition));
-    let arrayDefs = varDefs.filter(isBoundedArrayType);
-    if (arrayDefs.length === 0) {
-        return;
-    }
-    let arrayDefType = arrayDefs[0].type;
-    if (!arrayDefType.isBoundedArrayType()) {
-        return;
-    }
-    let arraySize = arrayDefType.length;
+    let varDefs = findConstructs(program, LocalVariableDefinition.compiledPredicate());
+    // // let arrayDefs = filterConstructsByType<LocalVariableDefinition, TypedLocalVariableDefinition<ObjectType | ReferenceType>, ObjectType | ReferenceType, BoundedArrayType>(isBoundedArrayType, varDefs);
+    // // arrayDefs[0].type
+    // let arrayDefs = filterConstructsByType<BoundedArrayType>(isBoundedArrayType, varDefs);
+    let arrayDefs = varDefs.filter(varDefs[0].typedPredicate(isBoundedArrayType));
+    arrayDefs[0].type
+    // let x!: LocalVariableDefinition;
 
-    // let forLoops = findConstructs(program, constructTest(ForStatement));
-    // let compiledForLoops = forLoops.filter(isSuccessfullyCompiled);
-    let compiledForLoops = findConstructs(program, compiledConstructTest(ForStatement));
+    // if (x.isTypedDeclaration(isBoundedArrayType)()) {
+    //     x.type
+    // }
 
-    let targets = compiledForLoops.filter((fl) => {
-        let cond = fl.condition;
-        if (!(cond instanceof BinaryOperatorExpression)) {
-            return false;
-        }
-        return cond.operator === "<=" && cond.right instanceof NumericLiteralExpression && cond.right.value.rawValue === arraySize;
-    });
-    targets.forEach(target => target.addNote(new CompilerNote(target, NoteKind.WARNING, "blah", "Oops")));
+    // isBoundedArrayTypedDeclaration(x);
+    // let blah = varDefs.filter(isBoundedArrayTypedDeclaration);
+    // blah[0].type
+    // arrayDefs[0].type
+    // if (arrayDefs.length === 0) {
+    //     return;
+    // }
+    // let arrayDef = arrayDefs[0];
+    // if (!arrayDef.isBoundedArrayTyped()) {
+    //     return;
+    // }
+    // let arraySize = arrayDef.type.length;
+
+    // // let forLoops = findConstructs(program, constructTest(ForStatement));
+    // // let compiledForLoops = forLoops.filter(isSuccessfullyCompiled);
+    // let compiledForLoops = findConstructs(program, compiledConstructTest(ForStatement));
+
+    // let targets = compiledForLoops.filter((fl) => {
+    //     let cond = fl.condition;
+    //     if (!(cond instanceof BinaryOperatorExpression)) {
+    //         return false;
+    //     }
+    //     return cond.operator === "<=" && cond.right instanceof NumericLiteralExpression && cond.right.value.rawValue === arraySize;
+    // });
+    // targets.forEach(target => target.addNote(new CompilerNote(target, NoteKind.WARNING, "blah", "Oops")));
+
+    // let test!: AssignmentExpression[];
+    // let sdf = test.filter((t) => t.isBoundedArrayTyped());
 
 
 

@@ -341,6 +341,15 @@ abstract class TypeBase {
     public abstract areLValuesAssignable() : boolean;
 };
 
+export function isBoundedArrayType(t: Type) : t is BoundedArrayType {
+    return t instanceof BoundedArrayType;
+}
+
+
+// export function isType<T extends Type>(ctor: Constructor<T>) : this is InstanceType<typeof ctor> {
+//     return this instanceof ctor;
+// }
+
 // /**
 //  * Used when a compilation error causes an unknown type.
 //  */
