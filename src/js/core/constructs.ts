@@ -250,7 +250,10 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public isSuccessfullyCompiled() : this is this["t_compiled"] {
         return !this.getContainedNotes().hasErrors;
     }
-    
+
+    public predicate() : (construct: CPPConstruct) => construct is this {
+        return <(construct: CPPConstruct) => construct is this>((decl) => decl instanceof this.constructor);
+    }
 }
 
 /**
