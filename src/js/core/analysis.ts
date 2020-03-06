@@ -1,12 +1,14 @@
-import { CPPConstruct } from "./constructs";
+import { CPPConstruct, isSuccessfullyCompiled } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
 import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition } from "./declarations";
+import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, SimpleDeclaration, CompiledSimpleDeclaration } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
+import { BoundedArrayType } from "./types";
+import { Expression } from "./expressionBase";
 
 export type CPPConstructTest<T extends CPPConstruct> = (construct: CPPConstruct) => construct is T;
 
@@ -14,6 +16,10 @@ export type CPPConstructFunctor<T extends CPPConstruct> = (construct: T) => void
 
 export function constructTest<T extends CPPConstruct>(constructClass: Function & { prototype: T }) {
     return <CPPConstructTest<T>>((construct: CPPConstruct) => construct instanceof constructClass);
+}
+
+export function compiledConstructTest<T extends CPPConstruct>(constructClass: Function & { prototype: T }) {
+    return <CPPConstructTest<T["t_compiled"]>>((construct: CPPConstruct) => construct instanceof constructClass && construct.isSuccessfullyCompiled());
 }
 
 export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<T>, fn: CPPConstructFunctor<T>) {
@@ -123,9 +129,13 @@ export function analyze(program: Program) {
     analyze2(program);
 }
 
+function isBoundedArrayType(decl: SimpleDeclaration) : decl is SimpleDeclaration & {type: BoundedArrayType} {
+    return !!decl.type?.isBoundedArrayType();
+}
+
 function analyze2(program: Program) {
     let varDefs = findConstructs(program, constructTest(LocalVariableDefinition));
-    let arrayDefs = varDefs.filter(def => def.type.isBoundedArrayType());
+    let arrayDefs = varDefs.filter(isBoundedArrayType);
     if (arrayDefs.length === 0) {
         return;
     }
@@ -134,8 +144,11 @@ function analyze2(program: Program) {
         return;
     }
     let arraySize = arrayDefType.length;
-    let forLoops = findConstructs(program, constructTest(ForStatement));
-    let compiledForLoops : CompiledForStatement[] = <any>forLoops.filter(fl => fl.isSuccessfullyCompiled());
+
+    // let forLoops = findConstructs(program, constructTest(ForStatement));
+    // let compiledForLoops = forLoops.filter(isSuccessfullyCompiled);
+    let compiledForLoops = findConstructs(program, compiledConstructTest(ForStatement));
+
     let targets = compiledForLoops.filter((fl) => {
         let cond = fl.condition;
         if (!(cond instanceof BinaryOperatorExpression)) {
@@ -144,5 +157,7 @@ function analyze2(program: Program) {
         return cond.operator === "<=" && cond.right instanceof NumericLiteralExpression && cond.right.value.rawValue === arraySize;
     });
     targets.forEach(target => target.addNote(new CompilerNote(target, NoteKind.WARNING, "blah", "Oops")));
+
+
 
 }
