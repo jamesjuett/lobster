@@ -244,6 +244,12 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         }
         return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
+
+    public abstract readonly t_compiled: SuccessfullyCompiled;
+
+    public isSuccessfullyCompiled() : this is this["t_compiled"] {
+        return !this.getContainedNotes().hasErrors;
+    }
 }
 
 export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
@@ -439,7 +445,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
 
 
-export class BasicCPPConstruct<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
+export abstract class BasicCPPConstruct<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
 
     public parent?: CPPConstruct;
 
@@ -453,6 +459,7 @@ export class BasicCPPConstruct<ContextType extends TranslationUnitContext = Tran
 }
 
 export class InvalidConstruct extends BasicCPPConstruct {
+    public readonly t_compiled!: never;
 
     public readonly note: Note;
 
@@ -692,6 +699,7 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
 
 
 export class TemporaryDeallocator extends BasicCPPConstruct {
+    public readonly t_compiled!: CompiledTemporaryDeallocator;
 
     public readonly parent?: PotentialFullExpression;
     public readonly temporaryObjects: TemporaryObjectEntity[];
@@ -818,6 +826,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 
 export class UnsupportedConstruct extends BasicCPPConstruct {
+    public readonly t_compiled!: never;
     public constructor(context: TranslationUnitContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
@@ -890,6 +899,7 @@ export class UnsupportedConstruct extends BasicCPPConstruct {
 
 
 export class GlobalObjectAllocator extends CPPConstruct {
+    public readonly t_compiled!: CompiledGlobalObjectAllocator;
     
 
     public readonly parent?: undefined;

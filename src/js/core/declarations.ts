@@ -1,7 +1,7 @@
 import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note, CompilerNote } from "./errors";
 import { asMutable, assertFalse, assert, Mutable } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -16,6 +16,7 @@ export type StorageSpecifierKey = "register" | "static" | "thread_local" | "exte
 export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
 export class StorageSpecifier extends BasicCPPConstruct {
+    public readonly t_compiled!: CompiledStorageSpecifier;
 
     public readonly register?: true;
     public readonly static?: true;
@@ -81,12 +82,17 @@ export class StorageSpecifier extends BasicCPPConstruct {
     }
 }
 
+export interface CompiledStorageSpecifier extends StorageSpecifier, SuccessfullyCompiled {
+
+}
+
 export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
 export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
 
 export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
 export class TypeSpecifier extends BasicCPPConstruct {
+    public readonly t_compiled!: CompiledTypeSpecifier;
 
     public readonly const?: true;
     public readonly volatile?: true;
@@ -166,7 +172,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
         }
 
         // Check to see if type name is one of the built in types
-        if (isBuiltInTypeName(this.typeName)) {
+        if (this.typeName && isBuiltInTypeName(this.typeName)) {
             asMutable(this).baseType = new builtInTypes[this.typeName](this.const, this.volatile);
             return;
         }
@@ -185,6 +191,9 @@ export class TypeSpecifier extends BasicCPPConstruct {
     }
 };
 
+export interface CompiledTypeSpecifier<BaseType extends Type = Type> extends TypeSpecifier, SuccessfullyCompiled {
+    readonly baseType?: BaseType;
+}
 
 interface OtherSpecifiers {
     readonly friend?: boolean;
@@ -354,7 +363,7 @@ export interface CompiledSimpleDeclaration extends SimpleDeclaration, Successful
 
 
 export class UnknownTypeDeclaration extends SimpleDeclaration {
-
+    public readonly t_compiled!: never;
 
     public readonly type: undefined;
     
@@ -374,7 +383,8 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
 }
 
 export class VoidDeclaration extends SimpleDeclaration {
-
+    public readonly t_compiled!: never;
+    
     public readonly type = VoidType.VOID;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
@@ -387,6 +397,7 @@ export class VoidDeclaration extends SimpleDeclaration {
 }
 
 export class TypedefDeclaration extends SimpleDeclaration {
+    public readonly t_compiled!: never;
 
     public readonly type: undefined; // will change when typedef is implemented
     
@@ -406,6 +417,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
 }
 
 export class FriendDeclaration extends SimpleDeclaration {
+    public readonly t_compiled!: never;
     
     public readonly type: undefined; // will change when friend is implemented
     
@@ -428,6 +440,7 @@ export class FriendDeclaration extends SimpleDeclaration {
 }
 
 export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
+    public readonly t_compiled!: never;
 
     public readonly type: ArrayOfUnknownBoundType;
     
@@ -443,11 +456,12 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 }
 
 export class FunctionDeclaration extends SimpleDeclaration {
+    public readonly t_compiled!: CompiledFunctionDeclaration;
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
 
-    public readonly parameterDeclarations: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
+    public readonly parameterDeclarations: readonly ParameterDeclaration[];
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -503,7 +517,12 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
 }
 
+export interface CompiledFunctionDeclaration extends FunctionDeclaration, SuccessfullyCompiled {
+    readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
+}
+
 export abstract class VariableDefinition<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
+    public abstract readonly t_compiled: CompiledVariableDefinition<ContextType>;
 
     public readonly initializer?: Initializer;
 
@@ -536,13 +555,14 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
     }
 }
 
-export interface CompiledVariableDefinition<T extends ObjectType = ObjectType> extends VariableDefinition, SuccessfullyCompiled {
+export interface CompiledVariableDefinition<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType = ObjectType> extends VariableDefinition<ContextType>, SuccessfullyCompiled {
     readonly declaredEntity: VariableEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
 
 
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
+    public readonly t_compiled!: CompiledLocalVariableDefinition;
 
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
@@ -584,6 +604,7 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType = ObjectTy
 
 export class GlobalVariableDefinition extends VariableDefinition<TranslationUnitContext> {
     public readonly kind = "GlobalVariableDefinition";
+    public readonly t_compiled!: CompiledGlobalVariableDefinition;
 
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
@@ -631,6 +652,7 @@ export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectT
  * This contrasts to ParameterDefinitions that may introduce an entity.
  */
 export class ParameterDeclaration extends BasicCPPConstruct {
+    public readonly t_compiled!: CompiledParameterDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -663,7 +685,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
             return;
         }
 
-        if (this.isParameterDefinition()) {
+        if (this.isPotentialParameterDefinition()) {
             (<Mutable<this>>this).declaredEntity =
                 this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
                 new LocalObjectEntity(this.type, this, true);
@@ -684,7 +706,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
     }
     
-    public isParameterDefinition() : this is ParameterDefinition {
+    public isPotentialParameterDefinition() : this is ParameterDefinition {
         return !!this.name && !!this.type && this.type.isPotentialParameterType();
     }
 
@@ -708,14 +730,29 @@ export class ParameterDeclaration extends BasicCPPConstruct {
     }
 }
 
+export interface CompiledParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends ParameterDeclaration, SuccessfullyCompiled {
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
+    readonly type: T;
+    readonly declaredEntity?: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+}
+
+
 export interface ParameterDefinition extends ParameterDeclaration {
-    readonly name: string; // parameter declarations need not provide a name
+    readonly name: string;
     readonly type: PotentialParameterType;
     readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 }
 
 export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends ParameterDefinition, SuccessfullyCompiled {
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
+
     readonly type: T;
+    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
 }
 
 
@@ -755,12 +792,13 @@ interface DeclaratorInitASTNode extends DeclaratorASTNode {
 
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct {
+    public readonly t_compiled!: CompiledDeclarator;
 
     public readonly name?: string;
     public readonly type?: Type;
 
     public readonly baseType?: Type;
-    public readonly isPureVirtual?: boolean;
+    public readonly isPureVirtual?: true;
 
     public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
@@ -979,6 +1017,17 @@ export class Declarator extends BasicCPPConstruct {
             delete (<Mutable<this>>this).parameters;
         }
     }
+
+    public isSuccessfullyCompiled() : this is this["t_compiled"] {
+        return !!this.baseType && super.isSuccessfullyCompiled();
+    }
+}
+
+export interface CompiledDeclarator<T extends Type = Type> extends Declarator, SuccessfullyCompiled {
+    readonly type: T;
+    readonly baseType: T;
+
+    readonly parameters?: readonly CompiledParameterDeclaration[]; // defined if this is a declarator of function type
 }
 
 
@@ -1009,6 +1058,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 
 export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     public readonly kind = "FunctionDefinition";
+    public readonly t_compiled!: CompiledFunctionDefinition;
 
     public readonly declaration: FunctionDeclaration;
     public readonly name: string;
@@ -1037,7 +1087,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
         declaration.parameterDeclarations.forEach(paramDecl => {
-            if (paramDecl.isParameterDefinition()) {
+            if (paramDecl.isPotentialParameterDefinition()) {
                 paramDecl.addEntityToScope(bodyContext);
             }
             else {
@@ -1315,7 +1365,10 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
 }
 
 export interface CompiledFunctionDefinition<Return_type extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
-    readonly parameters: readonly CompiledParameterDefinition[];
+    readonly declaration: CompiledFunctionDeclaration;
+    readonly name: string;
+    readonly type: FunctionType;
+    readonly parameters: readonly CompiledParameterDeclaration[];
     readonly body: CompiledBlock;
 }
 
@@ -1323,6 +1376,7 @@ export interface CompiledFunctionDefinition<Return_type extends PotentialReturnT
 
 
 export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> {
+    public readonly t_compiled!: CompiledClassDeclaration;
 
     public readonly name: string;
     public readonly type: ClassType;
@@ -1350,9 +1404,9 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> 
 }
 
 
-// export interface CompiledClassDeclaration extends ClassDeclaration, SuccessfullyCompiled {
-    
-// }
+export interface CompiledClassDeclaration<T extends ClassType = ClassType> extends ClassDeclaration, SuccessfullyCompiled {
+    readonly type: T;
+}
 
 
 export type ClassKey = "struct" | "class";
@@ -1420,6 +1474,7 @@ export interface DestructorDefinitionASTNode extends ASTNode {
 }
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
+    public readonly t_compiled!: CompiledClassDefinition;
 
     // public readonly name: number = 2;
     public readonly declaration: ClassDeclaration;
@@ -1864,6 +1919,10 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
 //     }
+}
+
+export interface CompiledClassDefinition<T extends ClassType = ClassType> extends ClassDefinition, SuccessfullyCompiled {
+    readonly declaration: CompiledClassDeclaration<T>;
 }
 
 // export var MemberDeclaration = SimpleDeclaration.extend({

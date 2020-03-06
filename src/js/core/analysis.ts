@@ -1,11 +1,12 @@
 import { CPPConstruct } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
-import { AssignmentExpression } from "./expressions";
+import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition } from "./declarations";
+import { VariableDefinition, FunctionDefinition, LocalVariableDefinition } from "./declarations";
 import { DirectInitializer } from "./initializers";
+import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
 
 export type CPPConstructTest<T extends CPPConstruct> = (construct: CPPConstruct) => construct is T;
 
@@ -118,4 +119,30 @@ export function analyze(program: Program) {
     //         )
     //     );
     // }
+
+    analyze2(program);
+}
+
+function analyze2(program: Program) {
+    let varDefs = findConstructs(program, constructTest(LocalVariableDefinition));
+    let arrayDefs = varDefs.filter(def => def.type.isBoundedArrayType());
+    if (arrayDefs.length === 0) {
+        return;
+    }
+    let arrayDefType = arrayDefs[0].type;
+    if (!arrayDefType.isBoundedArrayType()) {
+        return;
+    }
+    let arraySize = arrayDefType.length;
+    let forLoops = findConstructs(program, constructTest(ForStatement));
+    let compiledForLoops : CompiledForStatement[] = <any>forLoops.filter(fl => fl.isSuccessfullyCompiled());
+    let targets = compiledForLoops.filter((fl) => {
+        let cond = fl.condition;
+        if (!(cond instanceof BinaryOperatorExpression)) {
+            return false;
+        }
+        return cond.operator === "<=" && cond.right instanceof NumericLiteralExpression && cond.right.value.rawValue === arraySize;
+    });
+    targets.forEach(target => target.addNote(new CompilerNote(target, NoteKind.WARNING, "blah", "Oops")));
+
 }
