@@ -341,8 +341,76 @@ abstract class TypeBase {
     public abstract areLValuesAssignable() : boolean;
 };
 
-export function isBoundedArrayType(t: Type) : t is BoundedArrayType {
-    return t instanceof BoundedArrayType;
+export function isObjectType(type: Type) : type is ObjectType {
+    return type.isAtomicType() || type.isBoundedArrayType() || type.isClassType();
+}
+
+export function isAtomicType(type: Type) : type is AtomicType {
+    return type instanceof AtomicType;
+}
+
+export function isArithmeticType(type: Type) : type is ArithmeticType {
+    return type instanceof ArithmeticType;
+}
+
+export function isIntegralType(type: Type) : type is IntegralType {
+    return type instanceof IntegralType;
+}
+
+export function isFloatingPointType(type: Type) : type is FloatingPointType {
+    return type instanceof FloatingPointType;
+}
+
+export function isPointerType(type: Type) : type is PointerType {
+    return type instanceof PointerType;
+}
+
+export function isArrayPointerType(type: Type) : type is ArrayPointerType {
+    return type instanceof ArrayPointerType;
+}
+
+export function isObjectPointerType(type: Type) : type is ObjectPointerType {
+    return type instanceof ObjectPointerType;
+}
+
+export function isReferenceType(type: Type) : type is ReferenceType {
+    return type instanceof ReferenceType;
+}
+
+export function isClassType(type: Type) : type is ClassType {
+    return type instanceof ClassType;
+}
+
+export function isBoundedArrayType(type: Type) : type is BoundedArrayType {
+    return type instanceof BoundedArrayType;
+}
+
+export function isArrayOfUnknownBoundType(type: Type) : type is ArrayOfUnknownBoundType {
+    return type instanceof ArrayOfUnknownBoundType;
+}
+
+export function isGenericArrayType(type: Type) : type is BoundedArrayType | ArrayOfUnknownBoundType {
+    return type instanceof BoundedArrayType || type instanceof ArrayOfUnknownBoundType;
+}
+
+export function isArrayElemType(type: Type) : type is ArrayElemType {
+    return type instanceof AtomicType || type instanceof ClassType;
+}
+
+export function isFunctionType(type: Type) : type is FunctionType {
+    return type instanceof FunctionType;
+}
+
+export function isVoidType(type: Type) : type is VoidType {
+    return type instanceof VoidType;
+}
+
+export function isPotentialReturnType(type: Type) : type is PotentialReturnType {
+    return type.isObjectType() || type.isReferenceType() || type.isVoidType();
+}
+
+export function isPotentialParameterType(type: Type) : type is PotentialParameterType {
+    return type.isObjectType() || type.isReferenceType();
 }
 
 
@@ -877,9 +945,9 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
     }
 }
 
-export type NoRefType<T extends ObjectType | ReferenceType | VoidType> = T extends ReferenceType<infer RefTo> ? RefTo : T;
+export type NoRefType<T extends Type> = T extends ReferenceType<infer RefTo> ? RefTo : T;
 
-export function noRef<T extends ObjectType | ReferenceType | VoidType>(type : T) : NoRefType<T> {
+export function noRef<T extends Type>(type : T) : NoRefType<T> {
     if(type instanceof ReferenceType) {
         return type.refTo;
     }
