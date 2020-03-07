@@ -7,7 +7,7 @@ import { FunctionCallExpression } from "./functionCall";
 import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, SimpleDeclaration, CompiledSimpleDeclaration, TypedLocalVariableDefinition } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
-import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType } from "./types";
+import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType } from "./types";
 import { Expression } from "./expressionBase";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
@@ -158,12 +158,31 @@ export function analyze(program: Program) {
 }
 
 function analyze2(program: Program) {
-    let varDefs = findConstructs(program, LocalVariableDefinition.compiledPredicate());
+    let integralDefs = findConstructs(program, SimpleDeclaration.typedPredicate(isIntegralType));
+    let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclaration.typedPredicate(isClassType));
+    //  ^ Type of that is never[], because it's impossible!
+
+    let forLoops = findConstructs(program, constructTest(ForStatement));
+    forLoops.forEach(forLoop => {
+        forLoop.condition // <--- Type of .condition here is Expression
+        forLoop.condition.type
+        // ^ Type of .type here is VoidType | AtomicType | BoundedArrayType<ArrayElemType> |
+        //                         ClassType | FunctionType | ReferenceType<ObjectType> |
+        //                         ArrayOfUnknownBoundType<ArrayElemType> | undefined
+
+        if (forLoop.isSuccessfullyCompiled()) { // Inside this if, TS does type inference based on a proper for loop
+            forLoop.condition // <--- Type of .condition here is CompiledExpression<Bool, "prvalue">
+            forLoop.condition.type // <--- Type of .type here is Bool
+
+        }
+    });
+
+    let x!: never;
+    let y = 3 / x;
     // // let arrayDefs = filterConstructsByType<LocalVariableDefinition, TypedLocalVariableDefinition<ObjectType | ReferenceType>, ObjectType | ReferenceType, BoundedArrayType>(isBoundedArrayType, varDefs);
     // // arrayDefs[0].type
     // let arrayDefs = filterConstructsByType<BoundedArrayType>(isBoundedArrayType, varDefs);
-    let arrayDefs = varDefs.filter(varDefs[0].typedPredicate(isBoundedArrayType));
-    arrayDefs[0].type
+    arrayDefs[0].type.length
     // let x!: LocalVariableDefinition;
 
     // if (x.isTypedDeclaration(isBoundedArrayType)()) {
