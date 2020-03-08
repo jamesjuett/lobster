@@ -1371,19 +1371,19 @@ export class ClassType extends ObjectTypeBase {
 
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-export class FunctionType extends TypeBase {
+export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
     public isComplete = true;
     
     public readonly precedence = 2;
 
-    public readonly returnType: PotentialReturnType;
+    public readonly returnType: ReturnType;
     public readonly paramTypes: readonly PotentialParameterType[];
     public readonly receiverType?: ClassType;
 
     private paramStrType: string;
     private paramStrEnglish: string;
     
-    public constructor(returnType: PotentialReturnType, paramTypes: readonly PotentialParameterType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ClassType) {
+    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ClassType) {
         super(isConst, isVolatile);
 
         this.receiverType = receiverType;
@@ -1391,7 +1391,7 @@ export class FunctionType extends TypeBase {
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
         if(!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)){
-            this.returnType = returnType.cvUnqualified();
+            this.returnType = <ReturnType>returnType.cvUnqualified();
         }
         else{
             this.returnType = returnType;
