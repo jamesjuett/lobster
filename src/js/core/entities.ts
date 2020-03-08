@@ -891,7 +891,7 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
     public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
         // Assume a ReturnByReferenceEntity will only be bound in the context of a return
         // for a return-by-reference function, thus the cast
-        let func = <RuntimeFunction<ReferenceType<T>>>rtConstruct.containingRuntimeFunction;
+        let func = <RuntimeFunction<FunctionType<ReferenceType<T>>>>rtConstruct.containingRuntimeFunction;
         func.setReturnObject(obj);
     }
 
@@ -1264,7 +1264,7 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
 
 
-export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
+export class FunctionEntity<T extends FunctionType = FunctionType> extends DeclaredEntityBase<T> {
     public readonly declarationKind = "function";
     
     public readonly qualifiedName: string;
@@ -1273,7 +1273,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
     public readonly definition?: FunctionDefinition;
     
     // storage: "static",
-    constructor(type: FunctionType, decl: FunctionDeclaration) {
+    constructor(type: T, decl: FunctionDeclaration) {
         super(type, decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];

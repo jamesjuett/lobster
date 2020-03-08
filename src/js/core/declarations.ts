@@ -357,35 +357,6 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         }
     }
 
-    // public compiledPredicate<T extends Type = Type>(typePredicate?: (o: Type) => o is T) {
-    //     return (<typeof SimpleDeclaration>this.constructor).compiledPredicate(typePredicate);
-    // }
-}
-
-export namespace SimpleDeclarationPredicates {
-    
-    export const kind = <(decl: CPPConstruct) => decl is SimpleDeclaration>((decl) => decl instanceof SimpleDeclaration);
-
-    export function typed<T extends Type>(typePredicate?: (o: Type) => o is T) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type>(decl: CPPConstruct & {type?: OriginalT}) =>
-            decl is (T extends OriginalT ? TypedSimpleDeclaration<T> : never)>
-                ((decl) => kind(decl) && decl.type && decl.declaredEntity && (!typePredicate || typePredicate(decl.type)));
-    }
-    
-    export function compiled<T extends Type>(typePredicate?: (o: Type) => o is T) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type>(decl: CPPConstruct & PartialTypeDeclaration<OriginalT>) =>
-            decl is (T extends OriginalT ? CompiledSimpleDeclaration<T> : never)>
-                ((decl) => typed(typePredicate) && decl.isSuccessfullyCompiled());
-    }
-}
-
-interface PartialTypeDeclaration<T extends Type>{
-    type?: T;
-
-    // Not CPPEntity<NoRefType<T>> because we don't have the guarantee on SimpleDeclaration's
-    // properties that `.declaredEntity` has the same Type as `.type`. (This should always be
-    // the case, but the type system doesn't know that.)
-    declaredEntity?: CPPEntity;
 }
 
 export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
@@ -563,10 +534,16 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
 }
 
-export interface CompiledFunctionDeclaration extends FunctionDeclaration, SuccessfullyCompiled {
+export interface TypedFunctionDeclaration<T extends FunctionType> extends FunctionDeclaration {
+    readonly type: T;
+    readonly declaredEntity: FunctionEntity<T>;
+    readonly declarator: TypedDeclarator<T>;
+}
+
+export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionType> extends TypedFunctionDeclaration<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+    readonly declarator: CompiledDeclarator<T>;
 
     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
 }
@@ -1105,10 +1082,11 @@ export class Declarator extends BasicCPPConstruct {
     }
 }
 
-export interface CompiledDeclarator<T extends Type = Type> extends Declarator, SuccessfullyCompiled {
-    readonly type: T;
-    readonly baseType: T;
+export interface TypedDeclarator<T extends Type> extends Declarator {
+    type: T;
+}
 
+export interface CompiledDeclarator<T extends Type = Type> extends TypedDeclarator<T>, SuccessfullyCompiled {
     readonly parameters?: readonly CompiledParameterDeclaration[]; // defined if this is a declarator of function type
 }
 
@@ -1232,7 +1210,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // });
     }
 
-    public createRuntimeFunction<ReturnType extends PotentialReturnType>(this: CompiledFunctionDefinition<ReturnType>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>) : RuntimeFunction<ReturnType>{
+    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>) : RuntimeFunction<T>{
         return new RuntimeFunction(this, parent.sim, parent, receiver);
     }
 
@@ -1446,10 +1424,15 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
     // }
 }
 
-export interface CompiledFunctionDefinition<Return_type extends PotentialReturnType = PotentialReturnType> extends FunctionDefinition, SuccessfullyCompiled {
-    readonly declaration: CompiledFunctionDeclaration;
+export interface TypedFunctionDefinition<T extends FunctionType> extends FunctionDefinition {
+    readonly type: T;
+    readonly declaration: TypedFunctionDeclaration<T>;
+}
+
+
+export interface CompiledFunctionDefinition<T extends FunctionType = FunctionType> extends TypedFunctionDefinition<T>, SuccessfullyCompiled {
+    readonly declaration: CompiledFunctionDeclaration<T>;
     readonly name: string;
-    readonly type: FunctionType;
     readonly parameters: readonly CompiledParameterDeclaration[];
     readonly body: CompiledBlock;
 }

@@ -9,6 +9,7 @@ import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
 import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType } from "./types";
 import { Expression } from "./expressionBase";
+import { SimpleDeclarationPredicates, FunctionDeclarationPredicates } from "./predicates";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 
@@ -158,8 +159,9 @@ export function analyze(program: Program) {
 }
 
 function analyze2(program: Program) {
-    let sfa = findConstructs(program, SimpleDeclaration.typedPredicate(isIntegralType));
-    let integralDefs = findConstructs(program, );
+    let sfa = findConstructs(program, SimpleDeclarationPredicates.typed(isIntegralType));
+    // let integralDefs = findConstructs(program, );
+    let funcDecls = sfa.filter(FunctionDeclarationPredicates.kind);
     
     let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclaration.typedPredicate(isClassType));
     //  ^ Type of that is never[], because it's impossible!

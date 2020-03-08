@@ -4,7 +4,7 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType } from "./types";
+import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
 import { CPPObject } from "./objects";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
 import { RuntimeBlock } from "./statements";
@@ -502,7 +502,7 @@ enum RuntimeFunctionIndices {
 
 }
 
-export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType> extends RuntimeConstruct<CompiledFunctionDefinition> {
+export class RuntimeFunction<T extends FunctionType = FunctionType> extends RuntimeConstruct<CompiledFunctionDefinition<T>> {
 
     public readonly caller?: RuntimeFunctionCall;
     // public readonly containingRuntimeFunction: this;
@@ -516,13 +516,13 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: CPPObject<NoRefType<Exclude<T,VoidType>>>;
+    public readonly returnObject?: CPPObject<NoRefType<Exclude<T["returnType"],VoidType>>>;
 
     public readonly hasControl: boolean = false;
 
     public readonly body: RuntimeBlock;
 
-    public constructor (model: CompiledFunctionDefinition, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
+    public constructor (model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
         super(model, "function", caller || sim);
         if (caller) { this.caller = caller };
         this.receiver = receiver;
@@ -551,10 +551,10 @@ export class RuntimeFunction<T extends PotentialReturnType = PotentialReturnType
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends ObjectType | ReferenceType>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T>>) {
+    public setReturnObject<T extends FunctionType<ObjectType | ReferenceType>>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T["returnType"]>>) {
         // This should only be used once
         assert(!this.returnObject);
-        (<Mutable<RuntimeFunction<ObjectType> | RuntimeFunction<ReferenceType>>>this).returnObject = obj;
+        (<Mutable<RuntimeFunction<FunctionType<ObjectType>> | RuntimeFunction<FunctionType<ReferenceType>>>>this).returnObject = obj;
 
     }
 
