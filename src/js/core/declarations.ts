@@ -16,6 +16,7 @@ export type StorageSpecifierKey = "register" | "static" | "thread_local" | "exte
 export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
 export class StorageSpecifier extends BasicCPPConstruct {
+    public readonly construct_type = "storage_specifier";
     public readonly t_compiled!: CompiledStorageSpecifier;
 
     public readonly register?: true;
@@ -92,6 +93,7 @@ export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "
 export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
 export class TypeSpecifier extends BasicCPPConstruct {
+    public readonly construct_type = "type_specifier";
     public readonly t_compiled!: CompiledTypeSpecifier;
 
     public readonly const?: true;
@@ -323,6 +325,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
 }
 
 export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+    // public readonly construct_type = "simple_declaration";
     public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
@@ -374,6 +377,7 @@ export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedS
 
 
 export class UnknownTypeDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "unknown_type_declaration";
     public readonly t_compiled!: never;
 
     public readonly type: undefined;
@@ -395,6 +399,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
 }
 
 export class VoidDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "void_declaration";
     public readonly t_compiled!: never;
     
     public readonly type = VoidType.VOID;
@@ -410,6 +415,7 @@ export class VoidDeclaration extends SimpleDeclaration {
 }
 
 export class TypedefDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "storage_specifier";
     public readonly t_compiled!: never;
 
     public readonly type: undefined; // will change when typedef is implemented
@@ -431,6 +437,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
 }
 
 export class FriendDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "friend_declaration";
     public readonly t_compiled!: never;
     
     public readonly type: undefined; // will change when friend is implemented
@@ -455,6 +462,7 @@ export class FriendDeclaration extends SimpleDeclaration {
 }
 
 export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "unknown_array_bound_declaration";
     public readonly t_compiled!: never;
 
     public readonly type: ArrayOfUnknownBoundType;
@@ -472,6 +480,7 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 }
 
 export class FunctionDeclaration extends SimpleDeclaration {
+    public readonly construct_type = "function_declaration";
     public readonly t_compiled!: CompiledFunctionDeclaration;
 
     public readonly type: FunctionType;
@@ -1117,6 +1126,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 }
 
 export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
+    public readonly construct_type = "function_definition";
     public readonly kind = "FunctionDefinition";
     public readonly t_compiled!: CompiledFunctionDefinition;
 
