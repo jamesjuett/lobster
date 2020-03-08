@@ -356,34 +356,36 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             this.addNote(CPPError.declaration.virtual_prohibited(this));
         }
     }
-    
-
-    public static typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type>(decl: CPPConstruct & PartialTypeDeclaration<OriginalT>) =>
-            decl is (T extends OriginalT ? TypedSimpleDeclaration<T> : never)>
-                ((decl) => decl.type && decl.declaredEntity && typePredicate(decl.type));
-    }
-
-    public typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) {
-        return (<typeof SimpleDeclaration>this.constructor).typedPredicate(typePredicate);
-    }
-    
-    // public static compiledPredicate<T extends Type = Type>(typePredicate?: (o: Type) => o is T) : (decl: SimpleDeclaration) => decl is CompiledSimpleDeclaration<T> {
-    //     return <(decl: SimpleDeclaration) => decl is CompiledSimpleDeclaration<T>>((decl) => decl.isSuccessfullyCompiled() && (!typePredicate || typePredicate(decl.type)));
-    // }
 
     // public compiledPredicate<T extends Type = Type>(typePredicate?: (o: Type) => o is T) {
     //     return (<typeof SimpleDeclaration>this.constructor).compiledPredicate(typePredicate);
     // }
+}
 
-    // public isTyped<T extends Type>(typePredicate: (o: Type) => o is T): this is TypedSimpleDeclaration<T> {
-    //     return this.typedPredicate(typePredicate)(this);
-    // }
+export namespace SimpleDeclarationPredicates {
+    
+    export const kind = <(decl: CPPConstruct) => decl is SimpleDeclaration>((decl) => decl instanceof SimpleDeclaration);
+
+    export function typed<T extends Type>(typePredicate?: (o: Type) => o is T) {
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type>(decl: CPPConstruct & {type?: OriginalT}) =>
+            decl is (T extends OriginalT ? TypedSimpleDeclaration<T> : never)>
+                ((decl) => kind(decl) && decl.type && decl.declaredEntity && (!typePredicate || typePredicate(decl.type)));
+    }
+    
+    export function compiled<T extends Type>(typePredicate?: (o: Type) => o is T) {
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type>(decl: CPPConstruct & PartialTypeDeclaration<OriginalT>) =>
+            decl is (T extends OriginalT ? CompiledSimpleDeclaration<T> : never)>
+                ((decl) => typed(typePredicate) && decl.isSuccessfullyCompiled());
+    }
 }
 
 interface PartialTypeDeclaration<T extends Type>{
     type?: T;
-    declaredEntity?: CPPEntity<NoRefType<T>>;
+
+    // Not CPPEntity<NoRefType<T>> because we don't have the guarantee on SimpleDeclaration's
+    // properties that `.declaredEntity` has the same Type as `.type`. (This should always be
+    // the case, but the type system doesn't know that.)
+    declaredEntity?: CPPEntity;
 }
 
 export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
@@ -615,6 +617,7 @@ export interface CompiledVariableDefinition<ContextType extends TranslationUnitC
 
 export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
     public readonly t_compiled!: CompiledLocalVariableDefinition;
+
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 
@@ -656,18 +659,8 @@ export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
     }
     
 
-
-    public static typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) : 
-        <O extends SimpleDeclaration["type"]>(decl: TypedSimpleDeclaration<NonNullable<O>>) =>
-            decl is (T extends O ? TypedLocalVariableDefinition<NonNullable<T>> : never) {
-        return < <O extends SimpleDeclaration["type"]>(decl: TypedSimpleDeclaration<NonNullable<O>>) =>
-            decl is (T extends O ? TypedLocalVariableDefinition<NonNullable<T>> : never)>
-                ((decl) => !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
-    }
+    // public static kindPredicate = <(decl: CPPConstruct) => decl is LocalVariableDefinition>((decl) => decl instanceof LocalVariableDefinition);
     
-    // public typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) {
-    //     return (<typeof LocalVariableDefinition>this.constructor).typedPredicate(typePredicate);
-    // }
 }
 
 export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceType> extends LocalVariableDefinition {

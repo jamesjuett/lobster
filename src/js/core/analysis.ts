@@ -158,7 +158,9 @@ export function analyze(program: Program) {
 }
 
 function analyze2(program: Program) {
-    let integralDefs = findConstructs(program, SimpleDeclaration.typedPredicate(isIntegralType));
+    let sfa = findConstructs(program, SimpleDeclaration.typedPredicate(isIntegralType));
+    let integralDefs = findConstructs(program, );
+    
     let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclaration.typedPredicate(isClassType));
     //  ^ Type of that is never[], because it's impossible!
 
