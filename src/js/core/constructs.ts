@@ -114,7 +114,7 @@ export function createClassContext(context: TranslationUnitContext, classEntity:
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
-
+    public abstract readonly construct_type: string;
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
