@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
-import { DeclarationASTNode, SimpleDeclaration, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition } from "./declarations";
+import { DeclarationASTNode, SimpleDeclarationBase, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -204,7 +204,7 @@ export interface DeclarationStatementASTNode extends ASTNode {
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
     public readonly t_compiled!: CompiledDeclarationStatement;
 
-    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
+    public readonly declarations: readonly SimpleDeclarationBase[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
@@ -212,7 +212,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         ).setAST(ast);
     }
 
-    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
+    public constructor(context: BlockContext, declarations: readonly SimpleDeclarationBase[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
         super(context);
 
         if (declarations instanceof InvalidConstruct) {

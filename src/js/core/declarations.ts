@@ -324,7 +324,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
     // public readonly construct_type = "simple_declaration";
     public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
@@ -362,12 +362,12 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
 }
 
-export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
+interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclarationBase {
     readonly type: T;
     readonly declaredEntity: CPPEntity<NoRefType<T>>;
 }
 
-export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
+interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator;
@@ -375,8 +375,17 @@ export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedS
     readonly initializer?: CompiledInitializer;
 }
 
+export type SimpleDeclaration = 
+    UnknownTypeDeclaration |
+    VoidDeclaration |
+    TypedefDeclaration |
+    FriendDeclaration |
+    UnknownBoundArrayDeclaration |
+    FunctionDeclaration |
+    VariableDefinition |
+    ParameterDeclaration;
 
-export class UnknownTypeDeclaration extends SimpleDeclaration {
+export class UnknownTypeDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "unknown_type_declaration";
     public readonly t_compiled!: never;
 
@@ -398,7 +407,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
     
 }
 
-export class VoidDeclaration extends SimpleDeclaration {
+export class VoidDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "void_declaration";
     public readonly t_compiled!: never;
     
@@ -414,7 +423,7 @@ export class VoidDeclaration extends SimpleDeclaration {
     
 }
 
-export class TypedefDeclaration extends SimpleDeclaration {
+export class TypedefDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "storage_specifier";
     public readonly t_compiled!: never;
 
@@ -436,7 +445,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
     
 }
 
-export class FriendDeclaration extends SimpleDeclaration {
+export class FriendDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "friend_declaration";
     public readonly t_compiled!: never;
     
@@ -461,7 +470,7 @@ export class FriendDeclaration extends SimpleDeclaration {
     
 }
 
-export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
+export class UnknownBoundArrayDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "unknown_array_bound_declaration";
     public readonly t_compiled!: never;
 
@@ -479,7 +488,11 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     
 }
 
-export class FunctionDeclaration extends SimpleDeclaration {
+export interface TypedUnknownBoundArrayDeclaration<T extends ArrayOfUnknownBoundType> extends UnknownBoundArrayDeclaration {
+    readonly type: T;
+}
+
+export class FunctionDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "function_declaration";
     public readonly t_compiled!: CompiledFunctionDeclaration;
 
@@ -557,8 +570,8 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
 }
 
-export abstract class VariableDefinition<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
-    public abstract readonly t_compiled: CompiledVariableDefinition<ContextType>;
+abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclarationBase<ContextType> {
+    public abstract readonly t_compiled: CompiledVariableDefinitionBase<ContextType>;
 
     public readonly initializer?: Initializer;
 
@@ -591,7 +604,7 @@ export abstract class VariableDefinition<ContextType extends TranslationUnitCont
     }
 }
 
-export interface CompiledVariableDefinition<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends VariableDefinition<ContextType>, SuccessfullyCompiled {
+interface CompiledVariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends VariableDefinitionBase<ContextType>, SuccessfullyCompiled {
     
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
@@ -601,7 +614,11 @@ export interface CompiledVariableDefinition<ContextType extends TranslationUnitC
     readonly initializer?: CompiledInitializer<NoRefType<T>>;
 }
 
-export class LocalVariableDefinition extends VariableDefinition<BlockContext> {
+export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
+
+export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext> {
+    public readonly construct_type = "local_variable_definition";
+    
     public readonly t_compiled!: CompiledLocalVariableDefinition;
 
     public readonly type : ObjectType | ReferenceType;
@@ -665,8 +682,8 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType | Referenc
 }
 
 
-export class GlobalVariableDefinition extends VariableDefinition<TranslationUnitContext> {
-    public readonly kind = "GlobalVariableDefinition";
+export class GlobalVariableDefinition extends VariableDefinitionBase<TranslationUnitContext> {
+    public readonly construct_type = "global_variable_definition";
     public readonly t_compiled!: CompiledGlobalVariableDefinition;
 
     public readonly type : ObjectType | ReferenceType;
@@ -720,6 +737,7 @@ export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectT
  * This contrasts to ParameterDefinitions that may introduce an entity.
  */
 export class ParameterDeclaration extends BasicCPPConstruct {
+    public readonly construct_type = "parameter_declaration";
     public readonly t_compiled!: CompiledParameterDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
@@ -860,6 +878,7 @@ interface DeclaratorInitASTNode extends DeclaratorASTNode {
 
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct {
+    public readonly construct_type = "declarator";
     public readonly t_compiled!: CompiledDeclarator;
 
     public readonly name?: string;
@@ -1451,6 +1470,7 @@ export interface CompiledFunctionDefinition<T extends FunctionType = FunctionTyp
 
 
 export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> {
+    public readonly construct_type = "class_declaration";
     public readonly t_compiled!: CompiledClassDeclaration;
 
     public readonly name: string;
@@ -1549,12 +1569,13 @@ export interface DestructorDefinitionASTNode extends ASTNode {
 }
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
+    public readonly construct_type = "class_definition";
     public readonly t_compiled!: CompiledClassDefinition;
 
     // public readonly name: number = 2;
     public readonly declaration: ClassDeclaration;
     public readonly name: string;
-//     public readonly type: ClassType;
+    public readonly type: ClassType;
 //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
@@ -1606,6 +1627,7 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
         super(context);
         
         this.name = declaration.name;
+        this.type = declaration.type;
 
         this.attach(this.declaration = declaration);
 
