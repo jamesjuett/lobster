@@ -4,7 +4,7 @@ import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpressio
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, CompiledSimpleDeclaration, TypedLocalVariableDefinition, SimpleDeclaration } from "./declarations";
+import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, CompiledSimpleDeclaration, TypedLocalVariableDefinition, SimpleDeclarationBase } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
 import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType, isPointerType, isFunctionType } from "./types";
@@ -164,17 +164,17 @@ function analyze2(program: Program) {
     let simpleDecls = findConstructs(program, Predicates.FunctionDeclaration);
 
     // 2. Narrow those down to only the ones that are pointer declarations
-    let funcDecls = simpleDecls.filter(Predicates.SimpleDeclaration.typed(isPointerType));
+    let funcDecls = simpleDecls.filter(Predicates.typed(isFunctionType));
 
     // 3. Or just do 1 and 2 with a more specific findConstructs call
-    let funcDecls2 = findConstructs(program, Predicates.SimpleDeclaration.typed(isPointerType));
+    let funcDecls2 = findConstructs(program, Predicates.isTyped(isFunctionType));
 
     let afdljs = simpleDecls[0];
     if (Predicates.isTyped(afdljs, isFunctionType)) {
         afdljs
     }
 
-    let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclaration.typedPredicate(isClassType));
+    let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclarationBase.typedPredicate(isClassType));
     //  ^ Type of that is never[], because it's impossible!
 
     let forLoops = findConstructs(program, constructTest(ForStatement));

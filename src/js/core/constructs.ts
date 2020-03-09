@@ -6,7 +6,7 @@ import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
 import { CPPObject } from "./objects";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, SimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -274,6 +274,9 @@ export interface SuccessfullyCompiled {
 export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
+
+
+export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 export type StackType = "statement" | "expression" |  "function" | "initializer" | "call";
 
