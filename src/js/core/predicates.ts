@@ -1,6 +1,8 @@
 import { CPPConstruct, ConstructUnion } from "./constructs";
-import { TypedSimpleDeclaration, CompiledSimpleDeclaration, FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition, FunctionDeclaration, CompiledFunctionDeclaration, TypedFunctionDeclaration, SimpleDeclarationBase, SimpleDeclarationBase, FunctionDeclaration, UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, TypedLocalVariableDefinition, LocalVariableDefinition, GlobalVariableDefinition, FunctionDeclaration, ParameterDeclaration, Declarator, TypedDeclarator, FunctionDeclaration, ClassDeclaration, ClassDefinition } from "./declarations";
+import { TypedSimpleDeclaration, CompiledSimpleDeclaration, FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition, FunctionDeclaration, CompiledFunctionDeclaration, TypedFunctionDeclaration, SimpleDeclarationBase, SimpleDeclarationBase, FunctionDeclaration, UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, TypedLocalVariableDefinition, LocalVariableDefinition, GlobalVariableDefinition, FunctionDeclaration, ParameterDeclaration, Declarator, TypedDeclarator, FunctionDeclaration, ClassDeclaration, ClassDefinition, TypedGlobalVariableDefinition, TypedParameterDeclaration, TypedClassDeclaration, TypedClassDefinition } from "./declarations";
 import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType } from "./types";
+import { LocalObjectEntity } from "./entities";
+import { Constructor, DiscriminateUnion } from "../util/util";
 
 
 export namespace Predicates {
@@ -48,7 +50,17 @@ export namespace Predicates {
         }
     }
 
-    type ConstructTypes = ConstructUnion["construct_type"];
+
+    
+    // export function byKind<Original extends CPPConstruct, Narrowed extends CPPConstruct>
+    //     (decl: Original) : decl is Narrowed extends Original ? Narrowed : never {
+    //     return decl instanceof SimpleDeclaration;
+    // }
+    export function byKind<NarrowedKind extends ConstructUnion["construct_type"]>(constructKind: NarrowedKind) {
+        return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)>
+                ((construct) => construct.construct_type === constructKind);
+    }
 
     type TypedKinds<T extends Type> = {
         "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
@@ -67,17 +79,17 @@ export namespace Predicates {
         // TODO: add rest of discriminants and their types
     };
 
-    export function isTyped<OriginalT extends Type, NarrowedT extends Type,
-        Original extends (ConstructUnion) & {type?: OriginalT},
-        Narrowed extends TypedKinds<NarrowedT>[Original["construct_type"]]>
-        (decl: Original, typePredicate?: (o: Type) => o is NarrowedT) : decl is (Narrowed extends Original ? Narrowed : never) {
-        return !!decl.type && (!typePredicate || typePredicate(decl.type));
-    }
+    // export function isTyped<OriginalT extends Type, NarrowedT extends Type,
+    //     Original extends ConstructUnion & {type?: OriginalT},
+    //     Narrowed extends TypedKinds<NarrowedT>[Original["construct_type"]]>
+    //     (decl: Original, typePredicate?: (o: Type) => o is NarrowedT) : decl is (Narrowed extends Original ? Narrowed : never) {
+    //     return !!decl.type && (!typePredicate || typePredicate(decl.type));
+    // }
 
-    export function typed<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends (FunctionDeclaration | FunctionDefinition) & {type?: OriginalT},
-        Narrowed extends TypedKinds<NarrowedT>[Original["construct_type"]]>(decl: Original) =>
-            decl is (Narrowed extends Original ? Narrowed : never)>
-                ((decl) => FunctionDeclaration(decl) && decl.type && decl.declaredEntity && (!typePredicate || typePredicate(decl.type)));
+    export function byType<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT) {
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends ConstructUnion & {type?: OriginalT},
+        Narrowed extends TypedKinds<NarrowedT>[Original["construct_type"]]>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)>
+                ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)));
     }
 }

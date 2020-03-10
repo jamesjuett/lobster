@@ -1,4 +1,4 @@
-import { CPPConstruct, isSuccessfullyCompiled } from "./constructs";
+import { CPPConstruct, isSuccessfullyCompiled, ConstructUnion } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
 import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
@@ -44,7 +44,7 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
     root.children.forEach(child => exploreConstructs(child, test, fn));
 }
 
-export function findConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>) {
+export function findConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<ConstructUnion, T>) {
     let found : T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
@@ -160,16 +160,18 @@ export function analyze(program: Program) {
 
 function analyze2(program: Program) {
 
-    // 1. Find all simple declarations in the program
-    let simpleDecls = findConstructs(program, Predicates.FunctionDeclaration);
+    // 1. Find all local variable definitions in the program
+    let pointerTypedConstructs = findConstructs(program, Predicates.byType(isPointerType));
+    let localDefs = findConstructs(program, Predicates.byKind("local_variable_definition"));
 
-    // 2. Narrow those down to only the ones that are pointer declarations
-    let funcDecls = simpleDecls.filter(Predicates.typed(isFunctionType));
+    // 2. Narrow those down to only the ones that define pointer variables
+    let pointerDefs = pointerTypedConstructs.filter(Predicates.byKind("local_variable_definition"));
+    let pointerDef2 = localDefs.filter(Predicates.byType(isPointerType));
 
     // 3. Or just do 1 and 2 with a more specific findConstructs call
-    let funcDecls2 = findConstructs(program, Predicates.isTyped(isFunctionType));
+    let funcDecls2 = findConstructs(program, Predicates.byType(isFunctionType));
 
-    let afdljs = simpleDecls[0];
+    let afdljs = localDefs[0];
     if (Predicates.isTyped(afdljs, isFunctionType)) {
         afdljs
     }
