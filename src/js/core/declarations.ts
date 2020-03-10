@@ -324,9 +324,9 @@ export interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+export abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
     // public readonly construct_type = "simple_declaration";
-    public abstract readonly t_compiled: CompiledSimpleDeclaration;
+    // public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -362,18 +362,18 @@ abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext 
 
 }
 
-interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclarationBase {
-    readonly type: T;
-    readonly declaredEntity: CPPEntity<NoRefType<T>>;
-}
+// interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclarationBase {
+//     readonly type: T;
+//     readonly declaredEntity: CPPEntity<NoRefType<T>>;
+// }
 
-interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
-    readonly typeSpecifier: CompiledTypeSpecifier;
-    readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+// interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
+//     readonly typeSpecifier: CompiledTypeSpecifier;
+//     readonly storageSpecifier: CompiledStorageSpecifier;
+//     readonly declarator: CompiledDeclarator;
 
-    readonly initializer?: CompiledInitializer;
-}
+//     readonly initializer?: CompiledInitializer;
+// }
 
 export type SimpleDeclaration = 
     UnknownTypeDeclaration |
@@ -571,7 +571,7 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
 }
 
 abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclarationBase<ContextType> {
-    public abstract readonly t_compiled: CompiledVariableDefinitionBase<ContextType>;
+    // public abstract readonly t_compiled: CompiledVariableDefinitionBase<ContextType>;
 
     public readonly initializer?: Initializer;
 
@@ -604,15 +604,15 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
     }
 }
 
-interface CompiledVariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends VariableDefinitionBase<ContextType>, SuccessfullyCompiled {
+// interface CompiledVariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends VariableDefinitionBase<ContextType>, SuccessfullyCompiled {
     
-    readonly typeSpecifier: CompiledTypeSpecifier;
-    readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+//     readonly typeSpecifier: CompiledTypeSpecifier;
+//     readonly storageSpecifier: CompiledStorageSpecifier;
+//     readonly declarator: CompiledDeclarator<T>;
 
-    readonly declaredEntity: VariableEntity<NoRefType<T>>;
-    readonly initializer?: CompiledInitializer<NoRefType<T>>;
-}
+//     readonly declaredEntity: VariableEntity<NoRefType<T>>;
+//     readonly initializer?: CompiledInitializer<NoRefType<T>>;
+// }
 
 export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
 
@@ -668,6 +668,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
 export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceType> extends LocalVariableDefinition {
     readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
 } 
 
@@ -675,7 +676,7 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType | Referenc
     
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+    readonly declarator: CompiledDeclarator<T>;
 
     readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>
     readonly initializer?: CompiledInitializer<NoRefType<T>>;
@@ -717,14 +718,18 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 
 }
 
+export interface TypedGlobalVariableDefinition<T extends ObjectType> extends GlobalVariableDefinition {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
+    readonly declaredEntity: GlobalObjectEntity<T>;
+} 
 
-export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectType> extends GlobalVariableDefinition, SuccessfullyCompiled {
+export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
     
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+    readonly declarator: CompiledDeclarator<T>;
 
-    readonly declaredEntity: GlobalObjectEntity<T>;
     readonly initializer?: CompiledInitializer<T>;
 }
 
@@ -816,13 +821,17 @@ export class ParameterDeclaration extends BasicCPPConstruct {
     }
 }
 
-export interface CompiledParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends ParameterDeclaration, SuccessfullyCompiled {
+export interface TypedParameterDeclaration<T extends PotentialParameterType> extends ParameterDeclaration {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
+    readonly declaredEntity?: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+}
+
+export interface CompiledParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDeclaration<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
+    readonly declarator: CompiledDeclarator<T>;
 
-    readonly type: T;
-    readonly declaredEntity?: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
 }
 
 
@@ -832,13 +841,16 @@ export interface ParameterDefinition extends ParameterDeclaration {
     readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 }
 
-export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends ParameterDefinition, SuccessfullyCompiled {
+export interface TypedParameterDefinition<T extends PotentialParameterType> extends ParameterDeclaration {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
+    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+}
+
+export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDefinition<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
-    readonly declarator: CompiledDeclarator;
-
-    readonly type: T;
-    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+    readonly declarator: CompiledDeclarator<T>;
 }
 
 
@@ -1498,9 +1510,12 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> 
     }
 }
 
-
-export interface CompiledClassDeclaration<T extends ClassType = ClassType> extends ClassDeclaration, SuccessfullyCompiled {
+export interface TypedClassDeclaration<T extends ClassType> extends ClassDeclaration, SuccessfullyCompiled {
     readonly type: T;
+}
+
+export interface CompiledClassDeclaration<T extends ClassType = ClassType> extends TypedClassDeclaration<T>, SuccessfullyCompiled {
+
 }
 
 
@@ -2018,7 +2033,12 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
 //     }
 }
 
-export interface CompiledClassDefinition<T extends ClassType = ClassType> extends ClassDefinition, SuccessfullyCompiled {
+export interface TypedClassDefinition<T extends ClassType> extends ClassDefinition, SuccessfullyCompiled {
+    readonly type: T;
+    readonly declaration: TypedClassDeclaration<T>;
+}
+
+export interface CompiledClassDefinition<T extends ClassType = ClassType> extends TypedClassDefinition<T>, SuccessfullyCompiled {
     readonly declaration: CompiledClassDeclaration<T>;
 }
 
