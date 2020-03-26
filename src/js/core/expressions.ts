@@ -1,16 +1,16 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { Type, ObjectType, AtomicType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType } from "./types";
-import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, ConstructKinds, Typed } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { CPPError, Note } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
-import { Mutable, Constructor, escapeString, assertNever } from "../util/util";
+import { Mutable, Constructor, escapeString, assertNever, DiscriminateUnion } from "../util/util";
 import { standardConversion, convertToPRValue, usualArithmeticConversions, isConvertibleToPointer, isIntegerLiteralZero, NullPointerConversion, ArrayToPointerConversion } from "./standardConversions";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression } from "./functionCall";
-import { RuntimeExpression, VCResultTypes, ValueCategory, TypedExpression, ExpressionBase } from "./expressionBase";
+import { RuntimeExpression, VCResultTypes, ValueCategory, ExpressionBase } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet } from "../view/codeOutlets";
 
 
@@ -135,69 +135,34 @@ export type Expression =
     AuxiliaryExpression |
     UnsupportedExpression;
 
-
-// public readonly construct_type = "unsupported_expression";
-// public readonly construct_type = "comma_expression";
-// public readonly construct_type = "ternary_expression";
-// public readonly construct_type = "assignment_expression";
-// public readonly construct_type = "arithmetic_binary_operator_expression";
-// public readonly construct_type = "pointer_diference_expression";
-// public readonly construct_type = "pointer_offset_expression";
-// public readonly construct_type = "relational_binary_operator_expression";
-// public readonly construct_type = "pointer_comparison_expression";
-// public readonly construct_type = "logical_binary_operator_expression";
-// public readonly construct_type = "dereference_expression";
-// public readonly construct_type = "address_of_expression";
-// public readonly construct_type = "subscript_expression";
-// public readonly construct_type = "identifier_expression";
-// public readonly construct_type = "numeric_literal";
-// public readonly construct_type = "string_literal";
-// public readonly construct_type = "parentheses_expression";
-// public readonly construct_type = "auxiliary_expression";
-// public readonly construct_type = "magic_function_call_expression";
-
-type TypedExpressionKinds<T extends Type> = {
-    "unsupported_expression" : never
-    "comma_expression" : T extends NonNullable<CommaExpression["type"]> ? TypedComm
-    "ternary_expression" : 
-    "assignment_expression" : 
-    "arithmetic_binary_operator_expression" : 
-    "pointer_diference_expression" : 
-    "pointer_offset_expression" : 
-    "relational_binary_operator_expression" : 
-    "pointer_comparison_expression" : 
-    "logical_binary_operator_expression" : 
-    "dereference_expression" : 
-    "address_of_expression" : 
-    "subscript_expression" : 
-    "identifier_expression" : 
-    "numeric_literal" : 
-    "string_literal" : 
-    "parentheses_expression" : 
-    "auxiliary_expression" : 
-    "magic_function_call_expression" : 
-    "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
-    "void_declaration" : T extends VoidType ? VoidDeclaration : never;
-    "storage_specifier" : never;
-    "friend_declaration" : never;
-    "unknown_array_bound_declaration" : T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
-    "function_declaration" : T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
-    "local_variable_definition" : T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
-    "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
-    "parameter_declaration" : T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
-    "declarator" : T extends Declarator["type"] ? TypedDeclarator<T> : never;
-    "function_definition" : T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
-    "class_declaration" : T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
-    "class_definition" : T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
-    // TODO: add rest of discriminants and their types
-};
-
+// type typedWhee<T extends any, V extends any> = 
+// TypedCommaExpression<T,V>|
+// TypedTernaryExpression<T,V>|
+// TypedAssignmentExpression<T>|
+// TypedArithmeticBinaryOperatorExpression<T,V>|
+// PointerDifferenceExpression<T,V>|
+// TypedPointerOffsetExpression<T,V>|
+// RelationalBinaryOperatorExpression<T,V>|
+// PointerComparisonExpression<T,V>|
+// LogicalBinaryOperatorExpression<T,V>|
+// TypedDereferenceExpression<T,V>|
+// TypedAddressOfExpression<T,V>|
+// TypedSubscriptExpression<T,V>|
+// TypedIdentifierExpression<T,V>|
+// NumericLiteralExpression<T,V>|
+// StringLiteralExpression<T,V>|
+// TypedParenthesesExpression<T,V>|
+// AuxiliaryExpression<T,V>|
+// TypedMagicFunctionCallExpression;
+// type TypedExpressionBlah<T extends Type, V extends ValueCategory> {
+//     [C in ConstructKinds<Expression>] : DiscriminateUnion<typedWhee<T,V>, "construct_type", NarrowedKind>;
+// }
 /**
  * An expression not currently supported by Lobster.
  */
-export class UnsupportedExpression extends ExpressionBase {
+export class UnsupportedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<ExpressionASTNode, T,V> {
     public readonly construct_type = "unsupported_expression";
-    public readonly t_compiled!: never;
+    public readonly _t!: never;
 
     public readonly type = undefined;
     public readonly valueCategory = undefined;
@@ -477,10 +442,12 @@ export interface CommaASTNode extends ASTNode {
     readonly associativity: "left";
 }
 
-export class CommaExpression extends ExpressionBase<CommaASTNode> {
+export class CommaExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<CommaASTNode,T,V> {
     public readonly construct_type = "comma_expression";
-    public readonly t_compiled!: CompiledCommaExpression;
-
+    public readonly _t! : T extends NonNullable<this["type"]> ? V extends NonNullable<this["valueCategory"]> ? {
+        typed: TypedCommaExpression<T,V>;
+        compiled: CompiledCommaExpression<T,V>; 
+    } : never : never;
 
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
@@ -531,7 +498,7 @@ export class CommaExpression extends ExpressionBase<CommaASTNode> {
     }
 }
 
-export interface TypedCommaExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CommaExpression {
+export interface TypedCommaExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends CommaExpression<T,V> {
     readonly type: T;
     readonly valueCategory: V;
     readonly right: TypedExpression<T,V>;
@@ -568,10 +535,13 @@ export interface TernaryASTNode extends ASTNode {
     readonly otherwise: ExpressionASTNode;
 }
 
-export class TernaryExpression extends ExpressionBase<TernaryASTNode> {
+export class TernaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<TernaryASTNode, T, V> {
     public readonly construct_type = "ternary_expression";
-    public readonly t_compiled!: CompiledTernaryExpression;
-
+    
+    public readonly _t! : T extends NonNullable<this["type"]> ? V extends NonNullable<this["valueCategory"]> ? {
+        typed: TypedTernaryExpression<T,V>;
+        compiled: CompiledTernaryExpression<T,V>; 
+    } : never : never;
     
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
@@ -672,7 +642,7 @@ export class TernaryExpression extends ExpressionBase<TernaryASTNode> {
     // }
 }
 
-export interface TypedTernaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TernaryExpression {
+export interface TypedTernaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TernaryExpression<T,V> {
     readonly type: T;
     readonly valueCategory: V;
     readonly then: TypedExpression<T,V>;
@@ -731,8 +701,13 @@ export interface AssignmentExpressionASTNode extends ASTNode {
     readonly rhs: ExpressionASTNode;
 }
 
-export class AssignmentExpression extends ExpressionBase<AssignmentExpressionASTNode> {
+export class AssignmentExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<AssignmentExpressionASTNode,T,V> {
     public readonly construct_type = "assignment_expression";
+    public readonly _t! : T extends NonNullable<this["type"]> ? V extends NonNullable<this["valueCategory"]> ? {
+        typed: TypedAssignmentExpression<T,V>;
+        compiled: CompiledAssignmentExpression<T,V>; 
+    } : never : never;
+
     public readonly t_compiled!: CompiledAssignmentExpression;
 
     // public readonly 
@@ -743,7 +718,7 @@ export class AssignmentExpression extends ExpressionBase<AssignmentExpressionAST
     // i_childrenToExecute : ["lhs", "rhs"],
     // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
 
-    public readonly type?: Type;
+    public readonly type?: AtomicType;
     public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
@@ -898,7 +873,7 @@ export class AssignmentExpression extends ExpressionBase<AssignmentExpressionAST
 
 export interface TypedAssignmentExpression<T extends AtomicType = AtomicType> extends AssignmentExpression {
     readonly type: T;
-    readonly lhs: TypedExpression<T>;
+    readonly lhs: Typed<Expression<T>>;
 }
 
 
@@ -1113,7 +1088,7 @@ export type BinaryOperatorExpressionASTNode =
 
 type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
-abstract class BinaryOperatorExpressionBase extends ExpressionBase {
+abstract class BinaryOperatorExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<BinaryOperatorExpressionASTNode, T, V> {
     public abstract readonly t_compiled: CompiledBinaryOperatorExpression;
     
     public abstract readonly type?: AtomicType;
@@ -1502,7 +1477,7 @@ export class PointerOffsetExpression extends BinaryOperatorExpressionBase {
     }
 }
 
-export interface TypedPointerOffsetExpression<T extends PointerType = PointerType> extends PointerOffsetExpression, SuccessfullyCompiled {
+export interface TypedPointerOffsetExpression<T extends PointerType = PointerType> extends PointerOffsetExpression {
     readonly type: T;
 
     readonly left: TypedExpression<T, "prvalue"> | TypedExpression<IntegralType, "prvalue">;
@@ -4200,12 +4175,15 @@ export class MagicFunctionCallExpression extends ExpressionBase {
 type FunctionResultType<RT extends PotentialReturnType> = NoRefType<Exclude<RT,VoidType>>;
 type FunctionVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
-export interface CompiledMagicFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends MagicFunctionCallExpression, SuccessfullyCompiled {
+export interface TypedMagicFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends MagicFunctionCallExpression, SuccessfullyCompiled {
+    readonly type: FunctionResultType<RT>;
+    readonly valueCategory: FunctionVC<RT>;
+}
+
+export interface CompiledMagicFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends TypedMagicFunctionCallExpression<RT>, SuccessfullyCompiled {
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: FunctionResultType<RT>;
-    readonly valueCategory: FunctionVC<RT>;
     readonly args: readonly CompiledExpression[];
 }
 

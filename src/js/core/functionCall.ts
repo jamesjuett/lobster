@@ -267,10 +267,11 @@ export interface FunctionCallExpressionASTNode extends ASTNode {
 }
 
 type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnType"],VoidType>>;
-type FunctionVC<T extends FunctionType> = T["returnType"] extends ReferenceType ? "lvalue" : "prvalue";
+type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 
 export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
+    public readonly construct_type = "function_call_expression";
     public readonly t_compiled!: CompiledFunctionCallExpression;
     
     public readonly type?: ObjectType | VoidType;
@@ -362,29 +363,33 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
     // }
 }
 
-export interface CompiledFunctionCallExpression<T extends FunctionType = FunctionType> extends FunctionCallExpression, SuccessfullyCompiled {
+export interface TypedFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression {
+    readonly type: NoRefType<RT>;
+    readonly valueCategory: ReturnTypeVC<RT>;
+    readonly call: TypedFunctionCall<RT>;
+}
+
+export interface CompiledFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends TypedFunctionCallExpression<RT>, SuccessfullyCompiled {
     
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: FunctionResultType<T>;
-    readonly valueCategory: FunctionVC<T>;
     
     readonly operand: CompiledFunctionIdentifier;
     readonly originalArgs: readonly CompiledExpression[];
-    readonly call: CompiledFunctionCall<T>;
+    readonly call: CompiledFunctionCall<FunctionType<RT>>;
 }
 
 export const INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
 export const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 export const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-export class RuntimeFunctionCallExpression<T extends FunctionType = FunctionType> extends RuntimeExpression<FunctionResultType<T>, FunctionVC<T>, CompiledFunctionCallExpression<T>> {
+export class RuntimeFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends RuntimeExpression<RT, ReturnTypeVC<RT>, CompiledFunctionCallExpression<RT>> {
 
     public readonly operand: RuntimeFunctionIdentifier;
-    public readonly call: RuntimeFunctionCall<T>;
+    public readonly call: RuntimeFunctionCall<FunctionType<RT>>;
 
     public readonly index : typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
 
-    public constructor (model: CompiledFunctionCallExpression<T>, parent: RuntimeConstruct) {
+    public constructor (model: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) {
         super(model, parent);
         this.operand = this.model.operand.createRuntimeExpression(this);
         this.call = this.model.call.createRuntimeFunctionCall(this);
@@ -412,18 +417,18 @@ export class RuntimeFunctionCallExpression<T extends FunctionType = FunctionType
             }
             else if (returnType.isReferenceType()) {
                 // Return by reference is lvalue and yields the returned object
-                this.setEvalResult(<VCResultTypes<FunctionResultType<T>, FunctionVC<T>>>this.call.calledFunction.returnObject!);
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
             }
             else if (returnType.isAtomicType()) {
                 // Return by value of atomic type. In this case, we can look up
                 // the value of the return object and use that as the eval result
                 let retObj = <CPPObject<AtomicType>><unknown>this.call.calledFunction.returnObject!; // I don't understand why Typescript forces the hard cast here
-                this.setEvalResult(<VCResultTypes<FunctionResultType<T>, FunctionVC<T>>>retObj.getValue());
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>retObj.getValue());
             }
             else {
                 // Return by value of a non-atomic type. In this case, it's still a prvalue
                 // but is the temporary object rather than its value.
-                this.setEvalResult(<VCResultTypes<FunctionResultType<T>, FunctionVC<T>>>this.call.calledFunction.returnObject!);
+                this.setEvalResult(<VCResultTypes<FunctionResultType<RT>, FunctionVC<RT>>>this.call.calledFunction.returnObject!);
             }
             this.startCleanup();
         }

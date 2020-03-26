@@ -17,11 +17,16 @@ import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 
 export type ValueCategory = "prvalue" | "lvalue";
 
-export abstract class ExpressionBase<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
+export abstract class ExpressionBase<ASTType extends ExpressionASTNode, T extends Type, V extends ValueCategory> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
+    
+    public abstract readonly _t: {
+        typed: TypedExpressionBase<T,V>;
+        compiled: CompiledExpressionBase<T,V>;
+    };
 
     protected constructor(context: ExpressionContext) {
         super(context);
@@ -110,12 +115,12 @@ export abstract class ExpressionBase<ASTType extends ExpressionASTNode = Express
     public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
-export interface TypedExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase {
+interface TypedExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<ExpressionASTNode, T,V> {
     readonly type: T;
     readonly valueCategory: V;
 }
 
-export interface CompiledExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase, SuccessfullyCompiled {
+interface CompiledExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpressionBase<T,V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly valueCategory: V;
