@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { SimpleDeclarationBase, LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration } from "./declarations";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, SimpleDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -600,8 +600,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     public abstract readonly declarationKind: DeclarationKind;
 
     // TODO: not sure this should really be here as an abstract property?
-    public abstract readonly firstDeclaration: SimpleDeclarationBase | ParameterDeclaration | ClassDeclaration;
-    public abstract readonly declarations: readonly SimpleDeclarationBase[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
+    public abstract readonly firstDeclaration: SimpleDeclaration | ParameterDeclaration | ClassDeclaration;
+    public abstract readonly declarations: readonly SimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
@@ -784,8 +784,8 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObject
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
     public readonly qualifiedName: string;
-    public readonly firstDeclaration: SimpleDeclarationBase;
-    public readonly declarations: readonly SimpleDeclarationBase[];
+    public readonly firstDeclaration: SimpleDeclaration;
+    public readonly declarations: readonly SimpleDeclaration[];
     public readonly definition?: GlobalVariableDefinition;
     
     // storage: "static",

@@ -324,7 +324,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
     // public readonly construct_type = "simple_declaration";
     // public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
@@ -718,19 +718,19 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 
 }
 
-export interface TypedGlobalVariableDefinition<T extends ObjectType> extends GlobalVariableDefinition {
+export interface TypedGlobalVariableDefinition<T extends ObjectType | ReferenceType> extends GlobalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity: GlobalObjectEntity<T>;
+    readonly declaredEntity: GlobalObjectEntity<NoRefType<T>>;
 } 
 
-export interface CompiledGlobalVariableDefinition<T extends ObjectType = ObjectType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
+export interface CompiledGlobalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
     
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 
-    readonly initializer?: CompiledInitializer<T>;
+    readonly initializer?: CompiledInitializer<NoRefType<T>>;
 }
 
 /**
@@ -751,7 +751,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
     public readonly otherSpecifiers: OtherSpecifiers;
 
     public readonly name?: string; // parameter declarations need not provide a name
-    public readonly type?: Type;
+    public readonly type?: PotentialParameterType;
     public readonly declaredEntity?: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
     public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
@@ -765,16 +765,19 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         this.otherSpecifiers = otherSpecs;
 
         this.name = declarator.name;
-        let type = this.type = declarator.type;
-
+        
         if (!storageSpec.isEmpty) {
             storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(storageSpec));
         }
+        
+        let type = declarator.type;
 
         if (type && !type.isPotentialParameterType()) {
             this.addNote(CPPError.declaration.parameter.invalid_parameter_type(this, type));
             return;
         }
+
+        this.type = type;
 
         if (this.isPotentialParameterDefinition()) {
             (<Mutable<this>>this).declaredEntity =
@@ -833,7 +836,6 @@ export interface CompiledParameterDeclaration<T extends PotentialParameterType =
     readonly declarator: CompiledDeclarator<T>;
 
 }
-
 
 export interface ParameterDefinition extends ParameterDeclaration {
     readonly name: string;

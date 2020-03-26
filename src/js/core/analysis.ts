@@ -165,7 +165,7 @@ function analyze2(program: Program) {
     let localDefs = findConstructs(program, Predicates.byKind("local_variable_definition"));
 
     // 2. Narrow those down to only the ones that define pointer variables
-    let pointerDefs = pointerTypedConstructs.filter(Predicates.byKind("local_variable_definition"));
+    let pointerDefs = pointerTypedConstructs.filter(Predicates.byKind("function_definition"));
     let pointerDef2 = localDefs.filter(Predicates.byType(isPointerType));
 
     // 3. Or just do 1 and 2 with a more specific findConstructs call

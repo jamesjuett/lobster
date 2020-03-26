@@ -1,4 +1,4 @@
-import { ExpressionASTNode, StringLiteralExpression } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, Expression } from "./expressions";
 
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -17,7 +17,7 @@ import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 
 export type ValueCategory = "prvalue" | "lvalue";
 
-export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
+export abstract class ExpressionBase<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
@@ -110,7 +110,12 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
-export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression, SuccessfullyCompiled {
+export interface TypedExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase {
+    readonly type: T;
+    readonly valueCategory: V;
+}
+
+export interface CompiledExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly type: T;
     readonly valueCategory: V;
@@ -119,11 +124,6 @@ export interface CompiledExpression<T extends Type = Type, V extends ValueCatego
 export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;
 
 export interface WellTyped<T extends Type = Type, V extends ValueCategory = ValueCategory> {
-    readonly type: T;
-    readonly valueCategory: V;
-}
-
-export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression {
     readonly type: T;
     readonly valueCategory: V;
 }
