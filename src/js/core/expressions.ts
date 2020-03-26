@@ -2711,11 +2711,15 @@ export class SubscriptExpression extends ExpressionBase {
 //     }
 }
 
-export interface CompiledSubscriptExpression<T extends ObjectType = ObjectType> extends SubscriptExpression, SuccessfullyCompiled {
+export interface TypedSubscriptExpression<T extends ObjectType = ObjectType> extends SubscriptExpression {
+    readonly type: T;
+
+    readonly operand: TypedExpression<PointerType<T>, "prvalue">;
+}
+
+export interface CompiledSubscriptExpression<T extends ObjectType = ObjectType> extends TypedSubscriptExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-
-    readonly type: T;
 
     readonly operand: CompiledExpression<PointerType<T>, "prvalue">;
     readonly offset: CompiledExpression<Int, "prvalue">;
@@ -3474,7 +3478,7 @@ export class IdentifierExpression extends ExpressionBase {
             assertNever(lookupResult);
         }
 
-        this.type = this.entity && this.entity.type;
+        this.type = this.entity?.type;
     }
     
     public static createFromAST(ast: IdentifierExpressionASTNode, context: ExpressionContext) {
@@ -3516,18 +3520,20 @@ export class IdentifierExpression extends ExpressionBase {
     // }
 }
 
-export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends IdentifierExpression, SuccessfullyCompiled {
+export interface TypedIdentifierExpression<T extends ObjectType | FunctionType = ObjectType | FunctionType> extends IdentifierExpression {
+    readonly type: T;
+}
+
+export interface CompiledObjectIdentifier<T extends ObjectType = ObjectType> extends TypedIdentifierExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: T;
     readonly entity: ObjectEntity<T>;
 }
 
-export interface CompiledFunctionIdentifier extends IdentifierExpression, SuccessfullyCompiled {
+export interface CompiledFunctionIdentifier<T extends FunctionType = FunctionType> extends TypedIdentifierExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly type: FunctionType;
-    readonly entity: FunctionEntity;
+    readonly entity: FunctionEntity<T>;
 }
 
 
@@ -3895,14 +3901,16 @@ export class ParenthesesExpression extends ExpressionBase {
     // }
 }
 
-
-// TODO: should these interface definitions have "public" in them? what is best style?
-export interface CompiledParenthesesExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ParenthesesExpression, SuccessfullyCompiled {
-    
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-
+export interface TypedParenthesesExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ParenthesesExpression {
     readonly type: T;
     readonly valueCategory: V;
+    
+    readonly subexpression: TypedExpression<T,V>;
+}
+
+export interface CompiledParenthesesExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedParenthesesExpression<T,V>, SuccessfullyCompiled {
+    
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly subexpression: CompiledExpression<T,V>;
 }
@@ -3944,7 +3952,7 @@ const AUXILIARY_EXPRESSION_CONTEXT : ExpressionContext = {
     contextualScope: <never>undefined
 }
 
-export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression implements TypedExpression<T,V> {
+export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase implements TypedExpression<T,V> {
     public readonly construct_type = "auxiliary_expression";
     public readonly t_compiled!: CompiledAuxiliaryExpression<T,V>;
 
