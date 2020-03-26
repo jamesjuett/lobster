@@ -1,7 +1,7 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct, ConstructKinds } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
-import { DeclarationASTNode, SimpleDeclarationBase, FunctionDefinition, CompiledSimpleDeclaration, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition } from "./declarations";
+import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, SimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -33,17 +33,35 @@ const StatementConstructsMap = {
     "declaration_statement" : (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context).setAST(ast)
-}
+};
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
-} 
+}
 
-export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
+const StatementConstructsRuntimeMap = {
+    "unsupported_statement" : (construct: UnsupportedStatement, parent: RuntimeStatement) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    // "labeled_statement" : (construct: LabeledStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
+    "block" : (construct: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) => new RuntimeBlock(construct, parent),
+    "if_statement" : (construct: CompiledIfStatement, parent: RuntimeStatement) => new RuntimeIfStatement(construct, parent),
+    "while_statement" : (construct: CompiledWhileStatement, parent: RuntimeStatement) => new RuntimeWhileStatement(construct, parent),
+    // "dowhile_statement" : (construct: DoWhileStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "do-while loop").setAST(ast),
+    "for_statement" : (construct: CompiledForStatement, parent: RuntimeStatement) => new RuntimeForStatement(construct, parent),
+    // "break_statement" : (construct: BreakStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "break statement").setAST(ast),
+    // "continue_statement" : (construct: ContinueStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "continue statement").setAST(ast),
+    "return_statement" : (construct: CompiledReturnStatement, parent: RuntimeStatement) => new RuntimeReturnStatement(construct, parent),
+    "declaration_statement" : (construct: CompiledDeclarationStatement, parent: RuntimeStatement) => new RuntimeDeclarationStatement(construct, parent),
+    "expression_statement": (construct: CompiledExpressionStatement, parent: RuntimeStatement) => new RuntimeExpressionStatement(construct, parent),
+    "null_statement": (construct: CompiledNullStatement, parent: RuntimeStatement) => new RuntimeNullStatement(construct, parent)
+};
 
-    public abstract createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : RuntimeStatement;
+export function createRuntimeStatement<ConstructType extends CompiledStatement | UnsupportedStatement>(construct: ConstructType, parent: RuntimeStatement) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]> {
+    return <any>StatementConstructsRuntimeMap[construct.construct_type](<any>construct, parent);
+}
 
-    public abstract createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
+export abstract class StatementBase<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
+
+    public abstract createDefaultOutlet(this: CompiledStatementBase, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
 
     public isBlock() : this is Block {
         return false;
@@ -51,11 +69,43 @@ export abstract class Statement<ASTType extends StatementASTNode = StatementASTN
 
 }
 
-export interface CompiledStatement extends Statement, SuccessfullyCompiled {
+export interface CompiledStatementBase extends StatementBase, SuccessfullyCompiled {
 
 }
 
-export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeConstruct<C> {
+/*
+labeled_statement
+block
+if_statement
+while_statement
+dowhile_statement
+for_statement
+break_statement
+continue_statement
+return_statement
+declaration_statement
+expression_statement
+null_statement
+*/
+
+export type Statement =
+    //LabeledStatement |
+    Block |
+    IfStatement |
+    WhileStatement |
+    // DoWhileStatement |
+    ForStatement |
+    // BreakStatement |
+    // ContinueStatement |
+    ReturnStatement |
+    DeclarationStatement |
+    ExpressionStatement |
+    NullStatement |
+    UnsupportedStatement;
+
+export type CompiledStatement<S extends Statement = Statement> = S["t_compiled"];
+
+export abstract class RuntimeStatement<C extends CompiledStatementBase = CompiledStatementBase> extends RuntimeConstruct<C> {
 
     public readonly containingRuntimeFunction: RuntimeFunction;
 
@@ -71,19 +121,13 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
 }
 
-export class UnsupportedStatement extends Statement {
+export class UnsupportedStatement extends StatementBase {
+    public readonly construct_type = "unsupported_statement";
     public readonly t_compiled: never;
 
     public constructor(context: BlockContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
-    }
-
-
-    // Will never be called since an UnsupportedStatement will always have errors and
-    // never satisfy the required this context of CompiledStatement
-    public createRuntimeStatement(this: CompiledStatement, parent: RuntimeStatement) : never {
-        throw new Error("Cannot create a runtime instance of an unsupported construct.");
     }
     
     public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet) : never {
@@ -97,7 +141,9 @@ export interface ExpressionStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
+export class ExpressionStatement extends StatementBase<ExpressionStatementASTNode> {
+    public readonly construct_type = "expression_statement";
+
     public readonly t_compiled!: CompiledExpressionStatement;
 
     public readonly expression: Expression;
@@ -113,9 +159,7 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
         this.attach(this.expression = expression);
     }
 
-    public createRuntimeStatement(this: CompiledExpressionStatement, parent: RuntimeStatement) {
-        return new RuntimeExpressionStatement(this, parent);
-    }
+    
     
     public createDefaultOutlet(this: CompiledExpressionStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ExpressionStatementOutlet(element, this, parent);
@@ -160,12 +204,11 @@ export interface NullStatementASTNode extends ASTNode {
     readonly construct_type: "null_statement";
 }
 
-export class NullStatement extends Statement<NullStatementASTNode> {
+export class NullStatement extends StatementBase<NullStatementASTNode> {
+    public readonly construct_type = "null_statement";
     public readonly t_compiled!: CompiledNullStatement;
 
-    public createRuntimeStatement(this: CompiledNullStatement, parent: RuntimeStatement) {
-        return new RuntimeNullStatement(this, parent);
-    }
+    
     
     public createDefaultOutlet(this: CompiledNullStatement, element: JQuery, parent?: ConstructOutlet) {
         return new NullStatementOutlet(element, this, parent);
@@ -201,10 +244,11 @@ export interface DeclarationStatementASTNode extends ASTNode {
     readonly declaration: DeclarationASTNode;
 }
 
-export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
+export class DeclarationStatement extends StatementBase<DeclarationStatementASTNode> {
+    public readonly construct_type = "declaration_statement";
     public readonly t_compiled!: CompiledDeclarationStatement;
 
-    public readonly declarations: readonly SimpleDeclarationBase[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
+    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
@@ -212,7 +256,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         ).setAST(ast);
     }
 
-    public constructor(context: BlockContext, declarations: readonly SimpleDeclarationBase[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
+    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
         super(context);
 
         if (declarations instanceof InvalidConstruct) {
@@ -235,9 +279,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         this.attachAll(this.declarations = declarations);
     }
 
-    public createRuntimeStatement(this: CompiledDeclarationStatement, parent: RuntimeStatement) {
-        return new RuntimeDeclarationStatement(this, parent);
-    }
+    
     
     public createDefaultOutlet(this: CompiledDeclarationStatement, element: JQuery, parent?: ConstructOutlet) {
         return new DeclarationStatementOutlet(element, this, parent);
@@ -303,7 +345,8 @@ export interface ReturnStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ReturnStatement extends Statement<ReturnStatementASTNode> {
+export class ReturnStatement extends StatementBase<ReturnStatementASTNode> {
+    public readonly construct_type = "return_statement";
     public readonly t_compiled!: CompiledReturnStatement;
 
     public readonly expression?: Expression;
@@ -350,9 +393,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         this.attach(this.returnInitializer);
     }
 
-    public createRuntimeStatement(this: CompiledReturnStatement, parent: RuntimeStatement) {
-        return new RuntimeReturnStatement(this, parent);
-    }
+    
     
     public createDefaultOutlet(this: CompiledReturnStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ReturnStatementOutlet(element, this, parent);
@@ -416,7 +457,8 @@ function createBlockContext(context: FunctionContext) : BlockContext {
     });
 }
 
-export class Block extends Statement<BlockASTNode> {
+export class Block extends StatementBase<BlockASTNode> {
+    public readonly construct_type = "block";
     public readonly t_compiled!: CompiledBlock;
 
     public readonly statements: readonly Statement[] = [];
@@ -440,12 +482,8 @@ export class Block extends Statement<BlockASTNode> {
         this.attach(statement);
     }
 
-    public createRuntimeStatement(this: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
-        return new RuntimeBlock(this, parent);
-    }
     
-    public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) : BlockOutlet;
-    public createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet) : never;
+    
     public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) {
         return new BlockOutlet(element, this, parent);
     }
@@ -492,7 +530,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
     public constructor (model: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         super(model, parent);
-        this.statements = model.statements.map((stmt) => stmt.createRuntimeStatement(this));
+        this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
     }
 	
     protected upNextImpl() {
@@ -520,7 +558,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
 
 
-// export class OpaqueBlock extends Statement implements SuccessfullyCompiled {
+// export class OpaqueBlock extends StatementBase implements SuccessfullyCompiled {
     
 //     public _t_isCompiled: never;
 
@@ -571,7 +609,8 @@ export interface IfStatementASTNode extends ASTNode {
     readonly otherwise?: StatementASTNode;
 }
 
-export class IfStatement extends Statement<IfStatementASTNode> {
+export class IfStatement extends StatementBase<IfStatementASTNode> {
+    public readonly construct_type = "if_statement";
     public readonly t_compiled!: CompiledIfStatement;
 
     public readonly condition: Expression;
@@ -621,9 +660,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
         }
     }
 
-    public createRuntimeStatement(this: CompiledIfStatement, parent: RuntimeStatement) {
-        return new RuntimeIfStatement(this, parent);
-    }
+    
 
     public createDefaultOutlet(this: CompiledIfStatement, element: JQuery, parent?: ConstructOutlet) {
         return new IfStatementOutlet(element, this, parent);
@@ -675,9 +712,9 @@ export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
     public constructor (model: CompiledIfStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.condition = model.condition.createRuntimeExpression(this);
-        this.then = model.then.createRuntimeStatement(this);
+        this.then = createRuntimeStatement(model.then, this);
         if (model.otherwise) {
-            this.otherwise = model.otherwise.createRuntimeStatement(this);
+            this.otherwise = createRuntimeStatement(model.otherwise, this);
         }
     }
 
@@ -718,7 +755,8 @@ export interface WhileStatementASTNode extends ASTNode {
     readonly body: StatementASTNode;
 }
 
-export class WhileStatement extends Statement<WhileStatementASTNode> {
+export class WhileStatement extends StatementBase<WhileStatementASTNode> {
+    public readonly construct_type = "while_statement";
     public readonly t_compiled!: CompiledWhileStatement;
 
     public readonly condition: Expression;
@@ -754,9 +792,7 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
         }
     }
 
-    public createRuntimeStatement(this: CompiledWhileStatement, parent: RuntimeStatement) {
-        return new RuntimeWhileStatement(this, parent);
-    }
+    
 
     public createDefaultOutlet(this: CompiledWhileStatement, element: JQuery, parent?: ConstructOutlet) {
         return new WhileStatementOutlet(element, this, parent);
@@ -788,7 +824,7 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
         },
         (rt: RuntimeWhileStatement) => {
             if (rt.condition.evalResult.rawValue === 1) {
-                rt.sim.push(asMutable(rt).body = rt.model.body.createRuntimeStatement(rt));
+                rt.sim.push(asMutable(rt).body = createRuntimeStatement(rt.model.body, rt));
             }
             else {
                 rt.startCleanup();
@@ -839,7 +875,8 @@ export interface ForStatementASTNode extends ASTNode {
 }
 
 
-export class ForStatement extends Statement<ForStatementASTNode> {
+export class ForStatement extends StatementBase<ForStatementASTNode> {
+    public readonly construct_type = "for_statement";
     public readonly t_compiled!: CompiledForStatement;
 
     public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
@@ -888,10 +925,6 @@ export class ForStatement extends Statement<ForStatementASTNode> {
         this.attach(this.post = post);
     }
 
-    public createRuntimeStatement(this: CompiledForStatement, parent: RuntimeStatement) {
-        return new RuntimeForStatement(this, parent);
-    }
-
     public createDefaultOutlet(this: CompiledForStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ForStatementOutlet(element, this, parent);
     }
@@ -916,7 +949,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 
     public constructor (model: CompiledForStatement, parent: RuntimeStatement) {
         super(model, parent);
-        this.initial = (<CompiledExpressionStatement & CompiledNullStatement & CompiledDeclarationStatement>model.initial).createRuntimeStatement(this); // HACK cast
+        this.initial = createRuntimeStatement(model.initial, this);
         this.condition = model.condition.createRuntimeExpression(this);
         // Do not create body here, since it might not actually run
     }
@@ -930,7 +963,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
         },
         (rt: RuntimeForStatement) => {
             if (rt.condition.evalResult.rawValue === 1) {
-                rt.sim.push(asMutable(rt).body = rt.model.body.createRuntimeStatement(rt));
+                rt.sim.push(asMutable(rt).body = createRuntimeStatement(rt.model.body, rt));
             }
             else {
                 rt.startCleanup();

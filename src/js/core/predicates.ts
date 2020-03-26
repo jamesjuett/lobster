@@ -1,54 +1,19 @@
-import { CPPConstruct, ConstructUnion } from "./constructs";
-import { TypedSimpleDeclaration, CompiledSimpleDeclaration, FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition, FunctionDeclaration, CompiledFunctionDeclaration, TypedFunctionDeclaration, SimpleDeclarationBase, SimpleDeclarationBase, FunctionDeclaration, UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, TypedLocalVariableDefinition, LocalVariableDefinition, GlobalVariableDefinition, FunctionDeclaration, ParameterDeclaration, Declarator, TypedDeclarator, FunctionDeclaration, ClassDeclaration, ClassDefinition, TypedGlobalVariableDefinition, TypedParameterDeclaration, TypedClassDeclaration, TypedClassDefinition } from "./declarations";
-import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType } from "./types";
+import { CPPConstruct, ConstructUnion, ConstructKinds as ConstructKind } from "./constructs";
+import { FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition, FunctionDeclaration, CompiledFunctionDeclaration, TypedFunctionDeclaration, FunctionDeclaration, UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, TypedLocalVariableDefinition, LocalVariableDefinition, GlobalVariableDefinition, FunctionDeclaration, ParameterDeclaration, Declarator, TypedDeclarator, FunctionDeclaration, ClassDeclaration, ClassDefinition, TypedGlobalVariableDefinition, TypedParameterDeclaration, TypedClassDeclaration, TypedClassDefinition } from "./declarations";
+import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType, PointerType, Int } from "./types";
 import { LocalObjectEntity } from "./entities";
 import { Constructor, DiscriminateUnion } from "../util/util";
 
-
 export namespace Predicates {
     
-    // export function SimpleDeclaration(decl: CPPConstruct) : decl is SimpleDeclaration {
-    //     return decl instanceof SimpleDeclaration;
-    // }
 
-    export function SimpleDeclaration<Original extends CPPConstruct, Narrowed extends SimpleDeclarationBase>
-        (decl: Original) : decl is Narrowed extends Original ? Narrowed : never {
-        return decl instanceof SimpleDeclaration;
-    }
-
-    export namespace SimpleDeclaration {
-        export function typed<T extends Type>(typePredicate?: (o: Type) => o is T) {
-            return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends TypedSimpleDeclaration<T>>(decl: Original) =>
-                decl is (Narrowed extends Original ? Narrowed : never)>
-                    ((decl) => SimpleDeclaration(decl) && decl.type && decl.declaredEntity && (!typePredicate || typePredicate(decl.type)));
-        }
         
-        export function compiled<T extends Type>(typePredicate?: (o: Type) => o is T) {
-            return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends CompiledSimpleDeclaration<T>>(decl: Original) =>
-                decl is (Narrowed extends Original ? Narrowed : never)>
-                    ((decl) => typed(typePredicate) && decl.isSuccessfullyCompiled());
-        }
-    }
-
-    
-    export function FunctionDeclaration<Original extends CPPConstruct, Narrowed extends FunctionDeclaration>
-        (decl: Original) : decl is Narrowed extends Original ? Narrowed : never {
-        return decl instanceof FunctionDeclaration;
-    }
-
-    export namespace FunctionDeclaration {
-        export function typed<T extends FunctionType>(typePredicate?: (o: Type) => o is T) {
-            return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends TypedFunctionDeclaration<T>>(decl: Original) =>
-                decl is (Narrowed extends Original ? Narrowed : never)>
-                    ((decl) => FunctionDeclaration(decl) && decl.type && decl.declaredEntity && (!typePredicate || typePredicate(decl.type)));
-        }
         
-        export function compiled<T extends FunctionType>(typePredicate?: (o: Type) => o is T) {
-            return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends CompiledFunctionDeclaration<T>>(decl: Original) =>
-                decl is (Narrowed extends Original ? Narrowed : never)>
-                    ((decl) => typed(typePredicate) && decl.isSuccessfullyCompiled());
-        }
-    }
+        // export function compiled<T extends FunctionType>(typePredicate?: (o: Type) => o is T) {
+        //     return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends CompiledFunctionDeclaration<T>>(decl: Original) =>
+        //         decl is (Narrowed extends Original ? Narrowed : never)>
+        //             ((decl) => typed(typePredicate) && decl.isSuccessfullyCompiled());
+        // }
 
 
     
@@ -56,7 +21,14 @@ export namespace Predicates {
     //     (decl: Original) : decl is Narrowed extends Original ? Narrowed : never {
     //     return decl instanceof SimpleDeclaration;
     // }
-    export function byKind<NarrowedKind extends ConstructUnion["construct_type"]>(constructKind: NarrowedKind) {
+
+    export function byKinds<NarrowedKind extends ConstructKind<ConstructUnion>>(constructKinds: readonly NarrowedKind[]) {
+        return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)>
+                ((construct) => (<readonly string[]>constructKinds).indexOf(construct.construct_type) !== -1);
+    }
+
+    export function byKind<NarrowedKind extends ConstructKind<ConstructUnion>>(constructKind: NarrowedKind) {
         return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
             construct is (Narrowed extends Original ? Narrowed : never)>
                 ((construct) => construct.construct_type === constructKind);

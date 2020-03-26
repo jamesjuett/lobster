@@ -275,6 +275,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
 
+export type ConstructKinds<Cs extends ConstructUnion> = Cs["construct_type"];
 
 export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 

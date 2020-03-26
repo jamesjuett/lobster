@@ -767,15 +767,15 @@ unoverloadable_op
 
 literal
   = lit:literal_float
-    {return track({construct_type: "numeric_literal", type:"float", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal_expression", type:"float", value:lit}, location(), text());}
   / lit:literal_int
-    {return track({construct_type: "numeric_literal", type:"int", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal_expression", type:"int", value:lit}, location(), text());}
   / lit:literal_char
-    {return track({construct_type: "numeric_literal", type:"char", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal_expression", type:"char", value:lit}, location(), text());}
   / lit:literal_string
-    {return track({construct_type: "string_literal", type:"string", value:lit}, location(), text());}
+    {return track({construct_type: "string_literal_expression", type:"string", value:lit}, location(), text());}
   / lit:literal_boolean
-    {return track({construct_type: "numeric_literal", type:"bool", value:lit}, location(), text());}
+    {return track({construct_type: "numeric_literal_expression", type:"bool", value:lit}, location(), text());}
 
 literal_int
   = neg:"-"? digits:[0-9]+ { return parseInt((neg ? neg : "") + digits.join("")); }
