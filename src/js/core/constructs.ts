@@ -245,7 +245,9 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
 
-    public abstract readonly t_compiled: CompiledConstruct;
+    public abstract readonly _t: {
+        compiled: CompiledConstruct
+    };
 
     public isSuccessfullyCompiled() : this is this["t_compiled"] {
         return !this.getContainedNotes().hasErrors;
@@ -275,9 +277,15 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
 
-export type ConstructKinds<Cs extends ConstructUnion> = Cs["construct_type"];
+export type ConstructKinds<Cs extends {construct_type: string}> = Cs["construct_type"];
 
 export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+
+
+export type Typed<C extends {_t: {typed: any}}> = C["_t"]["typed"];
+
+
+
 
 export type StackType = "statement" | "expression" |  "function" | "initializer" | "call";
 
