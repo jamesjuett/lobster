@@ -249,9 +249,9 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         compiled: CompiledConstruct
     };
 
-    public isSuccessfullyCompiled() : this is this["t_compiled"] {
-        return !this.getContainedNotes().hasErrors;
-    }
+    // public isSuccessfullyCompiled() : this is this["t_compiled"] {
+    //     return !this.getContainedNotes().hasErrors;
+    // }
 }
 
 /**
@@ -283,6 +283,7 @@ export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition
 
 
 export type Typed<C extends {_t: {typed: any}}> = C["_t"]["typed"];
+export type Compiled<C extends {_t: {compiled: any}}> = C["_t"]["compiled"];
 
 
 
