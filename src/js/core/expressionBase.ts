@@ -1,6 +1,6 @@
 import { ExpressionASTNode, StringLiteralExpression, Expression } from "./expressions";
 
-import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, Typed } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType } from "./types";
@@ -24,19 +24,19 @@ export abstract class ExpressionBase<ASTType extends ExpressionASTNode, T extend
     public readonly conversionLength: number = 0;
     
     public abstract readonly _t: {
-        typed: TypedExpressionBase<T,V>;
-        compiled: CompiledExpressionBase<T,V>;
+        typed: TypedExpressionBase;
+        compiled: CompiledExpressionBase;
     };
 
     protected constructor(context: ExpressionContext) {
         super(context);
     }
 
-    public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
+    // public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 
-    public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
+    // public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
 
-    public isWellTyped() : this is SpecificTypedExpression<Type,ValueCategory> {
+    public isWellTyped() : this is Typed<this> {
         return !!this.type && !!this.valueCategory;
     }
 
@@ -115,15 +115,13 @@ export abstract class ExpressionBase<ASTType extends ExpressionASTNode, T extend
     public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
-interface TypedExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<ExpressionASTNode, T,V> {
-    readonly type: T;
-    readonly valueCategory: V;
+interface TypedExpressionBase extends ExpressionBase<ExpressionASTNode, Type, ValueCategory> {
+    readonly type: Type;
+    readonly valueCategory: ValueCategory;
 }
 
-interface CompiledExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpressionBase<T,V>, SuccessfullyCompiled {
+interface CompiledExpressionBase extends TypedExpressionBase, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly type: T;
-    readonly valueCategory: V;
 }
 
 export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;

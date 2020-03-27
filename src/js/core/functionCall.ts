@@ -2,12 +2,12 @@ import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDealloca
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression } from "./expressions";
-import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType } from "./types";
+import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
 import { CPPError } from "./errors";
-import { Expression, allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory } from "./expressionBase";
+import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory, ExpressionBase } from "./expressionBase";
 import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { standardConversion } from "./standardConversions";
 import { Value } from "./runtimeEnvironment";
@@ -270,9 +270,12 @@ type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnTyp
 type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 
-export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
+export class FunctionCallExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<FunctionCallExpressionASTNode, T, V> {
     public readonly construct_type = "function_call_expression";
-    public readonly t_compiled!: CompiledFunctionCallExpression;
+    public readonly _t! : T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? {
+        typed: TypedFunctionCallExpression<T>;
+        compiled: CompiledFunctionCallExpression<T>; 
+    } : never : never;
     
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
@@ -363,7 +366,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
     // }
 }
 
-export interface TypedFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression {
+export interface TypedFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression<RT> {
     readonly type: NoRefType<RT>;
     readonly valueCategory: ReturnTypeVC<RT>;
     readonly call: TypedFunctionCall<RT>;
