@@ -17,16 +17,11 @@ import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 
 export type ValueCategory = "prvalue" | "lvalue";
 
-export abstract class ExpressionBase<ASTType extends ExpressionASTNode, T extends Type, V extends ValueCategory> extends PotentialFullExpression<ExpressionContext, ASTType> {
+export abstract class ExpressionBase<ASTType extends ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
-    
-    public abstract readonly _t: {
-        typed: TypedExpressionBase;
-        compiled: CompiledExpressionBase;
-    };
 
     protected constructor(context: ExpressionContext) {
         super(context);
@@ -115,14 +110,14 @@ export abstract class ExpressionBase<ASTType extends ExpressionASTNode, T extend
     public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
-interface TypedExpressionBase extends ExpressionBase<ExpressionASTNode, Type, ValueCategory> {
-    readonly type: Type;
-    readonly valueCategory: ValueCategory;
-}
+// interface TypedExpressionBase extends ExpressionBase<ExpressionASTNode, Type, ValueCategory> {
+//     readonly type: Type;
+//     readonly valueCategory: ValueCategory;
+// }
 
-interface CompiledExpressionBase extends TypedExpressionBase, SuccessfullyCompiled {
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-}
+// export interface CompiledExpressionBase extends TypedExpressionBase, SuccessfullyCompiled {
+//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+// }
 
 export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;
 
