@@ -3,12 +3,15 @@ import { FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition
 import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType, PointerType, Int } from "./types";
 import { LocalObjectEntity } from "./entities";
 import { Constructor, DiscriminateUnion } from "../util/util";
+import { Expression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
+import { ValueCategory } from "./expressionBase";
+
+
+export type AnalyticTypedExpression<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
+export type AnalyticCompiledExpression<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
 
 export namespace Predicates {
     
-
-        
-        
         // export function compiled<T extends FunctionType>(typePredicate?: (o: Type) => o is T) {
         //     return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends CPPConstruct & {type?: OriginalT}, Narrowed extends CompiledFunctionDeclaration<T>>(decl: Original) =>
         //         decl is (Narrowed extends Original ? Narrowed : never)>

@@ -73,21 +73,6 @@ export interface CompiledStatementBase extends StatementBase, SuccessfullyCompil
 
 }
 
-/*
-labeled_statement
-block
-if_statement
-while_statement
-dowhile_statement
-for_statement
-break_statement
-continue_statement
-return_statement
-declaration_statement
-expression_statement
-null_statement
-*/
-
 export type Statement =
     //LabeledStatement |
     Block |

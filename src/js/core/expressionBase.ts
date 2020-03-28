@@ -17,7 +17,7 @@ import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 
 export type ValueCategory = "prvalue" | "lvalue";
 
-export abstract class ExpressionBase<ASTType extends ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
+export abstract class ExpressionBase<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
     public abstract readonly type?: Type;
     public abstract readonly valueCategory?: ValueCategory;
@@ -171,7 +171,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
     //     readonly lvalue: number;
     // };
 
-export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T,V> = CompiledExpression<T,V>> extends RuntimePotentialFullExpression<C> {
+export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpressionBase<T,V> = CompiledExpressionBase<T,V>> extends RuntimePotentialFullExpression<C> {
     
     /**
      * WARNING: The evalResult property may be undefined, even though it's type suggests it will always

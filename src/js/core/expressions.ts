@@ -8,9 +8,10 @@ import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever } from "../util/util";
 import { standardConversion, convertToPRValue, usualArithmeticConversions, isIntegerLiteralZero, NullPointerConversion, ArrayToPointerConversion } from "./standardConversions";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
-import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression } from "./functionCall";
+import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, ExpressionBase, CompiledExpressionBase, TypedExpressionBase } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet } from "../view/codeOutlets";
+import { AnalyticCompiledExpression, AnalyticTypedExpression } from "./predicates";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -46,6 +47,27 @@ export type ExpressionASTNode =
     StringLiteralASTNode |
     ParenthesesExpressionASTNode;
 
+    
+export type Expression =
+    CommaExpression |
+    TernaryExpression |
+    AssignmentExpression |
+    // CompoundAssignmentExpression |
+    BinaryOperatorExpression |
+    // PointerToMemberExpression |
+    // CStyleCastExpression |
+    UnaryOperatorExpression | // TODO change to union type
+    SubscriptExpression |
+    FunctionCallExpression |
+    // ConstructExpression |
+    IdentifierExpression |
+    // ThisExpression |
+    NumericLiteralExpression |
+    StringLiteralExpression |
+    ParenthesesExpression |
+    MagicFunctionCallExpression |
+    AuxiliaryExpression |
+    UnsupportedExpression;
 
 const ExpressionConstructsMap = {
     "comma_expression" : (ast: CommaASTNode, context: ExpressionContext) => CommaExpression.createFromAST(ast, context),
@@ -113,27 +135,133 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
     return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
 }
 
-export type Expression =
-    CommaExpression |
-    TernaryExpression |
-    AssignmentExpression |
-    // CompoundAssignmentExpression |
-    BinaryOperatorExpression |
-    // PointerToMemberExpression |
-    // CStyleCastExpression |
-    UnaryOperatorExpression | // TODO change to union type
-    SubscriptExpression |
-    FunctionCallExpression |
-    // ConstructExpression |
-    IdentifierExpression |
-    // ThisExpression |
-    NumericLiteralExpression |
-    StringLiteralExpression |
-    ParenthesesExpression |
-    MagicFunctionCallExpression |
-    AuxiliaryExpression;
-    //  |
-    // UnsupportedExpression;
+
+export type TypedExpressionKinds<T extends Type, V extends ValueCategory> = {
+    "unsupported_expression": never;
+    "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? TypedCommaExpression<T> : never : never;
+    "ternary_expression": T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? TypedTernaryExpression<T> : never : never;
+    "assignment_expression": T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? TypedAssignmentExpression<T> : never : never;
+    "arithmetic_binary_operator_expression": T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never : never;
+    "pointer_diference_expression": T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never : never;
+    "pointer_offset_expression": T extends NonNullable<PointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression<T> : never : never;
+    "relational_binary_operator_expression": T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never : never;
+    "pointer_comparison_expression": T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never : never;
+    "logical_binary_operator_expression": T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
+    "dereference_expression": T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? TypedDereferenceExpression<T> : never : never;
+    "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never : never;
+    "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never : never;
+    "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? TypedObjectIdentifierExpression<T> : T extends FunctionType ? TypedFunctionIdentifierExpression<T> : never) : never;
+    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never : never;
+    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
+    "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T> : never : never;
+    "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T> : never : never;
+    "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T> : never : never;
+    "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression<T> : never : never;
+}
+
+export type CompiledExpressionKinds<T extends Type, V extends ValueCategory> = {
+    "unsupported_expression": never;
+    "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? CompiledCommaExpression<T> : never : never;
+    "ternary_expression": T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T> : never : never;
+    "assignment_expression": T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? CompiledAssignmentExpression<T> : never : never;
+    "arithmetic_binary_operator_expression": T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never : never;
+    "pointer_diference_expression": T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
+    "pointer_offset_expression": T extends NonNullable<PointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? CompiledPointerOffsetExpression<T> : never : never;
+    "relational_binary_operator_expression": T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
+    "pointer_comparison_expression": T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
+    "logical_binary_operator_expression": T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
+    "dereference_expression": T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
+    "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
+    "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
+    "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? CompiledObjectIdentifierExpression<T> : T extends FunctionType ? CompiledFunctionIdentifierExpression<T> : never) : never;
+    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
+    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
+    "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T> : never : never;
+    "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T> : never : never;
+    "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
+    "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const ExpressionConstructsRuntimeMap = {
+    "unsupported_expression": (construct: UnsupportedExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "comma_expression": <T extends Type, V extends ValueCategory>(construct: CompiledCommaExpression < T, V >, parent: RuntimeConstruct) => new RuntimeComma(construct, parent),
+    "ternary_expression": <T extends Type, V extends ValueCategory>(construct: CompiledTernaryExpression < T, V >, parent: RuntimeConstruct) => new RuntimeTernary(construct, parent),
+    "assignment_expression": <T extends AtomicType>(construct: CompiledAssignmentExpression < T >, parent: RuntimeConstruct) => new RuntimeAssignment(construct, parent),
+    "arithmetic_binary_operator_expression": <T extends ArithmeticType>(construct: CompiledArithmeticBinaryOperatorExpression < T >, parent: RuntimeConstruct) => new RuntimeArithmeticBinaryOperator(construct, parent),
+    "pointer_diference_expression": (construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct) => new RuntimePointerDifference(construct, parent),
+    "pointer_offset_expression": <T extends PointerType>(construct: CompiledPointerOffsetExpression < T >, parent: RuntimeConstruct) => new RuntimePointerOffset(construct, parent),
+    "relational_binary_operator_expression": <T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression < T >, parent: RuntimeConstruct) => new RuntimeRelationalBinaryOperator(construct, parent),
+    "pointer_comparison_expression": (construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct) => new RuntimePointerComparisonExpression(construct, parent),
+    "logical_binary_operator_expression": (construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct) => new RuntimeLogicalBinaryOperatorExpression(construct, parent),
+    "dereference_expression": <T extends ObjectType>(construct: CompiledDereferenceExpression < T >, parent: RuntimeConstruct) => new RuntimeDereferenceExpression(construct, parent),
+    "address_of_expression": <T extends PointerType>(construct: CompiledAddressOfExpression < T >, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
+    "subscript_expression": <T extends ObjectType>(construct: CompiledSubscriptExpression < T >, parent: RuntimeConstruct) => new RuntimeSubscriptExpression(construct, parent),
+    "identifier_expression": (construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent: RuntimeConstruct) => {
+        if (construct.entity instanceof FunctionEntity) {
+            return new RuntimeFunctionIdentifier(<any>construct, parent);
+        }
+        else {
+            return new RuntimeObjectIdentifier(<any>construct, parent);
+        }
+    },
+    "numeric_literal": <T extends ArithmeticType>(construct: CompiledNumericLiteralExpression < T >, parent: RuntimeConstruct) => new RuntimeNumericLiteral(construct, parent),
+    "string_literal": (construct: CompiledStringLiteralExpression, parent: RuntimeConstruct) => new RuntimeStringLiteralExpression(construct, parent),
+    "parentheses_expression": <T extends Type, V extends ValueCategory>(construct: CompiledParenthesesExpression < T, V >, parent: RuntimeConstruct) => new RuntimeParentheses(construct, parent),
+    "auxiliary_expression":  < T extends Type = Type, V extends ValueCategory = ValueCategory > (construct: CompiledExpressionBase < T, V >, parent: RuntimeConstruct) => { throw new Error("Auxiliary expressions must never be instantiated at runtime.") },
+    "magic_function_call_expression": <RT extends PotentialReturnType>(construct: CompiledMagicFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeMagicFunctionCallExpression(construct, parent),
+    "function_call_expression": <RT extends PotentialReturnType>(construct: CompiledFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeFunctionCallExpression(construct, parent)
+};
+
+export function createRuntimeExpression(construct: UnsupportedExpression, parent: RuntimeConstruct) : never;
+export function createRuntimeExpression<T extends Type, V extends ValueCategory>(construct: CompiledCommaExpression < T, V >, parent: RuntimeConstruct): RuntimeComma<T,V>;
+export function createRuntimeExpression<T extends Type, V extends ValueCategory>(construct: CompiledTernaryExpression < T, V >, parent: RuntimeConstruct): RuntimeTernary<T,V>;
+export function createRuntimeExpression<T extends AtomicType>(construct: CompiledAssignmentExpression < T >, parent: RuntimeConstruct): RuntimeAssignment<T>;
+export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledArithmeticBinaryOperatorExpression < T >, parent: RuntimeConstruct): RuntimeArithmeticBinaryOperator<T>;
+export function createRuntimeExpression(construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct): RuntimePointerDifference;
+export function createRuntimeExpression<T extends PointerType>(construct: CompiledPointerOffsetExpression < T >, parent: RuntimeConstruct): RuntimePointerOffset<T>;
+export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression < T >, parent: RuntimeConstruct): RuntimeRelationalBinaryOperator<T>;
+export function createRuntimeExpression(construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct): RuntimePointerComparisonExpression;
+export function createRuntimeExpression(construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct): RuntimeLogicalBinaryOperatorExpression;
+export function createRuntimeExpression<T extends ObjectType>(construct: CompiledDereferenceExpression < T >, parent: RuntimeConstruct): RuntimeDereferenceExpression<T>;
+export function createRuntimeExpression<T extends PointerType>(construct: CompiledAddressOfExpression < T >, parent: RuntimeConstruct): RuntimeAddressOfExpression<T>;
+export function createRuntimeExpression<T extends ObjectType>(construct: CompiledSubscriptExpression < T >, parent: RuntimeConstruct): RuntimeSubscriptExpression<T>;
+export function createRuntimeExpression(construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent: RuntimeConstruct) : RuntimeObjectIdentifier | RuntimeFunctionIdentifier;
+export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledNumericLiteralExpression < T >, parent: RuntimeConstruct): RuntimeNumericLiteral<T>;
+export function createRuntimeExpression(construct: CompiledStringLiteralExpression, parent: RuntimeConstruct): RuntimeStringLiteralExpression;
+export function createRuntimeExpression<T extends Type, V extends ValueCategory>(construct: CompiledParenthesesExpression < T, V >, parent: RuntimeConstruct): RuntimeParentheses<T,V>;
+export function createRuntimeExpression < T extends Type = Type, V extends ValueCategory = ValueCategory > (construct: AuxiliaryExpression < T, V >, parent: RuntimeConstruct) : never;
+export function createRuntimeExpression<RT extends PotentialReturnType>(construct: CompiledMagicFunctionCallExpression < RT >, parent: RuntimeConstruct) : RuntimeMagicFunctionCallExpression<RT>;
+export function createRuntimeExpression<RT extends PotentialReturnType>(construct: CompiledFunctionCallExpression < RT >, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>
+export function createRuntimeExpression<T extends Type, V extends ValueCategory, ConstructType extends CompiledExpressionBase<T, V> | UnsupportedExpression>(construct: ConstructType, parent: RuntimeExpression) : RuntimeExpression<T,V>;
+export function createRuntimeExpression<T extends Type, V extends ValueCategory, ConstructType extends CompiledExpressionBase<T, V> | UnsupportedExpression>(construct: ConstructType, parent: RuntimeExpression) : RuntimeExpression<T,V> {
+    return ((<any>ExpressionConstructsRuntimeMap)[construct.construct_type])(<any>construct, parent);
+}
 
 /**
  * An expression not currently supported by Lobster.
@@ -417,55 +545,6 @@ type t_OverloadableOperators =
 // } : never : never;
 
 
-export type TypedExpressionKinds<T extends Type, V extends ValueCategory> = {
-    "unsupported_expression": never;
-    "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? TypedCommaExpression<T> : never : never;
-    "ternary_expression": T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? TypedTernaryExpression<T> : never : never;
-    "assignment_expression": T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? TypedAssignmentExpression<T> : never : never;
-    "arithmetic_binary_operator_expression": T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never : never;
-    "pointer_diference_expression": T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never : never;
-    "pointer_offset_expression": T extends NonNullable<PointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression<T> : never : never;
-    "relational_binary_operator_expression": T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never : never;
-    "pointer_comparison_expression": T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never : never;
-    "logical_binary_operator_expression": T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
-    "dereference_expression": T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? TypedDereferenceExpression<T> : never : never;
-    "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never : never;
-    "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never : never;
-    "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? TypedObjectIdentifierExpression<T> : T extends FunctionType ? TypedFunctionIdentifierExpression<T> : never) : never;
-    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never : never;
-    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
-    "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T> : never : never;
-    "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T> : never : never;
-    "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T> : never : never;
-    "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression<T> : never : never;
-}
-
-export type CompiledExpressionKinds<T extends Type, V extends ValueCategory> = {
-    "unsupported_expression": never;
-    "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? CompiledCommaExpression<T> : never : never;
-    "ternary_expression": T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T> : never : never;
-    "assignment_expression": T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? CompiledAssignmentExpression<T> : never : never;
-    "arithmetic_binary_operator_expression": T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never : never;
-    "pointer_diference_expression": T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
-    "pointer_offset_expression": T extends NonNullable<PointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? CompiledPointerOffsetExpression<T> : never : never;
-    "relational_binary_operator_expression": T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
-    "pointer_comparison_expression": T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
-    "logical_binary_operator_expression": T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
-    "dereference_expression": T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
-    "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
-    "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
-    "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? CompiledObjectIdentifierExpression<T> : T extends FunctionType ? CompiledFunctionIdentifierExpression<T> : never) : never;
-    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
-    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
-    "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T> : never : never;
-    "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T> : never : never;
-    "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
-    "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
-}
-
-export type Typed<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
-export type Compiled<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
-
 
 export interface CommaASTNode extends ASTNode {
     readonly construct_type: "comma_expression";
@@ -482,10 +561,10 @@ export class CommaExpression extends ExpressionBase<CommaASTNode> {
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly left: Expression;
-    public readonly right: Expression;
+    public readonly left: ExpressionBase;
+    public readonly right: ExpressionBase;
 
-    public constructor(context: ExpressionContext, left: Expression, right: Expression) {
+    public constructor(context: ExpressionContext, left: ExpressionBase, right: ExpressionBase) {
         super(context);
         this.type = right.type;
         this.valueCategory = right.valueCategory;
@@ -535,8 +614,8 @@ export interface TypedCommaExpression<T extends Type = Type, V extends ValueCate
 }
 
 function blah<T extends Type = Type, V extends ValueCategory = ValueCategory>() {
-    let x!: Compiled<TernaryExpression,Bool,ValueCategory>;
-    let y!: Typed<TernaryExpression,AtomicType,ValueCategory>;
+    let x!: AnalyticCompiledExpression<TernaryExpression,Bool,ValueCategory>;
+    let y!: AnalyticTypedExpression<TernaryExpression,AtomicType,ValueCategory>;
     y = x;
 
     let a!: TypedCommaExpression<Int, ValueCategory> | TernaryExpression;
@@ -559,8 +638,8 @@ export class RuntimeComma<T extends Type = Type, V extends ValueCategory = Value
 
     public constructor (model: CompiledCommaExpression<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.right = this.model.right.createRuntimeExpression(this);
-        this.left = this.model.left.createRuntimeExpression(this);
+        this.right = createRuntimeExpression(this.model.right, this);
+        this.left = createRuntimeExpression(this.model.left, this);
         this.setSubexpressions([this.left, this.right]);
     }
 
@@ -583,11 +662,11 @@ export class TernaryExpression extends ExpressionBase<TernaryASTNode> {
     public readonly type?: Type;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly condition: Expression;
-    public readonly then: Expression;
-    public readonly otherwise: Expression;
+    public readonly condition: ExpressionBase;
+    public readonly then: ExpressionBase;
+    public readonly otherwise: ExpressionBase;
 
-    public constructor(context: ExpressionContext, condition: Expression, then: Expression, otherwise: Expression) {
+    public constructor(context: ExpressionContext, condition: ExpressionBase, then: ExpressionBase, otherwise: ExpressionBase) {
         super(context);
         
         if(condition.isWellTyped()) {
@@ -703,9 +782,9 @@ export class RuntimeTernary<T extends Type = Type, V extends ValueCategory = Val
 
     public constructor (model: CompiledTernaryExpression<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.condition = this.model.condition.createRuntimeExpression(this);
-        this.then = this.model.then.createRuntimeExpression(this);
-        this.otherwise = this.model.otherwise.createRuntimeExpression(this);
+        this.condition = createRuntimeExpression(this.model.condition, this);
+        this.then = createRuntimeExpression(this.model.then, this);
+        this.otherwise = createRuntimeExpression(this.model.otherwise, this);
     }
 
 	protected upNextImpl() {
@@ -752,10 +831,10 @@ export class AssignmentExpression extends ExpressionBase<AssignmentExpressionAST
     public readonly type?: AtomicType;
     public readonly valueCategory = "lvalue";
 
-    public readonly lhs: Expression;
-    public readonly rhs: Expression;
+    public readonly lhs: ExpressionBase;
+    public readonly rhs: ExpressionBase;
 
-    private constructor(context: ExpressionContext, lhs: TypedExpressionBase<AtomicType>, rhs: Expression) {
+    private constructor(context: ExpressionContext, lhs: TypedExpressionBase<AtomicType>, rhs: ExpressionBase) {
         super(context);
 
         // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
