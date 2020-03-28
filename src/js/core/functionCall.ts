@@ -1,7 +1,7 @@
 import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifier, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression } from "./expressions";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression, Expression } from "./expressions";
 import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
@@ -270,17 +270,13 @@ type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnTyp
 type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 
-export class FunctionCallExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<FunctionCallExpressionASTNode, T, V> {
+export class FunctionCallExpression extends ExpressionBase<FunctionCallExpressionASTNode> {
     public readonly construct_type = "function_call_expression";
-    public readonly _t! : T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? {
-        typed: TypedFunctionCallExpression<T>;
-        compiled: CompiledFunctionCallExpression<T>; 
-    } : never : never;
     
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operand: Expression
+    public readonly operand: Expression;
     public readonly originalArgs: readonly Expression[];
     public readonly call?: FunctionCall;
 
@@ -366,7 +362,7 @@ export class FunctionCallExpression<T extends Type = Type, V extends ValueCatego
     // }
 }
 
-export interface TypedFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression<RT> {
+export interface TypedFunctionCallExpression<RT extends PotentialReturnType = PotentialReturnType> extends FunctionCallExpression {
     readonly type: NoRefType<RT>;
     readonly valueCategory: ReturnTypeVC<RT>;
     readonly call: TypedFunctionCall<RT>;
@@ -377,7 +373,7 @@ export interface CompiledFunctionCallExpression<RT extends PotentialReturnType =
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     
-    readonly operand: CompiledFunctionIdentifier;
+    readonly operand: CompiledFunctionIdentifierExpression;
     readonly originalArgs: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<FunctionType<RT>>;
 }

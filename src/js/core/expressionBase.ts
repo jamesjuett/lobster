@@ -110,14 +110,14 @@ export abstract class ExpressionBase<ASTType extends ExpressionASTNode> extends 
     public abstract describeEvalResult(depth: number) : ConstructDescription;
 }
 
-// interface TypedExpressionBase extends ExpressionBase<ExpressionASTNode, Type, ValueCategory> {
-//     readonly type: Type;
-//     readonly valueCategory: ValueCategory;
-// }
+export interface TypedExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends ExpressionBase<ExpressionASTNode> {
+    readonly type: T;
+    readonly valueCategory: V;
+}
 
-// export interface CompiledExpressionBase extends TypedExpressionBase, SuccessfullyCompiled {
-//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-// }
+export interface CompiledExpressionBase<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpressionBase<T,V>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+}
 
 export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T,V> : never;
 

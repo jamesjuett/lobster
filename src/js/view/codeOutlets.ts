@@ -10,7 +10,7 @@ import { RuntimeExpression, Expression, CompiledExpression } from "../core/expre
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, CompiledBinaryOperatorExpression, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, RuntimeUnaryOperator, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression } from "../core/expressions";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, CompiledBinaryOperatorExpression, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, RuntimeUnaryOperator, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifier, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression } from "../core/expressions";
 import { Bool, AtomicType } from "../core/types";
 import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
@@ -1824,7 +1824,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
 
 export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier | RuntimeFunctionIdentifier> {
 
-    public constructor(element: JQuery, construct: CompiledObjectIdentifier | CompiledFunctionIdentifier, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent?: ConstructOutlet) {
         super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
 
