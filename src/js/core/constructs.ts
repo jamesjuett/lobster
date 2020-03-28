@@ -11,6 +11,8 @@ import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { Expression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
+import { ValueCategory } from "./expressionBase";
 
 
 
@@ -245,9 +247,9 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
     }
 
-    public abstract readonly _t: {
-        compiled: CompiledConstruct
-    };
+    // public abstract readonly _t: {
+    //     compiled: CompiledConstruct
+    // };
 
     // public isSuccessfullyCompiled() : this is this["t_compiled"] {
     //     return !this.getContainedNotes().hasErrors;
@@ -282,8 +284,8 @@ export type ConstructKinds<Cs extends {construct_type: string}> = Cs["construct_
 export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 
-export type Typed<C extends {_t: {typed: any}}> = C["_t"]["typed"];
-export type Compiled<C extends {_t: {compiled: any}}> = C["_t"]["compiled"];
+export type Typed<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
+export type Compiled<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
 
 
 
