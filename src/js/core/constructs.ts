@@ -192,7 +192,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
      * Used by "createFromAST" static "named constructor" functions in derived classes
      * to set the AST from which a construct was created. Returns `this` for convenience.
      */
-    public setAST(this: CPPConstruct<TranslationUnitContext>, ast: ASTType) : this & {ast: ASTType} {
+    public setAST(this: CPPConstruct<TranslationUnitContext>, ast: ASTType) : this /*& {ast: ASTType}*/ {
         asMutable(this).ast = ast;
         if (!ast.source) {
             assertFalse("AST source is undefined. A track() call is likely missing in the grammar.");
