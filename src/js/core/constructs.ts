@@ -284,8 +284,7 @@ export type ConstructKinds<Cs extends {construct_type: string}> = Cs["construct_
 export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 
-export type Typed<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
-export type Compiled<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
+
 
 
 
