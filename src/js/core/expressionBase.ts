@@ -89,6 +89,7 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     }
 
     public isPrvalue<T extends Type, V extends ValueCategory, A extends AnalyticExpression>(this: AnalyticTypedExpression<A,T,V>) : this is AnalyticTypedExpression<A, T,"prvalue">;
+    public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue">;
     public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
         return this.valueCategory === "prvalue";
     }
@@ -131,15 +132,15 @@ export interface WellTyped<T extends Type = Type, V extends ValueCategory = Valu
 export type SpecificTypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpression<T,V>;
 
 
-export function allWellTyped(expressions: AnalyticExpression[]): expressions is TypedExpression[];
-export function allWellTyped(expressions: readonly AnalyticExpression[]): expressions is readonly TypedExpression[];
-export function allWellTyped(expressions: readonly AnalyticExpression[]): expressions is readonly TypedExpression[] {
+export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[];
+export function allWellTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression[] {
     return expressions.every((expr) => { return expr.isWellTyped(); });
 }
 
-export function allObjectTyped(expressions: AnalyticExpression[]): expressions is TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly AnalyticExpression[]): expressions is readonly TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly AnalyticExpression[]): expressions is readonly TypedExpression<ObjectType>[] {
+export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<ObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[] {
     return expressions.every((expr) => { return expr.isObjectTyped(); });
 }
 

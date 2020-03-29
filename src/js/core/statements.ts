@@ -1,6 +1,6 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct, ConstructKinds } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct, ConstructKind } from "./constructs";
 import { CPPError } from "./errors";
-import { ExpressionASTNode, createExpressionFromAST } from "./expressions";
+import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, SimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
@@ -166,7 +166,7 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
 
     public constructor (model: CompiledExpressionStatement, parent: RuntimeStatement) {
         super(model, parent);
-        this.expression = this.model.expression.createRuntimeExpression(this);
+        this.expression = createRuntimeExpression(this.model.expression, this);
     }
 
 	protected upNextImpl() {
@@ -696,7 +696,7 @@ export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
     public constructor (model: CompiledIfStatement, parent: RuntimeStatement) {
         super(model, parent);
-        this.condition = model.condition.createRuntimeExpression(this);
+        this.condition = createRuntimeExpression(model.condition, this);
         this.then = createRuntimeStatement(model.then, this);
         if (model.otherwise) {
             this.otherwise = createRuntimeStatement(model.otherwise, this);
@@ -799,7 +799,7 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
 
     public constructor (model: CompiledWhileStatement, parent: RuntimeStatement) {
         super(model, parent);
-        this.condition = model.condition.createRuntimeExpression(this);
+        this.condition = createRuntimeExpression(model.condition, this);
         // Do not create body here, since it might not actually run
     }
 
@@ -826,7 +826,7 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
     }
 
     public stepForwardImpl() {
-        (<Mutable<this>>this).condition = this.model.condition.createRuntimeExpression(this);
+        (<Mutable<this>>this).condition = createRuntimeExpression(this.model.condition, this);
         delete (<Mutable<this>>this).body;
 
     }
@@ -935,7 +935,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
     public constructor (model: CompiledForStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.initial = createRuntimeStatement(model.initial, this);
-        this.condition = model.condition.createRuntimeExpression(this);
+        this.condition = createRuntimeExpression(model.condition, this);
         // Do not create body here, since it might not actually run
     }
 
@@ -955,7 +955,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
             }
         },
         (rt: RuntimeForStatement) => {
-            rt.sim.push(asMutable(rt).post = rt.model.post.createRuntimeExpression(rt));
+            rt.sim.push(asMutable(rt).post = createRuntimeExpression(rt.model.post, rt));
         },
         (rt: RuntimeForStatement) => {
             // Do nothing, pass to stepForward, which will reset
@@ -970,7 +970,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
     }
 
     public stepForwardImpl() {
-        (<Mutable<this>>this).condition = this.model.condition.createRuntimeExpression(this);
+        (<Mutable<this>>this).condition = createRuntimeExpression(this.model.condition, this);
         delete (<Mutable<this>>this).body;
         delete (<Mutable<this>>this).post;
 
