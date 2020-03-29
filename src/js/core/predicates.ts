@@ -1,10 +1,10 @@
-import { CPPConstruct, ConstructUnion, ConstructKinds as ConstructKind } from "./constructs";
-import { FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition, FunctionDeclaration, CompiledFunctionDeclaration, TypedFunctionDeclaration, FunctionDeclaration, UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, TypedLocalVariableDefinition, LocalVariableDefinition, GlobalVariableDefinition, FunctionDeclaration, ParameterDeclaration, Declarator, TypedDeclarator, FunctionDeclaration, ClassDeclaration, ClassDefinition, TypedGlobalVariableDefinition, TypedParameterDeclaration, TypedClassDeclaration, TypedClassDefinition } from "./declarations";
-import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType, PointerType, Int } from "./types";
-import { LocalObjectEntity } from "./entities";
-import { Constructor, DiscriminateUnion } from "../util/util";
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
+
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression } from "./expressions";
 import { ValueCategory } from "./expressionBase";
+import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition } from "./declarations";
+import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int } from "./types";
+import { ConstructKind, ConstructUnion } from "./constructs";
+import { DiscriminateUnion } from "../util/util";
 
 
 export type AnalyticTypedExpression<C extends AnalyticExpression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];

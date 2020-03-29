@@ -279,7 +279,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
 
-export type ConstructKinds<Cs extends {construct_type: string}> = Cs["construct_type"];
+export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_type"];
 
 export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
@@ -530,7 +530,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: CPPObject<NoRefType<Exclude<T["returnType"],VoidType>>>;
+    public readonly returnObject?: T extends FunctionType<VoidType> ? undefined : CPPObject<NoRefType<Exclude<T["returnType"],VoidType>>>;
 
     public readonly hasControl: boolean = false;
 
