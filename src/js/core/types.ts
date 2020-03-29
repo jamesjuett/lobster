@@ -574,6 +574,7 @@ abstract class ValueType extends ObjectTypeBase {
 
 
 export abstract class AtomicType extends ValueType {
+    public readonly type_kind = "AtomicType";
     public readonly isAtomic = true;
 
 }

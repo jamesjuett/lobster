@@ -11,7 +11,7 @@ import { RuntimeBlock } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { Expression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
 import { ValueCategory } from "./expressionBase";
 
 
