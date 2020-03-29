@@ -3,12 +3,12 @@ import { FunctionDefinition, TypedFunctionDefinition, CompiledFunctionDefinition
 import { Type, FunctionType, VoidType, ArrayOfUnknownBoundType, ObjectType, ReferenceType, PointerType, Int } from "./types";
 import { LocalObjectEntity } from "./entities";
 import { Constructor, DiscriminateUnion } from "../util/util";
-import { Expression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds } from "./expressions";
 import { ValueCategory } from "./expressionBase";
 
 
-export type AnalyticTypedExpression<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
-export type AnalyticCompiledExpression<C extends Expression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
+export type AnalyticTypedExpression<C extends AnalyticExpression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
+export type AnalyticCompiledExpression<C extends AnalyticExpression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
 
 export namespace Predicates {
     
@@ -67,4 +67,17 @@ export namespace Predicates {
             construct is (Narrowed extends Original ? Narrowed : never)>
                 ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)));
     }
+}
+
+
+function blah<T extends Type = Type, V extends ValueCategory = ValueCategory>() {
+    let x!: AnalyticCompiledExpression<TernaryExpression,Bool,ValueCategory>;
+    let y!: AnalyticTypedExpression<TernaryExpression,AtomicType,ValueCategory>;
+    y = x;
+
+    let a!: TypedCommaExpression<Int, ValueCategory> | TernaryExpression;
+    a = x;
+
+    let b!: AnalyticExpression;
+    b = x;
 }

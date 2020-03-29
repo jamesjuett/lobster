@@ -1,13 +1,13 @@
 import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression, Expression } from "./expressions";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression, AnalyticExpression } from "./expressions";
 import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
 import { CPPError } from "./errors";
-import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory, ExpressionBase } from "./expressionBase";
+import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory, Expression } from "./expressionBase";
 import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { standardConversion } from "./standardConversions";
 import { Value } from "./runtimeEnvironment";
@@ -19,7 +19,7 @@ export class FunctionCall extends PotentialFullExpression {
     public readonly t_compiled!: CompiledFunctionCall;
 
     public readonly func: FunctionEntity;
-    public readonly args: readonly Expression[];
+    public readonly args: readonly AnalyticExpression[];
     public readonly receiver?: ObjectEntity<ClassType>;
 
     public readonly argInitializers: readonly DirectInitializer[];
@@ -270,17 +270,17 @@ type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnTyp
 type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 
 
-export class FunctionCallExpression extends ExpressionBase<FunctionCallExpressionASTNode> {
+export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
     public readonly construct_type = "function_call_expression";
     
     public readonly type?: ObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operand: Expression;
-    public readonly originalArgs: readonly Expression[];
+    public readonly operand: AnalyticExpression;
+    public readonly originalArgs: readonly AnalyticExpression[];
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, operand: Expression, args: readonly Expression[]) {
+    public constructor(context: ExpressionContext, operand: AnalyticExpression, args: readonly AnalyticExpression[]) {
         super(context);
         
         this.attach(this.operand = operand);
