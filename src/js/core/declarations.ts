@@ -1,4 +1,4 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, RuntimeFunction, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
+import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note, CompilerNote } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
@@ -10,6 +10,7 @@ import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
 import { Expression } from "./expressionBase";
+import { RuntimeFunction } from "./functions";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 

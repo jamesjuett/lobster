@@ -4,8 +4,9 @@ import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObje
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct, RuntimeFunction } from "./constructs";
-import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations";
+import { RuntimeConstruct } from "./constructs";
+import { CompiledGlobalVariableDefinition } from "./declarations";
+import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter

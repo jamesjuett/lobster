@@ -1,4 +1,4 @@
-import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeFunction, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, ConstructDescription } from "./constructs";
+import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContext, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression } from "./expressions";
@@ -9,12 +9,12 @@ import { CompiledFunctionDefinition } from "./declarations";
 import { CPPError } from "./errors";
 import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory, Expression } from "./expressionBase";
 import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
-import { standardConversion } from "./standardConversions";
 import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { Mutable } from "../util/util";
+import { RuntimeFunction } from "./functions";
 export class FunctionCall extends PotentialFullExpression {
     public readonly construct_type = "FunctionCall";
     public readonly t_compiled!: CompiledFunctionCall;
