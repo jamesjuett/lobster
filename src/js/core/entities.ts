@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, SimpleDeclaration } from "./declarations";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, AnalyticSimpleDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -600,8 +600,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     public abstract readonly declarationKind: DeclarationKind;
 
     // TODO: not sure this should really be here as an abstract property?
-    public abstract readonly firstDeclaration: SimpleDeclaration | ParameterDeclaration | ClassDeclaration;
-    public abstract readonly declarations: readonly SimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
+    public abstract readonly firstDeclaration: AnalyticSimpleDeclaration | ParameterDeclaration | ClassDeclaration;
+    public abstract readonly declarations: readonly AnalyticSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
@@ -682,7 +682,7 @@ export class FunctionOverloadGroup {
      * not consider the possibility of implicit conversions, which is a part of full overload
      * resolution. It simply looks for an overload with a matching signature.
      */
-    public selectOverloadBySignature(type: FunctionType) {
+    public selectOverloadBySignature(type: FunctionType) : FunctionEntity | undefined {
         return this.overloads.find(func => type.sameSignature(func.type));
     }
 }
@@ -784,8 +784,8 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObject
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
     public readonly qualifiedName: string;
-    public readonly firstDeclaration: SimpleDeclaration;
-    public readonly declarations: readonly SimpleDeclaration[];
+    public readonly firstDeclaration: AnalyticSimpleDeclaration;
+    public readonly declarations: readonly AnalyticSimpleDeclaration[];
     public readonly definition?: GlobalVariableDefinition;
     
     // storage: "static",
@@ -1300,7 +1300,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         return this.name;
     }
 
-    public mergeInto(overloadGroup: FunctionOverloadGroup) {
+    public mergeInto(overloadGroup: FunctionOverloadGroup) : FunctionEntity | CompilerNote {
         //check each other function found
         let matchingFunction = overloadGroup.selectOverloadBySignature(this.type);
         

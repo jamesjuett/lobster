@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression } from "./expressions";
-import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, SimpleDeclaration, AnalyticCompiledDeclaration } from "./declarations";
+import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, AnalyticSimpleDeclaration, AnalyticCompiledDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -39,6 +39,26 @@ export function createStatementFromAST<ASTType extends StatementASTNode>(ast: AS
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
 }
 
+export type CompiledStatementKinds = {
+    "unsupported_statement" : UnsupportedStatement;
+    // "labeled_statement" :
+    "block" : CompiledBlock;
+    "if_statement" : CompiledIfStatement;
+    "while_statement" : CompiledWhileStatement;
+    // "dowhile_statement" :
+    "for_statement" : CompiledForStatement;
+    // "break_statement" :
+    // "continue_statement" :
+    "return_statement" : CompiledReturnStatement;
+    "declaration_statement" : CompiledDeclarationStatement;
+    "expression_statement": CompiledExpressionStatement;
+    "null_statement": CompiledNullStatement;
+};
+
+export type AnalyticCompiledStatement<C extends AnalyticStatement> = CompiledStatementKinds[C["construct_type"]];
+
+
+
 const StatementConstructsRuntimeMap = {
     "unsupported_statement" : (construct: UnsupportedStatement, parent: RuntimeStatement) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
     // "labeled_statement" : (construct: LabeledStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
@@ -56,14 +76,15 @@ const StatementConstructsRuntimeMap = {
 };
 
 export function createRuntimeStatement<ConstructType extends CompiledBlock>(construct: ConstructType, parent: RuntimeStatement | RuntimeFunction) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
-export function createRuntimeStatement<ConstructType extends CompiledStatement | UnsupportedStatement>(construct: ConstructType, parent: RuntimeStatement) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
-export function createRuntimeStatement<ConstructType extends CompiledStatement | UnsupportedStatement>(construct: ConstructType, parent: RuntimeStatement) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]> {
+export function createRuntimeStatement<ConstructType extends AnalyticStatement, CompiledConstructType extends AnalyticCompiledStatement<ConstructType>>(construct: CompiledConstructType, parent: RuntimeConstruct) : ReturnType<(typeof StatementConstructsRuntimeMap)[CompiledConstructType["construct_type"]]>;
+export function createRuntimeStatement(construct: CompiledStatement, parent: RuntimeConstruct) : RuntimeStatement;
+export function createRuntimeStatement<ConstructType extends AnalyticCompiledStatement<AnalyticStatement>>(construct: ConstructType, parent: RuntimeStatement) {
     return <any>StatementConstructsRuntimeMap[construct.construct_type](<any>construct, parent);
 }
 
-export abstract class StatementBase<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
+export abstract class Statement<ASTType extends StatementASTNode = StatementASTNode> extends BasicCPPConstruct<BlockContext, ASTType> {
 
-    public abstract createDefaultOutlet(this: CompiledStatementBase, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
+    public abstract createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
 
     public isBlock() : this is Block {
         return false;
@@ -71,11 +92,11 @@ export abstract class StatementBase<ASTType extends StatementASTNode = Statement
 
 }
 
-export interface CompiledStatementBase extends StatementBase, SuccessfullyCompiled {
+export interface CompiledStatement extends Statement, SuccessfullyCompiled {
 
 }
 
-export type Statement =
+export type AnalyticStatement =
     //LabeledStatement |
     Block |
     IfStatement |
@@ -90,9 +111,7 @@ export type Statement =
     NullStatement |
     UnsupportedStatement;
 
-export type CompiledStatement<S extends Statement = Statement> = S["t_compiled"];
-
-export abstract class RuntimeStatement<C extends CompiledStatementBase = CompiledStatementBase> extends RuntimeConstruct<C> {
+export abstract class RuntimeStatement<C extends CompiledStatement = CompiledStatement> extends RuntimeConstruct<C> {
 
     public readonly containingRuntimeFunction: RuntimeFunction;
 
@@ -108,7 +127,7 @@ export abstract class RuntimeStatement<C extends CompiledStatementBase = Compile
 
 }
 
-export class UnsupportedStatement extends StatementBase {
+export class UnsupportedStatement extends Statement {
     public readonly construct_type = "unsupported_statement";
     public readonly t_compiled: never;
 
@@ -128,7 +147,7 @@ export interface ExpressionStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ExpressionStatement extends StatementBase<ExpressionStatementASTNode> {
+export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     public readonly construct_type = "expression_statement";
 
     public readonly t_compiled!: CompiledExpressionStatement;
@@ -191,7 +210,7 @@ export interface NullStatementASTNode extends ASTNode {
     readonly construct_type: "null_statement";
 }
 
-export class NullStatement extends StatementBase<NullStatementASTNode> {
+export class NullStatement extends Statement<NullStatementASTNode> {
     public readonly construct_type = "null_statement";
     public readonly t_compiled!: CompiledNullStatement;
 
@@ -231,11 +250,11 @@ export interface DeclarationStatementASTNode extends ASTNode {
     readonly declaration: DeclarationASTNode;
 }
 
-export class DeclarationStatement extends StatementBase<DeclarationStatementASTNode> {
+export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
     public readonly construct_type = "declaration_statement";
     public readonly t_compiled!: CompiledDeclarationStatement;
 
-    public readonly declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
+    public readonly declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
         return new DeclarationStatement(context,
@@ -243,7 +262,7 @@ export class DeclarationStatement extends StatementBase<DeclarationStatementASTN
         ).setAST(ast);
     }
 
-    public constructor(context: BlockContext, declarations: readonly SimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
+    public constructor(context: BlockContext, declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
         super(context);
 
         if (declarations instanceof InvalidConstruct) {
@@ -280,7 +299,7 @@ export class DeclarationStatement extends StatementBase<DeclarationStatementASTN
 export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
     
     // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
-    readonly declarations: readonly AnalyticCompiledDeclaration<SimpleDeclaration>[];
+    readonly declarations: readonly AnalyticCompiledDeclaration<AnalyticSimpleDeclaration>[];
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
@@ -332,7 +351,7 @@ export interface ReturnStatementASTNode extends ASTNode {
     readonly expression: ExpressionASTNode;
 }
 
-export class ReturnStatement extends StatementBase<ReturnStatementASTNode> {
+export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     public readonly construct_type = "return_statement";
     public readonly t_compiled!: CompiledReturnStatement;
 
@@ -444,9 +463,8 @@ function createBlockContext(context: FunctionContext) : BlockContext {
     });
 }
 
-export class Block extends StatementBase<BlockASTNode> {
+export class Block extends Statement<BlockASTNode> {
     public readonly construct_type = "block";
-    public readonly t_compiled!: CompiledBlock;
 
     public readonly statements: readonly Statement[] = [];
 
@@ -596,7 +614,7 @@ export interface IfStatementASTNode extends ASTNode {
     readonly otherwise?: StatementASTNode;
 }
 
-export class IfStatement extends StatementBase<IfStatementASTNode> {
+export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly construct_type = "if_statement";
     public readonly t_compiled!: CompiledIfStatement;
 
@@ -742,7 +760,7 @@ export interface WhileStatementASTNode extends ASTNode {
     readonly body: StatementASTNode;
 }
 
-export class WhileStatement extends StatementBase<WhileStatementASTNode> {
+export class WhileStatement extends Statement<WhileStatementASTNode> {
     public readonly construct_type = "while_statement";
     public readonly t_compiled!: CompiledWhileStatement;
 
@@ -862,7 +880,7 @@ export interface ForStatementASTNode extends ASTNode {
 }
 
 
-export class ForStatement extends StatementBase<ForStatementASTNode> {
+export class ForStatement extends Statement<ForStatementASTNode> {
     public readonly construct_type = "for_statement";
     public readonly t_compiled!: CompiledForStatement;
 

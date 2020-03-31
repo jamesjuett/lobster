@@ -1,6 +1,6 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char } from "./types";
 import { assertFalse, assert } from "../util/util";
@@ -15,7 +15,6 @@ import { Value } from "./runtimeEnvironment";
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
 export abstract class Initializer extends PotentialFullExpression {
-    public abstract readonly t_compiled: CompiledInitializer;
 
     public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
@@ -47,7 +46,6 @@ export abstract class RuntimeInitializer<C extends CompiledInitializer = Compile
 
 
 export abstract class DefaultInitializer extends Initializer {
-    public abstract readonly t_compiled: CompiledDefaultInitializer; 
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
@@ -88,7 +86,7 @@ export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectTyp
 }
 
 export class ReferenceDefaultInitializer extends DefaultInitializer {
-    public readonly t_compiled!: never;
+    public readonly construct_type = "ReferenceDefaultInitializer";
 
     public readonly target: UnboundReferenceEntity;
 
@@ -118,7 +116,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
 
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
-    public readonly t_compiled!: CompiledAtomicDefaultInitializer;
+    public readonly construct_type = "AtomicDefaultInitializer";
 
     public readonly target: ObjectEntity<AtomicType>;
 
@@ -167,7 +165,7 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
 }
 
 export class ArrayDefaultInitializer extends DefaultInitializer {
-    public readonly t_compiled!: CompiledArrayDefaultInitializer;
+    public readonly construct_type = "ArrayDefaultInitializer";
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly elementInitializers?: DefaultInitializer[];
@@ -351,7 +349,6 @@ export interface DirectInitializerASTNode extends ASTNode {
 export type DirectInitializerKind = "direct" | "copy";
 
 export abstract class DirectInitializer extends Initializer {
-    public abstract readonly t_compiled: CompiledDirectInitializer;
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : ReferenceDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) : AtomicDirectInitializer;
@@ -409,7 +406,7 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
 
 
 export class ReferenceDirectInitializer extends DirectInitializer {
-    public readonly t_compiled!: CompiledReferenceDirectInitializer;
+    public readonly construct_type = "ReferenceDirectInitializer";
 
     public readonly target: UnboundReferenceEntity;
     public readonly args: readonly Expression[];
@@ -488,7 +485,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 
     public constructor (model: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 
@@ -525,7 +522,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 }
 
 export class AtomicDirectInitializer extends DirectInitializer {
-    public readonly t_compiled!: CompiledAtomicDirectInitializer;
+    public readonly construct_type = "AtomicDirectInitializer";
 
     public readonly target: ObjectEntity<AtomicType>;
     public readonly args: readonly Expression[];
@@ -604,7 +601,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
     public constructor (model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 
@@ -644,7 +641,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
  * char array initialized from a string literal.
  */
 export class ArrayDirectInitializer extends DirectInitializer {
-    public readonly t_compiled!: CompiledArrayDirectInitializer;
+    public readonly construct_type = "ArrayDirectInitializer";
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly args: readonly Expression[];
@@ -708,7 +705,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
     public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 

@@ -4,7 +4,7 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeFunction } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, ObjectType, AtomicType } from "./types";
+import { Int, PointerType, Char, ObjectType, AtomicType, FunctionType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
@@ -83,7 +83,7 @@ export class Simulation {
 
 
     public readonly mainReturnObject!: MainReturnObject;
-    public readonly mainFunction!: RuntimeFunction<Int>;
+    public readonly mainFunction!: RuntimeFunction<FunctionType<Int>>;
 
     constructor(program: RunnableProgram) {
         this.program = program;

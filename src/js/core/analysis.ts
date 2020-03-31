@@ -1,6 +1,6 @@
 import { CPPConstruct } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
-import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
+import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
