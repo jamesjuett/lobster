@@ -7,7 +7,7 @@ import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
 import { CPPObject } from "./objects";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, SimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
-import { RuntimeBlock } from "./statements";
+import { RuntimeBlock, createRuntimeStatement } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -251,17 +251,9 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //     compiled: CompiledConstruct
     // };
 
-    // public isSuccessfullyCompiled() : this is this["t_compiled"] {
-    //     return !this.getContainedNotes().hasErrors;
-    // }
-}
-
-/**
- * This function calls the `.isSuccessfullyCompiled()` member on the given construct
- * @param construct 
- */
-export function isSuccessfullyCompiled<T extends CPPConstruct>(construct: T) : construct is T & T["t_compiled"] {
-    return construct.isSuccessfullyCompiled();
+    public isSuccessfullyCompiled() : this is CompiledConstruct {
+        return !this.getContainedNotes().hasErrors;
+    }
 }
 
 export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
@@ -279,9 +271,6 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 }
 
-export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_type"];
-
-export type ConstructUnion = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 
 
@@ -481,6 +470,7 @@ export abstract class BasicCPPConstruct<ContextType extends TranslationUnitConte
 }
 
 export class InvalidConstruct extends BasicCPPConstruct {
+    public readonly construct_type = "InvalidConstruct";
     public readonly t_compiled!: never;
 
     public readonly note: Note;
@@ -542,7 +532,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
         this.receiver = receiver;
         // A function is its own containing function context
         // this.containingRuntimeFunction = this;
-        this.body = this.model.body.createRuntimeStatement(this);
+        this.body = createRuntimeStatement(this.model.body, this);
     }
     
 
@@ -721,7 +711,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
 
 
 export class TemporaryDeallocator extends BasicCPPConstruct {
-    public readonly t_compiled!: CompiledTemporaryDeallocator;
+    public readonly construct_type = "TemporaryDeallacator";
 
     public readonly parent?: PotentialFullExpression;
     public readonly temporaryObjects: TemporaryObjectEntity[];
@@ -848,7 +838,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 
 export class UnsupportedConstruct extends BasicCPPConstruct {
-    public readonly t_compiled!: never;
+    public readonly construct_type = "UnsupportedConstruct";
     public constructor(context: TranslationUnitContext, unsupportedName: string) {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
@@ -921,7 +911,7 @@ export class UnsupportedConstruct extends BasicCPPConstruct {
 
 
 export class GlobalObjectAllocator extends CPPConstruct {
-    public readonly t_compiled!: CompiledGlobalObjectAllocator;
+    public readonly construct_type = "GlobalObjectAllocator";
     
 
     public readonly parent?: undefined;

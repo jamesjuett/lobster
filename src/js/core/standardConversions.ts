@@ -1,13 +1,13 @@
 import { ObjectType, Type, AtomicType, BoundedArrayType, PointerType, ArrayPointerType, Int, Bool, IntegralType, Float, Double, FloatingPointType, similarType, subType, sameType, isCvConvertible, ArithmeticType, ArrayElemType, isType } from "./types";
-import { SimpleRuntimeExpression, NumericLiteralExpression, AuxiliaryExpression, CompiledNumericLiteralExpression, createRuntimeExpression, AnalyticExpression } from "./expressions";
+import { SimpleRuntimeExpression, NumericLiteralExpression, AuxiliaryExpression, CompiledNumericLiteralExpression, createRuntimeExpression, AnalyticExpression, AnalyticTypedExpression } from "./expressions";
 import { ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs";
 import { Value } from "./runtimeEnvironment";
 import { assert } from "../util/util";
 import { VCResultTypes, RuntimeExpression, ValueCategory, SpecificTypedExpression, Expression, TypedExpression, CompiledExpression } from "./expressionBase";
 import { ConstructOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet } from "../view/codeOutlets";
-import { AnalyticTypedExpression } from "./predicates";
 
 export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
+    public readonly construct_type = "ImplicitConversion";
     
     public readonly from: TypedExpression<FromType, FromVC>;
     public readonly type: ToType;
@@ -29,11 +29,11 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
         }
     }
 
-    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
-    public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
-    public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC> {
-        return new RuntimeImplicitConversion(this, parent);
-    }
+    // public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
+    // public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : never;
+    // public createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(this: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC> {
+    //     return new RuntimeImplicitConversion(this, parent);
+    // }
 
     public abstract operate(fromEvalResult: VCResultTypes<FromType, FromVC>) : VCResultTypes<ToType, ToVC>;
 
@@ -84,7 +84,7 @@ export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType,
 
 
 export class LValueToRValueConversion<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
-    public readonly construct_type = "LValueToRValueConversion";
+    // public readonly construct_type = "LValueToRValueConversion";
     
     public constructor(from: TypedExpression<T, "lvalue">) {
         super(from, from.type.cvUnqualified(), "prvalue");
@@ -124,7 +124,7 @@ export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicT
 }
 
 export class ArrayToPointerConversion<T extends BoundedArrayType> extends ImplicitConversion<T, "lvalue", PointerType, "prvalue"> {
-    public readonly construct_type = "ArrayToPointerConversion";
+    // public readonly construct_type = "ArrayToPointerConversion";
 
     public constructor(from: TypedExpression<T, "lvalue">) {
         super(from, from.type.adjustToPointerType(), "prvalue");
@@ -211,7 +211,7 @@ export interface IntegerLiteralZero extends CompiledNumericLiteralExpression {
 }
 
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
-    public readonly construct_type = "NullPointerConversion";
+    // public readonly construct_type = "NullPointerConversion";
 
     public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
@@ -226,7 +226,7 @@ export interface CompiledNullPointerConversion<P extends PointerType> extends Nu
 }
 
 export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpTypeConversion<FromType, ToType> {
-    public readonly construct_type = "PointerConversion";
+    // public readonly construct_type = "PointerConversion";
 
 }
 
@@ -246,46 +246,46 @@ abstract class ToBooleanConversionBase<T extends AtomicType> extends TypeConvers
 }
 
 export class PointerToBooleanConversion<T extends PointerType> extends ToBooleanConversionBase<T> {
-    public readonly construct_type = "PointerToBooleanConversion";
+    // public readonly construct_type = "PointerToBooleanConversion";
 }
 export class FloatingToBooleanConversion<T extends FloatingPointType> extends ToBooleanConversionBase<T> {
-    public readonly construct_type = "FloatingToBooleanConversion";
+    // public readonly construct_type = "FloatingToBooleanConversion";
 }
 export class IntegralToBooleanConversion<T extends IntegralType> extends ToBooleanConversionBase<T> {
-    public readonly construct_type = "IntegralToBooleanConversion";
+    // public readonly construct_type = "IntegralToBooleanConversion";
 }
 
 export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
-    public readonly construct_type = "IntegralPromotion";
+    // public readonly construct_type = "IntegralPromotion";
 
 }
 
 export class IntegralConversion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
-    public readonly construct_type = "IntegralConversion";
+    // public readonly construct_type = "IntegralConversion";
 
 }
 
 
 export class FloatingPointPromotion extends NoOpTypeConversion<Float, Double> {
-    public readonly construct_type = "FloatingPointPromotion";
+    // public readonly construct_type = "FloatingPointPromotion";
     public constructor(from: TypedExpression<Float, "prvalue">) {
         super(from, Double.DOUBLE);
     }
 }
 
 export class FloatingPointConversion<FromType extends FloatingPointType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
-    public readonly construct_type = "FloatingPointConversion";
+    // public readonly construct_type = "FloatingPointConversion";
 
 }
 
 export class IntegralToFloatingConversion<FromType extends IntegralType, ToType extends FloatingPointType> extends NoOpTypeConversion<FromType, ToType> {
-    public readonly construct_type = "IntegralToFloatingConversion";
+    // public readonly construct_type = "IntegralToFloatingConversion";
 
 }
 
 
 export class FloatingToIntegralConversion<T extends FloatingPointType> extends TypeConversion<T, IntegralType> {
-    public readonly construct_type = "FloatingToIntegralConversion";
+    // public readonly construct_type = "FloatingToIntegralConversion";
 
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         if (this.type.isType(Bool)) {
@@ -318,7 +318,7 @@ export class FloatingToIntegralConversion<T extends FloatingPointType> extends T
 // Qualification conversions
 
 export class QualificationConversion<T extends AtomicType = AtomicType> extends ImplicitConversion<T, "prvalue", T, "prvalue"> {
-    public readonly construct_type = "QualificationConversion";
+    // public readonly construct_type = "QualificationConversion";
 
     public constructor(from: TypedExpression<T, "prvalue">, toType: T) {
         super(from, toType, "prvalue");

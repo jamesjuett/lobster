@@ -6,12 +6,11 @@ import { Note, CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever } from "../util/util";
-import { standardConversion, convertToPRValue, usualArithmeticConversions, isIntegerLiteralZero, NullPointerConversion, ArrayToPointerConversion, CompiledImplicitConversion, RuntimeImplicitConversion } from "./standardConversions";
+import { standardConversion, convertToPRValue, usualArithmeticConversions, isIntegerLiteralZero, NullPointerConversion, ArrayToPointerConversion, CompiledImplicitConversion, RuntimeImplicitConversion, ImplicitConversion } from "./standardConversions";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet } from "../view/codeOutlets";
-import { AnalyticCompiledExpression, AnalyticTypedExpression, Predicates } from "./predicates";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -46,28 +45,6 @@ export type ExpressionASTNode =
     NumericLiteralASTNode |
     StringLiteralASTNode |
     ParenthesesExpressionASTNode;
-
-    
-export type AnalyticExpression =
-    CommaExpression |
-    TernaryExpression |
-    AssignmentExpression |
-    // CompoundAssignmentExpression |
-    BinaryOperatorExpression |
-    // PointerToMemberExpression |
-    // CStyleCastExpression |
-    UnaryOperatorExpression | // TODO change to union type
-    SubscriptExpression |
-    FunctionCallExpression |
-    // ConstructExpression |
-    IdentifierExpression |
-    // ThisExpression |
-    NumericLiteralExpression |
-    StringLiteralExpression |
-    ParenthesesExpression |
-    MagicFunctionCallExpression |
-    AuxiliaryExpression |
-    UnsupportedExpression;
 
 const ExpressionConstructsMap = {
     "comma_expression" : (ast: CommaASTNode, context: ExpressionContext) => CommaExpression.createFromAST(ast, context),
@@ -136,6 +113,29 @@ export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: 
 }
 
 
+    
+export type AnalyticExpression =
+    CommaExpression |
+    TernaryExpression |
+    AssignmentExpression |
+    // CompoundAssignmentExpression |
+    BinaryOperatorExpression |
+    // PointerToMemberExpression |
+    // CStyleCastExpression |
+    UnaryOperatorExpression | // TODO change to union type
+    SubscriptExpression |
+    FunctionCallExpression |
+    // ConstructExpression |
+    IdentifierExpression |
+    // ThisExpression |
+    NumericLiteralExpression |
+    StringLiteralExpression |
+    ParenthesesExpression |
+    MagicFunctionCallExpression |
+    AuxiliaryExpression |
+    UnsupportedExpression
+    //  | ImplicitConversion;
+
 export type TypedExpressionKinds<T extends Type, V extends ValueCategory> = {
     "unsupported_expression": never;
     "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? TypedCommaExpression<T,V> : never : never;
@@ -157,6 +157,7 @@ export type TypedExpressionKinds<T extends Type, V extends ValueCategory> = {
     "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T,V> : never : never;
     "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T> : never : never;
     "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression<T> : never : never;
+    // "ImplicitConversion": T extends NonNullable<ImplicitConversion["type"]> ? V extends NonNullable<ImplicitConversion["valueCategory"]> ? ImplicitConversion<T> : never : never;
 }
 
 export type CompiledExpressionKinds<T extends Type, V extends ValueCategory> = {
@@ -180,28 +181,11 @@ export type CompiledExpressionKinds<T extends Type, V extends ValueCategory> = {
     "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T,V> : never : never;
     "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
     "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
+    // "ImplicitConversion": T extends NonNullable<ImplicitConversion["type"]> ? V extends NonNullable<ImplicitConversion["valueCategory"]> ? CompiledImplicitConversion<T> : never : never;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export type AnalyticTypedExpression<C extends AnalyticExpression, T extends Type = NonNullable<C["type"]>, V extends ValueCategory = NonNullable<C["valueCategory"]>> = TypedExpressionKinds<T,V>[C["construct_type"]];
+export type AnalyticCompiledExpression<C extends AnalyticExpression, T extends Type = NonNullable<C["type"]>, V extends ValueCategory = NonNullable<C["valueCategory"]>> = CompiledExpressionKinds<T,V>[C["construct_type"]];
 
 
 
@@ -235,7 +219,8 @@ const ExpressionConstructsRuntimeMap = {
     "parentheses_expression": <T extends Type, V extends ValueCategory>(construct: CompiledParenthesesExpression < T, V >, parent: RuntimeConstruct) => new RuntimeParentheses(construct, parent),
     "auxiliary_expression":  < T extends Type = Type, V extends ValueCategory = ValueCategory > (construct: CompiledExpression < T, V >, parent: RuntimeConstruct) => { throw new Error("Auxiliary expressions must never be instantiated at runtime.") },
     "magic_function_call_expression": <RT extends PotentialReturnType>(construct: CompiledMagicFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeMagicFunctionCallExpression(construct, parent),
-    "function_call_expression": <RT extends PotentialReturnType>(construct: CompiledFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeFunctionCallExpression(construct, parent)
+    "function_call_expression": <RT extends PotentialReturnType>(construct: CompiledFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeFunctionCallExpression(construct, parent),
+    // "ImplicitConversion": <FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(construct: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) => new RuntimeImplicitConversion(construct, parent)
 };
 
 export function createRuntimeExpression(construct: UnsupportedExpression, parent: RuntimeConstruct) : never;
@@ -260,7 +245,7 @@ export function createRuntimeExpression<T extends Type, V extends ValueCategory>
 export function createRuntimeExpression < T extends Type = Type, V extends ValueCategory = ValueCategory > (construct: AuxiliaryExpression < T, V >, parent: RuntimeConstruct) : never;
 export function createRuntimeExpression<RT extends PotentialReturnType>(construct: CompiledMagicFunctionCallExpression < RT >, parent: RuntimeConstruct) : RuntimeMagicFunctionCallExpression<RT>;
 export function createRuntimeExpression<RT extends PotentialReturnType>(construct: CompiledFunctionCallExpression < RT >, parent: RuntimeConstruct) : RuntimeFunctionCallExpression<RT>;
-export function createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(construct: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
+// export function createRuntimeExpression<FromType extends ObjectType, FromVC extends ValueCategory, ToType extends ObjectType, ToVC extends ValueCategory>(construct: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) : RuntimeImplicitConversion<FromType, FromVC, ToType, ToVC>;
 export function createRuntimeExpression<T extends Type, V extends ValueCategory, ConstructType extends AnalyticExpression, CompiledConstructType extends AnalyticCompiledExpression<ConstructType,T,V>>(construct: CompiledConstructType, parent: RuntimeConstruct) : ReturnType<(typeof ExpressionConstructsRuntimeMap)[CompiledConstructType["construct_type"]]>;
 export function createRuntimeExpression<T extends Type, V extends ValueCategory>(construct: CompiledExpression<T, V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 export function createRuntimeExpression<T extends Type, V extends ValueCategory, ConstructType extends CompiledExpression<T, V> | UnsupportedExpression>(construct: ConstructType, parent: RuntimeConstruct) : RuntimeExpression<T,V> {
