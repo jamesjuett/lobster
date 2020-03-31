@@ -6,7 +6,7 @@ import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
 import { CPPObject } from "./objects";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, SimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, AnalyticSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { RuntimeBlock, createRuntimeStatement } from "./statements";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { RuntimeFunctionCall } from "./functionCall";

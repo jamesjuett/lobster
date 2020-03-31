@@ -219,7 +219,7 @@ export interface DeclarationSpecifiersASTNode {
 
 export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+export type TopLevelDeclaration = AnalyticSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 
 // interface t_DeclarationTypes {
@@ -227,11 +227,11 @@ export type TopLevelDeclaration = SimpleDeclaration | FunctionDefinition | Class
 //     "function_definition": FunctionDefinition;
 // }
 
-export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[];
+export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition | InvalidConstruct;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : SimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
     if (ast.construct_type === "simple_declaration") {
         // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
@@ -263,7 +263,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         let declaredType = declarator.type;
 
         // Create the declaration itself. Which kind depends on the declared type
-        let declaration: SimpleDeclaration;
+        let declaration: AnalyticSimpleDeclaration;
         if (!declaredType) {
             declaration = new UnknownTypeDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
         }
@@ -317,7 +317,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
     });
 }
 
-export type AnalyticDeclaration = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+export type AnalyticDeclaration = AnalyticSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 export type TypedDeclarationKinds<T extends Type> = {
     "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
@@ -353,8 +353,8 @@ export type CompiledDeclarationKinds<T extends Type> = {
     // TODO: add rest of discriminants and their types
 };
 
-export type AnalyticTypedDeclaration<C extends AnalyticDeclaration, T extends Type = Type> = TypedDeclarationKinds<T>[C["construct_type"]];
-export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends Type = Type> = CompiledDeclarationKinds<T>[C["construct_type"]];
+export type AnalyticTypedDeclaration<C extends AnalyticDeclaration, T extends Type = NonNullable<C["type"]>> = TypedDeclarationKinds<T>[C["construct_type"]];
+export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends Type = NonNullable<C["type"]>> = CompiledDeclarationKinds<T>[C["construct_type"]];
 
 
 
@@ -365,7 +365,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
     // public readonly construct_type = "simple_declaration";
     // public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
@@ -403,20 +403,20 @@ abstract class SimpleDeclarationBase<ContextType extends TranslationUnitContext 
 
 }
 
-// interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclarationBase {
-//     readonly type: T;
-//     readonly declaredEntity: CPPEntity<NoRefType<T>>;
-// }
+export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
+    readonly type: T;
+    readonly declaredEntity: CPPEntity<NoRefType<T>>;
+}
 
-// interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
-//     readonly typeSpecifier: CompiledTypeSpecifier;
-//     readonly storageSpecifier: CompiledStorageSpecifier;
-//     readonly declarator: CompiledDeclarator;
+export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator;
 
-//     readonly initializer?: CompiledInitializer;
-// }
+    readonly initializer?: CompiledInitializer;
+}
 
-export type SimpleDeclaration = 
+export type AnalyticSimpleDeclaration = 
     UnknownTypeDeclaration |
     VoidDeclaration |
     TypedefDeclaration |
@@ -425,7 +425,7 @@ export type SimpleDeclaration =
     FunctionDeclaration |
     VariableDefinition;
 
-export class UnknownTypeDeclaration extends SimpleDeclarationBase {
+export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly construct_type = "unknown_type_declaration";
     public readonly t_compiled!: never;
 
@@ -447,7 +447,7 @@ export class UnknownTypeDeclaration extends SimpleDeclarationBase {
     
 }
 
-export class VoidDeclaration extends SimpleDeclarationBase {
+export class VoidDeclaration extends SimpleDeclaration {
     public readonly construct_type = "void_declaration";
     public readonly t_compiled!: never;
     
@@ -463,7 +463,7 @@ export class VoidDeclaration extends SimpleDeclarationBase {
     
 }
 
-export class TypedefDeclaration extends SimpleDeclarationBase {
+export class TypedefDeclaration extends SimpleDeclaration {
     public readonly construct_type = "storage_specifier";
     public readonly t_compiled!: never;
 
@@ -485,7 +485,7 @@ export class TypedefDeclaration extends SimpleDeclarationBase {
     
 }
 
-export class FriendDeclaration extends SimpleDeclarationBase {
+export class FriendDeclaration extends SimpleDeclaration {
     public readonly construct_type = "friend_declaration";
     public readonly t_compiled!: never;
     
@@ -510,7 +510,7 @@ export class FriendDeclaration extends SimpleDeclarationBase {
     
 }
 
-export class UnknownBoundArrayDeclaration extends SimpleDeclarationBase {
+export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     public readonly construct_type = "unknown_array_bound_declaration";
     public readonly t_compiled!: never;
 
@@ -532,7 +532,7 @@ export interface TypedUnknownBoundArrayDeclaration<T extends ArrayOfUnknownBound
     readonly type: T;
 }
 
-export class FunctionDeclaration extends SimpleDeclarationBase {
+export class FunctionDeclaration extends SimpleDeclaration {
     public readonly construct_type = "function_declaration";
     public readonly t_compiled!: CompiledFunctionDeclaration;
 
@@ -610,7 +610,7 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
 }
 
-abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclarationBase<ContextType> {
+abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
     // public abstract readonly t_compiled: CompiledVariableDefinitionBase<ContextType>;
 
     public readonly initializer?: Initializer;

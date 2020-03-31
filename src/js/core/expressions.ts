@@ -119,10 +119,10 @@ export type AnalyticExpression =
     TernaryExpression |
     AssignmentExpression |
     // CompoundAssignmentExpression |
-    BinaryOperatorExpression |
+    AnalyticBinaryOperatorExpression |
     // PointerToMemberExpression |
     // CStyleCastExpression |
-    UnaryOperatorExpression | // TODO change to union type
+    AnalyticUnaryOperatorExpression | // TODO change to union type
     SubscriptExpression |
     FunctionCallExpression |
     // ConstructExpression |
@@ -265,16 +265,10 @@ export class UnsupportedExpression extends Expression<ExpressionASTNode> {
         super(context);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
-
-    // Will never be called since an UnsupportedExpression will always have errors and
-    // never satisfy the required this context of Compiled<Expression
-    // public createRuntimeExpression(this: CompiledExpressionBase<parent: RuntimeConstruct) : never {
-    //     throw new Error("Cannot create a runtime instance of an unsupported construct.");
-    // }
     
-    // public createDefaultOutlet(this: CompiledExpressionBase<element: JQuery, parent?: ConstructOutlet) : never {
-    //     throw new Error("Cannot create an outlet for an unsupported construct.");
-    // }
+    public createDefaultOutlet(this: never, element: JQuery, parent?: ConstructOutlet) : never {
+        throw new Error("Cannot create an outlet for an unsupported construct.");
+    }
 
     public describeEvalResult(depth: number): ConstructDescription {
         return {
@@ -1172,7 +1166,7 @@ export type BinaryOperatorExpressionASTNode =
 
 type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
-abstract class BinaryOperatorExpressionBase extends Expression<BinaryOperatorExpressionASTNode> {
+abstract class BinaryOperatorExpression extends Expression<BinaryOperatorExpressionASTNode> {
     
     public abstract readonly type?: AtomicType;
     public readonly valueCategory = "prvalue";
@@ -1187,13 +1181,13 @@ abstract class BinaryOperatorExpressionBase extends Expression<BinaryOperatorExp
         this.operator = operator;
     }
 
-    public createDefaultOutlet(this: CompiledBinaryOperatorExpressionBase, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledBinaryOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
         return new BinaryOperatorExpressionOutlet(element, this, parent);
     }
 }
 
 // export interface CompiledBinaryOperatorExpressionBase<T extends AtomicType = AtomicType>
-export type BinaryOperatorExpression = 
+export type AnalyticBinaryOperatorExpression = 
     ArithmeticBinaryOperatorExpression |
     PointerDifferenceExpression |
     PointerOffsetExpression |
@@ -1201,25 +1195,25 @@ export type BinaryOperatorExpression =
     PointerComparisonExpression |
     LogicalBinaryOperatorExpression;
 
-interface TypedBinaryOperatorExpressionBase<T extends AtomicType = AtomicType> extends BinaryOperatorExpressionBase {
+export interface TypedBinaryOperatorExpression<T extends AtomicType = AtomicType> extends BinaryOperatorExpression {
     readonly type: T;
     readonly left: TypedExpression<AtomicType, "prvalue">;
     readonly right: TypedExpression<AtomicType, "prvalue">;
 }
 
-interface CompiledBinaryOperatorExpressionBase<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpressionBase<T>, SuccessfullyCompiled {
+export interface CompiledBinaryOperatorExpression<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     // Note valueCategory is defined as "prvalue" in BinaryOperator
     readonly left: CompiledExpression<AtomicType, "prvalue">;
     readonly right: CompiledExpression<AtomicType, "prvalue">;
 }
 
-// interface RuntimeBinaryOperatorBase extends RuntimeExpression<AtomicType, "prvalue", CompiledBinaryOperatorExpressionBase<AtomicType>> {
+export interface RuntimeBinaryOperator extends RuntimeExpression<AtomicType, "prvalue", CompiledBinaryOperatorExpression<AtomicType>> {
 
-//     readonly left: RuntimeExpression<AtomicType, "prvalue">;
-//     readonly right: RuntimeExpression<AtomicType, "prvalue">;
+    readonly left: RuntimeExpression<AtomicType, "prvalue">;
+    readonly right: RuntimeExpression<AtomicType, "prvalue">;
 
-// }
+}
 
 
 
@@ -1274,7 +1268,7 @@ const ARITHMETIC_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
     }
 }
 
-export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpressionBase {
+export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression {
     public readonly construct_type = "arithmetic_binary_operator_expression";
     
     public readonly type?: ArithmeticType;
@@ -1399,7 +1393,7 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType = Arithmet
     }
 }
 
-export class PointerDifferenceExpression extends BinaryOperatorExpressionBase {
+export class PointerDifferenceExpression extends BinaryOperatorExpression {
     public readonly construct_type = "pointer_diference_expression";
     
     public readonly type: Int;
@@ -1503,7 +1497,7 @@ export class RuntimePointerDifference extends SimpleRuntimeExpression<Int, "prva
     }
 }
 
-export class PointerOffsetExpression extends BinaryOperatorExpressionBase {
+export class PointerOffsetExpression extends BinaryOperatorExpression {
     public readonly construct_type = "pointer_offset_expression";
     
     public readonly type?: PointerType;
@@ -1673,7 +1667,7 @@ const RELATIONAL_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
     },
 }
 
-export class RelationalBinaryOperatorExpression extends BinaryOperatorExpressionBase {
+export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression {
     public readonly construct_type = "relational_binary_operator_expression";
     
     public readonly type = Bool.BOOL;
@@ -1770,7 +1764,7 @@ export class RuntimeRelationalBinaryOperator<OperandT extends ArithmeticType = A
 
 
 
-export class PointerComparisonExpression extends BinaryOperatorExpressionBase {
+export class PointerComparisonExpression extends BinaryOperatorExpression {
     public readonly construct_type = "pointer_comparison_expression";
 
     public readonly type: Bool;
@@ -1867,7 +1861,7 @@ export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
 
 type t_LogicalBinaryOperators = "&&" | "||";
 
-export class LogicalBinaryOperatorExpression extends BinaryOperatorExpressionBase {
+export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression {
     public readonly construct_type = "logical_binary_operator_expression";
     
     public readonly type = new Bool();
@@ -2071,7 +2065,7 @@ export interface DeleteArrayExpressionASTNode extends ASTNode {
 
 type t_UnaryOperators = "++" | "--" | "*" | "&" | "+" | "-" | "!" | "~" | "sizeof" | "new" | "delete" | "delete[]";
 
-abstract class UnaryOperatorExpressionBase extends Expression<UnaryOperatorExpressionASTNode> {
+abstract class UnaryOperatorExpression extends Expression<UnaryOperatorExpressionASTNode> {
     
     public abstract readonly type?: ObjectType | VoidType; // VoidType is due to delete, delete[]
 
@@ -2089,25 +2083,28 @@ abstract class UnaryOperatorExpressionBase extends Expression<UnaryOperatorExpre
 
 }
 
-export type UnaryOperatorExpression =
+export type AnalyticUnaryOperatorExpression =
     DereferenceExpression |
     AddressOfExpression;
 
-export interface CompiledUnaryOperatorExpression<T extends ObjectType | VoidType = ObjectType | VoidType> extends UnaryOperatorExpressionBase, SuccessfullyCompiled {
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+export interface TypedUnaryOperatorExpression<T extends ObjectType | VoidType = ObjectType | VoidType, V extends ValueCategory = ValueCategory> extends UnaryOperatorExpression {
     readonly type: T;
     readonly valueCategory: ValueCategory;
+}
+
+export interface CompiledUnaryOperatorExpression<T extends ObjectType | VoidType = ObjectType | VoidType, V extends ValueCategory = ValueCategory> extends TypedUnaryOperatorExpression<T,V>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression;
 }
 
 
-// export interface RuntimeUnaryOperator extends RuntimeExpression<ObjectType | VoidType, ValueCategory, CompiledUnaryOperatorExpression<ObjectType | VoidType>> {
+export interface RuntimeUnaryOperatorExpression extends RuntimeExpression<ObjectType | VoidType, ValueCategory, CompiledUnaryOperatorExpression<ObjectType | VoidType>> {
 
-//     readonly operand: RuntimeExpression;
+    readonly operand: RuntimeExpression;
 
-// }
+}
 
-export class DereferenceExpression extends UnaryOperatorExpressionBase {
+export class DereferenceExpression extends UnaryOperatorExpression {
     public readonly construct_type = "dereference_expression";
     
     public readonly type?: ObjectType;
@@ -2244,7 +2241,7 @@ export class RuntimeDereferenceExpression<T extends ObjectType> extends SimpleRu
 }
 
 
-export class AddressOfExpression extends UnaryOperatorExpressionBase {
+export class AddressOfExpression extends UnaryOperatorExpression {
     public readonly construct_type = "address_of_expression";
     
     public readonly type?: PointerType;

@@ -29,7 +29,7 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     // public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 
-    // public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
+    public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
 
     public isWellTyped() : this is TypedExpression {
         return !!this.type && !!this.valueCategory;
