@@ -26,8 +26,15 @@ function isVowel(c: string) {
 //     size_t : true
 // };
 
-export function isType<T extends Type>(type: Type, ctor: Constructor<T>) : type is InstanceType<typeof ctor> {
-    return type.isType(ctor);
+export function isType<T extends Type>(ctor: Constructor<T>) : (type: Type) => type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(type: Type, ctor: Constructor<T>) : type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?: Constructor<T>) {
+    if (typeOrCtor instanceof TypeBase) {
+        return typeOrCtor.isType(ctor!);
+    }
+    else {
+        return (type: Type) => type.isType(typeOrCtor)
+    }
 };
 
 export function sameType(type1: Type, type2: Type) {

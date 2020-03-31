@@ -1,7 +1,7 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct, ConstructKind } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, RuntimeFunction, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression } from "./expressions";
-import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, SimpleDeclaration } from "./declarations";
+import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, SimpleDeclaration, AnalyticCompiledDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -55,6 +55,8 @@ const StatementConstructsRuntimeMap = {
     "null_statement": (construct: CompiledNullStatement, parent: RuntimeStatement) => new RuntimeNullStatement(construct, parent)
 };
 
+export function createRuntimeStatement<ConstructType extends CompiledBlock>(construct: ConstructType, parent: RuntimeStatement | RuntimeFunction) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
+export function createRuntimeStatement<ConstructType extends CompiledStatement | UnsupportedStatement>(construct: ConstructType, parent: RuntimeStatement) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
 export function createRuntimeStatement<ConstructType extends CompiledStatement | UnsupportedStatement>(construct: ConstructType, parent: RuntimeStatement) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]> {
     return <any>StatementConstructsRuntimeMap[construct.construct_type](<any>construct, parent);
 }
@@ -278,7 +280,7 @@ export class DeclarationStatement extends StatementBase<DeclarationStatementASTN
 export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
     
     // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
-    readonly declarations: readonly CompiledSimpleDeclaration[];
+    readonly declarations: readonly AnalyticCompiledDeclaration<SimpleDeclaration>[];
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {

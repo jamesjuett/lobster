@@ -1,4 +1,4 @@
-import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds } from "./expressions";
 
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -13,7 +13,6 @@ import { Value } from "./runtimeEnvironment";
 
 import { CPPObject } from "./objects";
 import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
-import { AnalyticTypedExpression } from "./predicates";
 
 
 export type ValueCategory = "prvalue" | "lvalue";
@@ -88,8 +87,6 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return !!this.type && this.type.isFunctionType();
     }
 
-    public isPrvalue<T extends Type, V extends ValueCategory, A extends AnalyticExpression>(this: AnalyticTypedExpression<A,T,V>) : this is AnalyticTypedExpression<A, T,"prvalue">;
-    public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue">;
     public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T,V>) : this is TypedExpression<T,"prvalue"> {
         return this.valueCategory === "prvalue";
     }

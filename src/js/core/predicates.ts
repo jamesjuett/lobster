@@ -1,14 +1,27 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression } from "./expressions";
 import { ValueCategory } from "./expressionBase";
-import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition } from "./declarations";
+import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, SimpleDeclaration, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int } from "./types";
-import { ConstructKind, ConstructUnion } from "./constructs";
 import { DiscriminateUnion } from "../util/util";
+import { ImplicitConversion } from "./standardConversions";
 
 
-export type AnalyticTypedExpression<C extends AnalyticExpression, T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpressionKinds<T,V>[C["construct_type"]];
-export type AnalyticCompiledExpression<C extends AnalyticExpression, T extends Type = Type, V extends ValueCategory = ValueCategory> = CompiledExpressionKinds<T,V>[C["construct_type"]];
+
+export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_type"];
+
+export type AnalyticConstruct = AnalyticDeclaration | TypeSpecifier | StorageSpecifier | AnalyticExpression;
+
+// type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
+// export type AnalyticTyped<C extends AnalyticConstruct, T extends Type = Type> =
+//     C extends AnalyticDeclaration ? AnalyticTypedDeclaration<C, T> :
+//     C extends AnalyticExpression ? AnalyticTypedExpression<C, T> : never;
+// // export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends AnalyticDeclaration["type"] = AnalyticDeclaration["type"]> = CompiledDeclarationKinds<T>[C["construct_type"]];
+
+// export type AnalyticCompiled<C extends AnalyticConstruct> =
+//     C extends AnalyticDeclaration ? AnalyticCompiledDeclaration<C> :
+//     C extends AnalyticExpression ? AnalyticCompiledExpression<C> : never;
+// let x!: AnalyticTyped<AnalyticTyped<TernaryExpression, Int>, Bool>;
 
 export namespace Predicates {
     
@@ -25,34 +38,17 @@ export namespace Predicates {
     //     return decl instanceof SimpleDeclaration;
     // }
 
-    export function byKinds<NarrowedKind extends ConstructKind<ConstructUnion>>(constructKinds: readonly NarrowedKind[]) {
-        return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
-            construct is (Narrowed extends Original ? Narrowed : never)>
-                ((construct) => (<readonly string[]>constructKinds).indexOf(construct.construct_type) !== -1);
-    }
-
-    export function byKind<NarrowedKind extends ConstructKind<ConstructUnion>>(constructKind: NarrowedKind) {
+    export function byKind<NarrowedKind extends ConstructKind<AnalyticConstruct>>(constructKind: NarrowedKind) {
         return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
             construct is (Narrowed extends Original ? Narrowed : never)>
                 ((construct) => construct.construct_type === constructKind);
     }
 
-    type TypedKinds<T extends Type> = {
-        "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
-        "void_declaration" : T extends VoidType ? VoidDeclaration : never;
-        "storage_specifier" : never;
-        "friend_declaration" : never;
-        "unknown_array_bound_declaration" : T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
-        "function_declaration" : T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
-        "local_variable_definition" : T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
-        "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
-        "parameter_declaration" : T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
-        "declarator" : T extends Declarator["type"] ? TypedDeclarator<T> : never;
-        "function_definition" : T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
-        "class_declaration" : T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
-        "class_definition" : T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
-        // TODO: add rest of discriminants and their types
-    };
+    export function byKinds<NarrowedKind extends ConstructKind<AnalyticConstruct>>(constructKinds: readonly NarrowedKind[]) {
+        return </*¯\_(ツ)_/¯*/<Original extends {construct_type: string}, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)>
+                ((construct) => (<readonly string[]>constructKinds).indexOf(construct.construct_type) !== -1);
+    }
 
     // export function isTyped<OriginalT extends Type, NarrowedT extends Type,
     //     Original extends ConstructUnion & {type?: OriginalT},
@@ -61,23 +57,35 @@ export namespace Predicates {
     //     return !!decl.type && (!typePredicate || typePredicate(decl.type));
     // }
 
-    export function byType<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends ConstructUnion & {type?: OriginalT},
-        Narrowed extends TypedKinds<NarrowedT>[Original["construct_type"]]>(construct: Original) =>
-            construct is (Narrowed extends Original ? Narrowed : never)>
+    export function byTypedExpression<NarrowedT extends Type, NarrowedVC extends ValueCategory>(typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC) {
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends AnalyticConstruct & {type?: OriginalT},
+        Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)> // TODO conditional on this line can probably be removed
+                ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)) && (<any>construct).valueCategory === valueCategory);
+    }
+
+    export function isTypedExpression<OriginalT extends Type, NarrowedT extends Type, NarrowedVC extends ValueCategory,
+        Original extends AnalyticConstruct & {type?: OriginalT}, Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>
+        (construct: Original, typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC) : construct is (Narrowed extends Original ? Narrowed : never) { // TODO conditional on this line can probably be removed 
+            return !!(construct.type && (!typePredicate || typePredicate(construct.type)) && (<any>construct).valueCategory === valueCategory);
+    }
+
+    // Basically copies of above but with Declaration swapping in for Expression and ValueCategory removed
+    export function byTypedDeclaration<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT) {
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends AnalyticConstruct & {type?: OriginalT},
+        Narrowed extends (Original extends AnalyticDeclaration ? AnalyticTypedDeclaration<Original, NarrowedT> : never)>(construct: Original) =>
+            construct is (Narrowed extends Original ? Narrowed : never)> // TODO conditional on this line can probably be removed
                 ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)));
     }
-}
 
+    export function isTypedDeclaration<OriginalT extends Type, NarrowedT extends Type,
+        Original extends AnalyticConstruct & {type?: OriginalT}, Narrowed extends (Original extends AnalyticDeclaration ? AnalyticTypedDeclaration<Original, NarrowedT> : never)>
+        (construct: Original, typePredicate?: (o: Type) => o is NarrowedT) : construct is (Narrowed extends Original ? Narrowed : never) { // TODO conditional on this line can probably be removed 
+            return !!(construct.type && (!typePredicate || typePredicate(construct.type)));
+    }
 
-function blah<T extends Type = Type, V extends ValueCategory = ValueCategory>() {
-    let x!: AnalyticCompiledExpression<TernaryExpression,Bool,ValueCategory>;
-    let y!: AnalyticTypedExpression<TernaryExpression,AtomicType,ValueCategory>;
-    y = x;
-
-    let a!: TypedCommaExpression<Int, ValueCategory> | TernaryExpression;
-    a = x;
-
-    let b!: AnalyticExpression;
-    b = x;
+    // export function byCompiled<Original extends AnalyticDeclaration>(construct: Original) : construct is AnalyticCompiledDeclaration<Original> {
+    //     return construct.isSuccessfullyCompiled();
+    // }
+    
 }

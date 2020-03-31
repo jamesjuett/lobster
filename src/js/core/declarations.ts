@@ -317,6 +317,47 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
     });
 }
 
+export type AnalyticDeclaration = SimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+
+export type TypedDeclarationKinds<T extends Type> = {
+    "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
+    "void_declaration" : T extends VoidType ? VoidDeclaration : never;
+    "storage_specifier" : never;
+    "friend_declaration" : never;
+    "unknown_array_bound_declaration" : T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
+    "function_declaration" : T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
+    "local_variable_definition" : T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
+    "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
+    "parameter_declaration" : T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
+    "declarator" : T extends Declarator["type"] ? TypedDeclarator<T> : never;
+    "function_definition" : T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
+    "class_declaration" : T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
+    "class_definition" : T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
+    // TODO: add rest of discriminants and their types
+};
+
+export type CompiledDeclarationKinds<T extends Type> = {
+    "unknown_type_declaration" : never; // these never compile
+    "void_declaration" : never; // these never compile
+    "storage_specifier" : never; // currently unsupported
+    "friend_declaration" : never; // currently unsupported
+    "unknown_array_bound_declaration" : never;  // TODO: should this ever be supported? Can you ever have one of these compile?
+    "function_declaration" : T extends FunctionDeclaration["type"] ? CompiledFunctionDeclaration<T> : never;
+    "local_variable_definition" : T extends LocalVariableDefinition["type"] ? CompiledLocalVariableDefinition<T> : never;
+    "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? CompiledGlobalVariableDefinition<T> : never;
+    "parameter_declaration" : T extends ParameterDeclaration["type"] ? CompiledParameterDeclaration<T> : never;
+    "declarator" : T extends Declarator["type"] ? CompiledDeclarator<T> : never;
+    "function_definition" : T extends FunctionDeclaration["type"] ? CompiledFunctionDefinition<T> : never;
+    "class_declaration" : T extends ClassDeclaration["type"] ? CompiledClassDeclaration<T> : never;
+    "class_definition" : T extends ClassDefinition["type"] ? CompiledClassDefinition<T> : never;
+    // TODO: add rest of discriminants and their types
+};
+
+export type AnalyticTypedDeclaration<C extends AnalyticDeclaration, T extends Type = Type> = TypedDeclarationKinds<T>[C["construct_type"]];
+export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends Type = Type> = CompiledDeclarationKinds<T>[C["construct_type"]];
+
+
+
 
 export interface SimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
@@ -382,8 +423,7 @@ export type SimpleDeclaration =
     FriendDeclaration |
     UnknownBoundArrayDeclaration |
     FunctionDeclaration |
-    VariableDefinition |
-    ParameterDeclaration;
+    VariableDefinition;
 
 export class UnknownTypeDeclaration extends SimpleDeclarationBase {
     public readonly construct_type = "unknown_type_declaration";

@@ -1,15 +1,15 @@
-import { CPPConstruct, isSuccessfullyCompiled, ConstructUnion } from "./constructs";
+import { CPPConstruct } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
 import { AssignmentExpression, BinaryOperatorExpression, NumericLiteralExpression } from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, CompiledSimpleDeclaration, TypedLocalVariableDefinition, SimpleDeclarationBase } from "./declarations";
+import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, TypedLocalVariableDefinition } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
-import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType, isPointerType, isFunctionType } from "./types";
+import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType, isPointerType, isFunctionType, isType, Int } from "./types";
 import { Expression } from "./expressionBase";
-import { Predicates } from "./predicates";
+import { Predicates, AnalyticConstruct } from "./predicates";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 
@@ -44,7 +44,7 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
     root.children.forEach(child => exploreConstructs(child, test, fn));
 }
 
-export function findConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<ConstructUnion, T>) {
+export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
     let found : T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
@@ -95,7 +95,7 @@ export function analyze(program: Program) {
     let pointerAssignments = findConstructs(swapPtdInts, constructTest(AssignmentExpression))
         .filter(assn => assn.isPointerTyped());
 
-    let localDefs = findConstructs(swapPtdInts, constructTest(VariableDefinition));
+    let localDefs = findConstructs(swapPtdInts, constructTest(LocalVariableDefinition));
     let pointerDefs = localDefs.filter(def => def.type && def.type.isPointerType());
     let nonPointerDefs = localDefs.filter(def => def.type && !def.type.isPointerType());
 
@@ -140,7 +140,7 @@ export function analyze(program: Program) {
     // Heuristic 5
     // Pass by value paramParam in swap with same name as param in main
     passByValueParams.filter(
-        param => findConstructs(main!, constructTest(VariableDefinition)).find(def => def.name === param.name)
+        param => findConstructs(main!, constructTest(LocalVariableDefinition)).find(def => def.name === param.name)
     ).forEach(
         param => param.addNote(new CompilerNote(param, NoteKind.STYLE, "analysis.4",
             `Note that the parameter ${param.name} is not the same variable as the ${param.name} declared in main(). The two variables have different scopes and correspond to separate objects at runtime.`))
@@ -161,45 +161,53 @@ export function analyze(program: Program) {
 function analyze2(program: Program) {
 
     // 1. Find all local variable definitions in the program
-    let pointerTypedConstructs = findConstructs(program, Predicates.byType(isPointerType));
+    let pointerTypedConstructs = findConstructs(program, Predicates.byTypedExpression(isPointerType));
     let localDefs = findConstructs(program, Predicates.byKind("local_variable_definition"));
 
     // 2. Narrow those down to only the ones that define pointer variables
-    let pointerDefs = pointerTypedConstructs.filter(Predicates.byKind("function_definition"));
-    let pointerDef2 = localDefs.filter(Predicates.byType(isPointerType));
+    let pointerDefs = pointerTypedConstructs.filter(Predicates.byKind("local_variable_definition"));
+    let pointerDef2 = localDefs.filter(Predicates.byTypedExpression(isPointerType));
 
-    // 3. Or just do 1 and 2 with a more specific findConstructs call
-    let funcDecls2 = findConstructs(program, Predicates.byType(isFunctionType));
+    // 3. Find everything with a function type. This could be a function declaration or definition,
+    // or curiously enough some kinds of expressions (e.g. a parentheses expression around a function identifier)
+    let funcDecls2 = findConstructs(program, Predicates.byTypedExpression(isFunctionType));
 
-    let afdljs = localDefs[0];
-    if (Predicates.isTyped(afdljs, isFunctionType)) {
-        afdljs
-    }
+    // 4. An impossible ask, filter our pointer definitions down to those with class type.
+    //    Our predicates are smart enough to rule this out! The type returned from filter is never[]!
+    let whichPointerDefsAreSecretlyClasses = pointerDefs.filter(Predicates.byTypedExpression(isClassType));
 
-    let whichIntDefsAreSecretlyClasses = integralDefs.filter(SimpleDeclarationBase.typedPredicate(isClassType));
-    //  ^ Type of that is never[], because it's impossible!
+    // 5.a. Find all logical binary operators
+    let binOps = findConstructs(program, Predicates.byKind("logical_binary_operator_expression"));
+    let t5 = binOps[0].type; // type is Bool
 
-    let forLoops = findConstructs(program, constructTest(ForStatement));
-    forLoops.forEach(forLoop => {
-        forLoop.condition // <--- Type of .condition here is Expression
-        forLoop.condition.type
-        // ^ Type of .type here is VoidType | AtomicType | BoundedArrayType<ArrayElemType> |
-        //                         ClassType | FunctionType | ReferenceType<ObjectType> |
-        //                         ArrayOfUnknownBoundType<ArrayElemType> | undefined
+    // type is Expression. While the compiler knows a logical binary operator (e.g. &&) will always
+    // yield a bool, it doesn't know that the operands it was given are any particular type 
+    let left5 = binOps[0].left;
 
-        if (forLoop.isSuccessfullyCompiled()) { // Inside this if, TS does type inference based on a proper for loop
-            forLoop.condition // <--- Type of .condition here is CompiledExpression<Bool, "prvalue">
-            forLoop.condition.type // <--- Type of .type here is Bool
+    // 5.b.
+    // let compiledBinOps = binOps.filter();
 
-        }
-    });
+    // let forLoops = findConstructs(program, Predicates.byKind("for_statement"));
+    // forLoops.forEach(forLoop => {
+    //     forLoop.condition // <--- Type of .condition here is Expression
+    //     forLoop.condition.type
+    //     // ^ Type of .type here is VoidType | AtomicType | BoundedArrayType<ArrayElemType> |
+    //     //                         ClassType | FunctionType | ReferenceType<ObjectType> |
+    //     //                         ArrayOfUnknownBoundType<ArrayElemType> | undefined
 
-    let x!: never;
-    let y = 3 / x;
-    // // let arrayDefs = filterConstructsByType<LocalVariableDefinition, TypedLocalVariableDefinition<ObjectType | ReferenceType>, ObjectType | ReferenceType, BoundedArrayType>(isBoundedArrayType, varDefs);
-    // // arrayDefs[0].type
-    // let arrayDefs = filterConstructsByType<BoundedArrayType>(isBoundedArrayType, varDefs);
-    arrayDefs[0].type.length
+    //     if (forLoop.isSuccessfullyCompiled()) { // Inside this if, TS does type inference based on a proper for loop
+    //         forLoop.condition // <--- Type of .condition here is CompiledExpression<Bool, "prvalue">
+    //         forLoop.condition.type // <--- Type of .type here is Bool
+
+    //     }
+    // });
+
+    // let x!: never;
+    // let y = 3 / x;
+    // // // let arrayDefs = filterConstructsByType<LocalVariableDefinition, TypedLocalVariableDefinition<ObjectType | ReferenceType>, ObjectType | ReferenceType, BoundedArrayType>(isBoundedArrayType, varDefs);
+    // // // arrayDefs[0].type
+    // // let arrayDefs = filterConstructsByType<BoundedArrayType>(isBoundedArrayType, varDefs);
+    // arrayDefs[0].type.length
     // let x!: LocalVariableDefinition;
 
     // if (x.isTypedDeclaration(isBoundedArrayType)()) {
