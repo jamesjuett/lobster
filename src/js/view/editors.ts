@@ -9,7 +9,7 @@ import 'codemirror/keymap/sublime.js'
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
-import { analyze, eecs183_l03_03, projectAnalyses } from "../core/analysis";
+import { projectAnalyses } from "../core/analysis";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
