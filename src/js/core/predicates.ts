@@ -1,15 +1,16 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression } from "./expressions";
 import { ValueCategory } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, AnalyticSimpleDeclaration, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int } from "./types";
 import { DiscriminateUnion } from "../util/util";
+import { AnalyticStatement } from "./statements";
 
 
 
 export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_type"];
 
-export type AnalyticConstruct = AnalyticDeclaration | TypeSpecifier | StorageSpecifier | AnalyticExpression;
+export type AnalyticConstruct = AnalyticDeclaration | TypeSpecifier | StorageSpecifier | AnalyticExpression | AnalyticStatement;
 
 // type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
 // export type AnalyticTyped<C extends AnalyticConstruct, T extends Type = Type> =
@@ -83,8 +84,23 @@ export namespace Predicates {
             return !!(construct.type && (!typePredicate || typePredicate(construct.type)));
     }
 
+    export function byVariableName(name: string) {
+        return <(construct: AnalyticConstruct) => construct is (LocalVariableDefinition | GlobalVariableDefinition)>
+                ((construct) => (construct instanceof LocalVariableDefinition || construct instanceof GlobalVariableDefinition) && construct.name === name);
+    }
+
+    export function byFunctionName(name: string) {
+        return <(construct: AnalyticConstruct) => construct is FunctionDefinition>
+                ((construct) => (construct instanceof FunctionDefinition) && construct.name === name);
+    }
+
+    export function byIdentifierName<N extends string>(name: N) {
+        return <(construct: AnalyticConstruct) => construct is IdentifierExpression & {name: N}>
+                ((construct) => (construct instanceof IdentifierExpression) && construct.name === name);
+    }
+
     // export function byCompiled<Original extends AnalyticDeclaration>(construct: Original) : construct is AnalyticCompiledDeclaration<Original> {
     //     return construct.isSuccessfullyCompiled();
     // }
-    
+
 }

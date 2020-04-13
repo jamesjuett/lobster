@@ -9,7 +9,7 @@ import 'codemirror/keymap/sublime.js'
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
-import { analyze } from "../core/analysis";
+import { analyze, eecs183_l03_03, projectAnalyses } from "../core/analysis";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -66,7 +66,7 @@ export class ProjectEditor {
     private codeMirror: CodeMirror.Editor;
 
     public constructor(element: JQuery) {
-        
+
         let codeMirrorElement = element.find(".codeMirrorEditor");
         assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
         this.codeMirror = CodeMirror(codeMirrorElement[0], {
@@ -88,16 +88,16 @@ export class ProjectEditor {
 
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
-        
+
         this.program = new Program([], []);
-        
+
         ProjectEditor.instances.push(this);
     }
 
     public isTranslationUnit(tuName: string) {
         // If it's a valid source file, its name will be a key in the map
         assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
-        
+
         return this.translationUnitNamesMap[tuName];
     }
 
@@ -105,12 +105,12 @@ export class ProjectEditor {
      * Toggles whether a source file in this project is being used as a translation unit
      * and should be compiled as part of the program. The name given for the translation
      * unit to be toggled must match the name of one of this project's source files.
-     * @param tuName 
+     * @param tuName
      */
     public toggleTranslationUnit(tuName: string) {
         // If it's a valid source file, its name will be a key in the map
         assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
-        
+
         let isTU = this.translationUnitNamesMap[tuName] = !this.translationUnitNamesMap[tuName];
         if (isTU) {
             this.observable.send("translationUnitAdded");
@@ -184,7 +184,7 @@ export class ProjectEditor {
 
         _this.isSaved = true;
         _this.isOpen = false;
-        
+
         this.fileTabs = {};
         this.filesElem.empty();
         this.fileEditors = {};
@@ -248,13 +248,14 @@ export class ProjectEditor {
         (<Mutable<this>>this).program = new Program(this.sourceFiles,
             this.sourceFiles.map(file => file.name).filter(name => this.isTranslationUnit(name)));
 
-        analyze(this.program);
+        if (this.projectName)
+            projectAnalyses[this.projectName](this.program);
 
         Object.keys(this.fileEditors).forEach((ed: string) => {
             this.fileEditors[ed].clearMarks();
             this.fileEditors[ed].clearGutterErrors();
         });
-        
+
         this.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
@@ -292,7 +293,7 @@ export class ProjectEditor {
             this.fileTabs[name].tab("show");
             editor.gotoSourceReference(sourceRef);
         }
-        
+
     }
 
     // @messageResponse()
@@ -355,7 +356,7 @@ export class ProjectSaveOutlet {
         this.projectEditor = projectEditor;
         addListener(projectEditor, this);
 
-        this.saveButtonElem = 
+        this.saveButtonElem =
             $('<button class="btn btn-default"></button>')
             .prop("disabled", true)
             .html('<span class="glyphicon glyphicon-floppy-remove"></span>')
@@ -390,7 +391,7 @@ export class ProjectSaveOutlet {
         this.saveButtonElem.addClass("btn-success-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
     }
-    
+
     @messageResponse()
     private unsavedChanges() {
         this.saveButtonElem.removeClass("btn-default");
@@ -398,7 +399,7 @@ export class ProjectSaveOutlet {
         this.saveButtonElem.addClass("btn-warning-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
     }
-    
+
     @messageResponse()
     private saveAttempted() {
         this.saveButtonElem.removeClass("btn-default");
@@ -406,7 +407,7 @@ export class ProjectSaveOutlet {
         this.saveButtonElem.addClass("btn-warning-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open pulse"></span>');
     }
-    
+
     @messageResponse()
     private saveSuccessful() {
         this.saveButtonElem.removeClass("btn-default");
@@ -424,7 +425,7 @@ export class ProjectSaveOutlet {
 export class CompilationOutlet {
 
     public _act!: MessageResponses;
-    
+
     private readonly projectEditor: ProjectEditor;
     private readonly compilationNotesOutlet: CompilationNotesOutlet;
 
@@ -496,7 +497,7 @@ export class CompilationNotesOutlet {
         this.element = element;
     }
 
-    public updateNotes(notes: Program): void; 
+    public updateNotes(notes: Program): void;
     public updateNotes(msg: Message<Program>): void;
     @messageResponse("compilationFinished")
     public updateNotes(program: Program | Message<Program>) {
@@ -539,7 +540,7 @@ export class CompilationNotesOutlet {
 
         return elem;
     }
-    
+
     @messageResponse("gotoSourceReference")
     private gotoSourceReference(msg: Message<SourceReference>) {
         this.observable.send("gotoSourceReference", msg.data);
@@ -553,7 +554,7 @@ export class CompilationStatusOutlet {
     private readonly projectEditor: ProjectEditor;
 
     private readonly element: JQuery;
-    
+
     private readonly notesElem: JQuery;
     private readonly errorsButton: JQuery;
     private readonly numErrorsElem: JQuery;
@@ -631,7 +632,7 @@ export class CompilationStatusOutlet {
         this.numErrorsElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.ERROR));
         this.numWarningsElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.WARNING));
         this.numStyleElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.STYLE));
-        
+
         this.compileButton.removeClass("btn-warning-muted");
         this.compileButton.addClass("btn-success-muted");
         this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
@@ -646,7 +647,7 @@ export class CompilationStatusOutlet {
 }
 
 class SourceReferenceOutlet {
-    
+
     public observable = new Observable(this);
 
     private readonly element: JQuery;
@@ -669,14 +670,14 @@ class SourceReferenceOutlet {
 const IDLE_MS_BEFORE_UPDATE = 500;
 const CODEMIRROR_MODE = "text/x-c++src";
 // const FILE_EDITOR_DEFAULT_SOURCE : SourceFile = {
-//     name: 
+//     name:
 //     text: "int main(){\n  \n}",
 // }
 
 export class FileEditor {
 
     private static instances: FileEditor[] = [];
-    
+
     public observable: Observable = new Observable(this);
 
     public readonly file: SourceFile;
