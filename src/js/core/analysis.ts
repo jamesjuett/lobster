@@ -1,30 +1,73 @@
 import { CPPConstruct } from "./constructs";
 import { Program, TranslationUnit } from "./Program";
-import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression, IdentifierExpression, AnalyticExpression } from "./expressions";
+import {
+    AssignmentExpression,
+    AnalyticBinaryOperatorExpression,
+    NumericLiteralExpression,
+    IdentifierExpression,
+    AnalyticExpression,
+} from "./expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "./errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "./functionCall";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, TypedLocalVariableDefinition } from "./declarations";
+import {
+    VariableDefinition,
+    FunctionDefinition,
+    LocalVariableDefinition,
+    TypedLocalVariableDefinition,
+} from "./declarations";
 import { DirectInitializer } from "./initializers";
-import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
-import { BoundedArrayType, isBoundedArrayType, ObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "./types";
+import {
+    ForStatement,
+    CompiledForStatement,
+    UnsupportedStatement,
+    WhileStatement,
+} from "./statements";
+import {
+    BoundedArrayType,
+    isBoundedArrayType,
+    ObjectType,
+    Type,
+    ReferenceType,
+    isVoidType,
+    isAtomicType,
+    isObjectType,
+    isClassType,
+    isIntegralType,
+    isPointerType,
+    isFunctionType,
+    isType,
+    Int,
+    sameType,
+    Double,
+} from "./types";
 import { Expression } from "./expressionBase";
 import { Predicates, AnalyticConstruct } from "./predicates";
+import { commands } from "codemirror";
 
-export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
+export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (
+    construct: Original
+) => construct is T;
 
 export type CPPConstructFunctor<T extends CPPConstruct> = (construct: T) => void;
 
-export function constructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
-    return <CPPConstructTest<Original, T>>((construct: Original) => construct instanceof constructClass);
+export function constructTest<Original extends CPPConstruct, T extends Original>(
+    constructClass: Function & { prototype: T }
+) {
+    return <CPPConstructTest<Original, T>>(
+        ((construct: Original) => construct instanceof constructClass)
+    );
 }
 
 // export function compiledConstructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
 //     return <CPPConstructTest<Original, T["t_compiled"]>>((construct: Original) => construct instanceof constructClass && construct.isSuccessfullyCompiled());
 // }
 
-export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
-
+export function exploreConstructs<T extends CPPConstruct>(
+    root: CPPConstruct | TranslationUnit | Program,
+    test: CPPConstructTest<CPPConstruct, T>,
+    fn: CPPConstructFunctor<T>
+) {
     if (root instanceof Program) {
         for (let tuName in root.translationUnits) {
             exploreConstructs(root.translationUnits[tuName], test, fn);
@@ -44,15 +87,21 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
     root.children.forEach(child => exploreConstructs(child, test, fn));
 }
 
-export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    let found : T[] = [];
+export function findConstructs<T extends AnalyticConstruct>(
+    root: CPPConstruct | TranslationUnit | Program,
+    test: CPPConstructTest<AnalyticConstruct, T>
+) {
+    let found: T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
     });
     return found;
 }
 
-export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+export function findFirstConstruct<T extends AnalyticConstruct>(
+    root: CPPConstruct | TranslationUnit | Program,
+    test: CPPConstructTest<AnalyticConstruct, T>
+) {
     return findConstructs(root, test)[0];
 }
 
@@ -86,7 +135,302 @@ export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstru
 
 // Why is explicit type declaration necessary? otherwise I get string can't be used to index into object of type blah
 export const projectAnalyses: { [projectName: string]: (p: Program) => void } = {
-    "Test Project": analyze_wip
+    "Test Project": analyze,
+};
+
+// TODO probably move to predicates.ts
+function isUpdateAssignment(exp: AnalyticConstruct): exp is AssignmentExpression {
+    let lhs: IdentifierExpression;
+    return (
+        Predicates.byKind("assignment_expression")(exp) &&
+        Predicates.byKind("identifier_expression")(exp.lhs) &&
+        (lhs = exp.lhs) &&
+        findConstructs(exp.rhs, Predicates.byIdentifierName(lhs.name)).length !== 0
+    );
+}
+
+// TODO predicate for increment statement so that it can be used in findConstructs
+function findIncrementStatements(construct: CPPConstruct) {
+    // Proof of concept one-liner
+    /* let inc = findConstructs(loop,
+        // Predicates.byKinds(["prefix_increment_expression", "prefix_decrement_expression",
+        //                     "postfix_increment_expression", "postfix_decrement_expression",
+        //                     "compound_assignment_expression"]) ||
+        (e) : e is IdentifierExpression | AssignmentExpression => Predicates.byKind("identifier_expression")(e) ||
+        isUpdateAssignment(e)
+        ); */
+
+    // Find increments -> includes post/prefix inc/dec, compound assg, all constructs for which isUpdateAssignment returns true for
+    // As of right now, only update assignments are implemented, so TODO is also include the others
+    return findConstructs(construct, isUpdateAssignment);
+}
+
+// ASK JAMES -> ok to have CPPConstruct param type? Is there a better fit for this? (AnalyticConstruct caused analyzer errors)
+function hasIncrement(construct: CPPConstruct) {
+    return findIncrementStatements(construct).length !== 0; // TODO include other incr types when they're implemented
+}
+
+function hasDoubleIncrement(loop: ForStatement) {
+    const inc1 = findIncrementStatements(loop.body).pop(); // Assuming the last update assg is the increment
+    return (
+        inc1 &&
+        // Need to check that names equal to reject case where there are two update assgs that refer to different names
+        findFirstConstruct(inc1.lhs, Predicates.byKind("identifier_expression")).name ===
+            findFirstConstruct(
+                findIncrementStatements(loop.post)[0].lhs,
+                Predicates.byKind("identifier_expression")
+            ).name
+    );
+}
+
+// TODO add cases for <=, >, >=
+function offByOneCondition(loop: ForStatement | WhileStatement, bound: number) {
+    const loop_bound = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal"));
+    return Math.abs(bound - loop_bound.value.rawValue) === 1;
+}
+
+function checkOffByOneCondition(loop: ForStatement | WhileStatement, bound: number) {
+    if (offByOneCondition(loop, bound)) {
+        loop.condition.addNote(
+            new CompilerNote(
+                loop.condition,
+                NoteKind.ERROR,
+                "loop_condition_off_by_one",
+                "It seems like the condition of your loop may be slightly off."
+            )
+        );
+    }
+}
+
+function eecs183_l03_03(program: Program) {
+    // Find average function
+    let avgFunc = findFirstConstruct(program, Predicates.byFunctionName("average"));
+    if (!avgFunc) {
+        return;
+    }
+
+    // Check function params -> TODO should probably be common helper
+    let params = avgFunc.parameters;
+    if (params.length !== 2) {
+        avgFunc.addNote(
+            new CompilerNote(
+                avgFunc,
+                NoteKind.ERROR,
+                "EECS183.L04_02.incorrect_param_count",
+                "Need 2 params."
+            )
+        );
+    } else {
+        params.forEach(param => {
+            if (param.type && !sameType(param.type, Double.DOUBLE)) {
+                param.addNote(
+                    new CompilerNote(
+                        param,
+                        NoteKind.ERROR,
+                        "EECS183.L04_02.incorrect_param_count",
+                        "Incorrect param type."
+                    )
+                );
+            }
+        });
+    }
+
+    // Check for lack of return statement -> TODO should probably be common helper
+    // let localVars = findConstructs(avgFunc, Predicates.byKind("local_variable_definition"));
+    let returnStatement = findConstructs(avgFunc, Predicates.byKind("return_statement"));
+    if (!returnStatement) {
+        avgFunc.addNote(
+            new CompilerNote(
+                avgFunc,
+                NoteKind.ERROR,
+                "EECS183.L04_02.no_return_stmt",
+                "No return stmt found."
+            )
+        );
+    }
+
+    // Ensure student enters correct return type to function
+    let retType = avgFunc.type.returnType;
+    if (!sameType(retType, Double.DOUBLE)) {
+        avgFunc.addNote(
+            new CompilerNote(
+                avgFunc,
+                NoteKind.ERROR,
+                "EECS183.L04_02.incorrect_return_type",
+                "Return type should be double."
+            )
+        );
+    }
+
+    // Check that the student wraps division in parens
+    findConstructs(avgFunc, Predicates.byKind("arithmetic_binary_operator_expression")).forEach(
+        op => {
+            if (op.operator === "+") {
+                (<AnalyticExpression[]>op.children)
+                    .filter(Predicates.byKind("arithmetic_binary_operator_expression"))
+                    .filter(childOp => childOp.operator === "/")
+                    .forEach(childOp =>
+                        childOp.addNote(
+                            new CompilerNote(
+                                childOp,
+                                NoteKind.ERROR,
+                                "EECS183.L04_02.order_of_operations",
+                                "Use parentheses!"
+                            )
+                        )
+                    );
+            }
+        }
+    );
+
+    // TODO Find local variable ints initialized by a narrowing conversion from a double
+    // localVars.filter(Predicates.byTypedDeclaration(isType(Int)))
+    //     .filter(def => {
+    //         let init = def.initializer;
+    //         if(init && init instanceof AtomicDirectInitializer) {
+    //             let arg = init.arg;
+    //             if (arg && Predicates.byKind("ImplicitConversion")(<AnalyticExpression>arg)) {
+    //                 arg.from.type == int
+    //                 arg.toType == double
+    //             }
+    //         }
+    //     });
+}
+
+function checkIncrements(loop: ForStatement | WhileStatement) {
+    if (!hasIncrement(loop)) {
+        loop.addNote(
+            new CompilerNote(
+                loop,
+                NoteKind.ERROR,
+                "no_loop_increment",
+                "Loop doesn't have an increment!"
+            )
+        );
+    } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
+        loop.addNote(
+            new CompilerNote(
+                loop,
+                NoteKind.ERROR,
+                "double_loop_increment",
+                "Loop has two increments!"
+            )
+        );
+    }
+}
+
+function eecs183_l07_01(program: Program) {
+    const loop = findFirstConstruct(
+        program,
+        Predicates.byKinds(["for_statement", "while_statement"])
+    );
+    if (!loop) {
+        return;
+    }
+
+    checkIncrements(loop);
+    checkOffByOneCondition(loop, 4);
+}
+
+function eecs183_l08_01(program: Program) {
+    const loop = findFirstConstruct(
+        program,
+        Predicates.byKinds(["for_statement", "while_statement"])
+    );
+    if (!loop) return;
+
+    checkIncrements(loop);
+    checkOffByOneCondition(loop, 0);
+
+    const cond_name = findFirstConstruct(
+        loop.condition,
+        Predicates.byKind("identifier_expression")
+    );
+    if (cond_name.name === "base") {
+        cond_name.addNote(
+            new CompilerNote(
+                cond_name,
+                NoteKind.ERROR,
+                "eecs183.L08.01.base_in_loop_condition",
+                // ASK JAMES -> have this case be specifically for uses of base, or just anything that isn't exponent?
+                "Think about how many times you should be doing the multiplication. Is base the right number to use here?"
+            )
+        );
+    }
+
+    const pow_fn = findFirstConstruct(program, Predicates.byFunctionName("pow"));
+    const result_var = findFirstConstruct(
+        findFirstConstruct(pow_fn, Predicates.byKind("local_variable_definition")),
+        Predicates.byKind("numeric_literal")
+    );
+    if (result_var && result_var.value.rawValue !== 1) {
+        result_var.addNote(
+            new CompilerNote(
+                result_var,
+                NoteKind.ERROR,
+                "eecs183.L08.01.result_var_not_started_at_one",
+                `Try starting your result variable at 1 instead of ${result_var.value.rawValue}`
+            )
+        );
+    }
+
+    const mult = findFirstConstruct(loop.body, isUpdateAssignment);
+    if (!mult) return;
+    const operation = findFirstConstruct(
+        mult,
+        Predicates.byKind("arithmetic_binary_operator_expression")
+    );
+    const base = findFirstConstruct(mult, Predicates.byIdentifierName("base"));
+    if (operation.operator !== "*") {
+        mult.addNote(
+            new CompilerNote(
+                mult,
+                NoteKind.ERROR,
+                "eecs183.l08.01.no_multiplication",
+                "Multiplication may be useful for doing this computation."
+            )
+        );
+    }
+    if (!base) {
+        mult.addNote(
+            new CompilerNote(
+                mult,
+                NoteKind.ERROR,
+                "eecs183.l08.01.not_using_base",
+                "Think about how exponents work. What value should you multiply by each time?"
+            )
+        );
+    }
+}
+
+function analyze(program: Program) {
+    const triple = findFirstConstruct(program, Predicates.byFunctionName("triple"));
+    if (!triple) return;
+
+    const return_stmt = findFirstConstruct(triple, Predicates.byKind("return_statement"));
+    if (return_stmt) {
+        return_stmt.addNote(
+            new CompilerNote(
+                return_stmt,
+                NoteKind.ERROR,
+                "eecs183.l10.01.return_stmt_in_triple",
+                "You shouldn't need to return from this function. How else could you modify to_triple from this function?"
+            )
+        );
+    }
+
+    const main = findFirstConstruct(program, Predicates.byFunctionName("main"));
+    const assg = findFirstConstruct(main, Predicates.byKind("assignment_expression"));
+    if (assg && findConstructs(assg.rhs, Predicates.byKind("function_call_expression"))) {
+        assg.addNote(
+            new CompilerNote(
+                assg,
+                NoteKind.ERROR,
+                "eecs183.l10.01.assigning_from_triple_call",
+                "It looks like you're trying to change to_triple by assigning it the return value of triple. You shouldn't need to do this. Think about how you could use a reference to do this instead."
+            )
+        );
+    }
 }
 
 // export function analyze(program: Program) {
@@ -190,120 +534,7 @@ export const projectAnalyses: { [projectName: string]: (p: Program) => void } = 
 //     // type of left5 is Expression. While the compiler knows a logical binary operator (e.g. &&) will always
 //     // yield a bool, it doesn't know that the operands it was given are any particular type
 //     let left5 = binOps[0].left;
-
-
 // }
-
-export function eecs183_l03_03(program: Program) {
-
-    // Find average function
-    let avgFunc = findFirstConstruct(program, Predicates.byFunctionName("average"));
-    if (!avgFunc) {
-        return;
-    }
-
-    // Check function params -> TODO should probably be common helper
-    let params = avgFunc.parameters;
-    if (params.length !== 2) {
-        avgFunc.addNote(new CompilerNote(avgFunc, NoteKind.ERROR, "EECS183.L04_02.incorrect_param_count", "Need 2 params."));
-    } else {
-        params.forEach(param => {
-            if (param.type && !sameType(param.type, Double.DOUBLE)) {
-                param.addNote(new CompilerNote(param, NoteKind.ERROR, "EECS183.L04_02.incorrect_param_count", "Incorrect param type."));
-            }
-        })
-    }
-
-    // Check for lack of return statement -> TODO should probably be common helper
-    // let localVars = findConstructs(avgFunc, Predicates.byKind("local_variable_definition"));
-    let returnStatement = findConstructs(avgFunc, Predicates.byKind("return_statement"));
-    if (!returnStatement) {
-        avgFunc.addNote(new CompilerNote(avgFunc, NoteKind.ERROR, "EECS183.L04_02.no_return_stmt", "No return stmt found."));
-    }
-
-    // Ensure student enters correct return type to function
-    let retType = avgFunc.type.returnType;
-    if (!sameType(retType, Double.DOUBLE)) {
-        avgFunc.addNote(new CompilerNote(avgFunc, NoteKind.ERROR, "EECS183.L04_02.incorrect_return_type", "Return type should be double."));
-    }
-
-    // Check that the student wraps division in parens
-    findConstructs(avgFunc, Predicates.byKind("arithmetic_binary_operator_expression"))
-        .forEach(op => {
-            if (op.operator === "+") {
-                (<AnalyticExpression[]>op.children)
-                    .filter(Predicates.byKind("arithmetic_binary_operator_expression"))
-                    .filter(childOp => childOp.operator === "/")
-                    .forEach(childOp => childOp.addNote(new CompilerNote(childOp, NoteKind.ERROR, "EECS183.L04_02.order_of_operations", "Use parentheses!")))
-            }
-        });
-
-    // Find local variable ints initialized by a narrowing conversion from a double
-    // localVars.filter(Predicates.byTypedDeclaration(isType(Int)))
-    //     .filter(def => {
-    //         let init = def.initializer;
-    //         if(init && init instanceof AtomicDirectInitializer) {
-    //             let arg = init.arg;
-    //             if (arg && Predicates.byKind("ImplicitConversion")(<AnalyticExpression>arg)) {
-    //                 arg.from.type == int
-    //                 arg.toType == double
-    //             }
-    //         }
-    //     });
-}
-
-export function isUpdateAssignment(exp: AnalyticConstruct): exp is AssignmentExpression {
-
-    // if (Predicates.byKind("assignment_expression")(exp)) {
-    //     let lhs = <AnalyticExpression>exp.lhs;
-
-    //     if (Predicates.byKind("identifier_expression")(lhs)) {
-    //         let rhs_id = findConstructs(exp.rhs, Predicates.byIdentifierName(lhs.name));
-    //         return rhs_id.length !== 0;
-    //     }
-    // }
-
-    // return true;
-    let lhs: IdentifierExpression;
-    return Predicates.byKind("assignment_expression")(exp) &&
-        Predicates.byKind("identifier_expression")(exp.lhs) && (lhs = exp.lhs) &&
-        findConstructs(lhs, Predicates.byIdentifierName(lhs.name)).length !== 0;
-}
-
-// ASK JAMES -> ok to have CPPConstruct param type? Is there a better fit for this? (AnalyticConstruct caused analyzer errors)
-export function hasIncrement(construct: CPPConstruct) {
-    // Proof of concept one-liner
-    /* let inc = findConstructs(loop,
-        // Predicates.byKinds(["prefix_increment_expression", "prefix_decrement_expression",
-        //                     "postfix_increment_expression", "postfix_decrement_expression",
-        //                     "compound_assignment_expression"]) ||
-        (e) : e is IdentifierExpression | AssignmentExpression => Predicates.byKind("identifier_expression")(e) ||
-        isUpdateAssignment(e)
-        ); */
-
-    // Find increments -> includes post/prefix inc/dec, compound assg, all constructs for which isUpdateAssignment returns true for
-    // As of right now, only update assignments are implemented, so TODO is also include the others
-    return findConstructs(construct, isUpdateAssignment).length !== 0; // TODO include other incr types when they're implemented
-}
-
-function hasDoubleIncrement(loop: ForStatement) {
-    // return findConstructs(loop.body, isUpdateAssignment).length !== 0 && findConstructs(loop.post, isUpdateAssignment).length !== 0;
-    return hasIncrement(loop.body) && hasIncrement(loop.post);
-}
-
-function analyze_wip(program: Program) {
-    // EECS183.L07_01
-    const loop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
-    if (!loop) {
-        return;
-    }
-    if (!hasIncrement(loop)) {
-        loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.no_loop_increment", "Loop doesn't have an increment!"));
-    } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
-        loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.double_loop_increment", "Loop has two increments!"));
-    }
-
-}
 
 // function analyze2(program: Program) {
 
@@ -328,7 +559,7 @@ function analyze_wip(program: Program) {
 //     let t5 = binOps[0].type; // type is Bool
 
 //     // type is Expression. While the compiler knows a logical binary operator (e.g. &&) will always
-//     // yield a bool, it doesn't know that the operands it was given are any particular type 
+//     // yield a bool, it doesn't know that the operands it was given are any particular type
 //     let left5 = binOps[0].left;
 
 //     // 5.b.
@@ -389,7 +620,5 @@ function analyze_wip(program: Program) {
 
 //     // let test!: AssignmentExpression[];
 //     // let sdf = test.filter((t) => t.isBoundedArrayTyped());
-
-
 
 // }
