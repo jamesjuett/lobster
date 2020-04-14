@@ -90,7 +90,7 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
     public readonly target: UnboundReferenceEntity;
 
     public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity) {
-        super(context);
+        super(context, undefined);
         this.target = target;
 
         // Cannot default initialize a reference
@@ -120,7 +120,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     public readonly target: ObjectEntity<AtomicType>;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) {
-        super(context);
+        super(context, undefined);
         this.target = target;
     }
 
@@ -170,7 +170,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
     public readonly elementInitializers?: DefaultInitializer[];
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>) {
-        super(context);
+        super(context, undefined);
         
         this.target = target;
 
@@ -378,7 +378,7 @@ export abstract class DirectInitializer extends Initializer {
     public readonly kind: DirectInitializerKind;
     
     public constructor(context: TranslationUnitContext, kind: DirectInitializerKind) {
-        super(context);
+        super(context, undefined);
         this.kind = kind;
     }
 

@@ -21,18 +21,18 @@ export type StatementASTNode =
     NullStatementASTNode;
 
 const StatementConstructsMap = {
-    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
+    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "labeled statement"),
     "block" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context),
     "if_statement" : (ast: IfStatementASTNode, context: BlockContext) => IfStatement.createFromAST(ast, context),
     "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => WhileStatement.createFromAST(ast, context),
-    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "do-while loop").setAST(ast),
+    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "do-while loop"),
     "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => ForStatement.createFromAST(ast, context),
-    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "break statement").setAST(ast),
-    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, "continue statement").setAST(ast),
+    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "break statement"),
+    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "continue statement"),
     "return_statement" : (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement" : (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
-    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context).setAST(ast)
+    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
 };
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
@@ -131,8 +131,8 @@ export class UnsupportedStatement extends Statement {
     public readonly construct_type = "unsupported_statement";
     public readonly t_compiled: never;
 
-    public constructor(context: BlockContext, unsupportedName: string) {
-        super(context);
+    public constructor(context: BlockContext, ast: StatementASTNode, unsupportedName: string) {
+        super(context, ast);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
     
@@ -155,17 +155,13 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     public readonly expression: Expression;
 
     public static createFromAST(ast: ExpressionStatementASTNode, context: BlockContext) {
-        return new ExpressionStatement(context,
-            createExpressionFromAST(ast.expression, context)
-        ).setAST(ast);
+        return new ExpressionStatement(context, ast, createExpressionFromAST(ast.expression, context));
     }
 
-    public constructor(context: BlockContext, expression: Expression) {
-        super(context);
+    public constructor(context: BlockContext, ast: ExpressionStatementASTNode, expression: Expression) {
+        super(context, ast);
         this.attach(this.expression = expression);
     }
-
-    
     
     public createDefaultOutlet(this: CompiledExpressionStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ExpressionStatementOutlet(element, this, parent);
@@ -257,13 +253,11 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
     public readonly declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
-        return new DeclarationStatement(context,
-            createDeclarationFromAST(ast.declaration, context)
-        ).setAST(ast);
+        return new DeclarationStatement(context, ast, createDeclarationFromAST(ast.declaration, context));
     }
 
-    public constructor(context: BlockContext, declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
-        super(context);
+    public constructor(context: BlockContext, ast: DeclarationStatementASTNode, declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
+        super(context, ast);
 
         if (declarations instanceof InvalidConstruct) {
             this.attach(this.declarations = declarations);
@@ -362,12 +356,12 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
 
     public static createFromAST(ast: ReturnStatementASTNode, context: BlockContext) {
         return ast.expression
-            ? new ReturnStatement(context, createExpressionFromAST(ast.expression, context)).setAST(ast)
-            : new ReturnStatement(context).setAST(ast);
+            ? new ReturnStatement(context, ast, createExpressionFromAST(ast.expression, context))
+            : new ReturnStatement(context, ast);
     }
 
-    public constructor(context: BlockContext, expression?: Expression) {
-        super(context);
+    public constructor(context: BlockContext, ast: ReturnStatementASTNode, expression?: Expression) {
+        super(context, ast);
 
         let returnType = this.context.containingFunction.type.returnType;
 
@@ -469,13 +463,13 @@ export class Block extends Statement<BlockASTNode> {
     public readonly statements: readonly Statement[] = [];
 
     public static createFromAST(ast: BlockASTNode, context: FunctionContext) {
-        let block = new Block(context).setAST(ast);
+        let block = new Block(context, ast);
         ast.statements.forEach((stmtAst) => block.addStatement(createStatementFromAST(stmtAst, block.context)));
         return block;
     }
 
-    public constructor(context: FunctionContext) {
-        super(createBlockContext(context));
+    public constructor(context: FunctionContext, ast: BlockASTNode) {
+        super(createBlockContext(context), ast);
     }
 
     public isBlock() : this is Block {
@@ -633,7 +627,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
             createStatementFromAST(ast.then, createBlockContext(context));
 
         if (!ast.otherwise) { // no else branch
-            return new IfStatement(context, condition, then);
+            return new IfStatement(context, ast, condition, then);
         }
         else { // else branch is present
             // See note above about substatement implicit block context
@@ -641,12 +635,12 @@ export class IfStatement extends Statement<IfStatementASTNode> {
                 createStatementFromAST(ast.otherwise, context) :
                 createStatementFromAST(ast.otherwise, createBlockContext(context));
 
-            return new IfStatement(context, condition, then, otherwise);
+            return new IfStatement(context, ast, condition, then, otherwise);
         }
     }
 
-    public constructor(context: BlockContext, condition: Expression, then: Statement, otherwise?: Statement) {
-        super(context);
+    public constructor(context: BlockContext, ast: IfStatementASTNode, condition: Expression, then: Statement, otherwise?: Statement) {
+        super(context, ast);
 
         if (condition.isWellTyped()) {
             this.attach(this.condition = standardConversion(condition, Bool.BOOL));
@@ -775,13 +769,11 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
             createStatementFromAST(ast.body, context) :
             createStatementFromAST(ast.body, createBlockContext(context));
 
-        return new WhileStatement(context,
-            createExpressionFromAST(ast.condition, context),
-            body);
+        return new WhileStatement(context, ast, createExpressionFromAST(ast.condition, context), body);
     }
 
-    public constructor(context: BlockContext, condition: Expression, body: Statement) {
-        super(context);
+    public constructor(context: BlockContext, ast: WhileStatementASTNode, condition: Expression, body: Statement) {
+        super(context, ast);
 
         if (condition.isWellTyped()) {
             this.attach(this.condition = standardConversion(condition, Bool.BOOL));
@@ -901,17 +893,17 @@ export class ForStatement extends Statement<ForStatementASTNode> {
         // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
         // All children (initial, condition, post, body) share the same block
         // context and scope where i is declared.
-        return new ForStatement(context,
+        return new ForStatement(context, ast,
             createStatementFromAST(ast.initial, body.context),
             createExpressionFromAST(ast.condition, body.context),
             body,
             createExpressionFromAST(ast.post, body.context));
     }
 
-    public constructor(context: BlockContext, initial: ExpressionStatement | NullStatement | DeclarationStatement,
+    public constructor(context: BlockContext, ast: ForStatementASTNode, initial: ExpressionStatement | NullStatement | DeclarationStatement,
             condition: Expression, body: Statement, post: Expression) {
 
-        super(context);
+        super(context, ast);
 
         this.attach(this.initial = initial);
 

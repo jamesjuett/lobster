@@ -51,52 +51,52 @@ const ExpressionConstructsMap = {
     "ternary_expression" : (ast: TernaryASTNode, context: ExpressionContext) => TernaryExpression.createFromAST(ast, context),
     
     "assignment_expression" : (ast: AssignmentExpressionASTNode, context: ExpressionContext) => AssignmentExpression.createFromAST(ast, context),
-    "compound_assignment_expression" : (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "compound assignment").setAST(ast),
+    "compound_assignment_expression" : (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "compound assignment"),
     
     // binary operators
     "arithmetic_binary_operator_expression" : (ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext) => ArithmeticBinaryOperatorExpression.createFromAST(ast, context),
     "relational_binary_operator_expression" : (ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext) => RelationalBinaryOperatorExpression.createFromAST(ast, context),
     "logical_binary_operator_expression" : (ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext) => LogicalBinaryOperatorExpression.createFromAST(ast, context),
     
-    "pointer_to_member_expression" : (ast: PointerToMemberExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "pointer-to-member").setAST(ast),
+    "pointer_to_member_expression" : (ast: PointerToMemberExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "pointer-to-member"),
     
-    "c_style_cast_expression" : (ast: CStyleCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "c-style cast").setAST(ast),
+    "c_style_cast_expression" : (ast: CStyleCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "c-style cast"),
     
     // prefix operators
-    "prefix_increment_expression" : (ast: PrefixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "prefix increment").setAST(ast),
-    "prefix_decrement_expression" : (ast: PrefixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "prefix decrement").setAST(ast),
+    "prefix_increment_expression" : (ast: PrefixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "prefix increment"),
+    "prefix_decrement_expression" : (ast: PrefixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "prefix decrement"),
     "dereference_expression" : (ast: DereferenceExpressionASTNode, context: ExpressionContext) => DereferenceExpression.createFromAST(ast, context),
     "address_of_expression" : (ast: AddressOfExpressionASTNode, context: ExpressionContext) => AddressOfExpression.createFromAST(ast, context),
-    "unary_plus_expression" : (ast: UnaryPlusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "unary plus").setAST(ast),
-    "unary_minus_expression" : (ast: UnaryMinusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "unary minus").setAST(ast),
-    "logical_not_expression" : (ast: LogicalNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "logical not").setAST(ast),
-    "bitwise_not_expression" : (ast: BitwiseNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "bitwise not").setAST(ast),
-    "sizeof_expression" : (ast: SizeofExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "sizeof").setAST(ast),
-    "sizeof_type_expression" : (ast: SizeofTypeExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "sizeof (type)").setAST(ast),
-    "new_expression" : (ast: NewExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "new").setAST(ast),
-    "delete_expression" : (ast: DeleteExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "delete").setAST(ast),
-    "delete_array_expression" : (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "delete[]").setAST(ast),
+    "unary_plus_expression" : (ast: UnaryPlusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "unary plus"),
+    "unary_minus_expression" : (ast: UnaryMinusExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "unary minus"),
+    "logical_not_expression" : (ast: LogicalNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "logical not"),
+    "bitwise_not_expression" : (ast: BitwiseNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "bitwise not"),
+    "sizeof_expression" : (ast: SizeofExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof"),
+    "sizeof_type_expression" : (ast: SizeofTypeExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof (type)"),
+    "new_expression" : (ast: NewExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "new"),
+    "delete_expression" : (ast: DeleteExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "delete"),
+    "delete_array_expression" : (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "delete[]"),
     
     // postfix operators
-    "static_cast_expression" : (ast: StaticCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "static cast").setAST(ast),
-    "dynamic_cast_expression" : (ast: DynamicCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "dynamic cast").setAST(ast),
-    "reinterpret_cast_expression" : (ast: ReinterpretCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "reinterpret cast").setAST(ast),
-    "const_cast_expression" : (ast: ConstCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "const cast").setAST(ast),
+    "static_cast_expression" : (ast: StaticCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "static cast"),
+    "dynamic_cast_expression" : (ast: DynamicCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "dynamic cast"),
+    "reinterpret_cast_expression" : (ast: ReinterpretCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "reinterpret cast"),
+    "const_cast_expression" : (ast: ConstCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "const cast"),
     "subscript_expression" : (ast: SubscriptExpressionASTNode, context: ExpressionContext) => SubscriptExpression.createFromAST(ast, context),
     "function_call_expression" : (ast: FunctionCallExpressionASTNode, context: ExpressionContext) => FunctionCallExpression.createFromAST(ast, context),
-    "dot_expression" : (ast: DotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "dot operator").setAST(ast),
-    "arrow_expression" : (ast: ArrowExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "arrow operator").setAST(ast),
-    "postfix_increment_expression" : (ast: PostfixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "postfix increment").setAST(ast),
-    "postfix_decrement_expression" : (ast: PostfixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "postfix decrement").setAST(ast),
+    "dot_expression" : (ast: DotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "dot operator"),
+    "arrow_expression" : (ast: ArrowExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "arrow operator"),
+    "postfix_increment_expression" : (ast: PostfixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix increment"),
+    "postfix_decrement_expression" : (ast: PostfixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix decrement"),
     
-    "construct_expression" : (ast: ConstructExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "construct expression").setAST(ast),
+    "construct_expression" : (ast: ConstructExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "construct expression"),
     
     "identifier_expression" : (ast: IdentifierExpressionASTNode, context: ExpressionContext) => IdentifierExpression.createFromAST(ast, context),
     
-    "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, "this pointer").setAST(ast),
+    "this_expression" : (ast: ThisExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "this pointer"),
 
-    "numeric_literal" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
-    "string_literal" : (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
+    "numeric_literal_expression" : (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
+    "string_literal_expression" : (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression" : (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context)
 }
 
@@ -150,8 +150,8 @@ export type TypedExpressionKinds<T extends Type, V extends ValueCategory> = {
     "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never : never;
     "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never : never;
     "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? TypedObjectIdentifierExpression<T> : T extends FunctionType ? TypedFunctionIdentifierExpression<T> : never) : never;
-    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never : never;
-    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
+    "numeric_literal_expression": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never : never;
+    "string_literal_expression": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
     "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T,V> : never : never;
     "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T,V> : never : never;
     "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T> : never : never;
@@ -174,8 +174,8 @@ export type CompiledExpressionKinds<T extends Type, V extends ValueCategory> = {
     "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
     "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
     "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends ObjectType ? CompiledObjectIdentifierExpression<T> : T extends FunctionType ? CompiledFunctionIdentifierExpression<T> : never) : never;
-    "numeric_literal": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
-    "string_literal": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
+    "numeric_literal_expression": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
+    "string_literal_expression": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
     "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T,V> : never : never;
     "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T,V> : never : never;
     "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
@@ -213,8 +213,8 @@ const ExpressionConstructsRuntimeMap = {
             return new RuntimeObjectIdentifier(<any>construct, parent);
         }
     },
-    "numeric_literal": <T extends ArithmeticType>(construct: CompiledNumericLiteralExpression < T >, parent: RuntimeConstruct) => new RuntimeNumericLiteral(construct, parent),
-    "string_literal": (construct: CompiledStringLiteralExpression, parent: RuntimeConstruct) => new RuntimeStringLiteralExpression(construct, parent),
+    "numeric_literal_expression": <T extends ArithmeticType>(construct: CompiledNumericLiteralExpression < T >, parent: RuntimeConstruct) => new RuntimeNumericLiteral(construct, parent),
+    "string_literal_expression": (construct: CompiledStringLiteralExpression, parent: RuntimeConstruct) => new RuntimeStringLiteralExpression(construct, parent),
     "parentheses_expression": <T extends Type, V extends ValueCategory>(construct: CompiledParenthesesExpression < T, V >, parent: RuntimeConstruct) => new RuntimeParentheses(construct, parent),
     "auxiliary_expression":  < T extends Type = Type, V extends ValueCategory = ValueCategory > (construct: CompiledExpression < T, V >, parent: RuntimeConstruct) => { throw new Error("Auxiliary expressions must never be instantiated at runtime.") },
     "magic_function_call_expression": <RT extends PotentialReturnType>(construct: CompiledMagicFunctionCallExpression < RT >, parent: RuntimeConstruct)  => new RuntimeMagicFunctionCallExpression(construct, parent),
@@ -260,8 +260,8 @@ export class UnsupportedExpression extends Expression<ExpressionASTNode> {
     public readonly type = undefined;
     public readonly valueCategory = undefined;
 
-    public constructor(context: ExpressionContext, unsupportedName: string) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: ExpressionASTNode, unsupportedName: string) {
+        super(context, ast);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
     
@@ -546,8 +546,8 @@ export class CommaExpression extends Expression<CommaASTNode> {
     public readonly left: Expression;
     public readonly right: Expression;
 
-    public constructor(context: ExpressionContext, left: Expression, right: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: CommaASTNode, left: Expression, right: Expression) {
+        super(context, ast);
         this.type = right.type;
         this.valueCategory = right.valueCategory;
         this.attach(this.left = left);
@@ -555,7 +555,7 @@ export class CommaExpression extends Expression<CommaASTNode> {
     }
 
     public static createFromAST(ast: CommaASTNode, context: ExpressionContext) : CommaExpression {
-        return new CommaExpression(context, createExpressionFromAST(ast.left, context), createExpressionFromAST(ast.right, context));
+        return new CommaExpression(context, ast, createExpressionFromAST(ast.left, context), createExpressionFromAST(ast.right, context));
     }
     
     public createDefaultOutlet(this: CompiledCommaExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -628,8 +628,8 @@ export class TernaryExpression extends Expression<TernaryASTNode> {
     public readonly then: Expression;
     public readonly otherwise: Expression;
 
-    public constructor(context: ExpressionContext, condition: Expression, then: Expression, otherwise: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: TernaryASTNode, condition: Expression, then: Expression, otherwise: Expression) {
+        super(context, ast);
         
         if(condition.isWellTyped()) {
             condition = this.compileCondition(condition);
@@ -652,7 +652,7 @@ export class TernaryExpression extends Expression<TernaryASTNode> {
     }
     
     public static createFromAST(ast: TernaryASTNode, context: ExpressionContext) : TernaryExpression {
-        return new TernaryExpression(context,
+        return new TernaryExpression(context, ast,
             createExpressionFromAST(ast.condition, context),
             createExpressionFromAST(ast.then, context),
             createExpressionFromAST(ast.otherwise, context));
@@ -796,8 +796,8 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
     public readonly lhs: Expression;
     public readonly rhs: Expression;
 
-    private constructor(context: ExpressionContext, lhs: TypedExpression<AtomicType>, rhs: Expression) {
-        super(context);
+    private constructor(context: ExpressionContext, ast: AssignmentExpressionASTNode, lhs: TypedExpression<AtomicType>, rhs: Expression) {
+        super(context, ast);
 
         // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
         if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
@@ -837,10 +837,10 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         let lhs = createExpressionFromAST(ast.lhs, context);
         let rhs = createExpressionFromAST(ast.rhs, context);
         if (lhs.isAtomicTyped()) {
-            return new AssignmentExpression(context, lhs, rhs);
+            return new AssignmentExpression(context, ast, lhs, rhs);
         }
         else {
-            return new UnsupportedExpression(context, "Non-atomic assignment");
+            return new UnsupportedExpression(context, ast, "Non-atomic assignment");
         }
     }
 
@@ -1165,7 +1165,7 @@ export type BinaryOperatorExpressionASTNode =
 
 type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
-abstract class BinaryOperatorExpression extends Expression<BinaryOperatorExpressionASTNode> {
+abstract class BinaryOperatorExpression<ASTType extends BinaryOperatorExpressionASTNode = BinaryOperatorExpressionASTNode> extends Expression<ASTType> {
     
     public abstract readonly type?: AtomicType;
     public readonly valueCategory = "prvalue";
@@ -1175,8 +1175,8 @@ abstract class BinaryOperatorExpression extends Expression<BinaryOperatorExpress
 
     public readonly operator: t_BinaryOperators;
 
-    protected constructor(context: ExpressionContext, operator: t_BinaryOperators) {
-        super(context)
+    protected constructor(context: ExpressionContext, ast: ASTType | undefined, operator: t_BinaryOperators) {
+        super(context, ast)
         this.operator = operator;
     }
 
@@ -1267,7 +1267,7 @@ const ARITHMETIC_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
     }
 }
 
-export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression {
+export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression<ArithmeticBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "arithmetic_binary_operator_expression";
     
     public readonly type?: ArithmeticType;
@@ -1277,8 +1277,8 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
 
     public readonly operator!: t_ArithmeticBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
-        super(context, operator);
+    protected constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode, left: Expression, right: Expression, operator: t_ArithmeticBinaryOperators) {
+        super(context, ast, operator);
 
         if (!left.isWellTyped() || !right.isWellTyped()) {
             this.attach(this.left = left);
@@ -1330,7 +1330,7 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
             // handle the union between pointer and array types. Without the casts, we've have
             // to separate this out into the 4 different cases of array/array, array/pointer,
             // pointer/array, pointer/pointer, which would be annoying
-            return new PointerDifferenceExpression(context,
+            return new PointerDifferenceExpression(context, ast,
                 <TypedExpression<PointerType, "prvalue">>convertToPRValue(left),
                 <TypedExpression<PointerType, "prvalue">>convertToPRValue(right));
         }
@@ -1339,13 +1339,13 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         if (op === "-" || op === "+") {
             if((left.isPointerTyped() || left.isBoundedArrayTyped()) && right.isIntegralTyped() ||
                (right.isPointerTyped() || right.isBoundedArrayTyped()) && left.isIntegralTyped()) {
-                return new PointerOffsetExpression(context,
+                return new PointerOffsetExpression(context, ast,
                     <TypedExpression<PointerType, "prvalue">>convertToPRValue(left),
                     <TypedExpression<PointerType, "prvalue">>convertToPRValue(right));
             }
         }
 
-        return new ArithmeticBinaryOperatorExpression(context, left, right, op);
+        return new ArithmeticBinaryOperatorExpression(context, ast, left, right, op);
     }
 
     // public createRuntimeExpression<T extends ArithmeticType>(this: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct) : RuntimeArithmeticBinaryOperator<T>;
@@ -1392,7 +1392,7 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType = Arithmet
     }
 }
 
-export class PointerDifferenceExpression extends BinaryOperatorExpression {
+export class PointerDifferenceExpression extends BinaryOperatorExpression<ArithmeticBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "pointer_diference_expression";
     
     public readonly type: Int;
@@ -1403,8 +1403,8 @@ export class PointerDifferenceExpression extends BinaryOperatorExpression {
 
     public readonly operator! : "-"; // Narrows type from base
 
-    public constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
-        super(context, "-");
+    public constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode, left: TypedExpression<PointerType, "prvalue">, right: TypedExpression<PointerType, "prvalue">) {
+        super(context, ast, "-");
 
         // Not necessary assuming they come in as prvalues that are confirmed to have pointer type.
         // if (left.isWellTyped() && right.isWellTyped()) {
@@ -1496,7 +1496,7 @@ export class RuntimePointerDifference extends SimpleRuntimeExpression<Int, "prva
     }
 }
 
-export class PointerOffsetExpression extends BinaryOperatorExpression {
+export class PointerOffsetExpression extends BinaryOperatorExpression<ArithmeticBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "pointer_offset_expression";
     
     public readonly type?: PointerType;
@@ -1511,10 +1511,10 @@ export class PointerOffsetExpression extends BinaryOperatorExpression {
 
     public readonly operator! : "+"; // Narrows type from base
 
-    public constructor(context: ExpressionContext,
+    public constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode,
             left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">,
             right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">) {
-        super(context, "+");
+        super(context, ast, "+");
 
         // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
         // if (left.isWellTyped() && right.isWellTyped()) {
@@ -1666,7 +1666,7 @@ const RELATIONAL_BINARY_OPERATIONS : {[index:string]: <T extends AtomicType>(lef
     },
 }
 
-export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression {
+export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression<RelationalBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "relational_binary_operator_expression";
     
     public readonly type = Bool.BOOL;
@@ -1676,8 +1676,8 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
     public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_RelationalBinaryOperators) {
-        super(context, operator);
+    protected constructor(context: ExpressionContext, ast: RelationalBinaryOperatorExpressionASTNode, left: Expression, right: Expression, operator: t_RelationalBinaryOperators) {
+        super(context, ast, operator);
 
         if (!left.isWellTyped() || !right.isWellTyped()) {
             this.attach(this.left = left);
@@ -1711,19 +1711,19 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
         if (left.isPointerTyped() || left.isBoundedArrayTyped()) {
             if (right.isPointerTyped() || right.isBoundedArrayTyped()) {
-                return new PointerComparisonExpression(context, convertToPRValue(left), convertToPRValue(right), op);
+                return new PointerComparisonExpression(context, ast, convertToPRValue(left), convertToPRValue(right), op);
             }
             else if (isIntegerLiteralZero(right)) {
                 let convertedLeft = convertToPRValue(left);
-                return new PointerComparisonExpression(context, convertedLeft, new NullPointerConversion(right, convertedLeft.type), op);
+                return new PointerComparisonExpression(context, ast, convertedLeft, new NullPointerConversion(right, convertedLeft.type), op);
             }
         }
         else if (isIntegerLiteralZero(left) && (right.isPointerTyped() || right.isBoundedArrayTyped())) {
             let convertedRight = convertToPRValue(right);
-            return new PointerComparisonExpression(context, new NullPointerConversion(left, convertedRight.type), convertedRight, op);
+            return new PointerComparisonExpression(context, ast, new NullPointerConversion(left, convertedRight.type), convertedRight, op);
         }
         
-        return new RelationalBinaryOperatorExpression(context, left, right, ast.operator);
+        return new RelationalBinaryOperatorExpression(context, ast, left, right, ast.operator);
     }
 
     public describeEvalResult(depth: number): ConstructDescription {
@@ -1763,7 +1763,7 @@ export class RuntimeRelationalBinaryOperator<OperandT extends ArithmeticType = A
 
 
 
-export class PointerComparisonExpression extends BinaryOperatorExpression {
+export class PointerComparisonExpression extends BinaryOperatorExpression<RelationalBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "pointer_comparison_expression";
 
     public readonly type: Bool;
@@ -1774,9 +1774,9 @@ export class PointerComparisonExpression extends BinaryOperatorExpression {
 
     public readonly operator!: t_RelationalBinaryOperators; // Narrows type from base
 
-    public constructor(context: ExpressionContext, left: TypedExpression<PointerType, "prvalue">,
+    public constructor(context: ExpressionContext, ast: RelationalBinaryOperatorExpressionASTNode | undefined, left: TypedExpression<PointerType, "prvalue">,
                        right: TypedExpression<PointerType, "prvalue">, operator: t_RelationalBinaryOperators) {
-        super(context, operator);
+        super(context, ast, operator);
 
         this.attach(this.left = left);
         this.attach(this.right = right);
@@ -1860,7 +1860,7 @@ export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
 
 type t_LogicalBinaryOperators = "&&" | "||";
 
-export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression {
+export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression<LogicalBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "logical_binary_operator_expression";
     
     public readonly type = new Bool();
@@ -1870,8 +1870,8 @@ export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression {
 
     public readonly operator!: t_LogicalBinaryOperators; // Narrows type from base
 
-    protected constructor(context: ExpressionContext, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
-        super(context, operator);
+    protected constructor(context: ExpressionContext, ast: LogicalBinaryOperatorExpressionASTNode | undefined, left: Expression, right: Expression, operator: t_LogicalBinaryOperators) {
+        super(context, ast, operator);
 
         if (left.isWellTyped() && right.isWellTyped()) {
             this.attach(this.left = this.compileLogicalSubexpression(left));
@@ -1892,7 +1892,7 @@ export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression {
     }
     
     public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext) : LogicalBinaryOperatorExpression{
-        return new LogicalBinaryOperatorExpression(context,
+        return new LogicalBinaryOperatorExpression(context, ast,
             createExpressionFromAST(ast.left, context),
             createExpressionFromAST(ast.right, context),
             ast.operator);
@@ -2064,7 +2064,7 @@ export interface DeleteArrayExpressionASTNode extends ASTNode {
 
 type t_UnaryOperators = "++" | "--" | "*" | "&" | "+" | "-" | "!" | "~" | "sizeof" | "new" | "delete" | "delete[]";
 
-abstract class UnaryOperatorExpression extends Expression<UnaryOperatorExpressionASTNode> {
+abstract class UnaryOperatorExpression<ASTType extends UnaryOperatorExpressionASTNode = UnaryOperatorExpressionASTNode> extends Expression<ASTType> {
     
     public abstract readonly type?: ObjectType | VoidType; // VoidType is due to delete, delete[]
 
@@ -2072,8 +2072,8 @@ abstract class UnaryOperatorExpression extends Expression<UnaryOperatorExpressio
 
     public abstract readonly operator: t_UnaryOperators;
 
-    protected constructor(context: ExpressionContext) {
-        super(context)
+    protected constructor(context: ExpressionContext, ast: ASTType | undefined) {
+        super(context, ast)
     }
     
     public createDefaultOutlet(this: CompiledUnaryOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -2103,7 +2103,7 @@ export interface RuntimeUnaryOperatorExpression extends RuntimeExpression<Object
 
 }
 
-export class DereferenceExpression extends UnaryOperatorExpression {
+export class DereferenceExpression extends UnaryOperatorExpression<DereferenceExpressionASTNode> {
     public readonly construct_type = "dereference_expression";
     
     public readonly type?: ObjectType;
@@ -2113,8 +2113,8 @@ export class DereferenceExpression extends UnaryOperatorExpression {
 
     public readonly operator = "*";
 
-    public constructor(context: ExpressionContext, operand: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: DereferenceExpressionASTNode, operand: Expression) {
+        super(context, ast);
 
         if (!operand.isWellTyped()) {
             this.attach(this.operand = operand);
@@ -2137,7 +2137,7 @@ export class DereferenceExpression extends UnaryOperatorExpression {
     }
     
     public static createFromAST(ast: DereferenceExpressionASTNode, context: ExpressionContext) : DereferenceExpression {
-        return new DereferenceExpression(context, createExpressionFromAST(ast.operand, context));
+        return new DereferenceExpression(context, ast, createExpressionFromAST(ast.operand, context));
     }
 
     // public createRuntimeExpression<T extends ObjectType>(this: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) : RuntimeDereferenceExpression<T>;
@@ -2240,7 +2240,7 @@ export class RuntimeDereferenceExpression<T extends ObjectType> extends SimpleRu
 }
 
 
-export class AddressOfExpression extends UnaryOperatorExpression {
+export class AddressOfExpression extends UnaryOperatorExpression<AddressOfExpressionASTNode> {
     public readonly construct_type = "address_of_expression";
     
     public readonly type?: PointerType;
@@ -2250,8 +2250,8 @@ export class AddressOfExpression extends UnaryOperatorExpression {
 
     public readonly operator = "&";
 
-    public constructor(context: ExpressionContext, operand: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: AddressOfExpressionASTNode, operand: Expression) {
+        super(context, ast);
 
         this.attach(this.operand = operand);
         
@@ -2277,7 +2277,7 @@ export class AddressOfExpression extends UnaryOperatorExpression {
     }
     
     public static createFromAST(ast: AddressOfExpressionASTNode, context: ExpressionContext) : AddressOfExpression {
-        return new AddressOfExpression(context, createExpressionFromAST(ast.operand, context));
+        return new AddressOfExpression(context, ast, createExpressionFromAST(ast.operand, context));
     }
 
     // public createRuntimeExpression<T extends ObjectType>(this: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) : RuntimeAddressOfExpression<T>;
@@ -2719,8 +2719,8 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
     public readonly operand: Expression;
     public readonly offset: Expression;
 
-    public constructor(context: ExpressionContext, operand: Expression, offset: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: SubscriptExpressionASTNode, operand: Expression, offset: Expression) {
+        super(context, ast);
 
         this.attach(this.operand = operand.isWellTyped() ? convertToPRValue(operand) : operand);
         this.attach(this.offset = offset.isWellTyped() ? standardConversion(offset, Int.INT) : offset);
@@ -2740,7 +2740,7 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
     }
     
     public static createFromAST(ast: SubscriptExpressionASTNode, context: ExpressionContext) : SubscriptExpression {
-        return new SubscriptExpression(context,
+        return new SubscriptExpression(context, ast,
             createExpressionFromAST(ast.operand, context),
             createExpressionFromAST(ast.offset, context));
     }
@@ -3486,8 +3486,8 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     //     this.identifierText = qualifiedNameString(this.identifier);
     // },
 
-    public constructor(context: ExpressionContext, name: string) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: IdentifierExpressionASTNode | undefined, name: string) {
+        super(context, ast);
         this.name = name;
         checkIdentifier(this, name, this);
 
@@ -3537,7 +3537,7 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     }
     
     public static createFromAST(ast: IdentifierExpressionASTNode, context: ExpressionContext) {
-        return new IdentifierExpression(context, ast.identifier).setAST(ast);
+        return new IdentifierExpression(context, ast, ast.identifier);
     }
 
     // public createRuntimeExpression<T extends ObjectType>(this: CompiledObjectIdentifierExpression<T>, parent: RuntimeConstruct) : RuntimeObjectIdentifier<T>;
@@ -3697,31 +3697,31 @@ export function parseNumericLiteralValueFromAST(ast: NumericLiteralASTNode) {
 export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
 
 export interface FloatLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal";
+    readonly construct_type: "numeric_literal_expression";
     readonly type: "float";
     readonly value: number;
 }
 
 export interface IntLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal";
+    readonly construct_type: "numeric_literal_expression";
     readonly type: "int";
     readonly value: number;
 }
 
 export interface CharLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal";
+    readonly construct_type: "numeric_literal_expression";
     readonly type: "char";
     readonly value: string;
 }
 
 export interface BoolLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal";
+    readonly construct_type: "numeric_literal_expression";
     readonly type: "char";
     readonly value: boolean;
 }
 
 export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> {
-    public readonly construct_type = "numeric_literal";
+    public readonly construct_type = "numeric_literal_expression";
     
     public readonly type: ArithmeticType;
     public readonly valueCategory = "prvalue";
@@ -3734,8 +3734,8 @@ export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> 
     // var conv = literalJSParse[this.ast.type];
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-    public constructor(context: ExpressionContext, type: ArithmeticType, value: RawValueType) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: NumericLiteralASTNode | undefined, type: ArithmeticType, value: RawValueType) {
+        super(context, ast);
 
         this.type = type;
 
@@ -3743,7 +3743,7 @@ export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> 
 	}
     
     public static createFromAST(ast: NumericLiteralASTNode, context: ExpressionContext) {
-        return new NumericLiteralExpression(context, literalTypes[ast.type], parseNumericLiteralValueFromAST(ast));
+        return new NumericLiteralExpression(context, ast, literalTypes[ast.type], parseNumericLiteralValueFromAST(ast));
     }
 
     // public createRuntimeExpression<T extends ArithmeticType>(this: CompiledNumericLiteralExpression<T>, parent: RuntimeConstruct) : RuntimeNumericLiteral<T>;
@@ -3801,12 +3801,12 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
 
 
 export interface StringLiteralASTNode extends ASTNode {
-    readonly construct_type: "string_literal";
+    readonly construct_type: "string_literal_expression";
     readonly value: string;
 }
 
 export class StringLiteralExpression extends Expression<StringLiteralASTNode> {
-    public readonly construct_type = "string_literal";
+    public readonly construct_type = "string_literal_expression";
 
     public readonly type: BoundedArrayType<Char>;
     public readonly valueCategory = "lvalue";
@@ -3818,8 +3818,8 @@ export class StringLiteralExpression extends Expression<StringLiteralASTNode> {
     // var conv = literalJSParse[this.ast.type];
     // var val = (conv ? conv(this.ast.value) : this.ast.value);
 
-    public constructor(context: ExpressionContext, str: string) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: StringLiteralASTNode | undefined, str: string) {
+        super(context, ast);
         this.str = str;
 
         // type is const char
@@ -3833,7 +3833,7 @@ export class StringLiteralExpression extends Expression<StringLiteralASTNode> {
     }
     
     public static createFromAST(ast: StringLiteralASTNode, context: ExpressionContext) {
-        return new StringLiteralExpression(context, ast.value);
+        return new StringLiteralExpression(context, ast, ast.value);
     }
 
     // public createRuntimeExpression(this: CompiledStringLiteralExpression, parent: RuntimeConstruct) : RuntimeStringLiteralExpression;
@@ -3930,8 +3930,8 @@ export class ParenthesesExpression extends Expression<ParenthesesExpressionASTNo
 
     public readonly subexpression: Expression;
 
-    public constructor(context: ExpressionContext, subexpression: Expression) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: ParenthesesExpressionASTNode | undefined, subexpression: Expression) {
+        super(context, ast);
 
         this.attach(this.subexpression = subexpression);
         this.type = subexpression.type;
@@ -3940,7 +3940,7 @@ export class ParenthesesExpression extends Expression<ParenthesesExpressionASTNo
     }
     
     public static createFromAST(ast: ParenthesesExpressionASTNode, context: ExpressionContext) : ParenthesesExpression {
-        return new ParenthesesExpression(context, createExpressionFromAST(ast.subexpression, context));
+        return new ParenthesesExpression(context, ast, createExpressionFromAST(ast.subexpression, context));
     }
 
     // public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: CompiledParenthesesExpression<T,V>, parent: RuntimeConstruct) : RuntimeParentheses<T,V>;
@@ -4020,7 +4020,7 @@ export class AuxiliaryExpression<T extends Type = Type, V extends ValueCategory 
     public readonly valueCategory: V;
 
     constructor(type: T, valueCategory: V) {
-        super(AUXILIARY_EXPRESSION_CONTEXT);
+        super(AUXILIARY_EXPRESSION_CONTEXT, undefined);
         this.type = type;
         this.valueCategory = valueCategory;
 	}
@@ -4209,8 +4209,8 @@ export class MagicFunctionCallExpression extends Expression<FunctionCallExpressi
     public readonly functionImpl: MagicFunctionImpl;
     public readonly args: readonly Expression[];
 
-    public constructor(context: ExpressionContext, functionName: MAGIC_FUNCTION_NAMES, args: readonly Expression[]) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: FunctionCallExpressionASTNode | undefined, functionName: MAGIC_FUNCTION_NAMES, args: readonly Expression[]) {
+        super(context, ast);
         
         this.functionName = functionName;
 
@@ -4312,7 +4312,7 @@ export abstract class ImplicitConversion<FromType extends ObjectType = ObjectTyp
     public readonly conversionLength: number;
 
     public constructor(from: TypedExpression<FromType, FromVC>, toType: ToType, valueCategory: ToVC) {
-        super(from.context);
+        super(from.context, undefined);
         this.attach(this.from = from);
         this.type = toType;
         this.valueCategory = valueCategory;

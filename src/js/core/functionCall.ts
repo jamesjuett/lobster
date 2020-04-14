@@ -46,7 +46,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param receiver 
      */
     public constructor(context: TranslationUnitContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
-        super(context);
+        super(context, undefined);
 
         this.func = func;
         this.receiver = receiver;
@@ -284,8 +284,8 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
     public readonly originalArgs: readonly Expression[];
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, operand: Expression, args: readonly Expression[]) {
-        super(context);
+    public constructor(context: ExpressionContext, ast: FunctionCallExpressionASTNode | undefined, operand: Expression, args: readonly Expression[]) {
+        super(context, ast);
         
         this.attach(this.operand = operand);
         this.originalArgs = args;
@@ -332,14 +332,14 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
 
         if (ast.operand.construct_type === "identifier_expression") {
             if (LOBSTER_KEYWORDS.has(ast.operand.identifier)) {
-                return new MagicFunctionCallExpression(context, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args).setAST(ast);
+                return new MagicFunctionCallExpression(context, ast, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args);
             }
         }
 
         let contextualParamTypes = args.map(arg => arg.type);
-        return new FunctionCallExpression(context,
+        return new FunctionCallExpression(context, ast,
             createExpressionFromAST(ast.operand, createExpressionContext(context, contextualParamTypes)),
-            args).setAST(ast);
+            args);
     }
     
     public createDefaultOutlet(this: CompiledFunctionCallExpression, element: JQuery, parent?: ConstructOutlet) {

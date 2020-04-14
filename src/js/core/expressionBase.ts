@@ -23,8 +23,8 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
 
-    protected constructor(context: ExpressionContext) {
-        super(context);
+    protected constructor(context: ExpressionContext, ast: ASTType | undefined) {
+        super(context, ast);
     }
 
     // public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
