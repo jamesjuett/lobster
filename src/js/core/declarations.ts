@@ -1,4 +1,4 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, UnsupportedConstruct, createClassContext, ClassContext } from "./constructs";
+import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note, CompilerNote } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
@@ -16,7 +16,7 @@ export type StorageSpecifierKey = "register" | "static" | "thread_local" | "exte
 
 export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
-export class StorageSpecifier extends BasicCPPConstruct {
+export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "storage_specifier";
     public readonly t_compiled!: CompiledStorageSpecifier;
 
@@ -34,7 +34,7 @@ export class StorageSpecifier extends BasicCPPConstruct {
     }
 
     public constructor(context: TranslationUnitContext, specs: readonly StorageSpecifierKey[]) {
-        super(context)
+        super(context, undefined)
         
         let numSpecs = 0; // count specs separately to get a count without duplicates
         specs.forEach((spec) => {
@@ -93,7 +93,7 @@ export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "
 
 export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
-export class TypeSpecifier extends BasicCPPConstruct {
+export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "type_specifier";
     public readonly t_compiled!: CompiledTypeSpecifier;
 
@@ -113,7 +113,7 @@ export class TypeSpecifier extends BasicCPPConstruct {
     }
 
     public constructor(context: TranslationUnitContext, specs: TypeSpecifierASTNode) {
-        super(context);
+        super(context, undefined);
 
         let constCount = 0;
         let volatileCount = 0;
@@ -266,32 +266,32 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         // Create the declaration itself. Which kind depends on the declared type
         let declaration: AnalyticSimpleDeclaration;
         if (!declaredType) {
-            declaration = new UnknownTypeDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (ast.specs.friend) {
-            declaration = new FriendDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            declaration = new FriendDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (ast.specs.typedef) {
-            declaration = new TypedefDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            declaration = new TypedefDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isVoidType()) {
-            declaration = new VoidDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+            declaration = new VoidDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isFunctionType()) {
-            declaration = new FunctionDeclaration(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            declaration = new FunctionDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
         else if (declaredType.isArrayOfUnknownBoundType()) {
             // TODO: it may be possible to determine the bound from the initializer
-            declaration = new UnknownBoundArrayDeclaration(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
         else {
             // Determine the appropriate kind of object definition based on the contextual scope
             let decl : LocalVariableDefinition | GlobalVariableDefinition;
             if (isBlockContext(context)) {
-                decl = new LocalVariableDefinition(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+                decl = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
             else {
-                decl = new GlobalVariableDefinition(context, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+                decl = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
             declaration = decl;
     
@@ -310,9 +310,6 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
                 decl.setInitializerList(init.args.map((a) => createExpressionFromAST(a, context)));
             }
         }
-
-        // Set AST
-        declaration.setAST(ast);
 
         return declaration;
     });
@@ -366,7 +363,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
     readonly declarators: readonly DeclaratorInitASTNode[];
 }
 
-export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType> {
+export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType, SimpleDeclarationASTNode> {
     // public readonly construct_type = "simple_declaration";
     // public abstract readonly t_compiled: CompiledSimpleDeclaration;
 
@@ -381,9 +378,9 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
 
-    protected constructor(context: ContextType, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    protected constructor(context: ContextType, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
-        super(context);
+        super(context, ast);
 
         this.attach(this.typeSpecifier = typeSpec);
         this.attach(this.storageSpecifier = storageSpec);
@@ -433,10 +430,10 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly type: undefined;
     public readonly declaredEntity: undefined;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         // Add an error, but only if the declarator doesn't have one for some reason.
         // It should already have one, assuming that's why there's no type.
@@ -455,10 +452,10 @@ export class VoidDeclaration extends SimpleDeclaration {
     public readonly type = VoidType.VOID;
     public readonly declaredEntity: undefined;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.addNote(CPPError.declaration.void_prohibited(this));
     }
     
@@ -471,10 +468,10 @@ export class TypedefDeclaration extends SimpleDeclaration {
     public readonly type: undefined; // will change when typedef is implemented
     public readonly declaredEntity: undefined;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.addNote(CPPError.lobster.unsupported_feature(this, "typedef"));
 
 
@@ -493,10 +490,10 @@ export class FriendDeclaration extends SimpleDeclaration {
     public readonly type: undefined; // will change when friend is implemented
     public readonly declaredEntity: undefined;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.addNote(CPPError.lobster.unsupported_feature(this, "friend"));
 
         // TODO: Add back in when classes are supported
@@ -518,10 +515,10 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     public readonly type: ArrayOfUnknownBoundType;
     public readonly declaredEntity: undefined;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ArrayOfUnknownBoundType) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         
         this.type = type;
         this.addNote(CPPError.declaration.array.length_required(this));
@@ -543,10 +540,10 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
         this.declaredEntity = new FunctionEntity(type, this);
@@ -673,10 +670,10 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition && !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
     // }
     
-    public constructor(context: BlockContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: BlockContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
 
@@ -731,10 +728,10 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly type : ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
-        super(context, typeSpec, storageSpec, declarator, otherSpecs);
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
 
@@ -782,7 +779,7 @@ export interface CompiledGlobalVariableDefinition<T extends ObjectType | Referen
  * definition) into whose scope the entities would even be introduced.
  * This contrasts to ParameterDefinitions that may introduce an entity.
  */
-export class ParameterDeclaration extends BasicCPPConstruct {
+export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitContext, ParameterDeclarationASTNode> {
     public readonly construct_type = "parameter_declaration";
     public readonly t_compiled!: CompiledParameterDeclaration;
 
@@ -795,10 +792,10 @@ export class ParameterDeclaration extends BasicCPPConstruct {
     public readonly type?: PotentialParameterType;
     public readonly declaredEntity?: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
     
-    public constructor(context: TranslationUnitContext, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: ParameterDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
-        super(context);
+        super(context, ast);
 
         this.attach(this.typeSpecifier = typeSpec);
         this.attach(this.storageSpecifier = storageSpec);
@@ -828,7 +825,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         
     }
     
-    public static createFromAST(ast: ArgumentDeclarationASTNode, context: TranslationUnitContext) : ParameterDeclaration {
+    public static createFromAST(ast: ParameterDeclarationASTNode, context: TranslationUnitContext) : ParameterDeclaration {
         
         let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
@@ -838,7 +835,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         // Compile declarator for each parameter (of the function-type argument itself)
         let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.baseType);
 
-        return new ParameterDeclaration(context, typeSpec, storageSpec, declarator, ast.specs);
+        return new ParameterDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
     }
     
     public isPotentialParameterDefinition() : this is ParameterDefinition {
@@ -856,7 +853,7 @@ export class ParameterDeclaration extends BasicCPPConstruct {
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
-            (<Mutable<this>>this).declaredEntity = entityOrError;
+            (<Mutable<ParameterDefinition>>this).declaredEntity = entityOrError;
             context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
@@ -903,7 +900,7 @@ interface ArrayPostfixDeclaratorASTNode {
     readonly size?: ExpressionASTNode;
 }
 
-export interface ArgumentDeclarationASTNode {
+export interface ParameterDeclarationASTNode extends ASTNode {
     readonly declarator: DeclaratorASTNode;
     readonly specs: DeclarationSpecifiersASTNode;
     readonly initializer?: InitializerASTNode;
@@ -912,7 +909,7 @@ export interface ArgumentDeclarationASTNode {
 interface FunctionPostfixDeclaratorASTNode {
     readonly kind: "function";
     readonly size: ExpressionASTNode;
-    readonly args: readonly ArgumentDeclarationASTNode[];
+    readonly args: readonly ParameterDeclarationASTNode[];
     readonly const?: boolean;
 }
 
@@ -932,7 +929,7 @@ interface DeclaratorInitASTNode extends DeclaratorASTNode {
 }
 
 // TODO: take baseType as a parameter to compile rather than init
-export class Declarator extends BasicCPPConstruct {
+export class Declarator extends BasicCPPConstruct<TranslationUnitContext, DeclaratorASTNode> {
     public readonly construct_type = "declarator";
     public readonly t_compiled!: CompiledDeclarator;
 
@@ -955,8 +952,7 @@ export class Declarator extends BasicCPPConstruct {
      * one without an AST.
      */
     private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode, baseType: Type | undefined) {
-        super(context);
-        this.setAST(ast);
+        super(context, ast);
         this.baseType = baseType;
         
         // let isMember = isA(this.parent, Declarations.Member);
@@ -1022,7 +1018,7 @@ export class Declarator extends BasicCPPConstruct {
                         
                         if (postfix.size) {
 
-                            if (postfix.size.construct_type === "numeric_literal") {
+                            if (postfix.size.construct_type === "numeric_literal_expression") {
                                 // If the size specified is a literal, just use its value as array length
                                 type = new BoundedArrayType(type, parseNumericLiteralValueFromAST(postfix.size));
                             }
@@ -1199,7 +1195,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
     readonly body: FunctionBodyASTNode;
 }
 
-export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
+export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, FunctionDefinitionASTNode> {
     public readonly construct_type = "function_definition";
     public readonly kind = "FunctionDefinition";
     public readonly t_compiled!: CompiledFunctionDefinition;
@@ -1220,12 +1216,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         }, context)[0];
         
         if (!(declaration instanceof FunctionDeclaration)) {
-            return new InvalidConstruct(context, CPPError.declaration.func.definition_non_function_type);
+            return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
         }
 
         // Create implementation and body block (before params and body statements added yet)
         let functionContext = createFunctionContext(context, declaration.declaredEntity);
-        let body = new Block(functionContext);
+        let body = new Block(functionContext, ast.body);
         let bodyContext = body.context;
         
         // Add declared entities from the parameters to the body block's context.
@@ -1244,15 +1240,13 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext> {
         // added after the parameters.)
         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        let def = new FunctionDefinition(functionContext, declaration, declaration.parameterDeclarations, body);
-        def.setAST(ast);
-        return def;
+        return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, body);
     }
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
-        super(context);
+    public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
+        super(context, ast);
         
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
@@ -1524,7 +1518,7 @@ export interface CompiledFunctionDefinition<T extends FunctionType = FunctionTyp
 
 
 
-export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> {
+export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "class_declaration";
     public readonly t_compiled!: CompiledClassDeclaration;
 
@@ -1533,7 +1527,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext> 
     public readonly declaredEntity: ClassEntity;
     
     public constructor(context: TranslationUnitContext, name: string, type: ClassType) {
-        super(context);
+        super(context, undefined);
 
         this.name = name;
         this.type = type;
@@ -1605,7 +1599,7 @@ export interface ConstructorDefinitionASTNode extends ASTNode {
     readonly name: IdentifierASTNode;
     readonly body: FunctionBodyASTNode;
     readonly ctorInitializer: CtorInitializerASTNode;
-    readonly args: readonly ArgumentDeclarationASTNode[];
+    readonly args: readonly ParameterDeclarationASTNode[];
 }
 
 export interface CtorInitializerASTNode extends ASTNode {
@@ -1626,7 +1620,7 @@ export interface DestructorDefinitionASTNode extends ASTNode {
     readonly virtual?: true;
 }
 
-export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
+export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, ClassDefinitionASTNode> {
     public readonly construct_type = "class_definition";
     public readonly t_compiled!: CompiledClassDefinition;
 
@@ -1676,13 +1670,13 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext> {
         // // added after the parameters.)
         // ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
         
-        return new ClassDefinition(classContext, declaration).setAST(ast);
+        return new ClassDefinition(classContext, ast, declaration);
     }
 
 //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: ClassContext, declaration: ClassDeclaration) {
-        super(context);
+    public constructor(context: ClassContext, ast: ClassDefinitionASTNode, declaration: ClassDeclaration) {
+        super(context, ast);
         
         this.name = declaration.name;
         this.type = declaration.type;

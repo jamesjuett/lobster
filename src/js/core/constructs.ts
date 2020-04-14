@@ -141,10 +141,12 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public abstract readonly parent?: CPPConstruct;
     public readonly children: readonly CPPConstruct[] = [];
     
-    protected constructor(context: ContextType) {
+    protected constructor(context: ContextType, ast: ASTType | undefined) {
         this.constructId = CPPConstruct.NEXT_ID++;
 
         this.context = context;
+
+        ast && this.setAST(ast);
 
         // TODO: figure out library stuff
         // if (context.libraryId) {
@@ -183,17 +185,14 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     protected abstract onAttach(parent: this["parent"]) : void;
 
-    /**
-     * Used by "createFromAST" static "named constructor" functions in derived classes
-     * to set the AST from which a construct was created. Returns `this` for convenience.
-     */
-    public setAST(this: CPPConstruct<TranslationUnitContext>, ast: ASTType) : this /*& {ast: ASTType}*/ {
+    private setAST(ast: ASTType) {
         asMutable(this).ast = ast;
         if (!ast.source) {
             assertFalse("AST source is undefined. A track() call is likely missing in the grammar.");
         }
-        asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
-        return <this & {ast: ASTType}><any>this; // TODO: this whole function is going to go away, so this ugly cast will too
+        if (this.context.translationUnit) {
+            asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+        }
     }
 
     // public getSourceText() {
@@ -451,12 +450,12 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
 
 
-export abstract class BasicCPPConstruct<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends CPPConstruct<ContextType, ASTType> {
+export abstract class BasicCPPConstruct<ContextType extends TranslationUnitContext, ASTType extends ASTNode> extends CPPConstruct<ContextType, ASTType> {
 
     public parent?: CPPConstruct;
 
-    public constructor(context: ContextType) {
-        super(context);
+    public constructor(context: ContextType, ast: ASTType | undefined) {
+        super(context, ast);
     }
 
     public onAttach(parent: CPPConstruct) {
@@ -464,14 +463,14 @@ export abstract class BasicCPPConstruct<ContextType extends TranslationUnitConte
     }
 }
 
-export class InvalidConstruct extends BasicCPPConstruct {
+export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "InvalidConstruct";
     public readonly t_compiled!: never;
 
     public readonly note: Note;
 
-    public constructor(context: TranslationUnitContext, errorFn: (construct: CPPConstruct) => Note) {
-        super(context);
+    public constructor(context: TranslationUnitContext, ast: ASTNode, errorFn: (construct: CPPConstruct) => Note) {
+        super(context, ast);
         this.addNote(this.note = errorFn(this));
     }
 
@@ -525,7 +524,7 @@ export class FunctionLocals {
 
 
 
-export class TemporaryDeallocator extends BasicCPPConstruct {
+export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "TemporaryDeallacator";
 
     public readonly parent?: PotentialFullExpression;
@@ -534,7 +533,7 @@ export class TemporaryDeallocator extends BasicCPPConstruct {
     // public readonly dtors: (MemberFunctionCall | null)[];
 
     public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[] ) {
-        super(context);
+        super(context, undefined); // Has no AST
         this.temporaryObjects = temporaryObjects;
 
         // TODO CLASSES: add back in destructor calls and dtors member function above
@@ -652,14 +651,6 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 // });
 
 
-export class UnsupportedConstruct extends BasicCPPConstruct {
-    public readonly construct_type = "UnsupportedConstruct";
-    public constructor(context: TranslationUnitContext, unsupportedName: string) {
-        super(context);
-        this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
-    }
-}
-
 
 
 // TODO: this is just the same as RuntimeConstruct right now
@@ -733,7 +724,7 @@ export class GlobalObjectAllocator extends CPPConstruct {
     public readonly globalObjects: readonly GlobalVariableDefinition[];
 
     public constructor(context: ProgramContext, globalObjects: readonly GlobalVariableDefinition[] ) {
-        super(context);
+        super(context, undefined); // Has no AST
         this.globalObjects = globalObjects;
     }
     
