@@ -4,7 +4,8 @@ import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
-import 'codemirror/keymap/sublime.js'
+import 'codemirror/keymap/sublime.js';
+import 'codemirror/addon/comment/comment.js';
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
