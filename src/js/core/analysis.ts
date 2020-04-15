@@ -185,7 +185,10 @@ function hasDoubleIncrement(loop: ForStatement) {
 
 // TODO add cases for <=, >, >=
 function offByOneCondition(loop: ForStatement | WhileStatement, bound: number) {
-    const loop_bound = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+    const loop_bound = findFirstConstruct(
+        loop.condition,
+        Predicates.byKind("numeric_literal_expression")
+    );
     return Math.abs(bound - loop_bound.value.rawValue) === 1;
 }
 
@@ -471,7 +474,53 @@ function eecs183_l10_01(program: Program) {
     }
 }
 
-function analyze(program: Program) {}
+function analyze(program: Program) {
+    const swap = findFirstConstruct(program, Predicates.byFunctionName("swap"));
+    if (!swap) return;
+
+    // Check correctness of params
+    if (swap.parameters.length !== 2) {
+        swap.addNote(
+            new CompilerNote(
+                swap,
+                NoteKind.ERROR,
+                "eecs183.l10.02.swap_incorrect_param_count",
+                "Incorrect number of params!"
+            )
+        );
+    } else {
+        swap.parameters.forEach(param => {
+            if (!(param.type instanceof ReferenceType)) {
+                param.addNote(
+                    new CompilerNote(
+                        param,
+                        NoteKind.ERROR,
+                        "eecs183.l10.02.swap_incorrect_param_type",
+                        "Incorrect swap param types!"
+                    )
+                );
+            }
+        });
+    }
+
+    // Check for use of a temp variable in swap operation
+    const assignments = findConstructs(swap, Predicates.byKind("assignment_expression"));
+    if (
+        assignments.length >= 2 &&
+        !findFirstConstruct(swap, Predicates.byKind("local_variable_definition"))
+    ) {
+        assignments.forEach(assg => {
+            assg.addNote(
+                new CompilerNote(
+                    assg,
+                    NoteKind.ERROR,
+                    "eecs183.l10.02.missing_temp_var_in_swap",
+                    "It's just a guess, but one of these assignments might end up accidentally overwriting some important data when you run your code. Check out the simulation to see ;)."
+                )
+            );
+        });
+    }
+}
 
 // export function analyze(program: Program) {
 
