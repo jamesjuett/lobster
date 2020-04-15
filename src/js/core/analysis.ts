@@ -403,7 +403,7 @@ function eecs183_l08_01(program: Program) {
     }
 }
 
-function analyze(program: Program) {
+function eecs183_l10_01(program: Program) {
     const triple = findFirstConstruct(program, Predicates.byFunctionName("triple"));
     if (!triple) return;
 
@@ -419,6 +419,30 @@ function analyze(program: Program) {
         );
     }
 
+    if (triple.parameters.length !== 1) {
+        triple.addNote(
+            new CompilerNote(
+                triple,
+                NoteKind.ERROR,
+                "incorrect_param_count",
+                `It looks like you ${
+                    triple.parameters.length > 1 ? "have too many" : "don't have enough"
+                } parameters in ${triple.name}.`
+            )
+        );
+    } else {
+        if (!(triple.parameters[0].type instanceof ReferenceType)) {
+            triple.parameters[0].addNote(
+                new CompilerNote(
+                    triple.parameters[0],
+                    NoteKind.ERROR,
+                    "eecs183.l10.01.fn_param_not_reference_type",
+                    "Function param is not a reference!"
+                )
+            );
+        }
+    }
+
     const main = findFirstConstruct(program, Predicates.byFunctionName("main"));
     const assg = findFirstConstruct(main, Predicates.byKind("assignment_expression"));
     if (assg && findConstructs(assg.rhs, Predicates.byKind("function_call_expression"))) {
@@ -431,7 +455,23 @@ function analyze(program: Program) {
             )
         );
     }
+
+    const triple_call = findFirstConstruct(main, Predicates.byKind("function_call_expression"));
+    if (!triple_call || triple_call.call?.func.name !== "triple") return;
+    const arg = findFirstConstruct(triple_call, Predicates.byKind("address_of_expression"));
+    if (arg) {
+        arg.addNote(
+            new CompilerNote(
+                arg,
+                NoteKind.ERROR,
+                "eecs183.l10.01.passes_address_of_to_triple",
+                "When you pass a variable by reference into a function, you don't need to pass the address of that variable."
+            )
+        );
+    }
 }
+
+function analyze(program: Program) {}
 
 // export function analyze(program: Program) {
 
