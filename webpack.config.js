@@ -2,7 +2,7 @@ const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin')
 
 module.exports = {
-  // mode: "development",
+  mode: "production",
   entry: {
     main: './src/js/main.ts',
     regression: './src/js/test/regression.ts'

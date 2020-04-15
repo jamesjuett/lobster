@@ -39,6 +39,7 @@
         "arrowParens": "avoid"
     },
     "scripts": {
-        "build": "webpack --config webpack.config.js"
+        "build": "webpack --config webpack.config.js",
+        "debug": "webpack --mode=development --config webpack.config.js"
     }
 }
