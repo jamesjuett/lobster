@@ -5,6 +5,7 @@ import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclarat
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int } from "./types";
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
+import { FunctionCallExpression, FunctionCall } from "./functionCall";
 
 
 
@@ -97,6 +98,11 @@ export namespace Predicates {
     export function byIdentifierName<N extends string>(name: N) {
         return <(construct: AnalyticConstruct) => construct is IdentifierExpression & {name: N}>
                 ((construct) => (construct instanceof IdentifierExpression) && construct.name === name);
+    }
+
+    export function byFunctionCallName<N extends string>(name: N) {
+        return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
+                ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
     }
 
     // export function byCompiled<Original extends AnalyticDeclaration>(construct: Original) : construct is AnalyticCompiledDeclaration<Original> {

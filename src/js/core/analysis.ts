@@ -336,8 +336,9 @@ function eecs183_l07_01(program: Program) {
 }
 
 function eecs183_l08_01(program: Program) {
+    const pow_fn = findFirstConstruct(program, Predicates.byFunctionName("pow"));
     const loop = findFirstConstruct(
-        program,
+        pow_fn,
         Predicates.byKinds(["for_statement", "while_statement"])
     );
     if (!loop) return;
@@ -361,7 +362,6 @@ function eecs183_l08_01(program: Program) {
         );
     }
 
-    const pow_fn = findFirstConstruct(program, Predicates.byFunctionName("pow"));
     const result_var = findFirstConstruct(
         findFirstConstruct(pow_fn, Predicates.byKind("local_variable_definition")),
         Predicates.byKind("numeric_literal_expression")
@@ -459,8 +459,8 @@ function eecs183_l10_01(program: Program) {
         );
     }
 
-    const triple_call = findFirstConstruct(main, Predicates.byKind("function_call_expression"));
-    if (!triple_call || triple_call.call?.func.name !== "triple") return;
+    const triple_call = findFirstConstruct(main, Predicates.byFunctionCallName("triple"));
+    if (!triple_call) return;
     const arg = findFirstConstruct(triple_call, Predicates.byKind("address_of_expression"));
     if (arg) {
         arg.addNote(
@@ -474,7 +474,7 @@ function eecs183_l10_01(program: Program) {
     }
 }
 
-function analyze(program: Program) {
+function eecs183_l10_02(program: Program) {
     const swap = findFirstConstruct(program, Predicates.byFunctionName("swap"));
     if (!swap) return;
 
@@ -520,6 +520,25 @@ function analyze(program: Program) {
             );
         });
     }
+
+    const swap_call = findFirstConstruct(
+        findFirstConstruct(program, Predicates.byFunctionName("main")),
+        Predicates.byFunctionCallName("swap")
+    );
+    if (!swap_call) return;
+    findConstructs(swap_call, Predicates.byKind("address_of_expression")).forEach(arg => {
+        arg.addNote(
+            new CompilerNote(
+                arg,
+                NoteKind.ERROR,
+                "eecs183.l10.02.passes_address_of_to_swap",
+                "When you pass a variable by reference into a function, you don't need to pass the address of that variable."
+            )
+        );
+    });
+}
+
+function analyze(program: Program) {
 }
 
 // export function analyze(program: Program) {
