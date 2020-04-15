@@ -185,7 +185,7 @@ function hasDoubleIncrement(loop: ForStatement) {
 
 // TODO add cases for <=, >, >=
 function offByOneCondition(loop: ForStatement | WhileStatement, bound: number) {
-    const loop_bound = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal"));
+    const loop_bound = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
     return Math.abs(bound - loop_bound.value.rawValue) === 1;
 }
 
@@ -361,7 +361,7 @@ function eecs183_l08_01(program: Program) {
     const pow_fn = findFirstConstruct(program, Predicates.byFunctionName("pow"));
     const result_var = findFirstConstruct(
         findFirstConstruct(pow_fn, Predicates.byKind("local_variable_definition")),
-        Predicates.byKind("numeric_literal")
+        Predicates.byKind("numeric_literal_expression")
     );
     if (result_var && result_var.value.rawValue !== 1) {
         result_var.addNote(
