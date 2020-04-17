@@ -15,6 +15,7 @@ import {
     FunctionDefinition,
     LocalVariableDefinition,
     TypedLocalVariableDefinition,
+    ParameterDeclaration,
 } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import {
@@ -40,10 +41,15 @@ import {
     Int,
     sameType,
     Double,
+    isReferenceType,
+    PotentialParameterType,
+    Bool,
+    PotentialReturnType,
 } from "./types";
 import { Expression } from "./expressionBase";
 import { Predicates, AnalyticConstruct } from "./predicates";
 import { commands } from "codemirror";
+import { Array } from "@svgdotjs/svg.js";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (
     construct: Original
@@ -171,11 +177,11 @@ function hasIncrement(construct: CPPConstruct) {
 }
 
 function hasDoubleIncrement(loop: ForStatement) {
-    const inc1 = findIncrementStatements(loop.body).pop(); // Assuming the last update assg is the increment
+    const inc = findIncrementStatements(loop.body).pop(); // Assuming the last update assg is the increment
     return (
-        inc1 &&
+        inc &&
         // Need to check that names equal to reject case where there are two update assgs that refer to different names
-        findFirstConstruct(inc1.lhs, Predicates.byKind("identifier_expression")).name ===
+        findFirstConstruct(inc.lhs, Predicates.byKind("identifier_expression")).name ===
             findFirstConstruct(
                 findIncrementStatements(loop.post)[0].lhs,
                 Predicates.byKind("identifier_expression")
@@ -205,65 +211,113 @@ function checkOffByOneCondition(loop: ForStatement | WhileStatement, bound: numb
     }
 }
 
+function checkLoopIncrements(loop: ForStatement | WhileStatement) {
+    if (!hasIncrement(loop)) {
+        loop.addNote(
+            new CompilerNote(
+                loop,
+                NoteKind.ERROR,
+                "no_loop_increment",
+                "Loop doesn't have an increment!"
+            )
+        );
+    } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
+        loop.addNote(
+            new CompilerNote(
+                loop,
+                NoteKind.ERROR,
+                "double_loop_increment",
+                "Loop has two increments!"
+            )
+        );
+    }
+}
+
+// ASK JAMES -> put in predicates.ts?
+function byParameterTypes(...paramtypes: ((t: Type) => t is PotentialParameterType)[]) {
+    let idx = 0;
+    return (t: Type): t is PotentialParameterType => paramtypes[idx++](t);
+}
+
+function checkFunctionParameters(
+    fn: FunctionDefinition,
+    num_params: number,
+    check: (t: Type) => t is PotentialParameterType,
+    exercise_name: string
+) {
+    if (fn.parameters.length !== num_params) {
+        fn.addNote(
+            new CompilerNote(
+                fn,
+                NoteKind.ERROR,
+                `${exercise_name}.incorrect_param_count`,
+                `This function ${
+                    fn.parameters.length > num_params ? "has too many" : "doesn't have enough"
+                } parameters!`
+            )
+        );
+        return;
+    }
+    fn.parameters.forEach(param => {
+        if (!Predicates.isTypedDeclaration(param, check)) {
+            param.addNote(
+                new CompilerNote(
+                    param,
+                    NoteKind.ERROR,
+                    `${exercise_name}.incorrect_param_type`,
+                    "It looks like this parameter has an incorrect type!"
+                )
+            );
+        }
+    });
+}
+
+function checkForReturnStatement(fn: FunctionDefinition, exercise_name: string) {
+    let returnStatement = findConstructs(fn, Predicates.byKind("return_statement"));
+    if (returnStatement.length === 0) {
+        fn.addNote(
+            new CompilerNote(
+                fn,
+                NoteKind.ERROR,
+                `${exercise_name}.no_return_statement`,
+                "It looks like this function doesn't have a return statement."
+            )
+        );
+    }
+}
+
+function checkReturnType(
+    fn: FunctionDefinition,
+    check: (t: Type) => t is PotentialReturnType,
+    exercise_name: string
+) {
+    if (!check(fn.type.returnType)) {
+        fn.addNote(
+            new CompilerNote(
+                fn,
+                NoteKind.ERROR,
+                `${exercise_name}.incorrect_return_type`,
+                "It looks like this function's return type isn't correct."
+            )
+        );
+    }
+}
+
 function eecs183_l03_03(program: Program) {
     // Find average function
-    let avgFunc = findFirstConstruct(program, Predicates.byFunctionName("average"));
+    const avgFunc = findFirstConstruct(program, Predicates.byFunctionName("average"));
     if (!avgFunc) {
         return;
     }
 
-    // Check function params -> TODO should probably be common helper
-    let params = avgFunc.parameters;
-    if (params.length !== 2) {
-        avgFunc.addNote(
-            new CompilerNote(
-                avgFunc,
-                NoteKind.ERROR,
-                "EECS183.L04_02.incorrect_param_count",
-                "Need 2 params."
-            )
-        );
-    } else {
-        params.forEach(param => {
-            if (param.type && !sameType(param.type, Double.DOUBLE)) {
-                param.addNote(
-                    new CompilerNote(
-                        param,
-                        NoteKind.ERROR,
-                        "EECS183.L04_02.incorrect_param_count",
-                        "Incorrect param type."
-                    )
-                );
-            }
-        });
-    }
+    // Check function params
+    checkFunctionParameters(avgFunc, 2, isType(Double), "eecs183.l04.02");
 
-    // Check for lack of return statement -> TODO should probably be common helper
-    // let localVars = findConstructs(avgFunc, Predicates.byKind("local_variable_definition"));
-    let returnStatement = findConstructs(avgFunc, Predicates.byKind("return_statement"));
-    if (!returnStatement) {
-        avgFunc.addNote(
-            new CompilerNote(
-                avgFunc,
-                NoteKind.ERROR,
-                "EECS183.L04_02.no_return_stmt",
-                "No return stmt found."
-            )
-        );
-    }
+    // Check for lack of return statement
+    checkForReturnStatement(avgFunc, "eecs183.l04.02");
 
     // Ensure student enters correct return type to function
-    let retType = avgFunc.type.returnType;
-    if (!sameType(retType, Double.DOUBLE)) {
-        avgFunc.addNote(
-            new CompilerNote(
-                avgFunc,
-                NoteKind.ERROR,
-                "EECS183.L04_02.incorrect_return_type",
-                "Return type should be double."
-            )
-        );
-    }
+    checkReturnType(avgFunc, isType(Double), "eecs183.l04.02");
 
     // Check that the student wraps division in parens
     findConstructs(avgFunc, Predicates.byKind("arithmetic_binary_operator_expression")).forEach(
@@ -300,38 +354,14 @@ function eecs183_l03_03(program: Program) {
     //     });
 }
 
-function checkIncrements(loop: ForStatement | WhileStatement) {
-    if (!hasIncrement(loop)) {
-        loop.addNote(
-            new CompilerNote(
-                loop,
-                NoteKind.ERROR,
-                "no_loop_increment",
-                "Loop doesn't have an increment!"
-            )
-        );
-    } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
-        loop.addNote(
-            new CompilerNote(
-                loop,
-                NoteKind.ERROR,
-                "double_loop_increment",
-                "Loop has two increments!"
-            )
-        );
-    }
-}
-
 function eecs183_l07_01(program: Program) {
     const loop = findFirstConstruct(
         program,
         Predicates.byKinds(["for_statement", "while_statement"])
     );
-    if (!loop) {
-        return;
-    }
+    if (!loop) return;
 
-    checkIncrements(loop);
+    checkLoopIncrements(loop);
     checkOffByOneCondition(loop, 4);
 }
 
@@ -343,7 +373,7 @@ function eecs183_l08_01(program: Program) {
     );
     if (!loop) return;
 
-    checkIncrements(loop);
+    checkLoopIncrements(loop);
     checkOffByOneCondition(loop, 0);
 
     const cond_name = findFirstConstruct(
@@ -422,29 +452,7 @@ function eecs183_l10_01(program: Program) {
         );
     }
 
-    if (triple.parameters.length !== 1) {
-        triple.addNote(
-            new CompilerNote(
-                triple,
-                NoteKind.ERROR,
-                "incorrect_param_count",
-                `It looks like you ${
-                    triple.parameters.length > 1 ? "have too many" : "don't have enough"
-                } parameters in ${triple.name}.`
-            )
-        );
-    } else {
-        if (!(triple.parameters[0].type instanceof ReferenceType)) {
-            triple.parameters[0].addNote(
-                new CompilerNote(
-                    triple.parameters[0],
-                    NoteKind.ERROR,
-                    "eecs183.l10.01.fn_param_not_reference_type",
-                    "Function param is not a reference!"
-                )
-            );
-        }
-    }
+    checkFunctionParameters(triple, 1, isType(ReferenceType), "eecs183.l10.01")
 
     const main = findFirstConstruct(program, Predicates.byFunctionName("main"));
     const assg = findFirstConstruct(main, Predicates.byKind("assignment_expression"));
@@ -479,29 +487,7 @@ function eecs183_l10_02(program: Program) {
     if (!swap) return;
 
     // Check correctness of params
-    if (swap.parameters.length !== 2) {
-        swap.addNote(
-            new CompilerNote(
-                swap,
-                NoteKind.ERROR,
-                "eecs183.l10.02.swap_incorrect_param_count",
-                "Incorrect number of params!"
-            )
-        );
-    } else {
-        swap.parameters.forEach(param => {
-            if (!(param.type instanceof ReferenceType)) {
-                param.addNote(
-                    new CompilerNote(
-                        param,
-                        NoteKind.ERROR,
-                        "eecs183.l10.02.swap_incorrect_param_type",
-                        "Incorrect swap param types!"
-                    )
-                );
-            }
-        });
-    }
+    checkFunctionParameters(swap, 2, isType(ReferenceType), "eecs183.l10.02");
 
     // Check for use of a temp variable in swap operation
     const assignments = findConstructs(swap, Predicates.byKind("assignment_expression"));
@@ -539,6 +525,7 @@ function eecs183_l10_02(program: Program) {
 }
 
 function analyze(program: Program) {
+    
 }
 
 // export function analyze(program: Program) {

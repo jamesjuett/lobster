@@ -95,15 +95,16 @@ export namespace Predicates {
                 ((construct) => (construct instanceof FunctionDefinition) && construct.name === name);
     }
 
+    export function byFunctionCallName<N extends string>(name: N) {
+        return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
+                ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
+    }
+
     export function byIdentifierName<N extends string>(name: N) {
         return <(construct: AnalyticConstruct) => construct is IdentifierExpression & {name: N}>
                 ((construct) => (construct instanceof IdentifierExpression) && construct.name === name);
     }
 
-    export function byFunctionCallName<N extends string>(name: N) {
-        return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
-                ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
-    }
 
     // export function byCompiled<Original extends AnalyticDeclaration>(construct: Original) : construct is AnalyticCompiledDeclaration<Original> {
     //     return construct.isSuccessfullyCompiled();
