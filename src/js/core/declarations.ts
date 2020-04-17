@@ -315,7 +315,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
     });
 }
 
-export type AnalyticDeclaration = AnalyticSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+export type AnalyticDeclaration = AnalyticSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition | ParameterDeclaration;
 
 export type TypedDeclarationKinds<T extends Type> = {
     "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
