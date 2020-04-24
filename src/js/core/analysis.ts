@@ -234,16 +234,16 @@ function checkLoopIncrements(loop: ForStatement | WhileStatement) {
 }
 
 // ASK JAMES -> put in predicates.ts?
-function byParameterTypes(...paramtypes: ((t: Type) => t is PotentialParameterType)[]) {
-    let idx = 0;
-    return (t: Type): t is PotentialParameterType => paramtypes[idx++](t);
-}
+// function byParameterTypes(...paramtypes: ((t: Type) => t is PotentialParameterType)[]) {
+//     let idx = 0;
+//     return (t: Type): t is PotentialParameterType => paramtypes[idx++](t);
+// }
 
 function checkFunctionParameters(
     fn: FunctionDefinition,
     num_params: number,
-    check: (t: Type) => t is PotentialParameterType,
-    exercise_name: string
+    exercise_name: string,
+    ...check: ((t: Type) => t is PotentialParameterType)[]
 ) {
     if (fn.parameters.length !== num_params) {
         fn.addNote(
@@ -258,8 +258,9 @@ function checkFunctionParameters(
         );
         return;
     }
+    let idx = 0;
     fn.parameters.forEach(param => {
-        if (!Predicates.isTypedDeclaration(param, check)) {
+        if (!Predicates.isTypedDeclaration(param, check[check.length > 1 ? idx++ : idx])) {
             param.addNote(
                 new CompilerNote(
                     param,
@@ -306,12 +307,10 @@ function checkReturnType(
 function eecs183_l03_03(program: Program) {
     // Find average function
     const avgFunc = findFirstConstruct(program, Predicates.byFunctionName("average"));
-    if (!avgFunc) {
-        return;
-    }
+    if (!avgFunc) return;
 
     // Check function params
-    checkFunctionParameters(avgFunc, 2, isType(Double), "eecs183.l04.02");
+    checkFunctionParameters(avgFunc, 2, "eecs183.l04.02", isType(Double));
 
     // Check for lack of return statement
     checkForReturnStatement(avgFunc, "eecs183.l04.02");
@@ -452,7 +451,7 @@ function eecs183_l10_01(program: Program) {
         );
     }
 
-    checkFunctionParameters(triple, 1, isType(ReferenceType), "eecs183.l10.01")
+    checkFunctionParameters(triple, 1, "eecs183.l10.01", isType(ReferenceType));
 
     const main = findFirstConstruct(program, Predicates.byFunctionName("main"));
     const assg = findFirstConstruct(main, Predicates.byKind("assignment_expression"));
@@ -487,7 +486,7 @@ function eecs183_l10_02(program: Program) {
     if (!swap) return;
 
     // Check correctness of params
-    checkFunctionParameters(swap, 2, isType(ReferenceType), "eecs183.l10.02");
+    checkFunctionParameters(swap, 2, "eecs183.l10.02", isType(ReferenceType));
 
     // Check for use of a temp variable in swap operation
     const assignments = findConstructs(swap, Predicates.byKind("assignment_expression"));
