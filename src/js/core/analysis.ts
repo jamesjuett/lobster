@@ -46,9 +46,7 @@ import {
     Bool,
     PotentialReturnType,
 } from "./types";
-import { Expression } from "./expressionBase";
 import { Predicates, AnalyticConstruct } from "./predicates";
-import { commands } from "codemirror";
 import { Array } from "@svgdotjs/svg.js";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (
@@ -523,8 +521,73 @@ function eecs183_l10_02(program: Program) {
     });
 }
 
+// function min(...args: number[]): number {
+//     if (args.length === 1) return args[0];
+//     const m = min(...args.slice(1, args.length));
+//     return args[0] < m ? args[0] : m;
+// }
+
 function analyze(program: Program) {
-    
+    // engr101.16.07
+    //TODO generalize loop increment checking to allow for N increments in the loop body
+    //TODO add normal loop checking stuff (increments, bounds)
+    //TODO remeber what the other todo was supposed to be
+    const loops = findConstructs(program, Predicates.byKinds(["for_statement", "while_statement"]));
+    if (!loops.length) return;
+    if (loops.length < 2) {
+        loops[0].addNote(
+            new CompilerNote(
+                loops[0],
+                NoteKind.ERROR,
+                "engr101.l16.07",
+                "It's just a guess, but you may need more than one loop to get this done."
+            )
+        );
+    } else if (loops.length > 3) {
+        loops.slice(2, loops.length).forEach(loop => {
+            loop.addNote(
+                new CompilerNote(
+                    loop,
+                    NoteKind.ERROR,
+                    "engr101.l16.07",
+                    "It's just a guess, but you might not need this many loops to get this done."
+                )
+            );
+        });
+    } else {
+        let nested_error = false;
+        loops.slice(1, loops.length).forEach(loop => {
+            if (!loop.isDescendentOf(loops[0])) {
+                nested_error = true;
+                loop.addNote(
+                    new CompilerNote(
+                        loop,
+                        NoteKind.ERROR,
+                        "engr101.l16.07",
+                        "It's just a guess, but nested loops might help you get this done."
+                    )
+                );
+            }
+        });
+        if (nested_error) return;
+        if (loops.length === 2) {
+            if (
+                !findFirstConstruct(
+                    loops[0],
+                    Predicates.byKinds(["if_statement", "ternary_expression"])
+                )
+            ) {
+                loops[1].addNote(
+                    new CompilerNote(
+                        loops[1],
+                        NoteKind.ERROR,
+                        "engr101.l16.07",
+                        "It's just a guess, but you might benefit from using an if statement in this loop to help determine when to print an X and when to print a space."
+                    )
+                );
+            }
+        }
+    }
 }
 
 // export function analyze(program: Program) {
