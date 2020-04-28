@@ -248,6 +248,17 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public isSuccessfullyCompiled() : this is CompiledConstruct {
         return !this.getContainedNotes().hasErrors;
     }
+
+    public isDescendentOf(construct: CPPConstruct) {
+        let parent = this.parent;
+        while(parent) {
+            if (parent === construct) {
+                return true;
+            }
+            parent = parent.parent;
+        }
+        return false;
+    }
 }
 
 export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;

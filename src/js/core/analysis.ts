@@ -231,12 +231,6 @@ function checkLoopIncrements(loop: ForStatement | WhileStatement) {
     }
 }
 
-// ASK JAMES -> put in predicates.ts?
-// function byParameterTypes(...paramtypes: ((t: Type) => t is PotentialParameterType)[]) {
-//     let idx = 0;
-//     return (t: Type): t is PotentialParameterType => paramtypes[idx++](t);
-// }
-
 function checkFunctionParameters(
     fn: FunctionDefinition,
     num_params: number,
@@ -527,8 +521,7 @@ function eecs183_l10_02(program: Program) {
 //     return args[0] < m ? args[0] : m;
 // }
 
-function analyze(program: Program) {
-    // engr101.16.07
+function engr101_l16_07(program: Program) {
     //TODO generalize loop increment checking to allow for N increments in the loop body
     //TODO add normal loop checking stuff (increments, bounds)
     //TODO remeber what the other todo was supposed to be
@@ -589,6 +582,140 @@ function analyze(program: Program) {
         }
     }
 }
+
+// Give the number of iterations that the given loop will run for. Assumes iteration var is incremented by one each iteration
+// TODO clean this up, add while loop support -> find iteration var based on identifierexpr found in while loop condition
+function numIterations(loop: ForStatement | WhileStatement) {
+    if (Predicates.byKind("for_statement")(loop)) {
+        const cond = findFirstConstruct(
+            loop.condition,
+            Predicates.byKind("relational_binary_operator_expression")
+        );
+        if (!cond) return -1;
+        const start = findFirstConstruct(
+            loop.initial,
+            Predicates.byKind("numeric_literal_expression")
+        );
+        const bound = findFirstConstruct(
+            cond.right,
+            Predicates.byKind("numeric_literal_expression")
+        );
+
+        const result = Math.abs(bound.value.rawValue - start.value.rawValue);
+        return cond.operator === "<" || cond.operator === ">" ? result : result + 1;
+    }
+    return -1;
+}
+
+function engr101_l17_03(program: Program) {
+    const func = findFirstConstruct(program, Predicates.byFunctionName("print_triangle_X3"));
+
+    const print_calls = findFirstConstruct(func, Predicates.byFunctionCallName("print_row_of_X"));
+
+    if (!print_calls) {
+        func.addNote(
+            new CompilerNote(
+                func,
+                NoteKind.ERROR,
+                "engr101.l17.03",
+                "You should try calling print_row_of_X somewhere in your solution."
+            )
+        );
+    }
+
+    const loops = findConstructs(func, Predicates.byKinds(["for_statement", "while_statement"]));
+    if (!loops) return;
+    loops.forEach(loop => checkLoopIncrements(loop));
+    if (loops.length > 2) {
+        // Too many loops
+        func.addNote(
+            new CompilerNote(
+                func,
+                NoteKind.ERROR,
+                "engr101.l17.03",
+                `It's just a guess, but this task could be completed with less than ${loops.length} loops.`
+            )
+        );
+    } else if (loops.length === 2) {
+        // Solution 1
+        if (loops[1].isDescendentOf(loops[0])) {
+            loops[1].addNote(
+                new CompilerNote(
+                    loops[1],
+                    NoteKind.ERROR,
+                    "engr101.l17.03",
+                    "You might not need to use nested loops to do this task."
+                )
+            );
+            return;
+        }
+        if (numIterations(loops[0]) !== 3) {
+            loops[0].condition.addNote(
+                new CompilerNote(
+                    loops[0].condition,
+                    NoteKind.ERROR,
+                    "engr101.l17.03",
+                    "This loop probably needs to iterate three times."
+                )
+            );
+        }
+        if (numIterations(loops[1]) !== 2) {
+            loops[1].condition.addNote(
+                new CompilerNote(
+                    loops[1].condition,
+                    NoteKind.ERROR,
+                    "engr101.l17.03",
+                    "This loop probably needs to iterate two times."
+                )
+            );
+        }
+    } else if (loops.length === 1) {
+        // Solution 2
+        if (numIterations(loops[0]) !== 5) {
+            loops[0].condition.addNote(
+                new CompilerNote(
+                    loops[0].condition,
+                    NoteKind.ERROR,
+                    "engr101.l17.03",
+                    "This loop probably needs to iterate five times."
+                )
+            );
+        } else {
+            if (
+                !findFirstConstruct(
+                    loops[0],
+                    Predicates.byKinds(["if_statement", "ternary_expression"])
+                )
+            ) {
+                loops[0].addNote(
+                    new CompilerNote(
+                        loops[0],
+                        NoteKind.ERROR,
+                        "engr101.l17.03",
+                        "A solution using one loop should probably have some sort of conditional logic to help figure out how many X's to print out."
+                    )
+                );
+            }
+        }
+    }
+}
+
+function analyze(program: Program) {}
+
+// void print_triangle_X3() {
+
+//     // YOUR CODE HERE!
+//     for (int i = 1; i <= 3; ++i) {
+//      print_row_of_X(i);
+//     }
+//     for (int i = 2; i > 0; --i) {
+//      print_row_of_X(i);
+//     }
+// Solution 2
+//     for (int i = 1; i <= 5; ++i) {
+//      print_row_of_X(i <= 3 ? i : 5 - i + 1);
+//     }
+//   }
 
 // export function analyze(program: Program) {
 
