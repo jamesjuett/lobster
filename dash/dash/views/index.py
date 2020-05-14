@@ -1,16 +1,17 @@
 """
-Insta485 index (main) view.
-URLs include:
-/
-Andrew DeOrio <awdeorio@umich.edu>
+Instructor dashboard catch all view.
+Routing is done on the client side.
+
+Christina Fosheim-Hoag <cmfh@umich.edu> and Noa Levi <nlevi@umich.edu>
 """
 import flask
 import dash
 
 
-@dash.app.route('/', methods=["GET", "POST"])
-def show_index():
-    """Display / route."""
+@dash.app.route('/', defaults={'path': ''})
+@dash.app.route('/<path:path>')
+def show_index(path):
+    """Catch all route returns index.html."""
 
     # # User
     # logname = flask.session["logname"]
