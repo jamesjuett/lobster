@@ -1,0 +1,48 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+# Some variables for convenience
+DASH=dash
+
+# Sanity check command line options
+usage() {
+  echo "Usage: $0 (start|stop|restart|status)"
+}
+
+if [ $# -ne 1 ]; then
+  usage
+  exit 1
+fi
+
+# Parse command line options
+case $1 in
+  "start")
+
+    # Check if 8000 is are "occupied"
+    if pgrep -f 'flask run --host 0.0.0.0 --port 8000' &> /dev/null; then
+      echo "Error: a process is already using port 8000"
+      exit 1
+    fi
+    echo "starting dashboard server ..."
+    echo "+ export FLASK_APP=dash"
+    export FLASK_APP=dash
+    echo "+ flask run --host 0.0.0.0 --port 8000 &> /dev/null &"
+    flask run --host 0.0.0.0 --port 8000 
+    ;;
+
+  "stop")
+    echo "stopping search server ..."
+    echo "+ pkill -f 'flask run --host 0.0.0.0 --port 8000'"
+    pkill -f 'flask run --host 0.0.0.0 --port 8000'
+    ;;
+
+  "restart")
+    $0 stop
+    $0 start
+    ;;
+    
+  *)
+    usage
+    exit 1
+    ;;
+esac
