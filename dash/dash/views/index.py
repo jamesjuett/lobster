@@ -13,7 +13,7 @@ import dash
 def show_index(path):
     """Catch all route returns index.html."""
 
-    # # User
+    # User
     # logname = flask.session["logname"]
     # context = {"logname": logname}
     context = {}
