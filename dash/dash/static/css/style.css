@@ -1,0 +1,11 @@
+/* Exercise List */
+
+/* Exercise Overview */
+#container {
+    display: flex;
+    flex-direction: column;
+  }
+
+#body {
+  display: flex;
+}
