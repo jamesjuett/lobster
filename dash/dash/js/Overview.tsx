@@ -1,4 +1,6 @@
 import React from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSync } from '@fortawesome/free-solid-svg-icons'
 import { Container, Row, Col, Button, ProgressBar, Nav, NavDropdown } from 'react-bootstrap';
 
 export default function Overview() {
@@ -8,7 +10,7 @@ export default function Overview() {
         <Col>
           <div className="text-center position-relative">
             <div className="position-absolute">
-              <Button variant="light" size>Back</Button>
+              <Button variant="light">Back</Button>
             </div>
             <h3 className="w-100 text-center">
               Exercise 3.1 - largest()
@@ -18,65 +20,67 @@ export default function Overview() {
       </Row>
       <Row className="mt-3">
         <Col>
-          <Container>
-            <Row>
-              <Col>
-                Students Active:
-              </Col>
-              <Col>
-                152
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                Exercise Time:
-              </Col>
-              <Col>
-                2:17 minutes
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                Last Updated:
-              </Col>
-              <Col>
-                4:17 pm
-              </Col>
-            </Row>
-          </Container>
-          <Container>
-            <Row>
-              <Col>
-                Overall
-                  </Col>
-              <Col className="my-auto">
-              <ProgressBar striped variant="warning" now={60} />
-              </Col>
-              <Col xs="auto">
-                60%
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                Checkpoints:
-                </Col>
-            </Row>
-            <div className="border border-secondary p-2">
+          <div className="d-flex justify-content-between">
+            <Button>Start Exercise</Button>
+            <div className="d-flex align-items-center">
+              <span className="pr-1">Last Updated: 4:17 pm</span>
+              <Button variant="outline-success">
+                <FontAwesomeIcon icon={faSync} />
+              </Button>
+            </div>
+          </div>
+
+          <fieldset className="border p-2 my-2">
+            <legend className="w-auto">Summary</legend>
+            <Container>
               <Row>
                 <Col>
-                  Part 1
+                  Students Active:
+                </Col>
+                <Col>
+                  152
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  Exercise Time:
+                </Col>
+                <Col>
+                  2:17 minutes
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  Overall
+                </Col>
+                <Col className="my-auto">
+                  <ProgressBar striped variant="warning" now={60} />
+                </Col>
+                <Col xs="auto">
+                  60%
+                </Col>
+              </Row>
+            </Container>
+          </fieldset>
+
+          <fieldset className="border p-2 my-2">
+            <legend className="w-auto">Checkpoints</legend>
+            <Container>
+              <Row>
+                <Col>
+                  1. Part 1
                 </Col>
                 <Col className="my-auto">
                   <ProgressBar striped variant="success" now={90} />
                 </Col>
                 <Col xs="auto">
                   90%
-                  </Col>
+                </Col>
               </Row>
               <Row>
                 <Col>
-                  Part 2
-                  </Col>
+                  2. Part 2
+                </Col>
                 <Col className="my-auto">
                   <ProgressBar striped variant="warning" now={60} />
                 </Col>
@@ -86,8 +90,8 @@ export default function Overview() {
               </Row>
               <Row>
                 <Col>
-                  Part 3
-                  </Col>
+                  3. Part 3
+                </Col>
                 <Col className="my-auto">
                   <ProgressBar striped variant="danger" now={30} />
                 </Col>
@@ -95,12 +99,14 @@ export default function Overview() {
                   30%
                 </Col>
               </Row>
-            </div>
-          </Container>
+
+            </Container>
+          </fieldset>
 
         </Col>
         <Col>
-          <div className="border border-secondary p-2 h-100">
+          <fieldset className="border p-2 h-100">
+            <legend className="w-auto">Code</legend>
             <Nav variant="tabs" activeKey="1" onSelect={(e) => alert(e)}>
               <Nav.Item>
                 <Nav.Link eventKey="1" href="#/home">
@@ -155,7 +161,7 @@ export default function Overview() {
                 </Row>
               </Container>
             </div>
-          </div>
+          </fieldset>
 
         </Col>
       </Row>
