@@ -6,7 +6,7 @@ import {
   Redirect,
 } from "react-router-dom";
 import Dashboard from './Dashboard';
-import Overview from './Overview';
+import Overview from './overview/Overview';
 
 export default function App() {
   return (
