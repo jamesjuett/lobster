@@ -10,7 +10,7 @@ export default function Overview() {
   return (
     <Container fluid className="py-2">
       <Row className="border-bottom">
-        <Col>
+        <Col className="d-none d-lg-block">
           <div className="text-center position-relative">
             <div className="position-absolute">
               <Link to="/dashboard">
@@ -20,8 +20,16 @@ export default function Overview() {
             <h3 className="w-100 text-center">Exercise 3.1 - largest()</h3>
           </div>
         </Col>
+        <Col className="d-xs-block d-lg-none" >
+            <Link to="/dashboard">
+              <Button variant="light">Back to dashboard</Button>
+            </Link>
+        </Col>
+        <Col className="d-xs-block d-lg-none">
+            <h3 className="w-100 text-center">Exercise 3.1 - largest()</h3>
+        </Col>
       </Row>
-      <Row className="mt-3">
+      <Row className="mt-3 pb-1">
         <Col md={12} lg={4}>
           <div className="d-flex justify-content-between">
             <Button>Start Exercise</Button>
