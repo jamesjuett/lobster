@@ -5,7 +5,7 @@ import { Container, Row, Col, Button, ProgressBar } from "react-bootstrap";
 export default function LeftPanel() {
   return (
     <div>
-      <fieldset className="border p-2 my-2">
+      <fieldset className="border rounded p-2 my-2">
         <legend className="w-auto">Summary</legend>
         <Container>
           <Row>
@@ -26,7 +26,7 @@ export default function LeftPanel() {
         </Container>
       </fieldset>
 
-      <fieldset className="border p-2 my-2">
+      <fieldset className="border rounded p-2 my-2">
         <legend className="w-auto">Checkpoints</legend>
         <Container>
           <Row>

@@ -7160,6 +7160,7 @@ a.text-dark:hover, a.text-dark:focus {
     border-color: #dee2e6; } }
 
 .tab-content > .active {
-  display: flex; }
+  display: flex;
+  flex-grow: 1; }
 
 /*# sourceMappingURL=style.scss.css.map */

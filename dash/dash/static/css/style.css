@@ -6,11 +6,6 @@
     overflow: hidden;
     display: flex;
 }
-.tab-content>.active {
-    flex-grow: 1;
-    overflow: hidden;
-    display: flex;
-}
 
 .code-view {
     height: 80vh;
