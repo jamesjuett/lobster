@@ -1,5 +1,5 @@
 import React from "react";
-import { Tabs, Tab, Container, Col, Row } from "react-bootstrap";
+import { Tabs, Tab, CardColumns } from "react-bootstrap";
 import StarterCode from "./StarterCode";
 import CodeCard from "./CodeCard";
 
@@ -15,156 +15,32 @@ export default function CodeViewer() {
         >
           <Tab eventKey="solutions" title="Student Solutions">
             <div className="flex-grow-1 overflow-auto">
-              <Container className="d-none d-lg-block">
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-              </Container>
-              <Container className="d-none d-sm-block d-lg-none">
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-              </Container>
-              <Container className="d-xs-block d-sm-none">
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-                <Row className="py-2">
-                  <Col>
-                    <CodeCard />
-                  </Col>
-                </Row>
-              </Container>
+              <CardColumns className="pt-2">
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+                <CodeCard />
+              </CardColumns>
             </div>
           </Tab>
           <Tab eventKey="starter-code" title="Starter Code">
