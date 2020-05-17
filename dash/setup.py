@@ -10,6 +10,7 @@ setup(
     install_requires=[
         'bs4==0.0.1',
         'Flask==1.1.1',
+        'libsass==0.20.0',
         'nodeenv==1.3.5',
         'pycodestyle==2.5.0',
         'pydocstyle==5.0.2',
