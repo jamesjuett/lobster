@@ -43,7 +43,7 @@ export default function Overview() {
           <LeftPanel />
         </Col>
         <Col md={12} lg={8}>
-          <CodeViewer />
+          <CodeViewer students={['cmfh', 'cmfh2', 'cmfh3', 'cmfh4', 'cmfh5', 'cmfh6', 'cmfh7', 'cmfh8', 'cmfh9', 'cmfh10']} />
         </Col>
       </Row>
     </Container>

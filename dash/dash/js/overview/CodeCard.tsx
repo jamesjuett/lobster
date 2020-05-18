@@ -7,7 +7,6 @@ class CodeCard extends React.Component {
 
     this.state = {
       hovering: false,
-      starsOnHover: 0,
     };
 
     this.handleMouseEnter = this.handleMouseEnter.bind(this);
@@ -29,15 +28,18 @@ class CodeCard extends React.Component {
   }
 
   render() {
+    const { uniqname, onClick } = this.props;
     const { hovering } = this.state;
+
     return (
       <Card
         className="code-card overflow-hidden"
         border={hovering ? "primary" : "light"}
         onMouseEnter={this.handleMouseEnter}
         onMouseLeave={this.handleMouseExit}
+        onClick={() => onClick(uniqname)}
       >
-        <Card.Header>uniqname</Card.Header>
+        <Card.Header>{uniqname}</Card.Header>
         <Card.Body>
           <Card.Text>
             Code code code code code code Code code code code code code Code

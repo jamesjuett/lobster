@@ -1,7 +1,7 @@
 import React from "react";
 import { Tab, Row, Col, Nav } from "react-bootstrap";
 
-export default function StarterCode() {
+export default function CodeFiles() {
   return (
     <Tab.Container
       id="individual-code-view-tabs"
@@ -10,10 +10,10 @@ export default function StarterCode() {
       <Row>
         <Col sm={3}>
           <Nav variant="pills" className="flex-column">
-            <Nav.Item>
+            <Nav.Item key="file1">
               <Nav.Link eventKey="first">Really long file 1</Nav.Link>
             </Nav.Item>
-            <Nav.Item>
+            <Nav.Item key="file2">
               <Nav.Link eventKey="second">File 2</Nav.Link>
             </Nav.Item>
           </Nav>
