@@ -4,7 +4,7 @@ import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { Container, Row, Col, Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import LeftPanel from "./LeftPanel";
-import CodeViewer from "./CodeViewer";
+import RightPanel from "./RightPanel";
 
 export default function Overview() {
   return (
@@ -43,7 +43,7 @@ export default function Overview() {
           <LeftPanel />
         </Col>
         <Col md={12} lg={8}>
-          <CodeViewer students={['cmfh', 'cmfh2', 'cmfh3', 'cmfh4', 'cmfh5', 'cmfh6', 'cmfh7', 'cmfh8', 'cmfh9', 'cmfh10']} />
+          <RightPanel students={['cmfh', 'cmfh2', 'cmfh3', 'cmfh4', 'cmfh5', 'cmfh6', 'cmfh7', 'cmfh8', 'cmfh9', 'cmfh10']} />
         </Col>
       </Row>
     </Container>
