@@ -8,17 +8,17 @@ import { Nav, Button } from "react-bootstrap";
 const STUDENT_SOLUTIONS = "student-solutions";
 const STARTER_CODE = "starter-code";
 
-// interface Props {
-//   students: string[];
-// }
+interface Props {
+  students: string[];
+}
 
-// interface State {
-//   openStudentTabs: string[],
-//   currentTab: string
-// }
+interface State {
+  openStudentTabs: string[],
+  currentTab: string
+}
 
-class CodeViewer extends React.Component {
-  constructor(props) {
+class CodeViewer extends React.Component<Props, State> {
+  constructor(props: Props) {
     super(props);
 
     this.state = {
@@ -31,7 +31,7 @@ class CodeViewer extends React.Component {
     this.closeTab = this.closeTab.bind(this);
   }
 
-  onCardClick(uniqname) {
+  onCardClick(uniqname: string) {
     if (this.state.openStudentTabs.indexOf(uniqname) === -1) {
       this.setState((prevState) => ({
         openStudentTabs: prevState.openStudentTabs.concat([uniqname]),
@@ -44,20 +44,20 @@ class CodeViewer extends React.Component {
     }
   }
 
-  selectTab(tabId) {
-    this.setState((state) => {
+  selectTab(tabId: string) {
+    this.setState((prevState: State) => {
       if (
-        state.openStudentTabs.indexOf(tabId) !== -1 ||
+        prevState.openStudentTabs.indexOf(tabId) !== -1 ||
         tabId === STARTER_CODE ||
         tabId === STUDENT_SOLUTIONS
       ) {
-        return { currentTab: tabId };
+        return { currentTab: tabId } as State;
       }
-      return state;
+      return prevState;
     });
   }
 
-  closeTab(uniqname) {
+  closeTab(uniqname: string) {
     const { openStudentTabs, currentTab } = this.state;
 
     const index = openStudentTabs.indexOf(uniqname);

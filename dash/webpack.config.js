@@ -10,16 +10,21 @@ module.exports = {
   module: {
     rules: [
       {
-        // Test for js or jsx files
-        test: /\.tsx?$/,
-        loader: 'babel-loader',
-        options: {
-          presets: ['@babel/preset-env', '@babel/preset-react'],
-        },
-      },
+        test: /\.ts(x?)$/,
+        exclude: /node_modules/,
+        use: [
+            {
+                loader: "ts-loader"
+            }
+        ]
+    },
     ],
   },
+  externals: {
+    "react": "React",
+    "react-dom": "ReactDOM"
+  },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    extensions: ['.ts', '.tsx', '.js', 'jsx'],
   },
 };

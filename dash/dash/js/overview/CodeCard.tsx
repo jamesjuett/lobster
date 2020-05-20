@@ -1,8 +1,17 @@
-import React from 'react';
+import React from "react";
 import { Card } from "react-bootstrap";
 
-class CodeCard extends React.Component {
-  constructor(props) {
+interface Props {
+  uniqname: string;
+  onClick: (uniqname: string) => void;
+}
+
+interface State {
+  hovering: boolean;
+}
+
+class CodeCard extends React.Component<Props, State> {
+  constructor(props: Props) {
     super(props);
 
     this.state = {
@@ -13,14 +22,14 @@ class CodeCard extends React.Component {
     this.handleMouseExit = this.handleMouseExit.bind(this);
   }
 
-  handleMouseEnter(e) {
+  handleMouseEnter(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     this.setState({
       hovering: true,
     });
   }
 
-  handleMouseExit(e) {
+  handleMouseExit(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     this.setState({
       hovering: false,
