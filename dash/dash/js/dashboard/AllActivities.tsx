@@ -5,21 +5,30 @@ import { Nav, Button } from "react-bootstrap";
 const STUDENT_SOLUTIONS = "student-solutions";
 const STARTER_CODE = "starter-code";
 
-interface Course {
-  activities: string[];
+interface Props {
+  courses: [{name: string, activities: string[]}]
 }
 
-class AllActivities extends React.Component<Course> {
-  constructor(courses: Course) {
-    super(courses);
+class AllActivities extends React.Component<Props> {
+  constructor(props: Props) {
+    super(props);
   }
 
+
   render() {
+    const { courses } = this.props;
     return (
       <div className="col-lg-7 col-md-12">
         <fieldset className="border rounded p-2 ">
           <legend className="w-auto">All Excercises</legend>
           <Container>
+            {courses.map((course) => {
+              {course.activities.map((activity) => {
+                
+
+              }
+              )}
+            })}
             <div className="accordion" id="accordion">
               <fieldset className="border rounded p-2 my-2">
                 <div className="accordion-group">
