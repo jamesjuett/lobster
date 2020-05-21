@@ -1,13 +1,28 @@
 import React from "react";
 import { Tab, Row, Col, Nav } from "react-bootstrap";
 
+
+ 
 interface Props {
-    activity: string[]
+    activity: string
 }
   
-export default function Course(props: Props) {
-    return (
-        <div>hi</div>
+class Activity extends React.Component<Props> {
+    constructor(props: Props) {
+        super(props);
+
+      }
+    
+      render() {
+        const { activity } = this.props;
+        return (
+            <fieldset className="border rounded p-2 ">
+                {activity}
+            </fieldset>
+            );
+        }
+    };
         
-    );
-}
+
+export default Activity;
+

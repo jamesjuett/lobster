@@ -1,49 +1,48 @@
 import React from "react";
-import { Tab, Row, Col, Nav } from "react-bootstrap";
+import { Button, Card, Accordion } from "react-bootstrap";
+
+
 import Activity from "./Activity";
-
-
+ 
 interface Props {
     name: string,
     activities: string[]
 }
   
-export default function Course(props: Props) {
-    const { name, activities } = props;
-    return (
-        <fieldset className="border rounded p-2 my-2">
-            <div className="accordion-group">
-                <div className="accordion-heading">
-                    <a
-                        className="accordion-toggle"
-                        data-toggle="collapse"
-                        data-target="#collapseTwo"
-                    >
-                        <fieldset>{name}</fieldset>
-                    </a>
-                </div>
-            </div>
-        </fieldset>
-  
-        // // todo: output name
-        // {activities.map((courseActivity) => (
-        //     <Activity
-        //       activity={courseActivity}
-        //     />
-        //   ))}
+class Course extends React.Component<Props> {
+    constructor(props: Props) {
+        super(props);
 
-       
+      }
+    
+      render() {
+        const { name, activities } = this.props;
+        return (
+                <Card>
+                <Accordion.Toggle as={Card.Header} eventKey={name}>
+                    {name}
+                </Accordion.Toggle>
+                <Accordion.Collapse eventKey={name}>
+                    <Card.Body>
+                        {activities.map((activity) => {
+                            return(
+                            <Activity 
+                            key={activity}
+                            activity={activity}
+                        />
+                        );
+                        })}
+                    </Card.Body>
+                </Accordion.Collapse>
+            </Card>
+
     );
+    }
 }
 
 
-{/* <div id="collapseTwo" className=" collapse">
-<div className="accordion-inner ml-4">
-  <Row>Activity 3</Row>
-  <Row>Activity 4</Row>
-</div>
-</div>
-</div> */}
 
 
 
+
+export default Course;

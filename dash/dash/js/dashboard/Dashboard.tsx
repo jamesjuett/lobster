@@ -11,7 +11,10 @@ export default function Dashboard() {
         </Row>
         <Row>
         <AllActivities courses={[{'name':'EECS 280', 'activities':['Activity 1', 'Activity 2']},
-                                ]} />
+                              {'name':'EECS 183', 'activities':['Activity 3']},
+                              {'name':'EECS 101', 'activities':['Activity 5', 'Activity 6', 'Activity 7']},
+                              {'name': 'EECS 491', 'activities': []}
+                              ]} />
         <div className="col-lg-5 col-md-12">
           <fieldset className="border rounded p-2 ">
             <legend className="w-auto">Pending Excercises</legend>
