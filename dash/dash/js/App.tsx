@@ -16,6 +16,9 @@ export default function App() {
         <Route exact path="/dashboard">
           <Dashboard />
         </Route>
+        <Route path="/dashboard/:classid/:exerciseid/edit">
+          <Edit />
+        </Route>
         <Route path="/dashboard/:classid/:exerciseid">
           <Overview />
         </Route>
@@ -29,4 +32,8 @@ export default function App() {
   
   function NoMatch() {
     return <h2>Sorry, can't find it!</h2>;
+  }
+
+  function Edit() {
+    return <h2>Under construction!</h2>;
   }
