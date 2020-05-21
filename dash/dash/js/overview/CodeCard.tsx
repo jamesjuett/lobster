@@ -3,7 +3,7 @@ import { Card } from "react-bootstrap";
 
 interface Props {
   uniqname: string;
-  onClick: (uniqname: string) => void;
+  onClick: () => void;
 }
 
 interface State {
@@ -46,7 +46,7 @@ class CodeCard extends React.Component<Props, State> {
         border={hovering ? "primary" : "light"}
         onMouseEnter={this.handleMouseEnter}
         onMouseLeave={this.handleMouseExit}
-        onClick={() => onClick(uniqname)}
+        onClick={onClick}
       >
         <Card.Header>{uniqname}</Card.Header>
         <Card.Body>

@@ -91,6 +91,11 @@ class Overview extends React.Component<Props, State> {
   }
 
   render() {
+    const {
+      match: {
+        params: { exerciseid },
+      },
+    } = this.props;
     const { exerciseStarted, lastUpdated } = this.state;
     return (
       <Container fluid className="py-2">
@@ -133,17 +138,18 @@ class Overview extends React.Component<Props, State> {
           </Col>
           <Col md={12} lg={8}>
             <RightPanel
+              exerciseid={exerciseid}
               students={[
-                "cmfh",
-                "cmfh2",
-                "cmfh3",
-                "cmfh4",
-                "cmfh5",
-                "cmfh6",
-                "cmfh7",
-                "cmfh8",
-                "cmfh9",
-                "cmfh10",
+                {"name": "cmfh", "id": "1"},
+                {"name": "cmfh2", "id": "2"},
+                {"name": "cmfh3", "id": "3"},
+                {"name": "cmfh4", "id": "4"},
+                {"name": "cmfh5", "id": "5"},
+                {"name": "cmfh6", "id": "6"},
+                {"name": "cmfh7", "id": "7"},
+                {"name": "cmfh8", "id": "8"},
+                {"name": "cmfh9", "id": "9"},
+                {"name": "cmfh10", "id": "10"},
               ]}
             />
           </Col>

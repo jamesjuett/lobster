@@ -51,6 +51,7 @@ class LeftPanel extends React.Component<Props, State> {
           <Container>
             {projects.map((project, idx) => (
               <ProjectProgress
+                key={idx}
                 idx={idx + 1}
                 name={project.name}
                 percentComplete={project.percentComplete}

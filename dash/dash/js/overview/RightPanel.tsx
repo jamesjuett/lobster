@@ -1,25 +1,32 @@
 import React from "react";
 import { Tabs, Tab, CardColumns } from "react-bootstrap";
-import CodeFiles from "./CodeFiles";
+import FileTabs from "./FileTabs";
 import CodeCard from "./CodeCard";
 import CloseButton from "./CloseButton";
 import { Nav, Button } from "react-bootstrap";
 
 const STUDENT_SOLUTIONS = "student-solutions";
 const STARTER_CODE = "starter-code";
+const ID_TO_STUDENT: Record<string, string> = {};
 
 interface Props {
-  students: string[];
+  exerciseid: string;
+  students: { name: string; id: string }[];
 }
 
 interface State {
-  openStudentTabs: string[],
-  currentTab: string
+  openStudentTabs: string[];
+  currentTab: string;
 }
 
 class RightPanel extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
+
+    
+    props.students.forEach((student) => {
+      ID_TO_STUDENT[student.id] = student.name;
+    });
 
     this.state = {
       openStudentTabs: [],
@@ -31,15 +38,29 @@ class RightPanel extends React.Component<Props, State> {
     this.closeTab = this.closeTab.bind(this);
   }
 
-  onCardClick(uniqname: string) {
-    if (this.state.openStudentTabs.indexOf(uniqname) === -1) {
+  componentDidMount() {
+    // TODO: fetch files for students
+    // fetch(fileListUrl, { credentials: "same-origin" })
+    //   .then((response) => {
+    //     if (!response.ok) throw Error(response.statusText);
+    //     return response.json();
+    //   })
+    //   .then((data) => {
+    //     this.setState({
+    //       fileList: data,
+    //     });
+    //   });
+  }
+
+  onCardClick(studentId: string) {
+    if (this.state.openStudentTabs.indexOf(studentId) === -1) {
       this.setState((prevState) => ({
-        openStudentTabs: prevState.openStudentTabs.concat([uniqname]),
-        currentTab: uniqname,
+        openStudentTabs: prevState.openStudentTabs.concat([studentId]),
+        currentTab: studentId,
       }));
     } else {
       this.setState(() => ({
-        currentTab: uniqname,
+        currentTab: studentId,
       }));
     }
   }
@@ -57,13 +78,13 @@ class RightPanel extends React.Component<Props, State> {
     });
   }
 
-  closeTab(uniqname: string) {
+  closeTab(studentId: string) {
     const { openStudentTabs, currentTab } = this.state;
 
-    const index = openStudentTabs.indexOf(uniqname);
+    const index = openStudentTabs.indexOf(studentId);
     let currTab = currentTab;
 
-    if (currTab === uniqname) {
+    if (currTab === studentId) {
       currTab = STUDENT_SOLUTIONS;
     }
 
@@ -78,8 +99,8 @@ class RightPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { openStudentTabs, currentTab } = this.state;
-    const { students } = this.props;
+    const { openStudentTabs, currentTab,  } = this.state;
+    const { students, exerciseid } = this.props;
 
     let tabContent = null;
     if (currentTab == STUDENT_SOLUTIONS) {
@@ -88,9 +109,9 @@ class RightPanel extends React.Component<Props, State> {
           <CardColumns className="pt-2">
             {students.map((student) => (
               <CodeCard
-                key={student}
-                uniqname={student}
-                onClick={this.onCardClick}
+                key={student.id}
+                uniqname={student.name}
+                onClick={() => this.onCardClick(student.id)}
               />
             ))}
           </CardColumns>
@@ -99,13 +120,15 @@ class RightPanel extends React.Component<Props, State> {
     } else if (currentTab == STARTER_CODE) {
       tabContent = (
         <div className="py-2 flex-row flex-grow-1">
-          <CodeFiles />
+          <FileTabs fileListUrl={`/exercises/${exerciseid}/starter_files/`} />
         </div>
       );
     } else {
       tabContent = (
         <div className="py-2 flex-row flex-grow-1">
-          <CodeFiles />
+          <FileTabs
+            fileListUrl={`/exercises/${exerciseid}/users/${currentTab}/files/`}
+          />
         </div>
       );
     }
@@ -128,11 +151,11 @@ class RightPanel extends React.Component<Props, State> {
             <Nav.Item key={STARTER_CODE}>
               <Nav.Link eventKey={STARTER_CODE}>Starter Code</Nav.Link>
             </Nav.Item>
-            {openStudentTabs.map((student) => (
-              <Nav.Item key={student}>
-                <Nav.Link eventKey={student}>
-                  {student}
-                  <CloseButton closeTab={() => this.closeTab(student)} />
+            {openStudentTabs.map((id) => (
+              <Nav.Item key={id}>
+                <Nav.Link eventKey={id}>
+                  {ID_TO_STUDENT[id]}
+                  <CloseButton closeTab={() => this.closeTab(id)} />
                 </Nav.Link>
               </Nav.Item>
             ))}
