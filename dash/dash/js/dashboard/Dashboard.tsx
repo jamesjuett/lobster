@@ -10,7 +10,8 @@ export default function Dashboard() {
           <h3 className="w-100 text-center">Instructor Dashboard</h3>
         </Row>
         <Row>
-        <AllActivities courses={[{'name':'EECS 280', 'activities':['Activity 1', 'Activity']}]} />
+        <AllActivities courses={[{'name':'EECS 280', 'activities':['Activity 1', 'Activity 2']},
+                                ]} />
         <div className="col-lg-5 col-md-12">
           <fieldset className="border rounded p-2 ">
             <legend className="w-auto">Pending Excercises</legend>

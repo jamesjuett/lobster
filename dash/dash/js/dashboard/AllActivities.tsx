@@ -1,9 +1,8 @@
 import React from "react";
-import { Row, Container, Tabs, Tab, CardColumns } from "react-bootstrap";
-import { Nav, Button } from "react-bootstrap";
+import { Row, Container} from "react-bootstrap";
+import Course from "./Course";
 
-const STUDENT_SOLUTIONS = "student-solutions";
-const STARTER_CODE = "starter-code";
+
 
 interface Props {
   courses: [{name: string, activities: string[]}]
@@ -24,14 +23,11 @@ class AllActivities extends React.Component<Props> {
           <Container>
             <div className="accordion" id="accordion">
               {courses.map((course) => {
-
-                {course.activities.map((activity) => {
-                  course
-                  activity
-
-
-                }
-                )}
+                <Course 
+                  key={course.name}
+                  name={course.name}
+                  activities={course.activities}
+                />
               })}
              </div>
           </Container>  
