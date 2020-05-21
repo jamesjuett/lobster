@@ -17,7 +17,7 @@ interface State {
   currentTab: string
 }
 
-class CodeViewer extends React.Component<Props, State> {
+class RightPanel extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
 
@@ -144,4 +144,4 @@ class CodeViewer extends React.Component<Props, State> {
   }
 }
 
-export default CodeViewer;
+export default RightPanel;
