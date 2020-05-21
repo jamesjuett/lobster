@@ -16,6 +16,7 @@ class AllActivities extends React.Component<Props> {
     const { courses } = this.props;
     return ( 
       <div className="col-lg-7 col-md-12">
+        <fieldset className="border rounded p-2 ">
           <legend className="w-auto">All Excercises</legend>
           <Accordion defaultActiveKey="0">
             {courses.map((course) => {
@@ -29,6 +30,7 @@ class AllActivities extends React.Component<Props> {
               );
             })}
           </Accordion>
+          </fieldset>
       </div>
     );
   }

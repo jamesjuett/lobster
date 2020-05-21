@@ -1,24 +1,37 @@
 import React from "react";
-import { Tab, Row, Col, Nav } from "react-bootstrap";
+import {Button, Row, Col } from "react-bootstrap";
+import { Link } from "react-router-dom";
 
 
  
 interface Props {
+    course: string,
     activity: string
 }
   
 class Activity extends React.Component<Props> {
     constructor(props: Props) {
         super(props);
-
       }
     
       render() {
-        const { activity } = this.props;
+        const { course, activity } = this.props;
         return (
-            <fieldset className="border rounded p-2 ">
-                {activity}
+            <fieldset className="border rounded p-2">
+                <Row>
+                <Col sm={10}>
+                    <b>{activity}</b>
+                </Col>
+                <Col sm={2}>
+                    <Link to="/dashboard/{course}/{activity}">
+                        <Button>
+                            Overview
+                        </Button>
+                    </Link>
+                </Col>
+                </Row>
             </fieldset>
+           
             );
         }
     };
