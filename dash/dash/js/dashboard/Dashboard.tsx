@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Row } from "react-bootstrap";
 import AllActivities from "./AllActivities";
+import PendingActivities from "./PendingActivities";
 
 
 export default function Dashboard() {
@@ -15,11 +16,10 @@ export default function Dashboard() {
                               {'name':'EECS 101', 'activities':['Activity 5', 'Activity 6', 'Activity 7']},
                               {'name': 'EECS 491', 'activities': []}
                               ]} />
-        <div className="col-lg-5 col-md-12">
-          <fieldset className="border rounded p-2 ">
-            <legend className="w-auto">Pending Excercises</legend>
-          </fieldset>
-        </div>
+        <PendingActivities 
+          activities={[{'courseName': 'EECS 280', 'activity': 'Activity 2'},
+                      {'courseName': 'EECS 101', 'activity': 'Activity 18'}
+          ]}/>
         </Row>
       </Container>
 

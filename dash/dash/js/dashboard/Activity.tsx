@@ -17,7 +17,7 @@ class Activity extends React.Component<Props> {
       render() {
         const { course, activity } = this.props;
         return (
-            <fieldset className="border rounded p-2">
+            <fieldset className="border rounded p-2 my-2">
                 <Row>
                 <Col sm={8}>
                     <b>{activity}</b>
