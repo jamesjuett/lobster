@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { RouteComponentProps, withRouter } from "react-router";
 import LeftPanel from "./LeftPanel";
 import RightPanel from "./RightPanel";
+import moment from "moment";
 
 interface MatchParams {
   exerciseid: string;
@@ -16,6 +17,7 @@ interface Props extends RouteComponentProps<MatchParams> {}
 
 interface State {
   exerciseStarted: boolean;
+  lastUpdated: moment.Moment;
 }
 
 class Overview extends React.Component<Props, State> {
@@ -24,9 +26,33 @@ class Overview extends React.Component<Props, State> {
 
     this.state = {
       exerciseStarted: false,
+      lastUpdated: moment(),
     };
 
     this.toggleExercise = this.toggleExercise.bind(this);
+    this.retrieveData = this.retrieveData.bind(this);
+  }
+
+  componentDidMount() {
+    this.retrieveData();
+  }
+
+  retrieveData() {
+    console.log("This is where we retrieve data!");
+    this.setState({
+      lastUpdated: moment(),
+    });
+    // fetch(url, { credentials: "same-origin", method, body })
+    //   .then((response) => {
+    //     if (!response.ok) throw Error(response.statusText);
+    //     return response.json();
+    //   })
+    //   .then((data) => {
+
+    //     this.setState({
+    //       exerciseStarted: true,
+    //     });
+    //   });
   }
 
   toggleExercise(e: React.MouseEvent<HTMLButtonElement>) {
@@ -48,6 +74,9 @@ class Overview extends React.Component<Props, State> {
     }
 
     console.log(url, method, body);
+    this.setState((prevState: State) => ({
+      exerciseStarted: !prevState.exerciseStarted,
+    }));
     // fetch(url, { credentials: "same-origin", method, body })
     //   .then((response) => {
     //     if (!response.ok) throw Error(response.statusText);
@@ -62,7 +91,7 @@ class Overview extends React.Component<Props, State> {
   }
 
   render() {
-    const { exerciseStarted } = this.state;
+    const { exerciseStarted, lastUpdated } = this.state;
     return (
       <Container fluid className="py-2">
         <Row className="border-bottom">
@@ -92,8 +121,10 @@ class Overview extends React.Component<Props, State> {
                 {exerciseStarted ? "Stop Exercise" : "Start Exercise"}
               </Button>
               <div className="d-flex align-items-center">
-                <span className="pr-1">Last Updated: 4:17 pm</span>
-                <Button variant="outline-success">
+                <span className="pr-1">
+                  Last Updated: {lastUpdated.format("h:mm:ss a")}
+                </span>
+                <Button variant="outline-success" onClick={this.retrieveData}>
                   <FontAwesomeIcon icon={faSync} />
                 </Button>
               </div>
