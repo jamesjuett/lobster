@@ -26,6 +26,7 @@ interface State {
   };
   projects: Project[];
   statuses: Status[];
+  showNames: boolean;
 }
 
 class Overview extends React.Component<Props, State> {
@@ -34,13 +35,21 @@ class Overview extends React.Component<Props, State> {
 
     this.state = {
       lastUpdated: moment(),
-      sessionInfo: { sessionid: -1, name: "", exerciseid: -1, active: false, created: "" },
+      sessionInfo: {
+        sessionid: -1,
+        name: "",
+        exerciseid: -1,
+        active: false,
+        created: "",
+      },
       projects: [],
       statuses: [],
+      showNames: true,
     };
 
     this.toggleExercise = this.toggleExercise.bind(this);
     this.getUpdatedData = this.getUpdatedData.bind(this);
+    this.anonymizeNames = this.anonymizeNames.bind(this);
     this.retrieveProjectData = this.retrieveProjectData.bind(this);
     this.retrieveSessionStatus = this.retrieveSessionStatus.bind(this);
   }
@@ -62,7 +71,7 @@ class Overview extends React.Component<Props, State> {
           name: "My session",
           exerciseid: 5678,
           active: true,
-          created: "2020-05-27T18:56:26"
+          created: "2020-05-27T18:56:26",
         },
       },
       this.getUpdatedData
@@ -82,6 +91,12 @@ class Overview extends React.Component<Props, State> {
     //       this.getUpdatedData
     //     );
     //   });
+  }
+
+  anonymizeNames() {
+    this.setState((prevState: State) => ({
+      showNames: !prevState.showNames,
+    }));
   }
 
   getUpdatedData() {
@@ -254,29 +269,43 @@ class Overview extends React.Component<Props, State> {
       lastUpdated,
       projects,
       statuses,
+      showNames,
     } = this.state;
     return (
       <Container fluid className="py-2">
         <Header exerciseid={exerciseid} />
-        <Row className="mt-3 pb-1">
+        <Row className="mt-3">
           <Col md={12} lg={4}>
-            <div className="d-flex justify-content-between">
-              <Button onClick={this.toggleExercise}>
+            <div className="d-flex align-items-center justify-content-end">
+              <span className="pr-1">
+                Last Updated: {lastUpdated.format("h:mm:ss a")}
+              </span>
+              <Button variant="outline-success" onClick={this.getUpdatedData}>
+                <FontAwesomeIcon icon={faSync} />
+              </Button>
+            </div>
+          </Col>
+          <Col md={12} lg={8} className="justify-content-end">
+            <div className="d-flex align-items-center justify-content-end">
+              <Button className="mx-1" onClick={this.anonymizeNames}>
+                {showNames ? "Hide names" : "Show names"}
+              </Button>
+              <Button className="mx-1" onClick={this.toggleExercise}>
                 {active ? "Stop Exercise" : "Start Exercise"}
               </Button>
-              <div className="d-flex align-items-center">
-                <span className="pr-1">
-                  Last Updated: {lastUpdated.format("h:mm:ss a")}
-                </span>
-                <Button variant="outline-success" onClick={this.getUpdatedData}>
-                  <FontAwesomeIcon icon={faSync} />
-                </Button>
-              </div>
             </div>
+          </Col>
+        </Row>
+        <Row className="pb-1">
+          <Col md={12} lg={4}>
             <LeftPanel statuses={statuses} created={moment(created)} />
           </Col>
           <Col md={12} lg={8}>
-            <RightPanel projects={projects} exerciseId={exerciseid} />
+            <RightPanel
+              projects={projects}
+              exerciseId={exerciseid}
+              showNames={showNames}
+            />
           </Col>
         </Row>
       </Container>

@@ -6,8 +6,8 @@ import CloseButton from "./CloseButton";
 import { Nav } from "react-bootstrap";
 import { Project } from "../SharedTypes";
 
-const STUDENT_SOLUTIONS = 'student-solutions';
-const STARTER_CODE = 'starter-code';
+const STUDENT_SOLUTIONS = "student-solutions";
+const STARTER_CODE = "starter-code";
 
 interface ProjectId {
   projectid: string;
@@ -17,12 +17,12 @@ interface ProjectId {
 interface Props {
   projects: Project[];
   exerciseId: number;
+  showNames: boolean;
 }
 
 interface State {
   openStudentTabs: ProjectId[];
   currentTab: string;
-  hideNames: boolean;
 }
 
 class RightPanel extends React.Component<Props, State> {
@@ -32,7 +32,6 @@ class RightPanel extends React.Component<Props, State> {
     this.state = {
       currentTab: STUDENT_SOLUTIONS,
       openStudentTabs: [],
-      hideNames: false,
     };
 
     this.onCardClick = this.onCardClick.bind(this);
@@ -102,8 +101,8 @@ class RightPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { openStudentTabs, currentTab, hideNames } = this.state;
-    const { projects, exerciseId } = this.props;
+    const { openStudentTabs, currentTab } = this.state;
+    const { projects, exerciseId, showNames } = this.props;
 
     let tabContent = null;
     if (currentTab === STUDENT_SOLUTIONS) {
@@ -113,7 +112,7 @@ class RightPanel extends React.Component<Props, State> {
             {projects.map((project) => (
               <CodeCard
                 key={project.projectid}
-                id={hideNames ? `${project.projectid}` : project.email}
+                id={showNames ? project.email: `${project.projectid}`}
                 onClick={() =>
                   this.onCardClick({
                     projectid: `${project.projectid}`,
@@ -160,7 +159,7 @@ class RightPanel extends React.Component<Props, State> {
             {openStudentTabs.map((project: ProjectId) => (
               <Nav.Item key={project.projectid}>
                 <Nav.Link eventKey={project.projectid}>
-                  {hideNames ? project.projectid : project.email}
+                  {showNames ? project.email : project.projectid }
                   <CloseButton
                     closeTab={() => this.closeTab(project.projectid)}
                   />

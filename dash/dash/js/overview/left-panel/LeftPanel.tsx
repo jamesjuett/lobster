@@ -59,7 +59,7 @@ class LeftPanel extends React.Component<Props, State> {
     const { checkpoints, overallPercentComplete } = this.state;
     return (
       <div>
-        <fieldset className="border rounded p-2 my-2">
+        <fieldset className="border rounded p-2">
           <legend className="w-auto">Summary</legend>
           <Container>
             <Row>
