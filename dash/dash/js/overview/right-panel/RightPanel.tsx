@@ -4,7 +4,7 @@ import FileTabs from "./FileTabs";
 import CodeCard from "./CodeCard";
 import CloseButton from "./CloseButton";
 import { Nav } from "react-bootstrap";
-import { Project } from "./SharedTypes";
+import { Project } from "../SharedTypes";
 
 const STUDENT_SOLUTIONS = 'student-solutions';
 const STARTER_CODE = 'starter-code';

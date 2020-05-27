@@ -3,8 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { Container, Row, Col, Button } from "react-bootstrap";
 import { RouteComponentProps, withRouter } from "react-router";
-import LeftPanel from "./LeftPanel";
-import RightPanel from "./RightPanel";
+import LeftPanel from "./left-panel/LeftPanel";
+import RightPanel from "./right-panel/RightPanel";
 import Header from "./Header";
 import { Project, Status } from "./SharedTypes";
 import moment from "moment";
@@ -22,6 +22,7 @@ interface State {
     name: string;
     exerciseid: number;
     active: boolean;
+    created: string;
   };
   projects: Project[];
   statuses: Status[];
@@ -33,7 +34,7 @@ class Overview extends React.Component<Props, State> {
 
     this.state = {
       lastUpdated: moment(),
-      sessionInfo: { sessionid: -1, name: "", exerciseid: -1, active: false },
+      sessionInfo: { sessionid: -1, name: "", exerciseid: -1, active: false, created: "" },
       projects: [],
       statuses: [],
     };
@@ -61,6 +62,7 @@ class Overview extends React.Component<Props, State> {
           name: "My session",
           exerciseid: 5678,
           active: true,
+          created: "2020-05-27T18:56:26"
         },
       },
       this.getUpdatedData
@@ -195,7 +197,7 @@ class Overview extends React.Component<Props, State> {
 
     this.setState({
       lastUpdated: moment(),
-      statuses: [{}, {}, {}],
+      statuses: [{}, {}, {}, {}, {}, {}, {}, {}],
     });
 
     // TODO
@@ -248,7 +250,7 @@ class Overview extends React.Component<Props, State> {
 
   render() {
     const {
-      sessionInfo: { active, exerciseid },
+      sessionInfo: { active, exerciseid, created },
       lastUpdated,
       projects,
       statuses,
@@ -271,7 +273,7 @@ class Overview extends React.Component<Props, State> {
                 </Button>
               </div>
             </div>
-            <LeftPanel statuses={statuses} />
+            <LeftPanel statuses={statuses} created={moment(created)} />
           </Col>
           <Col md={12} lg={8}>
             <RightPanel projects={projects} exerciseId={exerciseid} />
