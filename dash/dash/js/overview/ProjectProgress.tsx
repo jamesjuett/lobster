@@ -2,7 +2,6 @@ import React from "react";
 import { Row, Col, ProgressBar } from "react-bootstrap";
 
 interface Props {
-  idx: number;
   name: string;
   percentComplete: number;
 }
@@ -28,10 +27,12 @@ class ProjectProgress extends React.Component<Props, State> {
   }
 
   render() {
-    const { percentComplete, name, idx } = this.props;
+    const { percentComplete, name } = this.props;
     return (
       <Row>
-        <Col>{idx}. {name}</Col>
+        <Col>
+          {name}
+        </Col>
         <Col className="my-auto">
           <ProgressBar
             striped

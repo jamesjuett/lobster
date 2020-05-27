@@ -2,7 +2,7 @@ import React from "react";
 import { Card } from "react-bootstrap";
 
 interface Props {
-  uniqname: string;
+  id: string;
   onClick: () => void;
 }
 
@@ -37,7 +37,7 @@ class CodeCard extends React.Component<Props, State> {
   }
 
   render() {
-    const { uniqname, onClick } = this.props;
+    const { id, onClick } = this.props;
     const { hovering } = this.state;
 
     return (
@@ -48,7 +48,7 @@ class CodeCard extends React.Component<Props, State> {
         onMouseLeave={this.handleMouseExit}
         onClick={onClick}
       >
-        <Card.Header>{uniqname}</Card.Header>
+        <Card.Header>{id}</Card.Header>
         <Card.Body>
           <Card.Text>
             Code code code code code code Code code code code code code Code

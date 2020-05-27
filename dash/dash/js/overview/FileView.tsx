@@ -1,6 +1,5 @@
 import React from "react";
-import { Tab, Row, Col, Nav } from "react-bootstrap";
-import ProjectProgress from "./ProjectProgress";
+import { Tab } from "react-bootstrap";
 
 interface Props {
   fileUrl: string;
@@ -18,13 +17,24 @@ class FileView extends React.Component<Props, State> {
     this.state = {
       file: "",
     };
+
+    this.getFileInfo = this.getFileInfo.bind(this);
   }
 
   componentDidMount() {
+    this.getFileInfo();
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (prevProps.fileUrl !== this.props.fileUrl) {
+      this.getFileInfo();
+    }
+  }
+
+  getFileInfo() {
     const { fileUrl } = this.props;
-    console.log(`This is where I would get the list of files: ${fileUrl}`);
     this.setState({
-      file: `I would get the daa from ${fileUrl}`,
+      file: `I am file ${fileUrl}`,
     });
     // TODO: fetch file
     // fetch(fileUrl, { credentials: "same-origin" })

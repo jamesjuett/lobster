@@ -1,6 +1,5 @@
 import React from "react";
 import { Tab, Row, Col, Nav } from "react-bootstrap";
-import ProjectProgress from "./ProjectProgress";
 import FileView from "./FileView";
 
 interface Props {
@@ -22,7 +21,6 @@ class FileTabs extends React.Component<Props, State> {
 
   componentDidMount() {
     const { fileListUrl } = this.props;
-    console.log(`This is where I would get the list of files: ${fileListUrl}`);
     this.setState({
       fileList: ["file 1", "file 2", "long file 3"],
     });

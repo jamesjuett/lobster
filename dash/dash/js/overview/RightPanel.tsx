@@ -1,36 +1,38 @@
 import React from "react";
-import { Tabs, Tab, CardColumns } from "react-bootstrap";
+import { CardColumns } from "react-bootstrap";
 import FileTabs from "./FileTabs";
 import CodeCard from "./CodeCard";
 import CloseButton from "./CloseButton";
-import { Nav, Button } from "react-bootstrap";
+import { Nav } from "react-bootstrap";
+import { Project } from "./SharedTypes";
 
-const STUDENT_SOLUTIONS = "student-solutions";
-const STARTER_CODE = "starter-code";
-const ID_TO_STUDENT: Record<string, string> = {};
+const STUDENT_SOLUTIONS = 'student-solutions';
+const STARTER_CODE = 'starter-code';
+
+interface ProjectId {
+  projectid: string;
+  email: string;
+}
 
 interface Props {
-  exerciseid: string;
-  students: { name: string; id: string }[];
+  projects: Project[];
+  exerciseId: number;
 }
 
 interface State {
-  openStudentTabs: string[];
+  openStudentTabs: ProjectId[];
   currentTab: string;
+  hideNames: boolean;
 }
 
 class RightPanel extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
 
-    
-    props.students.forEach((student) => {
-      ID_TO_STUDENT[student.id] = student.name;
-    });
-
     this.state = {
-      openStudentTabs: [],
       currentTab: STUDENT_SOLUTIONS,
+      openStudentTabs: [],
+      hideNames: false,
     };
 
     this.onCardClick = this.onCardClick.bind(this);
@@ -38,56 +40,57 @@ class RightPanel extends React.Component<Props, State> {
     this.closeTab = this.closeTab.bind(this);
   }
 
-  componentDidMount() {
-    // TODO: fetch files for students
-    // fetch(fileListUrl, { credentials: "same-origin" })
-    //   .then((response) => {
-    //     if (!response.ok) throw Error(response.statusText);
-    //     return response.json();
-    //   })
-    //   .then((data) => {
-    //     this.setState({
-    //       fileList: data,
-    //     });
-    //   });
-  }
-
-  onCardClick(studentId: string) {
-    if (this.state.openStudentTabs.indexOf(studentId) === -1) {
+  onCardClick(projectObject: ProjectId) {
+    // If the clicked card is not open, open a new tab and navigate to it
+    if (
+      this.state.openStudentTabs.findIndex(
+        (elem: ProjectId) => elem.projectid === projectObject.projectid
+      ) === -1
+    ) {
       this.setState((prevState) => ({
-        openStudentTabs: prevState.openStudentTabs.concat([studentId]),
-        currentTab: studentId,
+        openStudentTabs: prevState.openStudentTabs.concat([projectObject]),
+        currentTab: projectObject.projectid,
       }));
-    } else {
+    }
+    // Otherwise, just navigate to the tab that already exists
+    else {
       this.setState(() => ({
-        currentTab: studentId,
+        currentTab: projectObject.projectid,
       }));
     }
   }
 
-  selectTab(tabId: string) {
+  selectTab(eventKey: string) {
     this.setState((prevState: State) => {
+      // set current tab to a valid tabId
       if (
-        prevState.openStudentTabs.indexOf(tabId) !== -1 ||
-        tabId === STARTER_CODE ||
-        tabId === STUDENT_SOLUTIONS
+        prevState.openStudentTabs.findIndex(
+          (elem: ProjectId) => elem.projectid === eventKey
+        ) !== -1 ||
+        eventKey === STARTER_CODE ||
+        eventKey === STUDENT_SOLUTIONS
       ) {
-        return { currentTab: tabId } as State;
+        return { currentTab: eventKey } as State;
       }
       return prevState;
     });
   }
 
-  closeTab(studentId: string) {
+  closeTab(tabId: string) {
     const { openStudentTabs, currentTab } = this.state;
 
-    const index = openStudentTabs.indexOf(studentId);
-    let currTab = currentTab;
+    // Find the index of the tab to remove
+    const index = openStudentTabs.findIndex(
+      (elem: ProjectId) => elem.projectid === tabId
+    );
 
-    if (currTab === studentId) {
+    // If the current tab is open, then go back to student solutions
+    let currTab = currentTab;
+    if (currTab === tabId) {
       currTab = STUDENT_SOLUTIONS;
     }
 
+    // If the tabId is valid, then remove the tab
     if (index > -1) {
       this.setState((prevState) => ({
         openStudentTabs: prevState.openStudentTabs.filter(
@@ -99,36 +102,39 @@ class RightPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { openStudentTabs, currentTab,  } = this.state;
-    const { students, exerciseid } = this.props;
+    const { openStudentTabs, currentTab, hideNames } = this.state;
+    const { projects, exerciseId } = this.props;
 
     let tabContent = null;
-    if (currentTab == STUDENT_SOLUTIONS) {
+    if (currentTab === STUDENT_SOLUTIONS) {
       tabContent = (
         <div className="flex-grow-1 overflow-auto">
           <CardColumns className="pt-2">
-            {students.map((student) => (
+            {projects.map((project) => (
               <CodeCard
-                key={student.id}
-                uniqname={student.name}
-                onClick={() => this.onCardClick(student.id)}
+                key={project.projectid}
+                id={hideNames ? `${project.projectid}` : project.email}
+                onClick={() =>
+                  this.onCardClick({
+                    projectid: `${project.projectid}`,
+                    email: project.email,
+                  })
+                }
               />
             ))}
           </CardColumns>
         </div>
       );
-    } else if (currentTab == STARTER_CODE) {
+    } else if (currentTab === STARTER_CODE) {
       tabContent = (
         <div className="py-2 flex-row flex-grow-1">
-          <FileTabs fileListUrl={`/exercises/${exerciseid}/starter_files/`} />
+          <FileTabs fileListUrl={`/exercises/${exerciseId}/starter_files/`} />
         </div>
       );
     } else {
       tabContent = (
         <div className="py-2 flex-row flex-grow-1">
-          <FileTabs
-            fileListUrl={`/exercises/${exerciseid}/users/${currentTab}/files/`}
-          />
+          <FileTabs fileListUrl={`/projects/${currentTab}/files/`} />
         </div>
       );
     }
@@ -151,11 +157,13 @@ class RightPanel extends React.Component<Props, State> {
             <Nav.Item key={STARTER_CODE}>
               <Nav.Link eventKey={STARTER_CODE}>Starter Code</Nav.Link>
             </Nav.Item>
-            {openStudentTabs.map((id) => (
-              <Nav.Item key={id}>
-                <Nav.Link eventKey={id}>
-                  {ID_TO_STUDENT[id]}
-                  <CloseButton closeTab={() => this.closeTab(id)} />
+            {openStudentTabs.map((project: ProjectId) => (
+              <Nav.Item key={project.projectid}>
+                <Nav.Link eventKey={project.projectid}>
+                  {hideNames ? project.projectid : project.email}
+                  <CloseButton
+                    closeTab={() => this.closeTab(project.projectid)}
+                  />
                 </Nav.Link>
               </Nav.Item>
             ))}

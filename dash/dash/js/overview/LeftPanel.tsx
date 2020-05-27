@@ -1,11 +1,19 @@
 import React from "react";
 import { Container, Row, Col, ProgressBar } from "react-bootstrap";
 import ProjectProgress from "./ProjectProgress";
+import { Status } from "./SharedTypes";
 
-interface Props {}
+interface Checkpoint {
+  name: string;
+  percentComplete: number;
+}
+
+interface Props {
+  statuses: Status[];
+}
 
 interface State {
-  projects: { name: string; percentComplete: number }[];
+  checkpoints: Checkpoint[];
 }
 
 class LeftPanel extends React.Component<Props, State> {
@@ -13,16 +21,36 @@ class LeftPanel extends React.Component<Props, State> {
     super(props);
 
     this.state = {
-      projects: [
-        { name: "Part 1", percentComplete: 88 },
-        { name: "Part 2", percentComplete: 57 },
-        { name: "Part 3", percentComplete: 21 },
-      ],
+      checkpoints: [],
     };
+
+    this.calculateStatus = this.calculateStatus.bind(this);
+  }
+
+  componentDidMount() {
+    this.calculateStatus();
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (prevProps.statuses != this.props.statuses){
+      this.calculateStatus();
+    }
+  }
+
+  calculateStatus() {
+    this.setState({
+      checkpoints: [
+        { name: "Part 1", percentComplete: 30 },
+        { name: "Part 2", percentComplete: 60 },
+        { name: "Part 3", percentComplete: 90 },
+      ],
+    });
+
+    // TODO: Calclate the status
   }
 
   render() {
-    const { projects } = this.state;
+    const { checkpoints } = this.state;
     return (
       <div>
         <fieldset className="border rounded p-2 my-2">
@@ -49,12 +77,11 @@ class LeftPanel extends React.Component<Props, State> {
         <fieldset className="border rounded p-2 my-2">
           <legend className="w-auto">Checkpoints</legend>
           <Container>
-            {projects.map((project, idx) => (
+            {checkpoints.map((checkpoint, idx) => (
               <ProjectProgress
                 key={idx}
-                idx={idx + 1}
-                name={project.name}
-                percentComplete={project.percentComplete}
+                name={checkpoint.name}
+                percentComplete={checkpoint.percentComplete}
               />
             ))}
           </Container>

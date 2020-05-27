@@ -19,7 +19,7 @@ export default function App() {
         <Route path="/dashboard/:classid/:exerciseid/edit">
           <Edit />
         </Route>
-        <Route path="/dashboard/:classid/:exerciseid">
+        <Route exact path="/dashboard/:sessionid">
           <Overview />
         </Route>
         <Route>
