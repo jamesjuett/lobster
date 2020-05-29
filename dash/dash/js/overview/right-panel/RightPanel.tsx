@@ -11,7 +11,8 @@ const STARTER_CODE = "starter-code";
 
 interface ProjectId {
   projectid: string;
-  email: string;
+  name: string;
+  files: string[];
 }
 
 interface Props {
@@ -23,6 +24,8 @@ interface Props {
 interface State {
   openStudentTabs: ProjectId[];
   currentTab: string;
+  starterFiles: string[];
+  starterFilesUrl: string;
 }
 
 class RightPanel extends React.Component<Props, State> {
@@ -32,11 +35,43 @@ class RightPanel extends React.Component<Props, State> {
     this.state = {
       currentTab: STUDENT_SOLUTIONS,
       openStudentTabs: [],
+      starterFiles: [],
+      starterFilesUrl: "",
     };
 
     this.onCardClick = this.onCardClick.bind(this);
     this.selectTab = this.selectTab.bind(this);
     this.closeTab = this.closeTab.bind(this);
+    this.getUniqname = this.getUniqname.bind(this);
+  }
+
+  componentDidMount() {
+    const { exerciseId } = this.props;
+    this.setState({
+      starterFiles: ["file1", "file2", "file3"],
+      starterFilesUrl: `/exercises/${exerciseId}/starter_files/`,
+    });
+    // TODO: fetch list of starter files
+    // fetch(this.state.starterFilesUrl, {
+    //   credentials: "same-origin",
+    // })
+    //   .then((response) => {
+    //     if (!response.ok) throw Error(response.statusText);
+    //     return response.json();
+    //   })
+    //   .then((data) => {
+    //     this.setState({
+    //       starterFiles: data.files,
+    //     });
+    //   });
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (prevProps.exerciseId != this.props.exerciseId) {
+      this.setState({
+        starterFilesUrl: `/exercises/${this.props.exerciseId}/starter_files/`,
+      });
+    }
   }
 
   onCardClick(projectObject: ProjectId) {
@@ -100,9 +135,19 @@ class RightPanel extends React.Component<Props, State> {
     }
   }
 
+  getUniqname(email: string) {
+    const atLocation = email.indexOf("@");
+    return email.substring(0, atLocation);
+  }
+
   render() {
-    const { openStudentTabs, currentTab } = this.state;
-    const { projects, exerciseId, showNames } = this.props;
+    const {
+      openStudentTabs,
+      currentTab,
+      starterFiles,
+      starterFilesUrl,
+    } = this.state;
+    const { projects, showNames } = this.props;
 
     let tabContent = null;
     if (currentTab === STUDENT_SOLUTIONS) {
@@ -112,11 +157,16 @@ class RightPanel extends React.Component<Props, State> {
             {projects.map((project) => (
               <CodeCard
                 key={project.projectid}
-                id={showNames ? project.email: `${project.projectid}`}
+                id={
+                  showNames
+                    ? this.getUniqname(project.email)
+                    : `${project.projectid}`
+                }
                 onClick={() =>
                   this.onCardClick({
                     projectid: `${project.projectid}`,
-                    email: project.email,
+                    name: this.getUniqname(project.email),
+                    files: project.filenames,
                   })
                 }
               />
@@ -126,14 +176,22 @@ class RightPanel extends React.Component<Props, State> {
       );
     } else if (currentTab === STARTER_CODE) {
       tabContent = (
-        <div className="py-2 flex-row flex-grow-1">
-          <FileTabs fileListUrl={`/exercises/${exerciseId}/starter_files/`} />
+        <div className="py-2 flex-grow-1 h-75">
+          <FileTabs baseUrl={starterFilesUrl} fileList={starterFiles} />
         </div>
       );
     } else {
+      // Find the ProjectId of the current tab
+      const currTabInfo = openStudentTabs.find(
+        (elem: ProjectId) => elem.projectid === currentTab
+      );
+
       tabContent = (
-        <div className="py-2 flex-row flex-grow-1">
-          <FileTabs fileListUrl={`/projects/${currentTab}/files/`} />
+        <div className="py-2 flex-grow-1 h-75">
+          <FileTabs
+            baseUrl={`/projects/${currentTab}/files/`}
+            fileList={currTabInfo.files}
+          />
         </div>
       );
     }
@@ -159,7 +217,7 @@ class RightPanel extends React.Component<Props, State> {
             {openStudentTabs.map((project: ProjectId) => (
               <Nav.Item key={project.projectid}>
                 <Nav.Link eventKey={project.projectid}>
-                  {showNames ? project.email : project.projectid }
+                  {showNames ? project.name : project.projectid}
                   <CloseButton
                     closeTab={() => this.closeTab(project.projectid)}
                   />

@@ -22,7 +22,7 @@ interface State {
     name: string;
     exerciseid: number;
     active: boolean;
-    created: string;
+    time_created: string;
   };
   projects: Project[];
   statuses: Status[];
@@ -40,7 +40,7 @@ class Overview extends React.Component<Props, State> {
         name: "",
         exerciseid: -1,
         active: false,
-        created: "",
+        time_created: "",
       },
       projects: [],
       statuses: [],
@@ -71,7 +71,7 @@ class Overview extends React.Component<Props, State> {
           name: "My session",
           exerciseid: 5678,
           active: true,
-          created: "2020-05-27T18:56:26",
+          time_created: "2020-05-27T18:56:26",
         },
       },
       this.getUpdatedData
@@ -265,7 +265,7 @@ class Overview extends React.Component<Props, State> {
 
   render() {
     const {
-      sessionInfo: { active, exerciseid, created },
+      sessionInfo: { active, exerciseid, time_created },
       lastUpdated,
       projects,
       statuses,
@@ -298,7 +298,7 @@ class Overview extends React.Component<Props, State> {
         </Row>
         <Row className="pb-1">
           <Col md={12} lg={4}>
-            <LeftPanel statuses={statuses} created={moment(created)} />
+            <LeftPanel statuses={statuses} created={moment(time_created)} />
           </Col>
           <Col md={12} lg={8}>
             <RightPanel

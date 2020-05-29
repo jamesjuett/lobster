@@ -3,68 +3,68 @@ import { Tab, Row, Col, Nav } from "react-bootstrap";
 import FileView from "./FileView";
 
 interface Props {
-  fileListUrl: string;
-}
-
-interface State {
+  baseUrl: string;
   fileList: string[];
 }
+
+interface State {}
 
 class FileTabs extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-
-    this.state = {
-      fileList: [],
-    };
-  }
-
-  componentDidMount() {
-    const { fileListUrl } = this.props;
-    this.setState({
-      fileList: ["file 1", "file 2", "long file 3"],
-    });
-    // TODO: fetch list of files
-    // fetch(fileListUrl, { credentials: "same-origin" })
-    //   .then((response) => {
-    //     if (!response.ok) throw Error(response.statusText);
-    //     return response.json();
-    //   })
-    //   .then((data) => {
-
-    //     this.setState({
-    //       fileList: data,
-    //     });
-    //   });
   }
 
   render() {
-    const { fileListUrl } = this.props;
-    const { fileList } = this.state;
+    const { fileList, baseUrl } = this.props;
+
+    const fullSizeLayout = (
+      <Row className="h-100 d-none d-sm-flex">
+        <Col sm={3} className="d-flex flex-column h-100">
+          <Nav variant="pills" className="flex-column overflow-auto">
+            {fileList.map((filename, idx) => (
+              <Nav.Item key={idx}>
+                <Nav.Link eventKey={idx}>{filename}</Nav.Link>
+              </Nav.Item>
+            ))}
+          </Nav>
+        </Col>
+        <Col sm={9} className="d-flex flex-column h-100">
+          <Tab.Content>
+            {fileList.map((filename, idx) => (
+              <FileView key={idx} eventKey={idx} fileUrl={baseUrl + filename} />
+            ))}
+          </Tab.Content>
+        </Col>
+      </Row>
+    );
+
+    const smallLayout = (
+      <Row className="h-100 d-xs-flex d-sm-none">
+        <Col sm={3} className="d-flex flex-column h-25">
+          <Nav variant="pills" className="flex-column overflow-auto">
+            {fileList.map((filename, idx) => (
+              <Nav.Item key={idx}>
+                <Nav.Link eventKey={idx}>{filename}</Nav.Link>
+              </Nav.Item>
+            ))}
+          </Nav>
+        </Col>
+        <Col sm={9} className="d-flex flex-column h-75">
+          <Tab.Content>
+            {fileList.map((filename, idx) => (
+              <FileView key={idx} eventKey={idx} fileUrl={baseUrl + filename} />
+            ))}
+          </Tab.Content>
+        </Col>
+      </Row>
+    );
+
+
+
     return (
-      <Tab.Container id="individual-code-view-tabs" defaultActiveKey={0}>
-        <Row>
-          <Col sm={3}>
-            <Nav variant="pills" className="flex-column">
-              {fileList.map((filename, idx) => (
-                <Nav.Item key={idx}>
-                  <Nav.Link eventKey={idx}>{filename}</Nav.Link>
-                </Nav.Item>
-              ))}
-            </Nav>
-          </Col>
-          <Col sm={9}>
-            <Tab.Content>
-              {fileList.map((filename, idx) => (
-                <FileView
-                  key={idx}
-                  eventKey={idx}
-                  fileUrl={`${fileListUrl}${filename}/`}
-                />
-              ))}
-            </Tab.Content>
-          </Col>
-        </Row>
+      <Tab.Container id="individual-code-view-tabs" transition={false} defaultActiveKey={0}>
+        {fullSizeLayout}
+        {smallLayout}
       </Tab.Container>
     );
   }
