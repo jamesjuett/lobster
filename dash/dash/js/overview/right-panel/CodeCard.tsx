@@ -1,8 +1,10 @@
 import React from "react";
 import { Card } from "react-bootstrap";
+import StatusIcon from "./StatusIcon";
 
 interface Props {
   id: string;
+  status: {};
   onClick: () => void;
 }
 
@@ -37,12 +39,12 @@ class CodeCard extends React.Component<Props, State> {
   }
 
   render() {
-    const { id, onClick } = this.props;
+    const { id, status, onClick } = this.props;
     const { hovering } = this.state;
 
     return (
       <Card
-        className="code-card overflow-hidden"
+        className="code-card"
         border={hovering ? "primary" : "light"}
         onMouseEnter={this.handleMouseEnter}
         onMouseLeave={this.handleMouseExit}
@@ -50,12 +52,18 @@ class CodeCard extends React.Component<Props, State> {
       >
         <Card.Header>{id}</Card.Header>
         <Card.Body>
-          <Card.Text>
+          <Card.Text className="code-text overflow-hidden">
             Code code code code code code Code code code code code code Code
             code code code code code Code code code code code code Code code
             code code code code code code
           </Card.Text>
         </Card.Body>
+        <Card.Footer>
+          <StatusIcon key={"test"} value={{}}/>
+          {Object.entries(status).map((entry: [string, {}]) => {
+            <StatusIcon key={entry[0]} value={entry[1]} />;
+          })}
+        </Card.Footer>
       </Card>
     );
   }
