@@ -98,6 +98,7 @@ class Overview extends React.Component<Props, State> {
     //       this.getUpdatedData
     //     );
     //   });
+    // TODO: ADD ERROR HANDLING!!
   }
 
   componentWillUnmount() {
@@ -264,7 +265,7 @@ class Overview extends React.Component<Props, State> {
 
     let url = `/sessions/${sessionid}/stop/`;
     if (!this.state.sessionInfo.active) {
-      url = `/sessions/${sessionid}/sessions/`;
+      url = `/sessions/${sessionid}/start/`;
     }
 
     console.log(url);
@@ -316,14 +317,14 @@ class Overview extends React.Component<Props, State> {
                 {showNames ? "Hide names" : "Show names"}
               </Button>
               <Button className="mx-1" onClick={this.toggleExercise}>
-                {active ? "Stop Exercise" : "Start Exercise"}
+                {active ? "Pause Session" : "Continue Session"}
               </Button>
             </div>
           </Col>
         </Row>
         <Row className="pb-1">
           <Col md={12} lg={4}>
-            <LeftPanel statuses={statuses} created={moment(time_created)} />
+            <LeftPanel statuses={statuses} created={moment(time_created)} active={active} />
           </Col>
           <Col md={12} lg={8}>
             <RightPanel

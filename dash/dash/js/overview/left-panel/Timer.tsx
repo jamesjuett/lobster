@@ -3,6 +3,7 @@ import moment from "moment";
 
 interface Props {
   startTime: moment.Moment;
+  active: boolean;
 }
 
 interface State {
@@ -23,9 +24,11 @@ class Timer extends React.Component<Props, State> {
   }
 
   tick() {
-    this.setState((state) => ({
-      currentTime: state.currentTime.add(1, "seconds"),
-    }));
+    if (this.props.active) {
+      this.setState((state) => ({
+        currentTime: state.currentTime.add(1, "seconds"),
+      }));
+    }
   }
 
   componentDidMount() {
@@ -39,12 +42,26 @@ class Timer extends React.Component<Props, State> {
   }
 
   render() {
+    const { active } = this.props;
+    if (!active) {
+      return "Paused";
+    }
+
     const timeElapsed = moment.duration(
       this.state.currentTime.diff(this.props.startTime)
     );
-    const hours = timeElapsed.hours() > 10 ? `${timeElapsed.hours()}` : `0${timeElapsed.hours()}`;
-    const minutes = timeElapsed.minutes() > 10 ? `${timeElapsed.minutes()}` : `0${timeElapsed.minutes()}`;
-    const seconds = timeElapsed.seconds() > 10 ? `${timeElapsed.seconds()}` : `0${timeElapsed.seconds()}`;
+    const hours =
+      timeElapsed.hours() > 10
+        ? `${timeElapsed.hours()}`
+        : `0${timeElapsed.hours()}`;
+    const minutes =
+      timeElapsed.minutes() > 10
+        ? `${timeElapsed.minutes()}`
+        : `0${timeElapsed.minutes()}`;
+    const seconds =
+      timeElapsed.seconds() > 10
+        ? `${timeElapsed.seconds()}`
+        : `0${timeElapsed.seconds()}`;
 
     return `${hours}:${minutes}:${seconds}`;
   }
