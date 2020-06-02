@@ -16,6 +16,9 @@ interface MatchParams {
 interface Props extends RouteComponentProps<MatchParams> {}
 
 interface State {
+  seq: number;
+  renderedSeq: number;
+  updateInterval: number;
   lastUpdated: moment.Moment;
   sessionInfo: {
     sessionid: number;
@@ -34,6 +37,9 @@ class Overview extends React.Component<Props, State> {
     super(props);
 
     this.state = {
+      seq: 0,
+      renderedSeq: 0,
+      updateInterval: -1,
       lastUpdated: moment(),
       sessionInfo: {
         sessionid: -1,
@@ -62,7 +68,6 @@ class Overview extends React.Component<Props, State> {
     } = this.props;
 
     const sessionUrl = `/sessions/${sessionid}/`;
-    console.log("Get data about session");
     this.setState(
       {
         lastUpdated: moment(),
@@ -73,6 +78,7 @@ class Overview extends React.Component<Props, State> {
           active: true,
           time_created: "2020-05-27T18:56:26",
         },
+        updateInterval: setInterval(() => this.getUpdatedData(), 30000),
       },
       this.getUpdatedData
     );
@@ -87,10 +93,15 @@ class Overview extends React.Component<Props, State> {
     //       {
     //         lastUpdated: moment(),
     //         sessionInfo: data,
+    //         updateInterval: setInterval(() => this.getUpdatedData(), 30000),
     //       },
     //       this.getUpdatedData
     //     );
     //   });
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.state.updateInterval);
   }
 
   anonymizeNames() {
@@ -100,11 +111,19 @@ class Overview extends React.Component<Props, State> {
   }
 
   getUpdatedData() {
-    this.retrieveProjectData();
-    this.retrieveSessionStatus();
+    console.log("Update!");
+    this.setState(
+      (prevState) => ({
+        seq: prevState.seq + 1,
+      }),
+      () => {
+        this.retrieveProjectData(this.state.seq);
+        this.retrieveSessionStatus(this.state.seq);
+      }
+    );
   }
 
-  retrieveProjectData() {
+  retrieveProjectData(seq: number) {
     const {
       match: {
         params: { sessionid },
@@ -196,14 +215,17 @@ class Overview extends React.Component<Props, State> {
     //     return response.json();
     //   })
     //   .then((data) => {
-    //     this.setState({
-    //       lastUpdated: moment(),
-    //       projects: data,
-    //     });
+    //     if (seq >= this.state.renderedSeq) {
+    //       this.setState({
+    //         lastUpdated: moment(),
+    //         projects: data,
+    //         renderedSeq: seq,
+    //       });
+    //     }
     //   });
   }
 
-  retrieveSessionStatus() {
+  retrieveSessionStatus(seq: number) {
     const {
       match: {
         params: { sessionid },
@@ -222,10 +244,13 @@ class Overview extends React.Component<Props, State> {
     //     return response.json();
     //   })
     //   .then((data) => {
-    //     this.setState({
-    //       lastUpdated: moment(),
-    //       statuses: data,
-    //     });
+    //     if (seq >= this.state.renderedSeq) {
+    //       this.setState({
+    //         lastUpdated: moment(),
+    //         statuses: data,
+    //         renderedSeq: seq
+    //       });
+    //     }
     //   });
   }
 
