@@ -2,6 +2,8 @@ import React from "react";
 import { Tab, Row, Col, Nav, Button } from "react-bootstrap";
 import FileView from "./FileView";
 
+const LOBSTER_URL = 'https://lobster.eecs.umich.edu/'
+
 interface Props {
   baseUrl: string;
   fileList: string[];
@@ -17,7 +19,7 @@ class FileTabs extends React.Component<Props, State> {
   }
 
   goToLobster() {
-    alert("This is where I would send you to lobster");
+    window.open(LOBSTER_URL);
   }
 
   render() {
