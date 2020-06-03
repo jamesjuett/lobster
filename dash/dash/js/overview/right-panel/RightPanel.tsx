@@ -208,7 +208,7 @@ class RightPanel extends React.Component<Props, State> {
             {openStudentTabs.map((project: Project) => (
               <Nav.Item key={project.projectid}>
                 <Nav.Link eventKey={project.projectid}>
-                  {showNames ? project.email : project.projectid}
+                  {showNames ? this.getUniqname(project.email) : project.projectid}
                   <CloseButton
                     closeTab={() => this.closeTab(`${project.projectid}`)}
                   />
