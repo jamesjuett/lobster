@@ -121,7 +121,7 @@ export type AnalyticExpression =
     AnalyticBinaryOperatorExpression |
     // PointerToMemberExpression |
     // CStyleCastExpression |
-    AnalyticUnaryOperatorExpression | // TODO change to union type
+    AnalyticUnaryOperatorExpression |
     SubscriptExpression |
     FunctionCallExpression |
     // ConstructExpression |
