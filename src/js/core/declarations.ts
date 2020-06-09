@@ -18,7 +18,6 @@ export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
 export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "storage_specifier";
-    public readonly t_compiled!: CompiledStorageSpecifier;
 
     public readonly register?: true;
     public readonly static?: true;
@@ -95,7 +94,6 @@ export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName |
 
 export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "type_specifier";
-    public readonly t_compiled!: CompiledTypeSpecifier;
 
     public readonly const?: true;
     public readonly volatile?: true;
@@ -365,8 +363,7 @@ export interface SimpleDeclarationASTNode extends ASTNode {
 
 export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType, SimpleDeclarationASTNode> {
     // public readonly construct_type = "simple_declaration";
-    // public abstract readonly t_compiled: CompiledSimpleDeclaration;
-
+    
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
     public readonly declarator: Declarator;
@@ -425,7 +422,6 @@ export type AnalyticSimpleDeclaration =
 
 export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly construct_type = "unknown_type_declaration";
-    public readonly t_compiled!: never;
 
     public readonly type: undefined;
     public readonly declaredEntity: undefined;
@@ -447,7 +443,6 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
 
 export class VoidDeclaration extends SimpleDeclaration {
     public readonly construct_type = "void_declaration";
-    public readonly t_compiled!: never;
 
     public readonly type = VoidType.VOID;
     public readonly declaredEntity: undefined;
@@ -463,7 +458,6 @@ export class VoidDeclaration extends SimpleDeclaration {
 
 export class TypedefDeclaration extends SimpleDeclaration {
     public readonly construct_type = "storage_specifier";
-    public readonly t_compiled!: never;
 
     public readonly type: undefined; // will change when typedef is implemented
     public readonly declaredEntity: undefined;
@@ -485,7 +479,6 @@ export class TypedefDeclaration extends SimpleDeclaration {
 
 export class FriendDeclaration extends SimpleDeclaration {
     public readonly construct_type = "friend_declaration";
-    public readonly t_compiled!: never;
 
     public readonly type: undefined; // will change when friend is implemented
     public readonly declaredEntity: undefined;
@@ -510,7 +503,6 @@ export class FriendDeclaration extends SimpleDeclaration {
 
 export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     public readonly construct_type = "unknown_array_bound_declaration";
-    public readonly t_compiled!: never;
 
     public readonly type: ArrayOfUnknownBoundType;
     public readonly declaredEntity: undefined;
@@ -532,7 +524,6 @@ export interface TypedUnknownBoundArrayDeclaration<T extends ArrayOfUnknownBound
 
 export class FunctionDeclaration extends SimpleDeclaration {
     public readonly construct_type = "function_declaration";
-    public readonly t_compiled!: CompiledFunctionDeclaration;
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
@@ -609,7 +600,6 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
 }
 
 abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
-    // public abstract readonly t_compiled: CompiledVariableDefinitionBase<ContextType>;
 
     public readonly initializer?: Initializer;
 
@@ -657,7 +647,6 @@ export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinit
 export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext> {
     public readonly construct_type = "local_variable_definition";
 
-    public readonly t_compiled!: CompiledLocalVariableDefinition;
 
     public readonly type: ObjectType | ReferenceType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
@@ -723,7 +712,6 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType | Referenc
 
 export class GlobalVariableDefinition extends VariableDefinitionBase<TranslationUnitContext> {
     public readonly construct_type = "global_variable_definition";
-    public readonly t_compiled!: CompiledGlobalVariableDefinition;
 
     public readonly type: ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
@@ -781,7 +769,6 @@ export interface CompiledGlobalVariableDefinition<T extends ObjectType | Referen
  */
 export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitContext, ParameterDeclarationASTNode> {
     public readonly construct_type = "parameter_declaration";
-    public readonly t_compiled!: CompiledParameterDeclaration;
 
     public readonly typeSpecifier: TypeSpecifier;
     public readonly storageSpecifier: StorageSpecifier;
@@ -931,7 +918,6 @@ interface DeclaratorInitASTNode extends DeclaratorASTNode {
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct<TranslationUnitContext, DeclaratorASTNode> {
     public readonly construct_type = "declarator";
-    public readonly t_compiled!: CompiledDeclarator;
 
     public readonly name?: string;
     public readonly type?: Type;
@@ -1156,9 +1142,6 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
     }
 
-    public isSuccessfullyCompiled(): this is this["t_compiled"] {
-        return !!this.baseType && super.isSuccessfullyCompiled();
-    }
 }
 
 export interface TypedDeclarator<T extends Type> extends Declarator {
@@ -1198,7 +1181,6 @@ export interface FunctionDefinitionASTNode extends ASTNode {
 export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, FunctionDefinitionASTNode> {
     public readonly construct_type = "function_definition";
     public readonly kind = "FunctionDefinition";
-    public readonly t_compiled!: CompiledFunctionDefinition;
 
     public readonly declaration: FunctionDeclaration;
     public readonly name: string;
@@ -1520,7 +1502,6 @@ export interface CompiledFunctionDefinition<T extends FunctionType = FunctionTyp
 
 export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "class_declaration";
-    public readonly t_compiled!: CompiledClassDeclaration;
 
     public readonly name: string;
     public readonly type: ClassType;
@@ -1622,7 +1603,6 @@ export interface DestructorDefinitionASTNode extends ASTNode {
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, ClassDefinitionASTNode> {
     public readonly construct_type = "class_definition";
-    public readonly t_compiled!: CompiledClassDefinition;
 
     // public readonly name: number = 2;
     public readonly declaration: ClassDeclaration;
