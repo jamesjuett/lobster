@@ -17,7 +17,6 @@ import { Mutable } from "../util/util";
 import { RuntimeFunction } from "./functions";
 export class FunctionCall extends PotentialFullExpression {
     public readonly construct_type = "FunctionCall";
-    public readonly t_compiled!: CompiledFunctionCall;
 
     public readonly func: FunctionEntity;
     public readonly args: readonly Expression[];

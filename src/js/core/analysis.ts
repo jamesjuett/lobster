@@ -19,10 +19,6 @@ export function constructTest<Original extends CPPConstruct, T extends Original>
     return <CPPConstructTest<Original, T>>((construct: Original) => construct instanceof constructClass);
 }
 
-// export function compiledConstructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
-//     return <CPPConstructTest<Original, T["t_compiled"]>>((construct: Original) => construct instanceof constructClass && construct.isSuccessfullyCompiled());
-// }
-
 export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
 
     if (root instanceof Program) {

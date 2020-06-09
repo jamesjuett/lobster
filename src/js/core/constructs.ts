@@ -465,7 +465,6 @@ export abstract class BasicCPPConstruct<ContextType extends TranslationUnitConte
 
 export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "InvalidConstruct";
-    public readonly t_compiled!: never;
 
     public readonly note: Note;
 

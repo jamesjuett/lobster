@@ -129,7 +129,6 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
 export class UnsupportedStatement extends Statement {
     public readonly construct_type = "unsupported_statement";
-    public readonly t_compiled: never;
 
     public constructor(context: BlockContext, ast: StatementASTNode, unsupportedName: string) {
         super(context, ast);
@@ -150,7 +149,6 @@ export interface ExpressionStatementASTNode extends ASTNode {
 export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     public readonly construct_type = "expression_statement";
 
-    public readonly t_compiled!: CompiledExpressionStatement;
 
     public readonly expression: Expression;
 
@@ -208,7 +206,6 @@ export interface NullStatementASTNode extends ASTNode {
 
 export class NullStatement extends Statement<NullStatementASTNode> {
     public readonly construct_type = "null_statement";
-    public readonly t_compiled!: CompiledNullStatement;
 
 
 
@@ -248,7 +245,6 @@ export interface DeclarationStatementASTNode extends ASTNode {
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
     public readonly construct_type = "declaration_statement";
-    public readonly t_compiled!: CompiledDeclarationStatement;
 
     public readonly declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
@@ -347,7 +343,6 @@ export interface ReturnStatementASTNode extends ASTNode {
 
 export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     public readonly construct_type = "return_statement";
-    public readonly t_compiled!: CompiledReturnStatement;
 
     public readonly expression?: Expression;
 
@@ -610,7 +605,6 @@ export interface IfStatementASTNode extends ASTNode {
 
 export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly construct_type = "if_statement";
-    public readonly t_compiled!: CompiledIfStatement;
 
     public readonly condition: Expression;
     public readonly then: Statement;
@@ -756,7 +750,6 @@ export interface WhileStatementASTNode extends ASTNode {
 
 export class WhileStatement extends Statement<WhileStatementASTNode> {
     public readonly construct_type = "while_statement";
-    public readonly t_compiled!: CompiledWhileStatement;
 
     public readonly condition: Expression;
     public readonly body: Statement;
@@ -874,7 +867,6 @@ export interface ForStatementASTNode extends ASTNode {
 
 export class ForStatement extends Statement<ForStatementASTNode> {
     public readonly construct_type = "for_statement";
-    public readonly t_compiled!: CompiledForStatement;
 
     public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
     public readonly condition: Expression;
