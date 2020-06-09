@@ -1,13 +1,12 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
-import { standardConversion } from "./standardConversions";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
@@ -18,12 +17,12 @@ export abstract class Initializer extends PotentialFullExpression {
 
     public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
 
-    public abstract createRuntimeInitializer(parent: RuntimeConstruct) : RuntimeInitializer;
+    public abstract createRuntimeInitializer(parent: RuntimeConstruct): RuntimeInitializer;
 
     public abstract createDefaultOutlet(this: CompiledInitializer, element: JQuery, parent?: ConstructOutlet): InitializerOutlet;
 
     public isTailChild(child: CPPConstruct) {
-        return {isTail: true};
+        return { isTail: true };
     }
 
 }
@@ -31,11 +30,11 @@ export abstract class Initializer extends PotentialFullExpression {
 export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
-} 
+}
 
 export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimePotentialFullExpression<C> {
 
-    protected constructor (model: C, parent: RuntimeConstruct) {
+    protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, "initializer", parent);
     }
 
@@ -47,30 +46,30 @@ export abstract class RuntimeInitializer<C extends CompiledInitializer = Compile
 
 export abstract class DefaultInitializer extends Initializer {
 
-    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity) : ReferenceDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) : AtomicDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>) : ArrayDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity): ReferenceDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>): AtomicDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>): ArrayDefaultInitializer;
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>) : DefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity) : DefaultInitializer {
+    public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>): DefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity): DefaultInitializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) {
-            return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity> target);
+            return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity>target);
         }
         else if (target.type instanceof AtomicType) {
-            return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>> target);
+            return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>>target);
         }
         else if (target.type instanceof BoundedArrayType) {
-            return new ArrayDefaultInitializer(context, <ObjectEntity<BoundedArrayType>> target);
+            return new ArrayDefaultInitializer(context, <ObjectEntity<BoundedArrayType>>target);
         }
         // else if (target.type instanceof ClassType) {
         //     return new ClassDefaultInitializer(context, <ObjectEntity<ClassType>> target);
         // }
-        else{
+        else {
             return assertFalse();
         }
     }
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeDefaultInitializer<T>;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeDefaultInitializer<T>;
 }
 
 export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, SuccessfullyCompiled {
@@ -80,32 +79,33 @@ export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> e
 
 export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
 
-    protected constructor (model: C, parent: RuntimeConstruct) {
+    protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 }
 
 export class ReferenceDefaultInitializer extends DefaultInitializer {
+    public readonly construct_type = "ReferenceDefaultInitializer";
 
     public readonly target: UnboundReferenceEntity;
 
     public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity) {
-        super(context);
+        super(context, undefined);
         this.target = target;
 
         // Cannot default initialize a reference
         this.addNote(CPPError.declaration.init.referenceBind(this));
     }
 
-    public createRuntimeInitializer(parent: RuntimeConstruct) : never {
+    public createRuntimeInitializer(parent: RuntimeConstruct): never {
         return assertFalse("A default initializer for a reference is not allowed.");
     }
-    
+
     public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet) {
         return assertFalse("Cannot create an outlet for a reference default initializer, since such an initializer is always ill-formed.");
     }
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : never {
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct): never {
         return assertFalse("A default initializer for a reference is not allowed.");
     }
 }
@@ -115,27 +115,28 @@ export class ReferenceDefaultInitializer extends DefaultInitializer {
 
 
 export class AtomicDefaultInitializer extends DefaultInitializer {
+    public readonly construct_type = "AtomicDefaultInitializer";
 
     public readonly target: ObjectEntity<AtomicType>;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>) {
-        super(context);
+        super(context, undefined);
         this.target = target;
     }
 
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
     }
 
-    public createDefaultOutlet(this: CompiledAtomicDefaultInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDefaultInitializerOutlet {
+    public createDefaultOutlet(this: CompiledAtomicDefaultInitializer, element: JQuery, parent?: ConstructOutlet): AtomicDefaultInitializerOutlet {
         return new AtomicDefaultInitializerOutlet(element, this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.describe();
-        return {message: "No initialization will take place. " + (targetDesc.name || targetDesc.message) + " will have a junk value."};
+        return { message: "No initialization will take place. " + (targetDesc.name || targetDesc.message) + " will have a junk value." };
     }
 }
 
@@ -146,10 +147,10 @@ export interface CompiledAtomicDefaultInitializer<T extends AtomicType = AtomicT
 
 export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> extends RuntimeDefaultInitializer<T, CompiledAtomicDefaultInitializer<T>> {
 
-    public constructor (model: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
     }
-	
+
     protected upNextImpl() {
         // No initialization. Object has junk value.
         let target = this.model.target.runtimeLookup(this);
@@ -163,13 +164,14 @@ export class RuntimeAtomicDefaultInitializer<T extends AtomicType = AtomicType> 
 }
 
 export class ArrayDefaultInitializer extends DefaultInitializer {
+    public readonly construct_type = "ArrayDefaultInitializer";
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly elementInitializers?: DefaultInitializer[];
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>) {
-        super(context);
-        
+        super(context, undefined);
+
         this.target = target;
 
         // If it's an array of atomic types, do nothing.
@@ -179,7 +181,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
         }
         else {
             this.elementInitializers = [];
-            for(let i = 0; i < type.length; ++i){
+            for (let i = 0; i < type.length; ++i) {
                 let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.target, i));
                 this.elementInitializers.push(elemInit);
                 this.attach(elemInit);
@@ -192,29 +194,31 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
 
     }
 
-    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeArrayDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeArrayDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeArrayDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
 
-    public createDefaultOutlet(this: CompiledArrayDefaultInitializer, element: JQuery, parent?: ConstructOutlet) : ArrayDefaultInitializerOutlet {
+    public createDefaultOutlet(this: CompiledArrayDefaultInitializer, element: JQuery, parent?: ConstructOutlet): ArrayDefaultInitializerOutlet {
         return new ArrayDefaultInitializerOutlet(element, this, parent);
     }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.describe();
         let targetType = this.target.type;
-        
+
         if (targetType.length === 0) {
-            return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
+            return { message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0." };
         }
         else if (targetType.elemType instanceof AtomicType) {
-            return {message: "No initialization will take place. The elements of " + (targetDesc.name || targetDesc.message) + " will have junk values." };
+            return { message: "No initialization will take place. The elements of " + (targetDesc.name || targetDesc.message) + " will have junk values." };
         }
         else {
-            return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized. For example, " +
-                this.elementInitializers![0].explain(sim, rtConstruct) };
+            return {
+                message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized. For example, " +
+                    this.elementInitializers![0].explain(sim, rtConstruct)
+            };
         }
     }
 
@@ -232,7 +236,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
     private index = 0;
 
-    public constructor (model: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
         if (this.model.elementInitializers) {
             this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
@@ -240,7 +244,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
             });
         }
     }
-	
+
     protected upNextImpl() {
         if (this.elementInitializers && this.index < this.elementInitializers.length) {
             this.sim.push(this.elementInitializers[this.index++])
@@ -255,7 +259,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
     public stepForwardImpl() {
         // do nothing
     }
-    
+
 }
 
 // export class ClassDefaultInitializer extends DefaultInitializer {
@@ -275,7 +279,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //             this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
 //             return;
 //         }
-        
+
 //         //MemberFunctionCall args are: context, function to call, receiver, ctor args
 //         this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, []);
 //         this.attach(this.ctorCall);
@@ -307,12 +311,12 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 //     public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
 //     private index = "callCtor";
-    
+
 //     public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
 //     }
-	
+
 //     protected upNextImpl() {
 //         if (this.index === "callCtor") {
 //             this.sim.push(this.ctorCall);
@@ -347,25 +351,25 @@ export type DirectInitializerKind = "direct" | "copy";
 
 export abstract class DirectInitializer extends Initializer {
 
-    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : ReferenceDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) : AtomicDirectInitializer;
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): ReferenceDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind): AtomicDirectInitializer;
     // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: DirectInitializerKind) : ArrayDirectInitializer;
     // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) : DirectInitializer {
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) { // check for presence of bindTo to detect reference entities
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
         else if (target.type instanceof AtomicType) {
-            return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>> target, args, kind);
+            return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>>target, args, kind);
         }
         else if (target.type instanceof BoundedArrayType) {
-            return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>> target, args, kind);
+            return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>>target, args, kind);
         }
         // else if (target.type instanceof ClassType) {
         //     return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args, kind);
         // }
-        else{
+        else {
             return assertFalse();
         }
     }
@@ -374,13 +378,13 @@ export abstract class DirectInitializer extends Initializer {
     public abstract readonly args: readonly Expression[];
 
     public readonly kind: DirectInitializerKind;
-    
+
     public constructor(context: TranslationUnitContext, kind: DirectInitializerKind) {
-        super(context);
+        super(context, undefined);
         this.kind = kind;
     }
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeDirectInitializer<T>;
+    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): RuntimeDirectInitializer<T>;
 }
 
 
@@ -395,7 +399,7 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
     public abstract readonly args: readonly RuntimeExpression<T>[];
     public abstract readonly arg?: RuntimeExpression<T>;
 
-    protected constructor (model: C, parent: RuntimeConstruct) {
+    protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
     }
 
@@ -403,6 +407,7 @@ export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType
 
 
 export class ReferenceDirectInitializer extends DirectInitializer {
+    public readonly construct_type = "ReferenceDirectInitializer";
 
     public readonly target: UnboundReferenceEntity;
     public readonly args: readonly Expression[];
@@ -411,20 +416,20 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public constructor(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind) {
         super(context, kind);
         this.target = target;
-        
+
         assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
         this.args = args;
 
         // Note: It is ONLY ok to attach them all right away because no conversions are
         // layered over the expressions for a reference initialization
-        args.forEach((a) => {this.attach(a);});
+        args.forEach((a) => { this.attach(a); });
 
         // Note: With a reference, no conversions are done
-        if (this.args.length > 1){
+        if (this.args.length > 1) {
             this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
             return;
         }
-        
+
         this.arg = this.args[0];
         if (!this.arg.isWellTyped()) {
             return;
@@ -434,21 +439,21 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         if (!referenceCompatible(this.arg.type, targetType)) {
             this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
         }
-        else if (this.arg.valueCategory === "prvalue" && !targetType.isConst){
+        else if (this.arg.valueCategory === "prvalue" && !targetType.isConst) {
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
         }
-        else if (this.arg.valueCategory === "prvalue"){
+        else if (this.arg.valueCategory === "prvalue") {
             this.addNote(CPPError.lobster.referencePrvalue(this));
         }
     }
 
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeReferenceDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: RuntimeConstruct) : RuntimeReferenceDirectInitializer<T> {
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
         return new RuntimeReferenceDirectInitializer(<CompiledReferenceDirectInitializer<T>>this, parent);
     }
 
-    public createDefaultOutlet(this: CompiledReferenceDirectInitializer, element: JQuery, parent?: ConstructOutlet) : ReferenceDirectInitializerOutlet {
+    public createDefaultOutlet(this: CompiledReferenceDirectInitializer, element: JQuery, parent?: ConstructOutlet): ReferenceDirectInitializerOutlet {
         return this.kind === "direct" ?
             new ReferenceDirectInitializerOutlet(element, this, parent) :
             new ReferenceCopyInitializerOutlet(element, this, parent);
@@ -457,7 +462,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.describe();
         let rhsDesc = this.args[0].describeEvalResult(0);
-        return {message: (targetDesc.name || targetDesc.message) + " will be bound to " + (rhsDesc.name || rhsDesc.message) + "."};
+        return { message: (targetDesc.name || targetDesc.message) + " will be bound to " + (rhsDesc.name || rhsDesc.message) + "." };
     }
 }
 
@@ -473,15 +478,15 @@ export interface CompiledReferenceDirectInitializer<T extends ObjectType = Objec
 }
 
 export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
-    
+
     public readonly args: readonly RuntimeExpression<T, "lvalue">[];
     public readonly arg: RuntimeExpression<T, "lvalue">;
 
     private alreadyPushed = false;
 
-    public constructor (model: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 
@@ -508,7 +513,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
     //             });
     //     }
     // }
-    
+
     public stepForwardImpl() {
         this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         // this.notifyPassing();
@@ -518,6 +523,7 @@ export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType
 }
 
 export class AtomicDirectInitializer extends DirectInitializer {
+    public readonly construct_type = "AtomicDirectInitializer";
 
     public readonly target: ObjectEntity<AtomicType>;
     public readonly args: readonly Expression[];
@@ -525,19 +531,19 @@ export class AtomicDirectInitializer extends DirectInitializer {
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) {
         super(context, kind);
-        
+
         this.target = target;
-        
+
         let targetType = target.type;
 
         assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
 
-        if (args.length > 1){
+        if (args.length > 1) {
             this.attachAll(this.args = args);
             this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
             return;
         }
-        
+
         let arg = args[0];
 
         //Attempt standard conversion to declared type, including lvalue to rvalue conversions
@@ -554,19 +560,19 @@ export class AtomicDirectInitializer extends DirectInitializer {
         if (!sameType(typedArg.type, targetType)) {
             this.addNote(CPPError.declaration.init.convert(this, typedArg.type, targetType));
         }
-        
+
         // TODO: need to check that the arg is a prvalue
-        
-        
+
+
     }
 
-    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeAtomicDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends AtomicType>(this: any, parent: RuntimeConstruct) : RuntimeAtomicDirectInitializer<T> {
+    public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends AtomicType>(this: any, parent: RuntimeConstruct): RuntimeAtomicDirectInitializer<T> {
         return new RuntimeAtomicDirectInitializer(<CompiledAtomicDirectInitializer<T>>this, parent);
     }
 
-    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDirectInitializerOutlet {
+    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet): AtomicDirectInitializerOutlet {
         return this.kind === "direct" ?
             new AtomicDirectInitializerOutlet(element, this, parent) :
             new AtomicCopyInitializerOutlet(element, this, parent);
@@ -576,7 +582,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
         let rhsDesc = this.args[0].describeEvalResult(0);
-        return {message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "."};
+        return { message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "." };
     }
 }
 
@@ -594,9 +600,9 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
 
     private alreadyPushed = false;
 
-    public constructor (model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 
@@ -636,6 +642,7 @@ export class RuntimeAtomicDirectInitializer<T extends AtomicType = AtomicType> e
  * char array initialized from a string literal.
  */
 export class ArrayDirectInitializer extends DirectInitializer {
+    public readonly construct_type = "ArrayDirectInitializer";
 
     public readonly target: ObjectEntity<BoundedArrayType>;
     public readonly args: readonly Expression[];
@@ -643,18 +650,18 @@ export class ArrayDirectInitializer extends DirectInitializer {
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: "direct" | "copy") {
         super(context, kind);
-        
+
         this.target = target;
         this.args = args;
-        args.forEach((a) => {this.attach(a);});
-        
+        args.forEach((a) => { this.attach(a); });
+
         // TS type system ensures target is array type, but need to check element type and that args are a single string literal
         let targetType = target.type;
         let firstArg = args[0];
         if (targetType.elemType.isType(Char) && args.length === 1 && firstArg.isStringLiteralExpression()) {
             this.arg = firstArg;
-            
-            if (firstArg.type.length > targetType.length){
+
+            if (firstArg.type.length > targetType.length) {
                 this.addNote(CPPError.declaration.init.stringLiteralLength(this, firstArg.type.length, targetType.length));
             }
         }
@@ -663,13 +670,13 @@ export class ArrayDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer(this: CompiledArrayDirectInitializer, parent: RuntimeConstruct) : RuntimeArrayDirectInitializer;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer(this: any, parent: RuntimeConstruct) : RuntimeArrayDirectInitializer {
+    public createRuntimeInitializer(this: CompiledArrayDirectInitializer, parent: RuntimeConstruct): RuntimeArrayDirectInitializer;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer(this: any, parent: RuntimeConstruct): RuntimeArrayDirectInitializer {
         return new RuntimeArrayDirectInitializer(this, parent);
     }
 
-    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet) : AtomicDirectInitializerOutlet {
+    public createDefaultOutlet(this: CompiledAtomicDirectInitializer, element: JQuery, parent?: ConstructOutlet): AtomicDirectInitializerOutlet {
         return this.kind === "direct" ?
             new AtomicDirectInitializerOutlet(element, this, parent) :
             new AtomicCopyInitializerOutlet(element, this, parent);
@@ -679,7 +686,7 @@ export class ArrayDirectInitializer extends DirectInitializer {
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
         let rhsDesc = this.args[0].describeEvalResult(0);
-        return {message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!"};
+        return { message: (targetDesc.name || targetDesc.message) + " (a character array) will be initialized from the string literal " + rhsDesc + ". Remember that a null character is automatically appended!" };
     }
 }
 
@@ -697,9 +704,9 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
     private alreadyPushed = false;
 
-    public constructor (model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
+    public constructor(model: CompiledArrayDirectInitializer, parent: RuntimeConstruct) {
         super(model, parent);
-        this.arg = this.model.arg.createRuntimeExpression(this);
+        this.arg = createRuntimeExpression(this.model.arg, this);
         this.args = [this.arg];
     }
 
@@ -711,7 +718,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
     }
 
     public stepForwardImpl() {
-        
+
         let target = this.model.target.runtimeLookup(this);
         let charsToWrite = this.arg.evalResult.getValue();
 
@@ -743,9 +750,9 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
 //     public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[]) {
 //         super(context);
-        
+
 //         this.target = target;
-        
+
 //         let targetType = target.type;
 
 //         // Need to select constructor, so have to compile auxiliary arguments
@@ -766,7 +773,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 //             return;
 //         }
 
-        
+
 //     }
 
 //     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDirectInitializer<T>;
@@ -784,8 +791,8 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 // }
 
 // export interface CompiledClassDirectInitializer<T extends ClassType> extends ClassDirectInitializer, SuccessfullyCompiled {
-    
-    
+
+
 //     readonly target: ObjectEntity<T>;
 //     readonly args: readonly Expression[];
 
@@ -794,7 +801,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 // }
 
 // export class RuntimeClassDirectInitializer<T extends ClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
-    
+
 //     public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
 //     private index = "callCtor";
@@ -824,8 +831,8 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
 
 export interface CopyInitializerASTNode extends ASTNode {
-    construct_type: "copy_initializer";
-    args: ExpressionASTNode[];
+    readonly construct_type: "copy_initializer";
+    readonly args: ExpressionASTNode[];
 }
 
 // TODO: These should really be "class aliases" rather than derived classes, however
@@ -857,13 +864,13 @@ export interface CopyInitializerASTNode extends ASTNode {
 //      // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
 //     public readonly target: ObjectEntity<BoundedArrayType>;
 //     public readonly otherMember: ObjectEntity<BoundedArrayType>;
-    
+
 //     public readonly elementInitializers: DirectInitializer[] = [];
 
 //     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>,
 //                        otherMember: ObjectEntity<BoundedArrayType>) {
 //         super(context);
-        
+
 //         this.target = target;
 //         this.otherMember = otherMember;
 //         let targetType = target.type;
@@ -890,7 +897,7 @@ export interface CopyInitializerASTNode extends ASTNode {
 //                 break;
 //             }
 //         }
-        
+
 //     }
 
 //     public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
@@ -901,7 +908,7 @@ export interface CopyInitializerASTNode extends ASTNode {
 //         let targetDesc = this.target.describe();
 //         let targetType = this.target.type;
 //         let otherMemberDesc = this.otherMember.describe();
-        
+
 //         if (targetType.length === 0) {
 //             return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
 //         }
@@ -929,7 +936,7 @@ export interface CopyInitializerASTNode extends ASTNode {
 //             return elemInit.createRuntimeInitializer(this);
 //         });
 //     }
-	
+
 //     protected upNextImpl() {
 //         if (this.elementInitializers && this.index < this.elementInitializers.length) {
 //             this.sim.push(this.elementInitializers[this.index++])
@@ -1002,8 +1009,8 @@ export interface CopyInitializerASTNode extends ASTNode {
 
 
 export interface InitializerListASTNode extends ASTNode {
-    construct_type: "initializer_list";
-    args: ExpressionASTNode[];
+    readonly construct_type: "initializer_list";
+    readonly args: ExpressionASTNode[];
 }
 
 // export var InitializerList = CPPConstruct.extend({

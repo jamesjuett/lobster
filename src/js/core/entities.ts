@@ -1,14 +1,15 @@
 import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct, RuntimeFunction } from "./constructs";
+import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { SimpleDeclaration, LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration } from "./declarations";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, AnalyticSimpleDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
+import { RuntimeFunction } from "./functions";
 
 
 
@@ -46,9 +47,9 @@ export class Scope {
     // private static HIDDEN = Symbol("HIDDEN");
     // private static NO_MATCH = Symbol("NO_MATCH");
 
-    private readonly entities: {[index:string]: DeclaredScopeEntry | undefined} = {};
-    private readonly hiddenClassEntities: {[index:string]: ClassEntity | undefined} = {};
-    private readonly typeEntities: {[index:string]: ClassEntity | undefined} = {};
+    private readonly entities: { [index: string]: DeclaredScopeEntry | undefined } = {};
+    private readonly hiddenClassEntities: { [index: string]: ClassEntity | undefined } = {};
+    private readonly typeEntities: { [index: string]: ClassEntity | undefined } = {};
 
     public readonly translationUnit: TranslationUnit;
     public readonly parent?: Scope;
@@ -65,10 +66,10 @@ export class Scope {
      * If an error prevents the entity being added successfully, returns the error instead. (e.g. A previous
      * declaration with the same name but a different type.)
      */
-    public declareVariableEntity<EntityT extends VariableEntity>(newEntity: EntityT) : EntityT | CompilerNote {
+    public declareVariableEntity<EntityT extends VariableEntity>(newEntity: EntityT): EntityT | CompilerNote {
         let entityName = newEntity.name;
         let existingEntity = this.entities[entityName];
-        
+
         // No previous declaration for this name
         if (!existingEntity) {
             this.variableEntityCreated(newEntity);
@@ -116,7 +117,7 @@ export class Scope {
     public declareFunctionEntity(newEntity: FunctionEntity) {
         let entityName = newEntity.name;
         let existingEntity = this.entities[entityName];
-        
+
         // No previous declaration for this name
         if (!existingEntity) {
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
@@ -141,7 +142,7 @@ export class Scope {
 
         // Function overload group of previously existing functions, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
-        
+
         // If we got the new entity back, it means it was added to the scope for the first time
         if (entityOrError === newEntity) {
             this.functionEntityCreated(newEntity);
@@ -149,7 +150,7 @@ export class Scope {
 
         return entityOrError;
     }
-    
+
     protected functionEntityCreated(newEntity: FunctionEntity) {
         // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
         // support using the static keyword or unnamed namespaces to specify internal linkage.
@@ -166,7 +167,7 @@ export class Scope {
     public declareClassEntity(newEntity: ClassEntity) {
         let entityName = newEntity.name;
         let existingEntity = this.entities[entityName];
-        
+
         // No previous declaration for this name
         if (!existingEntity) {
             this.classEntityCreated(newEntity);
@@ -177,7 +178,7 @@ export class Scope {
         if (!(existingEntity instanceof ClassEntity)) {
             return CPPError.declaration.symbol_mismatch(newEntity.firstDeclaration, newEntity);
         }
-        
+
         // Note that we don't displace existing class entities as new variables or functions do.
         // Instead, either the new/existing class entities are compatible (i.e. they do result in
         // a multiple definition error), or they will generate an error.
@@ -201,7 +202,7 @@ export class Scope {
     }
 
     // protected declaredEntityAdded(ent: DeclaredEntity) {
-        
+
     // }
 
     // public singleLookup(name: string, options: NameLookupOptions) {
@@ -285,7 +286,7 @@ export class Scope {
      * @param options A set of options to customize the lookup process.
      * @returns 
      */
-    public lookup(name: string, options: NameLookupOptions = {kind:"normal"}) : DeclaredScopeEntry | undefined {
+    public lookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
@@ -322,16 +323,16 @@ export class Scope {
                     // Check that parameter types match
                     if (!cand.type.sameParamTypes(paramTypes))
 
-                    if (receiverType) {
-                        // if receiver type is defined, candidate must also have
-                        // a receiver and the presence/absence of const must match
-                        // NOTE: the actual receiver type does not need to match, just the constness
-                        return cand.type.receiverType && receiverType.isConst === cand.type.isConst;
-                    }
-                    else {
-                        // if no receiver type is defined, candidate must not have a receiver
-                        return !cand.type.receiverType;
-                    }
+                        if (receiverType) {
+                            // if receiver type is defined, candidate must also have
+                            // a receiver and the presence/absence of const must match
+                            // NOTE: the actual receiver type does not need to match, just the constness
+                            return cand.type.receiverType && receiverType.isConst === cand.type.isConst;
+                        }
+                        else {
+                            // if no receiver type is defined, candidate must not have a receiver
+                            return !cand.type.receiverType;
+                        }
                     return cand.type.sameParamTypes(paramTypes);
                 });
 
@@ -379,14 +380,14 @@ export class BlockScope extends Scope {
 export class NamespaceScope extends Scope {
 
     public readonly name: string;
-    private readonly children: {[index:string]: NamespaceScope | undefined};
+    private readonly children: { [index: string]: NamespaceScope | undefined };
 
     public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope) {
         super(translationUnit, parent);
         assert(!parent || parent instanceof NamespaceScope);
         this.name = name;
         this.children = {};
-        if(parent) {
+        if (parent) {
             parent.addChild(this);
         }
     }
@@ -399,7 +400,7 @@ export class NamespaceScope extends Scope {
     }
 
     private addChild(child: NamespaceScope) {
-        if(child.name) {
+        if (child.name) {
             this.children[child.name] = child;
         }
     }
@@ -472,7 +473,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     public readonly entityId: number;
     public readonly type: T;
 
-    
+
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
      * the type will be null.
@@ -483,7 +484,7 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
-    public abstract describe() : EntityDescription;
+    public abstract describe(): EntityDescription;
 
     // // TODO: does this belong here?
     // public isLibraryConstruct() {
@@ -499,7 +500,7 @@ export abstract class CPPEntity<T extends Type = Type> {
 };
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
-    
+
     public readonly name: string;
 
     /**
@@ -600,8 +601,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     public abstract readonly declarationKind: DeclarationKind;
 
     // TODO: not sure this should really be here as an abstract property?
-    public abstract readonly firstDeclaration: SimpleDeclaration | ParameterDeclaration | ClassDeclaration;
-    public abstract readonly declarations: readonly SimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
+    public abstract readonly firstDeclaration: AnalyticSimpleDeclaration | ParameterDeclaration | ClassDeclaration;
+    public abstract readonly declarations: readonly AnalyticSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
@@ -635,7 +636,7 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
  * @param existingEntity 
  */
 function mergeDefinitionInto<T extends DeclaredEntity>(newEntity: DeclaredEntity, existingEntity: T) {
-    
+
     if (newEntity.definition && existingEntity.definition) {
         if (newEntity.definition === existingEntity.definition) {
             // literally the same definition, that's fine.
@@ -646,7 +647,7 @@ function mergeDefinitionInto<T extends DeclaredEntity>(newEntity: DeclaredEntity
             return undefined;
         }
     }
-    
+
     // One of them may have a definition, if so copy it over
     if (newEntity.definition) {
         // we have a definition but they don't
@@ -667,8 +668,8 @@ export class FunctionOverloadGroup {
     public readonly overloads: readonly FunctionEntity[];
 
     public constructor(overloads: readonly FunctionEntity[]) {
-            this.name = overloads[0].name;
-            this.overloads = this._overloads = overloads.slice();
+        this.name = overloads[0].name;
+        this.overloads = this._overloads = overloads.slice();
     }
 
     public addOverload(overload: FunctionEntity) {
@@ -682,19 +683,19 @@ export class FunctionOverloadGroup {
      * not consider the possibility of implicit conversions, which is a part of full overload
      * resolution. It simply looks for an overload with a matching signature.
      */
-    public selectOverloadBySignature(type: FunctionType) {
+    public selectOverloadBySignature(type: FunctionType): FunctionEntity | undefined {
         return this.overloads.find(func => type.sameSignature(func.type));
     }
 }
 
 export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
+    runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
 abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
     public readonly declarationKind = "variable";
-    
-    public abstract runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
+
+    public abstract runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
 export class LocalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
@@ -702,13 +703,13 @@ export class LocalObjectEntity<T extends ObjectType = ObjectType> extends Variab
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
-    public readonly declarations: readonly (LocalVariableDefinition | ParameterDefinition)[];
+    public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
         this.firstDeclaration = def;
-        this.declarations = [def];
+        this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
         this.isParameter = isParameter;
@@ -723,24 +724,24 @@ export class LocalObjectEntity<T extends ObjectType = ObjectType> extends Variab
         return CPPError.declaration.prev_local(this.firstDeclaration, this.name);
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : AutoObject<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct): AutoObject<T> {
         // TODO: revisit the non-null assertion below
         return rtConstruct.containingRuntimeFunction.stackFrame!.localObjectLookup(this);
     }
 
     public describe() {
-        return {name: this.name, message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}`};
+        return { name: this.name, message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}` };
     }
 };
 
 
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T>, ObjectEntity<T> {
-    runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T>;
+    runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
-    bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) : void;
+    bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>): void;
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
@@ -748,13 +749,13 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Var
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
-    public readonly declarations: readonly (LocalVariableDefinition | ParameterDefinition)[];
+    public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
         this.firstDeclaration = def;
-        this.declarations = [def];
+        this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
         this.isParameter = isParameter;
@@ -765,17 +766,17 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Var
         return CPPError.declaration.prev_local(this.firstDeclaration, this.name);
     }
 
-    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindLocalReference(this, obj);
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T> {
         // TODO: revisit the non-null assertions below
         return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<T>(this);
     }
 
     public describe() {
-        return {name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}`};
+        return { name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}` };
     }
 };
 
@@ -784,10 +785,10 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObject
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
     public readonly qualifiedName: string;
-    public readonly firstDeclaration: SimpleDeclaration;
-    public readonly declarations: readonly SimpleDeclaration[];
+    public readonly firstDeclaration: AnalyticSimpleDeclaration;
+    public readonly declarations: readonly AnalyticSimpleDeclaration[];
     public readonly definition?: GlobalVariableDefinition;
-    
+
     // storage: "static",
     constructor(type: T, decl: GlobalVariableDefinition) {
         super(type, decl.name);
@@ -804,7 +805,7 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
         return this.name + " (" + this.type + ")";
     }
 
-    public mergeInto(existingEntity: VariableEntity) : VariableEntity | CompilerNote {
+    public mergeInto(existingEntity: VariableEntity): VariableEntity | CompilerNote {
         if (!sameType(this.type, existingEntity.type)) {
             return CPPError.declaration.type_mismatch(this.firstDeclaration, this, existingEntity);
         }
@@ -824,15 +825,15 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
         else {
             this.declarations.forEach((decl) => decl.addNote(CPPError.link.def_not_found(decl, this)));
         }
-        
+
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : StaticObject<T> {
+    public runtimeLookup(rtConstruct: RuntimeConstruct): StaticObject<T> {
         return rtConstruct.sim.memory.staticLookup(this);
     }
-    
+
     public describe() {
-        return {name: this.name, message: "the variable " + this.name};
+        return { name: this.name, message: "the variable " + this.name };
     }
 };
 
@@ -871,33 +872,33 @@ export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEnt
  * @throws Throws an exception if the return object does not exist.
  */
 export class ReturnObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    
-    public runtimeLookup(rtConstruct: RuntimeConstruct) : CPPObject<T> {
+
+    public runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T> {
         let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
         if (!returnObject) {
             throw "Error: Runtime lookup performed for the return object of a function, but the return object does not currently exist.";
         }
         return <CPPObject<T>>returnObject;
     }
-    
+
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
-        return {name: "[return]", message: "the return object"};
+        return { name: "[return]", message: "the return object" };
     }
 };
 
 export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
-    
-    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+
+    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
         // Assume a ReturnByReferenceEntity will only be bound in the context of a return
         // for a return-by-reference function, thus the cast
-        let func = <RuntimeFunction<ReferenceType<T>>>rtConstruct.containingRuntimeFunction;
+        let func = <RuntimeFunction<FunctionType<ReferenceType<T>>>>rtConstruct.containingRuntimeFunction;
         func.setReturnObject(obj);
     }
 
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
-        return {name: "[&return]", message: "the object returned by reference"};
+        return { name: "[&return]", message: "the object returned by reference" };
     }
 };
 
@@ -914,7 +915,7 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
 
 //     public constructor(entity: BoundReferenceEntity<T>, refersTo: CPPObject<T>) {
 //         this.entity = entity;
-        
+
 
 //         this.refersTo = refersTo;
 //         // Initially refers to a dead object at address 0
@@ -969,7 +970,7 @@ export class PassByValueParameterEntity<T extends ObjectType = ObjectType> exten
             return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
-            return {name: `Parameter #${this.num+1}`, message: `Parameter #${this.num+1} of the called function`};
+            return { name: `Parameter #${this.num + 1}`, message: `Parameter #${this.num + 1} of the called function` };
         }
     }
 
@@ -989,21 +990,21 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
         assert(sameType(calledFunction.type.paramTypes[num], new ReferenceType(type)), "Inconsistent type for parameter entity.");
     }
 
-    public bindTo(rtConstruct : RuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
         let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
 
         pendingCalledFunction.bindReferenceParameter(this.num, obj);
     }
-    
+
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
             return definition.parameters[this.num].declaredEntity!.describe();
         }
         else {
-            return {name: `Parameter #${this.num+1}`, message: `Parameter #${this.num+1} of the called function`};
+            return { name: `Parameter #${this.num + 1}`, message: `Parameter #${this.num + 1} of the called function` };
         }
     }
 };
@@ -1012,7 +1013,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
 //     protected static readonly _name: "ReceiverEntity";
 
 //     // storage: "automatic",
-    
+
 //     constructor(type: T) {
 //         super(type);
 //     }
@@ -1041,7 +1042,7 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
 //     protected static readonly _name = "NewObjectEntity";
 
 //     // storage: "automatic",
-    
+
 //     public toString() {
 //         return "object (" + this.type + ")";
 //     }
@@ -1157,7 +1158,7 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 
 //         return recObj;
 //     }
-    
+
 //     public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
 //         return new BaseSubobject(parentObj, this.type, memory, address);
 //     }
@@ -1241,7 +1242,7 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
 
     public objectInstance(creatorRt: RuntimePotentialFullExpression) {
 
-        let objInst : TemporaryObject<T> = creatorRt.sim.memory.allocateTemporaryObject(this);
+        let objInst: TemporaryObject<T> = creatorRt.sim.memory.allocateTemporaryObject(this);
 
         let owner = creatorRt.containingFullExpression;
         owner.temporaryObjects[this.entityId] = objInst;
@@ -1257,23 +1258,23 @@ export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CP
     }
 
     public describe() {
-        return {name: this.name, message: this.name}; // TOOD: eventually change implementation when I remove name
+        return { name: this.name, message: this.name }; // TOOD: eventually change implementation when I remove name
     }
 
 }
 
 
 
-export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
+export class FunctionEntity<T extends FunctionType = FunctionType> extends DeclaredEntityBase<T> {
     public readonly declarationKind = "function";
-    
+
     public readonly qualifiedName: string;
     public readonly firstDeclaration: FunctionDeclaration;
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
-    
+
     // storage: "static",
-    constructor(type: FunctionType, decl: FunctionDeclaration) {
+    constructor(type: T, decl: FunctionDeclaration) {
         super(type, decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
@@ -1300,10 +1301,10 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return this.name;
     }
 
-    public mergeInto(overloadGroup: FunctionOverloadGroup) {
+    public mergeInto(overloadGroup: FunctionOverloadGroup): FunctionEntity | CompilerNote {
         //check each other function found
         let matchingFunction = overloadGroup.selectOverloadBySignature(this.type);
-        
+
         if (!matchingFunction) {
             // If none were found with the same signature, this is a new overload, so go ahead and add it
             overloadGroup.addOverload(this);
@@ -1326,7 +1327,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
         return mergeDefinitionInto(this, matchingFunction) ??
             CPPError.declaration.func.multiple_def(this.definition!, matchingFunction.definition!);
     }
-    
+
     public setDefinition(def: FunctionDefinition) {
         if (!this.definition) {
             (<Mutable<this>>this).definition = def;
@@ -1342,7 +1343,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 
     public link(def: FunctionDefinitionGroup | undefined) {
         assert(!this.definition, "link() should not be called for an entity that is already defined.");
-        
+
         if (def) {
             // found an overload group of function definitions, check for one
             // with matching signature to the given linked entity
@@ -1357,7 +1358,7 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
                 this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.returnTypesMatch(decl, this)));
                 return;
             }
-            
+
             (<Mutable<this>>this).definition = overload;
         }
         else {
@@ -1380,12 +1381,12 @@ export class FunctionEntity extends DeclaredEntityBase<FunctionType> {
 
 export class ClassEntity extends DeclaredEntityBase<ClassType> {
     public readonly declarationKind = "class";
-    
+
     public readonly qualifiedName: string;
     public readonly firstDeclaration: ClassDeclaration;
     public readonly declarations: readonly ClassDeclaration[];
     public readonly definition?: ClassDefinition;
-    
+
     constructor(type: ClassType, decl: ClassDeclaration) {
         super(type, decl.name);
         this.firstDeclaration = decl;

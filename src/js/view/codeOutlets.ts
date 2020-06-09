@@ -1,20 +1,20 @@
-import { CPPConstruct, RuntimeConstruct, CompiledConstruct, RuntimeFunction } from "../core/constructs";
+import { CPPConstruct, RuntimeConstruct } from "../core/constructs";
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
-import { CompiledFunctionDefinition, CompiledSimpleDeclaration, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledVariableDefinition } from "../core/declarations";
+import { CompiledFunctionDefinition, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledParameterDeclaration, LocalVariableDefinition, CompiledSimpleDeclaration, CompiledLocalVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignment, CompiledTernary, RuntimeComma, CompiledComma, RuntimeLogicalBinaryOperator, RuntimeRelationalBinaryOperator, CompiledBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperator, CompiledRelationalBinaryOperator, CompiledLogicalBinaryOperator, RuntimeUnaryOperator, CompiledUnaryOperator, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParentheses, RuntimeObjectIdentifier, CompiledObjectIdentifier, RuntimeNumericLiteral, CompiledNumericLiteral, RuntimeBinaryOperator, RuntimeFunctionIdentifier, CompiledFunctionIdentifier, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression } from "../core/expressions";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifier, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifier, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/expressions";
 import { Bool, AtomicType } from "../core/types";
-import { RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/standardConversions";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
+import { RuntimeFunction } from "../core/functions";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -333,7 +333,7 @@ export class ParameterOutlet {
     private readonly element: JQuery;
     public readonly passedValueElem: JQuery;
 
-    public constructor(element: JQuery, paramDef: CompiledParameterDefinition) {
+    public constructor(element: JQuery, paramDef: CompiledParameterDeclaration) {
         this.element = element;
 
         this.element.addClass("codeInstance");
@@ -342,7 +342,7 @@ export class ParameterOutlet {
 
         this.element.append(this.passedValueElem = $("<div> </div>"));
 
-        this.element.append(paramDef.type.typeString(false, htmlDecoratedName(paramDef.name, paramDef.type), true));
+        this.element.append(paramDef.type.typeString(false, htmlDecoratedName(paramDef.name || "", paramDef.type), true));
 
     }
 
@@ -502,8 +502,8 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
 
 }
 
-function allVariableDefinitions(declarations: readonly CompiledSimpleDeclaration[]) : declarations is CompiledVariableDefinition[] {
-    return declarations.every(decl => decl instanceof VariableDefinition);
+function allLocalVariableDefinitions(declarations: readonly CompiledSimpleDeclaration[]) : declarations is CompiledLocalVariableDefinition[] {
+    return declarations.every(decl => decl instanceof LocalVariableDefinition);
 }
 
 export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarationStatement> {
@@ -523,7 +523,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
 
         // TODO: add support for other kinds of declarations that aren't variable definitions
         let declarations = this.construct.declarations;
-        if (!allVariableDefinitions(declarations)) {
+        if (!allLocalVariableDefinitions(declarations)) {
             return;
         }
 
@@ -1219,7 +1219,7 @@ export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignme
     public readonly lhs: ExpressionOutlet;
     public readonly rhs: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledAssignment, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledAssignmentExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
         this.element.addClass("assignment");
@@ -1279,7 +1279,7 @@ export class TernaryExpressionOutlet extends ExpressionOutlet<RuntimeTernary> {
     public readonly then: ExpressionOutlet;
     public readonly otherwise: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledTernary, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledTernaryExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
         this.element.addClass("code-ternary");
@@ -1303,7 +1303,7 @@ export class CommaExpressionOutlet extends ExpressionOutlet<RuntimeComma> {
     public readonly left: ExpressionOutlet;
     public readonly right: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledComma, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledCommaExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
         this.element.addClass("code-comma");
@@ -1568,7 +1568,7 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBina
     public readonly left: ExpressionOutlet;
     public readonly right: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledBinaryOperator,
+    public constructor(element: JQuery, construct: CompiledBinaryOperatorExpression,
         parent?: ConstructOutlet) {
         super(element, construct, parent);
 
@@ -1601,11 +1601,11 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBina
     }
 }
 
-export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnaryOperator> {
+export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnaryOperatorExpression> {
 
     public readonly operand: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledUnaryOperator, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledUnaryOperatorExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
         this.exprElem.append(htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
@@ -1813,7 +1813,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
 
     public readonly subexpression: ExpressionOutlet;
 
-    public constructor(element: JQuery, construct: CompiledParentheses, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledParenthesesExpression, parent?: ConstructOutlet) {
         super(element, construct, parent, false);
 
         this.exprElem.append("(");
@@ -1824,7 +1824,7 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
 
 export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier | RuntimeFunctionIdentifier> {
 
-    public constructor(element: JQuery, construct: CompiledObjectIdentifier | CompiledFunctionIdentifier, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent?: ConstructOutlet) {
         super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
 
@@ -1835,7 +1835,7 @@ export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier |
 
 export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral> {
 
-    public constructor(element: JQuery, construct: CompiledNumericLiteral, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledNumericLiteralExpression, parent?: ConstructOutlet) {
         super(element, construct, parent, false);
 
         this.exprElem.addClass("code-literal");

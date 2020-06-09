@@ -4,8 +4,9 @@ import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObje
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct, RuntimeFunction } from "./constructs";
-import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations";
+import { RuntimeConstruct } from "./constructs";
+import { CompiledGlobalVariableDefinition } from "./declarations";
+import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
@@ -38,11 +39,11 @@ export class Value<T extends AtomicType = AtomicType> {
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value<T>(valueToClone, this.type, this.isValid);
     }
-    
+
     public cvUnqualified() {
         return new Value<T>(this.rawValue, this.type.cvUnqualified(), this.isValid);
     }
-    
+
     public cvQualified(isConst: boolean, isVolatile: boolean = false) {
         return new Value<T>(this.rawValue, this.type.cvQualified(isConst, isVolatile), this.isValid);
     }
@@ -62,7 +63,7 @@ export class Value<T extends AtomicType = AtomicType> {
         return this.rawValue === otherRawValue;
     }
 
-    public combine(otherValue: Value<T>, combiner: (a:RawValueType, b:RawValueType) => RawValueType) {
+    public combine(otherValue: Value<T>, combiner: (a: RawValueType, b: RawValueType) => RawValueType) {
         assert(sameType(this.type, otherValue.type));
         return new Value<T>(
             combiner(this.rawValue, otherValue.rawValue),
@@ -86,15 +87,15 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && otherValue.isValid);
     }
 
-    public compare(otherValue: Value<T>, comparer: (a:RawValueType, b:RawValueType) => boolean) {
+    public compare(otherValue: Value<T>, comparer: (a: RawValueType, b: RawValueType) => boolean) {
         assert(sameType(this.type, otherValue.type));
         return new Value<Bool>(
             comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
             new Bool(),
             this.isValid && otherValue.isValid);
     }
-    
-    public modify(modifier: (a:RawValueType) => RawValueType) {
+
+    public modify(modifier: (a: RawValueType) => RawValueType) {
         return new Value<T>(
             modifier(this.rawValue),
             this.type,
@@ -330,10 +331,10 @@ export class Memory {
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
     // TODO: prevent writing to zero or negative address objects?
-    public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>) : ArraySubobject<Elem_type>;
-    public dereference<T extends ObjectType>(ptr: Value<ObjectPointerType<T>>) : CPPObject<T>;
-    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>) : CPPObject<T> | InvalidObject<T>;
-    public dereference(ptr: Value<PointerType>) : CPPObject | ArraySubobject | InvalidObject {
+    public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>): ArraySubobject<Elem_type>;
+    public dereference<T extends ObjectType>(ptr: Value<ObjectPointerType<T>>): CPPObject<T>;
+    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>): CPPObject<T> | InvalidObject<T>;
+    public dereference(ptr: Value<PointerType>): CPPObject | ArraySubobject | InvalidObject {
 
         var addr = ptr.rawValue;
 
@@ -357,7 +358,7 @@ export class Memory {
         // then we need to create an anonymous object of the appropriate type instead
         return new InvalidObject(ptr.type.ptrTo, this, addr);
     }
-    
+
 
     public allocateObject(object: CPPObject<ObjectType>) { // TODO: allocateObject is not the best name for this
         this.objects[object.address] = object;
@@ -440,8 +441,8 @@ export class Memory {
     }
 
     public printObjects() {
-        let objs : any = {};
-        for(let key in this.objects) {
+        let objs: any = {};
+        for (let key in this.objects) {
             let obj = this.objects[key];
             let desc = obj.describe();
             if (obj.type.isAtomicType()) {
@@ -457,14 +458,14 @@ export class Memory {
 };
 
 class MemoryStack {
-    private static readonly _name =  "MemoryStack";
-    
+    private static readonly _name = "MemoryStack";
+
     public readonly observable = new Observable(this);
 
     private top: number;
     private readonly start: number;
     private readonly memory: Memory;
-    
+
     private readonly _frames: MemoryFrame[] = [];
     public readonly frames: readonly MemoryFrame[] = this._frames;
 
@@ -521,7 +522,7 @@ class MemoryHeap {
     private readonly end: number;
     private readonly memory: Memory;
 
-    public readonly objectMap: {[index:number]: DynamicObject};
+    public readonly objectMap: { [index: number]: DynamicObject };
 
     public constructor(memory: Memory, end: number) {
         this.memory = memory;
@@ -559,7 +560,7 @@ type MemoryFrameMessages =
 
 export class MemoryFrame {
     private static readonly _name = "MemoryFrame";
-    
+
     public readonly observable = new Observable<MemoryFrameMessages>(this);
 
     private readonly start: number;
@@ -571,14 +572,14 @@ export class MemoryFrame {
 
     public readonly localObjects: readonly AutoObject[];
 
-    private readonly localObjectsByEntityId: {[index:number]: AutoObject} = {};
-    private readonly localReferencesByEntityId: {[index:number]: CPPObject | undefined} = {};
-    
+    private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
+    private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
+
     public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
         this.memory = memory;
         this.start = start;
         this.func = rtFunc;
-        
+
         this.size = 0;
 
         let addr = this.start;
@@ -638,7 +639,7 @@ export class MemoryFrame {
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = obj;
-        this.observable.send("referenceBound", {entity: entity, object: obj});
+        this.observable.send("referenceBound", { entity: entity, object: obj });
     }
 
     // public setUpReferenceInstances() {

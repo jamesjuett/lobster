@@ -121,11 +121,11 @@ export class AsynchronousSimulationRunner {
         this.simulation = simulation;
         this.delay = delay;
     }
-    
+
     public setSpeed(speed: number) {
         (<Mutable<this>>this).delay = Math.floor(1000 / speed);
     }
-    
+
     /**
      * Sets the delay between steps for any run operation that involves
      * multiple steps (e.g. stepOver, stepToEnd, etc.)
@@ -258,7 +258,7 @@ export class AsynchronousSimulationRunner {
         await this.reset();
         await this.stepForward(newSteps, 0);
     }
-    
+
     /**
      * If the simulation is currently running (i.e. in the middle of an asynchronous
      * stepForward(n), stepToEnd(), stepOver(), etc.), immediately stops the simulation

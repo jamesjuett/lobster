@@ -58,10 +58,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
 
         let subAddr = this.address;
         this.elemObjects = [];
-        for(let i = 0; i < this.object.type.length; ++i){
+        for (let i = 0; i < this.object.type.length; ++i) {
             this.elemObjects.push(new ArraySubobject(this.object, i, memory, subAddr));
             subAddr += this.object.type.elemType.size;
-        } 
+        }
     }
 
     public getArrayElemSubobjectByAddress(address: number) {
@@ -69,7 +69,7 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
         return this.getArrayElemSubobject(index);
     }
 
-    public getArrayElemSubobject(index: number) : ArraySubobject<Elem_type> {
+    public getArrayElemSubobject(index: number): ArraySubobject<Elem_type> {
         if (0 <= index && index < this.elemObjects.length) {
             return this.elemObjects[index];
         }
@@ -81,7 +81,7 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
         }
     }
 
-    public getArrayElemSubobjects() : readonly ArraySubobject<Elem_type>[] {
+    public getArrayElemSubobjects(): readonly ArraySubobject<Elem_type>[] {
         return this.elemObjects;
     }
 
@@ -110,7 +110,7 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
     // public constructor(object: CPPObject<T>, memory: Memory, address: number) {
     //     super(object, memory, address);
-        
+
     //     let subAddr = this.address;
 
     //     this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
@@ -157,12 +157,12 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
     //         this.subobjects[i].setValue(newValue[i], write);
     //     }
     // }
-    public getValue() : never {
+    public getValue(): never {
         throw new Error("Not implemented");
     }
 
 
-    public rawValue() : never {
+    public rawValue(): never {
         throw new Error("Not implemented");
     }
 }
@@ -208,7 +208,7 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
 // class EntityObjectDescriptor {
 //     private entity: CPPEntity;
-    
+
 //     constructor(entity: CPPEntity) {
 //         this.entity = entity;
 //     }
@@ -221,12 +221,12 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 type ObjectValueRepresentation<T extends ObjectType> =
     T extends AtomicType ? Value<T> :
     T extends BoundedArrayType<infer Elem_type> ? ObjectValueRepresentation<Elem_type>[] :
-    T extends ClassType ? {[index: string] : ObjectRawValueRepresentation<ObjectType>} : never;
+    T extends ClassType ? { [index: string]: ObjectRawValueRepresentation<ObjectType> } : never;
 
 type ObjectRawValueRepresentation<T extends ObjectType> =
     T extends AtomicType ? RawValueType :
     T extends BoundedArrayType<infer Elem_type> ? ObjectRawValueRepresentation<Elem_type>[] :
-    T extends ClassType ? {[index: string] : ObjectRawValueRepresentation<ObjectType>} : unknown;
+    T extends ClassType ? { [index: string]: ObjectRawValueRepresentation<ObjectType> } : unknown;
 
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
@@ -274,17 +274,17 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobject<AT extends BoundedArrayType>(this: CPPObject<AT>, index: number) : ArraySubobject<AT["elemType"]> {
+    public getArrayElemSubobject<AT extends BoundedArrayType>(this: CPPObject<AT>, index: number): ArraySubobject<AT["elemType"]> {
         return this.data.getArrayElemSubobject(index);
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>) : readonly ArraySubobject<AT["elemType"]>[] {
+    public getArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>): readonly ArraySubobject<AT["elemType"]>[] {
         return this.data.getArrayElemSubobjects();
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
-    public getArrayElemSubobjectByAddress<AT extends BoundedArrayType>(this: CPPObject<AT>, address: number) : ArraySubobject<AT["elemType"]> {
+    public getArrayElemSubobjectByAddress<AT extends BoundedArrayType>(this: CPPObject<AT>, address: number): ArraySubobject<AT["elemType"]> {
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
@@ -303,7 +303,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     public toString() {
-        return "@"+ this.address;
+        return "@" + this.address;
     }
 
     public kill(rt?: RuntimeConstruct) {
@@ -315,11 +315,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("deallocated");
     }
 
-    public getPointerTo() : Value<PointerType<T>> {
+    public getPointerTo(): Value<PointerType<T>> {
         return new Value(this.address, new ObjectPointerType(this));
     }
 
-    public getValue(read: boolean = false) : ObjectValueRepresentation<T> {
+    public getValue(read: boolean = false): ObjectValueRepresentation<T> {
         let val = this.data.getValue(this._isValid);
         if (read) {
             this.observable.send("valueRead", val);
@@ -327,11 +327,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return <any>val;
     }
 
-    public rawValue() : ObjectRawValueRepresentation<T>{
+    public rawValue(): ObjectRawValueRepresentation<T> {
         return <any>this.data.rawValue();
     }
-    
-    public readValue() : ObjectValueRepresentation<T> {
+
+    public readValue(): ObjectValueRepresentation<T> {
         return this.getValue(true);
     }
 
@@ -342,13 +342,13 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         // Accept new RTTI
         // However, we need to retain our own CV qualifiers
         asMutable(this).type = newValue.type.cvQualified(this.type.isConst, this.type.isVolatile);
-        
+
         this.data.setRawValue(newValue.rawValue, write);
 
-        if(write) {
+        if (write) {
             this.observable.send("valueWritten", newValue);
         }
-        
+
         this.onValueSet(write);
     }
 
@@ -360,7 +360,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.setValue(newValue, true);
     }
 
-    public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>) : boolean {
+    public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>): boolean {
         return this._isValid && this.type.isValueValid(this.rawValue());
     }
 
@@ -523,13 +523,13 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.observable.send("validitySet", valid);
     }
 
-    public abstract describe() : ObjectDescription;
+    public abstract describe(): ObjectDescription;
 
 };
 
 // TODO: Kept some of this in a comment in case it's helpful when reintroducing leak checking
 // export class DynamicObject extends CPPObject {
-    
+
 //     private hasBeenLeaked: boolean = false;
 
 //     public constructor(type: ObjectType, memory: Memory, address: number) {
@@ -609,7 +609,7 @@ export class MainReturnObject extends CPPObject<Int> {
     }
 
     public describe(): ObjectDescription {
-        return {name: "[main() return]", message: "The value returned from main."}
+        return { name: "[main() return]", message: "The value returned from main." }
     }
 
 }
@@ -632,7 +632,7 @@ export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T
 export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     public describe(): ObjectDescription {
-        return {name: `[dynamic @${this.address}]`, message: `the heap object at 0x${this.address}`};
+        return { name: `[dynamic @${this.address}]`, message: `the heap object at 0x${this.address}` };
     }
 
 }
@@ -646,14 +646,14 @@ export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<
     }
 
     public describe(): ObjectDescription {
-        return {name: `[invalid @${this.address}`, message: `an invalid object at 0x${this.address}`};
+        return { name: `[invalid @${this.address}`, message: `an invalid object at 0x${this.address}` };
     }
 }
 
 export class ThisObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
 
     public describe(): ObjectDescription {
-        return {name: "this", message: "the this pointer"};
+        return { name: "this", message: "the this pointer" };
     }
 
 }
@@ -665,7 +665,7 @@ export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
     }
 
     public describe(): ObjectDescription {
-        return {name: `[string literal @${this.address}]`, message: "string literal at 0x" + this.address}
+        return { name: `[string literal @${this.address}]`, message: "string literal at 0x" + this.address }
     }
 
 }
@@ -699,7 +699,7 @@ abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T>
 }
 
 export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
-    
+
     public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
     public readonly index: number;
 
@@ -711,11 +711,11 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
     public getPointerTo() {
         return new Value(this.address, new ArrayPointerType(this.containingObject));
     }
-    
+
     describe() {
         var arrDesc = this.containingObject.describe();
         return {
-            name: arrDesc.name + "[" + this.index + "]", 
+            name: arrDesc.name + "[" + this.index + "]",
             message: "element " + this.index + " of " + arrDesc.message,
         };
     }
@@ -723,16 +723,16 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
 }
 
 export class BaseSubobject extends Subobject<ClassType> {
-    
+
     public readonly containingObject!: CPPObject<ClassType>; // Handled by parent (TODO: is this a good idea?)
 
     public constructor(containingObject: CPPObject<ClassType>, type: ClassType, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
     }
 
-    public describe() : ObjectDescription {
+    public describe(): ObjectDescription {
         let contDesc = this.containingObject.describe();
-        return {name: `[${this.type.name} base of ${contDesc.name}]`, message: "the " + this.type.name + " base of " + contDesc.message};
+        return { name: `[${this.type.name} base of ${contDesc.name}]`, message: "the " + this.type.name + " base of " + contDesc.message };
     }
 }
 
@@ -745,7 +745,7 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
         super(containingObject, type, memory, address);
         this.name = name;
     }
-    
+
     public describe() {
         var parent = this.containingObject;
         let parentDesc = parent.describe();
@@ -772,8 +772,8 @@ export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObjec
         this.description = description;
         // this.entityId = tempObjEntity.entityId;
     }
-    
-    public describe() : ObjectDescription{
-        return {name: this.description, message: "the temporary object " + this.name};
+
+    public describe(): ObjectDescription {
+        return { name: this.description, message: "the temporary object " + this.name };
     }
 }
