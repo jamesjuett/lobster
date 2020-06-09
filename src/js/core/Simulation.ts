@@ -1,13 +1,14 @@
 import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct, RuntimeFunction } from "./constructs";
+import { RuntimeConstruct } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, ObjectType, AtomicType } from "./types";
+import { Int, PointerType, Char, ObjectType, AtomicType, FunctionType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
+import { RuntimeFunction } from "./functions";
 
 
 export enum SimulationEvent {
@@ -53,29 +54,29 @@ export class Simulation {
 
     public readonly random = new CPPRandom();
 
-    public readonly stepsTaken : number;
+    public readonly stepsTaken: number;
 
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
 
-    private readonly pendingNews : DynamicObject[];
-    private leakCheckIndex : number;
+    private readonly pendingNews: DynamicObject[];
+    private leakCheckIndex: number;
 
     // TODO: is this actually set anwhere?
     private alertsOff = false;
 
-    private readonly _eventsOccurred : {
+    private readonly _eventsOccurred: {
         [p in SimulationEvent]: string[];
     } = {
-        "undefined_behavior" : [],
-        "unspecified_behavior" : [],
-        "implementation_defined_behavior" : [],
-        "memory_leak" : [],
-        "assertion_failure" : [],
-        "crash" : []
-    };
-    
-    public readonly eventsOccurred : {
+            "undefined_behavior": [],
+            "unspecified_behavior": [],
+            "implementation_defined_behavior": [],
+            "memory_leak": [],
+            "assertion_failure": [],
+            "crash": []
+        };
+
+    public readonly eventsOccurred: {
         [p in SimulationEvent]: readonly string[];
     } = this._eventsOccurred;
 
@@ -83,7 +84,7 @@ export class Simulation {
 
 
     public readonly mainReturnObject!: MainReturnObject;
-    public readonly mainFunction!: RuntimeFunction<Int>;
+    public readonly mainFunction!: RuntimeFunction<FunctionType<Int>>;
 
     constructor(program: RunnableProgram) {
         this.program = program;
@@ -108,7 +109,7 @@ export class Simulation {
 
     public clone(stepsTaken = this.stepsTaken) {
         let newSim = new Simulation(this.program);
-        for(let i = 0; i < stepsTaken; ++i) {
+        for (let i = 0; i < stepsTaken; ++i) {
             newSim.stepForward();
         }
         return newSim;
@@ -135,7 +136,7 @@ export class Simulation {
 
     private start() {
         this.allocateStringLiterals();
-        
+
         // Change static initialization so it is wrapped up in its own construct and
         // runtime construct pair specifically for that purpose. That construct could
         // also optionally create and push the main call taking over what is currently
@@ -159,9 +160,9 @@ export class Simulation {
         this.observable.send("mainCalled", this.mainFunction);
         this.mainFunction.gainControl();
     }
-    
+
     public push(rt: RuntimeConstruct) {
-        
+
         // whatever was previously on top of the stack is now waiting
         let prevTop = this.top();
         if (prevTop) {
@@ -172,7 +173,7 @@ export class Simulation {
         this.observable.send("pushed", rt);
         rt.afterPushed();
     }
-    
+
     public top() {
         if (this.execStack.length > 0) {
             return this.execStack[this.execStack.length - 1];
@@ -187,9 +188,9 @@ export class Simulation {
         let popped = this._execStack.pop();
         if (popped) {
             popped.afterPopped();
-        //     if (popped.stackType === "statement" || popped.stackType === "function") {
-        //         this.leakCheck(); // TODO leak checking
-        //     }
+            //     if (popped.stackType === "statement" || popped.stackType === "function") {
+            //         this.leakCheck(); // TODO leak checking
+            //     }
             this.observable.send("popped", popped);
         }
         return popped;
@@ -197,12 +198,12 @@ export class Simulation {
 
     //TODO: this may be dangerous depending on whether there are cases this could skip temporary deallocators or destructors
     public popUntil(rt: RuntimeConstruct) {
-        while(this._execStack.length > 0 && this._execStack[this._execStack.length - 1] !== rt) {
+        while (this._execStack.length > 0 && this._execStack[this._execStack.length - 1] !== rt) {
             this.pop();
         }
     }
 
-    public topFunction() : RuntimeFunction | undefined {
+    public topFunction(): RuntimeFunction | undefined {
         for (let i = this.execStack.length - 1; i >= 0; --i) {
             let runtimeConstruct = this.execStack[i];
             if (runtimeConstruct instanceof RuntimeFunction) {
@@ -217,12 +218,12 @@ export class Simulation {
 
     private allocateStringLiterals() {
         let tus = this.program.translationUnits;
-        for(let tuName in tus) {
+        for (let tuName in tus) {
             tus[tuName].stringLiterals.forEach((lit) => { this.memory.allocateStringLiteral(lit.str); });
         };
     }
 
-	public stepForward() {
+    public stepForward() {
 
         // Top rt construct will do stuff
         let rt = this.top();
@@ -246,9 +247,9 @@ export class Simulation {
         this.observable.send("afterFullStep", this.execStack.length > 0 && this.execStack[this.execStack.length - 1]);
     }
 
-	private upNext() {
+    private upNext() {
 
-        while(true) {
+        while (true) {
 
             // Grab the rt construct that is on top of the execution stack and up next
             let rt = this.top();
@@ -262,9 +263,9 @@ export class Simulation {
 
 
             // up next on the rt construct
-            this.observable.send("beforeUpNext", {rt: rt});
+            this.observable.send("beforeUpNext", { rt: rt });
             rt.upNext();
-            this.observable.send("afterUpNext", {inst: rt});
+            this.observable.send("afterUpNext", { inst: rt });
 
             // If the rt construct on top of the execution stack has changed, it needs
             // to be notified that it is now up next, so we should let the loop go again.
@@ -273,12 +274,12 @@ export class Simulation {
             // Note that if the execution stack becomes empty, we do not hit the break (because
             // we can assume at this point it was not empty previously) and will loop back to
             // the top where the check for an empty stack is performed.
-            if(rt === this.top()) {
+            if (rt === this.top()) {
                 break; // Note this will not occur when then 
             }
         }
     }
-    
+
     public stepToEnd() {
         while (!this.atEnd) {
             this.stepForward();
@@ -320,48 +321,48 @@ export class Simulation {
     // },
 
 
-	// stepBackward : function(n){
+    // stepBackward : function(n){
     //     if (n === 0){
     //         return;
     //     }
     //     n = n || 1;
-	// 	$.fx.off = true;
-	// 	Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
+    // 	$.fx.off = true;
+    // 	Outlets.CPP.CPP_ANIMATIONS = false; // TODO not sure I need this
     //     this.i_alertsOff = true;
     //     this.i_explainOff = true;
     //     $("body").addClass("noTransitions").height(); // .height() is to force reflow
     //     //RuntimeConstruct.prototype.silent = true;
-	// 	if (this.i_stepsTaken > 0){
-	// 		this.clear();
-	// 		var steps = this.i_stepsTaken-n;
-	// 		this.start();
-	// 		for(var i = 0; i < steps; ++i){
+    // 	if (this.i_stepsTaken > 0){
+    // 		this.clear();
+    // 		var steps = this.i_stepsTaken-n;
+    // 		this.start();
+    // 		for(var i = 0; i < steps; ++i){
     //             this.stepForward();
-	// 		}
-	// 	}
+    // 		}
+    // 	}
     //     //RuntimeConstruct.prototype.silent = false;
     //     $("body").removeClass("noTransitions").height(); // .height() is to force reflow
     //     this.i_alertsOff = false;
     //     this.i_explainOff = false;
     //     Outlets.CPP.CPP_ANIMATIONS = true;
-	// 	$.fx.off = false;
+    // 	$.fx.off = false;
 
-	// },
-	
-	
-	
-	
-	// peek : function(query, returnArray, offset){
+    // },
+
+
+
+
+    // peek : function(query, returnArray, offset){
     //     if (this.i_execStack.length === 0){
     //         return null;
     //     }
-	// 	offset = offset || 0;
-	// 	if (query){
-	// 		var peekedArr = [];
-	// 		var peeked;
-	// 		for (var i = this.i_execStack.length - 1 - offset; i >= 0; --i){
-	// 			peeked = this.i_execStack[i];
-	// 			peekedArr.unshift(peeked);
+    // 	offset = offset || 0;
+    // 	if (query){
+    // 		var peekedArr = [];
+    // 		var peeked;
+    // 		for (var i = this.i_execStack.length - 1 - offset; i >= 0; --i){
+    // 			peeked = this.i_execStack[i];
+    // 			peekedArr.unshift(peeked);
     //             if (typeof query === "function"){
     //                 if (query(peeked)){
     //                     break;
@@ -373,24 +374,24 @@ export class Simulation {
     //                     break;
     //                 }
     //             }
-	// 		}
-	// 		return (returnArray ? peekedArr : peeked);
-	// 	}
-	// 	else{
-	// 		return this.i_execStack.last();
-	// 	}
-	// },
-	
-	// peeks : function(query, returnArray){
-	// 	var results = [];
-	// 	var offset = 0;
-	// 	while (offset < this.i_execStack.length){
-	// 		var p = this.peek(query, true, offset);
-	// 		offset += p.length;
-	// 		results.unshift(returnArray ? p : p[0]);
-	// 	}
-	// 	return results;
-	// },
+    // 		}
+    // 		return (returnArray ? peekedArr : peeked);
+    // 	}
+    // 	else{
+    // 		return this.i_execStack.last();
+    // 	}
+    // },
+
+    // peeks : function(query, returnArray){
+    // 	var results = [];
+    // 	var offset = 0;
+    // 	while (offset < this.i_execStack.length){
+    // 		var p = this.peek(query, true, offset);
+    // 		offset += p.length;
+    // 		results.unshift(returnArray ? p : p[0]);
+    // 	}
+    // 	return results;
+    // },
 
 
     // clearRunThread: function(){
@@ -459,11 +460,11 @@ export class Simulation {
     // },
 
     public parameterPassedByReference<T extends ObjectType>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">) {
-        this.observable.send("parameterPassedByReference", {target: target, arg: arg});
+        this.observable.send("parameterPassedByReference", { target: target, arg: arg });
     }
 
     public parameterPassedByAtomicValue<T extends AtomicType>(target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">) {
-        this.observable.send("parameterPassedByAtomicValue", {target: target, arg: arg});
+        this.observable.send("parameterPassedByAtomicValue", { target: target, arg: arg });
     }
 
     public returnPassed(rt: RuntimeDirectInitializer) {
@@ -473,7 +474,7 @@ export class Simulation {
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
         let text = "";
-        if(value.type instanceof PointerType && value.type.ptrTo instanceof Char) {
+        if (value.type instanceof PointerType && value.type.ptrTo instanceof Char) {
             let addr = value.rawValue;
             let c = this.memory.getByte(addr);
             while (!Char.isNullChar(c)) {
@@ -489,14 +490,14 @@ export class Simulation {
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
         this._eventsOccurred[event].push(message);
-        
-        this.observable.send("eventOccurred", {event, message});
+
+        this.observable.send("eventOccurred", { event, message });
     }
 
     public hasEventOccurred(event: SimulationEvent) {
         return this.eventsOccurred[event].length > 0;
     }
-    
+
     public printState() {
         return JSON.stringify({
             memory: this.memory.printObjects(),

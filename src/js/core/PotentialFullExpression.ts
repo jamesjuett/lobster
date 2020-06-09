@@ -2,13 +2,12 @@ import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
 import { ObjectType } from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, ASTNode, BasicCPPConstruct, TemporaryDeallocator, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, RuntimeTemporaryDeallocator, StackType } from "./constructs";
+import { TranslationUnitContext, ASTNode, BasicCPPConstruct, TemporaryDeallocator, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, RuntimeTemporaryDeallocator, StackType, CPPConstruct } from "./constructs";
 
 export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
-    public readonly parent?: BasicCPPConstruct; // Narrows type of parent property of CPPConstruct
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
     public readonly temporaryDeallocator?: TemporaryDeallocator;
-    public onAttach(parent: BasicCPPConstruct) {
+    public onAttach(parent: CPPConstruct) {
         (<Mutable<this>>this).parent = parent;
         // This may no longer be a full expression. If so, move temporary entities to
         // their new full expression.

@@ -5,7 +5,7 @@ import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core
 import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
-import { RuntimeConstruct, RuntimeFunction } from "../core/constructs";
+import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
@@ -13,6 +13,7 @@ import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutle
 import { RuntimeFunctionIdentifier } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
+import { RuntimeFunction } from "../core/functions";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
