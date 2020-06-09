@@ -25,11 +25,11 @@ export interface Explanation {
 export interface ASTNode {
     // readonly construct_type: string;
     readonly source: {
-        readonly start : number;
-        readonly end : number;
-        readonly text : string;
-        readonly line : number;
-        readonly column : number;
+        readonly start: number;
+        readonly end: number;
+        readonly text: string;
+        readonly line: number;
+        readonly column: number;
     };
     readonly library_id?: number;
     readonly library_unsupported?: boolean;
@@ -49,8 +49,8 @@ export interface TranslationUnitContext extends ProgramContext {
     readonly containingClass?: ClassType;
 }
 
-export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope) : TranslationUnitContext {
-    return Object.assign({}, context, {translationUnit: translationUnit, contextualScope: contextualScope });
+export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
+    return Object.assign({}, context, { translationUnit: translationUnit, contextualScope: contextualScope });
 }
 
 export interface ExpressionContext extends TranslationUnitContext {
@@ -58,8 +58,8 @@ export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: ClassType;
 }
 
-export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]) : ExpressionContext {
-    return Object.assign({}, context, {contextualParameterTypes: contextualParameterTypes});
+export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
+    return Object.assign({}, context, { contextualParameterTypes: contextualParameterTypes });
 }
 
 export interface FunctionContext extends TranslationUnitContext {
@@ -67,15 +67,15 @@ export interface FunctionContext extends TranslationUnitContext {
     readonly functionLocals: FunctionLocals;
 }
 
-export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity) : FunctionContext {
-    return Object.assign({}, context, {containingFunction: containingFunction, functionLocals: new FunctionLocals()});
+export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity): FunctionContext {
+    return Object.assign({}, context, { containingFunction: containingFunction, functionLocals: new FunctionLocals() });
 }
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
 }
 
-export function isBlockContext(context: TranslationUnitContext) : context is BlockContext {
+export function isBlockContext(context: TranslationUnitContext): context is BlockContext {
     return context.contextualScope instanceof BlockScope;
 }
 
@@ -106,8 +106,8 @@ export interface ClassContext extends TranslationUnitContext {
     readonly classMembers: ClassMembers;
 }
 
-export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity) : ClassContext {
-    return Object.assign({}, context, {classEntity: classEntity, classMembers: new ClassMembers()});
+export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity): ClassContext {
+    return Object.assign({}, context, { classEntity: classEntity, classMembers: new ClassMembers() });
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
@@ -125,7 +125,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //
     //     return construct;
     // },
-    
+
     public readonly constructId: number;
 
     public readonly notes = new NoteRecorder();
@@ -140,7 +140,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     public abstract readonly parent?: CPPConstruct;
     public readonly children: readonly CPPConstruct[] = [];
-    
+
     protected constructor(context: ContextType, ast: ASTType | undefined) {
         this.constructId = CPPConstruct.NEXT_ID++;
 
@@ -156,7 +156,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         //     this.isLibraryUnsupported = true;
         // }
 
-        
+
         // TODO: figure out library stuff
         // If the parent is an usupported library construct, so are its children (including this one)
         // if (this.parent && this.parent.library_unsupported) {
@@ -183,7 +183,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         children.forEach((child) => this.attach(child));
     }
 
-    protected abstract onAttach(parent: this["parent"]) : void;
+    protected abstract onAttach(parent: this["parent"]): void;
 
     private setAST(ast: ASTType) {
         asMutable(this).ast = ast;
@@ -207,12 +207,12 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //     return this.libraryId;
     // }
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
-        return {message: "[No explanation available.]"};
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct): Explanation {
+        return { message: "[No explanation available.]" };
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct) : ConstructDescription {
-        return {message: "[No description available.]"};
+    public describe(sim: Simulation, rtConstruct: RuntimeConstruct): ConstructDescription {
+        return { message: "[No description available.]" };
     }
 
     public addNote(note: Note) {
@@ -234,18 +234,18 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //     return this.i_notes;
     // },
     public getNearestSourceReference(this: CPPConstruct<TranslationUnitContext>) {
-        let construct : CPPConstruct = this;
+        let construct: CPPConstruct = this;
         while (!construct.sourceReference && construct.parent) {
             construct = construct.parent;
         }
-        return construct.sourceReference || this.context.translationUnit.getSourceReference(0,0,0,0);
+        return construct.sourceReference || this.context.translationUnit.getSourceReference(0, 0, 0, 0);
     }
 
     // public abstract readonly _t: {
     //     compiled: CompiledConstruct
     // };
 
-    public isSuccessfullyCompiled() : this is CompiledConstruct {
+    public isSuccessfullyCompiled(): this is CompiledConstruct {
         return !this.getContainedNotes().hasErrors;
     }
 }
@@ -253,7 +253,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
 
 export interface SuccessfullyCompiled {
-    
+
     // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled constructs
     // from being assignable to a compiled expression type
     // TODO: maybe better to use a symbol here?
@@ -272,7 +272,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 
 
-export type StackType = "statement" | "expression" |  "function" | "initializer" | "call";
+export type StackType = "statement" | "expression" | "function" | "initializer" | "call";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 
@@ -282,7 +282,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly model: C;
     public readonly stackType: StackType;
 
-    public readonly children: {[index: string]: RuntimeConstruct} = {};
+    public readonly children: { [index: string]: RuntimeConstruct } = {};
 
     public readonly parent?: RuntimeConstruct;
 
@@ -308,18 +308,18 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     public readonly cleanupStarted: boolean = false;
 
     // TODO: refactor pauses. maybe move them to the implementation
-    private pauses: {[index:string]: any} = {}; // TODO: remove any type
-    
-    public constructor (model: C, stackType: StackType, parentOrSim: RuntimeConstruct | Simulation) {
+    private pauses: { [index: string]: any } = {}; // TODO: remove any type
+
+    public constructor(model: C, stackType: StackType, parentOrSim: RuntimeConstruct | Simulation) {
         this.model = model;
         this.stackType = stackType;
-        
+
         if (parentOrSim instanceof RuntimeConstruct) {
             assert(this.parent !== this, "Code instance may not be its own parent");
 
             this.sim = parentOrSim.sim;
             assert(parentOrSim.sim === this.sim, "Runtime construct may not belong to a different simulation than its parent.")
-            
+
             this.parent = parentOrSim;
             this.parent.addChild(this);
 
@@ -342,7 +342,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         return this.stepForwardImpl();
     }
 
-    protected abstract stepForwardImpl() : void;
+    protected abstract stepForwardImpl(): void;
 
     public upNext() {
         (<Mutable<this>>this).isUpNext = true;
@@ -368,10 +368,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         }
     }
 
-    protected abstract upNextImpl() : void;
+    protected abstract upNextImpl(): void;
 
     public setPauseWhenUpNext() {
-        this.pauses["upNext"] = {pauseWhenUpNext: true};
+        this.pauses["upNext"] = { pauseWhenUpNext: true };
     }
 
     public wait() {
@@ -393,7 +393,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
         // Cleanup should not be started if you have children pending on the stack
         assert(this === this.sim.top());
-        
+
         (<Mutable<this>>this).cleanupStarted = true;
         if (this.cleanupConstruct) {
             this.sim.push(this.cleanupConstruct);
@@ -415,7 +415,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         this.children[child.model.constructId] = child;
         this.observable.send("childInstanceCreated", child);
     }
-    
+
     // findParent : function(stackType){
     //     if (stackType){
     //         var parent = this.parent;
@@ -431,17 +431,17 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public findParentByModel(model: CPPConstruct) {
         var parent = this.parent;
-        while(parent && parent.model.constructId != model.constructId){
+        while (parent && parent.model.constructId != model.constructId) {
             parent = parent.parent;
         }
         return parent;
     }
 
-    public explain() : Explanation {
+    public explain(): Explanation {
         return this.model.explain(this.sim, this);
     }
 
-    public describe() : ConstructDescription {
+    public describe(): ConstructDescription {
         return this.model.describe(this.sim, this);
     }
 }
@@ -481,7 +481,7 @@ export class FunctionLocals {
     public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
     public readonly localVariablesByEntityId: {
-        [index: number] : LocalVariableEntity
+        [index: number]: LocalVariableEntity
     } = {};
 
     public registerLocalVariable(local: LocalVariableEntity) {
@@ -532,7 +532,7 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
 
     // public readonly dtors: (MemberFunctionCall | null)[];
 
-    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[] ) {
+    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[]) {
         super(context, undefined); // Has no AST
         this.temporaryObjects = temporaryObjects;
 
@@ -575,10 +575,10 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
     private justDestructed: boolean = false;
     public readonly parent!: RuntimePotentialFullExpression; // narrows type from base class
 
-    public constructor (model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+    public constructor(model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
         super(model, "expression", parent);
     }
-	
+
     protected upNextImpl() {
 
         // for (var key in this.temporaries){
@@ -610,12 +610,12 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
         //     // }
         // }
         // else{
-            this.startCleanup();
+        this.startCleanup();
         // }
     }
 
     public stepForwardImpl() {
-        
+
     }
 }
 
@@ -718,16 +718,16 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
 export class GlobalObjectAllocator extends CPPConstruct {
     public readonly construct_type = "GlobalObjectAllocator";
-    
+
 
     public readonly parent?: undefined;
     public readonly globalObjects: readonly GlobalVariableDefinition[];
 
-    public constructor(context: ProgramContext, globalObjects: readonly GlobalVariableDefinition[] ) {
+    public constructor(context: ProgramContext, globalObjects: readonly GlobalVariableDefinition[]) {
         super(context, undefined); // Has no AST
         this.globalObjects = globalObjects;
     }
-    
+
     protected onAttach(parent: this["parent"]): void {
         throw new Error("Method not implemented.");
     }
@@ -749,10 +749,10 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
 
     private index = 0;
 
-    public constructor (model: CompiledGlobalObjectAllocator, sim: Simulation) {
+    public constructor(model: CompiledGlobalObjectAllocator, sim: Simulation) {
         super(model, "statement", sim); // TODO: is "statement" the right stack type here? should I make a new one?
     }
-	
+
     protected upNextImpl() {
 
         // let dtors = this.model.dtors;
@@ -764,7 +764,7 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
             }
             ++this.index;
         }
-        else{
+        else {
             this.startCleanup();
         }
     }

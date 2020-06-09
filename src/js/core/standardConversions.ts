@@ -8,11 +8,11 @@
 
 // export abstract class ImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends Expression {
 //     public readonly construct_type = "ImplicitConversion";
-    
+
 //     public readonly from: TypedExpression<FromType, FromVC>;
 //     public readonly type: ToType;
 //     public readonly valueCategory: ToVC;
-    
+
 //     public readonly conversionLength: number;
 
 //     public constructor(from: TypedExpression<FromType, FromVC>, toType: ToType, valueCategory: ToVC) {
@@ -37,7 +37,7 @@
 
 //     public abstract operate(fromEvalResult: VCResultTypes<FromType, FromVC>) : VCResultTypes<ToType, ToVC>;
 
-    
+
 //     public describeEvalResult(depth: number): ConstructDescription {
 //         throw new Error("Method not implemented.");
 //     }
@@ -45,21 +45,21 @@
 
 // export interface CompiledImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, SuccessfullyCompiled {
 //     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    
+
 //     readonly from: CompiledExpression<FromType, FromVC>;
 // }
 
 // export class RuntimeImplicitConversion<FromType extends ObjectType = ObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends ObjectType = ObjectType, ToVC extends ValueCategory = ValueCategory>
 //     extends SimpleRuntimeExpression<ToType, ToVC, CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>> {
-        
+
 //     public readonly from: RuntimeExpression<FromType, FromVC>;
-    
+
 //     public constructor(model: CompiledImplicitConversion<FromType, FromVC, ToType, ToVC>, parent: RuntimeConstruct) {
 //         super(model, parent);
 //         this.from = createRuntimeExpression(this.model.from, this);
 //         this.setSubexpressions([this.from]);
 //     }
-        
+
 //     protected operate(): void {
 //         this.setEvalResult(this.model.operate(this.from.evalResult));
 //     }
@@ -85,17 +85,17 @@
 
 // export class LValueToRValueConversion<T extends AtomicType> extends ImplicitConversion<T, "lvalue", T, "prvalue"> {
 //     // public readonly construct_type = "LValueToRValueConversion";
-    
+
 //     public constructor(from: TypedExpression<T, "lvalue">) {
 //         super(from, from.type.cvUnqualified(), "prvalue");
 //     }
-    
+
 //     public operate(fromEvalResult: VCResultTypes<T, "lvalue">) {
 //         return <VCResultTypes<T, "prvalue">>fromEvalResult.getValue(); // Cast technically necessary here
 //         // TODO: add alert if value is invalid
 //         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
 //     }
-    
+
 //     public createDefaultOutlet(this: CompiledLValueToRValueConversion, element: JQuery, parent?: ConstructOutlet) {
 //         return new LValueToRValueOutlet(element, this, parent);
 //     }
@@ -133,7 +133,7 @@
 //     public operate(fromEvalResult: VCResultTypes<BoundedArrayType, "lvalue">) {
 //         return new Value(fromEvalResult.address, new ArrayPointerType(fromEvalResult));
 //     }
-    
+
 //     public createDefaultOutlet(this: CompiledArrayToPointerConversion, element: JQuery, parent?: ConstructOutlet) {
 //         return new ArrayToPointerOutlet(element, this, parent);
 //     }
@@ -181,7 +181,7 @@
 //     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
 //         super(from, toType.cvUnqualified(), "prvalue");
 //     }
-    
+
 //     public createDefaultOutlet(this: CompiledTypeConversion, element: JQuery, parent?: ConstructOutlet) : TypeConversionOutlet{
 //         return new TypeConversionOutlet(element, this, parent);
 //     }
@@ -199,7 +199,7 @@
 //     public constructor(from: TypedExpression<FromType, "prvalue">, toType: ToType) {
 //         super(from, toType);
 //     }
-    
+
 //     public operate(fromEvalResult: VCResultTypes<FromType, "prvalue">) {
 //         return <VCResultTypes<ToType, "prvalue">>new Value(fromEvalResult.rawValue, this.type, fromEvalResult.isValid); // Cast technically necessary here
 //     }
@@ -324,11 +324,11 @@
 //         super(from, toType, "prvalue");
 //         assert(similarType(from.type, toType));
 //     }
-    
+
 //     public createDefaultOutlet(this: CompiledQualificationConversion, element: JQuery, parent?: ConstructOutlet) {
 //         return new QualificationConversionOutlet(element, this, parent);
 //     }
-    
+
 //     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
 //         return <VCResultTypes<T, "prvalue">>fromEvalResult.cvQualified(this.type.isConst, this.type.isVolatile);
 //     }
@@ -362,7 +362,7 @@
 //     if (analyticFrom.isPrvalue()) {
 //         return analyticFrom;
 //     }
-    
+
 //     // must be an lvalue if we get to here
 //     // assert(x.isLvalue());
 
@@ -513,7 +513,7 @@
 // }
 
 // export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<ArithmeticType>, rightOrig: SpecificTypedExpression<ArithmeticType>) {
-    
+
 //     let left = convertToPRValue(leftOrig);
 //     let right = convertToPRValue(rightOrig);
 

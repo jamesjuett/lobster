@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode,  CPPConstruct, BlockContext, FunctionContext, InvalidConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, AnalyticSimpleDeclaration, AnalyticCompiledDeclaration } from "./declarations";
@@ -21,36 +21,36 @@ export type StatementASTNode =
     NullStatementASTNode;
 
 const StatementConstructsMap = {
-    "labeled_statement" : (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "labeled statement"),
-    "block" : (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context),
-    "if_statement" : (ast: IfStatementASTNode, context: BlockContext) => IfStatement.createFromAST(ast, context),
-    "while_statement" : (ast: WhileStatementASTNode, context: BlockContext) => WhileStatement.createFromAST(ast, context),
-    "dowhile_statement" : (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "do-while loop"),
-    "for_statement" : (ast: ForStatementASTNode, context: BlockContext) => ForStatement.createFromAST(ast, context),
-    "break_statement" : (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "break statement"),
-    "continue_statement" : (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "continue statement"),
-    "return_statement" : (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
-    "declaration_statement" : (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
+    "labeled_statement": (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "labeled statement"),
+    "block": (ast: BlockASTNode, context: BlockContext) => Block.createFromAST(ast, context),
+    "if_statement": (ast: IfStatementASTNode, context: BlockContext) => IfStatement.createFromAST(ast, context),
+    "while_statement": (ast: WhileStatementASTNode, context: BlockContext) => WhileStatement.createFromAST(ast, context),
+    "dowhile_statement": (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "do-while loop"),
+    "for_statement": (ast: ForStatementASTNode, context: BlockContext) => ForStatement.createFromAST(ast, context),
+    "break_statement": (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "break statement"),
+    "continue_statement": (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "continue statement"),
+    "return_statement": (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
+    "declaration_statement": (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
 };
 
-export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
+export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
 }
 
 export type CompiledStatementKinds = {
-    "unsupported_statement" : UnsupportedStatement;
+    "unsupported_statement": UnsupportedStatement;
     // "labeled_statement" :
-    "block" : CompiledBlock;
-    "if_statement" : CompiledIfStatement;
-    "while_statement" : CompiledWhileStatement;
+    "block": CompiledBlock;
+    "if_statement": CompiledIfStatement;
+    "while_statement": CompiledWhileStatement;
     // "dowhile_statement" :
-    "for_statement" : CompiledForStatement;
+    "for_statement": CompiledForStatement;
     // "break_statement" :
     // "continue_statement" :
-    "return_statement" : CompiledReturnStatement;
-    "declaration_statement" : CompiledDeclarationStatement;
+    "return_statement": CompiledReturnStatement;
+    "declaration_statement": CompiledDeclarationStatement;
     "expression_statement": CompiledExpressionStatement;
     "null_statement": CompiledNullStatement;
 };
@@ -60,24 +60,24 @@ export type AnalyticCompiledStatement<C extends AnalyticStatement> = CompiledSta
 
 
 const StatementConstructsRuntimeMap = {
-    "unsupported_statement" : (construct: UnsupportedStatement, parent: RuntimeStatement) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "unsupported_statement": (construct: UnsupportedStatement, parent: RuntimeStatement) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
     // "labeled_statement" : (construct: LabeledStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "labeled statement").setAST(ast),
-    "block" : (construct: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) => new RuntimeBlock(construct, parent),
-    "if_statement" : (construct: CompiledIfStatement, parent: RuntimeStatement) => new RuntimeIfStatement(construct, parent),
-    "while_statement" : (construct: CompiledWhileStatement, parent: RuntimeStatement) => new RuntimeWhileStatement(construct, parent),
+    "block": (construct: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) => new RuntimeBlock(construct, parent),
+    "if_statement": (construct: CompiledIfStatement, parent: RuntimeStatement) => new RuntimeIfStatement(construct, parent),
+    "while_statement": (construct: CompiledWhileStatement, parent: RuntimeStatement) => new RuntimeWhileStatement(construct, parent),
     // "dowhile_statement" : (construct: DoWhileStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "do-while loop").setAST(ast),
-    "for_statement" : (construct: CompiledForStatement, parent: RuntimeStatement) => new RuntimeForStatement(construct, parent),
+    "for_statement": (construct: CompiledForStatement, parent: RuntimeStatement) => new RuntimeForStatement(construct, parent),
     // "break_statement" : (construct: BreakStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "break statement").setAST(ast),
     // "continue_statement" : (construct: ContinueStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "continue statement").setAST(ast),
-    "return_statement" : (construct: CompiledReturnStatement, parent: RuntimeStatement) => new RuntimeReturnStatement(construct, parent),
-    "declaration_statement" : (construct: CompiledDeclarationStatement, parent: RuntimeStatement) => new RuntimeDeclarationStatement(construct, parent),
+    "return_statement": (construct: CompiledReturnStatement, parent: RuntimeStatement) => new RuntimeReturnStatement(construct, parent),
+    "declaration_statement": (construct: CompiledDeclarationStatement, parent: RuntimeStatement) => new RuntimeDeclarationStatement(construct, parent),
     "expression_statement": (construct: CompiledExpressionStatement, parent: RuntimeStatement) => new RuntimeExpressionStatement(construct, parent),
     "null_statement": (construct: CompiledNullStatement, parent: RuntimeStatement) => new RuntimeNullStatement(construct, parent)
 };
 
-export function createRuntimeStatement<ConstructType extends CompiledBlock>(construct: ConstructType, parent: RuntimeStatement | RuntimeFunction) : ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
-export function createRuntimeStatement<ConstructType extends AnalyticStatement, CompiledConstructType extends AnalyticCompiledStatement<ConstructType>>(construct: CompiledConstructType, parent: RuntimeConstruct) : ReturnType<(typeof StatementConstructsRuntimeMap)[CompiledConstructType["construct_type"]]>;
-export function createRuntimeStatement(construct: CompiledStatement, parent: RuntimeConstruct) : RuntimeStatement;
+export function createRuntimeStatement<ConstructType extends CompiledBlock>(construct: ConstructType, parent: RuntimeStatement | RuntimeFunction): ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
+export function createRuntimeStatement<ConstructType extends AnalyticStatement, CompiledConstructType extends AnalyticCompiledStatement<ConstructType>>(construct: CompiledConstructType, parent: RuntimeConstruct): ReturnType<(typeof StatementConstructsRuntimeMap)[CompiledConstructType["construct_type"]]>;
+export function createRuntimeStatement(construct: CompiledStatement, parent: RuntimeConstruct): RuntimeStatement;
 export function createRuntimeStatement<ConstructType extends AnalyticCompiledStatement<AnalyticStatement>>(construct: ConstructType, parent: RuntimeStatement) {
     return <any>StatementConstructsRuntimeMap[construct.construct_type](<any>construct, parent);
 }
@@ -86,7 +86,7 @@ export abstract class Statement<ASTType extends StatementASTNode = StatementASTN
 
     public abstract createDefaultOutlet(this: CompiledStatement, element: JQuery, parent?: ConstructOutlet): StatementOutlet;
 
-    public isBlock() : this is Block {
+    public isBlock(): this is Block {
         return false;
     }
 
@@ -115,7 +115,7 @@ export abstract class RuntimeStatement<C extends CompiledStatement = CompiledSta
 
     public readonly containingRuntimeFunction: RuntimeFunction;
 
-    public constructor (model: C, parent: RuntimeStatement | RuntimeFunction) {
+    public constructor(model: C, parent: RuntimeStatement | RuntimeFunction) {
         super(model, "statement", parent);
         if (parent instanceof RuntimeFunction) {
             this.containingRuntimeFunction = parent;
@@ -135,8 +135,8 @@ export class UnsupportedStatement extends Statement {
         super(context, ast);
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
-    
-    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet) : never {
+
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
         throw new Error("Cannot create an outlet for an unsupported construct.");
     }
 }
@@ -162,13 +162,13 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
         super(context, ast);
         this.attach(this.expression = expression);
     }
-    
+
     public createDefaultOutlet(this: CompiledExpressionStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ExpressionStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
-        return {isTail: true};
+        return { isTail: true };
     }
 }
 
@@ -177,16 +177,16 @@ export interface CompiledExpressionStatement extends ExpressionStatement, Succes
 }
 
 export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpressionStatement> {
-    
+
     public expression: RuntimeExpression;
     private index = "expr";
 
-    public constructor (model: CompiledExpressionStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledExpressionStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.expression = createRuntimeExpression(this.model.expression, this);
     }
 
-	protected upNextImpl() {
+    protected upNextImpl() {
         if (this.index === "expr") {
             this.sim.push(this.expression);
             this.index = "done";
@@ -194,11 +194,11 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
         else {
             this.startCleanup();
         }
-	}
-	
-	protected stepForwardImpl() {
-        
-	}
+    }
+
+    protected stepForwardImpl() {
+
+    }
 }
 
 
@@ -210,24 +210,24 @@ export class NullStatement extends Statement<NullStatementASTNode> {
     public readonly construct_type = "null_statement";
     public readonly t_compiled!: CompiledNullStatement;
 
-    
-    
+
+
     public createDefaultOutlet(this: CompiledNullStatement, element: JQuery, parent?: ConstructOutlet) {
         return new NullStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
-        return {isTail: true}; // Note: NullStatement will never actually have children, so this isn't used
+        return { isTail: true }; // Note: NullStatement will never actually have children, so this isn't used
     }
 }
 
 export interface CompiledNullStatement extends NullStatement, SuccessfullyCompiled {
-    
+
 }
 
 export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement> {
 
-    public constructor (model: CompiledNullStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledNullStatement, parent: RuntimeStatement) {
         super(model, parent);
     }
 
@@ -279,31 +279,31 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
         this.attachAll(this.declarations = declarations);
     }
 
-    
-    
+
+
     public createDefaultOutlet(this: CompiledDeclarationStatement, element: JQuery, parent?: ConstructOutlet) {
         return new DeclarationStatementOutlet(element, this, parent);
     }
 
     public isTailChild(child: CPPConstruct) {
-        return {isTail: true};
+        return { isTail: true };
     }
 }
 
 export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
-    
+
     // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
     readonly declarations: readonly AnalyticCompiledDeclaration<AnalyticSimpleDeclaration>[];
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
 
-    public readonly currentDeclarationIndex : number | null = null;
+    public readonly currentDeclarationIndex: number | null = null;
 
-    public constructor (model: CompiledDeclarationStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledDeclarationStatement, parent: RuntimeStatement) {
         super(model, parent);
     }
-	
+
     protected upNextImpl() {
         let nextIndex = this.currentDeclarationIndex === null ? 0 : this.currentDeclarationIndex + 1;
 
@@ -311,7 +311,7 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
         if (nextIndex < initializers.length) {
             (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
             let init = initializers[nextIndex];
-            if(init) {
+            if (init) {
                 // Only declarations with an initializer (e.g. a variable definition) have something
                 // to do at runtime. Others (e.g. typedefs) do nothing.
                 this.observable.send("initializing", nextIndex);
@@ -319,7 +319,7 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
                 this.sim.push(runtimeInit);
             }
         }
-        else{
+        else {
             this.startCleanup();
         }
     }
@@ -393,12 +393,12 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         this.attach(this.returnInitializer);
     }
 
-    
-    
+
+
     public createDefaultOutlet(this: CompiledReturnStatement, element: JQuery, parent?: ConstructOutlet) {
         return new ReturnStatementOutlet(element, this, parent);
     }
-    
+
     // isTailChild : function(child){
     //     return {isTail: true,
     //         reason: "The recursive call is immediately followed by a return."};
@@ -421,15 +421,15 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
 
     private index = RuntimeReturnStatementIndices.PUSH_INITIALIZER;
 
-    public constructor (model: CompiledReturnStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledReturnStatement, parent: RuntimeStatement) {
         super(model, parent);
-        if(model.returnInitializer) {
+        if (model.returnInitializer) {
             this.returnInitializer = model.returnInitializer.createRuntimeInitializer(this);
         }
     }
-	
+
     protected upNextImpl() {
-        if(this.index === RuntimeReturnStatementIndices.PUSH_INITIALIZER) {
+        if (this.index === RuntimeReturnStatementIndices.PUSH_INITIALIZER) {
             if (this.returnInitializer) {
                 this.sim.push(this.returnInitializer);
             }
@@ -440,7 +440,7 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
     public stepForwardImpl() {
         if (this.index === RuntimeReturnStatementIndices.RETURN) {
             let func = this.containingRuntimeFunction;
-            this.observable.send("returned", {call: func.caller})
+            this.observable.send("returned", { call: func.caller })
             this.sim.popUntil(func);
         }
     }
@@ -451,7 +451,7 @@ export interface BlockASTNode extends ASTNode {
     readonly statements: readonly StatementASTNode[];
 }
 
-function createBlockContext(context: FunctionContext) : BlockContext {
+function createBlockContext(context: FunctionContext): BlockContext {
     return Object.assign({}, context, {
         contextualScope: new BlockScope(context.translationUnit, context.contextualScope)
     });
@@ -472,7 +472,7 @@ export class Block extends Statement<BlockASTNode> {
         super(createBlockContext(context), ast);
     }
 
-    public isBlock() : this is Block {
+    public isBlock(): this is Block {
         return true;
     }
 
@@ -481,8 +481,8 @@ export class Block extends Statement<BlockASTNode> {
         this.attach(statement);
     }
 
-    
-    
+
+
     public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) {
         return new BlockOutlet(element, this, parent);
     }
@@ -527,13 +527,13 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
     private index = 0;
 
-    public constructor (model: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
+    public constructor(model: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         super(model, parent);
         this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
     }
-	
+
     protected upNextImpl() {
-        if(this.index < this.statements.length) {
+        if (this.index < this.statements.length) {
             this.observable.send("index", this.index);
             this.sim.push(this.statements[this.index++]);
         }
@@ -548,7 +548,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
         // block finishes, rather than just when a function finishes.
     }
 
-    
+
     // isTailChild : function(child){
     //     return {isTail: true,
     //         reason: "The recursive call is immediately followed by a return."};
@@ -558,7 +558,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
 
 // export class OpaqueBlock extends StatementBase implements SuccessfullyCompiled {
-    
+
 //     public _t_isCompiled: never;
 
 //     private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
@@ -582,7 +582,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 //         super(model, parent);
 //         this.effects = effects;
 //     }
-	
+
 //     protected upNextImpl() {
 //         // Nothing to do
 //     }
@@ -592,7 +592,7 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 //         this.startCleanup();
 //     }
 
-    
+
 //     // isTailChild : function(child){
 //     //     return {isTail: true,
 //     //         reason: "The recursive call is immediately followed by a return."};
@@ -616,7 +616,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly then: Statement;
     public readonly otherwise?: Statement;
 
-    public static createFromAST(ast: IfStatementASTNode, context: BlockContext) : IfStatement {
+    public static createFromAST(ast: IfStatementASTNode, context: BlockContext): IfStatement {
 
         let condition = createExpressionFromAST(ast.condition, context);
 
@@ -653,44 +653,44 @@ export class IfStatement extends Statement<IfStatementASTNode> {
         if (otherwise) {
             this.attach(this.otherwise = otherwise);
         }
-        
+
         if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
             this.addNote(CPPError.stmt.if.condition_bool(this, this.condition));
         }
     }
 
-    
+
 
     public createDefaultOutlet(this: CompiledIfStatement, element: JQuery, parent?: ConstructOutlet) {
         return new IfStatementOutlet(element, this, parent);
     }
 
     //     isTailChild : function(child){
-//         if (child === this.condition){
-//             return {isTail: false,
-//                 reason: "After the function returns, one of the branches will run.",
-//                 others: [this.then, this.otherwise]
-//             }
-//         }
-//         else{
-//             if (this.otherwise){
-//                 //if (child === this.then){
-//                     return {isTail: true,
-//                         reason: "Only one branch in an if/else structure can ever execute, so don't worry about the code in the other branches."
-//                     };
-//                 //}
-//                 //else{
-//                 //    return {isTail: true,
-//                 //        reason: "Don't worry about the code in the if branch - if the recursive call even happened it means we took the else branch."
-//                 //    };
-//                 //}
-//             }
-//             else{
-//                 return {isTail: true
-//                 };
-//             }
-//         }
-//     }
+    //         if (child === this.condition){
+    //             return {isTail: false,
+    //                 reason: "After the function returns, one of the branches will run.",
+    //                 others: [this.then, this.otherwise]
+    //             }
+    //         }
+    //         else{
+    //             if (this.otherwise){
+    //                 //if (child === this.then){
+    //                     return {isTail: true,
+    //                         reason: "Only one branch in an if/else structure can ever execute, so don't worry about the code in the other branches."
+    //                     };
+    //                 //}
+    //                 //else{
+    //                 //    return {isTail: true,
+    //                 //        reason: "Don't worry about the code in the if branch - if the recursive call even happened it means we took the else branch."
+    //                 //    };
+    //                 //}
+    //             }
+    //             else{
+    //                 return {isTail: true
+    //                 };
+    //             }
+    //         }
+    //     }
 
 }
 
@@ -708,7 +708,7 @@ export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
     private index = 0;
 
-    public constructor (model: CompiledIfStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledIfStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.condition = createRuntimeExpression(model.condition, this);
         this.then = createRuntimeStatement(model.then, this);
@@ -761,7 +761,7 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
     public readonly condition: Expression;
     public readonly body: Statement;
 
-    public static createFromAST(ast: WhileStatementASTNode, context: BlockContext) : WhileStatement {
+    public static createFromAST(ast: WhileStatementASTNode, context: BlockContext): WhileStatement {
 
         // If the body substatement is not a block, it gets its own implicit block context.
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
@@ -783,13 +783,13 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
         }
 
         this.attach(this.body = body);
-        
+
         if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
             this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
         }
     }
 
-    
+
 
     public createDefaultOutlet(this: CompiledWhileStatement, element: JQuery, parent?: ConstructOutlet) {
         return new WhileStatementOutlet(element, this, parent);
@@ -809,7 +809,7 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
 
     private index = 0;
 
-    public constructor (model: CompiledWhileStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledWhileStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.condition = createRuntimeExpression(model.condition, this);
         // Do not create body here, since it might not actually run
@@ -842,14 +842,14 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
         delete (<Mutable<this>>this).body;
 
     }
-    
-//     isTailChild : function(child){
-//         return {
-//             isTail: false,
-//             reason: "If the loop goes around again, then that would be more work after the recursive call.",
-//             others: [this]
-//         };
-//     }
+
+    //     isTailChild : function(child){
+    //         return {
+    //             isTail: false,
+    //             reason: "If the loop goes around again, then that would be more work after the recursive call.",
+    //             others: [this]
+    //         };
+    //     }
 }
 
 export interface DoWhileStatementASTNode extends ASTNode {
@@ -880,8 +880,8 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     public readonly condition: Expression;
     public readonly body: Statement;
     public readonly post: Expression;
-    
-    public static createFromAST(ast: ForStatementASTNode, context: BlockContext) : ForStatement {
+
+    public static createFromAST(ast: ForStatementASTNode, context: BlockContext): ForStatement {
 
         // If the body substatement is not a block, it gets its own implicit block context.
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
@@ -901,7 +901,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     }
 
     public constructor(context: BlockContext, ast: ForStatementASTNode, initial: ExpressionStatement | NullStatement | DeclarationStatement,
-            condition: Expression, body: Statement, post: Expression) {
+        condition: Expression, body: Statement, post: Expression) {
 
         super(context, ast);
 
@@ -913,7 +913,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
         else {
             this.attach(this.condition = condition);
         }
-        
+
         if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
             this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
         }
@@ -944,7 +944,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 
     private index = 0;
 
-    public constructor (model: CompiledForStatement, parent: RuntimeStatement) {
+    public constructor(model: CompiledForStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.initial = createRuntimeStatement(model.initial, this);
         this.condition = createRuntimeExpression(model.condition, this);
@@ -987,14 +987,14 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
         delete (<Mutable<this>>this).post;
 
     }
-    
-//     isTailChild : function(child){
-//         return {
-//             isTail: false,
-//             reason: "If the loop goes around again, then that would be more work after the recursive call.",
-//             others: [this]
-//         };
-//     }
+
+    //     isTailChild : function(child){
+    //         return {
+    //             isTail: false,
+    //             reason: "If the loop goes around again, then that would be more work after the recursive call.",
+    //             others: [this]
+    //         };
+    //     }
 }
 
 

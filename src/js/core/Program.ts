@@ -1,5 +1,5 @@
 
-import { parse as cpp_parse} from "../parse/cpp_parser";
+import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
@@ -18,24 +18,24 @@ import { FunctionType, Int } from "./types";
  *
  */
 export class Program {
-    
+
     // public readonly observable = new Observable(this);
-    
-    public readonly context: ProgramContext = {program: this};
-    
+
+    public readonly context: ProgramContext = { program: this };
+
     public readonly isCompilationUpToDate: boolean = true;
 
-    public readonly sourceFiles : { [index: string]: SourceFile } = {};
-    public readonly translationUnits : { [index: string]: TranslationUnit } = {};
-    
+    public readonly sourceFiles: { [index: string]: SourceFile } = {};
+    public readonly translationUnits: { [index: string]: TranslationUnit } = {};
+
     public readonly globalObjects: readonly GlobalVariableDefinition[] = [];
     public readonly globalObjectAllocator!: GlobalObjectAllocator;
-    
+
     private readonly functionCalls: readonly FunctionCall[] = [];
-    
-    public readonly linkedObjectDefinitions: {[index: string] : GlobalVariableDefinition | undefined} = {};
-    public readonly linkedFunctionDefinitions: {[index: string] : FunctionDefinitionGroup | undefined} = {};
-    public readonly linkedClassDefinitions: {[index: string] : ClassDefinition | undefined} = {};
+
+    public readonly linkedObjectDefinitions: { [index: string]: GlobalVariableDefinition | undefined } = {};
+    public readonly linkedFunctionDefinitions: { [index: string]: FunctionDefinitionGroup | undefined } = {};
+    public readonly linkedClassDefinitions: { [index: string]: ClassDefinition | undefined } = {};
 
     public readonly linkedObjectEntities: readonly GlobalObjectEntity[] = [];
     public readonly linkedFunctionEntities: readonly FunctionEntity[] = [];
@@ -58,7 +58,7 @@ export class Program {
             let tu = this.translationUnits[tuName] = new TranslationUnit(this,
                 new PreprocessedSource(this.sourceFiles[tuName], this.sourceFiles));
         });
-        
+
         if (!this.notes.hasSyntaxErrors) {
             this.link();
         }
@@ -187,7 +187,7 @@ export class Program {
     }
 
     private defineIntrinsics() {
-        
+
         // let intrinsicsTU = new TranslationUnit(this, new PreprocessedSource(new SourceFile("_intrinsics.cpp", ""), {}));
 
         // let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
@@ -204,7 +204,7 @@ export class Program {
     public registerFunctionEntity(entity: FunctionEntity) {
         asMutable(this.linkedFunctionEntities).push(entity);
     }
-    
+
     public registerClassEntity(entity: ClassEntity) {
         asMutable(this.linkedClassEntities).push(entity);
     }
@@ -265,7 +265,7 @@ export class Program {
             // Same tokens - ok
             let prevDefText = prevDef.ast?.source.text;
             let defText = def.ast?.source.text;
-            if (prevDefText && defText && prevDefText.replace(/\s/g,'') === defText.replace(/\s/g,'')) {
+            if (prevDefText && defText && prevDefText.replace(/\s/g, '') === defText.replace(/\s/g, '')) {
                 return prevDef;
             }
 
@@ -274,11 +274,11 @@ export class Program {
         }
     }
 
-    public isCompiled() : this is CompiledProgram {
+    public isCompiled(): this is CompiledProgram {
         return !this.notes.hasErrors;
     }
 
-    public isRunnable() : this is RunnableProgram {
+    public isRunnable(): this is RunnableProgram {
         return this.isCompiled() && !!this.mainFunction;
     }
 
@@ -320,7 +320,7 @@ export interface RunnableProgram extends CompiledProgram {
  * and expect it to update - changes to a file's context require a completely new object.
  */
 export class SourceFile {
-    
+
     public readonly name: string;
     public readonly text: string;
 
@@ -404,20 +404,20 @@ class PreprocessedSource {
 
     public readonly primarySourceFile: SourceFile;
     public readonly name: string;
-    public readonly availableToInclude: {[index: string]: SourceFile | undefined};
+    public readonly availableToInclude: { [index: string]: SourceFile | undefined };
 
     public readonly notes = new NoteRecorder();
 
     private readonly _includes: IncludeMapping[] = [];
     public readonly includes: readonly IncludeMapping[] = this._includes;
 
-    public readonly includedSourceFiles: {[index: string]: SourceFile} = {};
+    public readonly includedSourceFiles: { [index: string]: SourceFile } = {};
 
     public readonly preprocessedText: string;
     public readonly numLines: number;
     public readonly length: number;
 
-    public constructor(sourceFile: SourceFile, availableToInclude: {[index: string]: SourceFile | undefined}, alreadyIncluded: {[index: string]: boolean} = {}) {
+    public constructor(sourceFile: SourceFile, availableToInclude: { [index: string]: SourceFile | undefined }, alreadyIncluded: { [index: string]: boolean } = {}) {
         this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
         this.availableToInclude = availableToInclude;
@@ -512,58 +512,58 @@ class PreprocessedSource {
         this.numLines = currentIncludeLineNumber;
         this.length = this.preprocessedText.length;
     }
-    
+
     private filterSourceCode(codeStr: string) {
 
         // remove carriage returns
         codeStr = codeStr.replace(/\r/g, "");
 
-        if (codeStr.includes("#ifndef")){
-            codeStr = codeStr.replace(/#ifndef.*/g, function(match){
-                return Array(match.length+1).join(" ");
+        if (codeStr.includes("#ifndef")) {
+            codeStr = codeStr.replace(/#ifndef.*/g, function (match) {
+                return Array(match.length + 1).join(" ");
             });
             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
-        if (codeStr.includes("#define")){
-            codeStr = codeStr.replace(/#define.*/g, function(match){
-                return Array(match.length+1).join(" ");
+        if (codeStr.includes("#define")) {
+            codeStr = codeStr.replace(/#define.*/g, function (match) {
+                return Array(match.length + 1).join(" ");
             });
             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
-        if (codeStr.includes("#endif")){
-            codeStr = codeStr.replace(/#endif.*/g, function(match){
-                return Array(match.length+1).join(" ");
+        if (codeStr.includes("#endif")) {
+            codeStr = codeStr.replace(/#endif.*/g, function (match) {
+                return Array(match.length + 1).join(" ");
             });
             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
         // if (codeStr.contains(/#include.*<.*>/g)){
-            codeStr = codeStr.replace(/#include.*<.*>/g, function(match){
-                return Array(match.length+1).join(" ");
-            });
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+        codeStr = codeStr.replace(/#include.*<.*>/g, function (match) {
+            return Array(match.length + 1).join(" ");
+        });
+        // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         // }
-        if (codeStr.includes("using namespace")){
-            codeStr = codeStr.replace(/using namespace.*/g, function(match){
-                return Array(match.length+1).join(" ");
+        if (codeStr.includes("using namespace")) {
+            codeStr = codeStr.replace(/using namespace.*/g, function (match) {
+                return Array(match.length + 1).join(" ");
             });
             // TODO NEW why is this commented?
             // this.send("otherError", "When writing code in lobster, you don't need to include using directives (e.g. <span class='code'>using namespace std;</span>).");
         }
-        if (codeStr.includes("using std::")){
-            codeStr = codeStr.replace(/using std::.*/g, function(match){
-                return Array(match.length+1).join(" ");
+        if (codeStr.includes("using std::")) {
+            codeStr = codeStr.replace(/using std::.*/g, function (match) {
+                return Array(match.length + 1).join(" ");
             });
             // this.send("otherError", "Lobster doesn't support using declarations at the moment.");
         }
         return codeStr;
     }
 
-    public getSourceReference(line: number, column: number, start: number, end: number) : SourceReference {
+    public getSourceReference(line: number, column: number, start: number, end: number): SourceReference {
 
         // Iterate through all includes and check if any would contain
         let offset = 0;
         let lineOffset = 1;
-        for(let i = 0; i < this.includes.length; ++i) {
+        for (let i = 0; i < this.includes.length; ++i) {
             let inc = this.includes[i];
             if (line < inc.startLine) {
                 return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
@@ -598,7 +598,7 @@ export interface TranslationUnitAST {
  *   "compilationFinished": after compilation is finished
  */
 export class TranslationUnit {
-    
+
     public readonly context: TranslationUnitContext;
 
     // public readonly observable = new Observable(this);
@@ -609,7 +609,7 @@ export class TranslationUnit {
     public readonly program: Program;
 
     public readonly globalScope: NamespaceScope;
-    
+
     public readonly topLevelDeclarations: readonly TopLevelDeclaration[] = [];
     public readonly staticEntities: readonly GlobalObjectEntity[] = [];
     public readonly stringLiterals: readonly StringLiteralExpression[] = [];
@@ -633,7 +633,7 @@ export class TranslationUnit {
         this.name = preprocessedSource.name;
         this.context = createTranslationUnitContext(program.context, this, this.globalScope);
 
-        try{
+        try {
             // This is kind of a hack to communicate with the PEG.js generated parsing code.
             // This both "resets" the user-defined type names that exist for each translation
             // unit (e.g. so that Class names declared in another translation unit aren't hanging
@@ -644,26 +644,26 @@ export class TranslationUnit {
 
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
-            let parsedAST : TranslationUnitAST = cpp_parse(this.source.preprocessedText);
+            let parsedAST: TranslationUnitAST = cpp_parse(this.source.preprocessedText);
             this.parsedAST = parsedAST;
 
             this.createBuiltInGlobals();
             this.compileTopLevelDeclarations(this.parsedAST);
-		}
-		catch(err) {
-			if (err.name == "SyntaxError"){
-				this.addNote(new SyntaxNote(
-                    this.getSourceReference(err.location.start.line, err.location.start.column, 
-                                            err.location.start.offset, err.location.start.offset + 1),
+        }
+        catch (err) {
+            if (err.name == "SyntaxError") {
+                this.addNote(new SyntaxNote(
+                    this.getSourceReference(err.location.start.line, err.location.start.column,
+                        err.location.start.offset, err.location.start.offset + 1),
                     NoteKind.ERROR,
                     "syntax",
                     err.message));
-			}
-			else {
+            }
+            else {
                 console.log(err.stack);
-				throw err;
-			}
-		}
+                throw err;
+            }
+        }
     }
 
     // TODO: figure out where this stuff should really go between here and the program creating
@@ -671,7 +671,7 @@ export class TranslationUnit {
     // the appropriate names are declared and in the right scopes, but that might just be a matter
     // of having library #includes actually implemented in a reasonable way.
     private createBuiltInGlobals() {
-	    // if (Types.userTypeNames["ostream"]) {
+        // if (Types.userTypeNames["ostream"]) {
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
         // }
@@ -707,7 +707,7 @@ export class TranslationUnit {
         //         Types.Function.instance(Types.Int.instance(), []))));
 
     }
-    
+
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
             let declsOrFuncDef = createDeclarationFromAST(declAST, this.context);

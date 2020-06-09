@@ -26,8 +26,8 @@ function isVowel(c: string) {
 //     size_t : true
 // };
 
-export function isType<T extends Type>(ctor: Constructor<T>) : (type: Type) => type is InstanceType<typeof ctor>;
-export function isType<T extends Type>(type: Type, ctor: Constructor<T>) : type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(ctor: Constructor<T>): (type: Type) => type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(type: Type, ctor: Constructor<T>): type is InstanceType<typeof ctor>;
 export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?: Constructor<T>) {
     if (typeOrCtor instanceof TypeBase) {
         return typeOrCtor.isType(ctor!);
@@ -49,42 +49,42 @@ export function subType(type1: Type, type2: Type) {
     return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
 };
 
-export var covariantType = function(derived: Type, base: Type){
-    if (sameType(derived, base)){
+export var covariantType = function (derived: Type, base: Type) {
+    if (sameType(derived, base)) {
         return true;
     }
 
     var dc;
     var bc;
-    if (derived instanceof PointerType && base instanceof PointerType){
+    if (derived instanceof PointerType && base instanceof PointerType) {
         dc = derived.ptrTo;
         bc = base.ptrTo;
     }
-    else if (derived instanceof ReferenceType && base instanceof ReferenceType){
+    else if (derived instanceof ReferenceType && base instanceof ReferenceType) {
         dc = derived.refTo;
         bc = base.refTo;
     }
-    else{
+    else {
         return false; // not both pointers or both references
     }
 
     // Must be pointers or references to class type
-    if (!(dc instanceof ClassType) || !(bc instanceof ClassType)){
+    if (!(dc instanceof ClassType) || !(bc instanceof ClassType)) {
         return false;
     }
 
     // dc must be derived from bc
-    if (!dc.isDerivedFrom(bc)){
+    if (!dc.isDerivedFrom(bc)) {
         return false;
     }
 
     // Pointers/References must have the same cv-qualification
-    if (derived.isConst != base.isConst || derived.isVolatile != base.isVolatile){
+    if (derived.isConst != base.isConst || derived.isVolatile != base.isVolatile) {
         return false;
     }
 
     // dc must have same or less cv-qualification as bc
-    if (dc.isConst && !bc.isConst || dc.isVolatile && !bc.isVolatile){
+    if (dc.isConst && !bc.isConst || dc.isVolatile && !bc.isVolatile) {
         return false;
     }
 
@@ -92,7 +92,7 @@ export var covariantType = function(derived: Type, base: Type){
     return true;
 };
 
-export function referenceCompatible(from: Type, to: Type){
+export function referenceCompatible(from: Type, to: Type) {
     return from && to && from.isReferenceCompatible(to);
 };
 
@@ -101,7 +101,7 @@ export function isCvConvertible(fromType: Type | null, toType: Type | null) {
     if (fromType === null || toType === null) { return false; }
 
     // t1 and t2 must be similar
-    if (!similarType(fromType,toType)) { return false; }
+    if (!similarType(fromType, toType)) { return false; }
 
     // Discard 0th level of cv-qualification signatures, we don't care about them.
     // (It's essentially a value semantics thing, we're making a copy so top level const doesn't matter.)
@@ -112,11 +112,11 @@ export function isCvConvertible(fromType: Type | null, toType: Type | null) {
     // also if we ever find a difference, t2 needs const everywhere leading
     // up to it (but not including) (and not including discarded 0th level).
     let t2AllConst = true;
-    while(fromType && toType){ //similar so they should run out at same time
-        if (fromType.isConst && !toType.isConst){
+    while (fromType && toType) { //similar so they should run out at same time
+        if (fromType.isConst && !toType.isConst) {
             return false;
         }
-        else if (!fromType.isConst && toType.isConst && !t2AllConst){
+        else if (!fromType.isConst && toType.isConst && !t2AllConst) {
             return false;
         }
 
@@ -162,100 +162,100 @@ abstract class TypeBase {
     /**
      * Returns true if this type object is an instance of the given Type class
      */
-    public isType<T extends Type>(ctor: Constructor<T>) : this is InstanceType<typeof ctor> {
+    public isType<T extends Type>(ctor: Constructor<T>): this is InstanceType<typeof ctor> {
         return this instanceof ctor;
     }
 
-    public isObjectType() : this is ObjectType {
+    public isObjectType(): this is ObjectType {
         return this.isAtomicType() || this.isBoundedArrayType() || this.isClassType();
     }
-    
-    public isAtomicType() : this is AtomicType {
+
+    public isAtomicType(): this is AtomicType {
         return this instanceof AtomicType;
     }
 
-    public isArithmeticType() : this is ArithmeticType {
+    public isArithmeticType(): this is ArithmeticType {
         return this instanceof ArithmeticType;
     }
-    
-    public isIntegralType() : this is IntegralType {
+
+    public isIntegralType(): this is IntegralType {
         return this instanceof IntegralType;
     }
-    
-    public isFloatingPointType() : this is FloatingPointType {
+
+    public isFloatingPointType(): this is FloatingPointType {
         return this instanceof FloatingPointType;
     }
 
-    public isPointerType() : this is PointerType {
+    public isPointerType(): this is PointerType {
         return this instanceof PointerType;
     }
 
-    public isArrayPointerType() : this is ArrayPointerType {
+    public isArrayPointerType(): this is ArrayPointerType {
         return this instanceof ArrayPointerType;
     }
 
-    public isObjectPointerType() : this is ObjectPointerType {
+    public isObjectPointerType(): this is ObjectPointerType {
         return this instanceof ObjectPointerType;
     }
 
-    public isReferenceType() : this is ReferenceType {
+    public isReferenceType(): this is ReferenceType {
         return this instanceof ReferenceType;
     }
 
-    public isClassType() : this is ClassType {
+    public isClassType(): this is ClassType {
         return this instanceof ClassType;
     }
 
-    public isBoundedArrayType() : this is BoundedArrayType {
+    public isBoundedArrayType(): this is BoundedArrayType {
         return this instanceof BoundedArrayType;
     }
 
-    public isArrayOfUnknownBoundType() : this is ArrayOfUnknownBoundType {
+    public isArrayOfUnknownBoundType(): this is ArrayOfUnknownBoundType {
         return this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isGenericArrayType() : this is BoundedArrayType | ArrayOfUnknownBoundType {
+    public isGenericArrayType(): this is BoundedArrayType | ArrayOfUnknownBoundType {
         return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isArrayElemType() : this is ArrayElemType {
+    public isArrayElemType(): this is ArrayElemType {
         return this instanceof AtomicType || this instanceof ClassType;
     }
 
-    public isFunctionType() : this is FunctionType {
+    public isFunctionType(): this is FunctionType {
         return this instanceof FunctionType;
     }
 
-    public isVoidType() : this is VoidType {
+    public isVoidType(): this is VoidType {
         return this instanceof VoidType;
     }
-    
-    public isPotentialReturnType() : this is PotentialReturnType {
+
+    public isPotentialReturnType(): this is PotentialReturnType {
         return this.isObjectType() || this.isReferenceType() || this.isVoidType();
     }
 
-    public isPotentialParameterType() : this is PotentialParameterType {
+    public isPotentialParameterType(): this is PotentialParameterType {
         return this.isObjectType() || this.isReferenceType();
     }
 
     /**
      * Returns true if other represents exactly the same type as this, including cv-qualifications.
      */
-    public abstract sameType<T extends Type>(other: T) : this is T;
-    public abstract sameType(other: Type) : boolean;
+    public abstract sameType<T extends Type>(other: T): this is T;
+    public abstract sameType(other: Type): boolean;
 
     /**
      * Returns true if other represents the same type as this, ignoring cv-qualifications.
      */
-    public abstract similarType<T extends Type>(other: T) : this is T;
-    public abstract similarType(other: Type) : boolean;
+    public abstract similarType<T extends Type>(other: T): this is T;
+    public abstract similarType(other: Type): boolean;
 
 
     /**
      * Returns true if this type is reference-related (see C++ standard) to the type other.
      * @param other
      */
-    public isReferenceRelated(this: Type, other: Type) : boolean {
+    public isReferenceRelated(this: Type, other: Type): boolean {
         return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
             subType(this.cvUnqualified(), other.cvUnqualified());
     }
@@ -275,7 +275,7 @@ abstract class TypeBase {
      * @param varname The name of the variable. May be the empty string.
      * @param decorated If true, html tags will be added.
      */
-    public abstract typeString(excludeBase: boolean, varname: string, decorated?: boolean) : string;
+    public abstract typeString(excludeBase: boolean, varname: string, decorated?: boolean): string;
 
     /**
      * Returns a C++ styled string representation of this type, with the base type excluded as
@@ -291,7 +291,7 @@ abstract class TypeBase {
      * e.g. int const * var[5] --> "an array of 5 pointers to const int"
      * @param plural Whether the returned string should be plural.
      */
-    public abstract englishString(plural: boolean) : string;
+    public abstract englishString(plural: boolean): string;
 
     /**
      * Helper function for functions that create string representations of types.
@@ -304,9 +304,9 @@ abstract class TypeBase {
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
-    public describe() : ConstructDescription {
+    public describe(): ConstructDescription {
         var str = this.typeString(false, "");
-        return {name: str, message: str};
+        return { name: str, message: str };
     }
 
     /**
@@ -315,7 +315,7 @@ abstract class TypeBase {
      * e.g. if this ia a reference to pointer-to-int, returns int
      * e.g. if this is an array of bool, returns bool
      */
-    public getCompoundNext() : Type | null {
+    public getCompoundNext(): Type | null {
         return null;
     }
 
@@ -345,78 +345,78 @@ abstract class TypeBase {
 
     protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
 
-    public abstract areLValuesAssignable() : boolean;
+    public abstract areLValuesAssignable(): boolean;
 };
 
-export function isObjectType(type: Type) : type is ObjectType {
+export function isObjectType(type: Type): type is ObjectType {
     return type.isAtomicType() || type.isBoundedArrayType() || type.isClassType();
 }
 
-export function isAtomicType(type: Type) : type is AtomicType {
+export function isAtomicType(type: Type): type is AtomicType {
     return type instanceof AtomicType;
 }
 
-export function isArithmeticType(type: Type) : type is ArithmeticType {
+export function isArithmeticType(type: Type): type is ArithmeticType {
     return type instanceof ArithmeticType;
 }
 
-export function isIntegralType(type: Type) : type is IntegralType {
+export function isIntegralType(type: Type): type is IntegralType {
     return type instanceof IntegralType;
 }
 
-export function isFloatingPointType(type: Type) : type is FloatingPointType {
+export function isFloatingPointType(type: Type): type is FloatingPointType {
     return type instanceof FloatingPointType;
 }
 
-export function isPointerType(type: Type) : type is PointerType {
+export function isPointerType(type: Type): type is PointerType {
     return type instanceof PointerType;
 }
 
-export function isArrayPointerType(type: Type) : type is ArrayPointerType {
+export function isArrayPointerType(type: Type): type is ArrayPointerType {
     return type instanceof ArrayPointerType;
 }
 
-export function isObjectPointerType(type: Type) : type is ObjectPointerType {
+export function isObjectPointerType(type: Type): type is ObjectPointerType {
     return type instanceof ObjectPointerType;
 }
 
-export function isReferenceType(type: Type) : type is ReferenceType {
+export function isReferenceType(type: Type): type is ReferenceType {
     return type instanceof ReferenceType;
 }
 
-export function isClassType(type: Type) : type is ClassType {
+export function isClassType(type: Type): type is ClassType {
     return type instanceof ClassType;
 }
 
-export function isBoundedArrayType(type: Type) : type is BoundedArrayType {
+export function isBoundedArrayType(type: Type): type is BoundedArrayType {
     return type instanceof BoundedArrayType;
 }
 
-export function isArrayOfUnknownBoundType(type: Type) : type is ArrayOfUnknownBoundType {
+export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBoundType {
     return type instanceof ArrayOfUnknownBoundType;
 }
 
-export function isGenericArrayType(type: Type) : type is BoundedArrayType | ArrayOfUnknownBoundType {
+export function isGenericArrayType(type: Type): type is BoundedArrayType | ArrayOfUnknownBoundType {
     return type instanceof BoundedArrayType || type instanceof ArrayOfUnknownBoundType;
 }
 
-export function isArrayElemType(type: Type) : type is ArrayElemType {
+export function isArrayElemType(type: Type): type is ArrayElemType {
     return type instanceof AtomicType || type instanceof ClassType;
 }
 
-export function isFunctionType(type: Type) : type is FunctionType {
+export function isFunctionType(type: Type): type is FunctionType {
     return type instanceof FunctionType;
 }
 
-export function isVoidType(type: Type) : type is VoidType {
+export function isVoidType(type: Type): type is VoidType {
     return type instanceof VoidType;
 }
 
-export function isPotentialReturnType(type: Type) : type is PotentialReturnType {
+export function isPotentialReturnType(type: Type): type is PotentialReturnType {
     return type.isObjectType() || type.isReferenceType() || type.isVoidType();
 }
 
-export function isPotentialParameterType(type: Type) : type is PotentialParameterType {
+export function isPotentialParameterType(type: Type): type is PotentialParameterType {
     return type.isObjectType() || type.isReferenceType();
 }
 
@@ -442,16 +442,16 @@ export function isPotentialParameterType(type: Type) : type is PotentialParamete
 // 	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
 //         return "<unknown>";
 //     }
-    
+
 // 	public englishString(plural: boolean) {
 // 		return "an unknown type";
 //     }
-    
+
 // 	public valueToString(value: RawValueType) {
 //         Util.assert(false);
 //         return "";
 //     }
-    
+
 //     public isValueValid(value: RawValueType) {
 //         return false;
 //     }
@@ -462,35 +462,35 @@ export function isPotentialParameterType(type: Type) : type is PotentialParamete
 export type Type = VoidType | ObjectType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
 
 export class VoidType extends TypeBase {
-    
+
     public static readonly VOID = new VoidType();
 
     public readonly isComplete = true;
 
     public readonly precedence = 0;
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof VoidType
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
-    public similarType(other: Type) : boolean {
+    public similarType(other: Type): boolean {
         return other instanceof VoidType;
     }
 
-	public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
         return "void";
     }
-    
-	public englishString(plural: boolean) {
-		return "void";
+
+    public englishString(plural: boolean) {
+        return "void";
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new VoidType(isConst, isVolatile);
     }
-    
+
     public areLValuesAssignable() {
         return false;
     }
@@ -522,7 +522,7 @@ abstract class ValueType extends ObjectTypeBase {
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
      * @param bytes
      */
-    public bytesToValue(bytes: byte[]) : RawValueType {
+    public bytesToValue(bytes: byte[]): RawValueType {
         // HACK: the whole value is stored in the first byte
         return bytes[0];
     }
@@ -536,7 +536,7 @@ abstract class ValueType extends ObjectTypeBase {
         var bytes = [];
         // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
-        for(var i = 1; i < this.size-1; ++i){
+        for (var i = 1; i < this.size - 1; ++i) {
             bytes.push(0);
         }
         return <byte[]>bytes;
@@ -548,7 +548,7 @@ abstract class ValueType extends ObjectTypeBase {
      * that it wanders over the end of that array, its value becomes invalid.
      * @param value
      */
-    public abstract isValueValid(value: RawValueType) : boolean;
+    public abstract isValueValid(value: RawValueType): boolean;
 
     /**
      * Returns a human-readable string representation of the given raw value for this Type.
@@ -558,7 +558,7 @@ abstract class ValueType extends ObjectTypeBase {
      * value. It is not the C++ value representation for the type.
      * @param value
      */
-    public abstract valueToString(value: RawValueType) : string;
+    public abstract valueToString(value: RawValueType): string;
 
     /**
      * Returns the string representation of the given raw value for this Type that would be
@@ -572,7 +572,7 @@ abstract class ValueType extends ObjectTypeBase {
     public valueToOstreamString(value: RawValueType) {
         return this.valueToString(value);
     }
-    
+
     public areLValuesAssignable() {
         return true;
     }
@@ -587,7 +587,7 @@ export abstract class AtomicType extends ValueType {
 }
 
 export abstract class SimpleType extends AtomicType {
-    
+
     /**
      * Subclasses must implement a concrete type property that should be a
      * string indicating the kind of type e.g. "int", "double", "bool", etc.
@@ -597,39 +597,39 @@ export abstract class SimpleType extends AtomicType {
     public readonly isComplete = true;
     public readonly precedence = 0;
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof SimpleType
             && other.simpleType === this.simpleType
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
-    public similarType(other: Type) : boolean{
+    public similarType(other: Type): boolean {
         return other instanceof SimpleType
             && other.simpleType === this.simpleType;
     }
 
-	public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean): string {
         if (excludeBase) {
             return varname ? varname : "";
         }
-        else{
+        else {
             let typeStr = this.getCVString() + this.simpleType;
             return (decorated ? htmlDecoratedType(typeStr) : typeStr) + (varname ? " " + varname : "");
         }
     }
-    
-	public englishString(plural: boolean) {
-		// no recursive calls to this.simpleType.englishString() here
-		// because this.simpleType is just a string representing the type
+
+    public englishString(plural: boolean) {
+        // no recursive calls to this.simpleType.englishString() here
+        // because this.simpleType is just a string representing the type
         var word = this.getCVString() + this.simpleType;
-		return (plural ? this.simpleType+"s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+        return (plural ? this.simpleType + "s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
     }
-    
-	public valueToString(value: RawValueType) {
-		return ""+value;
+
+    public valueToString(value: RawValueType) {
+        return "" + value;
     }
-    
+
     public isValueValid(value: RawValueType) {
         return true;
     }
@@ -641,13 +641,13 @@ export abstract class ArithmeticType extends SimpleType {
 }
 
 export abstract class IntegralType extends ArithmeticType {
-    
+
 }
 
 
 export class Char extends IntegralType {
     public static readonly CHAR = new Char();
-    
+
     protected readonly simpleType = "char";
     public readonly size = 1;
 
@@ -658,7 +658,7 @@ export class Char extends IntegralType {
     }
 
     public static jsStringToNullTerminatedCharArray(str: string) {
-        var chars = str.split("").map(function(c){
+        var chars = str.split("").map(function (c) {
             return c.charCodeAt(0);
         });
         chars.push(Char.NULL_CHAR);
@@ -672,7 +672,7 @@ export class Char extends IntegralType {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
         return String.fromCharCode(<number>value);
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Char(isConst, isVolatile);
     }
@@ -683,7 +683,7 @@ export class Int extends IntegralType {
 
     protected readonly simpleType = "int";
     public readonly size = 4;
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Int(isConst, isVolatile);
     }
@@ -692,7 +692,7 @@ export class Int extends IntegralType {
 export class Size_t extends IntegralType {
     protected readonly simpleType = "size_t";
     public readonly size = 8;
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Size_t(isConst, isVolatile);
     }
@@ -703,7 +703,7 @@ export class Bool extends IntegralType {
 
     protected readonly simpleType = "bool";
     public readonly size = 1;
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
     }
@@ -717,7 +717,7 @@ export abstract class FloatingPointType extends ArithmeticType {
 
     public valueToString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
-        var str = ""+<number>value;
+        var str = "" + <number>value;
         return str.indexOf(".") != -1 ? str : str + ".";
     }
 }
@@ -728,7 +728,7 @@ export class Float extends FloatingPointType {
 
     protected readonly simpleType = "float";
     public readonly size = 4;
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Float(isConst, isVolatile);
     }
@@ -740,7 +740,7 @@ export class Double extends FloatingPointType {
 
     protected readonly simpleType = "double";
     public readonly size = 8;
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
     }
@@ -794,14 +794,14 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
         return this.ptrTo;
     }
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof PointerType
             && this.ptrTo.sameType(other.ptrTo)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
-    public similarType(other: Type) : boolean {
+    public similarType(other: Type): boolean {
         return other instanceof PointerType
             && this.ptrTo.similarType(other.ptrTo);
     }
@@ -811,7 +811,7 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
     }
 
     public englishString(plural: boolean) {
-        return (plural ? this.getCVString()+"pointers to" : "a " +this.getCVString()+"pointer to") + " " + this.ptrTo.englishString(false);
+        return (plural ? this.getCVString() + "pointers to" : "a " + this.getCVString() + "pointer to") + " " + this.ptrTo.englishString(false);
     }
 
     public valueToString(value: RawValueType) {
@@ -820,7 +820,7 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
         //     return value.name;
         // }
         // else{
-            return "0x" + value;
+        return "0x" + value;
         // }
     }
 
@@ -839,7 +839,7 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
     public isValueValid(value: RawValueType) {
         return true;
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new PointerType(this.ptrTo, isConst, isVolatile);
     }
@@ -863,7 +863,7 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
     }
 
     public isValueValid(value: RawValueType) {
-        if (!this.arrayObject.isAlive){
+        if (!this.arrayObject.isAlive) {
             return false;
         }
         var arrayObject = this.arrayObject;
@@ -875,7 +875,7 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
     }
 
     public toIndex(addr: number) {
-        return Math.trunc((addr - this.arrayObject.address) /  this.arrayObject.type.elemType.size);
+        return Math.trunc((addr - this.arrayObject.address) / this.arrayObject.type.elemType.size);
     }
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -895,7 +895,7 @@ export class ObjectPointerType<T extends ObjectType = ObjectType> extends Pointe
     public getPointedObject() {
         return this.pointedObject;
     }
-    
+
     public isValueValid(value: RawValueType) {
         return this.pointedObject.isAlive && this.pointedObject.address === value;
     }
@@ -923,31 +923,31 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
         return this.refTo;
     }
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof ReferenceType && this.refTo.sameType(other.refTo);
     }
 
     //Note: I don't think similar types even make sense with references. See standard 4.4
-    public similarType(other: Type) : boolean {
+    public similarType(other: Type): boolean {
         return other instanceof ReferenceType && this.refTo.similarType(other.refTo);
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-		return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
+        return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
     }
-    
-	public englishString(plural: boolean) {
-		return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString(false);
+
+    public englishString(plural: boolean) {
+        return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString(false);
     }
-    
-	public valueToString(value: RawValueType){
-		return ""+value;
+
+    public valueToString(value: RawValueType) {
+        return "" + value;
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ReferenceType(this.refTo);
     }
-    
+
     public areLValuesAssignable() {
         return false;
     }
@@ -955,11 +955,11 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
 
 export type NoRefType<T extends Type> = T extends ReferenceType<infer RefTo> ? RefTo : T;
 
-export function noRef<T extends Type>(type : T) : NoRefType<T> {
-    if(type instanceof ReferenceType) {
+export function noRef<T extends Type>(type: T): NoRefType<T> {
+    if (type instanceof ReferenceType) {
         return type.refTo;
     }
-    else{
+    else {
         return <NoRefType<T>>type; // will either be an object type or void type
     }
 };
@@ -970,7 +970,7 @@ export type ArrayElemType = AtomicType | ClassType;
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
 export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectTypeBase {
-    
+
     public readonly size: number;
 
     public readonly precedence = 2;
@@ -992,7 +992,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         // Note: this class does not currently represent "array of unknown bound" types.
         // Should that change, additional logic would be needed here since those are considered
         // incomplete types.
-        
+
         // Completeness may change if elemType completeness changes
         // (e.g. array of potentially (in)complete class type objects)
         return this.elemType.isComplete;
@@ -1002,34 +1002,34 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         return this.elemType;
     }
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
     }
 
-    public similarType(other: Type) : boolean {
+    public similarType(other: Type): boolean {
         return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-		return this.elemType.typeString(excludeBase, varname +  "["+this.length+"]", decorated);
+        return this.elemType.typeString(excludeBase, varname + "[" + this.length + "]", decorated);
     }
-    
-	public englishString(plural: boolean) {
+
+    public englishString(plural: boolean) {
         return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new BoundedArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
-    
+
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }
 
-	// public valueToString(value: RawValueType) {
-	// 	return ""+value;
+    // public valueToString(value: RawValueType) {
+    // 	return ""+value;
     // }
-    
+
     // public bytesToValue(bytes: byte[]) : never {
     //     return Util.assertFalse(); // TODO: actually change type hierarchy so ArrayTypes do not support a mechanism for reading/writing their value
     //     // var arr = [];
@@ -1072,22 +1072,22 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
         return this.elemType;
     }
 
-    public sameType(other: Type) : boolean {
+    public sameType(other: Type): boolean {
         return other instanceof ArrayOfUnknownBoundType && this.elemType.sameType(other.elemType);
     }
 
-    public similarType(other: Type) : boolean {
+    public similarType(other: Type): boolean {
         return other instanceof ArrayOfUnknownBoundType && this.elemType.similarType(other.elemType);
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-		return this.elemType.typeString(excludeBase, varname +  "[]", decorated);
+        return this.elemType.typeString(excludeBase, varname + "[]", decorated);
     }
-    
-	public englishString(plural: boolean) {
+
+    public englishString(plural: boolean) {
         return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
     }
@@ -1115,14 +1115,14 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 
 
 
-    // TODO: HACK to make ClassType exist but do nothing for now
+// TODO: HACK to make ClassType exist but do nothing for now
 export class ClassType extends ObjectTypeBase {
 
     public static createType(name: string) {
         return new ClassType(name);
     }
 
-    public size: number= 0;
+    public size: number = 0;
     public readonly precedence: number = 0;
     public readonly isComplete: boolean = false;
     public readonly className: string = "";
@@ -1151,7 +1151,7 @@ export class ClassType extends ObjectTypeBase {
     public englishString(plural: boolean): string {
         throw new Error("Method not implemented.");
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         // TODO
         return new ClassType(this.name, isConst, isVolatile);
@@ -1257,7 +1257,7 @@ export class ClassType extends ObjectTypeBase {
 //     public destructor?: DestructorEntity;
 
 //     public readonly isComplete: boolean;
-    
+
 //     public constructor(fullyQualifiedName: string, parentScope: Scope, baseClass: ClassEntity) {
 //         this.fullyQualifiedName = fullyQualifiedName;
 //         this.name = fullyQualifiedNameToUnqualified(fullyQualifiedName);
@@ -1303,7 +1303,7 @@ export class ClassType extends ObjectTypeBase {
 //                 (<number>this.size) = 0;
 //                 this.actuallyZeroSize = false;
 //             }
-            
+
 //             this.memberSubobjectEntities.push(mem);
 //             this.subobjectEntities.push(mem);
 //             (<number>this.size) += mem.type.size;
@@ -1381,7 +1381,7 @@ export class ClassType extends ObjectTypeBase {
 //           argTypes must be an array of types
 export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
     public isComplete = true;
-    
+
     public readonly precedence = 2;
 
     public readonly returnType: ReturnType;
@@ -1390,7 +1390,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
     private paramStrType: string;
     private paramStrEnglish: string;
-    
+
     public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ClassType) {
         super(isConst, isVolatile);
 
@@ -1398,10 +1398,10 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
-        if(!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)){
+        if (!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)) {
             this.returnType = <ReturnType>returnType.cvUnqualified();
         }
-        else{
+        else {
             this.returnType = returnType;
         }
 
@@ -1409,33 +1409,33 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         this.paramTypes = paramTypes.map((ptype) => ptype instanceof ClassType ? ptype : ptype.cvUnqualified());
 
         this.paramStrType = "(";
-        for (var i = 0; i < paramTypes.length; ++i){
+        for (var i = 0; i < paramTypes.length; ++i) {
             this.paramStrType += (i == 0 ? "" : ",") + paramTypes[i];
         }
         this.paramStrType += ")";
 
         this.paramStrEnglish = "(";
-        for (var i = 0; i < paramTypes.length; ++i){
+        for (var i = 0; i < paramTypes.length; ++i) {
             this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString(false);
         }
         this.paramStrEnglish += ")";
     }
-    
+
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new FunctionType(this.returnType, this.paramTypes, isConst, isVolatile, this.receiverType);
     }
 
     public sameType(other: Type) {
-        if (!other){
+        if (!other) {
             return false;
         }
         if (!(other instanceof FunctionType)) {
             return false;
         }
-        if (!this.sameReturnType(other)){
+        if (!this.sameReturnType(other)) {
             return false;
         }
-        if (!this.sameParamTypes(other)){
+        if (!this.sameParamTypes(other)) {
             return false;
         }
         // TODO: should this be here?
@@ -1452,11 +1452,11 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
     public sameParamTypes(other: FunctionType | readonly Type[]) {
         let otherParamTypes = other instanceof FunctionType ? other.paramTypes : other;
-        if (this.paramTypes.length !== otherParamTypes.length){
+        if (this.paramTypes.length !== otherParamTypes.length) {
             return false;
         }
-        for(var i = 0; i < this.paramTypes.length; ++i){
-            if (!this.paramTypes[i].sameType(otherParamTypes[i])){
+        for (var i = 0; i < this.paramTypes.length; ++i) {
+            if (!this.paramTypes[i].sameType(otherParamTypes[i])) {
                 return false;
             }
         }
@@ -1490,7 +1490,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
     public englishString(plural: boolean) {
         return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
-               (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
+            (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
     }
 
     public areLValuesAssignable() {
@@ -1499,7 +1499,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 }
 
 const builtInTypeNames = new Set(["char", "int", "bool", "float", "double", "void"]);
-export function isBuiltInTypeName(name: string) : name is "char" | "int" | "bool" | "float" | "double" | "void" {
+export function isBuiltInTypeName(name: string): name is "char" | "int" | "bool" | "float" | "double" | "void" {
     return builtInTypeNames.has(name);
 }
 export const builtInTypes = {
