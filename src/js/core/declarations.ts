@@ -1,4 +1,4 @@
-import { BasicCPPConstruct,  ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext } from "./constructs";
 import { CPPError, Note, CompilerNote } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
@@ -30,12 +30,12 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
 
     public static createFromAST(ast: StorageSpecifierASTNode, context: TranslationUnitContext) {
         return new StorageSpecifier(context, ast);
-        
+
     }
 
     public constructor(context: TranslationUnitContext, specs: readonly StorageSpecifierKey[]) {
         super(context, undefined)
-        
+
         let numSpecs = 0; // count specs separately to get a count without duplicates
         specs.forEach((spec) => {
             if (this[spec]) {
@@ -55,7 +55,7 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
         if (this.extern) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "extern"));
         }
-        
+
         if (this.thread_local) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "thread_local"));
         }
@@ -73,10 +73,10 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
         // 2 specifiers only ok if one is thread_local and the other is static/extern
         // 3 or more specifiers are always incompatible
         if (numSpecs < 2 ||
-            numSpecs == 2 && this.thread_local && (this.static || this.extern)){
+            numSpecs == 2 && this.thread_local && (this.static || this.extern)) {
             //ok
         }
-        else{
+        else {
             this.addNote(CPPError.declaration.storage.incompatible(this, specs));
         }
 
@@ -89,7 +89,7 @@ export interface CompiledStorageSpecifier extends StorageSpecifier, Successfully
 }
 
 export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
-export type TypeSpecifierKey  = "const" | "volatile" | "signed" | "unsigned" | "enum";
+export type TypeSpecifierKey = "const" | "volatile" | "signed" | "unsigned" | "enum";
 
 export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
@@ -102,14 +102,14 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
     public readonly signed?: true;
     public readonly unsigned?: true;
     public readonly enum?: true;
-    
+
     public readonly typeName?: string;
 
     public readonly baseType?: Type;
 
     public static createFromAST(ast: TypeSpecifierASTNode, context: TranslationUnitContext) {
         return new TypeSpecifier(context, ast);
-        
+
     }
 
     public constructor(context: TranslationUnitContext, specs: TypeSpecifierASTNode) {
@@ -128,7 +128,7 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
             if (spec instanceof Object && spec.construct_type === "class_definition") {
                 this.addNote(CPPError.lobster.unsupported_feature(this, "inline class definitions"));
                 return;
-            } 
+            }
 
             if (spec === "enum") {
                 asMutable(this).enum = true;
@@ -137,7 +137,7 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
             }
 
             // check to see if it's one of the possible type specifiers
-            let possibleSpecs : readonly TypeSpecifierKey[] = ["const", "volatile", "signed", "unsigned", "enum"];
+            let possibleSpecs: readonly TypeSpecifierKey[] = ["const", "volatile", "signed", "unsigned", "enum"];
             let matchedSpec = possibleSpecs.find(s => s === spec);
 
             if (matchedSpec) { // found a type specifier
@@ -154,7 +154,7 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
                 if (this.typeName) { // already had a typename, this is a duplicate
                     this.addNote(CPPError.declaration.typeSpecifier.one_type(this, [this.typeName, spec]));
                 }
-                else{
+                else {
                     asMutable(this).typeName = spec;
                 }
             }
@@ -228,11 +228,11 @@ export type TopLevelDeclaration = AnalyticSimpleDeclaration | FunctionDefinition
 //     "function_definition": FunctionDefinition;
 // }
 
-export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[];
-export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) : FunctionDefinition | InvalidConstruct;
-export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) : ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext) : AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
+export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[];
+export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext): FunctionDefinition | InvalidConstruct;
+export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext): ClassDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
     if (ast.construct_type === "simple_declaration") {
         // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
@@ -243,7 +243,7 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
     else {
         return ClassDefinition.createFromAST(ast, context);
     }
-} 
+}
 
 
 export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) {
@@ -286,7 +286,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         }
         else {
             // Determine the appropriate kind of object definition based on the contextual scope
-            let decl : LocalVariableDefinition | GlobalVariableDefinition;
+            let decl: LocalVariableDefinition | GlobalVariableDefinition;
             if (isBlockContext(context)) {
                 decl = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
@@ -294,7 +294,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
                 decl = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             }
             declaration = decl;
-    
+
             // Set initializer
             let init = declAST.initializer;
             if (!init) {
@@ -318,36 +318,36 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
 export type AnalyticDeclaration = AnalyticSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 export type TypedDeclarationKinds<T extends Type> = {
-    "unknown_type_declaration" : T extends undefined ? UnknownTypeDeclaration : never;
-    "void_declaration" : T extends VoidType ? VoidDeclaration : never;
-    "storage_specifier" : never;
-    "friend_declaration" : never;
-    "unknown_array_bound_declaration" : T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
-    "function_declaration" : T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
-    "local_variable_definition" : T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
-    "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
-    "parameter_declaration" : T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
-    "declarator" : T extends Declarator["type"] ? TypedDeclarator<T> : never;
-    "function_definition" : T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
-    "class_declaration" : T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
-    "class_definition" : T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
+    "unknown_type_declaration": T extends undefined ? UnknownTypeDeclaration : never;
+    "void_declaration": T extends VoidType ? VoidDeclaration : never;
+    "storage_specifier": never;
+    "friend_declaration": never;
+    "unknown_array_bound_declaration": T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
+    "function_declaration": T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
+    "local_variable_definition": T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
+    "global_variable_definition": T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
+    "parameter_declaration": T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
+    "declarator": T extends Declarator["type"] ? TypedDeclarator<T> : never;
+    "function_definition": T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
+    "class_declaration": T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
+    "class_definition": T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
     // TODO: add rest of discriminants and their types
 };
 
 export type CompiledDeclarationKinds<T extends Type> = {
-    "unknown_type_declaration" : never; // these never compile
-    "void_declaration" : never; // these never compile
-    "storage_specifier" : never; // currently unsupported
-    "friend_declaration" : never; // currently unsupported
-    "unknown_array_bound_declaration" : never;  // TODO: should this ever be supported? Can you ever have one of these compile?
-    "function_declaration" : T extends FunctionDeclaration["type"] ? CompiledFunctionDeclaration<T> : never;
-    "local_variable_definition" : T extends LocalVariableDefinition["type"] ? CompiledLocalVariableDefinition<T> : never;
-    "global_variable_definition" : T extends GlobalVariableDefinition["type"] ? CompiledGlobalVariableDefinition<T> : never;
-    "parameter_declaration" : T extends ParameterDeclaration["type"] ? CompiledParameterDeclaration<T> : never;
-    "declarator" : T extends Declarator["type"] ? CompiledDeclarator<T> : never;
-    "function_definition" : T extends FunctionDeclaration["type"] ? CompiledFunctionDefinition<T> : never;
-    "class_declaration" : T extends ClassDeclaration["type"] ? CompiledClassDeclaration<T> : never;
-    "class_definition" : T extends ClassDefinition["type"] ? CompiledClassDefinition<T> : never;
+    "unknown_type_declaration": never; // these never compile
+    "void_declaration": never; // these never compile
+    "storage_specifier": never; // currently unsupported
+    "friend_declaration": never; // currently unsupported
+    "unknown_array_bound_declaration": never;  // TODO: should this ever be supported? Can you ever have one of these compile?
+    "function_declaration": T extends FunctionDeclaration["type"] ? CompiledFunctionDeclaration<T> : never;
+    "local_variable_definition": T extends LocalVariableDefinition["type"] ? CompiledLocalVariableDefinition<T> : never;
+    "global_variable_definition": T extends GlobalVariableDefinition["type"] ? CompiledGlobalVariableDefinition<T> : never;
+    "parameter_declaration": T extends ParameterDeclaration["type"] ? CompiledParameterDeclaration<T> : never;
+    "declarator": T extends Declarator["type"] ? CompiledDeclarator<T> : never;
+    "function_definition": T extends FunctionDeclaration["type"] ? CompiledFunctionDefinition<T> : never;
+    "class_declaration": T extends ClassDeclaration["type"] ? CompiledClassDeclaration<T> : never;
+    "class_definition": T extends ClassDefinition["type"] ? CompiledClassDefinition<T> : never;
     // TODO: add rest of discriminants and their types
 };
 
@@ -374,7 +374,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
     public abstract readonly type?: Type;
     public readonly name: string;
-    
+
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
 
@@ -414,7 +414,7 @@ export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedS
     readonly initializer?: CompiledInitializer;
 }
 
-export type AnalyticSimpleDeclaration = 
+export type AnalyticSimpleDeclaration =
     UnknownTypeDeclaration |
     VoidDeclaration |
     TypedefDeclaration |
@@ -429,7 +429,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
 
     public readonly type: undefined;
     public readonly declaredEntity: undefined;
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
@@ -442,23 +442,23 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
             this.addNote(CPPError.declaration.unknown_type(this));
         }
     }
-    
+
 }
 
 export class VoidDeclaration extends SimpleDeclaration {
     public readonly construct_type = "void_declaration";
     public readonly t_compiled!: never;
-    
+
     public readonly type = VoidType.VOID;
     public readonly declaredEntity: undefined;
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.addNote(CPPError.declaration.void_prohibited(this));
     }
-    
+
 }
 
 export class TypedefDeclaration extends SimpleDeclaration {
@@ -467,7 +467,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
 
     public readonly type: undefined; // will change when typedef is implemented
     public readonly declaredEntity: undefined;
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
@@ -480,16 +480,16 @@ export class TypedefDeclaration extends SimpleDeclaration {
         //     this.addNote(CPPError.declaration.storage.typedef(this, this.storageSpec.ast))
         // }
     }
-    
+
 }
 
 export class FriendDeclaration extends SimpleDeclaration {
     public readonly construct_type = "friend_declaration";
     public readonly t_compiled!: never;
-    
+
     public readonly type: undefined; // will change when friend is implemented
     public readonly declaredEntity: undefined;
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
@@ -505,7 +505,7 @@ export class FriendDeclaration extends SimpleDeclaration {
             this.addNote(CPPError.declaration.friend.virtual_prohibited(this));
         }
     }
-    
+
 }
 
 export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
@@ -514,16 +514,16 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 
     public readonly type: ArrayOfUnknownBoundType;
     public readonly declaredEntity: undefined;
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ArrayOfUnknownBoundType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
-        
+
         this.type = type;
         this.addNote(CPPError.declaration.array.length_required(this));
     }
-    
+
 }
 
 export interface TypedUnknownBoundArrayDeclaration<T extends ArrayOfUnknownBoundType> extends UnknownBoundArrayDeclaration {
@@ -539,7 +539,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
     public readonly initializer: undefined;
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
 
@@ -556,7 +556,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
             this.addNote(CPPError.declaration.func.mainParams(this.declarator));
         }
 
-        
+
         // if (this.isMemberFunction){
         //     this.i_containingClass.addMember(this.entity);
         // }
@@ -569,7 +569,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
         // this.checkOverloadSemantics();
 
         let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
-        
+
         if (entityOrError instanceof FunctionEntity) {
             this.declaredEntity = entityOrError;
         }
@@ -577,7 +577,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
             this.addNote(entityOrError);
         }
     }
-    
+
 
 
     // checkOverloadSemantics : function(){
@@ -613,7 +613,7 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
 
     public readonly initializer?: Initializer;
 
-    public abstract readonly type : ObjectType | ReferenceType;
+    public abstract readonly type: ObjectType | ReferenceType;
     public abstract readonly declaredEntity: VariableEntity;
 
     private setInitializer(init: Initializer) {
@@ -643,7 +643,7 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
 }
 
 // interface CompiledVariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext, T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends VariableDefinitionBase<ContextType>, SuccessfullyCompiled {
-    
+
 //     readonly typeSpecifier: CompiledTypeSpecifier;
 //     readonly storageSpecifier: CompiledStorageSpecifier;
 //     readonly declarator: CompiledDeclarator<T>;
@@ -656,10 +656,10 @@ export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinit
 
 export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext> {
     public readonly construct_type = "local_variable_definition";
-    
+
     public readonly t_compiled!: CompiledLocalVariableDefinition;
 
-    public readonly type : ObjectType | ReferenceType;
+    public readonly type: ObjectType | ReferenceType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 
     // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
@@ -669,7 +669,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
     // public static typedPredicate<T extends ObjectType | ReferenceType>(typePredicate: (o: ObjectType | ReferenceType) => o is T) {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition && !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
     // }
-    
+
     public constructor(context: BlockContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
@@ -677,7 +677,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
         this.type = type;
 
-        this.declaredEntity = 
+        this.declaredEntity =
             type.isReferenceType() ? new LocalReferenceEntity(type.refTo, this) : new LocalObjectEntity(type, this);
 
 
@@ -689,7 +689,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
-        
+
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
             this.context.functionLocals.registerLocalVariable(this.declaredEntity);
@@ -698,20 +698,20 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
             this.addNote(entityOrError);
         }
     }
-    
+
 
     // public static kindPredicate = <(decl: CPPConstruct) => decl is LocalVariableDefinition>((decl) => decl instanceof LocalVariableDefinition);
-    
+
 }
 
 export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceType> extends LocalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
-} 
+}
 
 export interface CompiledLocalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends LocalVariableDefinition, SuccessfullyCompiled {
-    
+
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
@@ -725,9 +725,9 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly construct_type = "global_variable_definition";
     public readonly t_compiled!: CompiledGlobalVariableDefinition;
 
-    public readonly type : ObjectType | ReferenceType;
+    public readonly type: ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
-    
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
@@ -743,7 +743,7 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
         this.declaredEntity = new GlobalObjectEntity(type, this);
 
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
-        
+
         if (entityOrError instanceof GlobalObjectEntity) {
             this.declaredEntity = entityOrError;
             this.context.translationUnit.program.registerGlobalObjectDefinition(this.declaredEntity.qualifiedName, this);
@@ -760,10 +760,10 @@ export interface TypedGlobalVariableDefinition<T extends ObjectType | ReferenceT
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: GlobalObjectEntity<NoRefType<T>>;
-} 
+}
 
 export interface CompiledGlobalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
-    
+
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
@@ -791,7 +791,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
     public readonly name?: string; // parameter declarations need not provide a name
     public readonly type?: PotentialParameterType;
     public readonly declaredEntity?: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
-    
+
     public constructor(context: TranslationUnitContext, ast: ParameterDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
@@ -803,11 +803,11 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
         this.otherSpecifiers = otherSpecs;
 
         this.name = declarator.name;
-        
+
         if (!storageSpec.isEmpty) {
             storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(storageSpec));
         }
-        
+
         let type = declarator.type;
 
         if (type && !type.isPotentialParameterType()) {
@@ -820,25 +820,25 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
         if (this.isPotentialParameterDefinition()) {
             (<Mutable<this>>this).declaredEntity =
                 this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
-                new LocalObjectEntity(this.type, this, true);
+                    new LocalObjectEntity(this.type, this, true);
         }
-        
+
     }
-    
-    public static createFromAST(ast: ParameterDeclarationASTNode, context: TranslationUnitContext) : ParameterDeclaration {
-        
+
+    public static createFromAST(ast: ParameterDeclarationASTNode, context: TranslationUnitContext): ParameterDeclaration {
+
         let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
         // Need to create TypeSpecifier first to get the base type first for the declarators
         let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
-        
+
         // Compile declarator for each parameter (of the function-type argument itself)
         let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.baseType);
 
         return new ParameterDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
     }
-    
-    public isPotentialParameterDefinition() : this is ParameterDefinition {
+
+    public isPotentialParameterDefinition(): this is ParameterDefinition {
         return !!this.name && !!this.type && this.type.isPotentialParameterType();
     }
 
@@ -851,7 +851,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
-        
+
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             (<Mutable<ParameterDefinition>>this).declaredEntity = entityOrError;
             context.functionLocals.registerLocalVariable(this.declaredEntity);
@@ -944,7 +944,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext, baseType: Type | undefined) {
         return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
     }
-    
+
     /**
      * `Declarator.createFromAST()` should always be used to create Declarators, which delegates
      * to this private constructor. Directly calling the constructor from the outside is not allowed.
@@ -954,7 +954,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode, baseType: Type | undefined) {
         super(context, ast);
         this.baseType = baseType;
-        
+
         // let isMember = isA(this.parent, Declarations.Member);
 
         if (ast.pureVirtual) { this.isPureVirtual = true; }
@@ -963,9 +963,9 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     }
 
     private determineNameAndType(ast: DeclaratorASTNode) {
-        
+
         let findName: DeclaratorASTNode | undefined = ast;
-        while(findName) {
+        while (findName) {
             if (findName.name) {
                 (<Mutable<this>>this).name = findName.name.identifier;
                 checkIdentifier(this, findName.name.identifier, this.notes);
@@ -982,30 +982,30 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
         let first = true;
         // let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
-        
+
         let decl: DeclaratorASTNode | undefined = ast; // AST will always be present on Declarators
 
-        
+
 
         while (decl) {
 
             // We want to check whether this is the innermost thing, but first we need to loop
             // to descend through any AST representation of parentheses within the declarator.
             let tempDecl = decl;
-            while(tempDecl.sub) {
+            while (tempDecl.sub) {
                 tempDecl = tempDecl.sub;
             }
 
             if (decl.postfixes) {
 
-                for(let i = decl.postfixes.length-1; i >= 0; --i) {
+                for (let i = decl.postfixes.length - 1; i >= 0; --i) {
 
                     // A postfix portion of a declarator is only innermost if it's the leftmost one,
                     // which would be closest to where the name would occur in the declarator. (Note
                     // that this is also the last one processed here, since we iterate backward down to 0.)
                     let postfix = decl.postfixes[i];
 
-                    if(postfix.kind === "array") {
+                    if (postfix.kind === "array") {
                         if (type.isBoundedArrayType()) {
                             this.addNote(CPPError.declaration.array.multidimensional_arrays_unsupported(this));
                             return;
@@ -1015,7 +1015,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                             this.addNote(CPPError.declaration.array.invalid_element_type(this, type));
                             return;
                         }
-                        
+
                         if (postfix.size) {
 
                             if (postfix.size.construct_type === "numeric_literal_expression") {
@@ -1028,7 +1028,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                                 // we provide the AST of the size expression as part of the type so it can be used later by
                                 // a new expression to construct the size subexpression for the allocated array.
                                 type = new ArrayOfUnknownBoundType(type, postfix.size);
-                                
+
                                 // TODO: It is also possible the size is a compile-time constant expression, in which case
                                 // it should be evaluated to determine the size.
                             }
@@ -1046,8 +1046,8 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                         else {
                             type = new ArrayOfUnknownBoundType(type);
                         }
-                        
-                        
+
+
 
                     }
                     else if (postfix.kind === "function") {
@@ -1056,7 +1056,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                             if (type.isFunctionType()) {
                                 this.addNote(CPPError.declaration.func.return_func(this));
                             }
-                            else if (type.isBoundedArrayType()){
+                            else if (type.isBoundedArrayType()) {
                                 this.addNote(CPPError.declaration.func.return_array(this));
                             }
                             else {
@@ -1068,11 +1068,11 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                         let paramDeclarations = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
                         (<Mutable<this>>this).parameters = paramDeclarations;
                         this.attachAll(paramDeclarations);
-                        
+
                         let paramTypes = paramDeclarations.map(decl => {
                             if (!decl.type) { return decl.type; }
                             if (!decl.type.isBoundedArrayType()) { return decl.type; }
-                            else { return decl.type.adjustToPointerType();}
+                            else { return decl.type.adjustToPointerType(); }
                         });
 
                         // A parameter list of just (void) specifies no parameters
@@ -1111,7 +1111,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             // have both postfixes and a pointer/reference
             if (decl.pointer) {
                 if (!type.isObjectType()) {
-                    if (type.isReferenceType()){
+                    if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.pointer.reference(this));
                     }
                     else if (type.isVoidType()) {
@@ -1127,7 +1127,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             }
             else if (decl.reference) {
                 if (!type.isObjectType()) {
-                    if (type.isReferenceType()){
+                    if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.ref.ref(this));
                     }
                     else {
@@ -1141,7 +1141,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             else if (decl.hasOwnProperty("sub")) {
                 decl = decl.sub;
             }
-            else{
+            else {
                 break;
             }
 
@@ -1156,7 +1156,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
     }
 
-    public isSuccessfullyCompiled() : this is this["t_compiled"] {
+    public isSuccessfullyCompiled(): this is this["t_compiled"] {
         return !!this.baseType && super.isSuccessfullyCompiled();
     }
 }
@@ -1170,7 +1170,7 @@ export interface CompiledDeclarator<T extends Type = Type> extends TypedDeclarat
 }
 
 
-let OVERLOADABLE_OPS : {[index:string]: true | undefined} = {};
+let OVERLOADABLE_OPS: { [index: string]: true | undefined } = {};
 
 ["new[]"
     , "delete[]"
@@ -1187,7 +1187,7 @@ let OVERLOADABLE_OPS : {[index:string]: true | undefined} = {};
     });
 
 export type FunctionBodyASTNode = BlockASTNode;
-    
+
 export interface FunctionDefinitionASTNode extends ASTNode {
     readonly construct_type: "function_definition";
     readonly specs: DeclarationSpecifiersASTNode;
@@ -1207,14 +1207,14 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     public readonly body: Block;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
-        
+
         let declaration = createSimpleDeclarationFromAST({
             construct_type: "simple_declaration",
             declarators: [ast.declarator],
             specs: ast.specs,
             source: ast.declarator.source
         }, context)[0];
-        
+
         if (!(declaration instanceof FunctionDeclaration)) {
             return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
         }
@@ -1223,7 +1223,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         let functionContext = createFunctionContext(context, declaration.declaredEntity);
         let body = new Block(functionContext, ast.body);
         let bodyContext = body.context;
-        
+
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
         declaration.parameterDeclarations.forEach(paramDecl => {
@@ -1239,7 +1239,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
         // added after the parameters.)
         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
-        
+
         return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, body);
     }
 
@@ -1247,16 +1247,16 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
     public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
         super(context, ast);
-        
+
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
         this.attach(this.body = body);
 
         this.name = declaration.name;
         this.type = declaration.type;
-        
+
         this.declaration.declaredEntity.setDefinition(this);
-        
+
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
 
         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
@@ -1288,7 +1288,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // });
     }
 
-    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>) : RuntimeFunction<T>{
+    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>): RuntimeFunction<T> {
         return new RuntimeFunction(this, parent.sim, parent, receiver);
     }
 
@@ -1525,17 +1525,17 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly name: string;
     public readonly type: ClassType;
     public readonly declaredEntity: ClassEntity;
-    
+
     public constructor(context: TranslationUnitContext, name: string, type: ClassType) {
         super(context, undefined);
 
         this.name = name;
         this.type = type;
-        
+
         this.declaredEntity = new ClassEntity(type, this);
 
         let entityOrError = context.contextualScope.declareClassEntity(this.declaredEntity);
-        
+
         if (entityOrError instanceof ClassEntity) {
             this.declaredEntity = entityOrError;
         }
@@ -1628,14 +1628,14 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
     public readonly declaration: ClassDeclaration;
     public readonly name: string;
     public readonly type: ClassType;
-//     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
+    //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
-// export interface SimpleDeclarationASTNode extends ASTNode {
-//     readonly construct_type: "simple_declaration";
-//     readonly specs: DeclarationSpecifiersASTNode;
-//     readonly declarators: readonly DeclaratorInitASTNode[];
-// }
+    // export interface SimpleDeclarationASTNode extends ASTNode {
+    //     readonly construct_type: "simple_declaration";
+    //     readonly specs: DeclarationSpecifiersASTNode;
+    //     readonly declarators: readonly DeclaratorInitASTNode[];
+    // }
 
     public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
 
@@ -1647,13 +1647,13 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
         let classType = ClassType.createType(ast.head.name.identifier);
 
         let declaration = new ClassDeclaration(context, ast.head.name.identifier, classType);
-        
+
         // Create class context based on class entity from the declaration
         let classContext = createClassContext(context, declaration.declaredEntity);
 
         // let body = new Block(functionContext);
         // let bodyContext = body.context;
-        
+
         // // Add declared entities from the parameters to the body block's context.
         // // As the context refers back to the implementation, local objects/references will be registerd there.
         // declaration.parameterDeclarations.forEach(paramDecl => {
@@ -1669,15 +1669,15 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
         // // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
         // // added after the parameters.)
         // ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
-        
+
         return new ClassDefinition(classContext, ast, declaration);
     }
 
-//     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
+    //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
     public constructor(context: ClassContext, ast: ClassDefinitionASTNode, declaration: ClassDeclaration) {
         super(context, ast);
-        
+
         this.name = declaration.name;
         this.type = declaration.type;
 
@@ -1685,389 +1685,389 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
 
         this.declaration.declaredEntity.setDefinition(this);
     }
-//         this.attachAll(this.parameters = parameters);
-//         this.attach(this.body = body);
-
-//         this.name = declaration.name;
-//         this.type = declaration.type;
-        
-//         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
-
-//         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
-//         // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-//         //     return isA(obj.type, Types.Class);
-//         // });
-
-//         // this.bodyScope.automaticObjects.filter(function(obj){
-//         //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-//         // }).map(function(arr){
-//         //   for(var i = 0; i < arr.type.length; ++i){
-//         //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-//         //   }
-//         // });
+    //         this.attachAll(this.parameters = parameters);
+    //         this.attach(this.body = body);
 
-//         // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-//         //     var dest = entityToDestruct.type.destructor;
-//         //     if (dest){
-//         //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-//         //         call.compile({
-//         //             func: dest,
-//         //             receiver: entityToDestruct});
-//         //         return call;
-//         //     }
-//         //     else{
-//         //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-//         //     }
+    //         this.name = declaration.name;
+    //         this.type = declaration.type;
+
+    //         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
+
+    //         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
+    //         // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
+    //         //     return isA(obj.type, Types.Class);
+    //         // });
 
-//         // });
-//     }
+    //         // this.bodyScope.automaticObjects.filter(function(obj){
+    //         //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
+    //         // }).map(function(arr){
+    //         //   for(var i = 0; i < arr.type.length; ++i){
+    //         //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
+    //         //   }
+    //         // });
 
+    //         // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
+    //         //     var dest = entityToDestruct.type.destructor;
+    //         //     if (dest){
+    //         //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
+    //         //         call.compile({
+    //         //             func: dest,
+    //         //             receiver: entityToDestruct});
+    //         //         return call;
+    //         //     }
+    //         //     else{
+    //         //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
+    //         //     }
 
+    //         // });
+    //     }
 
-//     compile : function(){
-//         assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
-//     },
 
-//     compileDeclaration : function(){
-//         var ast = this.ast;
-
-
-//         this.key = ast.head.key;
-//         this.name = ast.head.name.identifier;
-//         this.members = [];
-
-
-//         // Base classes
-
-//         if (this.ast.head.bases && this.ast.head.bases.length > 0){
-//             if (this.ast.head.bases.length > 1){
-//                 this.addNote(CPPError.class_def.multiple_inheritance(this));
-//                 return;
-//             }
 
-//             try{
-//                 var baseCode = this.ast.head.bases[0];
-
-//                 // TODO NEW: Use an actual Identifier expression for this
-//                 this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
-
-//                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
-//                     this.addNote(CPPError.class_def.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
-//                 }
-
-//                 if (baseCode.virtual){
-//                     this.addNote(CPPError.class_def.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
-//                 }
-//             }
-//             catch(e){
-//                 if (isA(e, SemanticExceptions.BadLookup)){
-//                     this.addNote(e.annotation(this));
-//                 }
-//                 else{
-//                     throw e;
-//                 }
-//             }
-//         }
-
-
-
-//         // Check that no other type with the same name already exists
-//         try {
-// //            console.log("addingEntity " + this.name);
-//             // class type. will be incomplete initially, but made complete at end of class declaration
-//             this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
-//             this.classTypeClass = this.type;
-
-//             this.classScope = this.type.classScope;
-
-//             this.entity = TypeEntity.instance(this);
-
-//             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
-
-//             this.contextualScope.addDeclaredEntity(this.entity);
-//         }
-//         catch(e){
-//             if (isA(e, Note)){
-//                 this.addNote(e);
-//                 return;
-//             }
-//             else {
-//                 throw e;
-//             }
-//         }
-
-
-
-
-//         // Compile the members
-
-
-//         var memDecls = this.memDecls = [];
-//         for(var i = 0; i < ast.member_specs.length; ++i){
-//             var spec = ast.member_specs[i];
-//             var access = spec.access || "private";
-//             for(var j = 0; j < spec.members.length; ++j){
-//                 spec.members[j].access = access;
-//                 var memDecl = SimpleDeclaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
-
-//                 // Within member function definitions, class is considered as complete even though it isn't yet
-//                 if (isA(memDecl, FunctionDefinition)){
-//                     this.type.setTemporarilyComplete();
-//                 }
-
-//                 memDecl.compileDeclaration();
-
-//                 // Remove temporarily complete
-//                 this.type.unsetTemporarilyComplete();
-
-//                 memDecls.push(memDecl);
-//             }
-//         }
-
-//         // If there are no constructors, then we need an implicit default constructor
-//         if(this.type.constructors.length == 0){
-//             var idc = this.createImplicitDefaultConstructor();
-//             if (idc){
-//                 idc.compile();
-//                 assert(!idc.hasErrors());
-//             }
-//         }
-
-//         let hasCopyConstructor = false;
-//         for(var i = 0; i < this.type.constructors.length; ++i){
-//             if (this.type.constructors[i].decl.isCopyConstructor){
-//                 hasCopyConstructor = true;
-//                 break;
-//             }
-//         }
-
-
-//         var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
-
-//         // Rule of the Big Three
-//         var bigThreeYes = [];
-//         var bigThreeNo = [];
-//         (hasCopyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
-//         (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
-//         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
-
-//         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
-//             // If it's only because of an empty destructor, suppress warning
-//             if (bigThreeYes.length === 1 && this.type.destructor && this.type.destructor.decl.emptyBody()){
-
-//             }
-//             else{
-//                 this.addNote(CPPError.class_def.big_three(this, bigThreeYes, bigThreeNo));
-//             }
-//         }
-
-//         this.customBigThree = bigThreeYes.length > 0;
-
-//         if (!hasCopyConstructor) {
-//             // Create implicit copy constructor
-//             var icc = this.createImplicitCopyConstructor();
-//             if (icc) {
-//                 icc.compile();
-//                 assert(!icc.hasErrors());
-//             }
-//         }
-
-//         if (!this.type.destructor) {
-//             // Create implicit destructor
-//             var idd = this.createImplicitDestructor();
-//             if (idd) {
-//                 idd.compile();
-//                 assert(!idd.hasErrors());
-//             }
-//         }
-//         if (!hasUserDefinedAssignmentOperator){
-
-//             // Create implicit assignment operator
-//             var iao = this.createImplicitAssignmentOperator();
-//             if (iao){
-//                 iao.compile();
-//                 assert(!iao.hasErrors());
-//             }
-//         }
-//     },
-
-//     compileDefinition : function() {
-//         if (this.hasErrors()){
-//             return;
-//         }
-//         for(var i = 0; i < this.memDecls.length; ++i){
-//             this.memDecls[i].compileDefinition();
-//         }
-//     },
-
-
-//     createImplicitDefaultConstructor : function(){
-//         var self = this;
-
-//         // If any data members are of reference type, do not create the implicit default constructor
-//         if (!this.type.memberSubobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Reference);
-//             })){
-//             return;
-//         }
-
-//         // If any const data members do not have a user-provided default constructor
-//         if (!this.type.memberSubobjectEntities.every(function(subObj){
-//                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
-//                     return true;
-//                 }
-//                 var defCon = subObj.type.getDefaultConstructor();
-//                 return defCon && !defCon.decl.isImplicit();
-//             })){
-//             return;
-//         }
-
-//         // If any subobjects do not have a default constructor or destructor
-//         if (!this.type.subobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Class) ||
-//                     subObj.type.getDefaultConstructor() &&
-//                     subObj.type.destructor;
-//             })){
-//             return;
-//         }
-
-
-//         var src = this.name + "() {}";
-//         //TODO: initialize members (i.e. that are classes)
-//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-//         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-//     },
-
-//     createImplicitCopyConstructor : function(){
-//         var self = this;
-//         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-//         if (!this.type.subobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Class) ||
-//                     subObj.type.getCopyConstructor(subObj.type.isConst);
-//             })){
-//             return;
-//         }
-
-//         // If any subobjects are missing a destructor, do not create implicit copy ctor
-//         if (!this.type.subobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Class) ||
-//                     subObj.type.destructor;
-//             })){
-//             return;
-//         }
-
-//         var src = this.name + "(const " + this.name + " &other)";
-
-//         if (this.type.subobjectEntities.length > 0){
-//             src += "\n : ";
-//         }
-//         src += this.type.baseClassEntities.map(function(subObj){
-//             return subObj.type.className + "(other)";
-//         }).concat(this.type.memberEntities.map(function(subObj){
-//             return subObj.name + "(other." + subObj.name + ")";
-//         })).join(", ");
-
-//         src += " {}";
-//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-
-//         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-//     },
-
-//     createImplicitAssignmentOperator : function () {
-//         var self = this;
-//         // Parameter will only be const if all subobjects have assignment ops that take const params
-//         var canMakeConst = this.type.subobjectEntities.every(function(subObj){
-//             return !isA(subObj.type, Types.Class) ||
-//                 subObj.type.getAssignmentOperator(true);
-//         });
-
-//         var canMakeNonConst = canMakeConst || this.type.subobjectEntities.every(function(subObj){
-//             return !isA(subObj.type, Types.Class) ||
-//                 subObj.type.getAssignmentOperator(false);
-//         });
-
-//         // If we can't make non-const, we also can't make const, and we can't make any implicit assignment op
-//         if (!canMakeNonConst){
-//             return;
-//         }
-//         var constPart = canMakeConst ? "const " : "";
-
-//         // If any data member is a reference, we can't make implicit assignment operator
-//         if (!this.type.memberSubobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Reference);
-//             })){
-//             return;
-//         }
-
-//         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-//         if (!this.type.memberSubobjectEntities.every(function(subObj){
-//                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
-//                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
-//                 return !subObj.type.isConst
-//                     && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
-//             })){
-//             return;
-//         }
-
-//         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
-
-//         src += this.type.baseClassEntities.map(function(subObj){
-//             return subObj.type.className + "::operator=(rhs);";
-//         }).join("\n");
-
-//         var mems = this.type.memberSubobjectEntities;
-//         for(var i = 0; i < mems.length; ++i){
-//             var mem = mems[i];
-//             if (isA(mem.type, Types.Array)){
-//                 var tempType = mem.type;
-//                 var subscriptNum = isA(tempType.elemType, Types.Array) ? 1 : "";
-//                 var subscripts = "";
-//                 var closeBrackets = "";
-//                 while(isA(tempType, Types.Array)){
-//                     src += "for(int i"+subscriptNum+"=0; i"+subscriptNum+"<"+tempType.length+"; ++i"+subscriptNum+"){";
-//                     subscripts += "[i"+subscriptNum+"]";
-//                     closeBrackets += "}";
-//                     tempType = tempType.elemType;
-//                     subscriptNum += 1;
-//                 }
-//                 src += mem.name + subscripts + " = rhs." + mem.name + "" + subscripts + ";";
-//                 src += closeBrackets;
-//             }
-//             else{
-//                 src += mems[i].name + " = rhs." + mems[i].name + ";";
-//             }
-//         }
-//         src += "return *this;}";
-//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-//         return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-//     },
-
-//     createImplicitDestructor : function(){
-//         var self = this;
-//         // If any subobjects are missing a destructor, do not create implicit destructor
-//         if (!this.type.subobjectEntities.every(function(subObj){
-//                 return !isA(subObj.type, Types.Class) ||
-//                     subObj.type.destructor;
-//             })){
-//             return;
-//         }
-
-//         var src = "~" + this.type.name + "(){}";
-//         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-//         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-//     },
-
-//     createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
-//     },
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-//     },
-
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-//     }
+    //     compile : function(){
+    //         assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
+    //     },
+
+    //     compileDeclaration : function(){
+    //         var ast = this.ast;
+
+
+    //         this.key = ast.head.key;
+    //         this.name = ast.head.name.identifier;
+    //         this.members = [];
+
+
+    //         // Base classes
+
+    //         if (this.ast.head.bases && this.ast.head.bases.length > 0){
+    //             if (this.ast.head.bases.length > 1){
+    //                 this.addNote(CPPError.class_def.multiple_inheritance(this));
+    //                 return;
+    //             }
+
+    //             try{
+    //                 var baseCode = this.ast.head.bases[0];
+
+    //                 // TODO NEW: Use an actual Identifier expression for this
+    //                 this.base = this.contextualScope.requiredLookup(baseCode.name.identifier);
+
+    //                 if (!isA(this.base, TypeEntity) || !isA(this.base.type, Types.Class)){
+    //                     this.addNote(CPPError.class_def.base_class_type({ast:baseCode.name}, baseCode.name.identifier));
+    //                 }
+
+    //                 if (baseCode.virtual){
+    //                     this.addNote(CPPError.class_def.virtual_inheritance({ast:baseCode.name}, baseCode.name.identifier));
+    //                 }
+    //             }
+    //             catch(e){
+    //                 if (isA(e, SemanticExceptions.BadLookup)){
+    //                     this.addNote(e.annotation(this));
+    //                 }
+    //                 else{
+    //                     throw e;
+    //                 }
+    //             }
+    //         }
+
+
+
+    //         // Check that no other type with the same name already exists
+    //         try {
+    // //            console.log("addingEntity " + this.name);
+    //             // class type. will be incomplete initially, but made complete at end of class declaration
+    //             this.type = Types.Class.createClassType(this.name, this.contextualScope, this.base && this.base.type, []);
+    //             this.classTypeClass = this.type;
+
+    //             this.classScope = this.type.classScope;
+
+    //             this.entity = TypeEntity.instance(this);
+
+    //             this.entity.setDefinition(this); // TODO add exception that allows a class to be defined more than once
+
+    //             this.contextualScope.addDeclaredEntity(this.entity);
+    //         }
+    //         catch(e){
+    //             if (isA(e, Note)){
+    //                 this.addNote(e);
+    //                 return;
+    //             }
+    //             else {
+    //                 throw e;
+    //             }
+    //         }
+
+
+
+
+    //         // Compile the members
+
+
+    //         var memDecls = this.memDecls = [];
+    //         for(var i = 0; i < ast.member_specs.length; ++i){
+    //             var spec = ast.member_specs[i];
+    //             var access = spec.access || "private";
+    //             for(var j = 0; j < spec.members.length; ++j){
+    //                 spec.members[j].access = access;
+    //                 var memDecl = SimpleDeclaration.create(spec.members[j], {parent:this, scope: this.classScope, containingClass: this.type, access:access});
+
+    //                 // Within member function definitions, class is considered as complete even though it isn't yet
+    //                 if (isA(memDecl, FunctionDefinition)){
+    //                     this.type.setTemporarilyComplete();
+    //                 }
+
+    //                 memDecl.compileDeclaration();
+
+    //                 // Remove temporarily complete
+    //                 this.type.unsetTemporarilyComplete();
+
+    //                 memDecls.push(memDecl);
+    //             }
+    //         }
+
+    //         // If there are no constructors, then we need an implicit default constructor
+    //         if(this.type.constructors.length == 0){
+    //             var idc = this.createImplicitDefaultConstructor();
+    //             if (idc){
+    //                 idc.compile();
+    //                 assert(!idc.hasErrors());
+    //             }
+    //         }
+
+    //         let hasCopyConstructor = false;
+    //         for(var i = 0; i < this.type.constructors.length; ++i){
+    //             if (this.type.constructors[i].decl.isCopyConstructor){
+    //                 hasCopyConstructor = true;
+    //                 break;
+    //             }
+    //         }
+
+
+    //         var hasUserDefinedAssignmentOperator = this.type.hasMember("operator=", {paramTypes: [this.type], isThisConst:false});
+
+    //         // Rule of the Big Three
+    //         var bigThreeYes = [];
+    //         var bigThreeNo = [];
+    //         (hasCopyConstructor ? bigThreeYes : bigThreeNo).push("copy constructor");
+    //         (hasUserDefinedAssignmentOperator ? bigThreeYes : bigThreeNo).push("assignment operator");
+    //         (this.type.destructor ? bigThreeYes : bigThreeNo).push("destructor");
+
+    //         if (0 < bigThreeYes.length && bigThreeYes.length < 3){
+    //             // If it's only because of an empty destructor, suppress warning
+    //             if (bigThreeYes.length === 1 && this.type.destructor && this.type.destructor.decl.emptyBody()){
+
+    //             }
+    //             else{
+    //                 this.addNote(CPPError.class_def.big_three(this, bigThreeYes, bigThreeNo));
+    //             }
+    //         }
+
+    //         this.customBigThree = bigThreeYes.length > 0;
+
+    //         if (!hasCopyConstructor) {
+    //             // Create implicit copy constructor
+    //             var icc = this.createImplicitCopyConstructor();
+    //             if (icc) {
+    //                 icc.compile();
+    //                 assert(!icc.hasErrors());
+    //             }
+    //         }
+
+    //         if (!this.type.destructor) {
+    //             // Create implicit destructor
+    //             var idd = this.createImplicitDestructor();
+    //             if (idd) {
+    //                 idd.compile();
+    //                 assert(!idd.hasErrors());
+    //             }
+    //         }
+    //         if (!hasUserDefinedAssignmentOperator){
+
+    //             // Create implicit assignment operator
+    //             var iao = this.createImplicitAssignmentOperator();
+    //             if (iao){
+    //                 iao.compile();
+    //                 assert(!iao.hasErrors());
+    //             }
+    //         }
+    //     },
+
+    //     compileDefinition : function() {
+    //         if (this.hasErrors()){
+    //             return;
+    //         }
+    //         for(var i = 0; i < this.memDecls.length; ++i){
+    //             this.memDecls[i].compileDefinition();
+    //         }
+    //     },
+
+
+    //     createImplicitDefaultConstructor : function(){
+    //         var self = this;
+
+    //         // If any data members are of reference type, do not create the implicit default constructor
+    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Reference);
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any const data members do not have a user-provided default constructor
+    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
+    //                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
+    //                     return true;
+    //                 }
+    //                 var defCon = subObj.type.getDefaultConstructor();
+    //                 return defCon && !defCon.decl.isImplicit();
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any subobjects do not have a default constructor or destructor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.getDefaultConstructor() &&
+    //                     subObj.type.destructor;
+    //             })){
+    //             return;
+    //         }
+
+
+    //         var src = this.name + "() {}";
+    //         //TODO: initialize members (i.e. that are classes)
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+    //     },
+
+    //     createImplicitCopyConstructor : function(){
+    //         var self = this;
+    //         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.getCopyConstructor(subObj.type.isConst);
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any subobjects are missing a destructor, do not create implicit copy ctor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.destructor;
+    //             })){
+    //             return;
+    //         }
+
+    //         var src = this.name + "(const " + this.name + " &other)";
+
+    //         if (this.type.subobjectEntities.length > 0){
+    //             src += "\n : ";
+    //         }
+    //         src += this.type.baseClassEntities.map(function(subObj){
+    //             return subObj.type.className + "(other)";
+    //         }).concat(this.type.memberEntities.map(function(subObj){
+    //             return subObj.name + "(other." + subObj.name + ")";
+    //         })).join(", ");
+
+    //         src += " {}";
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+
+    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+    //     },
+
+    //     createImplicitAssignmentOperator : function () {
+    //         var self = this;
+    //         // Parameter will only be const if all subobjects have assignment ops that take const params
+    //         var canMakeConst = this.type.subobjectEntities.every(function(subObj){
+    //             return !isA(subObj.type, Types.Class) ||
+    //                 subObj.type.getAssignmentOperator(true);
+    //         });
+
+    //         var canMakeNonConst = canMakeConst || this.type.subobjectEntities.every(function(subObj){
+    //             return !isA(subObj.type, Types.Class) ||
+    //                 subObj.type.getAssignmentOperator(false);
+    //         });
+
+    //         // If we can't make non-const, we also can't make const, and we can't make any implicit assignment op
+    //         if (!canMakeNonConst){
+    //             return;
+    //         }
+    //         var constPart = canMakeConst ? "const " : "";
+
+    //         // If any data member is a reference, we can't make implicit assignment operator
+    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Reference);
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
+    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
+    //                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
+    //                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
+    //                 return !subObj.type.isConst
+    //                     && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
+    //             })){
+    //             return;
+    //         }
+
+    //         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
+
+    //         src += this.type.baseClassEntities.map(function(subObj){
+    //             return subObj.type.className + "::operator=(rhs);";
+    //         }).join("\n");
+
+    //         var mems = this.type.memberSubobjectEntities;
+    //         for(var i = 0; i < mems.length; ++i){
+    //             var mem = mems[i];
+    //             if (isA(mem.type, Types.Array)){
+    //                 var tempType = mem.type;
+    //                 var subscriptNum = isA(tempType.elemType, Types.Array) ? 1 : "";
+    //                 var subscripts = "";
+    //                 var closeBrackets = "";
+    //                 while(isA(tempType, Types.Array)){
+    //                     src += "for(int i"+subscriptNum+"=0; i"+subscriptNum+"<"+tempType.length+"; ++i"+subscriptNum+"){";
+    //                     subscripts += "[i"+subscriptNum+"]";
+    //                     closeBrackets += "}";
+    //                     tempType = tempType.elemType;
+    //                     subscriptNum += 1;
+    //                 }
+    //                 src += mem.name + subscripts + " = rhs." + mem.name + "" + subscripts + ";";
+    //                 src += closeBrackets;
+    //             }
+    //             else{
+    //                 src += mems[i].name + " = rhs." + mems[i].name + ";";
+    //             }
+    //         }
+    //         src += "return *this;}";
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+    //         return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+    //     },
+
+    //     createImplicitDestructor : function(){
+    //         var self = this;
+    //         // If any subobjects are missing a destructor, do not create implicit destructor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.destructor;
+    //             })){
+    //             return;
+    //         }
+
+    //         var src = "~" + this.type.name + "(){}";
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+    //         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+    //     },
+
+    //     createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
+    //     },
+
+    //     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     },
+
+    //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+
+    //     }
 }
 
 export interface TypedClassDefinition<T extends ClassType> extends ClassDefinition, SuccessfullyCompiled {
@@ -2478,8 +2478,8 @@ export class FunctionDefinitionGroup {
     public readonly definitions: readonly FunctionDefinition[];
 
     public constructor(definitions: readonly FunctionDefinition[]) {
-            this.name = definitions[0].name;
-            this.definitions = this._definitions = definitions.slice();
+        this.name = definitions[0].name;
+        this.definitions = this._definitions = definitions.slice();
     }
 
     public addDefinition(overload: FunctionDefinition) {

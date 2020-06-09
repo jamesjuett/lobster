@@ -45,7 +45,7 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
 }
 
 export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    let found : T[] = [];
+    let found: T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
     });

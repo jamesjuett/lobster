@@ -1,4 +1,4 @@
-import {NoteHandler, CPPError} from "./errors";
+import { NoteHandler, CPPError } from "./errors";
 import { CPPConstruct, ASTNode, TranslationUnitConstruct } from "./constructs";
 
 export const KEYWORDS = new Set([
@@ -41,7 +41,7 @@ export const ALT_OPS = new Set([
 
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
 export function checkIdentifier(src: TranslationUnitConstruct, name: string, noteHandler: NoteHandler) {
-    
+
     // Special case for qualified names
     if (name.includes("::")) {
         name.split("::").forEach((elem) => checkIdentifier(src, elem, noteHandler));
@@ -60,7 +60,7 @@ export function checkIdentifier(src: TranslationUnitConstruct, name: string, not
     }
 };
 
-export function createFullyQualifiedName(...names : string[]) {
+export function createFullyQualifiedName(...names: string[]) {
     return "::" + names.join("::");
 }
 
@@ -69,8 +69,8 @@ export function fullyQualifiedNameToUnqualified(fqname: string) {
     if (i === -1) {
         return fqname;
     }
-    else{
-        return fqname.slice(i+2);
+    else {
+        return fqname.slice(i + 2);
     }
 }
 

@@ -27,13 +27,13 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: T extends FunctionType<VoidType> ? undefined : CPPObject<NoRefType<Exclude<T["returnType"],VoidType>>>;
+    public readonly returnObject?: T extends FunctionType<VoidType> ? undefined : CPPObject<NoRefType<Exclude<T["returnType"], VoidType>>>;
 
     public readonly hasControl: boolean = false;
 
     public readonly body: RuntimeBlock;
 
-    public constructor (model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
+    public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
         super(model, "function", caller || sim);
         if (caller) { this.caller = caller };
         this.receiver = receiver;
@@ -41,7 +41,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
         // this.containingRuntimeFunction = this;
         this.body = createRuntimeStatement(this.model.body, this);
     }
-    
+
 
     // setCaller : function(caller) {
     //     this.i_caller = caller;
@@ -109,7 +109,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
     //     return this.i_returnStatementEncountered;
     // }
 
-    
+
     // tailCallReset : function(sim: Simulation, rtConstruct: RuntimeConstruct, caller) {
 
     //     // Need to unseat all reference that were on the stack frame for the function.
@@ -126,7 +126,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
     //     //inst.send("reset"); // don't need i think
     //     return inst;
     // },
-    
+
     protected stepForwardImpl(): void {
 
     }
@@ -140,7 +140,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
             this.sim.push(this.body);
         }
     }
-    
+
     // upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     // }
 
