@@ -12,6 +12,7 @@ interface Checkpoint {
 interface Props {
   statuses: Status[];
   created: moment.Moment;
+  active: boolean;
 }
 
 interface State {
@@ -55,7 +56,7 @@ class LeftPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { statuses, created } = this.props;
+    const { statuses, created, active } = this.props;
     const { checkpoints, overallPercentComplete } = this.state;
     return (
       <div>
@@ -68,7 +69,7 @@ class LeftPanel extends React.Component<Props, State> {
             </Row>
             <Row>
               <Col>Exercise Time:</Col>
-              <Col className="text-right"><Timer startTime={created}/></Col>
+              <Col className="text-right"><Timer startTime={created} active={active}/></Col>
             </Row>
             <Row>
               <Col>Overall</Col>

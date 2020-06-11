@@ -9,12 +9,6 @@ import { Project } from "../SharedTypes";
 const STUDENT_SOLUTIONS = "student-solutions";
 const STARTER_CODE = "starter-code";
 
-interface ProjectId {
-  projectid: string;
-  name: string;
-  files: string[];
-}
-
 interface Props {
   projects: Project[];
   exerciseId: number;
@@ -22,7 +16,7 @@ interface Props {
 }
 
 interface State {
-  openStudentTabs: ProjectId[];
+  openStudentTabs: Project[];
   currentTab: string;
   starterFiles: string[];
   starterFilesUrl: string;
@@ -74,22 +68,22 @@ class RightPanel extends React.Component<Props, State> {
     }
   }
 
-  onCardClick(projectObject: ProjectId) {
+  onCardClick(projectObject: Project) {
     // If the clicked card is not open, open a new tab and navigate to it
     if (
       this.state.openStudentTabs.findIndex(
-        (elem: ProjectId) => elem.projectid === projectObject.projectid
+        (elem: Project) => elem.projectid === projectObject.projectid
       ) === -1
     ) {
       this.setState((prevState) => ({
         openStudentTabs: prevState.openStudentTabs.concat([projectObject]),
-        currentTab: projectObject.projectid,
+        currentTab: `${projectObject.projectid}`,
       }));
     }
     // Otherwise, just navigate to the tab that already exists
     else {
       this.setState(() => ({
-        currentTab: projectObject.projectid,
+        currentTab: `${projectObject.projectid}`,
       }));
     }
   }
@@ -99,7 +93,7 @@ class RightPanel extends React.Component<Props, State> {
       // set current tab to a valid tabId
       if (
         prevState.openStudentTabs.findIndex(
-          (elem: ProjectId) => elem.projectid === eventKey
+          (elem: Project) => `${elem.projectid}` === eventKey
         ) !== -1 ||
         eventKey === STARTER_CODE ||
         eventKey === STUDENT_SOLUTIONS
@@ -115,7 +109,7 @@ class RightPanel extends React.Component<Props, State> {
 
     // Find the index of the tab to remove
     const index = openStudentTabs.findIndex(
-      (elem: ProjectId) => elem.projectid === tabId
+      (elem: Project) => `${elem.projectid}` === tabId
     );
 
     // If the current tab is open, then go back to student solutions
@@ -162,12 +156,9 @@ class RightPanel extends React.Component<Props, State> {
                     ? this.getUniqname(project.email)
                     : `${project.projectid}`
                 }
+                status={project.status}
                 onClick={() =>
-                  this.onCardClick({
-                    projectid: `${project.projectid}`,
-                    name: this.getUniqname(project.email),
-                    files: project.filenames,
-                  })
+                  this.onCardClick(project)
                 }
               />
             ))}
@@ -183,14 +174,14 @@ class RightPanel extends React.Component<Props, State> {
     } else {
       // Find the ProjectId of the current tab
       const currTabInfo = openStudentTabs.find(
-        (elem: ProjectId) => elem.projectid === currentTab
+        (elem: Project) => `${elem.projectid}` === currentTab
       );
 
       tabContent = (
         <div className="py-2 flex-grow-1 h-75">
           <FileTabs
             baseUrl={`/projects/${currentTab}/files/`}
-            fileList={currTabInfo.files}
+            fileList={currTabInfo.filenames}
           />
         </div>
       );
@@ -214,12 +205,12 @@ class RightPanel extends React.Component<Props, State> {
             <Nav.Item key={STARTER_CODE}>
               <Nav.Link eventKey={STARTER_CODE}>Starter Code</Nav.Link>
             </Nav.Item>
-            {openStudentTabs.map((project: ProjectId) => (
+            {openStudentTabs.map((project: Project) => (
               <Nav.Item key={project.projectid}>
                 <Nav.Link eventKey={project.projectid}>
-                  {showNames ? project.name : project.projectid}
+                  {showNames ? this.getUniqname(project.email) : project.projectid}
                   <CloseButton
-                    closeTab={() => this.closeTab(project.projectid)}
+                    closeTab={() => this.closeTab(`${project.projectid}`)}
                   />
                 </Nav.Link>
               </Nav.Item>
