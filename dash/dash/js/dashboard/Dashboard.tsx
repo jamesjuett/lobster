@@ -1,7 +1,8 @@
 import React from 'react';
 import { Container, Row } from "react-bootstrap";
 import AllActivities from "./AllActivities";
-import PendingActivities from "./PendingActivities";
+import ActiveSessions from "./ActiveSessions";
+import ArchivedSessions from "./ArchivedSessions";
 
 
 export default function Dashboard() {
@@ -16,7 +17,13 @@ export default function Dashboard() {
                               {'name':'EECS 101', 'activities':['Activity 5', 'Activity 6', 'Activity 7']},
                               {'name': 'EECS 491', 'activities': []}
                               ]} />
-        <PendingActivities 
+        <ActiveSessions
+          activities={[{'courseName': 'EECS 280', 'activity': 'Activity 2'},
+                      {'courseName': 'EECS 101', 'activity': 'Activity 18'}
+          ]}/>
+        </Row>
+        <Row>
+        <ArchivedSessions
           activities={[{'courseName': 'EECS 280', 'activity': 'Activity 2'},
                       {'courseName': 'EECS 101', 'activity': 'Activity 18'}
           ]}/>
