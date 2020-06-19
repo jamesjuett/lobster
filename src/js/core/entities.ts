@@ -158,7 +158,7 @@ export class Scope {
         newEntity.registerWithLinker();
     }
 
-    /** Attempts to declare a class in this scope.
+    /** Attempts to declare a class in this scope. TODO docs: this documentation is out of date
      * @param newEntity - The class being declared.
      * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
      * If an error prevents the entity being added successfully. (e.g. An error due to

@@ -101,13 +101,21 @@ export class ClassMembers {
     // }
 }
 
+export function isClassContext(context: TranslationUnitContext) : context is ClassContext {
+    return !!(context as ClassContext).classEntity && !!(context as ClassContext).classMembers;
+}
+
 export interface ClassContext extends TranslationUnitContext {
     readonly classEntity: ClassEntity;
     readonly classMembers: ClassMembers;
 }
 
 export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity): ClassContext {
-    return Object.assign({}, context, { classEntity: classEntity, classMembers: new ClassMembers() });
+    return Object.assign({}, context, {
+        contextualScope: new BlockScope(context.translationUnit, context.contextualScope),
+        classEntity: classEntity, // TODO is this needed?
+        classMembers: new ClassMembers()
+    });
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
