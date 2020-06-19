@@ -504,6 +504,9 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
             }
         },
+        missing_type_specifier: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.missing_type_specifier", "This declaration appears to be missing a type specifier.");
+        },
         unknown_type: function (construct: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.unknown_type", "Unable to determine the type declared here.");
         },

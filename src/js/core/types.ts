@@ -496,6 +496,40 @@ export class VoidType extends TypeBase {
     }
 }
 
+
+export class MissingType extends TypeBase {
+
+    public static readonly MISSING = new MissingType();
+
+    public readonly isComplete = true;
+
+    public readonly precedence = 0;
+
+    public sameType(other: Type) : boolean {
+        return true;
+    }
+
+    public similarType(other: Type) : boolean {
+        return true;
+    }
+
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+        return "<missing>";
+    }
+
+    public englishString(plural: boolean) {
+        return "<missing>";
+    }
+
+    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+        return new VoidType(isConst, isVolatile);
+    }
+
+    public areLValuesAssignable() {
+        return true;
+    }
+}
+
 /**
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
@@ -1129,7 +1163,7 @@ export class ClassType extends ObjectTypeBase {
     public readonly name: string;
 
     /** Don't use this ctor unless you know what you're doing. Use the static `createType()` function instead. */
-    public constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
+    private constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.name = name;
     }
@@ -1391,13 +1425,16 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     private paramStrType: string;
     private paramStrEnglish: string;
 
-    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], isConst?: boolean, isVolatile?: boolean, receiverType?: ClassType) {
-        super(isConst, isVolatile);
+    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: ClassType) {
+        super(false, false);
 
         this.receiverType = receiverType;
 
         // Top-level const on return type is ignored for non-class types
         // (It's a value semantics thing.)
+        // TODO: why are PointerType and ReferenceType included here?
+        // shouldn't const be ignored on returns of const pointers due to value semantics (but not pointers-to-const)
+        // and for references you can't have a const reference anyway so it's not meaningful
         if (!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)) {
             this.returnType = <ReturnType>returnType.cvUnqualified();
         }
@@ -1422,7 +1459,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new FunctionType(this.returnType, this.paramTypes, isConst, isVolatile, this.receiverType);
+        return new FunctionType(this.returnType, this.paramTypes, this.receiverType);
     }
 
     public sameType(other: Type) {
