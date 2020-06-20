@@ -2,7 +2,7 @@ import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
 import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
-import { ConstructDescription } from "./constructs";
+import { ConstructDescription, TranslationUnitContext } from "./constructs";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -139,7 +139,6 @@ abstract class TypeBase {
      */
     public abstract readonly precedence: number;
 
-    public abstract readonly isComplete: boolean;
 
     // regular member properties
     public readonly isConst: boolean;
@@ -150,6 +149,8 @@ abstract class TypeBase {
         // TODO ignore volatile completely? for now (and perhaps forever lol)
         this.isVolatile = isVolatile;
     }
+
+    public abstract isComplete(context: TranslationUnitContext) : boolean;
 
     public getCVString() {
         return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
@@ -465,9 +466,10 @@ export class VoidType extends TypeBase {
 
     public static readonly VOID = new VoidType();
 
-    public readonly isComplete = true;
 
     public readonly precedence = 0;
+
+    public isComplete() { return true; }
 
     public sameType(other: Type): boolean {
         return other instanceof VoidType
@@ -501,9 +503,9 @@ export class MissingType extends TypeBase {
 
     public static readonly MISSING = new MissingType();
 
-    public readonly isComplete = true;
-
     public readonly precedence = 0;
+
+    public isComplete() { return true; }
 
     public sameType(other: Type) : boolean {
         return true;
@@ -628,8 +630,9 @@ export abstract class SimpleType extends AtomicType {
      */
     protected abstract simpleType: string;
 
-    public readonly isComplete = true;
     public readonly precedence = 0;
+
+    public isComplete() { return true; }
 
     public sameType(other: Type): boolean {
         return other instanceof SimpleType
@@ -807,7 +810,8 @@ export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicTy
 
     public readonly size = 8;
     public readonly precedence = 1;
-    public readonly isComplete = true;
+
+    public isComplete() { return true; }
 
     public static isNull(value: RawValueType) {
         return <number>value === 0;
@@ -943,7 +947,6 @@ export class ObjectPointerType<T extends ObjectType = ObjectType> extends Pointe
 export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBase {
 
     public readonly precedence = 1;
-    public readonly isComplete = true;
 
     public readonly refTo: RefTo;
 
@@ -952,6 +955,8 @@ export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBa
         super(false, false);
         this.refTo = refTo;
     }
+
+    public isComplete() { return true; }
 
     public getCompoundNext() {
         return this.refTo;
@@ -1022,14 +1027,11 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         this.size = elemType.size * length;
     }
 
-    public get isComplete() {
-        // Note: this class does not currently represent "array of unknown bound" types.
-        // Should that change, additional logic would be needed here since those are considered
-        // incomplete types.
 
+    public isComplete(context: TranslationUnitContext) {
         // Completeness may change if elemType completeness changes
         // (e.g. array of potentially (in)complete class type objects)
-        return this.elemType.isComplete;
+        return this.elemType.isComplete(context);
     }
 
     public getCompoundNext() {
@@ -1092,8 +1094,6 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 
     public readonly elemType: Elem_type;
 
-    public readonly isComplete = false;
-
     public readonly sizeExpressionAST?: ExpressionASTNode;
 
     public constructor(elemType: Elem_type, sizeExpressionAST?: ExpressionASTNode) {
@@ -1101,6 +1101,8 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
         this.elemType = elemType;
         this.sizeExpressionAST = sizeExpressionAST;
     }
+
+    public isComplete() { return false; }
 
     public getCompoundNext() {
         return this.elemType;
@@ -1158,7 +1160,6 @@ export class ClassType extends ObjectTypeBase {
 
     public size: number = 0;
     public readonly precedence: number = 0;
-    public readonly isComplete: boolean = false;
     public readonly className: string = "";
     public readonly name: string;
 
@@ -1166,6 +1167,13 @@ export class ClassType extends ObjectTypeBase {
     private constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.name = name;
+    }
+
+    public isComplete(context: TranslationUnitContext) {
+        // TODO: consider whether the type has been completed or not
+        // TODO: also consider whether the context is one in which the class
+        // is temporarily considered complete, e.g. a member function definition
+        return true;
     }
 
     public sameType(other: Type): boolean {
@@ -1414,7 +1422,6 @@ export class ClassType extends ObjectTypeBase {
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
-    public isComplete = true;
 
     public readonly precedence = 2;
 
@@ -1457,6 +1464,8 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         }
         this.paramStrEnglish += ")";
     }
+
+    public isComplete() { return true; }
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new FunctionType(this.returnType, this.paramTypes, this.receiverType);

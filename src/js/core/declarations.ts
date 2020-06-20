@@ -216,7 +216,11 @@ export interface DeclarationSpecifiersASTNode {
     readonly virtual?: boolean;
 }
 
-export type DeclarationASTNode = SimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
+export type DeclarationASTNode = TopLevelDeclarationASTNode | MemberDeclarationASTNode;
+
+export type TopLevelDeclarationASTNode = SimpleNonMemberDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
+
+export type Declaration = TopLevelDeclaration | MemberDeclaration;
 
 export type TopLevelDeclaration = AnalyticSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
@@ -225,8 +229,10 @@ export type TopLevelDeclaration = AnalyticSimpleDeclaration | FunctionDefinition
 //     "simple_declaration": SimpleDeclaration;
 //     "function_definition": FunctionDefinition;
 // }
-
-export function createDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[];
+export function createDeclarationFromAST(ast: SimpleNonMemberDeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[];
+export function createDeclarationFromAST(ast: SimpleMemberDeclarationASTNode, context: TranslationUnitContext): SimpleMemberDeclaration[];
+export function createDeclarationFromAST(ast: ConstructorDefinitionASTNode, context: TranslationUnitContext): ConstructorDefinition;
+export function createDeclarationFromAST(ast: DestructorDefinitionASTNode, context: TranslationUnitContext): DestructorDefinition;
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext): FunctionDefinition | InvalidConstruct;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext): ClassDefinition;
 export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
@@ -235,8 +241,17 @@ export function createDeclarationFromAST(ast: DeclarationASTNode, context: Trans
         // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
     }
+    else if (ast.construct_type === "simple_member_declaration") {
+        return FunctionDefinition.createFromAST(ast, context);
+    }
     else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
+    }
+    else if (ast.construct_type === "constructor_definition") {
+        return ConstructorDefinition.createFromAST(ast, context);
+    }
+    else if (ast.construct_type === "destructor_definition") {
+        return DestructorDefinition.createFromAST(ast, context);
     }
     else {
         return ClassDefinition.createFromAST(ast, context);
@@ -1759,10 +1774,11 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
         ast.memberSpecs.forEach(memSpec => {
 
             // Access level is as specified or default to private for class, public for struct
-            let accessLevel = memSpec.access || ast.head.classKey === "class" ? "private" : "public";
-            memSpec.members.forEach(memDecl => {
-                memDecl.
-            });
+            let defaultAccessLevel = ast.head.classKey === "class" ? "private" : "public";
+            let accessLevel = memSpec.access || defaultAccessLevel;
+            let memDecls = memSpec.members.forEach(
+                memDecl => createDeclarationFromAST(memDecl, classContext)
+            );
         });
 
     //         var memDecls = this.memDecls = [];
