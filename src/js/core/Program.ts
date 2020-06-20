@@ -586,7 +586,7 @@ class PreprocessedSource {
 
 export interface TranslationUnitAST {
     readonly construct_type: "translation_unit";
-    readonly declarations: readonly DeclarationASTNode[];
+    readonly declarations: readonly TopLevelDeclarationASTNode[];
 }
 
 /**
