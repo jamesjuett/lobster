@@ -5,7 +5,7 @@ import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, AnalyticSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, NonMemberSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
 
@@ -49,8 +49,8 @@ export interface TranslationUnitContext extends ProgramContext {
     readonly containingClass?: ClassType;
 }
 
-export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
-    return Object.assign({}, context, { translationUnit: translationUnit, contextualScope: contextualScope });
+export function createTranslationUnitContext(parentContext: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
+    return Object.assign({}, parentContext, { translationUnit: translationUnit, contextualScope: contextualScope });
 }
 
 export interface ExpressionContext extends TranslationUnitContext {
@@ -58,8 +58,8 @@ export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: ClassType;
 }
 
-export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
-    return Object.assign({}, context, { contextualParameterTypes: contextualParameterTypes });
+export function createExpressionContext(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
+    return Object.assign({}, parentContext, { contextualParameterTypes: contextualParameterTypes });
 }
 
 export interface FunctionContext extends TranslationUnitContext {
@@ -67,8 +67,8 @@ export interface FunctionContext extends TranslationUnitContext {
     readonly functionLocals: FunctionLocals;
 }
 
-export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity): FunctionContext {
-    return Object.assign({}, context, { containingFunction: containingFunction, functionLocals: new FunctionLocals() });
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity): FunctionContext {
+    return Object.assign({}, parentContext, { containingFunction: containingFunction, functionLocals: new FunctionLocals() });
 }
 
 export interface BlockContext extends FunctionContext {
@@ -105,16 +105,28 @@ export function isClassContext(context: TranslationUnitContext) : context is Cla
     return !!(context as ClassContext).classEntity && !!(context as ClassContext).classMembers;
 }
 
+export type AccessLevel = "public" | "protected" | "private";
+
 export interface ClassContext extends TranslationUnitContext {
     readonly classEntity: ClassEntity;
     readonly classMembers: ClassMembers;
 }
 
-export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity): ClassContext {
-    return Object.assign({}, context, {
-        contextualScope: new BlockScope(context.translationUnit, context.contextualScope),
+export function createClassContext(parentContext: TranslationUnitContext, classEntity: ClassEntity): ClassContext {
+    return Object.assign({}, parentContext, {
+        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
         classEntity: classEntity, // TODO is this needed?
         classMembers: new ClassMembers()
+    });
+}
+
+export interface MemberSpecificationContext extends ClassContext {
+    readonly accessLevel: AccessLevel;
+}
+
+export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessLevel): ClassContext {
+    return Object.assign({}, parentContext, {
+        accessLevel: accessLevel
     });
 }
 
