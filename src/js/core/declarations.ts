@@ -260,14 +260,15 @@ export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinit
 
 const TopLevelDeclarationConstructsMap = {
     "simple_declaration": (ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) => createTopLevelSimpleDeclarationFromAST(ast, context),
-    "function_definition": (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => FunctionDefinition.createFromAST(ast, context),
+    "function_definition": (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => {
+        return FunctionDefinition.createFromAST(ast, decl, context)
+    },
     "class_definition": (ast: ClassDefinitionASTNode, context: TranslationUnitContext) => ClassDefinition.createFromAST(ast, context)
 };
 
-export function createTopLevelDeclarationFromAST<ASTType extends TopLevelDeclarationASTNode>(ast: ASTType, context: TranslationUnitContext) : ReturnType<(typeof TopLevelDeclarationConstructsMap)[ASTType["construct_type"]]>{
+export function createTopLevelDeclarationFromAST<ASTType extends TopLevelDeclarationASTNode>(ast: ASTType, context: TranslationUnitContext) : ReturnType<(typeof TopLevelDeclarationConstructsMap)[ASTType["construct_type"]]> {
     return <any>TopLevelDeclarationConstructsMap[ast.construct_type](<any>ast, context);
 }
-
 
 function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) {
     assert(!isBlockContext(context), "Cannot create a top level declaration in a block context.");
@@ -389,9 +390,9 @@ export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarat
 
 const MemberDeclarationConstructsMap = {
     "simple_member_declaration": (ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) => createMemberSimpleDeclarationFromAST(ast, context),
-    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => FunctionDefinition.createFromAST(ast, context),
-    "constructor_definition": (ast: ConstructorDefinitionASTNode, context: MemberSpecificationContext) => ConstructorDefinition.createFromAST(ast, context),
-    "destructor_definition": (ast: DestructorDefinitionASTNode, context: MemberSpecificationContext) => DestructorDefinition.createFromAST(ast, context)
+    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => createFunctionDeclarationFromDefinitionAST(ast, context),
+    "constructor_definition": (ast: ConstructorDefinitionASTNode, context: MemberSpecificationContext) => createFunctionDeclarationFromDefinitionAST(ast, context),
+    "destructor_definition": (ast: DestructorDefinitionASTNode, context: MemberSpecificationContext) => createFunctionDeclarationFromDefinitionAST(ast, context)
 };
 
 export function createMemberDeclarationFromAST<ASTType extends MemberDeclarationASTNode>(ast: ASTType, context: MemberSpecificationContext) : ReturnType<(typeof MemberDeclarationConstructsMap)[ASTType["construct_type"]]>{
@@ -1339,17 +1340,16 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     public readonly parameters: readonly ParameterDeclaration[];
     public readonly body: Block;
 
-    public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+    public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration: FunctionDeclaration) : FunctionDefinition;
+    public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration?: FunctionDeclaration) : FunctionDefinition | InvalidConstruct;
+    public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration?: FunctionDeclaration) {
 
-        let declaration = createSimpleDeclarationFromAST({
-            construct_type: "simple_declaration",
-            declarators: [ast.declarator],
-            specs: ast.specs,
-            source: ast.declarator.source
-        }, context)[0];
-
-        if (!(declaration instanceof FunctionDeclaration)) {
-            return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
+        if (!declaration) {
+            let decl = createFunctionDeclarationFromDefinitionAST(ast, context);
+            if (!(decl instanceof FunctionDeclaration)) {
+                return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
+            }
+            declaration = decl;
         }
 
         // Create implementation and body block (before params and body statements added yet)
@@ -1635,6 +1635,15 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     // }
 }
 
+function createFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+    return createTopLevelSimpleDeclarationFromAST({
+        construct_type: "simple_declaration",
+        declarators: [ast.declarator],
+        specs: ast.specs,
+        source: ast.declarator.source
+    }, context)[0];
+}
+
 export interface TypedFunctionDefinition<T extends FunctionType> extends FunctionDefinition {
     readonly type: T;
     readonly declaration: TypedFunctionDeclaration<T>;
@@ -1794,7 +1803,7 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
             let memberSpecContext = createMemberSpecificationContext(classContext, accessLevel);
 
             let memDecls = memSpec.members.forEach(
-                memDecl => createDeclarationFromAST(memDecl, memberSpecContext)
+                memDecl => createMemberDeclarationFromAST(memDecl, memberSpecContext)
             );
         });
 
