@@ -121,14 +121,14 @@ export function createClassContext(parentContext: TranslationUnitContext, classE
 }
 
 export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
-    return isClassContext(context) && 
+    return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
 }
 
 export interface MemberSpecificationContext extends ClassContext {
     readonly accessLevel: AccessLevel;
 }
 
-export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessLevel): ClassContext {
+export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessLevel): MemberSpecificationContext {
     return Object.assign({}, parentContext, {
         accessLevel: accessLevel
     });
