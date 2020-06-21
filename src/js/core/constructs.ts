@@ -120,6 +120,10 @@ export function createClassContext(parentContext: TranslationUnitContext, classE
     });
 }
 
+export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
+    return isClassContext(context) && 
+}
+
 export interface MemberSpecificationContext extends ClassContext {
     readonly accessLevel: AccessLevel;
 }

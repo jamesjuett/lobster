@@ -1,8 +1,8 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
-import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever } from "../util/util";
+import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer } from "./initializers";
+import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
@@ -218,71 +218,68 @@ export interface DeclarationSpecifiersASTNode {
 
 export type DeclarationASTNode = TopLevelDeclarationASTNode | MemberDeclarationASTNode;
 
-export type TopLevelDeclarationASTNode = SimpleNonMemberDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
+export type TopLevelDeclarationASTNode = NonMemberSimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type SimpleDeclarationASTNode = SimpleNonMemberDeclarationASTNode | SimpleMemberDeclarationASTNode;
+export type LocalDeclarationASTNode = NonMemberSimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type Declaration = NonMemberSimpleDeclaration | MemberSimpleDeclaration;
+export type SimpleDeclarationASTNode = NonMemberSimpleDeclarationASTNode | MemberSimpleDeclarationASTNode;
 
-export type TopLevelDeclaration = NonMemberSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+export type Declaration = TopLevelDeclaration | LocalDeclaration | MemberDeclaration;
 
-export type NonMemberSimpleDeclaration =
-    UnknownTypeDeclaration |
-    VoidDeclaration |
-    TypedefDeclaration |
-    FriendDeclaration |
-    UnknownBoundArrayDeclaration |
-    FunctionDeclaration |
-    VariableDefinition;
+export type TopLevelDeclaration = TopLevelSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+
+export type TopLevelSimpleDeclaration =
+    NonObjectDeclaration |
+    GlobalVariableDefinition;
+
+export type LocalDeclaration = LocalSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+
+export type LocalSimpleDeclaration =
+    NonObjectDeclaration |
+    LocalVariableDefinition;
+
+export type MemberDeclaration = MemberSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 export type MemberSimpleDeclaration =
+    NonObjectDeclaration |
+    MemberVariableDeclaration |
+    ConstructorDeclaration |
+    DestructorDeclaration;
+
+export type NonObjectDeclaration = 
     UnknownTypeDeclaration |
     VoidDeclaration |
     TypedefDeclaration |
     FriendDeclaration |
     UnknownBoundArrayDeclaration |
-    ConstructorDeclaration |
-    DestructorDeclaration;
+    FunctionDeclaration;
 
 export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
 
 
 
+const TopLevelDeclarationConstructsMap = {
+    "simple_declaration": (ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) => createTopLevelSimpleDeclarationFromAST(ast, context),
+    "function_definition": (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => FunctionDefinition.createFromAST(ast, context),
+    "class_definition": (ast: ClassDefinitionASTNode, context: TranslationUnitContext) => ClassDefinition.createFromAST(ast, context)
+};
 
-
-// interface t_DeclarationTypes {
-//     "simple_declaration": SimpleDeclaration;
-//     "function_definition": FunctionDefinition;
-// }
-export function createDeclarationFromAST(ast: SimpleNonMemberDeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[];
-export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext): FunctionDefinition | InvalidConstruct;
-export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext): ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
-    if (ast.construct_type === "simple_declaration") {
-        // Note: Simple declarations include function declarations, but NOT class declarations
-        return createSimpleDeclarationFromAST(ast, context);
-    }
-    else if (ast.construct_type === "function_definition") {
-        return FunctionDefinition.createFromAST(ast, context);
-    }
-    else {
-        return ClassDefinition.createFromAST(ast, context);
-    }
+export function createTopLevelDeclarationFromAST<ASTType extends TopLevelDeclarationASTNode>(ast: ASTType, context: TranslationUnitContext) : ReturnType<(typeof TopLevelDeclarationConstructsMap)[ASTType["construct_type"]]>{
+    return <any>TopLevelDeclarationConstructsMap[ast.construct_type](<any>ast, context);
 }
 
 
-export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, context: TranslationUnitContext) {
+function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) {
+    assert(!isBlockContext(context), "Cannot create a top level declaration in a block context.");
+    assert(!isClassContext(context), "Cannot create a top level declaration in a class context.");
 
-    // Need to create TypeSpecifier first to get the base type first for the declarators
+    // Need to create TypeSpecifier first to get the base type for the declarators
     let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
     let baseType = typeSpec.baseType;
     let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
-    // If there is an elaborated type specifier, 
-
-    // Use map to create an array of the individual declarations (since multiple on the same line
-    // will result in a single AST node and need to be broken up)
+    // Create an array of the individual declarations (multiple on the same line
+    // will be parsed as a single AST node and need to be broken up)
     return ast.declarators.map((declAST) => {
 
         // Create declarator and determine declared type
@@ -290,7 +287,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         let declaredType = declarator.type;
 
         // Create the declaration itself. Which kind depends on the declared type
-        let declaration: NonMemberSimpleDeclaration;
+        let declaration: TopLevelSimpleDeclaration;
         if (!declaredType) {
             declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
@@ -311,78 +308,57 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
         else {
-            // Determine the appropriate kind of object definition based on the contextual scope
-            let decl: LocalVariableDefinition | GlobalVariableDefinition;
-            if (isBlockContext(context)) {
-                decl = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
-            }
-            else {
-                decl = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
-            }
-            declaration = decl;
-
-            // Set initializer
-            let init = declAST.initializer;
-            if (!init) {
-                decl.setDefaultInitializer();
-            }
-            else if (init.construct_type == "direct_initializer") {
-                decl.setDirectInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
-            else if (init.construct_type == "copy_initializer") {
-                decl.setCopyInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
-            else if (init.construct_type == "initializer_list") {
-                decl.setInitializerList(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
+            declaration = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            setInitializerFromAST(declaration, declAST.initializer, context);
         }
 
         return declaration;
     });
 }
 
-export function createMemberDeclarationFromAST(ast: SimpleMemberDeclarationASTNode, context: ClassContext): SimpleMemberDeclaration[];
-export function createMemberDeclarationFromAST(ast: ConstructorDefinitionASTNode, context: ClassContext): ConstructorDefinition;
-export function createMemberDeclarationFromAST(ast: DestructorDefinitionASTNode, context: ClassContext): DestructorDefinition;
-export function createMemberDeclarationFromAST(ast: FunctionDefinitionASTNode, context: ClassContext): FunctionDefinition;
-export function createMemberDeclarationFromAST(ast: MemberDeclarationASTNode, context: ClassContext): SimpleMemberDeclaration[] | ConstructorDefinition | DestructorDefinition | FunctionDefinition;
-export function createMemberDeclarationFromAST(ast: MemberDeclarationASTNode, context: ClassContext): SimpleMemberDeclaration[] | ConstructorDefinition | DestructorDefinition | FunctionDefinition {
-    if (ast.construct_type === "simple_member_declaration") {
-        return createSimpleMemberDeclarationFromAST(ast, context);
+export function setInitializerFromAST(declaration: VariableDefinition, initAST: DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode | undefined, context: TranslationUnitContext) {
+    if (!initAST) {
+        declaration.setDefaultInitializer();
     }
-    else if (ast.construct_type === "constructor_definition") {
-        return ConstructorDefinition.createFromAST(ast, context);
+    else if (initAST.construct_type == "direct_initializer") {
+        declaration.setDirectInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (ast.construct_type === "destructor_definition") {
-        return DestructorDefinition.createFromAST(ast, context);
+    else if (initAST.construct_type == "copy_initializer") {
+        declaration.setCopyInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (ast.construct_type === "function_definition") {
-        return FunctionDefinition.createFromAST(ast, context);
-    }
-    else {
-        assertNever(ast);
+    else if (initAST.construct_type == "initializer_list") {
+        declaration.setInitializerList(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
 }
 
-export function createSimpleMemberDeclarationFromAST(ast: SimpleMemberDeclarationASTNode, context: ClassContext) {
+const LocalDeclarationConstructsMap = {
+    "simple_declaration": (ast: NonMemberSimpleDeclarationASTNode, context: BlockContext) => createLocalSimpleDeclarationFromAST(ast, context),
+    "function_definition": (ast: FunctionDefinitionASTNode, context: BlockContext) => FunctionDefinition.createFromAST(ast, context),
+    "class_definition": (ast: ClassDefinitionASTNode, context: BlockContext) => ClassDefinition.createFromAST(ast, context)
+};
 
-    // Need to create TypeSpecifier first to get the base type first for the declarators.
-    // There may be no base type, since this could be a constructor or destructor declaration.
+export function createLocalDeclarationFromAST<ASTType extends LocalDeclarationASTNode>(ast: ASTType, context: BlockContext) : ReturnType<(typeof LocalDeclarationConstructsMap)[ASTType["construct_type"]]>{
+    return <any>LocalDeclarationConstructsMap[ast.construct_type](<any>ast, context);
+}
+
+export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) {
+    assert(isBlockContext(context), "A local declaration must be created in a block context.");
+
+    // Need to create TypeSpecifier first to get the base type for the declarators
     let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
     let baseType = typeSpec.baseType;
     let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
-    // Use map to create an array of the individual declarations (since multiple on the same line
-    // will result in a single AST node and need to be broken up)
+    // Create an array of the individual declarations (multiple on the same line
+    // will be parsed as a single AST node and need to be broken up)
     return ast.declarators.map((declAST) => {
 
-        // Create declarator and determine declared type.
-        // 
+        // Create declarator and determine declared type
         let declarator = Declarator.createFromAST(declAST, context, baseType);
         let declaredType = declarator.type;
 
         // Create the declaration itself. Which kind depends on the declared type
-        let declaration: NonMemberSimpleDeclaration;
+        let declaration: LocalSimpleDeclaration;
         if (!declaredType) {
             declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
@@ -403,37 +379,72 @@ export function createSimpleMemberDeclarationFromAST(ast: SimpleMemberDeclaratio
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
         else {
-            // Determine the appropriate kind of object definition based on the contextual scope
-            let decl: LocalVariableDefinition | GlobalVariableDefinition;
-            if (isBlockContext(context)) {
-                decl = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
-            }
-            else {
-                decl = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
-            }
-            declaration = decl;
-
-            // Set initializer
-            let init = declAST.initializer;
-            if (!init) {
-                decl.setDefaultInitializer();
-            }
-            else if (init.construct_type == "direct_initializer") {
-                decl.setDirectInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
-            else if (init.construct_type == "copy_initializer") {
-                decl.setCopyInitializer(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
-            else if (init.construct_type == "initializer_list") {
-                decl.setInitializerList(init.args.map((a) => createExpressionFromAST(a, context)));
-            }
+            declaration = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            setInitializerFromAST(declaration, declAST.initializer, context);
         }
 
         return declaration;
     });
 }
 
-export type AnalyticDeclaration = NonMemberSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+const MemberDeclarationConstructsMap = {
+    "simple_member_declaration": (ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) => createMemberSimpleDeclarationFromAST(ast, context),
+    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => FunctionDefinition.createFromAST(ast, context),
+    "constructor_definition": (ast: ConstructorDefinitionASTNode, context: MemberSpecificationContext) => ConstructorDefinition.createFromAST(ast, context),
+    "destructor_definition": (ast: DestructorDefinitionASTNode, context: MemberSpecificationContext) => DestructorDefinition.createFromAST(ast, context)
+};
+
+export function createMemberDeclarationFromAST<ASTType extends MemberDeclarationASTNode>(ast: ASTType, context: MemberSpecificationContext) : ReturnType<(typeof MemberDeclarationConstructsMap)[ASTType["construct_type"]]>{
+    return <any>MemberDeclarationConstructsMap[ast.construct_type](<any>ast, context);
+}
+
+export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNode, context: TranslationUnitContext) {
+    assert(isClassContext(context), "A Member declaration must be created in a block context.");
+
+    // Need to create TypeSpecifier first to get the base type for the declarators
+    let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
+    let baseType = typeSpec.baseType;
+    let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
+
+    // Create an array of the individual declarations (multiple on the same line
+    // will be parsed as a single AST node and need to be broken up)
+    return ast.declarators.map((declAST) => {
+
+        // Create declarator and determine declared type
+        let declarator = Declarator.createFromAST(declAST, context, baseType);
+        let declaredType = declarator.type;
+
+        // Create the declaration itself. Which kind depends on the declared type
+        let declaration: MemberSimpleDeclaration;
+        if (!declaredType) {
+            declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
+        }
+        else if (ast.specs.friend) {
+            declaration = new FriendDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
+        }
+        else if (ast.specs.typedef) {
+            declaration = new TypedefDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
+        }
+        else if (declaredType.isVoidType()) {
+            declaration = new VoidDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
+        }
+        else if (declaredType.isFunctionType()) {
+            declaration = new FunctionDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+        }
+        else if (declaredType.isArrayOfUnknownBoundType()) {
+            // TODO: it may be possible to determine the bound from the initializer
+            declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+        }
+        else {
+            declaration = new MemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            setInitializerFromAST(declaration, declAST.initializer, context);
+        }
+
+        return declaration;
+    });
+}
+
+export type AnalyticDeclaration = Declaration | Declarator;
 
 export type TypedDeclarationKinds<T extends Type> = {
     "unknown_type_declaration": T extends undefined ? UnknownTypeDeclaration : never;
@@ -474,7 +485,7 @@ export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends
 
 
 
-export interface SimpleNonMemberDeclarationASTNode extends ASTNode {
+export interface NonMemberSimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarators: readonly DeclaratorInitASTNode[];
@@ -536,7 +547,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly type: undefined;
     public readonly declaredEntity: undefined;
 
-    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | SimpleMemberDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
@@ -768,7 +779,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition && !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
     // }
 
-    public constructor(context: BlockContext, ast: SimpleNonMemberDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: BlockContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
@@ -825,7 +836,7 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly type: ObjectType | ReferenceType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
 
-    public constructor(context: TranslationUnitContext, ast: SimpleNonMemberDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
@@ -1704,12 +1715,12 @@ export interface MemberSpecificationASTNode extends ASTNode {
 }
 
 export type MemberDeclarationASTNode =
-    SimpleMemberDeclarationASTNode |
+    MemberSimpleDeclarationASTNode |
     ConstructorDefinitionASTNode |
     DestructorDefinitionASTNode |
     FunctionDefinitionASTNode;
 
-export interface SimpleMemberDeclarationASTNode extends ASTNode {
+export interface MemberSimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_member_declaration";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarators: readonly DeclaratorInitASTNode[];
