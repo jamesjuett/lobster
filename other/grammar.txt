@@ -186,19 +186,19 @@ class_definition
   }
 
 function_definition
-  = specs:decl_specifiers ! identifier ws declarator:declarator ws body:function_body
-    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, body:body}, location(), text()); }
+  = specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
 
-constructor_definition
+/*constructor_definition
   = name:class_name ws "(" ws args:argument_declaration_list ws ")" ws init:ctor_initializer? ws body:function_body
-    {return track({construct_type: "constructor_definition", name:name, body:body, ctorInitializer:init, args: args}, location(), text()); }
+    {return track({construct_type: "constructor_definition", name:name, body:body, ctorInitializer:init, args: args}, location(), text()); } */
 
-destructor_definition
+/*destructor_definition
   = "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
     {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body}, location(), text()); }
   / "virtual" WS "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body, virtual:true}, location(), text()); }
+    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body, virtual:true}, location(), text()); }*/
 
 ctor_initializer
   = ":" ws first:mem_initializer rest:(ws "," ws m:mem_initializer {return m;})* {rest.unshift(first); return track({construct_type: "ctor_initializer", initializers: rest}, location(), text());}
@@ -870,8 +870,8 @@ access_specifier
 member_declaration
   = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
     { return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text()); }
-  / c:constructor_definition ws ";"? { return c; }
-  / d:destructor_definition ws ";"? { return d; }
+  /* / c:constructor_definition ws ";"? { return c; } */
+  /* / d:destructor_definition ws ";"? { return d; } */
   / f:function_definition ws ";"? { return f; }
 
 
