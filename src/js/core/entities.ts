@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, AnalyticSimpleDeclaration } from "./declarations";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, NonMemberSimpleDeclaration } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -601,8 +601,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     public abstract readonly declarationKind: DeclarationKind;
 
     // TODO: not sure this should really be here as an abstract property?
-    public abstract readonly firstDeclaration: AnalyticSimpleDeclaration | ParameterDeclaration | ClassDeclaration;
-    public abstract readonly declarations: readonly AnalyticSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
+    public abstract readonly firstDeclaration: NonMemberSimpleDeclaration | ParameterDeclaration | ClassDeclaration;
+    public abstract readonly declarations: readonly NonMemberSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
@@ -785,8 +785,8 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObject
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
     public readonly qualifiedName: string;
-    public readonly firstDeclaration: AnalyticSimpleDeclaration;
-    public readonly declarations: readonly AnalyticSimpleDeclaration[];
+    public readonly firstDeclaration: NonMemberSimpleDeclaration;
+    public readonly declarations: readonly NonMemberSimpleDeclaration[];
     public readonly definition?: GlobalVariableDefinition;
 
     // storage: "static",

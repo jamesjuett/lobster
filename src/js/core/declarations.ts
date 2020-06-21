@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
@@ -220,38 +220,51 @@ export type DeclarationASTNode = TopLevelDeclarationASTNode | MemberDeclarationA
 
 export type TopLevelDeclarationASTNode = SimpleNonMemberDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
 
-export type Declaration = TopLevelDeclaration | MemberDeclaration;
+export type SimpleDeclarationASTNode = SimpleNonMemberDeclarationASTNode | SimpleMemberDeclarationASTNode;
 
-export type TopLevelDeclaration = AnalyticSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+export type Declaration = NonMemberSimpleDeclaration | MemberSimpleDeclaration;
+
+export type TopLevelDeclaration = NonMemberSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+
+export type NonMemberSimpleDeclaration =
+    UnknownTypeDeclaration |
+    VoidDeclaration |
+    TypedefDeclaration |
+    FriendDeclaration |
+    UnknownBoundArrayDeclaration |
+    FunctionDeclaration |
+    VariableDefinition;
+
+export type MemberSimpleDeclaration =
+    UnknownTypeDeclaration |
+    VoidDeclaration |
+    TypedefDeclaration |
+    FriendDeclaration |
+    UnknownBoundArrayDeclaration |
+    ConstructorDeclaration |
+    DestructorDeclaration;
+
+export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
+
+
+
 
 
 // interface t_DeclarationTypes {
 //     "simple_declaration": SimpleDeclaration;
 //     "function_definition": FunctionDefinition;
 // }
-export function createDeclarationFromAST(ast: SimpleNonMemberDeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[];
-export function createDeclarationFromAST(ast: SimpleMemberDeclarationASTNode, context: TranslationUnitContext): SimpleMemberDeclaration[];
-export function createDeclarationFromAST(ast: ConstructorDefinitionASTNode, context: TranslationUnitContext): ConstructorDefinition;
-export function createDeclarationFromAST(ast: DestructorDefinitionASTNode, context: TranslationUnitContext): DestructorDefinition;
+export function createDeclarationFromAST(ast: SimpleNonMemberDeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[];
 export function createDeclarationFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext): FunctionDefinition | InvalidConstruct;
 export function createDeclarationFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext): ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
-export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): AnalyticSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition;
+export function createDeclarationFromAST(ast: DeclarationASTNode, context: TranslationUnitContext): NonMemberSimpleDeclaration[] | FunctionDefinition | InvalidConstruct | ClassDefinition {
     if (ast.construct_type === "simple_declaration") {
         // Note: Simple declarations include function declarations, but NOT class declarations
         return createSimpleDeclarationFromAST(ast, context);
     }
-    else if (ast.construct_type === "simple_member_declaration") {
-        return FunctionDefinition.createFromAST(ast, context);
-    }
     else if (ast.construct_type === "function_definition") {
         return FunctionDefinition.createFromAST(ast, context);
-    }
-    else if (ast.construct_type === "constructor_definition") {
-        return ConstructorDefinition.createFromAST(ast, context);
-    }
-    else if (ast.construct_type === "destructor_definition") {
-        return DestructorDefinition.createFromAST(ast, context);
     }
     else {
         return ClassDefinition.createFromAST(ast, context);
@@ -277,7 +290,7 @@ export function createSimpleDeclarationFromAST(ast: SimpleDeclarationASTNode, co
         let declaredType = declarator.type;
 
         // Create the declaration itself. Which kind depends on the declared type
-        let declaration: AnalyticSimpleDeclaration;
+        let declaration: NonMemberSimpleDeclaration;
         if (!declaredType) {
             declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
@@ -369,7 +382,7 @@ export function createSimpleMemberDeclarationFromAST(ast: SimpleMemberDeclaratio
         let declaredType = declarator.type;
 
         // Create the declaration itself. Which kind depends on the declared type
-        let declaration: AnalyticSimpleDeclaration;
+        let declaration: NonMemberSimpleDeclaration;
         if (!declaredType) {
             declaration = new UnknownTypeDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
@@ -420,7 +433,7 @@ export function createSimpleMemberDeclarationFromAST(ast: SimpleMemberDeclaratio
     });
 }
 
-export type AnalyticDeclaration = AnalyticSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
+export type AnalyticDeclaration = NonMemberSimpleDeclaration | Declarator | FunctionDefinition | ClassDeclaration | ClassDefinition;
 
 export type TypedDeclarationKinds<T extends Type> = {
     "unknown_type_declaration": T extends undefined ? UnknownTypeDeclaration : never;
@@ -460,7 +473,6 @@ export type AnalyticTypedDeclaration<C extends AnalyticDeclaration, T extends Ty
 export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends Type = NonNullable<C["type"]>> = CompiledDeclarationKinds<T>[C["construct_type"]];
 
 
-export type SimpleDeclarationASTNode = SimpleNonMemberDeclarationASTNode | SimpleMemberDeclarationASTNode;
 
 export interface SimpleNonMemberDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_declaration";
@@ -517,15 +529,6 @@ export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedS
 
     readonly initializer?: CompiledInitializer;
 }
-
-export type AnalyticSimpleDeclaration =
-    UnknownTypeDeclaration |
-    VoidDeclaration |
-    TypedefDeclaration |
-    FriendDeclaration |
-    UnknownBoundArrayDeclaration |
-    FunctionDeclaration |
-    VariableDefinition;
 
 export class UnknownTypeDeclaration extends SimpleDeclaration {
     public readonly construct_type = "unknown_type_declaration";
@@ -749,7 +752,6 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
 //     readonly initializer?: CompiledInitializer<NoRefType<T>>;
 // }
 
-export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
 
 export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext> {
     public readonly construct_type = "local_variable_definition";
@@ -1755,7 +1757,7 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
     //     readonly declarators: readonly DeclaratorInitASTNode[];
     // }
 
-    public static createFromAST(ast: ClassDefinitionASTNode, context: TranslationUnitContext) {
+    public static createFromAST(ast: ClassDefinitionASTNode, tuContext: TranslationUnitContext) {
 
         // Ask the type system for the appropriate type.
         // Because Lobster only supports mechanisms for class declaration that yield
@@ -1764,20 +1766,24 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
         // not support namespaces, the unqualified name is sufficient.
         let classType = ClassType.createType(ast.head.name.identifier);
 
-        let declaration = new ClassDeclaration(context, ast.head.name.identifier, classType);
+        let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classType);
 
         // Create class context based on class entity from the declaration
-        let classContext = createClassContext(context, declaration.declaredEntity);
+        let classContext = createClassContext(tuContext, declaration.declaredEntity);
 
         // Create and compile declarations for all members
 
+        // Default access level is private for class, public for struct
+        let defaultAccessLevel : "private" | "public" = ast.head.classKey === "class" ? "private" : "public";
+        
         ast.memberSpecs.forEach(memSpec => {
 
-            // Access level is as specified or default to private for class, public for struct
-            let defaultAccessLevel = ast.head.classKey === "class" ? "private" : "public";
+            // Access level is as specified or the default
             let accessLevel = memSpec.access || defaultAccessLevel;
+            let memberSpecContext = createMemberSpecificationContext(classContext, accessLevel);
+
             let memDecls = memSpec.members.forEach(
-                memDecl => createDeclarationFromAST(memDecl, classContext)
+                memDecl => createDeclarationFromAST(memDecl, memberSpecContext)
             );
         });
 
