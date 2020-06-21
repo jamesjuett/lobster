@@ -1725,22 +1725,12 @@ export interface MemberSpecificationASTNode extends ASTNode {
 
 export type MemberDeclarationASTNode =
     MemberSimpleDeclarationASTNode |
-    ConstructorDefinitionASTNode |
-    DestructorDefinitionASTNode |
     FunctionDefinitionASTNode;
 
 export interface MemberSimpleDeclarationASTNode extends ASTNode {
     readonly construct_type: "simple_member_declaration";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarators: readonly DeclaratorInitASTNode[];
-}
-
-export interface ConstructorDefinitionASTNode extends ASTNode {
-    readonly construct_type: "constructor_definition";
-    readonly name: IdentifierASTNode;
-    readonly body: FunctionBodyASTNode;
-    readonly ctorInitializer: CtorInitializerASTNode;
-    readonly args: readonly ParameterDeclarationASTNode[];
 }
 
 export interface CtorInitializerASTNode extends ASTNode {
@@ -1752,13 +1742,6 @@ export interface MemberInitializerASTNode extends ASTNode {
     readonly construct_type: "member_initializer";
     readonly member: IdentifierASTNode;
     readonly args: readonly ExpressionASTNode[];
-}
-
-export interface DestructorDefinitionASTNode extends ASTNode {
-    readonly construct_type: "destructor_definition";
-    readonly name: IdentifierASTNode;
-    readonly body: FunctionBodyASTNode;
-    readonly virtual?: true;
 }
 
 export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, ClassDefinitionASTNode> {
