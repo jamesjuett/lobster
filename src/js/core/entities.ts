@@ -15,13 +15,13 @@ import { RuntimeFunction } from "./functions";
 
 interface NormalLookupOptions {
     readonly kind: "normal";
-    readonly own?: boolean;
+    readonly noParent?: boolean;
     readonly noBase?: boolean;
 }
 
 interface ExactLookupOptions {
     readonly kind: "exact";
-    readonly own?: boolean;
+    readonly noParent?: boolean;
     readonly noBase?: boolean;
     readonly paramTypes: readonly PotentialParameterType[]
     readonly receiverType?: ClassType;
@@ -298,8 +298,8 @@ export class Scope {
 
         // If we don't have an entity in this scope and we didn't specify we
         // wanted an own entity, look in parent scope (if there is one)
-        if (!ent && !options.own && this.parent) {
-            return this.parent.lookup(name, options);
+        if (!ent && !options.noParent && this.parent) {
+            return this.parent.lookup(name, Object.assign({}, options, {noBase: true}));
         }
 
         // If we didn't find anything, return undefined
@@ -380,16 +380,15 @@ export class BlockScope extends Scope {
 export class NamespaceScope extends Scope {
 
     public readonly name: string;
-    private readonly children: { [index: string]: NamespaceScope | undefined };
+    // private readonly children: { [index: string]: NamespaceScope | undefined };
 
     public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope) {
         super(translationUnit, parent);
-        assert(!parent || parent instanceof NamespaceScope);
         this.name = name;
-        this.children = {};
-        if (parent) {
-            parent.addChild(this);
-        }
+        // this.children = {};
+        // if (parent) {
+        //     parent.addChild(this);
+        // }
     }
 
     protected variableEntityCreated(newEntity: VariableEntity) {
@@ -399,64 +398,78 @@ export class NamespaceScope extends Scope {
         }
     }
 
-    private addChild(child: NamespaceScope) {
-        if (child.name) {
-            this.children[child.name] = child;
-        }
-    }
+    // private addChild(child: NamespaceScope) {
+    //     if (child.name) {
+    //         this.children[child.name] = child;
+    //     }
+    // }
 }
 
+export class ClassScope extends Scope {
 
-// export var ClassScope = NamespaceScope.extend({
-//     _name: "ClassScope",
+    public readonly name: string;
+    public readonly base?: ClassScope;
 
-//     init: function(name, parent, base, sim){
-//         this.initParent(name, parent, sim);
-//         if(base){
-//             assert(base instanceof ClassScope);
-//             this.base = base;
-//         }
-//     },
+    public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope | ClassScope, base?: ClassScope) {
+        super(translationUnit, parent);
+        this.name = name;
+        this.base = base;
+    }
 
-//     lookup : function(name, options){
-//         options = options || {};
-//         // If specified, will not look up in base class scopes
-//         if (options.noBase){
-//             return Scope.lookup.apply(this, arguments);
-//         }
+    protected variableEntityCreated(newEntity: VariableEntity) {
+        super.variableEntityCreated(newEntity);
+        // TODO: add linkage when static members are implemented
+        // if (newEntity instanceof StaticMemberObjectEntity) {
+        //     this.translationUnit.context.program.registerGlobalObjectEntity(newEntity);
+        // }
+    }
 
-//         return this.memberLookup(name, options) || Scope.lookup.apply(this, arguments);
-//     },
+    /**
+     * Performs unqualified name lookup of a given name in this class scope. The
+     * behavior and customization options are similar to `lookup()` in the Scope
+     * class, except that the base class scope (if it exists) will be searched
+     * before parent scopes.
+     * @param name An unqualified name to be looked up.
+     * @param options A set of options to customize the lookup process.
+     */
+    public lookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+        let ownMember = super.lookup(name, Object.assign({}, options, {noBase: true, noParent: true}));
+        if (ownMember) {
+            return ownMember;
+        }
 
-//     requiredMemberLookup : function(name, options){
-//         return this.i_requiredLookupImpl(this.memberLookup(name, options), name, options);
-//     },
-//     memberLookup : function(name, options){
-//         var own = Scope.lookup.call(this, name, copyMixin(options, {own:true}));
-//         if (!own){
-//             return !options.noBase && this.base && this.base.memberLookup(name, options);
-//         }
-//         if (Array.isArray(own) && own.length === 0){
-//             // Check to see if we could have found it except for name hiding
-//             // (If we ever got an array, rather than just null, it means we found a match
-//             // with the name for a set of overloaded functions, but none were viable)
-//             if (!options.noBase && this.base){
-//                 var couldHave = this.base.memberLookup(name, options);
-//                 if (couldHave && (!Array.isArray(couldHave) || couldHave.length === 1 || couldHave === Scope.HIDDEN)){
-//                     if (options.noNameHiding){
-//                         return couldHave;
-//                     }
-//                     else{
-//                         return Scope.HIDDEN;
-//                     }
-//                 }
-//             }
-//             return Scope.NO_MATCH;
-//         }
-//         return own;
-//     }
-// });
+        let baseMember = this.base && !options.noBase && this.base.lookup(name, Object.assign({}, options, {noParent: true}));
+        if (baseMember) {
+            return baseMember;
+        }
 
+        let parentMember = this.parent && !options.noParent && this.parent.lookup(name, Object.assign({}, options, {noBase: true}));
+        if (parentMember) {
+            return parentMember;
+        }
+
+        // returns undefined
+    }
+
+    // /**
+    //  * Performs member name lookup of a given name in this class scope. Only names
+    //  * declared in this scope and potentially the base class scope will be considered.
+    //  * Parent scopes will not be considered. The lookup process can be customized
+    //  * by providing a set of `NameLookupOptions` (see documentation for the
+    //  * `NameLookupOptions` type for more details.)
+    //  * @param name An unqualified name to be looked up.
+    //  * @param options A set of options to customize the lookup process.
+    //  */
+    // public memberLookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+    //     let ownMember = super.lookup(name, Object.assign({}, options, {noParent: true});
+    //     if (ownMember) {
+    //         return ownMember;
+    //     }
+    //     else {
+    //         return 
+    //     }
+    // }
+}
 
 export interface EntityDescription {
     name: string;
