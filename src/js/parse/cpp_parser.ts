@@ -686,7 +686,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c428 = function(head: any): any {return getUserTypeNames()[head.name.identifier]=true;};
   const peg$c429 = function(head: any, mems: any): any { return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text()); };
   const peg$c430 = function(key: any, name: any, b: any): any {return b;};
-  const peg$c431 = function(key: any, name: any, bases: any): any { return track({construct_type: "class_head", key:key, name:name, bases:bases}, location(), text()); };
+  const peg$c431 = function(key: any, name: any, bases: any): any { return track({construct_type: "class_head", classKey:key, name:name, bases:bases}, location(), text()); };
   const peg$c432 = "class";
   const peg$c433 = peg$literalExpectation("class", false);
   const peg$c434 = "struct";
@@ -714,11 +714,11 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c456 = function(first: any, b: any): any {return b;};
   const peg$c457 = function(a: any): any {return a;};
   const peg$c458 = function(a: any, c: any): any {
-      return track({name: c, virtual: true, access: a}, location(), text());};
+      return track({construct_type: "base_specifier", name: c, virtual: true, access: a}, location(), text());};
   const peg$c459 = function(a: any, c: any): any {
-      return track({name: c, access: a}, location(), text());};
+      return track({construct_type: "base_specifier", name: c, access: a}, location(), text());};
   const peg$c460 = function(c: any): any {
-      return track({name: c}, location(), text());};
+      return track({construct_type: "base_specifier", name: c}, location(), text());};
   const peg$c461 = function(n: any, c: any): any {
       n.push(c);
       return n;};

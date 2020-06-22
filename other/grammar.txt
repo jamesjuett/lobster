@@ -844,7 +844,7 @@ class_specifier
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
-    { return track({construct_type: "class_head", key:key, name:name, bases:bases}, location(), text()); }
+    { return track({construct_type: "class_head", classKey:key, name:name, bases:bases}, location(), text()); }
   // = key:class_key WS base:base_clause?
   //   { return track({key:key, base:base}, location(), text()); }
 
@@ -895,16 +895,16 @@ base_specifier_list
 
 base_specifier
   = "virtual" WS a:(a:access_specifier WS {return a;}) c:qualified_class_name{
-    return track({name: c, virtual: true, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, virtual: true, access: a}, location(), text());}
 
   / a:(a:access_specifier WS {return a;}) "virtual" WS c:qualified_class_name{
-    return track({name: c, virtual: true, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, virtual: true, access: a}, location(), text());}
 
   / a:access_specifier WS c:qualified_class_name{
-    return track({name: c, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, access: a}, location(), text());}
 
   / c:qualified_class_name{
-    return track({name: c}, location(), text());}
+    return track({construct_type: "base_specifier", name: c}, location(), text());}
 
   
 qualified_class_name

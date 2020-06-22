@@ -5,7 +5,7 @@ import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, NonMemberSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, NonMemberSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
 
@@ -105,8 +105,6 @@ export function isClassContext(context: TranslationUnitContext) : context is Cla
     return !!(context as ClassContext).classEntity && !!(context as ClassContext).classMembers;
 }
 
-export type AccessLevel = "public" | "protected" | "private";
-
 export interface ClassContext extends TranslationUnitContext {
     readonly classEntity: ClassEntity;
     readonly classMembers: ClassMembers;
@@ -125,10 +123,10 @@ export function isMemberSpecificationContext(context: TranslationUnitContext) : 
 }
 
 export interface MemberSpecificationContext extends ClassContext {
-    readonly accessLevel: AccessLevel;
+    readonly accessLevel: AccessSpecifier;
 }
 
-export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessLevel): MemberSpecificationContext {
+export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext {
     return Object.assign({}, parentContext, {
         accessLevel: accessLevel
     });

@@ -758,7 +758,7 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\"" + name + "\" is a C++ operator and cannot be used as an identifier.");
         },
         not_found: function (construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find a variable or function called "${name}" in this scope.`);
+            return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find "${name}" in this scope.`);
         }
     },
     param: {
