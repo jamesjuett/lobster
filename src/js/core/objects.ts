@@ -103,40 +103,44 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
 
 class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
-    // public readonly subobjects: Subobject[];
-    // public readonly baseSubobjects: BaseSubobject[];
-    // public readonly memberSubobjects: MemberSubobject[];
-    // private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
+    public readonly subobjects: readonly Subobject[];
+    public readonly baseSubobjects: readonly BaseSubobject[];
+    public readonly memberSubobjects: readonly MemberSubobject[];
+    private readonly memberSubobjectMap: {[index: string]: CPPObject | undefined} = {};
 
-    // public constructor(object: CPPObject<T>, memory: Memory, address: number) {
-    //     super(object, memory, address);
+    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
+        super(object, memory, address);
 
-    //     let subAddr = this.address;
+        let subAddr = this.address;
 
-    //     this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
-    //         let subObj = base.objectInstance(this.object, memory, subAddr);
-    //         subAddr += subObj.size;
-    //         return subObj;
-    //     });
+        this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
+            let subObj = base.objectInstance(this.object, memory, subAddr);
+            subAddr += subObj.size;
+            return subObj;
+        });
 
-    //     this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
-    //         let subObj = mem.objectInstance(this.object, memory, subAddr);
-    //         subAddr += subObj.size;
-    //         this.memberSubobjectMap[mem.name] = subObj;
-    //         return subObj;
-    //     });
+        this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
+            let subObj = mem.objectInstance(this.object, memory, subAddr);
+            subAddr += subObj.size;
+            this.memberSubobjectMap[mem.name] = subObj;
+            return subObj;
+        });
 
+        this.subobjects = [];
+        this.subobjects = this.subobjects.concat(this.baseSubobjects).concat(this.memberSubobjects);
+    }
 
-    //     this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
-    // }
+    public getMemberSubobject(name: string) : CPPObject | undefined {
+        return this.memberSubobjectMap[name] ?? this.baseSubobjects[0]?.getMemberSubobject(name);
+    }
 
-    // public getMemberSubobject(name: string) {
-    //     return this.memberSubobjectMap[name];
-    // }
+    public bindMemberReference(name: string, obj: CPPObject<ObjectType>) {
+        this.memberSubobjectMap[name] = obj;
+    }
 
-    // public getBaseSubobject() : BaseSubobject | undefined {
-    //     return this.baseSubobjects[0];
-    // }
+    public getBaseSubobject() : BaseSubobject | undefined {
+        return this.baseSubobjects[0];
+    }
 
     // TODO: Could remove? This isn't currently used and I don't think it's useful for anything
     // public getSubobjectByAddress(address: number) {
@@ -288,15 +292,22 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
-    // // Only allowed if receiver matches CPPObject<ClassType>
-    // public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
-    //     return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
-    // }
+    // Only allowed if receiver matches CPPObject<ClassType>
+    public getMemberSubobject(this: CPPObject<ClassType>, name: string) : CPPObject {
+        return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
+    }
 
-    // // Only allowed if receiver matches CPPObject<ClassType>
-    // public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
-    //     return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
-    // }
+    // Only allowed if receiver matches CPPObject<ClassType>
+    public bindMemberReference(this: CPPObject<ClassType>, name: string, obj: CPPObject<ObjectType>) {
+        (<ClassObjectData<ClassType>>this.data).getMemberSubobject
+        this.localReferencesByEntityId[entity.entityId] = obj;
+        this.observable.send("referenceBound", { entity: entity, object: obj });
+    }
+
+    // Only allowed if receiver matches CPPObject<ClassType>
+    public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
+        return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
+    }
 
     public subobjectValueWritten() {
         this.observable.send("valueWritten");

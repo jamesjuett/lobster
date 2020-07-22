@@ -3,8 +3,8 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, NonMemberSimpleDeclaration } from "./declarations";
-import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription } from "./objects";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration } from "./declarations";
+import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
@@ -289,7 +289,7 @@ export class Scope {
     public lookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
         options = options || {};
 
-        assert(!name.includes("::"), "Qualified name used with unqualified loookup function.");
+        assert(!name.includes("::"), "Qualified name used with unqualified lookup function.");
 
         // Note: We do not need to check this.hiddenClassEntities here. If a class entity
         // is hidden by another entity of the same name in the same scope, the only way to
@@ -410,7 +410,14 @@ export class ClassScope extends Scope {
     public readonly name: string;
     public readonly base?: ClassScope;
 
-    public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope | ClassScope, base?: ClassScope) {
+    /**
+     * 
+     * @param translationUnit 
+     * @param name The unqualified name of the class
+     * @param parent 
+     * @param base 
+     */
+    public constructor(translationUnit: TranslationUnit, name: string, parent?: Scope | ClassScope, base?: ClassScope) {
         super(translationUnit, parent);
         this.name = name;
         this.base = base;
@@ -614,8 +621,8 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
     public abstract readonly declarationKind: DeclarationKind;
 
     // TODO: not sure this should really be here as an abstract property?
-    public abstract readonly firstDeclaration: NonMemberSimpleDeclaration | ParameterDeclaration | ClassDeclaration;
-    public abstract readonly declarations: readonly NonMemberSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
+    // public abstract readonly firstDeclaration: SimpleDeclaration | ParameterDeclaration | ClassDeclaration;
+    // public abstract readonly declarations: readonly NonMemberSimpleDeclaration[] | readonly ParameterDefinition[] | readonly ClassDeclaration[];
     // public readonly definition?: SimpleDeclaration;
 
     public constructor(type: T, name: string) {
@@ -712,7 +719,6 @@ abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends Dec
 }
 
 export class LocalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
-    public readonly kind = "AutoEntity";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -750,15 +756,15 @@ export class LocalObjectEntity<T extends ObjectType = ObjectType> extends Variab
 
 
 export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T>, ObjectEntity<T> {
-    runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
+
 }
+
 
 export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
     bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>): void;
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
-    public readonly kind = "LocalReferenceEntity";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -850,7 +856,11 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
     }
 };
 
-export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T>;
+
+
+export type MemberVariableEntity<T extends ObjectType = ObjectType> = MemberObjectEntity<T> | MemberReferenceEntity<T>;
+
+export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T> | MemberVariableEntity<T>;
 
 
 // TODO: implement global references
@@ -1181,58 +1191,61 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 //     }
 // };
 
-// // TODO: need class for reference members
-// export class MemberVariableEntity<T extends ObjectType = ObjectType> extends DeclaredEntity<T> implements ObjectEntity<T> {
-//     protected static readonly _name = "MemberVariableEntity";
-//     // storage: "none",
+export class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
-//     public readonly access: string;
-//     public readonly memberOfType: Types.Class;
+    public readonly firstDeclaration: MemberVariableDeclaration;
+    public readonly declarations: readonly MemberVariableDeclaration[];
 
-//     public constructor(decl: SimpleDeclaration, memberOfType: Types.Class) {
-//         super(decl);
-//         this.memberOfType = memberOfType;
-//         this.access = decl.access;
-//     }
+    public constructor(type: T, decl: MemberVariableDeclaration) {
+        super(type, decl.name);
+        this.firstDeclaration = decl;
+        this.declarations = [decl];
+    }
 
-//     public toString() {
-//         return this.name + " (" + this.type + ")";
-//     }
+    public toString() {
+        return this.name + " (" + this.type + ")";
+    }
 
-//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-//         var recObj = rtConstruct.contextualReceiver();
+    public mergeInto(existingEntity: VariableEntity) {
+        // Redeclaration of member variable is never ok
+        return CPPError.declaration.prev_member(this.firstDeclaration, this.name);
+    }
 
-//         while(recObj && !recObj.type.similarType(this.memberOfType)) {
-//             recObj = recObj.type.getBaseClass() && recObj.i_baseSubobjects[0];
-//         }
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        return <MemberSubobject<T>>rtConstruct.contextualReceiver.getMemberSubobject(this.name);
+    }
 
-//         assert(recObj, "Internal lookup failed to find subobject in class or base classses.");
+    public describe() {
+        return { name: this.name, message: `the member ${this.name}` };
+        // if (rtConstruct){
+        //     var recObj = rtConstruct.contextualReceiver();
+        //     if (recObj.name){
+        //         return {message: recObj.name + "." + this.name};
+        //     }
+        //     else{
+        //         return {message: "the member " + this.name + " of " + recObj.describe().message};
+        //     }
+        // }
+        // else{
+        //     return {
+        //         name: this.memberOfType.className + "." + this.name,
+        //         message: "the " + this.name + " member of the " + this.memberOfType.className + " class"
+        //     };
+        // }
+    }
+};
 
-//         return recObj.getMemberSubobject(this.name);
-//     }
+export class MemberObjectEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> {
 
-//     public objectInstance(parentObj: CPPObject<ClassType>, memory: Memory, address: number) {
-//         return new MemberSubobject(parentObj, this.type, this.name, memory, address);
-//     }
+}
 
-//     public describe() {
-//         if (rtConstruct){
-//             var recObj = rtConstruct.contextualReceiver();
-//             if (recObj.name){
-//                 return {message: recObj.name + "." + this.name};
-//             }
-//             else{
-//                 return {message: "the member " + this.name + " of " + recObj.describe().message};
-//             }
-//         }
-//         else{
-//             return {
-//                 name: this.memberOfType.className + "." + this.name,
-//                 message: "the " + this.name + " member of the " + this.memberOfType.className + " class"
-//             };
-//         }
-//     }
-// }
+export class MemberReferenceEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+
+    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
+        rtConstruct.contextualReceiver.bindMemberReference(this.name, obj)
+    }
+
+};
 
 export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";

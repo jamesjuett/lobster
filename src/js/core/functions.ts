@@ -38,7 +38,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
         if (caller) { this.caller = caller };
         this.receiver = receiver;
         // A function is its own containing function context
-        // this.containingRuntimeFunction = this;
+        this.setContainingRuntimeFunction(this);
         this.body = createRuntimeStatement(this.model.body, this);
     }
 
