@@ -1,13 +1,13 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, AccessLevel } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
-import { CPPObject } from "./objects";
+import { CPPObject, ArraySubobject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
@@ -242,9 +242,9 @@ export type MemberDeclaration = MemberSimpleDeclaration | FunctionDefinition | C
 
 export type MemberSimpleDeclaration =
     NonObjectDeclaration |
-    MemberVariableDeclaration |
-    ConstructorDeclaration |
-    DestructorDeclaration;
+    MemberVariableDeclaration;// |
+    // ConstructorDeclaration |
+    // DestructorDeclaration;
 
 export type NonObjectDeclaration = 
     UnknownTypeDeclaration |
@@ -261,7 +261,7 @@ export type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinit
 const TopLevelDeclarationConstructsMap = {
     "simple_declaration": (ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) => createTopLevelSimpleDeclarationFromAST(ast, context),
     "function_definition": (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => {
-        return FunctionDefinition.createFromAST(ast, decl, context)
+        return FunctionDefinition.createFromAST(ast, context);
     },
     "class_definition": (ast: ClassDefinitionASTNode, context: TranslationUnitContext) => ClassDefinition.createFromAST(ast, context)
 };
@@ -317,7 +317,7 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
     });
 }
 
-export function setInitializerFromAST(declaration: VariableDefinition, initAST: DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode | undefined, context: TranslationUnitContext) {
+export function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode | undefined, context: TranslationUnitContext) {
     if (!initAST) {
         declaration.setDefaultInitializer();
     }
@@ -398,8 +398,8 @@ export function createMemberDeclarationFromAST<ASTType extends MemberDeclaration
     return <any>MemberDeclarationConstructsMap[ast.construct_type](<any>ast, context);
 }
 
-export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNode, context: TranslationUnitContext) {
-    assert(isMemberSpecificationContext(context), "A Member declaration must be created in a member specification context.");
+export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) {
+    // assert(isMemberSpecificationContext(context), "A Member declaration must be created in a member specification context.");
 
     // Need to create TypeSpecifier first to get the base type for the declarators
     let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
@@ -444,9 +444,10 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
     });
 }
 
-export type AnalyticDeclaration = Declaration | Declarator;
+export type AnalyticDeclaration = Declaration | Declarator | ParameterDeclaration;
 
 export type TypedDeclarationKinds<T extends Type> = {
+    "invalid_construct": T extends undefined ? InvalidConstruct : never
     "unknown_type_declaration": T extends undefined ? UnknownTypeDeclaration : never;
     "void_declaration": T extends VoidType ? VoidDeclaration : never;
     "storage_specifier": never;
@@ -460,10 +461,13 @@ export type TypedDeclarationKinds<T extends Type> = {
     "function_definition": T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
     "class_declaration": T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
     "class_definition": T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
+    "member_variable_declaration": T extends MemberVariableDeclaration["type"] ? TypedMemberVariableDeclaration<T> : never;
+    
     // TODO: add rest of discriminants and their types
 };
 
 export type CompiledDeclarationKinds<T extends Type> = {
+    "invalid_construct": never; // these never compile
     "unknown_type_declaration": never; // these never compile
     "void_declaration": never; // these never compile
     "storage_specifier": never; // currently unsupported
@@ -477,6 +481,7 @@ export type CompiledDeclarationKinds<T extends Type> = {
     "function_definition": T extends FunctionDeclaration["type"] ? CompiledFunctionDefinition<T> : never;
     "class_declaration": T extends ClassDeclaration["type"] ? CompiledClassDeclaration<T> : never;
     "class_definition": T extends ClassDefinition["type"] ? CompiledClassDefinition<T> : never;
+    "member_variable_declaration": T extends MemberVariableDeclaration["type"] ? CompiledMemberVariableDeclaration<T> : never;
     // TODO: add rest of discriminants and their types
 };
 
@@ -731,7 +736,12 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
         assert(!this.initializer); // should only be called once
         (<Mutable<this>>this).initializer = init;
         this.attach(init);
+        this.initializerWasSet(init);
         return this;
+    }
+
+    protected initializerWasSet(init: Initializer) {
+        // hook for subclasses
     }
 
     public setDefaultInitializer() {
@@ -819,7 +829,7 @@ export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceTy
     readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
 }
 
-export interface CompiledLocalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends LocalVariableDefinition, SuccessfullyCompiled {
+export interface CompiledLocalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedLocalVariableDefinition<T>, SuccessfullyCompiled {
 
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
@@ -1084,7 +1094,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
 
         if (this.name && isClassContext(this.context)) {
-            let className = this.context.classEntity.name;
+            let className = this.context.containingClass.name;
             if (this.name === className) {
                 (<Mutable<this>>this).hasConstructorName = true;
             }
@@ -1290,7 +1300,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
 
         // TODO clean up error immediately above and get rid of yucky cast below
-        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass && this.context.containingClass.cvQualified(!!postfix.const));
+        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass && this.context.containingClass.type.cvQualified(!!postfix.const));
     }
 
 }
@@ -1634,13 +1644,35 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     // }
 }
 
+/**
+ * Attempts to create a `FunctionDeclaration` from the given function definition AST. Note this may
+ * return an InvalidConstrucct if the given AST was malformed such that the declarator didn't actually specify
+ * a function (e.g. missing parentheses). This is unfortunately allowed by the language grammar, so
+ * we have to account for it.
+ * @param ast 
+ * @param context 
+ */
 function createFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
-    return createTopLevelSimpleDeclarationFromAST({
+
+    // Need to create TypeSpecifier first to get the base type for the declarators
+    let typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
+    let baseType = typeSpec.baseType;
+    let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
+
+    let declarator = Declarator.createFromAST(ast.declarator, context, baseType);
+    let declaredType = declarator.type;
+
+    if (!declaredType?.isFunctionType()) {
+        return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
+    }
+    
+    return new FunctionDeclaration(context, {
         construct_type: "simple_declaration",
         declarators: [ast.declarator],
         specs: ast.specs,
         source: ast.declarator.source
-    }, context)[0];
+    }, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+
 }
 
 export interface TypedFunctionDefinition<T extends FunctionType> extends FunctionDefinition {
@@ -1663,13 +1695,15 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly construct_type = "class_declaration";
 
     public readonly name: string;
+    public readonly key: ClassKey;
     public readonly type: ClassType;
     public readonly declaredEntity: ClassEntity;
 
-    public constructor(context: TranslationUnitContext, name: string, type: ClassType) {
+    public constructor(context: TranslationUnitContext, name: string, key: ClassKey, type: ClassType) {
         super(context, undefined);
 
         this.name = name;
+        this.key = key;
         this.type = type;
 
         this.declaredEntity = new ClassEntity(type, this);
@@ -1713,7 +1747,7 @@ export interface ClassHeadASTNode extends ASTNode {
 export interface BaseSpecifierASTNode extends ASTNode {
     readonly name: string;
     readonly virtual?: true;
-    readonly access?: AccessLevel;
+    readonly access?: AccessSpecifier;
 }
 
 export interface ClassDefinitionASTNode extends ASTNode {
@@ -1759,6 +1793,7 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
     public readonly type: ClassType;
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
+    public readonly memberDeclarations: readonly MemberDeclaration[];
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
@@ -1770,33 +1805,39 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
 
     public static createFromAST(ast: ClassDefinitionASTNode, tuContext: TranslationUnitContext) {
 
+        let classKey = ast.head.classKey;
+
+        // Default access level is private for class, public for struct
+        let defaultAccessLevel: AccessSpecifier = (classKey === "class" ? "private" : "public");
+
+        // Base specifiers are NOT created in the class context, since the base class
+        // entity it refers to is looked up without regard to what follows in the class.
+        // (And if it were dependent on the class scope, which is dependent on the base
+        // class scope, etc. there's circular problems.)
+        let bases = ast.head.bases.map(
+            baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
+
         // Ask the type system for the appropriate type.
         // Because Lobster only supports mechanisms for class declaration that yield
         // classes with external linkage, it is sufficient to use the fully qualified
-        // class name to distinguish types from each other. Also, because Lobster does
-        // not support namespaces, the unqualified name is sufficient.
+        // class name to distinguish types from each other. But, because Lobster does
+        // not support namespaces, the unqualified name is also sufficient.
         let classType = ClassType.createType(ast.head.name.identifier);
 
-        let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classType);
+        let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey, classType);
 
         // Create class context based on class entity from the declaration
         let classContext = createClassContext(tuContext, declaration.declaredEntity);
 
+        let memDecls : MemberDeclaration[] = []
+        let functionDefsToCompile : [number, FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];
+
         // Create and compile declarations for all members
-
-        // Default access level is private for class, public for struct
-        let defaultAccessLevel : "private" | "public" = ast.head.classKey === "class" ? "private" : "public";
-        
-        // Base specifier is created in an implicit member specification context
-        // that has the default access level for the struct/class, though this
-        // may of course be overruled if the base specifier AST itself contains an access level.
-        let bases = ast.head.bases.map(baseAST => BaseSpecifier.createFromAST(baseAST,
-            createMemberSpecificationContext(classContext, defaultAccessLevel)));
-
         ast.memberSpecs.forEach(memSpec => {
+            // This outer forEach goes through all "sections" of public, private, etc.
 
             // Access level is as specified or the default
-            let accessLevel = memSpec.access || defaultAccessLevel;
+            let accessLevel = memSpec.access ?? defaultAccessLevel;
             let memberSpecContext = createMemberSpecificationContext(classContext, accessLevel);
 
             // Compilation of a class definition occurs in two phases. First, declarations are
@@ -1807,45 +1848,34 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
             // other members, e.g. calling one member function within another member function's body.
 
             // Phase 1: Initially create member declarations. This will NOT create/compile definitions.
-            let memDecls : MemberDeclaration[] = memSpec.members.map(
-                memberAST => createMemberDeclarationFromAST(memberAST, memberSpecContext)
-            );
 
-            // Phase 2: Go back through and compile member function definitions, replacing
-            // the previous declarations in the overall list of members.
-            memSpec.members.forEach((memberAST, i) => {
-                if (memberAST.construct_type === "function_definition") {
-                    memDecls[i] = FunctionDefinition.createFromAST(memberAST, memberSpecContext, memDecls[i])
+            memSpec.members.forEach((memberAST) => {
+                let decls = createMemberDeclarationFromAST(memberAST, memberSpecContext);
+                if (Array.isArray(decls)) {
+                    decls.forEach(memDecl => memDecls.push(memDecl))
+                }
+                else {
+                    memDecls.push(decls);
+                    if (decls.construct_type === "function_declaration" && memberAST.construct_type === "function_definition") {
+                        functionDefsToCompile.push([memDecls.length - 1, memberAST, memberSpecContext, decls]);
+                    }
                 }
             });
 
         });
 
-        // let body = new Block(functionContext);
-        // let bodyContext = body.context;
+        // Phase 2: Go back through and compile member function definitions, replacing
+        // the previous declarations in the overall list of members.
+        functionDefsToCompile.forEach(([i, defAST, memberSpecContext, decl]) => {
+            memDecls[i] = FunctionDefinition.createFromAST(defAST, memberSpecContext, decl);
+        });
 
-        // // Add declared entities from the parameters to the body block's context.
-        // // As the context refers back to the implementation, local objects/references will be registerd there.
-        // declaration.parameterDeclarations.forEach(paramDecl => {
-        //     if (paramDecl.isParameterDefinition()) {
-        //         paramDecl.addEntityToScope(bodyContext);
-        //     }
-        //     else {
-        //         paramDecl.addNote(CPPError.lobster.unsupported_feature(paramDecl, "Unnamed parameter definitions."));
-        //     }
-        // });
-
-        // // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-        // // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-        // // added after the parameters.)
-        // ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
-
-        return new ClassDefinition(classContext, ast, declaration, bases);
+        return new ClassDefinition(classContext, ast, declaration, bases, memDecls);
     }
 
     //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: ClassContext, ast: ClassDefinitionASTNode | undefined, declaration: ClassDeclaration, baseSpecs: readonly BaseSpecifier[]) {
+    public constructor(context: ClassContext, ast: ClassDefinitionASTNode | undefined, declaration: ClassDeclaration, baseSpecs: readonly BaseSpecifier[], memberDeclarations: readonly MemberDeclaration[]) {
         super(context, ast);
 
         this.name = declaration.name;
@@ -1855,67 +1885,19 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
 
         this.declaration.declaredEntity.setDefinition(this);
 
-        this.baseSpecifiers = baseSpecs;
+        this.attachAll(this.baseSpecifiers = baseSpecs);
         if (baseSpecs.length > 1) {
             this.addNote(CPPError.class_def.multiple_inheritance(this));
         }
+
+        this.attachAll(this.memberDeclarations = memberDeclarations);
+
+        this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
-    //         this.attachAll(this.parameters = parameters);
-    //         this.attach(this.body = body);
 
-    //         this.name = declaration.name;
-    //         this.type = declaration.type;
-
-    //         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
-
-    //         // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
-    //         // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-    //         //     return isA(obj.type, Types.Class);
-    //         // });
-
-    //         // this.bodyScope.automaticObjects.filter(function(obj){
-    //         //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-    //         // }).map(function(arr){
-    //         //   for(var i = 0; i < arr.type.length; ++i){
-    //         //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-    //         //   }
-    //         // });
-
-    //         // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-    //         //     var dest = entityToDestruct.type.destructor;
-    //         //     if (dest){
-    //         //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-    //         //         call.compile({
-    //         //             func: dest,
-    //         //             receiver: entityToDestruct});
-    //         //         return call;
-    //         //     }
-    //         //     else{
-    //         //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-    //         //     }
-
-    //         // });
-    //     }
-
-
-
-    //     compile : function(){
-    //         assert(false, "Must use compileDeclaration and compileDefinition separately for a ClassDeclaration.");
-    //     },
 
     //     compileDeclaration : function(){
     //         var ast = this.ast;
-
-
-    //         this.key = ast.head.key;
-    //         this.name = ast.head.name.identifier;
-    //         this.members = [];
-
-
-    //         // Base classes
-
-
-
 
 
     //         // Check that no other type with the same name already exists
@@ -2017,14 +1999,6 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
     //         }
     //     },
 
-    //     compileDefinition : function() {
-    //         if (this.hasErrors()){
-    //             return;
-    //         }
-    //         for(var i = 0; i < this.memDecls.length; ++i){
-    //             this.memDecls[i].compileDefinition();
-    //         }
-    //     },
 
 
     //     createImplicitDefaultConstructor : function(){
@@ -2203,6 +2177,8 @@ export interface TypedClassDefinition<T extends ClassType> extends ClassDefiniti
 
 export interface CompiledClassDefinition<T extends ClassType = ClassType> extends TypedClassDefinition<T>, SuccessfullyCompiled {
     readonly declaration: CompiledClassDeclaration<T>;
+    readonly baseSpecifiers: readonly CompiledBaseSpecifier[];
+    // readonly memberDeclarations: readonly CompiledMemberDeclaration[]; // TODO
 }
 
 export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, BaseSpecifierASTNode> {
@@ -2213,10 +2189,10 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
     public readonly virtual: boolean;
     public readonly baseEntity?: ClassEntity;
 
-    public constructor(context: MemberSpecificationContext, ast: BaseSpecifierASTNode) {
+    public constructor(context: TranslationUnitContext, ast: BaseSpecifierASTNode, defaultAccessLevel: AccessSpecifier) {
         super(context, ast);
         this.name = ast.name;
-        this.accessLevel = ast.access ?? context.accessLevel;
+        this.accessLevel = ast.access ?? defaultAccessLevel;
         this.virtual = !!ast.virtual;
 
         if (this.virtual) {
@@ -2238,14 +2214,66 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
         }
     }
 
-    public static createFromAST(ast: BaseSpecifierASTNode, context: MemberSpecificationContext) {
-        return new BaseSpecifier(context, ast);
+    public static createFromAST(ast: BaseSpecifierASTNode, context: TranslationUnitContext, defaultAccessLevel: AccessSpecifier) {
+        return new BaseSpecifier(context, ast, defaultAccessLevel);
     }
 
 }
 
 export interface CompiledBaseSpecifier extends BaseSpecifier, SuccessfullyCompiled {
     readonly baseEntity: ClassEntity;
+}
+
+export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpecificationContext> {
+    public readonly construct_type = "member_variable_declaration";
+
+    public readonly type: ObjectType | ReferenceType;
+    public readonly declaredEntity: MemberObjectEntity<ObjectType> | MemberReferenceEntity<ObjectType>;
+
+    public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
+
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
+
+        this.type = type;
+
+        this.declaredEntity =
+            type.isReferenceType() ? new MemberReferenceEntity(type.refTo, this) : new MemberObjectEntity(type, this);
+
+        // Attempt to add the declared entity to the scope. If it fails, note the error.
+        let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
+
+        if (entityOrError instanceof MemberObjectEntity || entityOrError instanceof MemberReferenceEntity) {
+            this.declaredEntity = entityOrError;
+            
+            // No need to "register" the member declaration here as we might "register" a local
+            // variable definition with its containing function, since they will be accounted
+            // for when the class definition is created from the list of member declarations
+        }
+        else {
+            this.addNote(entityOrError);
+        }
+    }
+
+    protected initializerWasSet(init: Initializer) {
+        this.addNote(CPPError.lobster.unsupported_feature(this, "member variable initializers"));
+    }
+
+}
+
+export interface TypedMemberVariableDeclaration<T extends ObjectType | ReferenceType> extends MemberVariableDeclaration {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
+    readonly declaredEntity: MemberObjectEntity<NoRefType<T>> | MemberReferenceEntity<NoRefType<T>>;
+}
+
+export interface CompiledMemberVariableDeclaration<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedMemberVariableDeclaration<T>, SuccessfullyCompiled {
+
+    readonly typeSpecifier: CompiledTypeSpecifier;
+    readonly storageSpecifier: CompiledStorageSpecifier;
+    readonly declarator: CompiledDeclarator<T>;
+
+    readonly initializer?: CompiledInitializer<NoRefType<T>>;
 }
 
 // export var MemberDeclaration = SimpleDeclaration.extend({

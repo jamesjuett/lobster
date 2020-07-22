@@ -1,0 +1,5 @@
+Places where Lobster intentionally deviates from C++
+ - ctors and dtors have return type void (this doesn't affect expressions that
+   up using them, since the result of an expression that uses a ctor is the
+   constructed object and the result of a destructor call expression is defined
+   to be void anyway)
