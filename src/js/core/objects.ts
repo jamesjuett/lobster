@@ -3,7 +3,7 @@ import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
-import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition } from "./declarations";
+import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition, CompiledClassDefinition } from "./declarations";
 
 export interface ObjectDescription {
     name: string;
@@ -103,9 +103,9 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
 
 class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
-    public readonly subobjects: readonly Subobject[];
-    public readonly baseSubobjects: readonly BaseSubobject[];
-    public readonly memberSubobjects: readonly MemberSubobject[];
+    private readonly subobjects: readonly Subobject[];
+    private readonly baseSubobjects: readonly BaseSubobject[];
+    private readonly memberSubobjects: readonly MemberSubobject[];
     private readonly memberSubobjectMap: {[index: string]: CPPObject | undefined} = {};
 
     public constructor(object: CPPObject<T>, memory: Memory, address: number) {
@@ -113,14 +113,20 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
         let subAddr = this.address;
 
-        this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
-            let subObj = base.objectInstance(this.object, memory, subAddr);
+        let classDef = this.object.type.classEntity.definition;
+
+        assert(classDef?.isSuccessfullyCompiled(), "Cannot create an object at runtime for a class type that has not been defined and successfully compiled.");
+
+        this.baseSubobjects = classDef.baseSpecifiers.map((base) => {
+            let subObj = new BaseSubobject(this.object, base.baseEntity.type, memory, subAddr);
+            // let subObj = base.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
             return subObj;
         });
 
-        this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
-            let subObj = mem.objectInstance(this.object, memory, subAddr);
+        this.memberSubobjects = classDef.memberObjects.map((mem) => {
+            let subObj = new MemberSubobject(this.object, mem.type, mem.name, memory, subAddr);
+            // let subObj = mem.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
             this.memberSubobjectMap[mem.name] = subObj;
             return subObj;
@@ -293,20 +299,18 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
     }
 
     // Only allowed if receiver matches CPPObject<ClassType>
-    public getMemberSubobject(this: CPPObject<ClassType>, name: string) : CPPObject {
-        return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
+    public getMemberSubobject(this: CPPObject<ClassType>, name: string) {
+        return this.data.getMemberSubobject(name);
     }
 
     // Only allowed if receiver matches CPPObject<ClassType>
     public bindMemberReference(this: CPPObject<ClassType>, name: string, obj: CPPObject<ObjectType>) {
-        (<ClassObjectData<ClassType>>this.data).getMemberSubobject
-        this.localReferencesByEntityId[entity.entityId] = obj;
-        this.observable.send("referenceBound", { entity: entity, object: obj });
+        return this.data.bindMemberReference(name);
     }
 
     // Only allowed if receiver matches CPPObject<ClassType>
-    public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
-        return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
+    public getBaseSubobject(this: CPPObject<ClassType>) {
+        return this.data.getBaseSubobject();
     }
 
     public subobjectValueWritten() {

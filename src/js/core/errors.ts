@@ -2,7 +2,7 @@ import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
 import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
 import { IdentifierExpression } from "./expressions";
@@ -231,8 +231,11 @@ export const CPPError = {
         prev_def: function (construct: TranslationUnitConstruct, name: string, prev: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "class_def.prev_def", name + " cannot be defined more than once. Note that Lobster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
         },
-        base_class_type: function (construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_type", "I cannot find a suitable class called \"" + name + "\" to use as a base.");
+        base_class_type: function (construct: BaseSpecifier) {
+            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_type", "I cannot find a suitable class called \"" + construct.name + "\" to use as a base.");
+        },
+        base_class_incomplete: function (construct: BaseSpecifier) {
+            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_incomplete", `The class ${construct.name} is incomplete at this point and may not be used as a base class.`);
         },
         big_three: function (construct: TranslationUnitConstruct, bigThreeYes: readonly string[], bigThreeNo: readonly string[]) {
             var yStr = bigThreeYes.join(" and ");

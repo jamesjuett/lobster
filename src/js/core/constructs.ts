@@ -103,7 +103,7 @@ export function isBlockContext(context: TranslationUnitContext): context is Bloc
 // }
 
 export function isClassContext(context: TranslationUnitContext) : context is ClassContext {
-    return !!(context as ClassContext).classEntity; // && !!(context as ClassContext).classMembers;
+    return !!(context as ClassContext).containingClass; // && !!(context as ClassContext).classMembers;
 }
 
 export interface ClassContext extends TranslationUnitContext {
@@ -113,7 +113,7 @@ export interface ClassContext extends TranslationUnitContext {
 
 export function createClassContext(parentContext: TranslationUnitContext, classEntity: ClassEntity, baseClass?: ClassEntity): ClassContext {
     return Object.assign({}, parentContext, {
-        contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?),
+        contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?.context.contextualScope),
         containingClass: classEntity
     });
 }

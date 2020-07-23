@@ -3,7 +3,7 @@ import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration } from "./declarations";
+import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
@@ -1420,6 +1420,10 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
         this.qualifiedName = "::" + this.name;
     }
 
+    public hasCompiledDefinition() : this is CompiledDefinedClassEntity {
+        return !!this.definition?.isSuccessfullyCompiled();
+    }
+
     public toString() {
         return this.name;
     }
@@ -1485,6 +1489,9 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     }
 }
 
+export interface CompiledDefinedClassEntity extends ClassEntity {
+    readonly definition: CompiledClassDefinition;
+}
 
 
 // export class MagicFunctionEntity extends FunctionEntity {
