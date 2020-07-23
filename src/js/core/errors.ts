@@ -361,7 +361,7 @@ export const CPPError = {
             }
         },
         classes: {
-            multiple_def: function (construct: ClassDefinition, prev: ClassDefinition) {
+            multiple_def: function (construct: ClassDefinition, prev: ClassDefinition) : CompilerNote {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.multiple_def", `The class ${construct.name} cannot be defined more than once.`);
             },
             storage_prohibited: function (construct: StorageSpecifier) {
