@@ -655,7 +655,7 @@ abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> 
  * @param newEntity 
  * @param existingEntity 
  */
-function mergeDefinitionInto<T extends DeclaredEntity>(newEntity: DeclaredEntity, existingEntity: T) {
+function mergeDefinitionInto<T extends DeclaredEntity>(newEntity: T, existingEntity: T) {
 
     if (newEntity.definition && existingEntity.definition) {
         if (newEntity.definition === existingEntity.definition) {
@@ -714,11 +714,13 @@ export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEnti
 
 abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
     public readonly declarationKind = "variable";
+    public abstract readonly variableKind: "reference" | "object";
 
     public abstract runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
 export class LocalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+    public readonly variableKind = "object";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -765,6 +767,7 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
 }
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+    public readonly variableKind = "reference";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -802,10 +805,11 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Var
 export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObjectEntity<T> | LocalReferenceEntity<T>;
 
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+    public readonly variableKind = "object";
 
     public readonly qualifiedName: string;
-    public readonly firstDeclaration: NonMemberSimpleDeclaration;
-    public readonly declarations: readonly NonMemberSimpleDeclaration[];
+    public readonly firstDeclaration: GlobalVariableDefinition;
+    public readonly declarations: readonly GlobalVariableDefinition[];
     public readonly definition?: GlobalVariableDefinition;
 
     // storage: "static",
@@ -1191,10 +1195,11 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 //     }
 // };
 
-export class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+abstract class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
 
     public readonly firstDeclaration: MemberVariableDeclaration;
     public readonly declarations: readonly MemberVariableDeclaration[];
+    public readonly definition: undefined; // non-static member variables never have definitions
 
     public constructor(type: T, decl: MemberVariableDeclaration) {
         super(type, decl.name);
@@ -1236,10 +1241,13 @@ export class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends
 };
 
 export class MemberObjectEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> {
+    public readonly variableKind = "object";
 
 }
 
 export class MemberReferenceEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+
+    public readonly variableKind = "reference";
 
     public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
         rtConstruct.contextualReceiver.bindMemberReference(this.name, obj)

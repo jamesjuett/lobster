@@ -5,7 +5,7 @@ import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, NonMemberSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
 import { CPPObject } from "./objects";
@@ -527,8 +527,8 @@ export class FunctionLocals {
     public registerLocalVariable(local: LocalVariableEntity) {
         assert(!this.localVariablesByEntityId[local.entityId]);
         this.localVariablesByEntityId[local.entityId] = local;
-        if (local.kind === "AutoEntity") {
-            asMutable(this.localObjects).push(local)
+        if (local.variableKind === "object") {
+            asMutable(this.localObjects).push(local);
         }
         else {
             asMutable(this.localReferences).push(local);
