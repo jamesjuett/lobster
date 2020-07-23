@@ -3,6 +3,7 @@ import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
+import { ClassEntity } from "./entities";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -1163,6 +1164,8 @@ export class ClassType extends ObjectTypeBase {
     public readonly className: string = "";
     public readonly name: string;
 
+    public readonly classEntity: ClassEntity;
+
     /** Don't use this ctor unless you know what you're doing. Use the static `createType()` function instead. */
     private constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
@@ -1173,7 +1176,7 @@ export class ClassType extends ObjectTypeBase {
         // TODO: consider whether the type has been completed or not
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
-        return true;
+        return !!this.classEntity.definition;
     }
 
     public sameType(other: Type): boolean {

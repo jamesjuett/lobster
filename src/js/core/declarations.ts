@@ -1784,7 +1784,7 @@ export interface MemberInitializerASTNode extends ASTNode {
     readonly args: readonly ExpressionASTNode[];
 }
 
-export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, ClassDefinitionASTNode> {
+export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefinitionASTNode> {
     public readonly construct_type = "class_definition";
 
     // public readonly name: number = 2;
@@ -1794,6 +1794,12 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
+
+    public readonly memberObjects: readonly MemberObjectEntity[] = [];
+    public readonly memberReferences: readonly MemberReferenceEntity[] = [];
+
+    public readonly inlineMemberFunctionDefinitions: readonly FunctionDefinition[] = [];
+
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
@@ -1827,10 +1833,10 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey, classType);
 
         // Create class context based on class entity from the declaration
-        let classContext = createClassContext(tuContext, declaration.declaredEntity);
+        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0].baseEntity);
 
         let memDecls : MemberDeclaration[] = []
-        let functionDefsToCompile : [number, FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];
+        let functionDefsToCompile : [FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];
 
         // Create and compile declarations for all members
         ast.memberSpecs.forEach(memSpec => {
@@ -1857,23 +1863,26 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
                 else {
                     memDecls.push(decls);
                     if (decls.construct_type === "function_declaration" && memberAST.construct_type === "function_definition") {
-                        functionDefsToCompile.push([memDecls.length - 1, memberAST, memberSpecContext, decls]);
+                        functionDefsToCompile.push([memberAST, memberSpecContext, decls]);
                     }
                 }
             });
 
         });
 
+        // Create the actual class definition. This should exist before compiling member
+        // function definitions, in line with the treatment of the class type as complete
+        // inside those definitions.
+        let classDef = new ClassDefinition(classContext, ast, declaration, bases, memDecls);
+
         // Phase 2: Go back through and compile member function definitions, replacing
         // the previous declarations in the overall list of members.
-        functionDefsToCompile.forEach(([i, defAST, memberSpecContext, decl]) => {
-            memDecls[i] = FunctionDefinition.createFromAST(defAST, memberSpecContext, decl);
+        functionDefsToCompile.forEach(([defAST, memberSpecContext, decl]) => {
+           classDef.attachInlineFunctionDefinition(FunctionDefinition.createFromAST(defAST, memberSpecContext, decl));
         });
 
-        return new ClassDefinition(classContext, ast, declaration, bases, memDecls);
+        return classDef;
     }
-
-    //     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
     public constructor(context: ClassContext, ast: ClassDefinitionASTNode | undefined, declaration: ClassDeclaration, baseSpecs: readonly BaseSpecifier[], memberDeclarations: readonly MemberDeclaration[]) {
         super(context, ast);
@@ -1892,9 +1901,24 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
 
         this.attachAll(this.memberDeclarations = memberDeclarations);
 
+        this.memberDeclarations.forEach(decl => {
+            if (decl.construct_type === "member_variable_declaration") {
+                if (decl.declaredEntity instanceof MemberObjectEntity) {
+                    asMutable(this.memberObjects).push(decl.declaredEntity);
+                }
+                else {
+                    asMutable(this.memberReferences).push(decl.declaredEntity);
+                }
+            }
+        });
+
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
 
+    public attachInlineFunctionDefinition(def: FunctionDefinition) {
+        asMutable(this.inlineMemberFunctionDefinitions).push(def);
+        this.attach(def);
+    }
 
     //     compileDeclaration : function(){
     //         var ast = this.ast;
@@ -2168,6 +2192,10 @@ export class ClassDefinition extends BasicCPPConstruct<TranslationUnitContext, C
     //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     //     }
+
+    public isSuccessfullyCompiled() : this is CompiledClassDefinition {
+        return super.isSuccessfullyCompiled()
+    }
 }
 
 export interface TypedClassDefinition<T extends ClassType> extends ClassDefinition, SuccessfullyCompiled {
@@ -2208,9 +2236,13 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
         }
         else if (lookupResult.declarationKind === "class") {
             this.baseEntity = lookupResult;
+
+            if (!this.baseEntity.type.isComplete(context)) {
+                this.addNote(CPPError.class_def.base_class_incomplete(this));
+            }
         }
         else {
-            this.addNote(CPPError.class_def.base_class_type(this, this.name));
+            this.addNote(CPPError.class_def.base_class_type(this));
         }
     }
 
