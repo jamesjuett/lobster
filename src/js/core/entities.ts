@@ -1421,10 +1421,17 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     public readonly declarations: readonly ClassDeclaration[];
     public readonly definition?: ClassDefinition;
 
-    constructor(type: ClassType, decl: ClassDeclaration) {
-        super(type, decl.name);
+    constructor(decl: ClassDeclaration) {
+
+        // Ask the type system for the appropriate type.
+        // Because Lobster only supports mechanisms for class declaration that yield
+        // classes with external linkage, it is sufficient to use the fully qualified
+        // class name to distinguish types from each other. But, because Lobster does
+        // not support namespaces, the unqualified name is also sufficient.
+
+        super(ClassType.createClassType(name), decl.name);
         this.firstDeclaration = decl;
-        this.declarations = [];
+        this.declarations = [decl];
         this.qualifiedName = "::" + this.name;
     }
 
@@ -1465,6 +1472,7 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     public setDefinition(def: ClassDefinition) {
         if (!this.definition) {
             (<Mutable<this>>this).definition = def;
+            this.type.setDefinition(def);
         }
         else {
             def.addNote(CPPError.declaration.classes.multiple_def(def, this.definition));
@@ -1478,7 +1486,7 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     public link(def: ClassDefinition | undefined) {
         assert(!this.definition, "link() should not be called for an entity that is already defined.");
         if (def) {
-            (<Mutable<this>>this).definition = def;
+            this.setDefinition(def);
         }
         else {
             this.declarations.forEach((decl) => decl.addNote(CPPError.link.classes.def_not_found(decl, this)));

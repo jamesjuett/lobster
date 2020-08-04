@@ -1699,14 +1699,14 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly type: ClassType;
     public readonly declaredEntity: ClassEntity;
 
-    public constructor(context: TranslationUnitContext, name: string, key: ClassKey, type: ClassType) {
+    public constructor(context: TranslationUnitContext, name: string, key: ClassKey) {
         super(context, undefined);
 
         this.name = name;
         this.key = key;
-        this.type = type;
 
-        this.declaredEntity = new ClassEntity(type, this);
+        this.declaredEntity = new ClassEntity(this);
+        this.type = this.declaredEntity.type;
 
         let entityOrError = context.contextualScope.declareClassEntity(this.declaredEntity);
 
@@ -1823,14 +1823,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         let bases = ast.head.bases.map(
             baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
 
-        // Ask the type system for the appropriate type.
-        // Because Lobster only supports mechanisms for class declaration that yield
-        // classes with external linkage, it is sufficient to use the fully qualified
-        // class name to distinguish types from each other. But, because Lobster does
-        // not support namespaces, the unqualified name is also sufficient.
-        let classType = ClassType.createType(ast.head.name.identifier);
-
-        let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey, classType);
+        let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
 
         // Create class context based on class entity from the declaration
         let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0].baseEntity);

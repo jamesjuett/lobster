@@ -1,9 +1,10 @@
-import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
+import { Constructor, htmlDecoratedType, unescapeString, Mutable } from "../util/util";
 import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
 import { ClassEntity } from "./entities";
+import { ClassDefinition } from "./declarations";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -1155,8 +1156,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
 // TODO: HACK to make ClassType exist but do nothing for now
 export class ClassType extends ObjectTypeBase {
 
-    public static createType(name: string) {
-        return new ClassType(name);
+    private static nextClassId = 0; 
+
+    public static createClassType(name: string) {
+        return new ClassType(this.nextClassId++, name);
     }
 
     public size: number = 0;
@@ -1164,42 +1167,73 @@ export class ClassType extends ObjectTypeBase {
     public readonly className: string = "";
     public readonly name: string;
 
-    public readonly classEntity: ClassEntity;
+    private readonly classId: number;
+    public readonly classDefinition?: ClassDefinition;
 
-    /** Don't use this ctor unless you know what you're doing. Use the static `createType()` function instead. */
-    private constructor(name: string, isConst: boolean = false, isVolatile: boolean = false) {
+    /** Not intended for external use. Use `createClassType()` factory instead. */
+    private constructor(classId: number, name: string, classDefinition?: ClassDefinition, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
+        this.classId = classId;
         this.name = name;
+        this.classDefinition = classDefinition;
+    }
+
+    public setDefinition(def: ClassDefinition) {
+        (<Mutable<this>>this).classDefinition = def;
     }
 
     public isComplete(context: TranslationUnitContext) {
         // TODO: consider whether the type has been completed or not
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
-        return !!this.classEntity.definition;
+        return !!this.classDefinition;
     }
 
-    public sameType(other: Type): boolean {
-        throw new Error("Method not implemented.");
+    public sameType(other: Type) {
+        return this.similarType(other)
+            && other.isConst === this.isConst
+            && other.isVolatile === this.isVolatile;
     }
-    public similarType(other: Type): boolean {
+
+    public similarType(other: Type) {
+        return other instanceof ClassType
+            && this.sameClassType(other);
+    }
+
+    /** Two class types are the same if they originated from the same ClassEntity (e.g.
+     *  two class declarations with the same name in the same scope) or if they have 
+     *  been associated with the same definition during linking. */
+    private sameClassType(other: ClassType) {
+        return this.classId == other.classId
+            || (!!this.classDefinition && this.classDefinition === other.classDefinition);
+    }
+
+    public isDerivedFrom(other: Type) : boolean {
         throw new Error("Method not implemented.");
     }
 
-    public isDerivedFrom(other: Type): boolean {
-        throw new Error("Method not implemented.");
+    public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
+        if (excludeBase) {
+            return varname ? varname : "";
+        }
+        else{
+            return this.getCVString() + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+        }
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated?: boolean | undefined): string {
-        throw new Error("Method not implemented.");
+    public englishString(plural: boolean) {
+        return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
     }
-    public englishString(plural: boolean): string {
-        throw new Error("Method not implemented.");
-    }
+    
+//     englishString : function(plural){
+
+//     },
+//     valueToString : function(value){
+//         return JSON.stringify(value, null, 2);
+//     },
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        // TODO
-        return new ClassType(this.name, isConst, isVolatile);
+        return new ClassType(this.classId, this.name, this.classDefinition, isConst, isVolatile);
     }
 
     public areLValuesAssignable() {
