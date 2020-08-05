@@ -940,7 +940,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     // in the pure syntax from the AST and does all the hard work
     // of building, situating, and connecting together all the
     // constructs correctly.
-    public static createFromAST(ast: ForStatementASTNode, context: BlockContext): ForStatement {
+    public static createFromAST(ast: ForStatementASTNode, outerContext: BlockContext): ForStatement {
   
       // The context parameter to this function tells us what
       // context the for loop originally occurs in. For example, in:
@@ -953,25 +953,24 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // Below, we'll also consider the body block context of the inner
       // set of curly braces for the for loop.
   
-      // Let's create the body first. But there's one quick exception:
+      // Let's create the body context first. But there's one quick exception:
       // Basically, for(...) stmt; is treated equivalently
       // to for(...) { stmt; } according to the C++ standard.
-  
       // If the body substatement is not a block, it gets its own implicit block context.
       // (If the substatement is a block, it will create its own block context, so we don't do that here.)
-      let body = ast.body.construct_type === "block" ?
-        createStatementFromAST(ast.body, context) :
-        createStatementFromAST(ast.body, createBlockContext(context));
+      let bodyContext = ast.body.construct_type === "block" ? outerContext : createBlockContext(outerContext);
   
-      // NOTE the use of body block context for all the children.
+      // NOTE: the use of body block context for all the children.
       // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
       // All children (initial, condition, post, body) share the same block
       // context and scope where i is declared.
-      return new ForStatement(context, ast,
-        createStatementFromAST(ast.initial, body.context),
-        createExpressionFromAST(ast.condition, body.context),
-        body,
-        createExpressionFromAST(ast.post, body.context));
+      // NOTE: initial has to be compiled first. It is, since argument evaluation
+      // order is guaranteed left-to-right in js/ts
+      return new ForStatement(outerContext, ast,
+        createStatementFromAST(ast.initial, bodyContext),
+        createExpressionFromAST(ast.condition, bodyContext),
+        createStatementFromAST(ast.body, bodyContext),
+        createExpressionFromAST(ast.post, bodyContext));
   
       // It's crucial that we handled things this way. Because
       // all of the context-sensitive stuff is handled by the
