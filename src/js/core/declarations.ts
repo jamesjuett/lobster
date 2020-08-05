@@ -1826,7 +1826,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
 
         // Create class context based on class entity from the declaration
-        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0].baseEntity);
+        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0]?.baseEntity);
 
         let memDecls : MemberDeclaration[] = []
         let functionDefsToCompile : [FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];

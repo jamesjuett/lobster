@@ -844,7 +844,7 @@ class_specifier
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
-    { return track({construct_type: "class_head", classKey:key, name:name, bases:bases}, location(), text()); }
+    { return track({construct_type: "class_head", classKey:key, name:name, bases:bases ?? []}, location(), text()); }
   // = key:class_key WS base:base_clause?
   //   { return track({key:key, base:base}, location(), text()); }
 

@@ -686,7 +686,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c428 = function(head: any): any {return getUserTypeNames()[head.name.identifier]=true;};
   const peg$c429 = function(head: any, mems: any): any { return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text()); };
   const peg$c430 = function(key: any, name: any, b: any): any {return b;};
-  const peg$c431 = function(key: any, name: any, bases: any): any { return track({construct_type: "class_head", classKey:key, name:name, bases:bases}, location(), text()); };
+  const peg$c431 = function(key: any, name: any, bases: any): any { return track({construct_type: "class_head", classKey:key, name:name, bases:bases ?? []}, location(), text()); };
   const peg$c432 = "class";
   const peg$c433 = peg$literalExpectation("class", false);
   const peg$c434 = "struct";
