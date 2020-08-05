@@ -113,7 +113,7 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 
         let subAddr = this.address;
 
-        let classDef = this.object.type.classEntity.definition;
+        let classDef = this.object.type.classDefinition;
 
         assert(classDef?.isSuccessfullyCompiled(), "Cannot create an object at runtime for a class type that has not been defined and successfully compiled.");
 

@@ -224,7 +224,7 @@ export type LocalDeclarationASTNode = NonMemberSimpleDeclarationASTNode | Functi
 
 export type SimpleDeclarationASTNode = NonMemberSimpleDeclarationASTNode | MemberSimpleDeclarationASTNode;
 
-export type Declaration = TopLevelDeclaration | LocalDeclaration | MemberDeclaration;
+export type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 export type TopLevelDeclaration = TopLevelSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
