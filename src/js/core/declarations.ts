@@ -179,14 +179,11 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
         }
 
         // Otherwise, check to see if the type name is in scope
-        // TODO CLASSES: add back in when classes are added
-        // var scopeType;
-        // if (scopeType = this.contextualScope.lookup(this.typeName)){
-        //     if (scopeType instanceof TypeEntity){
-        //         this.type = new scopeType.type(this.const, this.volatile);
-        //         return;
-        //     }
-        // }
+        let customType = this.context.contextualScope.lookup(this.typeName);
+        if (customType?.declarationKind === "class") {
+            asMutable(this).baseType = customType.type.cvQualified(this.const, this.volatile);
+            return;
+        }
 
         this.addNote(CPPError.type.typeNotFound(this, this.typeName));
     }
@@ -437,7 +434,10 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
         }
         else {
             declaration = new MemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
-            setInitializerFromAST(declaration, declAST.initializer, context);
+            if (declAST.initializer) {
+                // member variables don't get anything set for a default initializer
+                setInitializerFromAST(declaration, declAST.initializer, context);
+            }
         }
 
         return declaration;
@@ -2281,7 +2281,10 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
     }
 
     protected initializerWasSet(init: Initializer) {
-        this.addNote(CPPError.lobster.unsupported_feature(this, "member variable initializers"));
+        // Default initializers are allowed
+        if (!(init instanceof DefaultInitializer)) {
+            this.addNote(CPPError.lobster.unsupported_feature(this, "member variable initializers"));
+        }
     }
 
 }
