@@ -342,7 +342,7 @@ abstract class TypeBase {
     /**
      * Returns a copy of this type with the specified cv-qualifications.
      */
-    public cvQualified(isConst: boolean, isVolatile: boolean = false): this {
+    public cvQualified(isConst: boolean = false, isVolatile: boolean = false): this {
         return <this>this.cvQualifiedImpl(isConst, isVolatile);
     }
 
