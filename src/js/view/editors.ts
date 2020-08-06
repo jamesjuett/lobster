@@ -519,7 +519,7 @@ export class CompilationNotesOutlet {
                 item.append(sourceReferenceElem).append(" ");
             }
 
-            item.append(note.message);
+            item.append(note.id + ": " + note.message);
 
             this.element.append(item);
         });

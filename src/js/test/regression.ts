@@ -599,6 +599,40 @@ int main() {
           new NoBadRuntimeEventsVerifier(true)
       ]
   );
+
+  
+
+    // ---------- Constructor Declaration Test ----------
+    
+    new SingleTranslationUnitTest(
+      "Constructor Declaration Test",
+`class A {
+  A();
+  A(int);
+  A A(int, double);
+  B(int);
+  int A(int, double);
+  void A();
+  B(int);
+  A();
+};
+
+int main() {
+  int x = 2;
+}`,
+      [
+          new NoteVerifier([
+            {line: 4, id: "declaration.ctor.return_type_prohibited"},
+            {line: 5, id: "declaration.missing_type_specifier"},
+            {line: 6, id: "declaration.ctor.previous_declaration"},
+            {line: 6, id: "declaration.ctor.return_type_prohibited"},
+            {line: 7, id: "declaration.ctor.return_type_prohibited"},
+            {line: 7, id: "declaration.ctor.previous_declaration"},
+            {line: 8, id: "declaration.missing_type_specifier"},
+            {line: 9, id: "declaration.ctor.previous_declaration"},
+          ])
+      ]
+    );
     
       // ---------- Basic SimulationRunner Test ----------
 
