@@ -657,6 +657,9 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
 
+    public readonly isConstructor: boolean = false;
+    public readonly isDestructor: boolean = false;
+
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
 
@@ -669,14 +672,36 @@ export class FunctionDeclaration extends SimpleDeclaration {
         this.parameterDeclarations = this.declarator.parameters!;
 
         // If main, should have no parameters
+        // TODO: this check should be moved elsewhere
         if (this.declaredEntity.isMain() && this.type.paramTypes.length > 0) {
             this.addNote(CPPError.declaration.func.mainParams(this.declarator));
         }
 
 
-        // if (this.isMemberFunction){
-        //     this.i_containingClass.addMember(this.entity);
-        // }
+        if (this.declarator.hasConstructorName) {
+            // constructors are not added to their scope. they technically "have no name"
+            // and can't be found through name lookup
+            this.isConstructor = true;
+
+            if (this.type.receiverType?.isConst) {
+                this.addNote(CPPError.declaration.func.mainParams(this.declarator))
+            }
+        }
+        else {
+
+            if (this.declarator.hasDestructorName) {
+                this.isDestructor = true;
+            }
+
+            let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
+
+            if (entityOrError instanceof FunctionEntity) {
+                this.declaredEntity = entityOrError;
+            }
+            else {
+                this.addNote(entityOrError);
+            }
+        }
 
 
         // if (!this.isMemberFunction && this.virtual){
@@ -685,14 +710,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
         // this.checkOverloadSemantics();
 
-        let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
-
-        if (entityOrError instanceof FunctionEntity) {
-            this.declaredEntity = entityOrError;
-        }
-        else {
-            this.addNote(entityOrError);
-        }
+        
     }
 
 
@@ -720,10 +738,63 @@ export interface TypedFunctionDeclaration<T extends FunctionType> extends Functi
 export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionType> extends TypedFunctionDeclaration<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
+
     readonly declarator: CompiledDeclarator<T>;
 
     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
 }
+
+
+        // constructors are not added to their scope. they technically "have no name"
+        // and can't be found through name lookup. Lobster achieves that by not adding
+        // them to the scope.
+
+
+// export class ConstructorDeclaration extends SimpleDeclaration implements FunctionDeclaration {
+//     public readonly construct_type = "function_declaration";
+
+//     public readonly type: FunctionType<VoidType>;
+//     public readonly declaredEntity: FunctionEntity;
+//     public readonly initializer: undefined;
+
+//     public readonly parameterDeclarations: readonly ParameterDeclaration[];
+
+//     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+//         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType<VoidType>) {
+
+//         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
+
+//         this.type = type;
+//         this.declaredEntity = new FunctionEntity(type, this);
+
+//         assert(this.declarator.hasConstructorName);
+        
+//         assert(!!this.declarator.parameters, "The declarator for a constructor declaration must contain declarators for its parameters as well.");
+//         this.parameterDeclarations = this.declarator.parameters!;
+
+//         // constructors are not added to their scope. they technically "have no name"
+//         // and can't be found through name lookup
+//     }
+
+// }
+
+// export interface TypedConstructorDeclaration extends ConstructorDeclaration {
+//     readonly type: FunctionType<VoidType>;
+//     readonly declaredEntity: FunctionEntity<FunctionType<VoidType>>;
+//     readonly declarator: TypedDeclarator<FunctionType<VoidType>>;
+// }
+
+// export interface CompiledConstructorDeclaration extends TypedConstructorDeclaration, SuccessfullyCompiled {
+//     readonly typeSpecifier: CompiledTypeSpecifier;
+//     readonly storageSpecifier: CompiledStorageSpecifier;
+    
+//     readonly declarator: CompiledDeclarator<FunctionType<VoidType>>;
+
+//     readonly parameterDeclarations: readonly CompiledParameterDeclaration[];
+// }
+
+
+
 
 abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
 
@@ -1103,19 +1174,26 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             }
         }
 
-        let type: Type = VoidType.VOID; // Default base type. Only used if it's a ctor or dtor
+        let type: Type;
 
+        // If it's a ctor or dtor, then we'll implicitly add void.
+        // This is a bit of a Lobster hack, since technically in C++ ctors and dtors
+        // don't have any return type at all, but the effects are mostly the same.
         if (this.baseType) {
             type = this.baseType;
         }
-        else if ( !(this.hasConstructorName || this.hasDestructorName) ) {
+        else if (this.hasConstructorName) {
+            type = VoidType.VOID;
+        }
+        else if (this.hasDestructorName) {
+            type = VoidType.VOID;
+        }
+        else {
             // If there's no base type, we really can't do much.
-            // Only exception is if it's a ctor or dtor, then we'll implicitly add void.
-            // This is a bit of a Lobster hack, since technically in C++ ctors and dtors
-            // don't have any return type at all, but the effects are mostly the same.
             this.addNote(CPPError.declaration.missing_type_specifier(this));
             return;
         }
+
         
         let first = true;
         // let prevKind : "function" | "reference" | "pointer" | "array" | "none" = "none";
@@ -1249,6 +1327,17 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         if (!type.isFunctionType()) {
             delete (<Mutable<this>>this).parameters;
         }
+
+        // if there wasn't any base type and we don't end up with a function type
+        // it means we have an attempt at declaring a member variable
+        // with the same name as the class that got defaulted to void as if
+        // it was a constructor without a type specifier, but then turned out
+        // not to be a viable constructor from the rest of the syntax. In
+        // this case, we want to add back in the missing type specifier
+        if (!this.baseType && !this.type?.isFunctionType()) {
+            delete (<Mutable<this>>this).type;
+            this.addNote(CPPError.declaration.missing_type_specifier(this));
+        }
     }
 
     private processFunctionDeclarator(postfix: FunctionPostfixDeclaratorASTNode, type: Type, notes: NoteHandler) : FunctionType | undefined {
@@ -1355,7 +1444,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         if (!declaration) {
             let decl = createFunctionDeclarationFromDefinitionAST(ast, context);
-            if (!(decl instanceof FunctionDeclaration)) {
+            if (!(decl.construct_type === "function_declaration")) {
                 return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
             }
             declaration = decl;
@@ -1666,12 +1755,21 @@ function createFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNo
         return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
     }
     
-    return new FunctionDeclaration(context, {
+    let declAST: SimpleDeclarationASTNode = {
         construct_type: "simple_declaration",
         declarators: [ast.declarator],
         specs: ast.specs,
         source: ast.declarator.source
-    }, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+    };
+
+    // if (declarator.hasConstructorName) {
+    //     assert(declaredType.isFunctionType());
+    //     assert(declaredType.returnType.isVoidType());
+    //     return new ConstructorDeclaration(context, declAST, typeSpec, storageSpec, declarator, ast.specs, <FunctionType<VoidType>>declaredType);
+    // }
+    // else {
+        return new FunctionDeclaration(context, declAST, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+    // }
 
 }
 
@@ -1794,6 +1892,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
+    public readonly constructors: readonly FunctionDeclaration[];
 
     public readonly memberObjects: readonly MemberObjectEntity[] = [];
     public readonly memberReferences: readonly MemberReferenceEntity[] = [];
@@ -1868,8 +1967,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // inside those definitions.
         let classDef = new ClassDefinition(classContext, ast, declaration, bases, memDecls);
 
-        // Phase 2: Go back through and compile member function definitions, replacing
-        // the previous declarations in the overall list of members.
+        // Phase 2: Go back through and compile member function definitions, and let the
+        // class know about them
         functionDefsToCompile.forEach(([defAST, memberSpecContext, decl]) => {
            classDef.attachInlineFunctionDefinition(FunctionDefinition.createFromAST(defAST, memberSpecContext, decl));
         });
@@ -1893,6 +1992,24 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         }
 
         this.attachAll(this.memberDeclarations = memberDeclarations);
+
+        this.constructors = [];
+        memberDeclarations.forEach(mem => {
+            if (mem.construct_type === "function_declaration" && mem.isConstructor) {
+                // Need to check for redeclaration here since the constructors don't get
+                // added to a scope where we would normally detect that.
+                if (this.constructors.some(prevCtor => prevCtor.type.sameSignature(mem.type))) {
+                    mem.addNote(CPPError.declaration.ctor.previous_declaration(mem));
+                }
+                else {
+                    // Only add the unique ones to the list of constructors.
+                    // If we allowed duplicates with the same signature, it might
+                    // cause headaches later when e.g. this list is used as a set
+                    // of candidates for overload resolution.
+                    asMutable(this.constructors).push(mem);
+                }
+            }
+        });
 
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {

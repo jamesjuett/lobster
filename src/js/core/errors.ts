@@ -276,7 +276,16 @@ export const CPPError = {
                 multiple_base_inits: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_base_inits", "A constructor's initializer list cannot specify more than one base class constructor to use.");
                 }
-            }
+            },
+            return_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.return_type_prohibited", "A constructor is not allowed to specify a return type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.const_prohibited", "A constructor is not allowed to have a const specification.");
+            },
+            previous_declaration: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
+            },
         },
         dtor: {
             no_destructor_auto: function (construct: TranslationUnitConstruct, entity: LocalObjectEntity) {
@@ -290,6 +299,9 @@ export const CPPError = {
             // },
             no_destructor_temporary: function (construct: TranslationUnitConstruct, entity: TemporaryObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            },
+            return_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.return_type_prohibited", "A destructor is not allowed to specify a return type.");
             }
             // TODO Add warning for non-virtual destructor if derived classes exist
         },
