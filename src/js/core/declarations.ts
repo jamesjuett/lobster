@@ -1921,11 +1921,14 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public readonly memberDeclarations: readonly MemberDeclaration[];
     public readonly constructors: readonly FunctionEntity[];
 
+    public readonly baseClass?: ClassEntity;
     public readonly memberObjects: readonly MemberObjectEntity[] = [];
     public readonly memberReferences: readonly MemberReferenceEntity[] = [];
 
-    public readonly inlineMemberFunctionDefinitions: readonly FunctionDefinition[] = [];
+    public readonly objectSize: number;
 
+    public readonly inlineMemberFunctionDefinitions: readonly FunctionDefinition[] = [];
+    
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
@@ -2011,12 +2014,16 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
         this.attach(this.declaration = declaration);
 
-        this.declaration.declaredEntity.setDefinition(this);
-
         this.attachAll(this.baseSpecifiers = baseSpecs);
+        
+        if (baseSpecs.length > 0) {
+            this.baseClass = baseSpecs[0].baseEntity;
+        }
+
         if (baseSpecs.length > 1) {
             this.addNote(CPPError.class_def.multiple_inheritance(this));
         }
+
 
         this.attachAll(this.memberDeclarations = memberDeclarations);
 
@@ -2048,6 +2055,16 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
                 }
             }
         });
+
+        // Compute size of objects of this class
+        let size = 0;
+        if (this.baseClass) {
+            size += this.baseClass.type.size;
+        }
+        this.memberObjects.forEach(mem => size += mem.type.size);
+        this.objectSize = size;
+
+        this.declaration.declaredEntity.setDefinition(this);
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }

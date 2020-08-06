@@ -1162,7 +1162,6 @@ export class ClassType extends ObjectTypeBase {
         return new ClassType(this.nextClassId++, name);
     }
 
-    public size: number = 0;
     public readonly precedence: number = 0;
     public readonly className: string = "";
     public readonly name: string;
@@ -1180,6 +1179,10 @@ export class ClassType extends ObjectTypeBase {
 
     public setDefinition(def: ClassDefinition) {
         (<Mutable<this>>this).classDefinition = def;
+    }
+
+    public get size() {
+        return this.classDefinition?.objectSize ?? 0;
     }
 
     public isComplete(context: TranslationUnitContext) {
