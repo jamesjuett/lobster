@@ -75,6 +75,16 @@
 
   var _type_specifier_user_type_allowed_stack = true;
 
+  var emptyDeclSpecs = {
+    typeSpecs: [],
+    storageSpecs: [],
+    length: 0
+  };
+
+  var classNameStack: string[] = [];
+
+  var prohibitOwnClassName: boolean = false;
+
 }
 
 
@@ -253,6 +263,9 @@ decl_specifiers
 _decl_specifiers_non_type
   = first:decl_specifier_non_type? rest:(WS s:decl_specifier_non_type ! identifier {return s;})* {first && rest.unshift(first); return rest;}
 
+_decl_specifiers_non_user_type_name
+  = first:decl_specifier_non_user_type_name? rest:(WS s:decl_specifier_non_user_type_name ! identifier {return s;})* {first && rest.unshift(first); return rest;}
+
 decl_specifier
   = t:type_specifier { return {typeSpec:t}; }
   / s:storage_class_specifier { return {storageSpec:s}; }
@@ -281,6 +294,10 @@ decl_specifier_non_user_type_name
   / "typedef"
   / "friend"
 
+decl_specifiers_prohibit_class_name
+  = & { prohibitOwnClassName = true; return true;} d: decl_specifiers { prohibitOwnClassName = false; return d;}
+  / & { prohibitOwnClassName = false; return false;} "PEG_doesnt_realize_we_never_get_to_here"
+
 type_specifiers
   = first:type_specifier rest:(WS s:type_specifier {return s})*
     { rest.unshift(first);
@@ -292,7 +309,7 @@ type_specifier
   / enum_specifier
 
 trailing_type_specifier
-  = simple_type_name
+  = t:simple_type_name ! { return prohibitOwnClassName && t === classNameStack[classNameStack.length - 1]; } { return t; }
   / elaborated_type_specifier
   / "const"
   / "volatile"
@@ -431,7 +448,7 @@ declarator_postfix
 
 
 declarator_simple
-  = d:dname {return {name:d}; }
+  = d:dname { return {name:d}; }
 
   /* TODO ptr to member/ "::*" ws cv_qualifier? WS _declarator */
 
@@ -839,8 +856,16 @@ class_name
   // / simple_template_id
 
 class_specifier
-  = head:class_head &{return getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
-    { return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text()); }
+  = head:class_head & {
+      classNameStack.push(head.name.identifier);
+      getUserTypeNames()[head.name.identifier]=true;
+      return true;
+    } ws "{" ws mems:member_specification* ws "}"
+    { 
+      classNameStack.pop();
+      return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text());
+    }
+  / head:class_head & { classNameStack.pop(); return false; }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
@@ -868,8 +893,23 @@ access_specifier
   / "public"
 
 member_declaration
-  = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
-    { return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text()); }
+
+  /* constructor declarations */
+  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
+    }
+  / ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:emptyDeclSpecs, declarators:declarators}, location(), text());
+    }
+    
+  /* regular declaration */
+  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
+    }
+
   /* / c:constructor_definition ws ";"? { return c; } */
   /* / d:destructor_definition ws ";"? { return d; } */
   / f:function_definition ws ";"? { return f; }

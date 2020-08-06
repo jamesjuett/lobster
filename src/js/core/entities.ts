@@ -1429,7 +1429,7 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
         // class name to distinguish types from each other. But, because Lobster does
         // not support namespaces, the unqualified name is also sufficient.
 
-        super(ClassType.createClassType(name), decl.name);
+        super(ClassType.createClassType(decl.name), decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
         this.qualifiedName = "::" + this.name;

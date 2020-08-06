@@ -403,6 +403,19 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
     let baseType = typeSpec.baseType;
     let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
+    // A constructor may have been parsed incorrectly due to an ambiguity in the grammar.
+    // For example, A(); might have been parsed as a function returning an A with a declarator
+    // that is missing its name. In that case, A would be the type specifier.
+    // So, we check the first declarator. If it has no name, and the type specifier
+    // identified the contextual class type, we know this mistake has occurred and we fix it.
+    if (baseType?.sameType(context.containingClass.type)) {
+        let testDeclarator = Declarator.createFromAST(ast.declarators[0], context, baseType);
+        if (!testDeclarator.name) {
+            typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs.filter(spec => spec !== context.containingClass.name), context);
+        }
+    }
+
+
     // Create an array of the individual declarations (multiple on the same line
     // will be parsed as a single AST node and need to be broken up)
     return ast.declarators.map((declAST) => {
@@ -433,9 +446,17 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
         else {
+
+            // Check if it might be a constructor declaration
+            if (declarator.hasConstructorName && !declarator.name) {
+
+            }
+
             declaration = new MemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             if (declAST.initializer) {
-                // member variables don't get anything set for a default initializer
+                // member variables don't get anything set for a default initializer,
+                // so this if keeps us from doing anything unless there's an explicit
+                // initialization in the AST
                 setInitializerFromAST(declaration, declAST.initializer, context);
             }
         }
@@ -684,8 +705,14 @@ export class FunctionDeclaration extends SimpleDeclaration {
             this.isConstructor = true;
 
             if (this.type.receiverType?.isConst) {
-                this.addNote(CPPError.declaration.func.mainParams(this.declarator))
+                this.addNote(CPPError.declaration.ctor.const_prohibited(this));
             }
+
+            if (this.declarator.baseType) {
+                this.addNote(CPPError.declaration.ctor.return_type_prohibited(this));
+            }
+
+
         }
         else {
 
@@ -1132,7 +1159,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
     public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext, baseType: Type | undefined) {
-        return new Declarator(context, ast, baseType); // Note .setAST(ast) is called in the ctor already
+        return new Declarator(context, ast, baseType);
     }
 
     /**
