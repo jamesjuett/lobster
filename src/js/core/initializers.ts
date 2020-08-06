@@ -1,15 +1,16 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
-import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, ClassType } from "./types";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity } from "./entities";
+import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, ClassType, FunctionType, VoidType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
-import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet } from "../view/codeOutlets";
+import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
+import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -263,10 +264,11 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 }
 
 export class ClassDefaultInitializer extends DefaultInitializer {
+    public readonly construct_type = "ClassDefaultInitializer";
 
     public readonly target: ObjectEntity<ClassType>;
-    public readonly ctor: FunctionEntity?;
-    public readonly ctorCall: MemberFunctionCall?;
+    public readonly ctor?: FunctionEntity;
+    public readonly ctorCall?: FunctionCall;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>) {
         super(context, undefined);
@@ -275,14 +277,16 @@ export class ClassDefaultInitializer extends DefaultInitializer {
 
         // Try to find default constructor. Not using lookup because constructors have no name.
         assert(target.type.classDefinition);
-        this.ctor = overloadResolution(target.type.classDefinition.constructors, []);
-        if (!this.ctor) {
+        let overloadResult = overloadResolution(target.type.classDefinition.constructors, []);
+        if (!overloadResult.selected) {
             this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
             return;
         }
 
+        this.ctor = overloadResult.selected;
+
         //MemberFunctionCall args are: context, function to call, receiver, ctor args
-        this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, []);
+        this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
         this.attach(this.ctorCall);
         // this.args = this.ctorCall.args;
     }
@@ -293,23 +297,28 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         return new RuntimeClassDefaultInitializer(this, parent);
     }
 
+    public createDefaultOutlet(this: CompiledClassDefaultInitializer, element: JQuery, parent?: ConstructOutlet): ClassDefaultInitializerOutlet {
+        return new ClassDefaultInitializerOutlet(element, this, parent);
+    }
+
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         let targetDesc = this.target.describe();
         // TODO: what if there is an error that causes no ctor to be found/available
-        return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall.describe().message};
+        return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall!.describe(sim, rtConstruct).message};
     }
 }
 
 export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
-
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
     readonly target: ObjectEntity<T>;
-    readonly ctor: ConstructorEntity<T>;
-    readonly ctorCall: CompiledFunctionCall<VoidType, "prvalue">;
+    readonly ctor: FunctionEntity<FunctionType<VoidType>>;
+    readonly ctorCall: CompiledFunctionCall<FunctionType<VoidType>>;
 }
 
 export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
 
-    public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
+    public readonly ctorCall: RuntimeFunctionCall<FunctionType<VoidType>>;
 
     private index = "callCtor";
 
@@ -324,9 +333,9 @@ export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> ext
             this.index = "done";
         }
         else {
-            let target = model.target.runtimeLookup(this);
+            let target = this.model.target.runtimeLookup(this);
             this.observable.send("initialized", target);
-            this.startCleaningUp();
+            this.startCleanup();
         }
     }
 
