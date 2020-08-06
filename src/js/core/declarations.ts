@@ -1892,7 +1892,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
-    public readonly constructors: readonly FunctionDeclaration[];
+    public readonly constructors: readonly FunctionEntity[];
 
     public readonly memberObjects: readonly MemberObjectEntity[] = [];
     public readonly memberReferences: readonly MemberReferenceEntity[] = [];
@@ -2006,7 +2006,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
                     // If we allowed duplicates with the same signature, it might
                     // cause headaches later when e.g. this list is used as a set
                     // of candidates for overload resolution.
-                    asMutable(this.constructors).push(mem);
+                    asMutable(this.constructors).push(mem.declaredEntity);
                 }
             }
         });
