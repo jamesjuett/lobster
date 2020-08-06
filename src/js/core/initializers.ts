@@ -1,8 +1,8 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity } from "./entities";
-import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char } from "./types";
+import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, ClassType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -55,15 +55,15 @@ export abstract class DefaultInitializer extends Initializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity>target);
         }
-        else if (target.type instanceof AtomicType) {
+        else if (target.type.isAtomicType()) {
             return new AtomicDefaultInitializer(context, <ObjectEntity<AtomicType>>target);
         }
-        else if (target.type instanceof BoundedArrayType) {
+        else if (target.type.isBoundedArrayType()) {
             return new ArrayDefaultInitializer(context, <ObjectEntity<BoundedArrayType>>target);
         }
-        // else if (target.type instanceof ClassType) {
-        //     return new ClassDefaultInitializer(context, <ObjectEntity<ClassType>> target);
-        // }
+        else if (target.type.isClassType()) {
+            return new ClassDefaultInitializer(context, <ObjectEntity<ClassType>> target);
+        }
         else {
             return assertFalse();
         }
@@ -262,78 +262,79 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 
 }
 
-// export class ClassDefaultInitializer extends DefaultInitializer {
+export class ClassDefaultInitializer extends DefaultInitializer {
 
-//     public readonly target: ObjectEntity<ClassType>;
-//     public readonly ctor: ConstructorEntity?;
-//     public readonly ctorCall: MemberFunctionCall?;
+    public readonly target: ObjectEntity<ClassType>;
+    public readonly ctor: FunctionEntity?;
+    public readonly ctorCall: MemberFunctionCall?;
 
-//     public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>) {
-//         super(context);
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>) {
+        super(context, undefined);
 
-//         this.target = target;
+        this.target = target;
 
-//         // Try to find default constructor. Not using lookup because constructors have no name.
-//         this.ctor = overloadResolution(target.type.cppClass.ctors, []);
-//         if (!this.ctor) {
-//             this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
-//             return;
-//         }
+        // Try to find default constructor. Not using lookup because constructors have no name.
+        assert(target.type.classDefinition);
+        this.ctor = overloadResolution(target.type.classDefinition.constructors, []);
+        if (!this.ctor) {
+            this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
+            return;
+        }
 
-//         //MemberFunctionCall args are: context, function to call, receiver, ctor args
-//         this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, []);
-//         this.attach(this.ctorCall);
-//         // this.args = this.ctorCall.args;
-//     }
+        //MemberFunctionCall args are: context, function to call, receiver, ctor args
+        this.ctorCall = new MemberFunctionCall(context, this.ctor, this.target, []);
+        this.attach(this.ctorCall);
+        // this.args = this.ctorCall.args;
+    }
 
-//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
-//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
-//     public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
-//         return new RuntimeClassDefaultInitializer(this, parent);
-//     }
+    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
+        return new RuntimeClassDefaultInitializer(this, parent);
+    }
 
-//     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//         let targetDesc = this.target.describe();
-//         // TODO: what if there is an error that causes no ctor to be found/available
-//         return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall.describe().message};
-//     }
-// }
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.describe();
+        // TODO: what if there is an error that causes no ctor to be found/available
+        return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall.describe().message};
+    }
+}
 
-// export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
+export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
 
-//     readonly target: ObjectEntity<T>;
-//     readonly ctor: ConstructorEntity<T>;
-//     readonly ctorCall: CompiledFunctionCall<VoidType, "prvalue">;
-// }
+    readonly target: ObjectEntity<T>;
+    readonly ctor: ConstructorEntity<T>;
+    readonly ctorCall: CompiledFunctionCall<VoidType, "prvalue">;
+}
 
-// export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
+export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
 
-//     public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
+    public readonly ctorCall: RuntimeFunctionCall<VoidType, "prvalue">;
 
-//     private index = "callCtor";
+    private index = "callCtor";
 
-//     public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
-//         super(model, parent);
-//         this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
-//     }
+    public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
+    }
 
-//     protected upNextImpl() {
-//         if (this.index === "callCtor") {
-//             this.sim.push(this.ctorCall);
-//             this.index = "done";
-//         }
-//         else {
-//             let target = model.target.runtimeLookup(this);
-//             this.observable.send("initialized", target);
-//             this.startCleaningUp();
-//         }
-//     }
+    protected upNextImpl() {
+        if (this.index === "callCtor") {
+            this.sim.push(this.ctorCall);
+            this.index = "done";
+        }
+        else {
+            let target = model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
+            this.startCleaningUp();
+        }
+    }
 
-//     public stepForwardImpl() {
-//         // do nothing
-//     }
+    public stepForwardImpl() {
+        // do nothing
+    }
 
-// }
+}
 
 
 
