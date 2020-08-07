@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, ClassType, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -227,19 +227,22 @@ export type TopLevelDeclaration = TopLevelSimpleDeclaration | FunctionDefinition
 
 export type TopLevelSimpleDeclaration =
     NonObjectDeclaration |
-    GlobalVariableDefinition;
+    GlobalVariableDefinition |
+    IncompleteTypeVariableDefinition;
 
 export type LocalDeclaration = LocalSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 export type LocalSimpleDeclaration =
     NonObjectDeclaration |
-    LocalVariableDefinition;
+    LocalVariableDefinition |
+    IncompleteTypeVariableDefinition;
 
 export type MemberDeclaration = MemberSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
 export type MemberSimpleDeclaration =
     NonObjectDeclaration |
-    MemberVariableDeclaration;// |
+    MemberVariableDeclaration |
+    IncompleteTypeMemberVariableDeclaration;// |
     // ConstructorDeclaration |
     // DestructorDeclaration;
 
@@ -305,9 +308,12 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else {
+        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
             declaration = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             setInitializerFromAST(declaration, declAST.initializer, context);
+        }
+        else {
+            declaration = new IncompleteTypeVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
 
         return declaration;
@@ -376,9 +382,12 @@ export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarat
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else {
+        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
             declaration = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             setInitializerFromAST(declaration, declAST.initializer, context);
+        }
+        else {
+            declaration = new IncompleteTypeVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
 
         return declaration;
@@ -445,13 +454,7 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else {
-
-            // Check if it might be a constructor declaration
-            if (declarator.hasConstructorName && !declarator.name) {
-
-            }
-
+        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
             declaration = new MemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             if (declAST.initializer) {
                 // member variables don't get anything set for a default initializer,
@@ -459,6 +462,9 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
                 // initialization in the AST
                 setInitializerFromAST(declaration, declAST.initializer, context);
             }
+        }
+        else {
+            declaration = new IncompleteTypeMemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
 
         return declaration;
@@ -475,14 +481,16 @@ export type TypedDeclarationKinds<T extends Type> = {
     "friend_declaration": never;
     "unknown_array_bound_declaration": T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
     "function_declaration": T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
-    "local_variable_definition": T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
     "global_variable_definition": T extends GlobalVariableDefinition["type"] ? TypedGlobalVariableDefinition<T> : never;
+    "local_variable_definition": T extends LocalVariableDefinition["type"] ? TypedLocalVariableDefinition<T> : never;
+    "incomplete_type_variable_definition": T extends IncompleteTypeVariableDefinition["type"] ? TypedIncompleteTypeVariableDefinition<T> : never;
     "parameter_declaration": T extends ParameterDeclaration["type"] ? TypedParameterDeclaration<T> : never;
     "declarator": T extends Declarator["type"] ? TypedDeclarator<T> : never;
     "function_definition": T extends FunctionDeclaration["type"] ? TypedFunctionDefinition<T> : never;
     "class_declaration": T extends ClassDeclaration["type"] ? TypedClassDeclaration<T> : never;
     "class_definition": T extends ClassDefinition["type"] ? TypedClassDefinition<T> : never;
     "member_variable_declaration": T extends MemberVariableDeclaration["type"] ? TypedMemberVariableDeclaration<T> : never;
+    "incomplete_type_member_variable_declaration": T extends IncompleteTypeMemberVariableDeclaration["type"] ? TypedIncompleteTypeMemberVariableDeclaration<T> : never;
     
     // TODO: add rest of discriminants and their types
 };
@@ -495,14 +503,16 @@ export type CompiledDeclarationKinds<T extends Type> = {
     "friend_declaration": never; // currently unsupported
     "unknown_array_bound_declaration": never;  // TODO: should this ever be supported? Can you ever have one of these compile?
     "function_declaration": T extends FunctionDeclaration["type"] ? CompiledFunctionDeclaration<T> : never;
-    "local_variable_definition": T extends LocalVariableDefinition["type"] ? CompiledLocalVariableDefinition<T> : never;
     "global_variable_definition": T extends GlobalVariableDefinition["type"] ? CompiledGlobalVariableDefinition<T> : never;
+    "local_variable_definition": T extends LocalVariableDefinition["type"] ? CompiledLocalVariableDefinition<T> : never;
+    "incomplete_type_variable_definition": never;
     "parameter_declaration": T extends ParameterDeclaration["type"] ? CompiledParameterDeclaration<T> : never;
     "declarator": T extends Declarator["type"] ? CompiledDeclarator<T> : never;
     "function_definition": T extends FunctionDeclaration["type"] ? CompiledFunctionDefinition<T> : never;
     "class_declaration": T extends ClassDeclaration["type"] ? CompiledClassDeclaration<T> : never;
     "class_definition": T extends ClassDefinition["type"] ? CompiledClassDefinition<T> : never;
     "member_variable_declaration": T extends MemberVariableDeclaration["type"] ? CompiledMemberVariableDeclaration<T> : never;
+    "incomplete_type_member_variable_declaration": never;
     // TODO: add rest of discriminants and their types
 };
 
@@ -821,13 +831,13 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
 // }
 
 
-
+export type VariableDefinitionType = ObjectType | ReferenceType;
 
 abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
 
     public readonly initializer?: Initializer;
 
-    public abstract readonly type: ObjectType | ReferenceType;
+    public abstract readonly type: VariableDefinitionType;
     public abstract readonly declaredEntity: VariableEntity;
 
     private setInitializer(init: Initializer) {
@@ -876,19 +886,19 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
     public readonly construct_type = "local_variable_definition";
 
 
-    public readonly type: ObjectType | ReferenceType;
+    public readonly type: VariableDefinitionType;
     public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
 
     // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition);
     // }
 
-    // public static typedPredicate<T extends ObjectType | ReferenceType>(typePredicate: (o: ObjectType | ReferenceType) => o is T) {
+    // public static typedPredicate<T extends VariableDefinitionType>(typePredicate: (o: VariableDefinitionType) => o is T) {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition && !!decl.type && !!decl.declaredEntity && typePredicate(decl.type));
     // }
 
     public constructor(context: BlockContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: VariableDefinitionType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -921,13 +931,13 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
 }
 
-export interface TypedLocalVariableDefinition<T extends ObjectType | ReferenceType> extends LocalVariableDefinition {
+export interface TypedLocalVariableDefinition<T extends VariableDefinitionType> extends LocalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
 }
 
-export interface CompiledLocalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedLocalVariableDefinition<T>, SuccessfullyCompiled {
+export interface CompiledLocalVariableDefinition<T extends VariableDefinitionType = VariableDefinitionType> extends TypedLocalVariableDefinition<T>, SuccessfullyCompiled {
 
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
@@ -941,11 +951,11 @@ export interface CompiledLocalVariableDefinition<T extends ObjectType | Referenc
 export class GlobalVariableDefinition extends VariableDefinitionBase<TranslationUnitContext> {
     public readonly construct_type = "global_variable_definition";
 
-    public readonly type: ObjectType | ReferenceType;
+    public readonly type: VariableDefinitionType;
     public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
 
     public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: VariableDefinitionType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -972,13 +982,13 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 
 }
 
-export interface TypedGlobalVariableDefinition<T extends ObjectType | ReferenceType> extends GlobalVariableDefinition {
+export interface TypedGlobalVariableDefinition<T extends VariableDefinitionType> extends GlobalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: GlobalObjectEntity<NoRefType<T>>;
 }
 
-export interface CompiledGlobalVariableDefinition<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
+export interface CompiledGlobalVariableDefinition<T extends VariableDefinitionType = VariableDefinitionType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
 
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
@@ -1107,6 +1117,39 @@ export interface CompiledParameterDefinition<T extends PotentialParameterType = 
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 }
+
+
+
+
+/**
+ * This class represents a definition of a variable with incomplete type. Such a definition is
+ * ill-formed, because necessary details (such as object size) are missing from an incomplete type.
+ * As such, this class always compiles with an error and does not create any entities. In effect,
+ * the attempted definition of such a variable is acknowledged, but the variable is otherwise ignored
+ * as if it was never declared.
+ */
+export class IncompleteTypeVariableDefinition extends SimpleDeclaration<TranslationUnitContext> {
+    public readonly construct_type = "incomplete_type_variable_definition";
+
+    public readonly type: IncompleteType;
+    public readonly declaredEntity: undefined;
+
+    public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteType) {
+
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
+
+        this.type = type;
+
+        this.addNote(CPPError.declaration.incomplete_type_definition_prohibited(this));
+    }
+}
+
+export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteType> extends IncompleteTypeVariableDefinition {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
+}
+
 
 
 
@@ -1546,7 +1589,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // });
     }
 
-    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<ClassType>): RuntimeFunction<T> {
+    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<CompleteClassType>): RuntimeFunction<T> {
         return new RuntimeFunction(this, parent.sim, parent, receiver);
     }
 
@@ -1821,7 +1864,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
 
     public readonly name: string;
     public readonly key: ClassKey;
-    public readonly type: ClassType;
+    public readonly type: PotentiallyCompleteClassType;
     public readonly declaredEntity: ClassEntity;
 
     public constructor(context: TranslationUnitContext, name: string, key: ClassKey) {
@@ -1846,11 +1889,11 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     }
 }
 
-export interface TypedClassDeclaration<T extends ClassType> extends ClassDeclaration, SuccessfullyCompiled {
+export interface TypedClassDeclaration<T extends PotentiallyCompleteClassType> extends ClassDeclaration, SuccessfullyCompiled {
     readonly type: T;
 }
 
-export interface CompiledClassDeclaration<T extends ClassType = ClassType> extends TypedClassDeclaration<T>, SuccessfullyCompiled {
+export interface CompiledClassDeclaration<T extends PotentiallyCompleteClassType = PotentiallyCompleteClassType> extends TypedClassDeclaration<T>, SuccessfullyCompiled {
 
 }
 
@@ -1915,16 +1958,20 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     // public readonly name: number = 2;
     public readonly declaration: ClassDeclaration;
     public readonly name: string;
-    public readonly type: ClassType;
+    public readonly type: CompleteClassType;
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
-    public readonly constructors: readonly FunctionEntity[];
-
-    public readonly baseClass?: ClassEntity;
+    
+    public readonly baseClass?: CompleteClassType;
+    
     public readonly memberObjects: readonly MemberObjectEntity[] = [];
     public readonly memberReferences: readonly MemberReferenceEntity[] = [];
-
+    
+    public readonly constructors: readonly FunctionEntity[];
+    public readonly defaultConstructor?: FunctionEntity;
+    
+    
     public readonly objectSize: number;
 
     public readonly inlineMemberFunctionDefinitions: readonly FunctionDefinition[] = [];
@@ -2010,41 +2057,22 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         super(context, ast);
 
         this.name = declaration.name;
-        this.type = declaration.type;
 
         this.attach(this.declaration = declaration);
 
         this.attachAll(this.baseSpecifiers = baseSpecs);
         
-        if (baseSpecs.length > 0) {
-            this.baseClass = baseSpecs[0].baseEntity;
+        if (baseSpecs.length > 0 && baseSpecs[0].baseEntity?.isComplete()) {
+            this.baseClass = baseSpecs[0].baseEntity.type;
         }
 
         if (baseSpecs.length > 1) {
             this.addNote(CPPError.class_def.multiple_inheritance(this));
         }
 
-
         this.attachAll(this.memberDeclarations = memberDeclarations);
 
-        this.constructors = [];
-        memberDeclarations.forEach(mem => {
-            if (mem.construct_type === "function_declaration" && mem.isConstructor) {
-                // Need to check for redeclaration here since the constructors don't get
-                // added to a scope where we would normally detect that.
-                if (this.constructors.some(prevCtor => prevCtor.type.sameSignature(mem.type))) {
-                    mem.addNote(CPPError.declaration.ctor.previous_declaration(mem));
-                }
-                else {
-                    // Only add the unique ones to the list of constructors.
-                    // If we allowed duplicates with the same signature, it might
-                    // cause headaches later when e.g. this list is used as a set
-                    // of candidates for overload resolution.
-                    asMutable(this.constructors).push(mem.declaredEntity);
-                }
-            }
-        });
-
+        // Identify member objects and member references
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
@@ -2056,15 +2084,46 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             }
         });
 
+        // CONSTRUCTORS
+        this.constructors = [];
+        memberDeclarations.forEach(mem => {
+            if (mem.construct_type === "function_declaration" && mem.isConstructor) {
+                // Need to check for redeclaration here since the constructors don't get
+                // added to a scope where we would normally detect that.
+                if (this.constructors.some(prevCtor => prevCtor.type.sameSignature(mem.type))) {
+                    mem.addNote(CPPError.declaration.ctor.previous_declaration(mem));
+                }
+                else {
+                    let ctorEntity = mem.declaredEntity;
+                    // Only add the unique ones to the list of constructors.
+                    // If we allowed duplicates with the same signature, it might
+                    // cause headaches later when e.g. this list is used as a set
+                    // of candidates for overload resolution.
+                    asMutable(this.constructors).push(ctorEntity);
+
+                    if (ctorEntity.type.paramTypes.length === 0) {
+                        (<Mutable<this>>this).defaultConstructor = ctorEntity;
+                    }
+                }
+            }
+        });
+
+        // IMPLICITLY-DEFINED DEFAULT CONSTRUCTOR
+        this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
+
+
         // Compute size of objects of this class
         let size = 0;
         if (this.baseClass) {
-            size += this.baseClass.type.size;
+            size += this.baseClass.size;
         }
         this.memberObjects.forEach(mem => size += mem.type.size);
         this.objectSize = size;
 
+        // Set the definition for our declared entity, which also 
         this.declaration.declaredEntity.setDefinition(this);
+        assert(declaration.type.isCompleteClassType());
+        this.type = declaration.type;
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
@@ -2072,6 +2131,50 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public attachInlineFunctionDefinition(def: FunctionDefinition) {
         asMutable(this.inlineMemberFunctionDefinitions).push(def);
         this.attach(def);
+    }
+
+    private createImplicitlyDefinedDefaultConstructorIfAppropriate() {
+
+        // If any data members are of reference type, do not create the
+        // implicit default constructor. (This would need to change if
+        // member variable initializers are added.)
+        if (this.memberReferences.length > 0) {
+            return;
+        }
+
+        // If any const class-type data members do not have a user-provided
+        // default constructor, do not create the implicitly default constructor
+        // if (this.memberObjects.some(memObj =>
+        //     memObj.type.isClassType() &&
+        //     memObj.type.isConst &&
+        //     memObj.type.classDefinition))
+
+
+    //         // If any const data members do not have a user-provided default constructor
+    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
+    //                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
+    //                     return true;
+    //                 }
+    //                 var defCon = subObj.type.getDefaultConstructor();
+    //                 return defCon && !defCon.decl.isImplicit();
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any subobjects do not have a default constructor or destructor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.getDefaultConstructor() &&
+    //                     subObj.type.destructor;
+    //             })){
+    //             return;
+    //         }
+
+
+    //         var src = this.name + "() {}";
+    //         //TODO: initialize members (i.e. that are classes)
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
     }
 
     //     compileDeclaration : function(){
@@ -2179,42 +2282,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
 
 
-    //     createImplicitDefaultConstructor : function(){
-    //         var self = this;
 
-    //         // If any data members are of reference type, do not create the implicit default constructor
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Reference);
-    //             })){
-    //             return;
-    //         }
-
-    //         // If any const data members do not have a user-provided default constructor
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
-    //                     return true;
-    //                 }
-    //                 var defCon = subObj.type.getDefaultConstructor();
-    //                 return defCon && !defCon.decl.isImplicit();
-    //             })){
-    //             return;
-    //         }
-
-    //         // If any subobjects do not have a default constructor or destructor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.getDefaultConstructor() &&
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-
-
-    //         var src = this.name + "() {}";
-    //         //TODO: initialize members (i.e. that are classes)
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
 
     //     createImplicitCopyConstructor : function(){
     //         var self = this;
@@ -2352,12 +2420,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     }
 }
 
-export interface TypedClassDefinition<T extends ClassType> extends ClassDefinition, SuccessfullyCompiled {
+export interface TypedClassDefinition<T extends CompleteClassType> extends ClassDefinition, SuccessfullyCompiled {
     readonly type: T;
     readonly declaration: TypedClassDeclaration<T>;
 }
 
-export interface CompiledClassDefinition<T extends ClassType = ClassType> extends TypedClassDefinition<T>, SuccessfullyCompiled {
+export interface CompiledClassDefinition<T extends CompleteClassType = CompleteClassType> extends TypedClassDefinition<T>, SuccessfullyCompiled {
     readonly declaration: CompiledClassDeclaration<T>;
     readonly baseSpecifiers: readonly CompiledBaseSpecifier[];
     // readonly memberDeclarations: readonly CompiledMemberDeclaration[]; // TODO
@@ -2463,6 +2531,37 @@ export interface CompiledMemberVariableDeclaration<T extends ObjectType | Refere
     readonly declarator: CompiledDeclarator<T>;
 
     readonly initializer?: CompiledInitializer<NoRefType<T>>;
+}
+
+
+
+/**
+ * This class represents a declaration of a member variable with incomplete type. Such a declaration is
+ * ill-formed, because necessary details (such as object size) are missing from an incomplete type.
+ * As such, this class always compiles with an error and does not create any entities. In effect,
+ * the attempted declaration of such a member variable is acknowledged, but the member variable
+ * is otherwise ignored as if it was never declared.
+ */
+export class IncompleteTypeMemberVariableDeclaration extends SimpleDeclaration<TranslationUnitContext> {
+    public readonly construct_type = "incomplete_type_member_variable_declaration";
+
+    public readonly type: IncompleteType;
+    public readonly declaredEntity: undefined;
+
+    public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteType) {
+
+        super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
+
+        this.type = type;
+
+        this.addNote(CPPError.declaration.member.incomplete_type_declaration_prohibited(this));
+    }
+}
+
+export interface TypedIncompleteTypeMemberVariableDeclaration<T extends IncompleteType> extends IncompleteTypeMemberVariableDeclaration {
+    readonly type: T;
+    readonly declarator: TypedDeclarator<T>;
 }
 
 // export var MemberDeclaration = SimpleDeclaration.extend({

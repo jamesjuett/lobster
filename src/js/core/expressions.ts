@@ -1,6 +1,6 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { Type, ObjectType, AtomicType, IntegralType, PointerType, ReferenceType, ClassType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible } from "./types";
+import { Type, ObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, NoRefType, noRef, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType } from "./types";
 import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription } from "./constructs";
 import { Note, CPPError } from "./errors";
 import { FunctionEntity, ObjectEntity } from "./entities";
@@ -3861,7 +3861,7 @@ export interface OverloadResolutionResult {
     readonly selected?: FunctionEntity;
 }
 
-export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly (Type | undefined)[], receiverType?: ClassType): OverloadResolutionResult {
+export function overloadResolution(candidates: readonly FunctionEntity[], argTypes: readonly (Type | undefined)[], receiverType?: CompleteClassType): OverloadResolutionResult {
 
     // TODO: add these checks, and send errors back to construct that calls this if they aren't met
     // Should return the function selected as well as an array of object-typed params that contain

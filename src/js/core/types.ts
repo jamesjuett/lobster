@@ -5,6 +5,7 @@ import { ExpressionASTNode } from "./expressions";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
 import { ClassEntity } from "./entities";
 import { ClassDefinition } from "./declarations";
+import { proxy } from "jquery";
 
 
 var vowels = ["a", "e", "i", "o", "u"];
@@ -48,7 +49,7 @@ export function similarType(type1: Type, type2: Type) {
 };
 
 export function subType(type1: Type, type2: Type) {
-    return type1 instanceof ClassType && type2 instanceof ClassType && type1.isDerivedFrom(type2);
+    return type1.isClassType() && type2.isClassType() && type1.isDerivedFrom(type2);
 };
 
 export var covariantType = function (derived: Type, base: Type) {
@@ -71,7 +72,7 @@ export var covariantType = function (derived: Type, base: Type) {
     }
 
     // Must be pointers or references to class type
-    if (!(dc instanceof ClassType) || !(bc instanceof ClassType)) {
+    if (!(dc.isClassType()) || !(bc.isClassType())) {
         return false;
     }
 
@@ -170,7 +171,7 @@ abstract class TypeBase {
     }
 
     public isObjectType(): this is ObjectType {
-        return this.isAtomicType() || this.isBoundedArrayType() || this.isClassType();
+        return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
     }
 
     public isAtomicType(): this is AtomicType {
@@ -205,8 +206,12 @@ abstract class TypeBase {
         return this instanceof ReferenceType;
     }
 
-    public isClassType(): this is ClassType {
-        return this instanceof ClassType;
+    public isClassType(): this is PotentiallyCompleteClassType {
+        return this instanceof ClassTypeBase;
+    }
+
+    public isCompleteClassType(): this is CompleteClassType {
+        return this instanceof ClassTypeBase && !!this.isComplete;
     }
 
     public isBoundedArrayType(): this is BoundedArrayType {
@@ -222,7 +227,7 @@ abstract class TypeBase {
     }
 
     public isArrayElemType(): this is ArrayElemType {
-        return this instanceof AtomicType || this instanceof ClassType;
+        return this instanceof AtomicType || this.isClassType();
     }
 
     public isFunctionType(): this is FunctionType {
@@ -356,71 +361,75 @@ export function isObjectType(type: Type): type is ObjectType {
 }
 
 export function isAtomicType(type: Type): type is AtomicType {
-    return type instanceof AtomicType;
+    return type.isAtomicType();
 }
 
 export function isArithmeticType(type: Type): type is ArithmeticType {
-    return type instanceof ArithmeticType;
+    return type.isArithmeticType();
 }
 
 export function isIntegralType(type: Type): type is IntegralType {
-    return type instanceof IntegralType;
+    return type.isIntegralType();
 }
 
 export function isFloatingPointType(type: Type): type is FloatingPointType {
-    return type instanceof FloatingPointType;
+    return type.isFloatingPointType();
 }
 
 export function isPointerType(type: Type): type is PointerType {
-    return type instanceof PointerType;
+    return type.isPointerType();
 }
 
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
-    return type instanceof ArrayPointerType;
+    return type.isArrayPointerType();
 }
 
 export function isObjectPointerType(type: Type): type is ObjectPointerType {
-    return type instanceof ObjectPointerType;
+    return type.isObjectPointerType();
 }
 
 export function isReferenceType(type: Type): type is ReferenceType {
-    return type instanceof ReferenceType;
+    return type.isReferenceType();
 }
 
-export function isClassType(type: Type): type is ClassType {
-    return type instanceof ClassType;
+export function isClassType(type: Type): type is PotentiallyCompleteClassType {
+    return type.isClassType();
+}
+
+export function isCompleteClassType(type: Type): type is CompleteClassType {
+    return type.isCompleteClassType();
 }
 
 export function isBoundedArrayType(type: Type): type is BoundedArrayType {
-    return type instanceof BoundedArrayType;
+    return type.isBoundedArrayType();
 }
 
 export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBoundType {
-    return type instanceof ArrayOfUnknownBoundType;
+    return type.isArrayOfUnknownBoundType();
 }
 
 export function isGenericArrayType(type: Type): type is BoundedArrayType | ArrayOfUnknownBoundType {
-    return type instanceof BoundedArrayType || type instanceof ArrayOfUnknownBoundType;
+    return type.isGenericArrayType();
 }
 
 export function isArrayElemType(type: Type): type is ArrayElemType {
-    return type instanceof AtomicType || type instanceof ClassType;
+    return type.isArrayElemType();
 }
 
 export function isFunctionType(type: Type): type is FunctionType {
-    return type instanceof FunctionType;
+    return type.isFunctionType();
 }
 
 export function isVoidType(type: Type): type is VoidType {
-    return type instanceof VoidType;
+    return type.isVoidType();
 }
 
 export function isPotentialReturnType(type: Type): type is PotentialReturnType {
-    return type.isObjectType() || type.isReferenceType() || type.isVoidType();
+    return type.isPotentialReturnType();
 }
 
 export function isPotentialParameterType(type: Type): type is PotentialParameterType {
-    return type.isObjectType() || type.isReferenceType();
+    return type.isPotentialParameterType();
 }
 
 
@@ -462,7 +471,9 @@ export function isPotentialParameterType(type: Type): type is PotentialParameter
 
 // export let UNKNOWN_TYPE = new Unknown();
 
-export type Type = VoidType | ObjectType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
+export type Type = VoidType | ObjectType | IncompleteClassType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
+
+export type IncompleteType = IncompleteClassType | ArrayOfUnknownBoundType;
 
 export class VoidType extends TypeBase {
 
@@ -544,11 +555,11 @@ export abstract class ObjectTypeBase extends TypeBase {
 
 
 
-export type ObjectType = AtomicType | BoundedArrayType | ClassType;
+export type ObjectType = AtomicType | BoundedArrayType | CompleteClassType;
 
 export type PotentialReturnType = ObjectType | ReferenceType | VoidType;
 
-export type PotentialParameterType = AtomicType | ClassType | ReferenceType; // Does not include arrays
+export type PotentialParameterType = AtomicType | CompleteClassType | ReferenceType; // Does not include arrays
 
 /**
  * Represents a type for an object that has a value.
@@ -1005,7 +1016,7 @@ export function noRef<T extends Type>(type: T): NoRefType<T> {
     }
 };
 
-export type ArrayElemType = AtomicType | ClassType;
+export type ArrayElemType = AtomicType | CompleteClassType;
 
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
@@ -1151,64 +1162,57 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
  * destructor - the destructor entity for this class. might be null if doesn't have a destructor
  */
 
+interface ClassShared {
+    classDefinition?: ClassDefinition;
+}
 
 
-// TODO: HACK to make ClassType exist but do nothing for now
-export class ClassType extends ObjectTypeBase {
-
-    private static nextClassId = 0; 
-
-    public static createClassType(name: string) {
-        return new ClassType(this.nextClassId++, name);
-    }
+class ClassTypeBase extends TypeBase {
 
     public readonly precedence: number = 0;
     public readonly className: string = "";
-    public readonly name: string;
 
     private readonly classId: number;
-    public readonly classDefinition?: ClassDefinition;
+    private readonly shared: ClassShared;
 
-    /** Not intended for external use. Use `createClassType()` factory instead. */
-    private constructor(classId: number, name: string, classDefinition?: ClassDefinition, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(classId: number, className: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.classId = classId;
-        this.name = name;
-        this.classDefinition = classDefinition;
+        this.className = className;
+        this.shared = shared;
     }
 
     public setDefinition(def: ClassDefinition) {
-        (<Mutable<this>>this).classDefinition = def;
-    }
-
-    public get size() {
-        return this.classDefinition?.objectSize ?? 0;
+        this.shared.classDefinition = def;
     }
 
     public isComplete(context: TranslationUnitContext) {
-        // TODO: consider whether the type has been completed or not
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
-        return !!this.classDefinition;
+        return !!this.shared.classDefinition;
     }
 
-    public sameType(other: Type) {
+    public get size() {
+        return this.shared.classDefinition?.objectSize;
+    }
+
+    public sameType(other: Type) : boolean {
         return this.similarType(other)
             && other.isConst === this.isConst
             && other.isVolatile === this.isVolatile;
     }
 
-    public similarType(other: Type) {
-        return other instanceof ClassType
+    public similarType(other: Type) : boolean {
+        return other instanceof ClassTypeBase
             && this.sameClassType(other);
     }
 
     /** Two class types are the same if they originated from the same ClassEntity (e.g.
      *  two class declarations with the same name in the same scope) or if they have 
      *  been associated with the same definition during linking. */
-    private sameClassType(other: ClassType) {
+    private sameClassType(other: ClassTypeBase) {
         return this.classId == other.classId
-            || (!!this.classDefinition && this.classDefinition === other.classDefinition);
+            || (!!this.shared.classDefinition && this.shared.classDefinition === other.shared.classDefinition);
     }
 
     public isDerivedFrom(other: Type) : boolean {
@@ -1236,12 +1240,29 @@ export class ClassType extends ObjectTypeBase {
 //     },
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ClassType(this.classId, this.name, this.classDefinition, isConst, isVolatile);
+        return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
     }
 
     public areLValuesAssignable() {
         return false;
     }
+}
+
+export interface IncompleteClassType extends ClassTypeBase {
+
+}
+
+export interface CompleteClassType extends ClassTypeBase {
+    readonly classDefinition: ClassDefinition;
+    readonly size: number;
+}
+
+export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassType;
+
+let nextClassId = 0;
+
+export function createClassType(className: string) : IncompleteClassType {
+    return new ClassTypeBase(nextClassId++, className, {});
 }
 
 // export class ClassType extends ObjectTypeBase {
@@ -1467,12 +1488,12 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
     public readonly returnType: ReturnType;
     public readonly paramTypes: readonly PotentialParameterType[];
-    public readonly receiverType?: ClassType;
+    public readonly receiverType?: PotentiallyCompleteClassType;
 
     private paramStrType: string;
     private paramStrEnglish: string;
 
-    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: ClassType) {
+    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: PotentiallyCompleteClassType) {
         super(false, false);
 
         this.receiverType = receiverType;
@@ -1482,7 +1503,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         // TODO: why are PointerType and ReferenceType included here?
         // shouldn't const be ignored on returns of const pointers due to value semantics (but not pointers-to-const)
         // and for references you can't have a const reference anyway so it's not meaningful
-        if (!(returnType instanceof ClassType || returnType instanceof PointerType || returnType instanceof ReferenceType)) {
+        if (!(returnType.isClassType() || returnType.isPointerType() || returnType.isReferenceType())) {
             this.returnType = <ReturnType>returnType.cvUnqualified();
         }
         else {
@@ -1490,7 +1511,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         }
 
         // Top-level const on parameter types is ignored for non-class types
-        this.paramTypes = paramTypes.map((ptype) => ptype instanceof ClassType ? ptype : ptype.cvUnqualified());
+        this.paramTypes = paramTypes.map((ptype) => ptype.isClassType() ? ptype : ptype.cvUnqualified());
 
         this.paramStrType = "(";
         for (var i = 0; i < paramTypes.length; ++i) {

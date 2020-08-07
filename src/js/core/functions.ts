@@ -1,4 +1,4 @@
-import { FunctionType, ClassType, VoidType, NoRefType, ObjectType, ReferenceType, AtomicType } from "./types";
+import { FunctionType, VoidType, NoRefType, ObjectType, ReferenceType, AtomicType, CompleteClassType } from "./types";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -20,7 +20,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
 
     public readonly stackFrame?: MemoryFrame;
 
-    public readonly receiver?: CPPObject<ClassType>;
+    public readonly receiver?: CPPObject<CompleteClassType>;
 
     /**
      * The object returned by the function, either an original returned-by-reference or a temporary
@@ -33,7 +33,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
 
     public readonly body: RuntimeBlock;
 
-    public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
+    public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<CompleteClassType>) {
         super(model, "function", caller || sim);
         if (caller) { this.caller = caller };
         this.receiver = receiver;

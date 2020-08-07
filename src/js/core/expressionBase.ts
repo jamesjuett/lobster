@@ -3,7 +3,7 @@ import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, Compile
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
-import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType } from "./types";
+import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType } from "./types";
 
 import { Constructor, Mutable } from "../util/util";
 
@@ -67,8 +67,12 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return !!this.type && this.type.isReferenceType();
     }
 
-    public isClassTyped(): this is TypedExpression<ClassType, ValueCategory> {
+    public isClassTyped(): this is TypedExpression<PotentiallyCompleteClassType, ValueCategory> {
         return !!this.type && this.type.isClassType();
+    }
+
+    public isCompleteClassTyped(): this is TypedExpression<CompleteClassType, ValueCategory> {
+        return !!this.type && this.type.isCompleteClassType();
     }
 
     public isBoundedArrayTyped(): this is TypedExpression<BoundedArrayType, "lvalue"> {

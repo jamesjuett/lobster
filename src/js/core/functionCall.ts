@@ -2,7 +2,7 @@ import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDealloca
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifier, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression } from "./expressions";
-import { ClassType, VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type } from "./types";
+import { VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
@@ -20,7 +20,7 @@ export class FunctionCall extends PotentialFullExpression {
 
     public readonly func: FunctionEntity;
     public readonly args: readonly Expression[];
-    public readonly receiver?: ObjectEntity<ClassType>;
+    public readonly receiver?: ObjectEntity<CompleteClassType>;
 
     public readonly argInitializers: readonly DirectInitializer[];
 
@@ -44,7 +44,7 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiver 
      */
-    public constructor(context: TranslationUnitContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<ClassType>) {
+    public constructor(context: TranslationUnitContext, func: FunctionEntity, args: readonly TypedExpression[], receiver?: ObjectEntity<CompleteClassType>) {
         super(context, undefined);
 
         this.func = func;
@@ -185,7 +185,7 @@ export class RuntimeFunctionCall<T extends FunctionType = FunctionType> extends 
     public readonly calledFunction: RuntimeFunction<T>;
     public readonly argInitializers: readonly RuntimeDirectInitializer[];
 
-    public readonly receiver?: CPPObject<ClassType>
+    public readonly receiver?: CPPObject<CompleteClassType>
 
     // public readonly hasBeenCalled: boolean = false;
 

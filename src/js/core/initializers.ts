@@ -2,7 +2,7 @@ import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity } from "./entities";
-import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, ClassType, FunctionType, VoidType } from "./types";
+import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -50,7 +50,7 @@ export abstract class DefaultInitializer extends Initializer {
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity): ReferenceDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>): AtomicDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>): ArrayDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>) : ClassDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) : ClassDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>): DefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity): DefaultInitializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) {
@@ -62,8 +62,8 @@ export abstract class DefaultInitializer extends Initializer {
         else if (target.type.isBoundedArrayType()) {
             return new ArrayDefaultInitializer(context, <ObjectEntity<BoundedArrayType>>target);
         }
-        else if (target.type.isClassType()) {
-            return new ClassDefaultInitializer(context, <ObjectEntity<ClassType>> target);
+        else if (target.type.isCompleteClassType()) {
+            return new ClassDefaultInitializer(context, <ObjectEntity<CompleteClassType>> target);
         }
         else {
             return assertFalse();
@@ -266,11 +266,11 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
 export class ClassDefaultInitializer extends DefaultInitializer {
     public readonly construct_type = "ClassDefaultInitializer";
 
-    public readonly target: ObjectEntity<ClassType>;
+    public readonly target: ObjectEntity<CompleteClassType>;
     public readonly ctor?: FunctionEntity;
     public readonly ctorCall?: FunctionCall;
 
-    public constructor(context: TranslationUnitContext, target: ObjectEntity<ClassType>) {
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) {
         super(context, undefined);
 
         this.target = target;
@@ -291,9 +291,9 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         // this.args = this.ctorCall.args;
     }
 
-    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
-    public createRuntimeInitializer<T extends ClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
         return new RuntimeClassDefaultInitializer(this, parent);
     }
 
@@ -308,7 +308,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     }
 }
 
-export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
+export interface CompiledClassDefaultInitializer<T extends CompleteClassType = CompleteClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     
     readonly target: ObjectEntity<T>;
@@ -316,7 +316,7 @@ export interface CompiledClassDefaultInitializer<T extends ClassType = ClassType
     readonly ctorCall: CompiledFunctionCall<FunctionType<VoidType>>;
 }
 
-export class RuntimeClassDefaultInitializer<T extends ClassType = ClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
+export class RuntimeClassDefaultInitializer<T extends CompleteClassType = CompleteClassType> extends RuntimeDefaultInitializer<T, CompiledClassDefaultInitializer<T>> {
 
     public readonly ctorCall: RuntimeFunctionCall<FunctionType<VoidType>>;
 

@@ -4,7 +4,7 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
+import { ObjectType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType } from "./types";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
@@ -56,7 +56,7 @@ export function createTranslationUnitContext(parentContext: ProgramContext, tran
 
 export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualParameterTypes?: readonly (Type | undefined)[];
-    readonly contextualReceiverType?: ClassType;
+    readonly contextualReceiverType?: CompleteClassType;
 }
 
 export function createExpressionContext(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
@@ -328,7 +328,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
      * non-null assertions are annoying, so instead we trick the type system and trust that this property will
      * be used appropriately by the programmer.
      */
-    public readonly contextualReceiver!: CPPObject<ClassType>;
+    public readonly contextualReceiver!: CPPObject<CompleteClassType>;
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
@@ -370,7 +370,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         (<Mutable<this>>this).containingRuntimeFunction = func;
     }
 
-    protected setContextualReceiver(obj: CPPObject<ClassType>) {
+    protected setContextualReceiver(obj: CPPObject<CompleteClassType>) {
         (<Mutable<this>>this).contextualReceiver = obj;
     }
 

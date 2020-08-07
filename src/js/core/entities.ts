@@ -1,4 +1,4 @@
-import { PotentialParameterType, ClassType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible } from "./types";
+import { PotentialParameterType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
@@ -24,7 +24,7 @@ interface ExactLookupOptions {
     readonly noParent?: boolean;
     readonly noBase?: boolean;
     readonly paramTypes: readonly PotentialParameterType[]
-    readonly receiverType?: ClassType;
+    readonly receiverType?: CompleteClassType;
 }
 
 export type NameLookupOptions = NormalLookupOptions | ExactLookupOptions;
@@ -1413,7 +1413,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     }
 }
 
-export class ClassEntity extends DeclaredEntityBase<ClassType> {
+export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType> {
     public readonly declarationKind = "class";
 
     public readonly qualifiedName: string;
@@ -1421,7 +1421,7 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     public readonly declarations: readonly ClassDeclaration[];
     public readonly definition?: ClassDefinition;
 
-    constructor(decl: ClassDeclaration) {
+    public constructor(decl: ClassDeclaration) {
 
         // Ask the type system for the appropriate type.
         // Because Lobster only supports mechanisms for class declaration that yield
@@ -1429,14 +1429,14 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
         // class name to distinguish types from each other. But, because Lobster does
         // not support namespaces, the unqualified name is also sufficient.
 
-        super(ClassType.createClassType(decl.name), decl.name);
+        super(createClassType(decl.name), decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
         this.qualifiedName = "::" + this.name;
     }
 
-    public hasCompiledDefinition() : this is CompiledDefinedClassEntity {
-        return !!this.definition?.isSuccessfullyCompiled();
+    public isComplete() : this is CompleteClassEntity {
+        return !!this.definition && this.type.isCompleteClassType();
     }
 
     public toString() {
@@ -1505,8 +1505,9 @@ export class ClassEntity extends DeclaredEntityBase<ClassType> {
     }
 }
 
-export interface CompiledDefinedClassEntity extends ClassEntity {
-    readonly definition: CompiledClassDefinition;
+export interface CompleteClassEntity extends ClassEntity {
+    readonly type: CompleteClassType;
+    readonly definition: ClassDefinition;
 }
 
 
