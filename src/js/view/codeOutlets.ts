@@ -927,6 +927,8 @@ export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClas
     public constructor(element: JQuery, construct: CompiledClassDefaultInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
 
+        // this.element.append(htmlDecoratedType(construct.target.type.className));
+
         this.element.append("(");
 
         this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);

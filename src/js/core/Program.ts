@@ -8,7 +8,7 @@ import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
-import { FunctionType, Int, ClassType } from "./types";
+import { FunctionType, Int } from "./types";
 
 
 /**

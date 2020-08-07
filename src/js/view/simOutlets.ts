@@ -2,7 +2,7 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
+import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
@@ -1377,7 +1377,7 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
     }
 }
 
-export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T> {
+export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
     protected readonly objElem: JQuery;
     private readonly addrElem?: JQuery;
@@ -1442,8 +1442,8 @@ export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOut
     else if(obj.type.isBoundedArrayType()) {
         return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
     }
-    else if(obj.type.isClassType()) {
-        return new ClassMemoryObject(elem, <CPPObject<ClassType>>obj, memoryOutlet);
+    else if(obj.type.isCompleteClassType()) {
+        return new ClassMemoryObject(elem, <CPPObject<CompleteClassType>>obj, memoryOutlet);
     }
     else{
         return new SingleMemoryObject(elem, <CPPObject<AtomicType>>obj, memoryOutlet);
