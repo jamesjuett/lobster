@@ -1202,7 +1202,13 @@ class ClassTypeBase extends TypeBase {
     }
 
     public get size() {
-        return this.shared.classDefinition?.objectSize;
+        // An ObjectType is not allowed to have size 0, but a
+        // class definition with no members would have object size 0,
+        // so we just say the min size of class type objects is 4 bytes
+        if (this.shared.classDefinition) {
+            return Math.max(this.shared.classDefinition.objectSize, 4);
+        }
+        // else undefined
     }
 
     public setDefinition(def: ClassDefinition) {
