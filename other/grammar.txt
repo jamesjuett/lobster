@@ -196,7 +196,16 @@ class_definition
   }
 
 function_definition
-  = specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+
+  /* constructors */
+  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
+
+  / ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:emptyDeclSpecs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
+
+  /* regular functions */
+  / specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
 
