@@ -214,12 +214,13 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         listener && listenTo(listener, this);
         this.element.addClass("function");
 
-        // Set up DOM and child outlets
-        // if (!isA(this.code, ConstructorDefinition) && !isA(this.code, DestructorDefinition)){ // Constructors/destructors use this outlet too for now and they don't have return type
+        // Constructors/destructors have a dummy return type of void in the representation,
+        // but we don't want to show that in the visualization.
+        if (!this.construct.declaration.isConstructor) {
             var returnTypeElem = $('<span class="code-returnType">' + this.construct.type.returnType.toString() + "</span>");
             this.element.append(returnTypeElem);
             this.element.append(" ");
-        // }
+        }
         var nameElem = $('<span class="code-functionName">' + this.construct.name + "</span>");
         this.element.append(nameElem);
 
