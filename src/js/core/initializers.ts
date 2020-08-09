@@ -276,7 +276,6 @@ export class ClassDefaultInitializer extends DefaultInitializer {
         this.target = target;
 
         // Try to find default constructor. Not using lookup because constructors have no name.
-        assert(target.type.classDefinition);
         let overloadResult = overloadResolution(target.type.classDefinition.constructors, []);
         if (!overloadResult.selected) {
             this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));

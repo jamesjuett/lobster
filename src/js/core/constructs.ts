@@ -44,6 +44,11 @@ export interface ProgramContext {
     readonly libraryUnsupported?: boolean;
 }
 
+export function createImplicitContext<ContextType extends ProgramContext>(context: ContextType): ContextType {
+    return Object.assign({}, context, { implicit: true });
+}
+
+
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
