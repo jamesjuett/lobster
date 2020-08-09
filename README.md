@@ -11,5 +11,5 @@ This readme is underdeveloped. It should eventually describe:
 
 Command to generate parser module:
 ```console
-./node_modules/pegjs/bin/pegjs --plugin ./node_modules/ts-pegjs/src/tspegjs --allowed-start-rules start,declaration -o src/js/parse/cpp_parser.ts other/grammar.txt
+./node_modules/pegjs/bin/pegjs --plugin ./node_modules/ts-pegjs/src/tspegjs --allowed-start-rules start,declaration,declarator -o src/js/parse/cpp_parser.ts other/grammar.txt
 ```

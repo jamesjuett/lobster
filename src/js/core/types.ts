@@ -633,6 +633,13 @@ export abstract class AtomicType extends ValueType {
     public readonly type_kind = "AtomicType";
     public readonly isAtomic = true;
 
+    public isDefaultConstructible(userDefinedOnly = false) {
+        return !userDefinedOnly;
+    }
+
+    public isDestructible() {
+        return true;
+    }
 }
 
 export abstract class SimpleType extends AtomicType {
@@ -1098,6 +1105,14 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     public areLValuesAssignable() {
         return false;
     }
+    
+    public isDefaultConstructible(userDefinedOnly = false) {
+        return this.elemType.isDefaultConstructible(userDefinedOnly);
+    }
+    
+    public isDestructible() {
+        return this.elemType.isDestructible();
+    }
 }
 
 
@@ -1181,19 +1196,26 @@ class ClassTypeBase extends TypeBase {
         this.className = className;
         this.shared = shared;
     }
+    
+    public get classDefinition() {
+        return this.shared.classDefinition;
+    }
+
+    public get size() {
+        return this.shared.classDefinition?.objectSize;
+    }
 
     public setDefinition(def: ClassDefinition) {
         this.shared.classDefinition = def;
     }
 
-    public isComplete(context: TranslationUnitContext) {
+    public isComplete(context: TranslationUnitContext) : this is CompleteClassType {
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
+        // ^ Actually, depending on how lobster sequences the compilation, this
+        // might not be necessary, since the compilation of the member function
+        // bodies might just come after the classDefinition is set.
         return !!this.shared.classDefinition;
-    }
-
-    public get size() {
-        return this.shared.classDefinition?.objectSize;
     }
 
     public sameType(other: Type) : boolean {
@@ -1246,6 +1268,15 @@ class ClassTypeBase extends TypeBase {
     public areLValuesAssignable() {
         return false;
     }
+    
+    public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
+        let defaultCtor = this.classDefinition.defaultConstructor;
+        return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
+    }
+    
+    public isDestructible(this: CompleteClassType) {
+        return !!this.classDefinition.destructor;
+    }
 }
 
 export interface IncompleteClassType extends ClassTypeBase {
@@ -1255,6 +1286,9 @@ export interface IncompleteClassType extends ClassTypeBase {
 export interface CompleteClassType extends ClassTypeBase {
     readonly classDefinition: ClassDefinition;
     readonly size: number;
+
+    isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    isDestructible(): boolean;
 }
 
 export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassType;

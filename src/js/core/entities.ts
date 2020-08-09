@@ -121,7 +121,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            this.functionEntityCreated(newEntity);
+            // this.functionEntityCreated(newEntity);
             return newEntity;
         }
 
@@ -131,7 +131,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            this.functionEntityCreated(newEntity);
+            // this.functionEntityCreated(newEntity);
             return newEntity;
         }
 
@@ -144,19 +144,16 @@ export class Scope {
         let entityOrError = newEntity.mergeInto(existingEntity);
 
         // If we got the new entity back, it means it was added to the scope for the first time
-        if (entityOrError === newEntity) {
-            this.functionEntityCreated(newEntity);
-        }
+        // if (entityOrError === newEntity) {
+        //     this.functionEntityCreated(newEntity);
+        // }
 
         return entityOrError;
     }
 
-    protected functionEntityCreated(newEntity: FunctionEntity) {
-        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
-        // support using the static keyword or unnamed namespaces to specify internal linkage.
-        // It has linkage regardless of whether this is a namespace scope or a block scope.
-        newEntity.registerWithLinker();
-    }
+    // protected functionEntityCreated(newEntity: FunctionEntity) {
+
+    // }
 
     /** Attempts to declare a class in this scope. TODO docs: this documentation is out of date
      * @param newEntity - The class being declared.
@@ -1307,12 +1304,18 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
 
+    public readonly isImplicit: boolean;
+    public readonly isUserDefined: boolean;
+
     // storage: "static",
     constructor(type: T, decl: FunctionDeclaration) {
         super(type, decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
         this.qualifiedName = "::" + this.name;
+
+        this.isImplicit = !!decl.context.implicit;
+        this.isUserDefined = !decl.context.implicit;
     }
 
     public addDeclaration(decl: FunctionDeclaration) {
@@ -1372,7 +1375,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     }
 
     public registerWithLinker() {
-        this.firstDeclaration.context.translationUnit.program.registerFunctionEntity(this);
+        this.firstDeclaration.context.program.registerFunctionEntity(this);
     }
 
     public link(def: FunctionDefinitionGroup | undefined) {

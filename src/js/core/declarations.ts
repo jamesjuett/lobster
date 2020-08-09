@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
@@ -11,6 +11,7 @@ import { CPPObject, ArraySubobject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
+import { parseDeclarator, parseFunctionDefinition } from "../parse/cpp_parser_util";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 
@@ -541,7 +542,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
 
-    protected constructor(context: ContextType, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    protected constructor(context: ContextType, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context, ast);
 
@@ -691,7 +692,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
     public readonly isConstructor: boolean = false;
     public readonly isDestructor: boolean = false;
 
-    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
@@ -740,6 +741,11 @@ export class FunctionDeclaration extends SimpleDeclaration {
             }
         }
 
+        
+        // A function declaration has linkage. The linkage is presumed to be external, because Lobster does not
+        // support using the static keyword or unnamed namespaces to specify internal linkage.
+        // It has linkage regardless of whether this is a namespace scope or a block scope.
+        this.declaredEntity.registerWithLinker();
 
         // if (!this.isMemberFunction && this.virtual){
         //     this.addNote(CPPError.declaration.func.virtual_not_allowed(this));
@@ -1171,7 +1177,7 @@ interface FunctionPostfixDeclaratorASTNode {
     readonly const?: boolean;
 }
 
-interface DeclaratorASTNode extends ASTNode {
+export interface DeclaratorASTNode extends ASTNode {
     readonly pureVirtual?: boolean;
     readonly sub?: DeclaratorASTNode; // parentheses
     readonly pointer?: DeclaratorASTNode;
@@ -1970,11 +1976,14 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     
     public readonly constructors: readonly FunctionEntity[];
     public readonly defaultConstructor?: FunctionEntity;
-    
+
+    public readonly destructor?: FunctionEntity;
     
     public readonly objectSize: number;
 
     public readonly inlineMemberFunctionDefinitions: readonly FunctionDefinition[] = [];
+
+    private readonly implicitPublicContext: MemberSpecificationContext;
     
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
@@ -2057,6 +2066,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         super(context, ast);
 
         this.name = declaration.name;
+        this.implicitPublicContext = createImplicitContext(createMemberSpecificationContext(context, "public"));
 
         this.attach(this.declaration = declaration);
 
@@ -2135,6 +2145,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
     private createImplicitlyDefinedDefaultConstructorIfAppropriate() {
 
+        // If there are any user-provided ctors, do not create the implicit
+        // default constructor.
+        if (this.constructors.some(ctor => !ctor.firstDeclaration.context.implicit)) {
+            return;
+        }
+
         // If any data members are of reference type, do not create the
         // implicit default constructor. (This would need to change if
         // member variable initializers are added.)
@@ -2142,39 +2158,45 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        // If any const class-type data members do not have a user-provided
+        // If base class is not default constructible
+        if (this.baseClass && !this.baseClass.isDefaultConstructible()) {
+            return;
+        }
+
+        // If base class is not default destructible
+        if (this.baseClass && !this.baseClass.isDestructible()) {
+            return;
+        }
+
+        // If any members are not default constructible
+        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible())) {
+            return;
+        }
+
+        // If any members are not destructible
+        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible())) {
+            return;
+        }
+        
+
+        // If any const data members do not have a user-provided
         // default constructor, do not create the implicitly default constructor
-        // if (this.memberObjects.some(memObj =>
-        //     memObj.type.isClassType() &&
-        //     memObj.type.isConst &&
-        //     memObj.type.classDefinition))
+        // (this includes const non-class type objects).
+        // ^That's the language from the spec. But the basic idea of it is that
+        // we don't want any const members being default-initialized unless it's
+        // done in a way the user specified (e.g. atomic objects are initialized
+        // with junk, which is permanent since they're const).
+        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible(true))) {
+            return;
+        }
 
-
-    //         // If any const data members do not have a user-provided default constructor
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 if (!isA(subObj.type, Types.Class) || !subObj.type.isConst){
-    //                     return true;
-    //                 }
-    //                 var defCon = subObj.type.getDefaultConstructor();
-    //                 return defCon && !defCon.decl.isImplicit();
-    //             })){
-    //             return;
-    //         }
-
-    //         // If any subobjects do not have a default constructor or destructor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.getDefaultConstructor() &&
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-
-
-    //         var src = this.name + "() {}";
-    //         //TODO: initialize members (i.e. that are classes)
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+        let src = `${this.name}() {}`;
+        let iddc = <FunctionDefinition>FunctionDefinition.createFromAST(
+            parseFunctionDefinition(src),
+            this.implicitPublicContext);
+        this.attach(iddc);
+        (<Mutable<this>>this).defaultConstructor = iddc.declaration.declaredEntity;
+        asMutable(this.constructors).push(iddc.declaration.declaredEntity);
     }
 
     //     compileDeclaration : function(){
