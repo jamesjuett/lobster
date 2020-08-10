@@ -10,6 +10,7 @@ import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
 import { RuntimeFunction } from "./functions";
+import { FunctionCall } from "./functionCall";
 
 
 
@@ -1304,6 +1305,8 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
 
+    public readonly isOdrUsed: boolean = false;
+
     public readonly isImplicit: boolean;
     public readonly isUserDefined: boolean;
 
@@ -1386,7 +1389,9 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             // with matching signature to the given linked entity
             let overload = selectOverloadedDefinition(def.definitions, this.type);
             if (!overload) {
-                this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.no_matching_overload(decl, this)));
+                if (this.isOdrUsed) {
+                    this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.no_matching_overload(decl, this)));
+                }
                 return;
             }
 
@@ -1399,13 +1404,19 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             (<Mutable<this>>this).definition = overload;
         }
         else {
-            this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.def_not_found(decl, this)));
+            if (this.isOdrUsed) {
+                this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.def_not_found(decl, this)));
+            }
         }
 
     }
 
     public isMain() {
         return this.qualifiedName === "::main";
+    }
+
+    public registerCall(call: FunctionCall) {
+        (<Mutable<this>>this).isOdrUsed = true;
     }
 
     public describe(): EntityDescription {
