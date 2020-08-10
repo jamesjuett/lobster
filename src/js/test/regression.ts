@@ -607,6 +607,7 @@ int main() {
     new SingleTranslationUnitTest(
       "Constructor Declaration Test",
 `class A {
+public:
   A();
   A(int);
   A A(int, double);
@@ -618,7 +619,7 @@ int main() {
 };
 
 int main() {
-  int x = 2;
+  
 }`,
       [
           new NoteVerifier([
@@ -633,6 +634,29 @@ int main() {
           ])
       ]
     );
+
+        // ---------- Basic Default Ctor Test ----------
+    
+new SingleTranslationUnitTest(
+"Basic Default Constructor Test",
+`class A {
+  private:
+    int a;
+    int b;
+  public:
+    A() {};
+  };
+  
+  int main() {
+    int x = 2;
+    A a;
+    int y = 2;
+  }`,
+[
+    new NoErrorsNoWarningsVerifier(),
+    new NoBadRuntimeEventsVerifier(true)
+]
+);
     
       // ---------- Basic SimulationRunner Test ----------
 
