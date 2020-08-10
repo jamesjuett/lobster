@@ -81,6 +81,7 @@ export class FunctionCall extends PotentialFullExpression {
         // TODO: need to check that it's not an auxiliary function call before adding these?
         // this.context.containingFunction.addCall(this);
         this.context.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+        this.func.registerCall(this);
     }
 
     // public checkLinkingProblems() {
