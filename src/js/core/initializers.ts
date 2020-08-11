@@ -3,7 +3,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
-import { assertFalse, assert } from "../util/util";
+import { assertFalse, assert, asMutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
@@ -1033,8 +1033,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
     public readonly target: ReceiverEntity;
 
     public readonly delegatedConstructorInitializer?: ClassDirectInitializer;
-    public readonly baseInitializer?: ClassDirectInitializer;
-    public readonly memberInitializersByName: { [index: string]: DirectInitializer | undefined } = {};
+    public readonly baseInitializer?: ClassDefaultInitializer | ClassDirectInitializer;
+    public readonly memberInitializers: readonly (DefaultInitializer | DirectInitializer)[] = [];
+    public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | undefined } = { };
 
     public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
         return new CtorInitializer(context, ast, ast.initializers.);
@@ -1046,6 +1047,8 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         let receiverType = context.contextualReceiverType;
 
         this.target = new ReceiverEntity(receiverType);
+
+        let baseType = receiverType.classDefinition.baseClass;
 
         // Initial processing of ctor initializer components list
         for (let i = 0; i < components.length; ++i) {
@@ -1069,7 +1072,6 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
             else if (comp.kind === "base") {
                 // Theoretically we shouldn't have a base init provided if
                 // there wasn't a base class to match the name of the init against
-                let baseType = receiverType.classDefinition.baseClass;
                 assert(baseType);
 
                 let baseInit = new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
@@ -1093,16 +1095,35 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
                         this.memberInitializersByName[memName] = memInit;
                     }
                     else {
-                        this.addNote(CPPError.declaration.ctor.init.improper_name(this, receiverType, memName));
+                        this.addNote(CPPError.declaration.ctor.init.multiple_member_inits(this));
                     }
                 }
                 else {
                     this.addNote(CPPError.declaration.ctor.init.improper_name(this, receiverType, memName));
                 }
             }
-
-            // TODO out of order warnings
         }
+
+        // If there's a base class and no explicit base initializer, add a default one
+        if (baseType && !this.baseInitializer) {
+            this.baseInitializer = new ClassDefaultInitializer(context, new BaseSubobjectEntity(this.target, baseType));
+        }
+
+        receiverType.classDefinition.memberEntities.forEach(memEntity => {
+            let memName = memEntity.name;
+            let memInit = this.memberInitializersByName[memName];
+
+            // If there wasn't an explicit initializer, we need to provide a default one
+            if (!memInit) {
+                memInit = DefaultInitializer.create(context, memEntity);
+                this.memberInitializersByName[memName] = memInit;
+            }
+
+            // Add to list of member initializers in order (same order as entities/declarations in class def)
+            asMutable(this.memberInitializers).push(memInit);
+        });
+        
+        // TODO out of order warnings
     }
 
     public createDefaultOutlet(this: CompiledCtorInitializer, element: JQuery, parent?: ConstructOutlet) {
@@ -1114,37 +1135,75 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 export interface CompiledCtorInitializer extends CtorInitializer, SuccessfullyCompiled {
 
     public readonly delegatedConstructorInitializer?: CompiledClassDirectInitializer;
-    public readonly baseInitializer?: CompiledClassDirectInitializer;
-    public readonly memberInitializersByName: { [index: string]: CompiledDirectInitializer | undefined } = {};
+    public readonly baseInitializer?: CompiledClassDefaultInitializer | CompiledClassDirectInitializer;
+    public readonly memberInitializers: readonly (CompiledDefaultInitializer | CompiledDirectInitializer)[] = [];
+    public readonly memberInitializersByName: { [index: string]: CompiledClassDefaultInitializer | CompiledDirectInitializer | undefined } = {};
 }
 
 
 const INDEX_CTOR_INITIALIZER_DELEGATE = 0;
 const INDEX_CTOR_INITIALIZER_BASE = 1;
-const INDEX_CTOR_INITIALIZER_SUBEXPRESSIONS = 0;
-const INDEX_CTOR_INITIALIZER_DONE = 1;
+const INDEX_CTOR_INITIALIZER_MEMBERS = 2;
 export class RuntimeCtorInitializer extends RuntimeConstruct<CompiledCtorInitializer> {
 
     public readonly delegatedConstructorInitializer?: RuntimeClassDirectInitializer;
-    public readonly baseInitializer?: RuntimeClassDirectInitializer;
-    public readonly memberInitializersByName: { [index: string]: RuntimeDirectInitializer | undefined } = {};
+    public readonly baseInitializer?: RuntimeClassDefaultInitializer | RuntimeClassDirectInitializer;
+    public readonly memberInitializers: readonly (RuntimeDefaultInitializer | RuntimeDirectInitializer)[];
 
-    private index = "delegate";
+    private index: number;
+    private memberIndex = 0;
 
-    public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
-        super(model, parent);
-        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
+    public constructor (model: CompiledCtorInitializer, parent: RuntimeConstruct) {
+        super(model, "ctor-initializer", parent);
+        this.delegatedConstructorInitializer = this.model.delegatedConstructorInitializer?.createRuntimeInitializer(this);
+
+        // Dummy ternary needed by type system due to union and this parameter shenanagins
+        this.baseInitializer = this.model.baseInitializer instanceof ClassDefaultInitializer ?
+            this.model.baseInitializer?.createRuntimeInitializer(this) :
+            this.model.baseInitializer?.createRuntimeInitializer(this);
+
+        // Dummy ternary needed by type system due to union and this parameter shenanagins
+        this.memberInitializers = this.model.memberInitializers.map(memInit => memInit instanceof DefaultInitializer ?
+            memInit.createRuntimeInitializer(this) :
+            memInit.createRuntimeInitializer(this)
+        );
+
+        if (this.delegatedConstructorInitializer) {
+            this.index = INDEX_CTOR_INITIALIZER_DELEGATE;
+        }
+        else if (this.baseInitializer) {
+            this.index = INDEX_CTOR_INITIALIZER_BASE;
+        }
+        else {
+            this.index = INDEX_CTOR_INITIALIZER_MEMBERS;
+        }
     }
 
     protected upNextImpl() {
-        if (this.index === "callCtor") {
-            this.sim.push(this.ctorCall);
-            this.index = "done";
+        if (this.index === INDEX_CTOR_INITIALIZER_DELEGATE) {
+
+            // Non-null assertion due to the way index is set in constructor above
+            this.sim.push(this.delegatedConstructorInitializer!);
+            
+            if (this.baseInitializer) {
+                this.index = INDEX_CTOR_INITIALIZER_BASE;
+            }
+            else {
+                this.index = INDEX_CTOR_INITIALIZER_MEMBERS;
+            }
+        }
+        else if (this.index === INDEX_CTOR_INITIALIZER_BASE) {
+            // Non-null assertion due to the way index is set in constructor above
+            this.sim.push(this.baseInitializer!);
+            this.index = INDEX_CTOR_INITIALIZER_MEMBERS;
         }
         else {
-            target = this.model.target.runtimeLookup(this);
-            this.observable.send("initialized", target);
-            this.startCleaningUp();
+            if (this.memberIndex < this.memberInitializers.length) {
+                this.sim.push(this.memberInitializers[this.memberIndex++]);
+            }
+            else {
+                this.startCleanup();
+            }
         }
     }
 

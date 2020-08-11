@@ -1973,6 +1973,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     
     public readonly baseClass?: CompleteClassType;
     
+    public readonly memberEntities: readonly MemberVariableEntity[] = [];
     public readonly memberObjectEntities: readonly MemberObjectEntity[] = [];
     public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
     public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
@@ -2088,6 +2089,9 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // Identify member objects and member references
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
+
+                asMutable(this.memberEntities).push(decl.declaredEntity);
+
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
                     asMutable(this.memberObjectEntities).push(decl.declaredEntity);
                 }
