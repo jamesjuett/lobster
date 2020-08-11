@@ -130,7 +130,7 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
             subAddr += baseObj.size;
         }
 
-        this.memberSubobjects = classDef.memberObjects.map((mem) => {
+        this.memberSubobjects = classDef.memberObjectEntities.map((mem) => {
             let subObj = new MemberSubobject(this.object, mem.type, mem.name, memory, subAddr);
             // let subObj = mem.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
