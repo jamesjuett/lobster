@@ -8,13 +8,15 @@ import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
 import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from "./expressionBase";
-import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet } from "../view/codeOutlets";
+import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Statement } from "./statements";
 import { CtorInitializerASTNode } from "./declarations";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
+
+export type InitializerKind = "default" | DirectInitializerKind | "list";
 
 export abstract class Initializer extends PotentialFullExpression {
 
@@ -27,6 +29,8 @@ export abstract class Initializer extends PotentialFullExpression {
     public isTailChild(child: CPPConstruct) {
         return { isTail: true };
     }
+
+    public abstract readonly kind: InitializerKind;
 
 }
 
@@ -71,6 +75,8 @@ export abstract class DefaultInitializer extends Initializer {
             return assertFalse();
         }
     }
+
+    public readonly kind = "default";
 
     public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeDefaultInitializer<T>;
 }
@@ -875,10 +881,6 @@ export interface CompiledClassDirectInitializer<T extends CompleteClassType = Co
 
 export class RuntimeClassDirectInitializer<T extends CompleteClassType = CompleteClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
 
-
-    public abstract readonly args: readonly RuntimeExpression<T>[];
-    public abstract readonly arg?: undefined;
-
     public readonly ctorCall: RuntimeFunctionCall<FunctionType<VoidType>>;
 
     private index = "callCtor";
@@ -1160,10 +1162,10 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 
 export interface CompiledCtorInitializer extends CtorInitializer, SuccessfullyCompiled {
 
-    public readonly delegatedConstructorInitializer?: CompiledClassDirectInitializer;
-    public readonly baseInitializer?: CompiledClassDefaultInitializer | CompiledClassDirectInitializer;
-    public readonly memberInitializers: readonly (CompiledDefaultInitializer | CompiledDirectInitializer)[] = [];
-    public readonly memberInitializersByName: { [index: string]: CompiledClassDefaultInitializer | CompiledDirectInitializer | undefined } = {};
+    readonly delegatedConstructorInitializer?: CompiledClassDirectInitializer;
+    readonly baseInitializer?: CompiledClassDefaultInitializer | CompiledClassDirectInitializer;
+    readonly memberInitializers: readonly (CompiledDefaultInitializer | CompiledDirectInitializer)[];
+    readonly memberInitializersByName: { [index: string]: CompiledClassDefaultInitializer | CompiledDirectInitializer | undefined };
 }
 
 

@@ -107,8 +107,8 @@
 .codeInstance.declaration.upNext > .highlight,
 .codeInstance.code-initializerList.upNext > .highlight,
 .codeInstance.code-initializer.upNext > .highlight,
-.codeInstance.code-directInitializer.upNext > .highlight,
-.codeInstance.code-copyInitializer.upNext > .highlight,
+.codeInstance.code-initializer-direct.upNext > .highlight,
+.codeInstance.code-initializer-copy.upNext > .highlight,
 .codeInstance.code-declarator.active > .highlight
 {
     border-bottom-style: solid;
@@ -132,8 +132,8 @@
 .codeInstance.code-initializerList.wait > .highlight,
 .codeInstance.code-initializer.wait > .highlight,
 .codeInstance.parameter.wait > .highlight,
-.codeInstance.code-directInitializer.wait > .highlight,
-.codeInstance.code-copyInitializer.wait > .highlight
+.codeInstance.code-initializer-direct.wait > .highlight,
+.codeInstance.code-initializer-copy.wait > .highlight
 {
     /*border-bottom-style: dotted;*/
     /*border-bottom-width: 2px;*/
@@ -141,7 +141,7 @@
     /*opacity: 1;*/
 }
 
-.codeInstance.code-defaultInitializer.wait > .highlight
+.codeInstance.code-initializer-default.wait > .highlight
 {
     border-bottom-style: solid;
     border-bottom-width: 2px;
@@ -152,10 +152,9 @@
 .codeInstance.expression > .highlight,
 .codeInstance.code-initializerList > .highlight,
 .codeInstance.code-initializer > .highlight,
-.codeInstance.code-defaultInitializer > .highlight,
-.codeInstance.code-directInitializer > .highlight,
-.codeInstance.code-copyInitializer > .highlight,
-.codeInstance.code-argumentInitializer > .highlight,
+.codeInstance.code-initializer-default > .highlight,
+.codeInstance.code-initializer-direct > .highlight,
+.codeInstance.code-initializer-copy > .highlight,
 .codeInstance.code-declarator > .highlight
  {
     border-bottom-color: #00A138;
