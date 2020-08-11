@@ -1128,33 +1128,31 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
 
 
-// export class MemberSubobjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class MemberAccessEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
-//     public readonly containingEntity: ObjectEntity<ClassType>;
-//     public readonly name: string;
+    public readonly containingEntity: ObjectEntity<CompleteClassType>;
+    public readonly name: string;
 
-//     constructor(containingEntity: ObjectEntity<ClassType>, type: T, name: string) {
-//         super(type);
-//         this.containingEntity = containingEntity;
-//         this.name = name;
-//     }
+    constructor(containingEntity: ObjectEntity<CompleteClassType>, type: T, name: string) {
+        super(type);
+        this.containingEntity = containingEntity;
+        this.name = name;
+    }
 
-//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-//         // TODO: check on cast below
-//         return <MemberSubobject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberSubobject(this.name);
-//     }
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
+        // See return type and documentation for getMemberSubobject()
+        return <CPPObject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberObject(this.name);
+    }
 
-//     public describe() {
-//         let containingObjectDesc = this.containingEntity.describe();
-//         let desc : Description = {
-//             message: "the " + this.name + " member of " + containingObjectDesc.message
-//         }
-//         if (containingObjectDesc.name) {
-//             desc.name = containingObjectDesc.name + "." + this.name
-//         }
-//         return desc;
-//     }
-// }
+    public describe() {
+        let containingObjectDesc = this.containingEntity.describe();
+        return {
+            name: containingObjectDesc.name + "." + this.name,
+            message: "the " + this.name + " member of " + containingObjectDesc.message
+        };
+    }
+}
 
 // export class BaseClassEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
 //     protected static readonly _name = "BaseClassEntity";
@@ -1215,7 +1213,9 @@ abstract class MemberVariableEntityBase<T extends ObjectType = ObjectType> exten
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        return <MemberSubobject<T>>rtConstruct.contextualReceiver.getMemberSubobject(this.name);
+        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
+        // See return type and documentation for getMemberSubobject()
+        return <CPPObject<T>>rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
 
     public describe() {

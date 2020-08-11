@@ -106,7 +106,7 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
     private readonly subobjects: readonly Subobject[];
     private readonly baseSubobjects: readonly BaseSubobject[];
     private readonly memberSubobjects: readonly MemberSubobject[];
-    private readonly memberSubobjectMap: {[index: string]: CPPObject | undefined} = {};
+    private readonly memberObjectMap: {[index: string]: CPPObject | undefined} = {};
 
     public constructor(object: CPPObject<T>, memory: Memory, address: number) {
         super(object, memory, address);
@@ -134,7 +134,7 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
             let subObj = new MemberSubobject(this.object, mem.type, mem.name, memory, subAddr);
             // let subObj = mem.objectInstance(this.object, memory, subAddr);
             subAddr += subObj.size;
-            this.memberSubobjectMap[mem.name] = subObj;
+            this.memberObjectMap[mem.name] = subObj;
             return subObj;
         });
 
@@ -142,12 +142,12 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
         this.subobjects = this.subobjects.concat(this.baseSubobjects).concat(this.memberSubobjects);
     }
 
-    public getMemberSubobject(name: string) : CPPObject | undefined {
-        return this.memberSubobjectMap[name] ?? this.baseSubobjects[0]?.getMemberSubobject(name);
+    public getMemberObject(name: string) : CPPObject | undefined {
+        return this.memberObjectMap[name] ?? this.baseSubobjects[0]?.getMemberObject(name);
     }
 
     public bindMemberReference(name: string, obj: CPPObject<ObjectType>) {
-        this.memberSubobjectMap[name] = obj;
+        this.memberObjectMap[name] = obj;
     }
 
     public getBaseSubobject() : BaseSubobject | undefined {
@@ -304,19 +304,25 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
-    // Only allowed if receiver matches CPPObject<CompleteClassType>
-    public getMemberSubobject(this: CPPObject<CompleteClassType>, name: string) {
-        return this.data.getMemberSubobject(name);
+    /**
+     * Only allowed if receiver matches CPPObject<CompleteClassType>
+     * Note that this returns CPPObject rather than MemberSubobject because
+     * a reference member may refer to an external object that is not a subobject
+     * @param this 
+     * @param name 
+     */
+    public getMemberObject(this: CPPObject<CompleteClassType>, name: string) {
+        return (<ClassObjectData<CompleteClassType>>this.data).getMemberObject(name);
     }
 
     // Only allowed if receiver matches CPPObject<CompleteClassType>
     public bindMemberReference(this: CPPObject<CompleteClassType>, name: string, obj: CPPObject<ObjectType>) {
-        return this.data.bindMemberReference(name);
+        return (<ClassObjectData<CompleteClassType>>this.data).bindMemberReference(name, obj);
     }
 
     // Only allowed if receiver matches CPPObject<CompleteClassType>
     public getBaseSubobject(this: CPPObject<CompleteClassType>) {
-        return this.data.getBaseSubobject();
+        return (<ClassObjectData<CompleteClassType>>this.data).getBaseSubobject();
     }
 
     public subobjectValueWritten() {

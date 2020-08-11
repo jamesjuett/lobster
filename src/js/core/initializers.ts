@@ -1,7 +1,7 @@
-import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
@@ -1006,62 +1006,104 @@ export interface CopyInitializerASTNode extends ASTNode {
 }
 
 
+type DelegatedConstructorCtorInitializerComponent = {
+    kind: "delegatedConstructor",
+    args: readonly Expression[]
+}
 
-export interface CtorInitializerComponents {
-    delegatedConstructorArgs?: readonly Expression[],
-    baseArgs?: readonly Expression[], 
-    members?: readonly {memberName: string, exp: Expression}[]
-};
+type BaseCtorInitializerComponent = {
+    kind: "base",
+    args: readonly Expression[]
+}
 
-export class CtorInitializer extends PotentialFullExpression<MemberBlockContext, CtorInitializerASTNode> {
+type MemberCtorInitializerComponent = {
+    kind: "member",
+    name: string;
+    args: readonly Expression[]
+}
+
+type CtorInitializerComponent =
+    DelegatedConstructorCtorInitializerComponent |
+    BaseCtorInitializerComponent |
+    MemberCtorInitializerComponent;
+
+export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorInitializerASTNode> {
     public readonly construct_type = "ctor_initializer";
 
     public readonly target: ReceiverEntity;
 
-    public readonly delegatedConstructor?: ClassDirectInitializer;
-    public readonly baseInitializer: ClassDirectInitializer;
-    public readonly memberInitializers: readonly DirectInitializer[];
+    public readonly delegatedConstructorInitializer?: ClassDirectInitializer;
+    public readonly baseInitializer?: ClassDirectInitializer;
+    public readonly memberInitializersByName: { [index: string]: DirectInitializer | undefined } = {};
 
     public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
         return new CtorInitializer(context, ast, ast.initializers.);
     }
 
-    public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: CtorInitializerComponents) {
+    public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: readonly CtorInitializerComponent[]) {
         super(context, ast);
 
         let receiverType = context.contextualReceiverType;
 
         this.target = new ReceiverEntity(receiverType);
 
-        if (!components.members) {
-            components.members = [];
-        }
+        // Initial processing of ctor initializer components list
+        for (let i = 0; i < components.length; ++i) {
+            let comp = components[i];
+            if (comp.kind === "delegatedConstructor") {
 
-        if (components.delegatedConstructorArgs) {
-            
-            this.attach(this.delegatedConstructor = new ClassDirectInitializer(context, this.target, components.delegatedConstructorArgs, "direct"));
+                let delegatedCtor = new ClassDirectInitializer(context, this.target, comp.args, "direct")
+                this.attach(delegatedCtor);
 
-            // If there's a delegating consturctor call, no other initializers are allowed
-            if (components.baseArgs || components.members.length > 0) {
-                this.addNote(CPPError.declaration.ctor.init.delegate_only(this));
+                if (this.delegatedConstructorInitializer) {
+                    delegatedCtor.addNote(CPPError.declaration.ctor.init.multiple_delegates(delegatedCtor));
+                }
+                else {
+                    this.delegatedConstructorInitializer = delegatedCtor;
+                    if (components.length > 1) {
+                        // If there's a delegating constructor call, no other initializers are allowed
+                        delegatedCtor.addNote(CPPError.declaration.ctor.init.delegate_only(delegatedCtor));
+                    }
+                }
+            }
+            else if (comp.kind === "base") {
+                // Theoretically we shouldn't have a base init provided if
+                // there wasn't a base class to match the name of the init against
+                let baseType = receiverType.classDefinition.baseClass;
+                assert(baseType);
+
+                let baseInit = new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
+                this.attach(baseInit);
+
+                if (!this.baseInitializer) {
+                    this.baseInitializer = baseInit;
+                }
+                else {
+                    baseInit.addNote(CPPError.declaration.ctor.init.multiple_base_inits(baseInit));
+                }
+            }
+            else {
+                let memName = comp.name;
+                let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
+                if (memEntity) {
+                    let memInit = DirectInitializer.create(context, memEntity, comp.args, "direct");
+                    this.attach(memInit);
+
+                    if (!this.memberInitializersByName[memName]) {
+                        this.memberInitializersByName[memName] = memInit;
+                    }
+                    else {
+                        this.addNote(CPPError.declaration.ctor.init.improper_name(this, receiverType, memName));
+                    }
+                }
+                else {
+                    this.addNote(CPPError.declaration.ctor.init.improper_name(this, receiverType, memName));
+                }
             }
 
-            // Even if there were other components to the ctor-initializer, there shouldn't
-            // be, and we just ignore them after giving the above error.
-            return;
+            // TODO out of order warnings
         }
-
-        if (components.baseArgs) {
-            let baseType = receiverType.classDefinition.baseClass;
-            assert(baseType);
-            this.baseInitializer = new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), components.baseArgs, "direct");
-        }
-
-
-
     }
-
-
 
     public createDefaultOutlet(this: CompiledCtorInitializer, element: JQuery, parent?: ConstructOutlet) {
         return new CtorInitializerOutlet(element, this, parent);
@@ -1071,42 +1113,46 @@ export class CtorInitializer extends PotentialFullExpression<MemberBlockContext,
 
 export interface CompiledCtorInitializer extends CtorInitializer, SuccessfullyCompiled {
 
-    // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
-    readonly declarations: readonly AnalyticCompiledDeclaration<LocalSimpleDeclaration>[];
+    public readonly delegatedConstructorInitializer?: CompiledClassDirectInitializer;
+    public readonly baseInitializer?: CompiledClassDirectInitializer;
+    public readonly memberInitializersByName: { [index: string]: CompiledDirectInitializer | undefined } = {};
 }
 
-export class RuntimeCtorInitializer extends RuntimeStatement<CompiledCtorInitializer> {
 
-    public readonly currentDeclarationIndex: number | null = null;
+const INDEX_CTOR_INITIALIZER_DELEGATE = 0;
+const INDEX_CTOR_INITIALIZER_BASE = 1;
+const INDEX_CTOR_INITIALIZER_SUBEXPRESSIONS = 0;
+const INDEX_CTOR_INITIALIZER_DONE = 1;
+export class RuntimeCtorInitializer extends RuntimeConstruct<CompiledCtorInitializer> {
 
-    public constructor(model: CompiledCtorInitializer, parent: RuntimeStatement) {
+    public readonly delegatedConstructorInitializer?: RuntimeClassDirectInitializer;
+    public readonly baseInitializer?: RuntimeClassDirectInitializer;
+    public readonly memberInitializersByName: { [index: string]: RuntimeDirectInitializer | undefined } = {};
+
+    private index = "delegate";
+
+    public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
     }
 
     protected upNextImpl() {
-        let nextIndex = this.currentDeclarationIndex === null ? 0 : this.currentDeclarationIndex + 1;
-
-        let initializers = this.model.declarations.map(d => d.initializer);
-        if (nextIndex < initializers.length) {
-            (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
-            let init = initializers[nextIndex];
-            if (init) {
-                // Only declarations with an initializer (e.g. a variable definition) have something
-                // to do at runtime. Others (e.g. typedefs) do nothing.
-                this.observable.send("initializing", nextIndex);
-                let runtimeInit = init.createRuntimeInitializer(this);
-                this.sim.push(runtimeInit);
-            }
+        if (this.index === "callCtor") {
+            this.sim.push(this.ctorCall);
+            this.index = "done";
         }
         else {
-            this.startCleanup();
+            target = this.model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
+            this.startCleaningUp();
         }
     }
 
     public stepForwardImpl() {
-        return false;
+        // do nothing
     }
 }
+
 
 
 

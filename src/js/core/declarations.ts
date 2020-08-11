@@ -3,7 +3,7 @@ import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
@@ -1969,11 +1969,13 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
+    public readonly memberDeclarationsByName: { [index: string] : MemberDeclaration | undefined } = {};
     
     public readonly baseClass?: CompleteClassType;
     
-    public readonly memberObjects: readonly MemberObjectEntity[] = [];
-    public readonly memberReferences: readonly MemberReferenceEntity[] = [];
+    public readonly memberObjectEntities: readonly MemberObjectEntity[] = [];
+    public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
+    public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
     
     public readonly constructors: readonly FunctionEntity[];
     public readonly defaultConstructor?: FunctionEntity;
@@ -2087,10 +2089,18 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
-                    asMutable(this.memberObjects).push(decl.declaredEntity);
+                    asMutable(this.memberObjectEntities).push(decl.declaredEntity);
                 }
                 else {
-                    asMutable(this.memberReferences).push(decl.declaredEntity);
+                    asMutable(this.memberReferenceEntities).push(decl.declaredEntity);
+                }
+
+                // It's possible we have multiple declarations with the same name (if so,
+                // an error is generated elsewhere when they are added to the same scope).
+                // Here we only record the first one we find.
+                if (!this.memberDeclarationsByName[decl.name]) {
+                    this.memberDeclarationsByName[decl.name] = decl;
+                    this.memberEntitiesByName[decl.name] = decl.declaredEntity;
                 }
             }
         });
@@ -2127,7 +2137,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         if (this.baseClass) {
             size += this.baseClass.size;
         }
-        this.memberObjects.forEach(mem => size += mem.type.size);
+        this.memberObjectEntities.forEach(mem => size += mem.type.size);
         this.objectSize = size;
 
         // Set the definition for our declared entity, which also 
@@ -2154,7 +2164,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // If any data members are of reference type, do not create the
         // implicit default constructor. (This would need to change if
         // member variable initializers are added.)
-        if (this.memberReferences.length > 0) {
+        if (this.memberReferenceEntities.length > 0) {
             return;
         }
 
@@ -2169,12 +2179,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         }
 
         // If any members are not default constructible
-        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible())) {
+        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible())) {
             return;
         }
 
         // If any members are not destructible
-        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible())) {
+        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible())) {
             return;
         }
         
@@ -2186,7 +2196,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // we don't want any const members being default-initialized unless it's
         // done in a way the user specified (e.g. atomic objects are initialized
         // with junk, which is permanent since they're const).
-        if (this.memberObjects.some(memObj => !memObj.type.isDefaultConstructible(true))) {
+        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible(true))) {
             return;
         }
 
