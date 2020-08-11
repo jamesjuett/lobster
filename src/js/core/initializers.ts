@@ -3,7 +3,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
-import { assertFalse, assert, asMutable } from "../util/util";
+import { assertFalse, assert, asMutable, assertNever } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
@@ -376,17 +376,17 @@ export abstract class DirectInitializer extends Initializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) { // check for presence of bindTo to detect reference entities
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
-        else if (target.type instanceof AtomicType) {
+        else if (target.type.isAtomicType()) {
             return new AtomicDirectInitializer(context, <ObjectEntity<AtomicType>>target, args, kind);
         }
-        else if (target.type instanceof BoundedArrayType) {
+        else if (target.type.isBoundedArrayType()) {
             return new ArrayDirectInitializer(context, <ObjectEntity<BoundedArrayType>>target, args, kind);
         }
-        // else if (target.type instanceof ClassType) {
-        //     return new ClassDirectInitializer(context, <ObjectEntity<ClassType>> target, args, kind);
-        // }
+        else if (target.type.isCompleteClassType()) {
+            return new ClassDirectInitializer(context, <ObjectEntity<CompleteClassType>> target, args, kind);
+        }
         else {
-            return assertFalse();
+            return assertNever(target.type);
         }
     }
 
@@ -842,7 +842,7 @@ export class ClassDirectInitializer extends DirectInitializer {
 
         this.ctor = overloadResult.selected;
 
-        this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
+        this.ctorCall = new FunctionCall(context, this.ctor, args, this.target);
         this.attach(this.ctorCall);
         this.args = this.ctorCall.args;
 
