@@ -314,7 +314,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 
 
-export type StackType = "statement" | "expression" | "function" | "initializer" | "call";
+export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 
