@@ -1,4 +1,4 @@
-import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
@@ -1137,7 +1137,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 
         // If there's a base class and no explicit base initializer, add a default one
         if (baseType && !this.baseInitializer) {
-            this.baseInitializer = new ClassDefaultInitializer(context, new BaseSubobjectEntity(this.target, baseType));
+            this.baseInitializer = new ClassDefaultInitializer(createImplicitContext(context), new BaseSubobjectEntity(this.target, baseType));
         }
 
         receiverType.classDefinition.memberEntities.forEach(memEntity => {
@@ -1147,6 +1147,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
             // If there wasn't an explicit initializer, we need to provide a default one
             if (!memInit) {
                 memInit = DefaultInitializer.create(context, memEntity);
+                this.attach(memInit);
                 this.memberInitializersByName[memName] = memInit;
             }
 
