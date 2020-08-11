@@ -1004,13 +1004,11 @@ export class PassByValueParameterEntity<T extends ObjectType = ObjectType> exten
 export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
-    public readonly type: T;
     public readonly num: number;
 
     public constructor(calledFunction: FunctionEntity, type: T, num: number) {
         super(type);
         this.calledFunction = calledFunction;
-        this.type = type;
         this.num = num;
         assert(sameType(calledFunction.type.paramTypes[num], new ReferenceType(type)), "Inconsistent type for parameter entity.");
     }
@@ -1034,32 +1032,29 @@ export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> e
     }
 };
 
-// export class ReceiverEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
-//     protected static readonly _name: "ReceiverEntity";
+export class ReceiverEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
 
-//     // storage: "automatic",
+    constructor(type: CompleteClassType) {
+        super(type);
+    }
 
-//     constructor(type: T) {
-//         super(type);
-//     }
+    public toString() {
+        return "function receiver (" + this.type + ")";
+    }
 
-//     public toString() {
-//         return "function receiver (" + this.type + ")";
-//     }
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        return rtConstruct.contextualReceiver;
+    }
 
-//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-//         return rtConstruct.contextualReceiver();
-//     }
-
-//     public describe() {
-//         // if (rtConstruct){
-//         //     return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
-//         // }
-//         // else {
-//             return {message: "the receiver of this call (i.e. *this)"};
-//         // }
-//     }
-// };
+    public describe() {
+        // if (rtConstruct){
+        //     return {message: "the receiver of this call to " + rtConstruct.containingRuntimeFunction().describe().message + " (i.e. *this) "};
+        // }
+        // else {
+            return {name: "*this", message: "the receiver of this call (i.e. *this)"};
+        // }
+    }
+};
 
 
 

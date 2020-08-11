@@ -71,14 +71,29 @@ export function createExpressionContext(parentContext: TranslationUnitContext, c
 export interface FunctionContext extends TranslationUnitContext {
     readonly containingFunction: FunctionEntity;
     readonly functionLocals: FunctionLocals;
+    readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity): FunctionContext {
-    return Object.assign({}, parentContext, { containingFunction: containingFunction, functionLocals: new FunctionLocals() });
+export interface MemberFunctionContext extends FunctionContext {
+    readonly contextualReceiverType: CompleteClassType;
+}
+
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
+    return Object.assign({}, parentContext, {
+        containingFunction: containingFunction,
+        functionLocals: new FunctionLocals(),
+        contextualReceiverType: contextualReceiverType
+    });
 }
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
+}
+
+export interface MemberBlockContext extends BlockContext {
+    readonly contextualReceiverType: CompleteClassType;
 }
 
 export function isBlockContext(context: TranslationUnitContext): context is BlockContext {
