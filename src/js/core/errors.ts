@@ -264,17 +264,20 @@ export const CPPError = {
                 }
             },
             init: {
-                no_such_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.no_such_member", "Class " + classType.toString() + " has no member named " + name + ".");
-                },
-                improper_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_member", "A member initializer can only be used for non-static data members. There is no such member named " + name + " in the " + classType.className + " class.");
+                improper_name: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_name", "A member initializer can only be used for non-static data members or base classes. There is no such member or base class named " + name + " in the " + classType.className + " class.");
                 },
                 delegate_only: function (construct: TranslationUnitConstruct) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.delegating_only", "This constructor-initializer delegates to another constructor from the same class. In this case, no other base or member initializers are allowed, because that would mean those members get initialized twice - once in the delegated-to constructor and again here.");
                 },
-                multiple_base_inits: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
+                multiple_delegates: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_delegates", "A constructor may not delegate to more than one other constructor.");
+                },
+                multiple_base_inits: function (construct: TranslationUnitConstruct) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_base_inits", "A constructor's initializer list cannot specify more than one base class constructor to use.");
+                },
+                multiple_member_inits: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_member_inits", "A constructor's initializer list cannot specify more than one initializer for each member.");
                 }
             },
             return_type_prohibited: function (construct: TranslationUnitConstruct) {

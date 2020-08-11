@@ -63,10 +63,13 @@ export interface CompiledPotentialFullExpression extends PotentialFullExpression
 
 export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
+
     public readonly temporaryObjects: {
         [index: number]: TemporaryObject | undefined;
     } = {};
+
     public readonly containingFullExpression: RuntimePotentialFullExpression;
+
     public constructor(model: C, stackType: StackType, parent: RuntimeConstruct) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
@@ -75,6 +78,7 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         }
         this.containingFullExpression = this.findFullExpression();
     }
+    
     private findFullExpression(): RuntimePotentialFullExpression {
         let rt: RuntimeConstruct = this;
         while (rt instanceof RuntimePotentialFullExpression && !rt.model.isFullExpression() && rt.parent) {
