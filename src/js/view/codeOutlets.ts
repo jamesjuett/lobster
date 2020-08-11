@@ -204,6 +204,7 @@ export class PotentialFullExpressionOutlet<RT extends RuntimePotentialFullExpres
 
 export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
 
+    public readonly ctorInitializer?: CtorInitializerOutlet;
     public readonly body: BlockOutlet;
 
     private readonly paramsElem: JQuery;
@@ -243,6 +244,14 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         //         }
         //     }
         // }
+
+        if (this.construct.ctorInitializer) {
+            this.element.append("<br />");
+            this.ctorInitializer = new CtorInitializerOutlet(
+                $("<span></span>").appendTo(this.element),
+                this.construct.ctorInitializer,
+                this);
+        }
 
         let bodyElem = $("<span></span>").appendTo(this.element);
         this.body = new BlockOutlet(bodyElem, this.construct.body, this);
