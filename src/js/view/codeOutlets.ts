@@ -8,7 +8,7 @@ import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, Runti
 import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer, RuntimeClassDefaultInitializer, CompiledClassDefaultInitializer, RuntimeClassDirectInitializer, CompiledClassDirectInitializer, RuntimeCtorInitializer, CompiledCtorInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
-import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
+import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifier, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifier, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/expressions";
 import { Bool, AtomicType } from "../core/types";
@@ -374,10 +374,13 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
 
         this.element.append(" : ");
 
-        this.delegatedConstructorInitializer = construct.delegatedConstructorInitializer?.createDefaultOutlet(
-            $("<span></span>").appendTo(this.element),
-            this
-        );
+        if (construct.delegatedConstructorInitializer) {
+            this.element.append(construct.delegatedConstructorInitializer.target.type.className);
+            this.delegatedConstructorInitializer = construct.delegatedConstructorInitializer?.createDefaultOutlet(
+                $("<span></span>").appendTo(this.element),
+                this
+            );
+        }
         
         let first = !this.delegatedConstructorInitializer;
 
@@ -388,6 +391,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
+            this.element.append(construct.baseInitializer.target.type.className);
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
                 $("<span></span>").appendTo(this.element),
                 this
@@ -400,6 +404,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
+            this.element.append(construct.baseInitializer.target.type.className);
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
                 $("<span></span>").appendTo(this.element),
                 this
@@ -414,6 +419,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
+            this.element.append((<MemberVariableEntity>(memInit.target)).name);
             return memInit.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
 
         });
