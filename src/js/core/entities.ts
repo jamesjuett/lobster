@@ -1305,6 +1305,8 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
 
+    public readonly isConstructor: boolean;
+
     public readonly isOdrUsed: boolean = false;
 
     public readonly isImplicit: boolean;
@@ -1315,6 +1317,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         super(type, decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
+        this.isConstructor = decl.isConstructor;
         this.qualifiedName = "::" + this.name;
 
         this.isImplicit = !!decl.context.implicit;

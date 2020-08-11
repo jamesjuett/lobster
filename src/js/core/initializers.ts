@@ -1078,6 +1078,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 
         let baseType = receiverType.classDefinition.baseClass;
 
+        
+        assert(context.containingFunction.firstDeclaration.isConstructor);
+
         // Initial processing of ctor initializer components list
         for (let i = 0; i < components.length; ++i) {
             let comp = components[i];

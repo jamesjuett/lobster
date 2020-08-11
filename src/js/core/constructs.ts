@@ -1,5 +1,5 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
@@ -52,7 +52,7 @@ export function createImplicitContext<ContextType extends ProgramContext>(contex
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
-    readonly containingClass?: ClassEntity;
+    readonly containingClass?: CompleteClassEntity;
 }
 
 export function createTranslationUnitContext(parentContext: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
@@ -74,10 +74,6 @@ export interface FunctionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: CompleteClassType;
 }
 
-export interface MemberFunctionContext extends FunctionContext {
-    readonly contextualReceiverType: CompleteClassType;
-}
-
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext;
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
@@ -86,6 +82,14 @@ export function createFunctionContext(parentContext: TranslationUnitContext, con
         functionLocals: new FunctionLocals(),
         contextualReceiverType: contextualReceiverType
     });
+}
+
+export function isMemberFunctionContext(context: FunctionContext) : context is MemberFunctionContext {
+    return !!context.contextualReceiverType;
+}
+
+export interface MemberFunctionContext extends FunctionContext {
+    readonly contextualReceiverType: CompleteClassType;
 }
 
 export interface BlockContext extends FunctionContext {
@@ -128,7 +132,7 @@ export function isClassContext(context: TranslationUnitContext) : context is Cla
 
 export interface ClassContext extends TranslationUnitContext {
     readonly contextualScope: ClassScope;
-    readonly containingClass: ClassEntity;
+    readonly containingClass: CompleteClassEntity;
 }
 
 export function createClassContext(parentContext: TranslationUnitContext, classEntity: ClassEntity, baseClass?: ClassEntity): ClassContext {

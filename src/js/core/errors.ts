@@ -264,6 +264,9 @@ export const CPPError = {
                 }
             },
             init: {
+                constructor_only: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.constructor_only", "Constructor-initializer syntax may only be used with constructors. (This function is not a constructor.)");
+                },
                 improper_name: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_name", "A member initializer can only be used for non-static data members or base classes. There is no such member or base class named " + name + " in the " + classType.className + " class.");
                 },

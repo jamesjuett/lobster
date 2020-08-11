@@ -1,8 +1,8 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode } from "./initializers";
+import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
@@ -689,8 +689,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
 
-    public readonly isConstructor: boolean = false;
-    public readonly isDestructor: boolean = false;
+    public readonly isConstructor: boolean;
+    public readonly isDestructor: boolean;
 
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -698,6 +698,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
+        this.isConstructor = this.declarator.hasConstructorName;
+        this.isDestructor = this.declarator.hasDestructorName;
         this.declaredEntity = new FunctionEntity(type, this);
 
         assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
@@ -710,10 +712,9 @@ export class FunctionDeclaration extends SimpleDeclaration {
         }
 
 
-        if (this.declarator.hasConstructorName) {
+        if (this.isConstructor) {
             // constructors are not added to their scope. they technically "have no name"
             // and can't be found through name lookup
-            this.isConstructor = true;
 
             if (this.type.receiverType?.isConst) {
                 this.addNote(CPPError.declaration.ctor.const_prohibited(this));
@@ -726,11 +727,6 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
         }
         else {
-
-            if (this.declarator.hasDestructorName) {
-                this.isDestructor = true;
-            }
-
             let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
 
             if (entityOrError instanceof FunctionEntity) {
@@ -1501,7 +1497,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
     readonly construct_type: "function_definition";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarator: DeclaratorASTNode;
-    readonly ctor_initializer: CtorInitializerASTNode;
+    readonly ctor_initializer?: CtorInitializerASTNode;
     readonly body: FunctionBodyASTNode;
 }
 
@@ -1513,6 +1509,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     public readonly name: string;
     public readonly type: FunctionType;
     public readonly parameters: readonly ParameterDeclaration[];
+    public readonly ctorInitializer?: CtorInitializer | InvalidConstruct;
     public readonly body: Block;
 
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration: FunctionDeclaration) : FunctionDefinition;
@@ -1528,7 +1525,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         }
 
         // Create implementation and body block (before params and body statements added yet)
-        let functionContext = createFunctionContext(context, declaration.declaredEntity);
+        let functionContext = createFunctionContext(context, declaration.declaredEntity, context.containingClass?.type);
         let body = new Block(functionContext, ast.body);
         let bodyContext = body.context;
 
@@ -1543,21 +1540,35 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
             }
         });
 
+        let ctorInitializer: CtorInitializer | InvalidConstruct | undefined;
+        if (ast.ctor_initializer) {
+            if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+                ctorInitializer = CtorInitializer.createFromAST(ast.ctor_initializer, bodyContext);
+            }
+            else {
+                ctorInitializer = new InvalidConstruct(bodyContext, ast.ctor_initializer, CPPError.declaration.ctor.init.constructor_only);
+            }
+        }
+        
+
         // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
         // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
         // added after the parameters.)
         ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
 
-        return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, body);
+        return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, ctorInitializer, body);
     }
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], body: Block) {
+    public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], ctorInitializer: CtorInitializer | InvalidConstruct | undefined, body: Block) {
         super(context, ast);
 
         this.attach(this.declaration = declaration);
         this.attachAll(this.parameters = parameters);
+        if (ctorInitializer) {
+            this.attach(this.ctorInitializer = ctorInitializer);
+        }
         this.attach(this.body = body);
 
         this.name = declaration.name;
@@ -1860,6 +1871,7 @@ export interface CompiledFunctionDefinition<T extends FunctionType = FunctionTyp
     readonly declaration: CompiledFunctionDeclaration<T>;
     readonly name: string;
     readonly parameters: readonly CompiledParameterDeclaration[];
+    readonly ctorInitializer?: CompiledCtorInitializer;
     readonly body: CompiledBlock;
 }
 
