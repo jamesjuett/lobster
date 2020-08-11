@@ -8,7 +8,7 @@ import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
-import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
+import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
 import { RuntimeFunctionIdentifier } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
@@ -1411,17 +1411,18 @@ export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObject
 
         let membersElem = $('<div class="members"></div>');
 
-        let memberOutlets = [];
+        this.object.type.classDefinition.memberEntities.forEach(memEntity => {
+            let memName = memEntity.name;
+            if (memEntity instanceof MemberReferenceEntity) {
+                new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
+            }
+            else {
+                createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
+            }
 
-//         for(var i = 0; i < this.length; ++i) {
-//             var elemElem = $("<div></div>");
-//             membersElem.append(elemElem);
-//             memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
-// //            if (i % 10 == 9) {
-// //                this.objElem.append("<br />");
-//             // }
-//         }
-//         this.objElem.append(membersElem);
+        })
+        
+        this.objElem.append(membersElem);
 
         this.element.append(this.objElem);
 
