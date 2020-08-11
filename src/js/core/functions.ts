@@ -131,7 +131,8 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
     // },
 
     protected stepForwardImpl(): void {
-
+            this.popStackFrame();
+            this.startCleanup();
     }
 
     protected upNextImpl(): void {
@@ -140,10 +141,6 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
         }
         else if (!this.body.isDone) {
             this.sim.push(this.body);
-        }
-        else {
-            this.popStackFrame();
-            this.startCleanup();
         }
     }
 
