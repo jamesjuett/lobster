@@ -8,6 +8,7 @@ import { RuntimeBlock, createRuntimeStatement } from "./statements";
 import { Simulation } from "./Simulation";
 import { Mutable, assert } from "../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
+import { RuntimeCtorInitializer } from "./initializers";
 
 enum RuntimeFunctionIndices {
 
@@ -31,6 +32,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
 
     public readonly hasControl: boolean = false;
 
+    public readonly ctorInitializer?: RuntimeCtorInitializer;
     public readonly body: RuntimeBlock;
 
     public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<CompleteClassType>) {
@@ -39,6 +41,7 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
         this.receiver = receiver;
         // A function is its own containing function context
         this.setContainingRuntimeFunction(this);
+        this.ctorInitializer = this.model.ctorInitializer?.createRuntimeCtorInitializer(this);
         this.body = createRuntimeStatement(this.model.body, this);
     }
 
@@ -132,12 +135,15 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
     }
 
     protected upNextImpl(): void {
-        if (this.body.isDone) {
-            this.popStackFrame();
-            this.startCleanup();
+        if (this.ctorInitializer && !this.ctorInitializer.isDone) {
+            this.sim.push(this.ctorInitializer);
+        }
+        else if (!this.body.isDone) {
+            this.sim.push(this.body);
         }
         else {
-            this.sim.push(this.body);
+            this.popStackFrame();
+            this.startCleanup();
         }
     }
 

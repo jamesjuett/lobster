@@ -344,16 +344,6 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
      */
     public readonly containingRuntimeFunction!: RuntimeFunction;
 
-    /**
-     * WARNING: The contextualReceiver property may be undefined, even though it's type suggests it will always
-     * be defined. In most places where it is accessed, there is an implicit assumption that the runtime construct
-     * for whom the lookup is being performed is situated in a context where there is a contextual receiver (e.g.
-     * inside a member function) and the client code would end up needing a non-null assertion anyway. Those
-     * non-null assertions are annoying, so instead we trick the type system and trust that this property will
-     * be used appropriately by the programmer.
-     */
-    public readonly contextualReceiver!: CPPObject<CompleteClassType>;
-
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
     public readonly isUpNext: boolean = false;
@@ -396,6 +386,18 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     protected setContextualReceiver(obj: CPPObject<CompleteClassType>) {
         (<Mutable<this>>this).contextualReceiver = obj;
+    }
+
+    /**
+     * WARNING: The contextualReceiver property may be undefined, even though it's type suggests it will always
+     * be defined. In most places where it is accessed, there is an implicit assumption that the runtime construct
+     * for whom the lookup is being performed is situated in a context where there is a contextual receiver (e.g.
+     * inside a member function) and the client code would end up needing a non-null assertion anyway. Those
+     * non-null assertions are annoying, so instead we trick the type system and trust that this property will
+     * be used appropriately by the programmer.
+     */
+    public get contextualReceiver() {
+        return this.containingRuntimeFunction?.receiver!;
     }
 
     /**

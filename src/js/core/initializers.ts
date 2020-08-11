@@ -1157,6 +1157,10 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         // TODO out of order warnings
     }
 
+    public createRuntimeCtorInitializer(this: CompiledCtorInitializer, parent: RuntimeConstruct): RuntimeCtorInitializer {
+        return new RuntimeCtorInitializer(this, parent);
+    }
+
     public createDefaultOutlet(this: CompiledCtorInitializer, element: JQuery, parent?: ConstructOutlet) {
         return new CtorInitializerOutlet(element, this, parent);
     }
