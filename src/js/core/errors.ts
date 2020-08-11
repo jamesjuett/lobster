@@ -270,8 +270,8 @@ export const CPPError = {
                 improper_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_member", "A member initializer can only be used for non-static data members. There is no such member named " + name + " in the " + classType.className + " class.");
                 },
-                delegating_only: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.delegating_only", "If a constructor's initializer list delegates to another constructor from the same class, that must be the only thing it does.");
+                delegate_only: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.delegating_only", "This constructor-initializer delegates to another constructor from the same class. In this case, no other base or member initializers are allowed, because that would mean those members get initialized twice - once in the delegated-to constructor and again here.");
                 },
                 multiple_base_inits: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_base_inits", "A constructor's initializer list cannot specify more than one base class constructor to use.");

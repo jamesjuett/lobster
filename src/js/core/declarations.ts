@@ -1501,6 +1501,7 @@ export interface FunctionDefinitionASTNode extends ASTNode {
     readonly construct_type: "function_definition";
     readonly specs: DeclarationSpecifiersASTNode;
     readonly declarator: DeclaratorASTNode;
+    readonly ctor_initializer: CtorInitializerASTNode;
     readonly body: FunctionBodyASTNode;
 }
 
@@ -2118,7 +2119,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             }
         });
 
-        // IMPLICITLY-DEFINED DEFAULT CONSTRUCTOR
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
 
 

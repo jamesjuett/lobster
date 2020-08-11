@@ -1,16 +1,18 @@
-import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
-import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
+import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from "./expressionBase";
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
+import { Statement } from "./statements";
+import { CtorInitializerASTNode } from "./declarations";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -284,7 +286,6 @@ export class ClassDefaultInitializer extends DefaultInitializer {
 
         this.ctor = overloadResult.selected;
 
-        //MemberFunctionCall args are: context, function to call, receiver, ctor args
         this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
         this.attach(this.ctorCall);
         // this.args = this.ctorCall.args;
@@ -363,7 +364,7 @@ export abstract class DirectInitializer extends Initializer {
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): ReferenceDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind): AtomicDirectInitializer;
     // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: DirectInitializerKind) : ArrayDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<ClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) { // check for presence of bindTo to detect reference entities
@@ -404,9 +405,6 @@ export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> ex
 }
 
 export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
-
-    public abstract readonly args: readonly RuntimeExpression<T>[];
-    public abstract readonly arg?: RuntimeExpression<T>;
 
     protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
@@ -458,8 +456,8 @@ export class ReferenceDirectInitializer extends DirectInitializer {
 
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
-    public createRuntimeInitializer<T extends ObjectType>(this: any, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
-        return new RuntimeReferenceDirectInitializer(<CompiledReferenceDirectInitializer<T>>this, parent);
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
+        return new RuntimeReferenceDirectInitializer(this, parent);
     }
 
     public createDefaultOutlet(this: CompiledReferenceDirectInitializer, element: JQuery, parent?: ConstructOutlet): ReferenceDirectInitializerOutlet {
@@ -749,6 +747,169 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 }
 
 
+
+// export class ClassDefaultInitializer extends DefaultInitializer {
+//     public readonly construct_type = "ClassDefaultInitializer";
+
+//     public readonly target: ObjectEntity<CompleteClassType>;
+//     public readonly ctor?: FunctionEntity;
+//     public readonly ctorCall?: FunctionCall;
+
+//     public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) {
+//         super(context, undefined);
+
+//         this.target = target;
+
+//         // Try to find default constructor. Not using lookup because constructors have no name.
+//         let overloadResult = overloadResolution(target.type.classDefinition.constructors, []);
+//         if (!overloadResult.selected) {
+//             this.addNote(CPPError.declaration.init.no_default_constructor(this, this.target));
+//             return;
+//         }
+
+//         this.ctor = overloadResult.selected;
+
+//         this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
+//         this.attach(this.ctorCall);
+//         // this.args = this.ctorCall.args;
+//     }
+
+//     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
+//     public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+//     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
+//         return new RuntimeClassDefaultInitializer(this, parent);
+//     }
+
+//     public createDefaultOutlet(this: CompiledClassDefaultInitializer, element: JQuery, parent?: ConstructOutlet): ClassDefaultInitializerOutlet {
+//         return new ClassDefaultInitializerOutlet(element, this, parent);
+//     }
+
+//     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+//         let targetDesc = this.target.describe();
+//         // TODO: what if there is an error that causes no ctor to be found/available
+//         return {message: (targetDesc.name || targetDesc.message) + " will be initialized using " + this.ctorCall!.describe(sim, rtConstruct).message};
+//     }
+// }
+
+// export interface CompiledClassDefaultInitializer<T extends CompleteClassType = CompleteClassType> extends ClassDefaultInitializer, SuccessfullyCompiled {
+//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
+//     readonly target: ObjectEntity<T>;
+//     readonly ctor: FunctionEntity<FunctionType<VoidType>>;
+//     readonly ctorCall: CompiledFunctionCall<FunctionType<VoidType>>;
+// }
+
+
+
+
+export class ClassDirectInitializer extends DirectInitializer {
+    public readonly construct_type = "ClassDirectInitializer";
+
+    public readonly target: ObjectEntity<CompleteClassType>;
+    public readonly args: readonly Expression[];
+    
+    public readonly ctor?: FunctionEntity;
+    public readonly ctorCall?: FunctionCall;
+
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[], kind: DirectInitializerKind) {
+        super(context, kind);
+
+        this.target = target;
+
+        assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
+
+        // If any arguments are not well typed, we can't select a constructor
+        if (!allWellTyped(args)) {
+            this.attachAll(this.args = args);
+            // ctor and ctorCall remain undefined
+            return;
+        }
+
+        // Try to find a matching constructor. Not using lookup because constructors have no name.
+        let argTypes = args.map(arg => arg.type);
+        let overloadResult = overloadResolution(target.type.classDefinition.constructors, argTypes);
+        if (!overloadResult.selected) {
+            this.addNote(CPPError.declaration.init.matching_constructor(this, this.target, argTypes));
+            this.attachAll(this.args = args);
+            return;
+        }
+
+        this.ctor = overloadResult.selected;
+
+        this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
+        this.attach(this.ctorCall);
+        this.args = this.ctorCall.args;
+
+
+    }
+
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct): RuntimeClassDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct): RuntimeClassDirectInitializer<T> {
+        return new RuntimeClassDirectInitializer(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledClassDirectInitializer, element: JQuery, parent?: ConstructOutlet): ClassDirectInitializerOutlet {
+        return this.kind === "direct" ?
+            new ClassDirectInitializerOutlet(element, this, parent) :
+            new ClassCopyInitializerOutlet(element, this, parent);
+    }
+
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalResult(0);
+        return { message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "." };
+    }
+}
+
+export interface CompiledClassDirectInitializer<T extends CompleteClassType = CompleteClassType> extends ClassDirectInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
+    readonly target: ObjectEntity<T>;
+    readonly args: readonly CompiledExpression[];
+    
+    readonly ctor: FunctionEntity<FunctionType<VoidType>>;
+    readonly ctorCall: CompiledFunctionCall<FunctionType<VoidType>>;
+}
+
+export class RuntimeClassDirectInitializer<T extends CompleteClassType = CompleteClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
+
+
+    public abstract readonly args: readonly RuntimeExpression<T>[];
+    public abstract readonly arg?: undefined;
+
+    public readonly ctorCall: RuntimeFunctionCall<FunctionType<VoidType>>;
+
+    private index = "callCtor";
+
+    public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
+    }
+
+    protected upNextImpl() {
+        if (this.index === "callCtor") {
+            this.sim.push(this.ctorCall);
+            this.index = "done";
+        }
+        else {
+            let target = this.model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
+            this.startCleanup();
+        }
+    }
+
+    public stepForwardImpl() {
+        // do nothing
+    }
+
+}
+
+
+
+
+
 // export class ClassDirectInitializer extends DirectInitializer {
 
 //     public readonly target: ObjectEntity<ClassType>;
@@ -843,6 +1004,302 @@ export interface CopyInitializerASTNode extends ASTNode {
     readonly construct_type: "copy_initializer";
     readonly args: ExpressionASTNode[];
 }
+
+
+
+export interface CtorInitializerComponents {
+    delegatedConstructorArgs?: readonly Expression[],
+    base?: Expression, 
+    members?: readonly {memberName: string, exp: Expression}[]
+};
+
+export class CtorInitializer extends PotentialFullExpression<MemberBlockContext, CtorInitializerASTNode> {
+    public readonly construct_type = "ctor_initializer";
+
+    public readonly target: ReceiverEntity;
+
+    public readonly delegatedConstructor?: DirectInitializer;
+    public readonly baseInitializer: BaseClassInitializer;
+    public readonly memberInitializers: readonly DirectInitializer[];
+
+    public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
+        return new CtorInitializer(context, ast, ast.initializers.);
+    }
+
+    public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: CtorInitializerComponents) {
+        super(context, ast);
+
+        this.target = new ReceiverEntity(context.contextualReceiverType);
+
+        if (!components.members) {
+            components.members = [];
+        }
+
+        if (components.delegatedConstructorArgs) {
+            
+            this.delegatedConstructor = DirectInitializer.create()
+
+            this.delegatedConstructor = new FunctionCall(context, components.delegatedConstructor,)
+            this.attach(this.delegatedConstructor = components.delegatedConstructor);
+
+            // If there's a delegating consturctor call, no other initializers are allowed
+            if (components.base || components.members.length > 0) {
+                this.addNote(CPPError.declaration.ctor.init.delegate_only(this));
+                return;
+            }
+        }
+
+    }
+
+
+
+    public createDefaultOutlet(this: CompiledCtorInitializer, element: JQuery, parent?: ConstructOutlet) {
+        return new CtorInitializerOutlet(element, this, parent);
+    }
+
+}
+
+export interface CompiledCtorInitializer extends CtorInitializer, SuccessfullyCompiled {
+
+    // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
+    readonly declarations: readonly AnalyticCompiledDeclaration<LocalSimpleDeclaration>[];
+}
+
+export class RuntimeCtorInitializer extends RuntimeStatement<CompiledCtorInitializer> {
+
+    public readonly currentDeclarationIndex: number | null = null;
+
+    public constructor(model: CompiledCtorInitializer, parent: RuntimeStatement) {
+        super(model, parent);
+    }
+
+    protected upNextImpl() {
+        let nextIndex = this.currentDeclarationIndex === null ? 0 : this.currentDeclarationIndex + 1;
+
+        let initializers = this.model.declarations.map(d => d.initializer);
+        if (nextIndex < initializers.length) {
+            (<Mutable<this>>this).currentDeclarationIndex = nextIndex;
+            let init = initializers[nextIndex];
+            if (init) {
+                // Only declarations with an initializer (e.g. a variable definition) have something
+                // to do at runtime. Others (e.g. typedefs) do nothing.
+                this.observable.send("initializing", nextIndex);
+                let runtimeInit = init.createRuntimeInitializer(this);
+                this.sim.push(runtimeInit);
+            }
+        }
+        else {
+            this.startCleanup();
+        }
+    }
+
+    public stepForwardImpl() {
+        return false;
+    }
+}
+
+
+
+// export var ConstructorDefinition = FunctionDefinition.extend({
+//     _name: "ConstructorDefinition",
+
+//     i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
+
+
+//     instance : function(ast, context){
+//         assert(context);
+//         assert(isA(context.containingClass, Types.Class));
+//         assert(context.hasOwnProperty("access"));
+//         // Make sure it's actually a constructor
+//         if (ast.name.identifier !== context.containingClass.className){
+//             // oops was actually a function with missing return type
+//             return FunctionDefinition.instance(ast, context);
+//         }
+
+//         return ConstructorDefinition._parent.instance.apply(this, arguments);
+//     },
+
+//     compileDeclaration : function() {
+//         FunctionDefinition.compileDeclaration.apply(this, arguments);
+
+//         if (!this.hasErrors()){
+//             this.i_containingClass.addConstructor(this.entity);
+//         }
+//     },
+
+//     compileDeclarator : function(){
+//         var ast = this.ast;
+
+
+//         // NOTE: a constructor doesn't have a "name", and so we don't need to add it to any scope.
+//         // However, to make lookup easier, we give all constructors their class name plus the null character. LOL
+//         // TODO: this is silly. remove it pls :)
+//         this.name = this.i_containingClass.className + "\0";
+
+//         // Compile the parameters
+//         var args = this.ast.args;
+//         this.params = [];
+//         this.paramTypes = [];
+//         for (var j = 0; j < args.length; ++j) {
+//             var paramDecl = Parameter.instance(args[j], {parent: this, scope: this.bodyScope});
+//             paramDecl.compile();
+//             this.params.push(paramDecl);
+//             this.paramTypes.push(paramDecl.type);
+//         }
+//         this.isDefaultConstructor = this.params.length == 0;
+
+//         this.isCopyConstructor = this.params.length == 1
+//         && (isA(this.paramTypes[0], this.i_containingClass) ||
+//         isA(this.paramTypes[0], Types.Reference) && isA(this.paramTypes[0].refTo, this.i_containingClass));
+
+
+//         // Give error for copy constructor that passes by value
+//         if (this.isCopyConstructor && isA(this.paramTypes[0], this.i_containingClass)){
+//             this.addNote(CPPError.declaration.ctor.copy.pass_by_value(this.params[0], this.paramTypes[0], this.params[0].name));
+//         }
+
+//         // I know this is technically wrong but I think it makes things run smoother
+//         this.type = Types.Function.instance(Types.Void.instance(), this.paramTypes);
+//     },
+
+//     compileDefinition : function(){
+//         var self = this;
+//         var ast = this.ast;
+
+//         if (!ast.body){
+//             this.addNote(CPPError.class_def.ctor_def(this));
+//             return;
+//         }
+
+//         this.compileCtorInitializer();
+
+//         // Call parent class version. Will handle body, automatic object destruction, etc.
+//         FunctionDefinition.compileDefinition.apply(this, arguments);
+//     },
+
+//     compileCtorInitializer : function(){
+//         var memInits = this.ast.initializer || [];
+
+//         // First, check to see if this is a delegating constructor.
+//         // TODO: check on whether someone could techinically declare a member variable with the same name
+//         // as the class and how that affects the logic here.
+//         var targetConstructor = null;
+//         for(var i = 0; i < memInits.length; ++i){
+//             if (memInits[i].member.identifier == this.i_containingClass.className){
+//                 targetConstructor = i;
+//                 break;
+//             }
+//         }
+
+//         // It is a delegating constructor
+//         if (targetConstructor !== null){
+//             targetConstructor = memInits.splice(targetConstructor, 1)[0];
+//             // If it is a delegating constructor, there can be no other memInits
+//             if (memInits.length === 0){ // should be 0 since one removed
+//                 var mem = MemberInitializer.instance(targetConstructor, {parent: this, scope: this.bodyScope});
+//                 mem.compile(ReceiverEntity.instance(this.i_containingClass));
+//                 this.memberInitializers.push(mem);
+//             }
+//             else{
+//                 this.addNote(CPPError.declaration.ctor.init.delegating_only(this));
+//             }
+//             return;
+//         }
+
+//         // It is a non-delegating constructor
+
+//         // If there is a base class subobject, initialize it
+//         var base;
+//         if (base = this.i_containingClass.getBaseClass()){
+//             // Check to see if there is a base class initializer.
+//             var baseInits = memInits.filter(function(memInit){
+//                 return memInit.member.identifier === base.className;
+//             });
+//             memInits = memInits.filter(function(memInit){
+//                 return memInit.member.identifier !== base.className;
+//             });
+
+//             if (baseInits.length > 1){
+//                 this.addNote(CPPError.declaration.ctor.init.multiple_base_inits(this));
+//             }
+//             else if (baseInits.length === 1){
+//                 var mem = MemberInitializer.instance(baseInits[0], {parent: this, scope: this.bodyScope});
+//                 mem.compile(this.i_containingClass.baseClassEntities[0]);
+//                 this.memberInitializers.push(mem);
+//             }
+//             else{
+//                 var mem = DefaultMemberInitializer.instance(this.ast, {parent: this, scope: this.bodyScope});
+//                 mem.compile(this.i_containingClass.baseClassEntities[0]);
+//                 this.memberInitializers.push(mem);
+//                 mem.isMemberInitializer = true;
+//             }
+//         }
+
+//         // Initialize non-static data members of the class
+
+//         // Create a map of name to initializer. Initially all initializers are null.
+//         var initMap = {};
+//         this.i_containingClass.memberSubobjectEntities.forEach(function(objMember){
+//             initMap[objMember.name] = objMember;
+//         });
+
+//         // Iterate through all the member initializers and associate them with appropriate member
+//         for(var i = 0; i < memInits.length; ++i){
+//             var memInit = memInits[i];
+
+//             // Make sure this type has a member of the given name
+//             var memberName = memInit.member.identifier;
+//             if (initMap.hasOwnProperty(memberName)) {
+//                 var mem = MemberInitializer.instance(memInit, {parent: this, scope: this.bodyScope});
+//                 mem.compile(initMap[memberName]);
+//                 initMap[memberName] = mem;
+//             }
+//             else{
+//                 this.addNote(CPPError.declaration.ctor.init.improper_member(this, this.i_containingClass, memberName));
+//             }
+//         }
+
+//         // Now iterate through members again in declaration order. Add associated member initializer
+//         // from above or default initializer if there wasn't one.
+
+//         var self = this;
+//         this.i_containingClass.memberSubobjectEntities.forEach(function(objMember){
+//             if (isA(initMap[objMember.name], MemberInitializer)){
+//                 self.memberInitializers.push(initMap[objMember.name]);
+//             }
+//             else if (isA(objMember.type, Types.Class) || isA(objMember.type, Types.Array)){
+//                 var mem = DefaultMemberInitializer.instance(self.ast, {parent: self, scope: self.bodyScope});
+//                 mem.compile(objMember);
+//                 self.memberInitializers.push(mem);
+//                 mem.isMemberInitializer = true;
+//             }
+//             else{
+//                 // No need to do anything for non-class types since default initialization does nothing
+//             }
+//         });
+//     },
+
+//     isTailChild : function(child){
+//         return {isTail: false};
+//     },
+
+//     describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//         var desc = {};
+//         if (this.isDefaultConstructor){
+//             desc.message = "the default constructor for the " + this.i_containingClass.className + " class";
+//         }
+//         else if (this.isCopyConstructor){
+//             desc.message = "the copy constructor for the " + this.i_containingClass.className + " class";
+//         }
+//         else{
+//             desc.message = "a constructor for the " + this.i_containingClass.className + " class";
+//         }
+//         return desc
+//     }
+// });
+
+
+
 
 // TODO: These should really be "class aliases" rather than derived classes, however
 // it doesn't seem like Typescript has any proper mechanism for this.
