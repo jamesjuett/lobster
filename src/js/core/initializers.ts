@@ -1,6 +1,6 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert, asMutable } from "../util/util";
@@ -1038,7 +1038,33 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
     public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | undefined } = { };
 
     public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
-        return new CtorInitializer(context, ast, ast.initializers.);
+        return new CtorInitializer(context, ast, ast.initializers.map(memInitAST => {
+            let receiverType = context.contextualReceiverType;
+            let baseType = receiverType.classDefinition.baseClass;
+
+            let memName = memInitAST.member.identifier;
+            let args = memInitAST.args.map(argAST => createExpressionFromAST(argAST, context));
+
+            if (memName === receiverType.className) {
+                return <DelegatedConstructorCtorInitializerComponent>{
+                    kind: "delegatedConstructor",
+                    args: args
+                };
+            }
+            else if (baseType && memName === baseType.className) {
+                return <BaseCtorInitializerComponent>{
+                    kind: "base",
+                    args: args
+                };
+            }
+            else {
+                return <MemberCtorInitializerComponent>{
+                    kind: "member",
+                    name: memName,
+                    args: args
+                };
+            }
+        }));
     }
 
     public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: readonly CtorInitializerComponent[]) {
