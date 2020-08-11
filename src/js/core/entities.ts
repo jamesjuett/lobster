@@ -1102,24 +1102,29 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
     }
 }
 
-// export class BaseSubobjectEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
+export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
 
-//     public readonly containingEntity: ObjectEntity<ClassType>;
+    public readonly containingEntity: ObjectEntity<CompleteClassType>;
 
-//     constructor(containingEntity: ObjectEntity<ClassType>, type: ClassType) {
-//         super(type);
-//         this.containingEntity = containingEntity;
-//     }
+    constructor(containingEntity: ObjectEntity<CompleteClassType>, type: CompleteClassType) {
+        super(type);
+        this.containingEntity = containingEntity;
 
-//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-//         // TODO: check on non-null assertion below
-//         return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
-//     }
+        // This should always be true as long as we don't allow multiple inheritance
+        assert(this.containingEntity.type.classDefinition.baseClass?.similarType(type))
+    }
 
-//     public describe() {
-//         return {message: "the " + this.type.cppClass.name + " base class subobject of " + this.containingEntity.describe()};
-//     }
-// }
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
+    }
+
+    public describe() {
+        return {
+            name: this.containingEntity.describe().name + ".[" + this.type.className + " base]",
+            message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
+        };
+    }
+}
 
 
 

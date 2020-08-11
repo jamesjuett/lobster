@@ -153,7 +153,7 @@ abstract class TypeBase {
         this.isVolatile = isVolatile;
     }
 
-    public abstract isComplete(context: TranslationUnitContext) : boolean;
+    public abstract isComplete(context?: TranslationUnitContext) : boolean;
 
     public getCVString() {
         return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
@@ -211,7 +211,7 @@ abstract class TypeBase {
     }
 
     public isCompleteClassType(): this is CompleteClassType {
-        return this instanceof ClassTypeBase && !!this.isComplete;
+        return this instanceof ClassTypeBase && this.isComplete();
     }
 
     public isBoundedArrayType(): this is BoundedArrayType {
@@ -1048,7 +1048,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     }
 
 
-    public isComplete(context: TranslationUnitContext) {
+    public isComplete(context?: TranslationUnitContext) {
         // Completeness may change if elemType completeness changes
         // (e.g. array of potentially (in)complete class type objects)
         return this.elemType.isComplete(context);
@@ -1215,7 +1215,7 @@ class ClassTypeBase extends TypeBase {
         this.shared.classDefinition = def;
     }
 
-    public isComplete(context: TranslationUnitContext) : this is CompleteClassType {
+    public isComplete(context?: TranslationUnitContext) : this is CompleteClassType {
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
         // ^ Actually, depending on how lobster sequences the compilation, this
@@ -1244,7 +1244,14 @@ class ClassTypeBase extends TypeBase {
     }
 
     public isDerivedFrom(other: Type) : boolean {
-        throw new Error("Method not implemented.");
+        var b = this.classDefinition?.baseClass;
+        while(b) {
+            if (similarType(other, b)) {
+                return true;
+            }
+            b = b.classDefinition?.baseClass;
+        }
+        return false;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {

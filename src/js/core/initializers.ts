@@ -1,7 +1,7 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity } from "./entities";
 import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert } from "../util/util";
 import { CPPError } from "./errors";
@@ -1009,7 +1009,7 @@ export interface CopyInitializerASTNode extends ASTNode {
 
 export interface CtorInitializerComponents {
     delegatedConstructorArgs?: readonly Expression[],
-    base?: Expression, 
+    baseArgs?: readonly Expression[], 
     members?: readonly {memberName: string, exp: Expression}[]
 };
 
@@ -1018,8 +1018,8 @@ export class CtorInitializer extends PotentialFullExpression<MemberBlockContext,
 
     public readonly target: ReceiverEntity;
 
-    public readonly delegatedConstructor?: DirectInitializer;
-    public readonly baseInitializer: BaseClassInitializer;
+    public readonly delegatedConstructor?: ClassDirectInitializer;
+    public readonly baseInitializer: ClassDirectInitializer;
     public readonly memberInitializers: readonly DirectInitializer[];
 
     public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
@@ -1029,7 +1029,9 @@ export class CtorInitializer extends PotentialFullExpression<MemberBlockContext,
     public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: CtorInitializerComponents) {
         super(context, ast);
 
-        this.target = new ReceiverEntity(context.contextualReceiverType);
+        let receiverType = context.contextualReceiverType;
+
+        this.target = new ReceiverEntity(receiverType);
 
         if (!components.members) {
             components.members = [];
@@ -1037,17 +1039,25 @@ export class CtorInitializer extends PotentialFullExpression<MemberBlockContext,
 
         if (components.delegatedConstructorArgs) {
             
-            this.delegatedConstructor = DirectInitializer.create()
-
-            this.delegatedConstructor = new FunctionCall(context, components.delegatedConstructor,)
-            this.attach(this.delegatedConstructor = components.delegatedConstructor);
+            this.attach(this.delegatedConstructor = new ClassDirectInitializer(context, this.target, components.delegatedConstructorArgs, "direct"));
 
             // If there's a delegating consturctor call, no other initializers are allowed
-            if (components.base || components.members.length > 0) {
+            if (components.baseArgs || components.members.length > 0) {
                 this.addNote(CPPError.declaration.ctor.init.delegate_only(this));
-                return;
             }
+
+            // Even if there were other components to the ctor-initializer, there shouldn't
+            // be, and we just ignore them after giving the above error.
+            return;
         }
+
+        if (components.baseArgs) {
+            let baseType = receiverType.classDefinition.baseClass;
+            assert(baseType);
+            this.baseInitializer = new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), components.baseArgs, "direct");
+        }
+
+
 
     }
 
