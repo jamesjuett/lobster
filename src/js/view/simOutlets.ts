@@ -2,7 +2,7 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
@@ -824,7 +824,7 @@ export class MemoryOutlet {
     // },
 }
 
-export abstract class MemoryObjectOutlet<T extends ObjectType = ObjectType> {
+export abstract class MemoryObjectOutlet<T extends CompleteObjectType = CompleteObjectType> {
 
     public readonly object: CPPObject<T>;
     
@@ -1217,7 +1217,7 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
 //     Outlets.CPP.CPP_ANIMATIONS = temp;
 // }, 20);
 
-export class ReferenceMemoryOutlet<T extends ObjectType = ObjectType> {
+export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObjectType> {
 
     public readonly entity: (UnboundReferenceEntity | BoundReferenceEntity) & NamedEntity;
     public readonly object?: CPPObject<T>;

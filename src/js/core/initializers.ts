@@ -2,7 +2,7 @@ import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
-import { ObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
+import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
 import { assertFalse, assert, asMutable, assertNever } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -34,7 +34,7 @@ export abstract class Initializer extends PotentialFullExpression {
 
 }
 
-export interface CompiledInitializer<T extends ObjectType = ObjectType> extends Initializer, SuccessfullyCompiled {
+export interface CompiledInitializer<T extends CompleteObjectType = CompleteObjectType> extends Initializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
 }
@@ -57,7 +57,7 @@ export abstract class DefaultInitializer extends Initializer {
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>): AtomicDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>): ArrayDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) : ClassDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<ObjectType>): DefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteObjectType>): DefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity): DefaultInitializer {
         if (!!(<UnboundReferenceEntity>target).bindTo) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity>target);
@@ -78,15 +78,15 @@ export abstract class DefaultInitializer extends Initializer {
 
     public readonly kind = "default";
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeDefaultInitializer<T>;
+    public abstract createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeDefaultInitializer<T>;
 }
 
-export interface CompiledDefaultInitializer<T extends ObjectType = ObjectType> extends DefaultInitializer, SuccessfullyCompiled {
+export interface CompiledDefaultInitializer<T extends CompleteObjectType = CompleteObjectType> extends DefaultInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T>;
 }
 
-export abstract class RuntimeDefaultInitializer<T extends ObjectType = ObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
+export abstract class RuntimeDefaultInitializer<T extends CompleteObjectType = CompleteObjectType, C extends CompiledDefaultInitializer<T> = CompiledDefaultInitializer<T>> extends RuntimeInitializer<C> {
 
     protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
@@ -134,7 +134,7 @@ export class AtomicDefaultInitializer extends DefaultInitializer {
     }
 
     public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
     public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDefaultInitializer<T> {
         return new RuntimeAtomicDefaultInitializer(this, parent);
     }
@@ -204,7 +204,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
     }
 
     public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeArrayDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct): never;
     public createRuntimeInitializer<T extends BoundedArrayType>(this: CompiledArrayDefaultInitializer<T>, parent: RuntimeConstruct): RuntimeArrayDefaultInitializer<T> {
         return new RuntimeArrayDefaultInitializer(this, parent);
     }
@@ -298,7 +298,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     }
 
     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDefaultInitializer<T>, parent: RuntimeConstruct) : never;
     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) : RuntimeClassDefaultInitializer<T> {
         return new RuntimeClassDefaultInitializer(this, parent);
     }
@@ -400,17 +400,17 @@ export abstract class DirectInitializer extends Initializer {
         this.kind = kind;
     }
 
-    public abstract createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): RuntimeDirectInitializer<T>;
+    public abstract createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): RuntimeDirectInitializer<T>;
 }
 
 
-export interface CompiledDirectInitializer<T extends ObjectType = ObjectType> extends DirectInitializer, SuccessfullyCompiled {
+export interface CompiledDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends DirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer<T extends ObjectType = ObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
+export abstract class RuntimeDirectInitializer<T extends CompleteObjectType = CompleteObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
 
     protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
@@ -460,9 +460,9 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
         return new RuntimeReferenceDirectInitializer(this, parent);
     }
 
@@ -479,7 +479,7 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledReferenceDirectInitializer<T extends ObjectType = ObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
+export interface CompiledReferenceDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly target: UnboundReferenceEntity<T>;
     readonly args: readonly CompiledExpression[];
@@ -490,7 +490,7 @@ export interface CompiledReferenceDirectInitializer<T extends ObjectType = Objec
     readonly arg: CompiledExpression<T, "lvalue">;
 }
 
-export class RuntimeReferenceDirectInitializer<T extends ObjectType = ObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
+export class RuntimeReferenceDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
 
     public readonly args: readonly RuntimeExpression<T, "lvalue">[];
     public readonly arg: RuntimeExpression<T, "lvalue">;
@@ -580,7 +580,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
     }
 
     public createRuntimeInitializer<T extends AtomicType>(this: CompiledAtomicDirectInitializer<T>, parent: RuntimeConstruct): RuntimeAtomicDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
     public createRuntimeInitializer<T extends AtomicType>(this: any, parent: RuntimeConstruct): RuntimeAtomicDirectInitializer<T> {
         return new RuntimeAtomicDirectInitializer(<CompiledAtomicDirectInitializer<T>>this, parent);
     }
@@ -684,7 +684,7 @@ export class ArrayDirectInitializer extends DirectInitializer {
     }
 
     public createRuntimeInitializer(this: CompiledArrayDirectInitializer, parent: RuntimeConstruct): RuntimeArrayDirectInitializer;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
     public createRuntimeInitializer(this: any, parent: RuntimeConstruct): RuntimeArrayDirectInitializer {
         return new RuntimeArrayDirectInitializer(this, parent);
     }
@@ -850,7 +850,7 @@ export class ClassDirectInitializer extends DirectInitializer {
     }
 
     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct): RuntimeClassDirectInitializer<T>;
-    public createRuntimeInitializer<T extends ObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
     public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct): RuntimeClassDirectInitializer<T> {
         return new RuntimeClassDirectInitializer(this, parent);
     }

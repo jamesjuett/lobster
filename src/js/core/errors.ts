@@ -1,6 +1,6 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, ObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
@@ -258,7 +258,7 @@ export const CPPError = {
     declaration: {
         ctor: {
             copy: {
-                pass_by_value: function (construct: TranslationUnitConstruct, type: ObjectType, name: string) {
+                pass_by_value: function (construct: TranslationUnitConstruct, type: CompleteObjectType, name: string) {
                     var constRef = new ReferenceType(type.cvQualified(true));
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.copy.pass_by_value", "A copy constructor cannot take its parameter by value. Because pass-by-value itself uses the copy constructor, this would cause infinite recursion if it were allowed. Try passing by reference-to-const instead! (i.e. " + constRef.typeString(false, name, false) + ")");
                 }
@@ -456,7 +456,7 @@ export const CPPError = {
             referencePrvalueConst: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
-            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: ObjectType) {
+            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: CompleteObjectType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
             referenceBind: function (construct: TranslationUnitConstruct) {

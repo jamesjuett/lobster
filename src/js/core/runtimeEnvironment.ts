@@ -1,7 +1,7 @@
 import { assert, assertFalse, Mutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
-import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, ObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
+import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, CompleteObjectType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
@@ -157,7 +157,7 @@ export class Memory {
     // Definite assignment assertions with ! are for properties initialized in the reset function called
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
-    private objects!: { [index: number]: CPPObject<ObjectType> };
+    private objects!: { [index: number]: CPPObject<CompleteObjectType> };
     private stringLiteralMap!: { [index: string]: StringLiteralObject | undefined };
     private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
@@ -332,8 +332,8 @@ export class Memory {
     // (In C++, reading/writing to this object will cause undefined behavior.)
     // TODO: prevent writing to zero or negative address objects?
     public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>): ArraySubobject<Elem_type>;
-    public dereference<T extends ObjectType>(ptr: Value<ObjectPointerType<T>>): CPPObject<T>;
-    public dereference<T extends ObjectType>(ptr: Value<PointerType<T>>): CPPObject<T> | InvalidObject<T>;
+    public dereference<T extends CompleteObjectType>(ptr: Value<ObjectPointerType<T>>): CPPObject<T>;
+    public dereference<T extends CompleteObjectType>(ptr: Value<PointerType<T>>): CPPObject<T> | InvalidObject<T>;
     public dereference(ptr: Value<PointerType>): CPPObject | ArraySubobject | InvalidObject {
 
         var addr = ptr.rawValue;
@@ -360,7 +360,7 @@ export class Memory {
     }
 
 
-    public allocateObject(object: CPPObject<ObjectType>) { // TODO: allocateObject is not the best name for this
+    public allocateObject(object: CPPObject<CompleteObjectType>) { // TODO: allocateObject is not the best name for this
         this.objects[object.address] = object;
     }
 
@@ -418,11 +418,11 @@ export class Memory {
         this.staticObjects[def.declaredEntity.qualifiedName] = obj;
     }
 
-    public staticLookup<T extends ObjectType>(staticEntity: GlobalObjectEntity<T>) {
+    public staticLookup<T extends CompleteObjectType>(staticEntity: GlobalObjectEntity<T>) {
         return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];
     }
 
-    public allocateTemporaryObject<T extends ObjectType>(tempEntity: TemporaryObjectEntity<T>) {
+    public allocateTemporaryObject<T extends CompleteObjectType>(tempEntity: TemporaryObjectEntity<T>) {
         let obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
         this.allocateObject(obj);
         this.temporaryBottom += tempEntity.type.size;
@@ -625,7 +625,7 @@ export class MemoryFrame {
         return str;
     }
 
-    public localObjectLookup<T extends ObjectType>(entity: LocalObjectEntity<T>) {
+    public localObjectLookup<T extends CompleteObjectType>(entity: LocalObjectEntity<T>) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
@@ -633,11 +633,11 @@ export class MemoryFrame {
         this.localObjectLookup(entity).writeValue(newValue);
     }
 
-    public localReferenceLookup<T extends ObjectType>(entity: LocalReferenceEntity<T>) {
+    public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<T>) {
         return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
     }
 
-    public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<ObjectType>) {
+    public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject<CompleteObjectType>) {
         this.localReferencesByEntityId[entity.entityId] = obj;
         this.observable.send("referenceBound", { entity: entity, object: obj });
     }

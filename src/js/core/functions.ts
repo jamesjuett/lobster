@@ -1,4 +1,4 @@
-import { FunctionType, VoidType, NoRefType, ObjectType, ReferenceType, AtomicType, CompleteClassType } from "./types";
+import { FunctionType, VoidType, NoRefType, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType } from "./types";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -65,10 +65,10 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends FunctionType<ObjectType | ReferenceType>>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T["returnType"]>>) {
+    public setReturnObject<T extends FunctionType<CompleteObjectType | ReferenceType>>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T["returnType"]>>) {
         // This should only be used once
         assert(!this.returnObject);
-        (<Mutable<RuntimeFunction<FunctionType<ObjectType>> | RuntimeFunction<FunctionType<ReferenceType>>>>this).returnObject = obj;
+        (<Mutable<RuntimeFunction<FunctionType<CompleteObjectType>> | RuntimeFunction<FunctionType<ReferenceType>>>>this).returnObject = obj;
 
     }
 

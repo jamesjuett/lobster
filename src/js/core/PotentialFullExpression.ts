@@ -1,6 +1,6 @@
 import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
-import { ObjectType } from "./types";
+import { CompleteObjectType } from "./types";
 import { TemporaryObject } from "./objects";
 import { TranslationUnitContext, ASTNode, BasicCPPConstruct, TemporaryDeallocator, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, RuntimeTemporaryDeallocator, StackType, CPPConstruct } from "./constructs";
 
@@ -49,7 +49,7 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         this.temporaryObjects.push(tempObjEnt);
         tempObjEnt.setOwner(this);
     }
-    public createTemporaryObject<T extends ObjectType>(type: T, name: string): TemporaryObjectEntity<T> {
+    public createTemporaryObject<T extends CompleteObjectType>(type: T, name: string): TemporaryObjectEntity<T> {
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, name);
         this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;

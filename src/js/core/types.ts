@@ -170,7 +170,7 @@ abstract class TypeBase {
         return this instanceof ctor;
     }
 
-    public isObjectType(): this is ObjectType {
+    public isObjectType(): this is CompleteObjectType {
         return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
     }
 
@@ -356,7 +356,7 @@ abstract class TypeBase {
     public abstract areLValuesAssignable(): boolean;
 };
 
-export function isObjectType(type: Type): type is ObjectType {
+export function isObjectType(type: Type): type is CompleteObjectType {
     return type.isAtomicType() || type.isBoundedArrayType() || type.isCompleteClassType();
 }
 
@@ -471,7 +471,7 @@ export function isPotentialParameterType(type: Type): type is PotentialParameter
 
 // export let UNKNOWN_TYPE = new Unknown();
 
-export type Type = VoidType | ObjectType | IncompleteClassType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
+export type Type = VoidType | CompleteObjectType | IncompleteClassType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
 
 export type IncompleteType = IncompleteClassType | ArrayOfUnknownBoundType;
 
@@ -555,9 +555,9 @@ export abstract class ObjectTypeBase extends TypeBase {
 
 
 
-export type ObjectType = AtomicType | BoundedArrayType | CompleteClassType;
+export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
 
-export type PotentialReturnType = ObjectType | ReferenceType | VoidType;
+export type PotentialReturnType = CompleteObjectType | ReferenceType | VoidType;
 
 export type PotentialParameterType = AtomicType | CompleteClassType | ReferenceType; // Does not include arrays
 
@@ -826,7 +826,7 @@ export class Double extends FloatingPointType {
 
 //TODO: create separate function pointer type???
 
-export class PointerType<PtrTo extends ObjectType = ObjectType> extends AtomicType {
+export class PointerType<PtrTo extends CompleteObjectType = CompleteObjectType> extends AtomicType {
 
     public readonly size = 8;
     public readonly precedence = 1;
@@ -941,7 +941,7 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
     }
 }
 
-export class ObjectPointerType<T extends ObjectType = ObjectType> extends PointerType<T> {
+export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType> extends PointerType<T> {
 
     public readonly pointedObject: CPPObject<T>;
 
@@ -964,7 +964,7 @@ export class ObjectPointerType<T extends ObjectType = ObjectType> extends Pointe
 }
 
 
-export class ReferenceType<RefTo extends ObjectType = ObjectType> extends TypeBase {
+export class ReferenceType<RefTo extends CompleteObjectType = CompleteObjectType> extends TypeBase {
 
     public readonly precedence = 1;
 
