@@ -1,4 +1,4 @@
-import { PotentialParameterType, Type, ObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType } from "./types";
+import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
@@ -708,11 +708,11 @@ export class FunctionOverloadGroup {
     }
 }
 
-export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
+export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> {
     runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
-abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
+abstract class VariableEntityBase<T extends CompleteObjectType = CompleteObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
     public readonly declarationKind = "variable";
     public abstract readonly variableKind: "reference" | "object";
     public abstract readonly variableLocation: "local" | "global" | "member";
@@ -720,7 +720,7 @@ abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends Dec
     public abstract runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
-export class LocalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
     public readonly variableLocation = "local";
     public readonly isParameter: boolean;
@@ -759,16 +759,16 @@ export class LocalObjectEntity<T extends ObjectType = ObjectType> extends Variab
 
 
 
-export interface BoundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T>, ObjectEntity<T> {
+export interface BoundReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T>, ObjectEntity<T> {
 
 }
 
 
-export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> {
+export interface UnboundReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> {
     bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>): void;
 }
 
-export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+export class LocalReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     public readonly variableKind = "reference";
     public readonly variableLocation = "local";
     public readonly isParameter: boolean;
@@ -805,9 +805,9 @@ export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends Var
     }
 };
 
-export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObjectEntity<T> | LocalReferenceEntity<T>;
+export type LocalVariableEntity<T extends CompleteObjectType = CompleteObjectType> = LocalObjectEntity<T> | LocalReferenceEntity<T>;
 
-export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
     public readonly variableLocation = "global";
 
@@ -866,9 +866,9 @@ export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends Varia
 
 
 
-export type MemberVariableEntity<T extends ObjectType = ObjectType> = MemberObjectEntity<T> | MemberReferenceEntity<T>;
+export type MemberVariableEntity<T extends CompleteObjectType = CompleteObjectType> = MemberObjectEntity<T> | MemberReferenceEntity<T>;
 
-export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T> | MemberVariableEntity<T>;
+export type VariableEntity<T extends CompleteObjectType = CompleteObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T> | MemberVariableEntity<T>;
 
 
 // TODO: implement global references
@@ -902,7 +902,7 @@ export type VariableEntity<T extends ObjectType = ObjectType> = LocalVariableEnt
  * object.
  * @throws Throws an exception if the return object does not exist.
  */
-export class ReturnObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class ReturnObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T> {
         let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
@@ -918,7 +918,7 @@ export class ReturnObjectEntity<T extends ObjectType = ObjectType> extends CPPEn
     }
 };
 
-export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+export class ReturnByReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
 
     public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
         // Assume a ReturnByReferenceEntity will only be bound in the context of a return
@@ -970,7 +970,7 @@ export class ReturnByReferenceEntity<T extends ObjectType = ObjectType> extends 
 // };
 
 // TODO: will need to add a class for ReferenceParameterEntity
-export class PassByValueParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
     public readonly type: T;
@@ -1007,7 +1007,7 @@ export class PassByValueParameterEntity<T extends ObjectType = ObjectType> exten
 
 };
 
-export class PassByReferenceParameterEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+export class PassByReferenceParameterEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
     public readonly num: number;
@@ -1134,7 +1134,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
 
 
-export class MemberAccessEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class MemberAccessEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
     public readonly containingEntity: ObjectEntity<CompleteClassType>;
     public readonly name: string;
@@ -1197,7 +1197,7 @@ export class MemberAccessEntity<T extends ObjectType = ObjectType> extends CPPEn
 //     }
 // };
 
-abstract class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+abstract class MemberVariableEntityBase<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
 
     public readonly variableLocation = "member";
 
@@ -1246,12 +1246,12 @@ abstract class MemberVariableEntityBase<T extends ObjectType = ObjectType> exten
     }
 };
 
-export class MemberObjectEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> {
+export class MemberObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends MemberVariableEntityBase<T> {
     public readonly variableKind = "object";
 
 }
 
-export class MemberReferenceEntity<T extends ObjectType = ObjectType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+export class MemberReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
 
     public readonly variableKind = "reference";
 
@@ -1261,7 +1261,7 @@ export class MemberReferenceEntity<T extends ObjectType = ObjectType> extends Me
 
 };
 
-export class TemporaryObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 

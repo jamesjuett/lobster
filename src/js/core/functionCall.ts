@@ -2,7 +2,7 @@ import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDealloca
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression } from "./expressions";
-import { VoidType, ReferenceType, PotentialReturnType, ObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType } from "./types";
+import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, NoRefType, noRef, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
@@ -155,7 +155,7 @@ export class FunctionCall extends PotentialFullExpression {
 }
 
 export interface TypedFunctionCall<T extends FunctionType = FunctionType> extends FunctionCall, SuccessfullyCompiled {
-    readonly returnByValueTarget: T extends FunctionType<infer R> ? (R extends ObjectType ? TemporaryObjectEntity<R> : undefined) : never;
+    readonly returnByValueTarget: T extends FunctionType<infer R> ? (R extends CompleteObjectType ? TemporaryObjectEntity<R> : undefined) : never;
 }
 
 export interface CompiledFunctionCall<T extends FunctionType = FunctionType> extends TypedFunctionCall<T>, SuccessfullyCompiled {
@@ -206,7 +206,7 @@ export class RuntimeFunctionCall<T extends FunctionType = FunctionType> extends 
         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
         if (this.model.returnByValueTarget) {
             // If return-by-value, set return object to temporary
-            let cf = <RuntimeFunction<FunctionType<ObjectType>>>this.calledFunction; // TODO: may be able to get rid of this cast if CompiledFunctionDefinition provided more info about return type
+            let cf = <RuntimeFunction<FunctionType<CompleteObjectType>>>this.calledFunction; // TODO: may be able to get rid of this cast if CompiledFunctionDefinition provided more info about return type
             cf.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
         }
         this.index = INDEX_FUNCTION_CALL_PUSH;
@@ -268,7 +268,7 @@ type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "
 export class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
     public readonly construct_type = "function_call_expression";
 
-    public readonly type?: ObjectType | VoidType;
+    public readonly type?: CompleteObjectType | VoidType;
     public readonly valueCategory?: ValueCategory;
 
     public readonly operand: Expression;
@@ -328,7 +328,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         this.attach(this.call = new FunctionCall(
             context,
             operand.entity,
-            <readonly TypedExpression<ObjectType, ValueCategory>[]>args));
+            <readonly TypedExpression<CompleteObjectType, ValueCategory>[]>args));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression {

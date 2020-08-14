@@ -4,7 +4,7 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType } from "./types";
+import { CompleteObjectType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType } from "./types";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";

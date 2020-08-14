@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, ObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -833,7 +833,7 @@ export interface CompiledFunctionDeclaration<T extends FunctionType = FunctionTy
 // }
 
 
-export type VariableDefinitionType = ObjectType | ReferenceType;
+export type VariableDefinitionType = CompleteObjectType | ReferenceType;
 
 abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext = TranslationUnitContext> extends SimpleDeclaration<ContextType> {
 
@@ -889,7 +889,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
 
     public readonly type: VariableDefinitionType;
-    public readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly declaredEntity: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
 
     // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition);
@@ -954,7 +954,7 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly construct_type = "global_variable_definition";
 
     public readonly type: VariableDefinitionType;
-    public readonly declaredEntity!: GlobalObjectEntity<ObjectType>; // TODO definite assignment assertion can be removed when global references are supported
+    public readonly declaredEntity!: GlobalObjectEntity<CompleteObjectType>; // TODO definite assignment assertion can be removed when global references are supported
 
     public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: VariableDefinitionType) {
@@ -1017,7 +1017,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
     public readonly name?: string; // parameter declarations need not provide a name
     public readonly type?: PotentialParameterType;
-    public readonly declaredEntity?: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    public readonly declaredEntity?: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
 
     public constructor(context: TranslationUnitContext, ast: ParameterDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -1105,7 +1105,7 @@ export interface CompiledParameterDeclaration<T extends PotentialParameterType =
 export interface ParameterDefinition extends ParameterDeclaration {
     readonly name: string;
     readonly type: PotentialParameterType;
-    readonly declaredEntity: LocalObjectEntity<ObjectType> | LocalReferenceEntity<ObjectType>;
+    readonly declaredEntity: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
 }
 
 export interface TypedParameterDefinition<T extends PotentialParameterType> extends ParameterDeclaration {
@@ -2522,11 +2522,11 @@ export interface CompiledBaseSpecifier extends BaseSpecifier, SuccessfullyCompil
 export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpecificationContext> {
     public readonly construct_type = "member_variable_declaration";
 
-    public readonly type: ObjectType | ReferenceType;
-    public readonly declaredEntity: MemberObjectEntity<ObjectType> | MemberReferenceEntity<ObjectType>;
+    public readonly type: CompleteObjectType | ReferenceType;
+    public readonly declaredEntity: MemberObjectEntity<CompleteObjectType> | MemberReferenceEntity<CompleteObjectType>;
 
     public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: ObjectType | ReferenceType) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: CompleteObjectType | ReferenceType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -2559,13 +2559,13 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
 
 }
 
-export interface TypedMemberVariableDeclaration<T extends ObjectType | ReferenceType> extends MemberVariableDeclaration {
+export interface TypedMemberVariableDeclaration<T extends CompleteObjectType | ReferenceType> extends MemberVariableDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: MemberObjectEntity<NoRefType<T>> | MemberReferenceEntity<NoRefType<T>>;
 }
 
-export interface CompiledMemberVariableDeclaration<T extends ObjectType | ReferenceType = ObjectType | ReferenceType> extends TypedMemberVariableDeclaration<T>, SuccessfullyCompiled {
+export interface CompiledMemberVariableDeclaration<T extends CompleteObjectType | ReferenceType = CompleteObjectType | ReferenceType> extends TypedMemberVariableDeclaration<T>, SuccessfullyCompiled {
 
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;

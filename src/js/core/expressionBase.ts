@@ -3,7 +3,7 @@ import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, Compile
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
-import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isObjectType } from "./types";
+import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isObjectType } from "./types";
 
 import { Constructor, Mutable } from "../util/util";
 
@@ -90,9 +90,9 @@ export function allWellTyped(expressions: readonly Expression[]): expressions is
     return expressions.every((expr) => { return expr.isWellTyped(); });
 }
 
-export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[] {
+export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<CompleteObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[] {
     return expressions.every((expr) => { return Predicates.isTypedExpression(expr, isObjectType) });
 }
 
@@ -107,7 +107,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
         V extends "xvalue" ? CPPObject<T> :
         CPPObject<T> // lvalue
     )
-    : T extends ObjectType ? (
+    : T extends CompleteObjectType ? (
 
         // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
         //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
@@ -116,9 +116,9 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
         CPPObject<T> // lvalue
     )
     : /*ObjectType extends T ?*/ ( // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        V extends "prvalue" ? Value<AtomicType> | CPPObject<ObjectType> :
-        V extends "xvalue" ? CPPObject<ObjectType> :
-        CPPObject<ObjectType> // lvalue
+        V extends "prvalue" ? Value<AtomicType> | CPPObject<CompleteObjectType> :
+        V extends "xvalue" ? CPPObject<CompleteObjectType> :
+        CPPObject<CompleteObjectType> // lvalue
     )
 // : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
 //     readonly prvalue: number;
