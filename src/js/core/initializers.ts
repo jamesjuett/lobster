@@ -292,7 +292,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
 
         this.ctor = overloadResult.selected;
 
-        this.ctorCall = new FunctionCall(context, this.ctor, [], this.target);
+        this.ctorCall = new FunctionCall(context, this.ctor, []);
         this.attach(this.ctorCall);
         // this.args = this.ctorCall.args;
     }
@@ -330,7 +330,7 @@ export class RuntimeClassDefaultInitializer<T extends CompleteClassType = Comple
 
     public constructor (model: CompiledClassDefaultInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
     }
 
     protected upNextImpl() {
@@ -842,7 +842,7 @@ export class ClassDirectInitializer extends DirectInitializer {
 
         this.ctor = overloadResult.selected;
 
-        this.ctorCall = new FunctionCall(context, this.ctor, args, this.target);
+        this.ctorCall = new FunctionCall(context, this.ctor, args);
         this.attach(this.ctorCall);
         this.args = this.ctorCall.args;
 
@@ -887,7 +887,7 @@ export class RuntimeClassDirectInitializer<T extends CompleteClassType = Complet
 
     public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this);
+        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
     }
 
     protected upNextImpl() {

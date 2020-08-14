@@ -1,10 +1,11 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression } from "./expressions";
-import { ValueCategory } from "./expressionBase";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression } from "./expressions";
+import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
-import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType } from "./types";
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
+import { CPPConstruct } from "./constructs";
 
 
 
@@ -58,16 +59,31 @@ export namespace Predicates {
     // }
 
     export function byTypedExpression<NarrowedT extends Type, NarrowedVC extends ValueCategory>(typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC) {
-        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends AnalyticConstruct & {type?: OriginalT},
+        return </*¯\_(ツ)_/¯*/<OriginalT extends Type, Original extends AnalyticConstruct & {type?: OriginalT, valueCategory?: ValueCategory},
         Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>(construct: Original) =>
             construct is (Narrowed extends Original ? Narrowed : never)> // TODO conditional on this line can probably be removed
-                ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)) && (<any>construct).valueCategory === valueCategory);
+                ((construct) => construct.type && (!typePredicate || typePredicate(construct.type)) && (!valueCategory || construct.valueCategory === valueCategory));
     }
 
-    export function isTypedExpression<OriginalT extends Type, NarrowedT extends Type, NarrowedVC extends ValueCategory,
-        Original extends AnalyticConstruct & {type?: OriginalT}, Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>
-        (construct: Original, typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC) : construct is (Narrowed extends Original ? Narrowed : never) { // TODO conditional on this line can probably be removed 
-            return !!(construct.type && (!typePredicate || typePredicate(construct.type)) && (<any>construct).valueCategory === valueCategory);
+    export function isTypedExpression<OriginalT extends Type, NarrowedT extends Type,
+        Original extends AnalyticConstruct & {type?: OriginalT, valueCategory?: ValueCategory},
+        NarrowedVC extends NonNullable<Original["valueCategory"]>,
+        Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>
+        (construct: Original, typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC)
+        : construct is (Narrowed extends Original ? Narrowed : Original extends Narrowed ? Original : never);
+    export function isTypedExpression<OriginalT extends Type, NarrowedT extends Type,
+        Original extends CPPConstruct & {type?: OriginalT, valueCategory?: ValueCategory},
+        NarrowedVC extends NonNullable<Original["valueCategory"]>,
+        Narrowed extends (Original extends Expression ? TypedExpression<NarrowedT, NarrowedVC> : never)>
+        (construct: Original, typePredicate: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC)
+        : construct is (Narrowed extends Original ? Narrowed : Original extends Narrowed ? Original : never);
+    export function isTypedExpression<OriginalT extends Type, NarrowedT extends Type,
+        Original extends AnalyticConstruct & {type?: OriginalT, valueCategory?: ValueCategory},
+        NarrowedVC extends NonNullable<Original["valueCategory"]>,
+        Narrowed extends (Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never)>
+        (construct: Original, typePredicate?: (o: Type) => o is NarrowedT, valueCategory?: NarrowedVC)
+        : construct is (Narrowed extends Original ? Narrowed : Original extends Narrowed ? Original : never) {
+            return !!(construct.type && (!typePredicate || typePredicate(construct.type)) && (!valueCategory || construct.valueCategory === valueCategory));
     }
 
     // Basically copies of above but with Declaration swapping in for Expression and ValueCategory removed

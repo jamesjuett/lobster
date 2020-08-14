@@ -3,7 +3,7 @@ import { byte, RawValueType } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
-import { ClassEntity } from "./entities";
+import { ClassEntity, ClassScope } from "./entities";
 import { ClassDefinition } from "./declarations";
 import { proxy } from "jquery";
 
@@ -1211,6 +1211,10 @@ class ClassTypeBase extends TypeBase {
         // else undefined
     }
 
+    public get classScope() {
+        return this.shared.classDefinition?.context.contextualScope;
+    }
+
     public setDefinition(def: ClassDefinition) {
         this.shared.classDefinition = def;
     }
@@ -1299,6 +1303,7 @@ export interface IncompleteClassType extends ClassTypeBase {
 export interface CompleteClassType extends ClassTypeBase {
     readonly classDefinition: ClassDefinition;
     readonly size: number;
+    readonly classScope: ClassScope;
 
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
     isDestructible(): boolean;

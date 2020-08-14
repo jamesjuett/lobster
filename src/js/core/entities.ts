@@ -279,7 +279,9 @@ export class Scope {
      * Performs unqualified name lookup of a given name in this scope. Returns the entity found, or undefined
      * if no entity can be found. Note that the entity found may be a function overload group. Lookup may
      * may search through parent scopes. The lookup process can be customized by providing a set of `NameLookupOptions` (
-     * see documentation for the `NameLookupOptions` type for more details.)
+     * see documentation for the `NameLookupOptions` type for more details.) If the entity found is not a
+     * function overload group, "normal" lookup is the same as "exact lookup" (the contextual parameter types
+     * and receiver type are ignored at that point even if provided.)
      * @param name An unqualified name to be looked up.
      * @param options A set of options to customize the lookup process.
      * @returns 
@@ -713,12 +715,14 @@ export interface ObjectEntity<T extends ObjectType = ObjectType> extends CPPEnti
 abstract class VariableEntityBase<T extends ObjectType = ObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
     public readonly declarationKind = "variable";
     public abstract readonly variableKind: "reference" | "object";
+    public abstract readonly variableLocation: "local" | "global" | "member";
 
     public abstract runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
 export class LocalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
+    public readonly variableLocation = "local";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -766,6 +770,7 @@ export interface UnboundReferenceEntity<T extends ObjectType = ObjectType> exten
 
 export class LocalReferenceEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     public readonly variableKind = "reference";
+    public readonly variableLocation = "local";
     public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
@@ -804,6 +809,7 @@ export type LocalVariableEntity<T extends ObjectType = ObjectType> = LocalObject
 
 export class GlobalObjectEntity<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
+    public readonly variableLocation = "global";
 
     public readonly qualifiedName: string;
     public readonly firstDeclaration: GlobalVariableDefinition;
@@ -1192,6 +1198,8 @@ export class MemberAccessEntity<T extends ObjectType = ObjectType> extends CPPEn
 // };
 
 abstract class MemberVariableEntityBase<T extends ObjectType = ObjectType> extends VariableEntityBase<T> {
+
+    public readonly variableLocation = "member";
 
     public readonly firstDeclaration: MemberVariableDeclaration;
     public readonly declarations: readonly MemberVariableDeclaration[];

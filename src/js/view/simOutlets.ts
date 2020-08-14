@@ -10,7 +10,7 @@ import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusO
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
-import { RuntimeFunctionIdentifier } from "../core/expressions";
+import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
