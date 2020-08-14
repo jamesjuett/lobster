@@ -357,7 +357,7 @@ abstract class TypeBase {
 };
 
 export function isObjectType(type: Type): type is ObjectType {
-    return type.isAtomicType() || type.isBoundedArrayType() || type.isClassType();
+    return type.isAtomicType() || type.isBoundedArrayType() || type.isCompleteClassType();
 }
 
 export function isAtomicType(type: Type): type is AtomicType {
