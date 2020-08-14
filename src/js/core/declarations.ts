@@ -1276,13 +1276,6 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
         while (decl) {
 
-            // We want to check whether this is the innermost thing, but first we need to loop
-            // to descend through any AST representation of parentheses within the declarator.
-            let tempDecl = decl;
-            while (tempDecl.sub) {
-                tempDecl = tempDecl.sub;
-            }
-
             if (decl.postfixes) {
 
                 for (let i = decl.postfixes.length - 1; i >= 0; --i) {

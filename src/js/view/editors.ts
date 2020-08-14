@@ -85,6 +85,7 @@ export class ProjectEditor {
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
+        this.codeMirror.setSize(null, "auto");
 
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");

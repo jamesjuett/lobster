@@ -738,7 +738,7 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.numParams", "Improper number of arguments for this function call.");
             },
             invalid_operand_expression: function (construct: TranslationUnitConstruct, operand: Expression) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.invalid_operand_expression", "The expression " + operand + " cannot be called as a function.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.invalid_operand_expression", "This expression cannot be called as a function.");
             },
             operand: function (construct: TranslationUnitConstruct, operand: CPPEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.operand", "Operand of type " + operand.type + " cannot be called as a function.");
