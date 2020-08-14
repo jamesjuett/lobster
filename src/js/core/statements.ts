@@ -3,12 +3,13 @@ import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool } from "./types";
+import { VoidType, ReferenceType, Bool, isType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { Mutable, asMutable } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
+import { Predicates } from "./predicates";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -648,7 +649,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
             this.attach(this.otherwise = otherwise);
         }
 
-        if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+        if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
             this.addNote(CPPError.stmt.if.condition_bool(this, this.condition));
         }
     }
@@ -777,7 +778,7 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
 
         this.attach(this.body = body);
 
-        if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+        if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
             this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
         }
     }
@@ -916,7 +917,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // didn't have any type, we don't want error spam, so we won't
       // say anything. (Any non-well-typed exppression will already
       // have an error of its own.) 
-      if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+      if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
         this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
       }
   

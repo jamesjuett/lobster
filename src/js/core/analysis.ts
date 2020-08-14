@@ -161,34 +161,34 @@ export const projectAnalyses: { [projectName: string]: (p: Program) => void } = 
 //     // }
 // }
 
-// function analyze2(program: Program) {
+function analyze2(program: Program) {
 
-//     // 1. Find all local variable definitions in the program
-//     let pointerTypedConstructs = findConstructs(program, Predicates.byTypedExpression(isPointerType));
-//     let localDefs = findConstructs(program, Predicates.byKinds(["local_variable_definition", "global_variable_definition"]));
+    // 1. Find all local variable definitions in the program
+    let pointerTypedConstructs = findConstructs(program, Predicates.byTypedExpression(isPointerType));
+    let localDefs = findConstructs(program, Predicates.byKinds(["local_variable_definition", "global_variable_definition"]));
 
-//     // 2. Narrow those down to only the ones that define pointer variables
-//     let pointerDefs = findConstructs(program, Predicates.byTypedDeclaration(isPointerType))
-//         .filter(Predicates.byKind("local_variable_definition"));
-//     let pointerDef2 = localDefs.filter(Predicates.byTypedDeclaration(isPointerType));
+    // 2. Narrow those down to only the ones that define pointer variables
+    let pointerDefs = findConstructs(program, Predicates.byTypedDeclaration(isPointerType))
+        .filter(Predicates.byKind("local_variable_definition"));
+    let pointerDef2 = localDefs.filter(Predicates.byTypedDeclaration(isPointerType));
 
-//     // 3. Find everything with a function type (e.g. a parentheses expression around a function identifier)
-//     let funcDecls2 = findConstructs(program, Predicates.byTypedExpression(isFunctionType));
+    // 3. Find everything with a function type (e.g. a parentheses expression around a function identifier)
+    let funcDecls2 = findConstructs(program, Predicates.byTypedExpression(isFunctionType));
 
-//     // 4. An impossible ask, filter our pointer definitions down to those with class type.
-//     //    Our predicates are smart enough to rule this out! The type returned from filter is never[]!
-//     let whichPointerDefsAreSecretlyClasses = pointerDefs.filter(Predicates.byTypedDeclaration(isClassType));
+    // 4. An impossible ask, filter our pointer definitions down to those with class type.
+    //    Our predicates are smart enough to rule this out! The type returned from filter is never[]!
+    let whichPointerDefsAreSecretlyClasses = pointerDefs.filter(Predicates.byTypedDeclaration(isClassType));
 
-//     // 5.a. Find all logical binary operators
-//     let binOps = findConstructs(program, Predicates.byKind("logical_binary_operator_expression"));
-//     let t5 = binOps[0].type; // type is Bool
+    // 5.a. Find all logical binary operators
+    let binOps = findConstructs(program, Predicates.byKind("logical_binary_operator_expression"));
+    let t5 = binOps[0].type; // type is Bool
 
-//     // type of left5 is Expression. While the compiler knows a logical binary operator (e.g. &&) will always
-//     // yield a bool, it doesn't know that the operands it was given are any particular type
-//     let left5 = binOps[0].left;
+    // type of left5 is Expression. While the compiler knows a logical binary operator (e.g. &&) will always
+    // yield a bool, it doesn't know that the operands it was given are any particular type
+    let left5 = binOps[0].left;
 
 
-// }
+}
 
 export function eecs183_l03_03(program: Program) {
 

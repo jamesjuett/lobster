@@ -653,14 +653,20 @@ export const CPPError = {
             }
         },
         dot: {
-            class_type: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_type", "The dot operator can only be used to access members of an operand with class type.");
+            class_type_only: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_type_only", "The dot operator can only be used to access members of an operand with class type.");
+            },
+            incomplete_class_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.incomplete_class_type_prohibited", "The dot operator may not be used to access members from an incomplete type. (Since it's incomplete, the compiler doesn't know what members it has yet!)");
             },
             no_such_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.no_such_member", "Operand of type " + classType + " has no member named " + name + ".");
             },
-            memberLookup: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.memberLookup", "Member lookup for " + name + " in class " + classType + " failed...");
+            ambiguous_member: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.ambiguous", "The member \"" + name + "\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which member this refers to.)");
+            },
+            class_entity_found: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "iden.class_entity_found", `The name "${name}" refers to a type member in this context. The type itself cannot be used in an expression.`);
             }
         },
         arrow: {

@@ -64,8 +64,12 @@ export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createExpressionContext(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
+export function createExpressionContextWithParameterTypes(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
     return Object.assign({}, parentContext, { contextualParameterTypes: contextualParameterTypes });
+}
+
+export function createExpressionContextWithReceiverType(parentContext: TranslationUnitContext, contextualReceiverType: CompleteClassType): ExpressionContext {
+    return Object.assign({}, parentContext, { contextualReceiverType: contextualReceiverType });
 }
 
 export interface FunctionContext extends TranslationUnitContext {

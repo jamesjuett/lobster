@@ -8,7 +8,7 @@
     ],
     "compilerOptions": {
       /* Basic Options */
-      "target": "es5",                          /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017','ES2018' or 'ESNEXT'. */
+      "target": "es6",                          /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017','ES2018' or 'ESNEXT'. */
       "module": "commonjs",                     /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
        "lib": [ "es2019", "dom" ],                             /* Specify library files to be included in the compilation. */
       "allowJs": false,                       /* Allow javascript files to be compiled. */
@@ -40,7 +40,7 @@
       // "noUnusedLocals": true,                /* Report errors on unused locals. */
       // "noUnusedParameters": true,            /* Report errors on unused parameters. */
       // "noImplicitReturns": true,             /* Report error when not all code paths in function return a value. */
-      // "noFallthroughCasesInSwitch": true,    /* Report errors for fallthrough cases in switch statement. */
+      "noFallthroughCasesInSwitch": true,    /* Report errors for fallthrough cases in switch statement. */
   
       /* Module Resolution Options */
       "moduleResolution": "node",            /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */
