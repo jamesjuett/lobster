@@ -4,7 +4,7 @@ import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { CompleteObjectType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType } from "./types";
+import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType } from "./types";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
@@ -60,11 +60,11 @@ export function createTranslationUnitContext(parentContext: ProgramContext, tran
 }
 
 export interface ExpressionContext extends TranslationUnitContext {
-    readonly contextualParameterTypes?: readonly (Type | undefined)[];
+    readonly contextualParameterTypes?: readonly (ExpressionType | undefined)[];
     readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createExpressionContextWithParameterTypes(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
+export function createExpressionContextWithParameterTypes(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (ExpressionType | undefined)[]): ExpressionContext {
     return Object.assign({}, parentContext, { contextualParameterTypes: contextualParameterTypes });
 }
 

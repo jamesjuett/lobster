@@ -1,6 +1,6 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
@@ -456,7 +456,7 @@ export const CPPError = {
             referencePrvalueConst: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
-            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: CompleteObjectType) {
+            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: ReferenceType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
             referenceBind: function (construct: TranslationUnitConstruct) {
@@ -647,6 +647,9 @@ export const CPPError = {
         subscript: {
             invalid_operand_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_operand_type", "Type " + type + " cannot be subscripted.");
+            },
+            incomplete_element_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_operand_type", "This subscript operation is not allowed, becasue the element type of " + type.ptrTo + " is incomplete. Since an incomplete type does not have a known size, the pointer arithmetic necessary for the subscript cannot be done.");
             },
             invalid_offset_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_offset_type", "Invalid type (" + type + ") for array subscript offset.");

@@ -1,9 +1,9 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, NoRefType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, IncompleteType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
@@ -309,7 +309,7 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
+        else if (declaredType.isCompleteObjectType() || declaredType.isReferenceType()) {
             declaration = new GlobalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             setInitializerFromAST(declaration, declAST.initializer, context);
         }
@@ -383,7 +383,7 @@ export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarat
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
+        else if (declaredType.isCompleteObjectType() || declaredType.isReferenceType()) {
             declaration = new LocalVariableDefinition(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             setInitializerFromAST(declaration, declAST.initializer, context);
         }
@@ -455,7 +455,7 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
             // TODO: it may be possible to determine the bound from the initializer
             declaration = new UnknownBoundArrayDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
         }
-        else if (declaredType.isObjectType() || declaredType.isReferenceType()) {
+        else if (declaredType.isCompleteObjectType() || declaredType.isReferenceType()) {
             declaration = new MemberVariableDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
             if (declAST.initializer) {
                 // member variables don't get anything set for a default initializer,
@@ -567,7 +567,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
 export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
     readonly type: T;
-    readonly declaredEntity: CPPEntity<NoRefType<T>>;
+    readonly declaredEntity: CPPEntity<PeelReference<T>>;
 }
 
 export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
@@ -889,7 +889,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
 
     public readonly type: VariableDefinitionType;
-    public readonly declaredEntity: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
+    public readonly declaredEntity: LocalObjectEntity | LocalReferenceEntity;
 
     // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition);
@@ -936,7 +936,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 export interface TypedLocalVariableDefinition<T extends VariableDefinitionType> extends LocalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+    readonly declaredEntity: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
 }
 
 export interface CompiledLocalVariableDefinition<T extends VariableDefinitionType = VariableDefinitionType> extends TypedLocalVariableDefinition<T>, SuccessfullyCompiled {
@@ -945,8 +945,7 @@ export interface CompiledLocalVariableDefinition<T extends VariableDefinitionTyp
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 
-    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>
-    readonly initializer?: CompiledInitializer<NoRefType<T>>;
+    readonly initializer?: CompiledInitializer<PeelReference<T>>;
 }
 
 
@@ -987,7 +986,7 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 export interface TypedGlobalVariableDefinition<T extends VariableDefinitionType> extends GlobalVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity: GlobalObjectEntity<NoRefType<T>>;
+    readonly declaredEntity: GlobalObjectEntity<Exclude<T, ReferenceType>>;
 }
 
 export interface CompiledGlobalVariableDefinition<T extends VariableDefinitionType = VariableDefinitionType> extends TypedGlobalVariableDefinition<T>, SuccessfullyCompiled {
@@ -996,7 +995,7 @@ export interface CompiledGlobalVariableDefinition<T extends VariableDefinitionTy
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 
-    readonly initializer?: CompiledInitializer<NoRefType<T>>;
+    readonly initializer?: CompiledInitializer<Exclude<T, ReferenceType>>;
 }
 
 /**
@@ -1017,7 +1016,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
     public readonly name?: string; // parameter declarations need not provide a name
     public readonly type?: PotentialParameterType;
-    public readonly declaredEntity?: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
+    public readonly declaredEntity?: LocalObjectEntity | LocalReferenceEntity;
 
     public constructor(context: TranslationUnitContext, ast: ParameterDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
@@ -1046,7 +1045,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
         if (this.isPotentialParameterDefinition()) {
             (<Mutable<this>>this).declaredEntity =
-                this.type.isReferenceType() ? new LocalReferenceEntity(this.type.refTo, this, true) :
+                this.type.isReferenceType() ? new LocalReferenceEntity(this.type, this, true) :
                     new LocalObjectEntity(this.type, this, true);
         }
 
@@ -1092,7 +1091,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 export interface TypedParameterDeclaration<T extends PotentialParameterType> extends ParameterDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity?: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+    readonly declaredEntity?: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
 }
 
 export interface CompiledParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDeclaration<T>, SuccessfullyCompiled {
@@ -1105,13 +1104,13 @@ export interface CompiledParameterDeclaration<T extends PotentialParameterType =
 export interface ParameterDefinition extends ParameterDeclaration {
     readonly name: string;
     readonly type: PotentialParameterType;
-    readonly declaredEntity: LocalObjectEntity<CompleteObjectType> | LocalReferenceEntity<CompleteObjectType>;
+    readonly declaredEntity: LocalObjectEntity | LocalReferenceEntity;
 }
 
 export interface TypedParameterDefinition<T extends PotentialParameterType> extends ParameterDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity: LocalObjectEntity<NoRefType<T>> | LocalReferenceEntity<NoRefType<T>>;
+    readonly declaredEntity: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
 }
 
 export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDefinition<T>, SuccessfullyCompiled {
@@ -1348,7 +1347,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             // NOTE: this line should NOT be else if since the same AST node may
             // have both postfixes and a pointer/reference
             if (decl.pointer) {
-                if (!type.isObjectType()) {
+                if (!type.isCompleteObjectType()) {
                     if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.pointer.reference(this));
                     }
@@ -1364,7 +1363,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                 decl = decl.pointer;
             }
             else if (decl.reference) {
-                if (!type.isObjectType()) {
+                if (!type.isCompleteObjectType()) {
                     if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.ref.ref(this));
                     }
@@ -1975,6 +1974,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public readonly baseSpecifiers: readonly BaseSpecifier[];
     public readonly memberDeclarations: readonly MemberDeclaration[];
     public readonly memberDeclarationsByName: { [index: string] : MemberDeclaration | undefined } = {};
+    public readonly constructorDeclarations: readonly FunctionDeclaration[] = [];
     
     public readonly baseClass?: CompleteClassType;
     
@@ -1983,10 +1983,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
     public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
     
-    public readonly constructors: readonly FunctionEntity[];
-    public readonly defaultConstructor?: FunctionEntity;
+    public readonly defaultConstructor?: FunctionEntity<FunctionType<VoidType>>;
+    public readonly constructors: readonly FunctionEntity<FunctionType<VoidType>>[];
 
-    public readonly destructor?: FunctionEntity;
+    public readonly destructor?: FunctionEntity<FunctionType<VoidType>>;
     
     public readonly objectSize: number;
 
@@ -2118,21 +2118,27 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.constructors = [];
         memberDeclarations.forEach(mem => {
             if (mem.construct_type === "function_declaration" && mem.isConstructor) {
+                asMutable(this.constructorDeclarations).push(mem);
                 // Need to check for redeclaration here since the constructors don't get
                 // added to a scope where we would normally detect that.
                 if (this.constructors.some(prevCtor => prevCtor.type.sameSignature(mem.type))) {
                     mem.addNote(CPPError.declaration.ctor.previous_declaration(mem));
                 }
                 else {
-                    let ctorEntity = mem.declaredEntity;
                     // Only add the unique ones to the list of constructors.
                     // If we allowed duplicates with the same signature, it might
                     // cause headaches later when e.g. this list is used as a set
                     // of candidates for overload resolution.
-                    asMutable(this.constructors).push(ctorEntity);
+                    let ctorEntity = mem.declaredEntity;
 
-                    if (ctorEntity.type.paramTypes.length === 0) {
-                        (<Mutable<this>>this).defaultConstructor = ctorEntity;
+                    if (ctorEntity.returnsVoid()) {
+                        // If it doesn't have a void (dummy) return type, it's
+                        // not a valid ctor and we don't add it to the ctor entities
+                        asMutable(this.constructors).push(ctorEntity);
+    
+                        if (ctorEntity.type.paramTypes.length === 0) {
+                            (<Mutable<this>>this).defaultConstructor = ctorEntity;
+                        }
                     }
                 }
             }
@@ -2214,8 +2220,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(iddc);
-        (<Mutable<this>>this).defaultConstructor = iddc.declaration.declaredEntity;
-        asMutable(this.constructors).push(iddc.declaration.declaredEntity);
+        let declEntity = iddc.declaration.declaredEntity;
+        assert(declEntity.returnsVoid()); // check cast above with assertion
+        (<Mutable<this>>this).defaultConstructor = declEntity;
+        asMutable(this.constructors).push(declEntity);
     }
 
     //     compileDeclaration : function(){
@@ -2523,7 +2531,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
     public readonly construct_type = "member_variable_declaration";
 
     public readonly type: CompleteObjectType | ReferenceType;
-    public readonly declaredEntity: MemberObjectEntity<CompleteObjectType> | MemberReferenceEntity<CompleteObjectType>;
+    public readonly declaredEntity: MemberVariableEntity;
 
     public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: CompleteObjectType | ReferenceType) {
@@ -2533,7 +2541,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
         this.type = type;
 
         this.declaredEntity =
-            type.isReferenceType() ? new MemberReferenceEntity(type.refTo, this) : new MemberObjectEntity(type, this);
+            type.isReferenceType() ? new MemberReferenceEntity(type, this) : new MemberObjectEntity(type, this);
 
         // Attempt to add the declared entity to the scope. If it fails, note the error.
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
@@ -2559,19 +2567,19 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
 
 }
 
-export interface TypedMemberVariableDeclaration<T extends CompleteObjectType | ReferenceType> extends MemberVariableDeclaration {
+export interface TypedMemberVariableDeclaration<T extends ObjectEntityType> extends MemberVariableDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity: MemberObjectEntity<NoRefType<T>> | MemberReferenceEntity<NoRefType<T>>;
+    readonly declaredEntity: MemberObjectEntity<Exclude<T, ReferenceType>> | MemberReferenceEntity<Extract<T, ReferenceType>>;
 }
 
-export interface CompiledMemberVariableDeclaration<T extends CompleteObjectType | ReferenceType = CompleteObjectType | ReferenceType> extends TypedMemberVariableDeclaration<T>, SuccessfullyCompiled {
+export interface CompiledMemberVariableDeclaration<T extends ObjectEntityType = ObjectEntityType> extends TypedMemberVariableDeclaration<T>, SuccessfullyCompiled {
 
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 
-    readonly initializer?: CompiledInitializer<NoRefType<T>>;
+    readonly initializer?: CompiledInitializer<T>;
 }
 
 

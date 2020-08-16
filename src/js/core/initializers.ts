@@ -1,8 +1,8 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity } from "./entities";
-import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType } from "./types";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType } from "./entities";
+import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
 import { assertFalse, assert, asMutable, assertNever } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -34,9 +34,9 @@ export abstract class Initializer extends PotentialFullExpression {
 
 }
 
-export interface CompiledInitializer<T extends CompleteObjectType = CompleteObjectType> extends Initializer, SuccessfullyCompiled {
+export interface CompiledInitializer<T extends ObjectEntityType = ObjectEntityType> extends Initializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>> | UnboundReferenceEntity<Extract<T, ReferenceType>>;
 }
 
 export abstract class RuntimeInitializer<C extends CompiledInitializer = CompiledInitializer> extends RuntimePotentialFullExpression<C> {
@@ -56,10 +56,11 @@ export abstract class DefaultInitializer extends Initializer {
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity): ReferenceDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>): AtomicDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>): ArrayDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) : ClassDefaultInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteObjectType>): DefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>): ClassDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteObjectType>): AtomicDefaultInitializer | ArrayDefaultInitializer | ClassDefaultInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity): ReferenceDefaultInitializer | AtomicDefaultInitializer | ArrayDefaultInitializer | ClassDefaultInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity): DefaultInitializer {
-        if (!!(<UnboundReferenceEntity>target).bindTo) {
+        if (target.type.isReferenceType()) {
             return new ReferenceDefaultInitializer(context, <UnboundReferenceEntity>target);
         }
         else if (target.type.isAtomicType()) {
@@ -72,7 +73,7 @@ export abstract class DefaultInitializer extends Initializer {
             return new ClassDefaultInitializer(context, <ObjectEntity<CompleteClassType>> target);
         }
         else {
-            return assertFalse();
+            return assertNever(target.type);
         }
     }
 
@@ -275,7 +276,7 @@ export class ClassDefaultInitializer extends DefaultInitializer {
     public readonly construct_type = "ClassDefaultInitializer";
 
     public readonly target: ObjectEntity<CompleteClassType>;
-    public readonly ctor?: FunctionEntity;
+    public readonly ctor?: FunctionEntity<FunctionType<VoidType>>;
     public readonly ctorCall?: FunctionCall;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>) {
@@ -369,11 +370,12 @@ export abstract class DirectInitializer extends Initializer {
 
     public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): ReferenceDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind): AtomicDirectInitializer;
-    // public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: DirectInitializerKind) : ArrayDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[], kind: DirectInitializerKind) : ArrayDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[], kind: DirectInitializerKind) : ClassDirectInitializer;
-    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[], kind: DirectInitializerKind): AtomicDirectInitializer | ArrayDirectInitializer | ClassDirectInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): ReferenceDirectInitializer | AtomicDirectInitializer | ArrayDirectInitializer | ClassDirectInitializer;
     public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[], kind: DirectInitializerKind): DirectInitializer {
-        if (!!(<UnboundReferenceEntity>target).bindTo) { // check for presence of bindTo to detect reference entities
+        if (target.type.isReferenceType()) { // check for presence of bindTo to detect reference entities
             return new ReferenceDirectInitializer(context, <UnboundReferenceEntity>target, args, kind);
         }
         else if (target.type.isAtomicType()) {
@@ -400,17 +402,17 @@ export abstract class DirectInitializer extends Initializer {
         this.kind = kind;
     }
 
-    public abstract createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): RuntimeDirectInitializer<T>;
+    public abstract createRuntimeInitializer<T extends ObjectEntityType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): RuntimeDirectInitializer<T>;
 }
 
 
-export interface CompiledDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends DirectInitializer, SuccessfullyCompiled {
+export interface CompiledDirectInitializer<T extends ObjectEntityType = ObjectEntityType> extends DirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly target: ObjectEntity<T> | UnboundReferenceEntity<T>;
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>> | UnboundReferenceEntity<Extract<T, ReferenceType>>;
     readonly args: readonly CompiledExpression[];
 }
 
-export abstract class RuntimeDirectInitializer<T extends CompleteObjectType = CompleteObjectType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
+export abstract class RuntimeDirectInitializer<T extends ObjectEntityType = ObjectEntityType, C extends CompiledDirectInitializer<T> = CompiledDirectInitializer<T>> extends RuntimeInitializer<C> {
 
     protected constructor(model: C, parent: RuntimeConstruct) {
         super(model, parent);
@@ -449,8 +451,8 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
 
         let targetType = target.type;
-        if (!referenceCompatible(this.arg.type, targetType)) {
-            this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+        if (!referenceCompatible(this.arg.type, targetType.refTo)) {
+            this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType.refTo));
         }
         else if (this.arg.valueCategory === "prvalue" && !targetType.isConst) {
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
@@ -460,9 +462,9 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
     }
 
-    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
-    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
-    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
+    public createRuntimeInitializer<T extends ReferenceType<CompleteObjectType>>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
+    public createRuntimeInitializer<T extends ReferenceType<CompleteObjectType>>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends ReferenceType<CompleteObjectType>>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T> {
         return new RuntimeReferenceDirectInitializer(this, parent);
     }
 
@@ -479,21 +481,21 @@ export class ReferenceDirectInitializer extends DirectInitializer {
     }
 }
 
-export interface CompiledReferenceDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
+export interface CompiledReferenceDirectInitializer<T extends ReferenceType = ReferenceType> extends ReferenceDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly target: UnboundReferenceEntity<T>;
+    readonly target: UnboundReferenceEntity<Extract<T, ReferenceType>>; // Not sure why, but the Extract here is needed to make TS happy
     readonly args: readonly CompiledExpression[];
 
     // Note: Compilation of the initializer checks for reference compatibility, which should ensure
     // that the expression actually has the same type T as the reference to be bound. (For subtypes
     // that are reference compatible, this is fine, since T will still be ClassType for both.)
-    readonly arg: CompiledExpression<T, "lvalue">;
+    readonly arg: CompiledExpression<ReferredType<T>, "lvalue">;
 }
 
-export class RuntimeReferenceDirectInitializer<T extends CompleteObjectType = CompleteObjectType> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
+export class RuntimeReferenceDirectInitializer<T extends ReferenceType<CompleteObjectType> = ReferenceType<CompleteObjectType>> extends RuntimeDirectInitializer<T, CompiledReferenceDirectInitializer<T>> {
 
-    public readonly args: readonly RuntimeExpression<T, "lvalue">[];
-    public readonly arg: RuntimeExpression<T, "lvalue">;
+    public readonly args: readonly RuntimeExpression<ReferredType<T>, "lvalue">[];
+    public readonly arg: RuntimeExpression<ReferredType<T>, "lvalue">;
 
     private alreadyPushed = false;
 
@@ -528,7 +530,7 @@ export class RuntimeReferenceDirectInitializer<T extends CompleteObjectType = Co
     // }
 
     public stepForwardImpl() {
-        this.model.target.bindTo(this, <CPPObject<T>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
+        this.model.target.bindTo(this, <CPPObject<ReferredType<T>>>this.arg.evalResult);  //TODO not sure at all why this cast is necessary
         // this.notifyPassing();
         this.observable.send("referenceInitialized", this);
         this.startCleanup();
@@ -601,7 +603,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
 
 export interface CompiledAtomicDirectInitializer<T extends AtomicType = AtomicType> extends AtomicDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly target: ObjectEntity<T>;
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>>; // Not sure why, but the Exclude here is needed to make TS happy
     readonly args: readonly CompiledExpression[];
     readonly arg: CompiledExpression<T, "prvalue">;
 }
@@ -814,7 +816,7 @@ export class ClassDirectInitializer extends DirectInitializer {
     public readonly target: ObjectEntity<CompleteClassType>;
     public readonly args: readonly Expression[];
     
-    public readonly ctor?: FunctionEntity;
+    public readonly ctor?: FunctionEntity<FunctionType<VoidType>>;
     public readonly ctorCall?: FunctionCall;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[], kind: DirectInitializerKind) {
@@ -872,7 +874,7 @@ export class ClassDirectInitializer extends DirectInitializer {
 export interface CompiledClassDirectInitializer<T extends CompleteClassType = CompleteClassType> extends ClassDirectInitializer, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     
-    readonly target: ObjectEntity<T>;
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>>; // Not sure why, but the Exclude here is needed to make TS happy
     readonly args: readonly CompiledExpression[];
     
     readonly ctor: FunctionEntity<FunctionType<VoidType>>;
