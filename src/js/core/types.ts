@@ -95,7 +95,7 @@ export var covariantType = function (derived: Type, base: Type) {
     return true;
 };
 
-export function referenceCompatible(from: Type, to: Type) {
+export function referenceCompatible(from: ExpressionType, to: ReferenceType) {
     return from && to && from.isReferenceCompatible(to);
 };
 
@@ -153,8 +153,6 @@ abstract class TypeBase {
         this.isVolatile = isVolatile;
     }
 
-    public abstract isComplete(context?: TranslationUnitContext) : boolean;
-
     public getCVString() {
         return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
     }
@@ -170,7 +168,7 @@ abstract class TypeBase {
         return this instanceof ctor;
     }
 
-    public isObjectType(): this is CompleteObjectType {
+    public isCompleteObjectType(): this is CompleteObjectType {
         return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
     }
 
@@ -239,11 +237,11 @@ abstract class TypeBase {
     }
 
     public isPotentialReturnType(): this is PotentialReturnType {
-        return this.isObjectType() || this.isReferenceType() || this.isVoidType();
+        return this.isCompleteObjectType() || this.isReferenceType() || this.isVoidType();
     }
 
     public isPotentialParameterType(): this is PotentialParameterType {
-        return this.isObjectType() || this.isReferenceType();
+        return this.isCompleteObjectType() || this.isReferenceType();
     }
 
     /**
@@ -263,18 +261,18 @@ abstract class TypeBase {
      * Returns true if this type is reference-related (see C++ standard) to the type other.
      * @param other
      */
-    public isReferenceRelated(this: Type, other: Type): boolean {
-        return sameType(this.cvUnqualified(), other.cvUnqualified()) ||
-            subType(this.cvUnqualified(), other.cvUnqualified());
+    public isReferenceRelated(this: ExpressionType, other: ReferenceType): boolean {
+        return sameType(this.cvUnqualified(), other.refTo.cvUnqualified()) ||
+            subType(this.cvUnqualified(), other.refTo.cvUnqualified());
     }
 
     /**
      * Returns true if this type is reference-compatible (see C++ standard) to the type other.
-     * @param {Type} other
+     * @param {ExpressionType} other
      * @returns {boolean}
      */
-    public isReferenceCompatible(this: Type, other: Type) {
-        return this.isReferenceRelated(other) && (other.isConst || !this.isConst) && (other.isVolatile || !this.isVolatile);
+    public isReferenceCompatible(this: ExpressionType, other: ReferenceType) {
+        return this.isReferenceRelated(other) && (other.refTo.isConst || !this.isConst) && (other.refTo.isVolatile || !this.isVolatile);
     }
 
     /**
@@ -356,7 +354,7 @@ abstract class TypeBase {
     public abstract areLValuesAssignable(): boolean;
 };
 
-export function isObjectType(type: Type): type is CompleteObjectType {
+export function isCompleteObjectType(type: Type): type is CompleteObjectType {
     return type.isAtomicType() || type.isBoundedArrayType() || type.isCompleteClassType();
 }
 
@@ -473,7 +471,17 @@ export function isPotentialParameterType(type: Type): type is PotentialParameter
 
 export type Type = VoidType | CompleteObjectType | IncompleteClassType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
 
-export type IncompleteType = IncompleteClassType | ArrayOfUnknownBoundType;
+export type ExpressionType = Exclude<Type, ReferenceType>;
+
+export type PotentiallyCompleteObjectType = AtomicType | BoundedArrayType | ArrayOfUnknownBoundType | PotentiallyCompleteClassType;
+export type IncompleteObjectType = ArrayOfUnknownBoundType | IncompleteClassType;
+export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
+
+export type PotentialReturnType = PotentiallyCompleteObjectType | ReferenceType | VoidType;
+export type CompleteReturnType = CompleteObjectType | ReferenceType | VoidType;
+
+export type PotentialParameterType = AtomicType | CompleteClassType | ReferenceType; // Does not include arrays
+
 
 export class VoidType extends TypeBase {
 
@@ -551,15 +559,15 @@ export class MissingType extends TypeBase {
  */
 export abstract class ObjectTypeBase extends TypeBase {
     public abstract readonly size: number;
+    
+    public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
 }
 
-
-
-export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
-
-export type PotentialReturnType = CompleteObjectType | ReferenceType | VoidType;
-
-export type PotentialParameterType = AtomicType | CompleteClassType | ReferenceType; // Does not include arrays
+export type Completed<T extends PotentiallyCompleteObjectType> =
+    T extends CompleteObjectType ? T :
+    T extends ArrayOfUnknownBoundType<infer E> ? BoundedArrayType<E> :
+    T extends IncompleteClassType ? CompleteClassType :
+    never
 
 /**
  * Represents a type for an object that has a value.
@@ -826,7 +834,7 @@ export class Double extends FloatingPointType {
 
 //TODO: create separate function pointer type???
 
-export class PointerType<PtrTo extends CompleteObjectType = CompleteObjectType> extends AtomicType {
+export class PointerType<PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends AtomicType {
 
     public readonly size = 8;
     public readonly precedence = 1;
@@ -964,7 +972,7 @@ export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType
 }
 
 
-export class ReferenceType<RefTo extends CompleteObjectType = CompleteObjectType> extends TypeBase {
+export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypeBase {
 
     public readonly precedence = 1;
 
@@ -1012,14 +1020,23 @@ export class ReferenceType<RefTo extends CompleteObjectType = CompleteObjectType
     }
 }
 
-export type NoRefType<T extends Type> = T extends ReferenceType<infer RefTo> ? RefTo : T;
+export type ReferredType<T extends ReferenceType> = T["refTo"];
 
-export function noRef<T extends Type>(type: T): NoRefType<T> {
+export type PeelReference<T extends Type> = T extends ReferenceType ? T["refTo"] : T;
+
+export type ExcludeRefType<T extends Type> = T extends ReferenceType ? never : T;
+
+export function peelReference<T extends Type>(type: T): PeelReference<T>;
+export function peelReference<T extends Type>(type: T | undefined): PeelReference<T> | undefined;
+export function peelReference<T extends Type>(type: T): PeelReference<T> {
+    if (!type) {
+        return type;
+    }
     if (type instanceof ReferenceType) {
         return type.refTo;
     }
     else {
-        return <NoRefType<T>>type; // will either be an object type or void type
+        return <PeelReference<T>>type; // will either be an object type or void type
     }
 };
 

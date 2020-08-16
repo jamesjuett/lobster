@@ -1,10 +1,10 @@
-import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType } from "./types";
+import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
-import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject } from "./objects";
+import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
@@ -496,8 +496,8 @@ export abstract class CPPEntity<T extends Type = Type> {
 
     /**
      * Most entities will have a natural type, but a few will not (e.g. namespaces). In this case,
-     * the type will be null.
-     * TODO: fix this - there should probably be a subtype or interface for a TypedEntity or ObjectEntity
+     * I haven't decided what to do.
+     * TODO: fix this - there should probably be a subtype or interface for a TypedEntity
      */
     public constructor(type: T) {
         this.entityId = CPPEntity._nextEntityId++;
@@ -517,7 +517,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     // }
 
     //TODO: function for isOdrUsed()?
-};
+}
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
 
@@ -708,19 +708,27 @@ export class FunctionOverloadGroup {
     }
 }
 
+export type ObjectEntityType = CompleteObjectType | ReferenceType;
+
 export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> {
     runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
-abstract class VariableEntityBase<T extends CompleteObjectType = CompleteObjectType> extends DeclaredEntityBase<T> implements ObjectEntity<T> {
+export interface BoundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
+    runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X>;
+}
+
+export interface UnboundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
+    bindTo<X extends CompleteObjectType>(this: UnboundReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>): void;
+}
+
+abstract class VariableEntityBase<T extends ObjectEntityType = ObjectEntityType> extends DeclaredEntityBase<T> {
     public readonly declarationKind = "variable";
     public abstract readonly variableKind: "reference" | "object";
     public abstract readonly variableLocation: "local" | "global" | "member";
-
-    public abstract runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
 }
 
-export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
+export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> implements ObjectEntity<T> {
     public readonly variableKind = "object";
     public readonly variableLocation = "local";
     public readonly isParameter: boolean;
@@ -757,18 +765,7 @@ export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType
     }
 };
 
-
-
-export interface BoundReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T>, ObjectEntity<T> {
-
-}
-
-
-export interface UnboundReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> {
-    bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>): void;
-}
-
-export class LocalReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     public readonly variableKind = "reference";
     public readonly variableLocation = "local";
     public readonly isParameter: boolean;
@@ -791,21 +788,20 @@ export class LocalReferenceEntity<T extends CompleteObjectType = CompleteObjectT
         return CPPError.declaration.prev_local(this.firstDeclaration, this.name);
     }
 
-    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo<X extends CompleteObjectType>(this: LocalReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
         rtConstruct.containingRuntimeFunction.stackFrame!.bindLocalReference(this, obj);
     }
 
-    public runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T> {
+    public runtimeLookup<X extends CompleteObjectType>(this: LocalReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct): CPPObject<X> {
         // TODO: revisit the non-null assertions below
-        return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<T>(this);
+        return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<X>(this);
     }
 
     public describe() {
         return { name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}` };
     }
 };
-
-export type LocalVariableEntity<T extends CompleteObjectType = CompleteObjectType> = LocalObjectEntity<T> | LocalReferenceEntity<T>;
+export type LocalVariableEntity = LocalObjectEntity | LocalReferenceEntity;
 
 export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
@@ -866,9 +862,9 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
 
 
 
-export type MemberVariableEntity<T extends CompleteObjectType = CompleteObjectType> = MemberObjectEntity<T> | MemberReferenceEntity<T>;
+export type MemberVariableEntity = MemberObjectEntity | MemberReferenceEntity;
 
-export type VariableEntity<T extends CompleteObjectType = CompleteObjectType> = LocalVariableEntity<T> | GlobalObjectEntity<T> | MemberVariableEntity<T>;
+export type VariableEntity = LocalVariableEntity | GlobalObjectEntity | MemberVariableEntity;
 
 
 // TODO: implement global references
@@ -918,13 +914,13 @@ export class ReturnObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
     }
 };
 
-export class ReturnByReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
 
-    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo<X extends CompleteObjectType>(this: ReturnByReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
         // Assume a ReturnByReferenceEntity will only be bound in the context of a return
         // for a return-by-reference function, thus the cast
-        let func = <RuntimeFunction<FunctionType<ReferenceType<T>>>>rtConstruct.containingRuntimeFunction;
-        func.setReturnObject(obj);
+        let func = <RuntimeFunction<FunctionType<ReferenceType<X>>>>rtConstruct.containingRuntimeFunction;
+        func.setReturnObject(<any>obj);
     }
 
     public describe() {
@@ -1007,7 +1003,7 @@ export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteO
 
 };
 
-export class PassByReferenceParameterEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
+export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
 
     public readonly calledFunction: FunctionEntity;
     public readonly num: number;
@@ -1016,10 +1012,10 @@ export class PassByReferenceParameterEntity<T extends CompleteObjectType = Compl
         super(type);
         this.calledFunction = calledFunction;
         this.num = num;
-        assert(sameType(calledFunction.type.paramTypes[num], new ReferenceType(type)), "Inconsistent type for parameter entity.");
+        assert(sameType(calledFunction.type.paramTypes[num], type), "Inconsistent type for parameter entity.");
     }
 
-    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
+    public bindTo<X extends CompleteObjectType>(this: PassByReferenceParameterEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
         let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
@@ -1197,7 +1193,7 @@ export class MemberAccessEntity<T extends CompleteObjectType = CompleteObjectTyp
 //     }
 // };
 
-abstract class MemberVariableEntityBase<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
+abstract class MemberVariableEntityBase<T extends ObjectEntityType = ObjectEntityType> extends VariableEntityBase<T> {
 
     public readonly variableLocation = "member";
 
@@ -1218,12 +1214,6 @@ abstract class MemberVariableEntityBase<T extends CompleteObjectType = CompleteO
     public mergeInto(existingEntity: VariableEntity) {
         // Redeclaration of member variable is never ok
         return CPPError.declaration.prev_member(this.firstDeclaration, this.name);
-    }
-
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
-        return <CPPObject<T>>rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
 
     public describe() {
@@ -1248,14 +1238,27 @@ abstract class MemberVariableEntityBase<T extends CompleteObjectType = CompleteO
 
 export class MemberObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends MemberVariableEntityBase<T> {
     public readonly variableKind = "object";
+    
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
+        // See return type and documentation for getMemberSubobject()
+        return <CPPObject<T>>rtConstruct.contextualReceiver.getMemberObject(this.name);
+    }
 
 }
 
-export class MemberReferenceEntity<T extends CompleteObjectType = CompleteObjectType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
+export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
 
     public readonly variableKind = "reference";
+    
 
-    public bindTo(rtConstruct: RuntimeConstruct, obj: CPPObject<T>) {
+    public runtimeLookup<X extends CompleteObjectType>(this: MemberReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct) {
+        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
+        // See return type and documentation for getMemberSubobject()
+        return <CPPObject<X>>rtConstruct.contextualReceiver.getMemberObject(this.name);
+    }
+
+    public bindTo<X extends CompleteObjectType>(this: MemberReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
         rtConstruct.contextualReceiver.bindMemberReference(this.name, obj)
     }
 
@@ -1428,6 +1431,10 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
 
     public registerCall(call: FunctionCall) {
         (<Mutable<this>>this).isOdrUsed = true;
+    }
+
+    public returnsVoid() : this is FunctionEntity<FunctionType<VoidType>> {
+        return this.type.returnType.isVoidType();
     }
 
     public describe(): EntityDescription {

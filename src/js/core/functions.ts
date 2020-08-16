@@ -1,4 +1,4 @@
-import { FunctionType, VoidType, NoRefType, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType } from "./types";
+import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "./types";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -14,7 +14,7 @@ enum RuntimeFunctionIndices {
 
 }
 
-export class RuntimeFunction<T extends FunctionType = FunctionType> extends RuntimeConstruct<CompiledFunctionDefinition<T>> {
+export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends RuntimeConstruct<CompiledFunctionDefinition<T>> {
 
     public readonly caller?: RuntimeFunctionCall;
     // public readonly containingRuntimeFunction: this;
@@ -28,7 +28,11 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: T extends FunctionType<VoidType> ? undefined : CPPObject<NoRefType<Exclude<T["returnType"], VoidType>>>;
+    public readonly returnObject?:
+        T extends FunctionType<VoidType> ? undefined :
+        T extends FunctionType<ReferenceType<CompleteObjectType>> ? CPPObject<ReferredType<T["returnType"]>> :
+        T extends FunctionType<CompleteObjectType> ? CPPObject<T["returnType"]> :
+        never;
 
     public readonly hasControl: boolean = false;
 
@@ -65,10 +69,12 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends FunctionType<CompleteObjectType | ReferenceType>>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T["returnType"]>>) {
+    public setReturnObject<T extends CompleteObjectType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>) : void;
+    public setReturnObject<T extends ReferenceType<CompleteObjectType>>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<ReferredType<T>>) : void;
+    public setReturnObject(obj: CPPObject) {
         // This should only be used once
         assert(!this.returnObject);
-        (<Mutable<RuntimeFunction<FunctionType<CompleteObjectType>> | RuntimeFunction<FunctionType<ReferenceType>>>>this).returnObject = obj;
+        (<Mutable<this>>this).returnObject = <this["returnObject"]>obj;
 
     }
 

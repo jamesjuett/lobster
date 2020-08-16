@@ -7,7 +7,7 @@ import { FunctionCallExpression } from "./functionCall";
 import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, TypedLocalVariableDefinition } from "./declarations";
 import { DirectInitializer } from "./initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "./statements";
-import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isObjectType, isClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "./types";
+import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "./types";
 import { Expression } from "./expressionBase";
 import { Predicates, AnalyticConstruct } from "./predicates";
 
