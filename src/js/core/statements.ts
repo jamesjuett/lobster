@@ -5,7 +5,7 @@ import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefini
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool, isType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
-import { Mutable, asMutable } from "../util/util";
+import { Mutable, asMutable, assertNever } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
@@ -378,11 +378,20 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
             return;
         }
 
-        if (returnType instanceof ReferenceType) {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType.refTo), [expression], "copy");
+        if (returnType.isIncompleteObjectType()) {
+            this.addNote(CPPError.stmt.returnStatement.incomplete_type(this, returnType));
+            this.attach(this.expression = expression);
+            return;
+        }
+
+        if (returnType.isReferenceType()) {
+            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType), [expression], "copy");
+        }
+        else if (returnType.isCompleteObjectType()) {
+            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "copy");
         }
         else {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "copy");
+            assertNever(returnType);
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.

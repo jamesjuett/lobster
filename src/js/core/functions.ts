@@ -31,8 +31,8 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
     public readonly returnObject?:
         T extends FunctionType<VoidType> ? undefined :
         T extends FunctionType<ReferenceType<CompleteObjectType>> ? CPPObject<ReferredType<T["returnType"]>> :
-        T extends FunctionType<CompleteObjectType> ? CPPObject<T["returnType"]> :
-        never;
+        T extends (FunctionType<AtomicType> | FunctionType<CompleteClassType>) ? CPPObject<T["returnType"]> :
+        never; // includese FunctionType<ReferenceType<IncompleteObjectType>> - that should never be created at runtime
 
     public readonly hasControl: boolean = false;
 
@@ -69,7 +69,7 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends CompleteObjectType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>) : void;
+    public setReturnObject<T extends AtomicType | CompleteClassType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>) : void;
     public setReturnObject<T extends ReferenceType<CompleteObjectType>>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<ReferredType<T>>) : void;
     public setReturnObject(obj: CPPObject) {
         // This should only be used once
@@ -80,7 +80,7 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
 
     public getParameterObject(num: number) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
+        assert(param?.variableKind === "object", "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         return this.stackFrame.localObjectLookup(param);
     }
