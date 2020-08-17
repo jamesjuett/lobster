@@ -49,7 +49,7 @@ export function similarType(type1: Type, type2: Type) {
 };
 
 export function subType(type1: Type, type2: Type) {
-    return type1.isClassType() && type2.isClassType() && type1.isDerivedFrom(type2);
+    return type1.isPotentiallyCompleteClassType() && type2.isPotentiallyCompleteClassType() && type1.isDerivedFrom(type2);
 };
 
 export var covariantType = function (derived: Type, base: Type) {
@@ -168,10 +168,6 @@ abstract class TypeBase {
         return this instanceof ctor;
     }
 
-    public isCompleteObjectType(): this is CompleteObjectType {
-        return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
-    }
-
     public isAtomicType(): this is AtomicType {
         return this instanceof AtomicType;
     }
@@ -192,6 +188,10 @@ abstract class TypeBase {
         return this instanceof PointerType;
     }
 
+    public isPointerToCompleteType(): this is PointerToCompleteType {
+        return this.isPointerType() && this.ptrTo.isCompleteObjectType();
+    }
+
     public isArrayPointerType(): this is ArrayPointerType {
         return this instanceof ArrayPointerType;
     }
@@ -204,12 +204,16 @@ abstract class TypeBase {
         return this instanceof ReferenceType;
     }
 
-    public isClassType(): this is PotentiallyCompleteClassType {
+    public isPotentiallyCompleteClassType(): this is PotentiallyCompleteClassType {
         return this instanceof ClassTypeBase;
     }
 
     public isCompleteClassType(): this is CompleteClassType {
         return this instanceof ClassTypeBase && this.isComplete();
+    }
+
+    public isIncompleteClassType(): this is CompleteClassType {
+        return this instanceof ClassTypeBase && !this.isComplete();
     }
 
     public isBoundedArrayType(): this is BoundedArrayType {
@@ -220,12 +224,12 @@ abstract class TypeBase {
         return this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isGenericArrayType(): this is BoundedArrayType | ArrayOfUnknownBoundType {
+    public isPotentiallyCompleteArrayType(): this is BoundedArrayType | ArrayOfUnknownBoundType {
         return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
     public isArrayElemType(): this is ArrayElemType {
-        return this instanceof AtomicType || this.isClassType();
+        return this instanceof AtomicType || this.isPotentiallyCompleteClassType();
     }
 
     public isFunctionType(): this is FunctionType {
@@ -236,12 +240,32 @@ abstract class TypeBase {
         return this instanceof VoidType;
     }
 
+    public isPotentiallyCompleteObjectType() : this is PotentiallyCompleteObjectType {
+        return this.isAtomicType() || this.isPotentiallyCompleteArrayType() || this.isPotentiallyCompleteClassType();
+    }
+
+    public isIncompleteObjectType(): this is IncompleteObjectType {
+        return this.isArrayOfUnknownBoundType() || this.isIncompleteClassType();
+    }
+
+    public isCompleteObjectType(): this is CompleteObjectType {
+        return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
+    }
+
     public isPotentialReturnType(): this is PotentialReturnType {
-        return this.isCompleteObjectType() || this.isReferenceType() || this.isVoidType();
+        return this.isAtomicType() || this.isPotentiallyCompleteClassType() || this.isReferenceType() || this.isVoidType();
+    }
+
+    public isCompleteReturnType(): this is CompleteReturnType {
+        return this.isAtomicType() || this.isCompleteClassType() || this.isReferenceType() || this.isVoidType();
     }
 
     public isPotentialParameterType(): this is PotentialParameterType {
-        return this.isCompleteObjectType() || this.isReferenceType();
+        return this.isAtomicType() || this.isPotentiallyCompleteClassType() || this.isReferenceType();
+    }
+
+    public isCompleteParameterType(): this is CompleteParameterType {
+        return this.isAtomicType() || this.isCompleteClassType() || this.isReferenceType();
     }
 
     /**
@@ -354,10 +378,6 @@ abstract class TypeBase {
     public abstract areLValuesAssignable(): boolean;
 };
 
-export function isCompleteObjectType(type: Type): type is CompleteObjectType {
-    return type.isAtomicType() || type.isBoundedArrayType() || type.isCompleteClassType();
-}
-
 export function isAtomicType(type: Type): type is AtomicType {
     return type.isAtomicType();
 }
@@ -378,6 +398,10 @@ export function isPointerType(type: Type): type is PointerType {
     return type.isPointerType();
 }
 
+export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
+    return type.isPointerToCompleteType();
+}
+
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
     return type.isArrayPointerType();
 }
@@ -391,7 +415,7 @@ export function isReferenceType(type: Type): type is ReferenceType {
 }
 
 export function isClassType(type: Type): type is PotentiallyCompleteClassType {
-    return type.isClassType();
+    return type.isPotentiallyCompleteClassType();
 }
 
 export function isCompleteClassType(type: Type): type is CompleteClassType {
@@ -407,7 +431,7 @@ export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBou
 }
 
 export function isGenericArrayType(type: Type): type is BoundedArrayType | ArrayOfUnknownBoundType {
-    return type.isGenericArrayType();
+    return type.isPotentiallyCompleteArrayType();
 }
 
 export function isArrayElemType(type: Type): type is ArrayElemType {
@@ -422,12 +446,32 @@ export function isVoidType(type: Type): type is VoidType {
     return type.isVoidType();
 }
 
+export function isPotentiallyCompleteObjectType(type: Type): type is PotentiallyCompleteObjectType {
+    return type.isPotentiallyCompleteObjectType();
+}
+
+export function isIncompleteObjectType(type: Type): type is IncompleteObjectType {
+    return type.isIncompleteObjectType();
+}
+
+export function isCompleteObjectType(type: Type): type is CompleteObjectType {
+    return type.isCompleteObjectType();
+}
+
 export function isPotentialReturnType(type: Type): type is PotentialReturnType {
     return type.isPotentialReturnType();
 }
 
+export function isCompleteReturnType(type: Type): type is CompleteReturnType {
+    return type.isCompleteReturnType();
+}
+
 export function isPotentialParameterType(type: Type): type is PotentialParameterType {
     return type.isPotentialParameterType();
+}
+
+export function isCompleteParameterType(type: Type): type is CompleteParameterType {
+    return type.isCompleteParameterType();
 }
 
 
@@ -477,10 +521,12 @@ export type PotentiallyCompleteObjectType = AtomicType | BoundedArrayType | Arra
 export type IncompleteObjectType = ArrayOfUnknownBoundType | IncompleteClassType;
 export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
 
-export type PotentialReturnType = PotentiallyCompleteObjectType | ReferenceType | VoidType;
-export type CompleteReturnType = CompleteObjectType | ReferenceType | VoidType;
+export type PotentialReturnType = AtomicType | PotentiallyCompleteClassType | ReferenceType | VoidType;
+export type CompleteReturnType = AtomicType | CompleteClassType | ReferenceType | VoidType;
 
-export type PotentialParameterType = AtomicType | CompleteClassType | ReferenceType; // Does not include arrays
+// A parameter type may not be an array, since they convert to pointer parameters.
+export type PotentialParameterType = AtomicType | PotentiallyCompleteClassType | ReferenceType;
+export type CompleteParameterType = AtomicType | CompleteClassType | ReferenceType;
 
 
 export class VoidType extends TypeBase {
@@ -560,7 +606,7 @@ export class MissingType extends TypeBase {
 export abstract class ObjectTypeBase extends TypeBase {
     public abstract readonly size: number;
     
-    public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
+    // public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
 }
 
 export type Completed<T extends PotentiallyCompleteObjectType> =
@@ -659,8 +705,6 @@ export abstract class SimpleType extends AtomicType {
     protected abstract simpleType: string;
 
     public readonly precedence = 0;
-
-    public isComplete() { return true; }
 
     public sameType(other: Type): boolean {
         return other instanceof SimpleType
@@ -839,8 +883,6 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
     public readonly size = 8;
     public readonly precedence = 1;
 
-    public isComplete() { return true; }
-
     public static isNull(value: RawValueType) {
         return <number>value === 0;
     }
@@ -910,6 +952,8 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
         return new PointerType(this.ptrTo, isConst, isVolatile);
     }
 }
+
+export type PointerToCompleteType = PointerType<CompleteObjectType>;
 
 export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends PointerType<T> {
 
@@ -1065,10 +1109,13 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     }
 
 
-    public isComplete(context?: TranslationUnitContext) {
+    public isComplete(context?: TranslationUnitContext) : this is BoundedArrayType<Elem_type> {
+
+        return true; // Hardcoded true for now since arrays of incomplete element type are not supported in Lobster
+
         // Completeness may change if elemType completeness changes
         // (e.g. array of potentially (in)complete class type objects)
-        return this.elemType.isComplete(context);
+        // return this.elemType.isComplete(context);
     }
 
     public getCompoundNext() {
@@ -1147,7 +1194,9 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
         this.sizeExpressionAST = sizeExpressionAST;
     }
 
-    public isComplete() { return false; }
+    public isComplete() : this is BoundedArrayType<Elem_type> {
+        return false;
+    }
 
     public getCompoundNext() {
         return this.elemType;
@@ -1206,6 +1255,9 @@ class ClassTypeBase extends TypeBase {
 
     private readonly classId: number;
     private readonly shared: ClassShared;
+    
+    /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
+    public readonly t_isComplete!: boolean;
 
     public constructor(classId: number, className: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
@@ -1314,10 +1366,15 @@ class ClassTypeBase extends TypeBase {
 }
 
 export interface IncompleteClassType extends ClassTypeBase {
-
+    /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
+    readonly t_isComplete: false;
 }
 
 export interface CompleteClassType extends ClassTypeBase {
+    
+    /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
+    readonly t_isComplete: true;
+    
     readonly classDefinition: ClassDefinition;
     readonly size: number;
     readonly classScope: ClassScope;
@@ -1331,7 +1388,7 @@ export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassTy
 let nextClassId = 0;
 
 export function createClassType(className: string) : IncompleteClassType {
-    return new ClassTypeBase(nextClassId++, className, {});
+    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, {});
 }
 
 // export class ClassType extends ObjectTypeBase {
@@ -1572,7 +1629,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         // TODO: why are PointerType and ReferenceType included here?
         // shouldn't const be ignored on returns of const pointers due to value semantics (but not pointers-to-const)
         // and for references you can't have a const reference anyway so it's not meaningful
-        if (!(returnType.isClassType() || returnType.isPointerType() || returnType.isReferenceType())) {
+        if (!(returnType.isPotentiallyCompleteClassType() || returnType.isPointerType() || returnType.isReferenceType())) {
             this.returnType = <ReturnType>returnType.cvUnqualified();
         }
         else {
@@ -1580,7 +1637,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         }
 
         // Top-level const on parameter types is ignored for non-class types
-        this.paramTypes = paramTypes.map((ptype) => ptype.isClassType() ? ptype : ptype.cvUnqualified());
+        this.paramTypes = paramTypes.map((ptype) => ptype.isPotentiallyCompleteClassType() ? ptype : ptype.cvUnqualified());
 
         this.paramStrType = "(";
         for (var i = 0; i < paramTypes.length; ++i) {

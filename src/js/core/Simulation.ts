@@ -4,7 +4,7 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType } from "./types";
+import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
@@ -459,7 +459,7 @@ export class Simulation {
     //     this.startRunThread(func);
     // },
 
-    public parameterPassedByReference<T extends CompleteObjectType>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<T, "lvalue">) {
+    public parameterPassedByReference<T extends ReferenceType<PotentiallyCompleteObjectType>>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<ReferredType<T>, "lvalue">) {
         this.observable.send("parameterPassedByReference", { target: target, arg: arg });
     }
 

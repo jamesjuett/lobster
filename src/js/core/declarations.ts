@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -567,7 +567,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
 
 export interface TypedSimpleDeclaration<T extends Type> extends SimpleDeclaration {
     readonly type: T;
-    readonly declaredEntity: CPPEntity<PeelReference<T>>;
+    readonly declaredEntity: CPPEntity<T>;
 }
 
 export interface CompiledSimpleDeclaration<T extends Type = Type> extends TypedSimpleDeclaration<T>, SuccessfullyCompiled {
@@ -907,7 +907,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
         this.type = type;
 
         this.declaredEntity =
-            type.isReferenceType() ? new LocalReferenceEntity(type.refTo, this) : new LocalObjectEntity(type, this);
+            type.isReferenceType() ? new LocalReferenceEntity(type, this) : new LocalObjectEntity(type, this);
 
 
         // Note extern unsupported error is added in the base Declaration class, so no need to add here
@@ -945,7 +945,7 @@ export interface CompiledLocalVariableDefinition<T extends VariableDefinitionTyp
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
 
-    readonly initializer?: CompiledInitializer<PeelReference<T>>;
+    readonly initializer?: CompiledInitializer<T>;
 }
 
 
@@ -1088,10 +1088,10 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
     }
 }
 
-export interface TypedParameterDeclaration<T extends PotentialParameterType> extends ParameterDeclaration {
+export interface TypedParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends ParameterDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
-    readonly declaredEntity?: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
+    // readonly declaredEntity?: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
 }
 
 export interface CompiledParameterDeclaration<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDeclaration<T>, SuccessfullyCompiled {
@@ -1103,17 +1103,17 @@ export interface CompiledParameterDeclaration<T extends PotentialParameterType =
 
 export interface ParameterDefinition extends ParameterDeclaration {
     readonly name: string;
-    readonly type: PotentialParameterType;
+    readonly type: CompleteParameterType;
     readonly declaredEntity: LocalObjectEntity | LocalReferenceEntity;
 }
 
-export interface TypedParameterDefinition<T extends PotentialParameterType> extends ParameterDeclaration {
+export interface TypedParameterDefinition<T extends CompleteParameterType = CompleteParameterType> extends ParameterDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
     readonly declaredEntity: LocalObjectEntity<Exclude<T, ReferenceType>> | LocalReferenceEntity<Extract<T, ReferenceType>>;
 }
 
-export interface CompiledParameterDefinition<T extends PotentialParameterType = PotentialParameterType> extends TypedParameterDefinition<T>, SuccessfullyCompiled {
+export interface CompiledParameterDefinition<T extends CompleteParameterType = CompleteParameterType> extends TypedParameterDefinition<T>, SuccessfullyCompiled {
     readonly typeSpecifier: CompiledTypeSpecifier;
     readonly storageSpecifier: CompiledStorageSpecifier;
     readonly declarator: CompiledDeclarator<T>;
@@ -1132,11 +1132,11 @@ export interface CompiledParameterDefinition<T extends PotentialParameterType = 
 export class IncompleteTypeVariableDefinition extends SimpleDeclaration<TranslationUnitContext> {
     public readonly construct_type = "incomplete_type_variable_definition";
 
-    public readonly type: IncompleteType;
+    public readonly type: IncompleteObjectType;
     public readonly declaredEntity: undefined;
 
     public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteType) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteObjectType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -1146,7 +1146,7 @@ export class IncompleteTypeVariableDefinition extends SimpleDeclaration<Translat
     }
 }
 
-export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteType> extends IncompleteTypeVariableDefinition {
+export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteObjectType> extends IncompleteTypeVariableDefinition {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
 }
@@ -1326,8 +1326,6 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                             type = new ArrayOfUnknownBoundType(type);
                         }
 
-
-
                     }
                     else if (postfix.kind === "function") {
                         let fnType = this.processFunctionDeclarator(postfix, type, this);
@@ -1338,6 +1336,9 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                             return;
                         }
                     }
+                    else {
+                        assertNever(postfix);
+                    }
 
                     first = false;
                 }
@@ -1347,15 +1348,18 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             // NOTE: this line should NOT be else if since the same AST node may
             // have both postfixes and a pointer/reference
             if (decl.pointer) {
-                if (!type.isCompleteObjectType()) {
+                if (!type.isPotentiallyCompleteObjectType()) {
                     if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.pointer.reference(this));
                     }
                     else if (type.isVoidType()) {
                         this.addNote(CPPError.declaration.pointer.void(this))
                     }
+                    else if (type.isFunctionType()) {
+                        this.addNote(CPPError.lobster.unsupported_feature(this, "function pointers"));
+                    }
                     else {
-                        this.addNote(CPPError.declaration.pointer.invalid_pointed_type(this, type));
+                        assertNever(type);
                     }
                     return;
                 }
@@ -1363,12 +1367,15 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
                 decl = decl.pointer;
             }
             else if (decl.reference) {
-                if (!type.isCompleteObjectType()) {
+                if (!type.isPotentiallyCompleteObjectType()) {
                     if (type.isReferenceType()) {
                         this.addNote(CPPError.declaration.ref.ref(this));
                     }
-                    else {
+                    else if (type.isVoidType() || type.isFunctionType()) {
                         this.addNote(CPPError.declaration.ref.invalid_referred_type(this, type));
+                    }
+                    else {
+                        assertNever(type);
                     }
                     return;
                 }
@@ -1410,11 +1417,11 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             if (type.isFunctionType()) {
                 notes.addNote(CPPError.declaration.func.return_func(this));
             }
-            else if (type.isBoundedArrayType()) {
+            else if (type.isPotentiallyCompleteArrayType()) {
                 notes.addNote(CPPError.declaration.func.return_array(this));
             }
             else {
-                notes.addNote(CPPError.declaration.func.invalid_return_type(this, type));
+                assertNever(type);
             }
             return;
         }
@@ -1599,7 +1606,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // });
     }
 
-    public createRuntimeFunction<T extends FunctionType>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<CompleteClassType>): RuntimeFunction<T> {
+    public createRuntimeFunction<T extends FunctionType<CompleteReturnType>>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<CompleteClassType>): RuntimeFunction<T> {
         return new RuntimeFunction(this, parent.sim, parent, receiver);
     }
 
@@ -2594,11 +2601,11 @@ export interface CompiledMemberVariableDeclaration<T extends ObjectEntityType = 
 export class IncompleteTypeMemberVariableDeclaration extends SimpleDeclaration<TranslationUnitContext> {
     public readonly construct_type = "incomplete_type_member_variable_declaration";
 
-    public readonly type: IncompleteType;
+    public readonly type: IncompleteObjectType;
     public readonly declaredEntity: undefined;
 
     public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteType) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, type: IncompleteObjectType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
@@ -2608,7 +2615,7 @@ export class IncompleteTypeMemberVariableDeclaration extends SimpleDeclaration<T
     }
 }
 
-export interface TypedIncompleteTypeMemberVariableDeclaration<T extends IncompleteType> extends IncompleteTypeMemberVariableDeclaration {
+export interface TypedIncompleteTypeMemberVariableDeclaration<T extends IncompleteObjectType> extends IncompleteTypeMemberVariableDeclaration {
     readonly type: T;
     readonly declarator: TypedDeclarator<T>;
 }

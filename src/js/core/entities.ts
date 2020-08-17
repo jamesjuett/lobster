@@ -1,4 +1,4 @@
-import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType } from "./types";
+import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
@@ -1435,6 +1435,10 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
 
     public returnsVoid() : this is FunctionEntity<FunctionType<VoidType>> {
         return this.type.returnType.isVoidType();
+    }
+
+    public returnsCompleteType() : this is FunctionEntity<FunctionType<CompleteReturnType>> {
+        return this.type.returnType.isCompleteReturnType();
     }
 
     public describe(): EntityDescription {

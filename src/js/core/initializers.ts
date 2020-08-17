@@ -451,8 +451,8 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         }
 
         let targetType = target.type;
-        if (!referenceCompatible(this.arg.type, targetType.refTo)) {
-            this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType.refTo));
+        if (!referenceCompatible(this.arg.type, targetType)) {
+            this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
         }
         else if (this.arg.valueCategory === "prvalue" && !targetType.isConst) {
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));

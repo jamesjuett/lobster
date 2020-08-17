@@ -1,11 +1,11 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
-import { IdentifierExpression } from "./expressions";
+import { IdentifierExpression, PointerDifferenceExpression } from "./expressions";
 
 export enum NoteKind {
     ERROR = "error",
@@ -609,6 +609,16 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.arithmetic_common_type", "Performing the usual arithmetic conversions yielded operands of types (" + left.type + ", " + right.type + ") for operator " + operator + ", but a common arithmetic type could not be found.");
             }
         },
+        pointer_difference: {
+            incomplete_pointed_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_difference.incomplete_pointed_type", `Pointer subtraction is not allowed in this case, because the pointers point to an incomplete type, ${type}. (The size of objects of an incomplete type is unknown, which prevents the subtraction.)`);
+            }
+        },
+        pointer_offset: {
+            incomplete_pointed_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_offset.incomplete_pointed_type", `Computing a pointer offset is not allowed in this case, because the pointer points to an incomplete type, ${type}. (The size of objects of an incomplete type is unknown, which prevents the subtraction.)`);
+            }
+        },
         pointer_comparison: {
             same_pointer_type_required: function (construct: TranslationUnitConstruct, left: TypedExpression, right: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_comparison.same_pointer_type_requried", `Comparing the addresses of pointers to different types is prohibited (${left.type} and ${right.type}).`);
@@ -761,6 +771,9 @@ export const CPPError = {
                         return pt.toString();
                     }).join(", ")
                     + ") for the class type " + type + " has not been defined.");
+            },
+            incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
             }
             //,
             //tail_recursive : function(construct: TranslationUnitConstruct, reason) {
@@ -847,6 +860,9 @@ export const CPPError = {
             },
             exprVoid: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.exprVoid", "A return statement with an expression of non-void type is only allowed in a non-void function.");
+            },
+            incomplete_type: function (construct: TranslationUnitConstruct, type: IncompleteObjectType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.incomplete_type", `A function may not return (by-value) an object of incomplete type. (${type} is an incomplete type)`);
             },
             convert: function (construct: TranslationUnitConstruct, from: Type, to: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.convert", "Cannot convert " + from + " to return type of " + to + " in return statement.");

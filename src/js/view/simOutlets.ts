@@ -982,9 +982,9 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
 //       so the might not really be much useful that's inherited. Or maybe better, SingleMemoryObject
 //       should make updateObject abstract and the default behavior there should move to a new subclass
 //       like RegularMemoryObject or something like that.
-export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObject<T> {
+export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> extends SingleMemoryObject<T> {
     
-    private static instances : PointerMemoryObject<PointerType>[] = [];
+    private static instances : PointerMemoryObject<PointerType<CompleteObjectType>>[] = [];
     public static updateArrows() {
         this.instances = this.instances.filter((ptrMemObj) => {
             if (jQuery.contains($("body")[0], ptrMemObj.element[0])) {
@@ -1278,7 +1278,7 @@ export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutl
             elemContainer.append(elemElem);
             elemContainer.append('<div style="line-height: 1ch; font-size: 6pt">'+i+'</div>');
             this.objElem.append(elemContainer);
-            if (elemSubobject.type.isClassType()) {
+            if (elemSubobject.type.isPotentiallyCompleteClassType()) {
                 return createMemoryObjectOutlet(elemElem, elemSubobject, this.memoryOutlet);
             }
             else{
@@ -1438,7 +1438,8 @@ export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObject
 
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
     if(obj.type.isPointerType()) {
-        return new PointerMemoryObject(elem, <CPPObject<PointerType>>obj, memoryOutlet);
+        assert(obj.type.ptrTo.isCompleteObjectType(), "pointers to incomplete types should not exist at runtime");
+        return new PointerMemoryObject(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
     }
     else if(obj.type.isBoundedArrayType()) {
         return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
