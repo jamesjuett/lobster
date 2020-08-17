@@ -601,6 +601,65 @@ int main() {
   );
 
   
+  
+// ---------- Basic Class Test ----------
+
+new SingleTranslationUnitTest(
+"Basic Class Test",
+`class A {
+  public:
+    
+    int x;
+    double &y;
+    int *z;
+    
+    A(int x, double &y, int *z)
+     : x(x), y(y), z(z) {
+      
+    }
+  
+  	int func(int mult) {
+      return x * mult;
+    }
+  
+    double &getY() {
+      return y;
+    }
+  };
+  
+  int main() {
+    int x = 1;
+    double y = 2;
+    int z = 3;
+    A a(x, y, &z);
+    
+    assert(a.x == x);
+    assert(x == 1);
+    assert(&a.x != &x);
+    
+    assert(a.y == y);
+    assert(y == 2);
+    assert(&a.y == &y);
+    a.y = 5;
+    assert(a.y == 5);
+    assert(y == 5);
+    assert(&a.y == &y);
+    
+    assert(*a.z == z);
+    assert(z == 3);
+    *a.z = 7;
+    assert(*a.z == 7);
+    assert(z == 7);
+    
+    assert(a.func(3) == 3);
+    assert(a.getY() == 5.0);
+    assert(&a.getY() == &a.y);
+  }`,
+[
+    new NoErrorsNoWarningsVerifier(),
+    new NoBadRuntimeEventsVerifier(true)
+]
+);
 
     // ---------- Constructor Declaration Test ----------
     
@@ -623,14 +682,13 @@ int main() {
 }`,
       [
           new NoteVerifier([
-            {line: 4, id: "declaration.ctor.return_type_prohibited"},
-            {line: 5, id: "declaration.missing_type_specifier"},
-            {line: 6, id: "declaration.ctor.previous_declaration"},
-            {line: 6, id: "declaration.ctor.return_type_prohibited"},
+            {line: 5, id: "declaration.ctor.return_type_prohibited"},
+            {line: 6, id: "declaration.missing_type_specifier"},
             {line: 7, id: "declaration.ctor.return_type_prohibited"},
-            {line: 7, id: "declaration.ctor.previous_declaration"},
-            {line: 8, id: "declaration.missing_type_specifier"},
-            {line: 9, id: "declaration.ctor.previous_declaration"},
+            {line: 8, id: "declaration.ctor.return_type_prohibited"},
+            {line: 8, id: "declaration.ctor.previous_declaration"},
+            {line: 9, id: "declaration.missing_type_specifier"},
+            {line: 10, id: "declaration.ctor.previous_declaration"},
           ])
       ]
     );

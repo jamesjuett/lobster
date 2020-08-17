@@ -62,7 +62,7 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 }
 
 export interface t_TypedExpression {
-    readonly t_isTyped: never; // workaround for https://github.com/microsoft/TypeScript/issues/40035
+    readonly _t_isTyped: never; // workaround for https://github.com/microsoft/TypeScript/issues/40035
 }
 
 export interface TypedExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends Expression<ExpressionASTNode> {

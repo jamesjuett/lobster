@@ -1,5 +1,5 @@
 import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType } from "./types";
-import { assert, Mutable, unescapeString, assertFalse, asMutable } from "../util/util";
+import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -712,14 +712,28 @@ export type ObjectEntityType = CompleteObjectType | ReferenceType;
 
 export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> {
     runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T>;
+    readonly variableKind: "object";
 }
 
 export interface BoundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
     runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X>;
+    readonly variableKind: "reference";
 }
 
 export interface UnboundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
     bindTo<X extends CompleteObjectType>(this: UnboundReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>): void;
+}
+
+export function runtimeObjectLookup<T extends CompleteObjectType>(entity: ObjectEntity<T> | BoundReferenceEntity<ReferenceType<T>>, rtConstruct: RuntimeConstruct) {
+    if (entity.variableKind === "object") {
+        return entity.runtimeLookup(rtConstruct);
+    }
+    else if (entity.variableKind === "reference") {
+        return entity.runtimeLookup(rtConstruct);
+    }
+    else {
+        assertNever(entity);
+    }
 }
 
 abstract class VariableEntityBase<T extends ObjectEntityType = ObjectEntityType> extends DeclaredEntityBase<T> {
@@ -899,6 +913,7 @@ export type VariableEntity = LocalVariableEntity | GlobalObjectEntity | MemberVa
  * @throws Throws an exception if the return object does not exist.
  */
 export class ReturnObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
 
     public runtimeLookup(rtConstruct: RuntimeConstruct): CPPObject<T> {
         let returnObject = rtConstruct.containingRuntimeFunction.returnObject;
@@ -967,6 +982,7 @@ export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> ex
 
 // TODO: will need to add a class for ReferenceParameterEntity
 export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
 
     public readonly calledFunction: FunctionEntity;
     public readonly type: T;
@@ -1035,6 +1051,7 @@ export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceT
 };
 
 export class ReceiverEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
+    public readonly variableKind = "object";
 
     constructor(type: CompleteClassType) {
         super(type);
@@ -1081,6 +1098,7 @@ export class ReceiverEntity extends CPPEntity<CompleteClassType> implements Obje
 // };
 
 export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
 
     public readonly arrayEntity: ObjectEntity<BoundedArrayType<T>>;
     public readonly index: number;
@@ -1105,6 +1123,7 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
 }
 
 export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
+    public readonly variableKind = "object";
 
     public readonly containingEntity: ObjectEntity<CompleteClassType>;
 
@@ -1131,6 +1150,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
 
 export class MemberAccessEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
 
     public readonly containingEntity: ObjectEntity<CompleteClassType>;
     public readonly name: string;
@@ -1265,6 +1285,7 @@ export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> exte
 };
 
 export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
