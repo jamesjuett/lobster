@@ -171,7 +171,7 @@ function peg$parse(input: string, options?: IParseOptions) {
 
   const peg$FAILED: Readonly<{}> = {};
 
-  const peg$startRuleFunctions: {[id: string]: any} = { start: peg$parsestart, declaration: peg$parsedeclaration, declarator: peg$parsedeclarator };
+  const peg$startRuleFunctions: {[id: string]: any} = { start: peg$parsestart, declaration: peg$parsedeclaration, declarator: peg$parsedeclarator, function_definition: peg$parsefunction_definition };
   let peg$startRuleFunction: () => any = peg$parsestart;
 
   const peg$c0 = function(d: any): any {return d};

@@ -414,7 +414,7 @@ export function isReferenceType(type: Type): type is ReferenceType {
     return type.isReferenceType();
 }
 
-export function isClassType(type: Type): type is PotentiallyCompleteClassType {
+export function isPotentiallyCompleteClassType(type: Type): type is PotentiallyCompleteClassType {
     return type.isPotentiallyCompleteClassType();
 }
 

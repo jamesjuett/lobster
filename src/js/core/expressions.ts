@@ -1,9 +1,9 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, isPointerToCompleteType } from "./types";
-import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
+import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, isPointerToCompleteType, IncompleteObjectType } from "./types";
+import { ASTNode, SuccessfullyCompiled as t_CompiledConstruct, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
 import { Note, CPPError, NoteHandler } from "./errors";
-import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
@@ -140,42 +140,42 @@ export type AnalyticExpression =
 export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
     "comma_expression":
-        T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? TypedCommaExpression<T, V> : never :
-        NonNullable<CommaExpression["type"]> extends T ? V extends NonNullable<CommaExpression["valueCategory"]> ? TypedCommaExpression : never : never;
+        T extends NonNullable<TypedCommaExpression["type"]> ? V extends NonNullable<TypedCommaExpression["valueCategory"]> ? TypedCommaExpression<T, V> : never :
+        NonNullable<TypedCommaExpression["type"]> extends T ? V extends NonNullable<TypedCommaExpression["valueCategory"]> ? TypedCommaExpression : never : never;
     "ternary_expression":
-        T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? TypedTernaryExpression<T, V> : never :
-        NonNullable<TernaryExpression["type"]> extends T ? V extends NonNullable<TernaryExpression["valueCategory"]> ? TypedTernaryExpression : never : never;
+        T extends NonNullable<TypedTernaryExpression["type"]> ? V extends NonNullable<TypedTernaryExpression["valueCategory"]> ? TypedTernaryExpression<T, V> : never :
+        NonNullable<TypedTernaryExpression["type"]> extends T ? V extends NonNullable<TypedTernaryExpression["valueCategory"]> ? TypedTernaryExpression : never : never;
     "assignment_expression":
-        T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? TypedAssignmentExpression<T> : never :
-        NonNullable<AssignmentExpression["type"]> extends T ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? TypedAssignmentExpression : never : never;
+        T extends NonNullable<TypedAssignmentExpression["type"]> ? V extends NonNullable<TypedAssignmentExpression["valueCategory"]> ? TypedAssignmentExpression<T> : never :
+        NonNullable<TypedAssignmentExpression["type"]> extends T ? V extends NonNullable<TypedAssignmentExpression["valueCategory"]> ? TypedAssignmentExpression : never : never;
     "arithmetic_binary_operator_expression":
-        T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never :
-        NonNullable<ArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
+        T extends NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never :
+        NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
 
     "pointer_diference_expression":
-        T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never :
-        NonNullable<PointerDifferenceExpression["type"]> extends T ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never : never;
+        T extends NonNullable<TypedPointerDifferenceExpression["type"]> ? V extends NonNullable<TypedPointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never :
+        NonNullable<TypedPointerDifferenceExpression["type"]> extends T ? V extends NonNullable<TypedPointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never : never;
     "pointer_offset_expression":
-        T extends NonNullable<PointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression<T> : never :
-        NonNullable<PointerOffsetExpression["type"]> extends T ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression : never : never;
+        T extends NonNullable<TypedPointerOffsetExpression["type"]> ? V extends NonNullable<TypedPointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression<T> : never :
+        NonNullable<TypedPointerOffsetExpression["type"]> extends T ? V extends NonNullable<TypedPointerOffsetExpression["valueCategory"]> ? TypedPointerOffsetExpression : never : never;
     "relational_binary_operator_expression":
-        T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never :
-        NonNullable<RelationalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never : never;
+        T extends NonNullable<TypedRelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedRelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never :
+        NonNullable<TypedRelationalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedRelationalBinaryOperatorExpression["valueCategory"]> ? TypedRelationalBinaryOperatorExpression : never : never;
     "pointer_comparison_expression":
-        T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never :
-        NonNullable<PointerComparisonExpression["type"]> extends T ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never : never;
+        T extends NonNullable<TypedPointerComparisonExpression["type"]> ? V extends NonNullable<TypedPointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never :
+        NonNullable<TypedPointerComparisonExpression["type"]> extends T ? V extends NonNullable<TypedPointerComparisonExpression["valueCategory"]> ? TypedPointerComparisonExpression : never : never;
     "logical_binary_operator_expression":
-        T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never :
-        NonNullable<LogicalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
+        T extends NonNullable<TypedLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never :
+        NonNullable<TypedLogicalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
     "dereference_expression":
-        T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? TypedDereferenceExpression<T> : never :
-        NonNullable<DereferenceExpression["type"]> extends T ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? TypedDereferenceExpression : never : never;
+        T extends NonNullable<TypedDereferenceExpression["type"]> ? V extends NonNullable<TypedDereferenceExpression["valueCategory"]> ? TypedDereferenceExpression<T> : never :
+        NonNullable<TypedDereferenceExpression["type"]> extends T ? V extends NonNullable<TypedDereferenceExpression["valueCategory"]> ? TypedDereferenceExpression : never : never;
     "address_of_expression":
-        T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never :
-        NonNullable<AddressOfExpression["type"]> extends T ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? TypedAddressOfExpression : never : never;
+        T extends NonNullable<TypedAddressOfExpression["type"]> ? V extends NonNullable<TypedAddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never :
+        NonNullable<TypedAddressOfExpression["type"]> extends T ? V extends NonNullable<TypedAddressOfExpression["valueCategory"]> ? TypedAddressOfExpression : never : never;
     "subscript_expression":
-        T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never :
-        NonNullable<SubscriptExpression["type"]> extends T ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? TypedSubscriptExpression : never : never;
+        T extends NonNullable<TypedSubscriptExpression["type"]> ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never :
+        NonNullable<TypedSubscriptExpression["type"]> extends T ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression : never : never;
 
     "dot_expression":
         V extends NonNullable<DotExpression["valueCategory"]> ? (
@@ -194,55 +194,57 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
         : never;
 
     "numeric_literal_expression":
-        T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never :
-        NonNullable<NumericLiteralExpression["type"]> extends T ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression : never : never;
+        T extends NonNullable<TypedNumericLiteralExpression["type"]> ? V extends NonNullable<TypedNumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression<T> : never :
+        NonNullable<TypedNumericLiteralExpression["type"]> extends T ? V extends NonNullable<TypedNumericLiteralExpression["valueCategory"]> ? TypedNumericLiteralExpression : never : never;
     "string_literal_expression":
-        T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never :
-        NonNullable<StringLiteralExpression["type"]> extends T ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
+        T extends NonNullable<TypedStringLiteralExpression["type"]> ? V extends NonNullable<TypedStringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never :
+        NonNullable<TypedStringLiteralExpression["type"]> extends T ? V extends NonNullable<TypedStringLiteralExpression["valueCategory"]> ? TypedStringLiteralExpression : never : never;
     "parentheses_expression":
-        T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T, V> : never :
-        NonNullable<ParenthesesExpression["type"]> extends T ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression : never : never;
+        T extends NonNullable<TypedParenthesesExpression["type"]> ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T, V> : never :
+        NonNullable<TypedParenthesesExpression["type"]> extends T ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression : never : never;
     "auxiliary_expression":
-        T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T, V> : never :
-        NonNullable<AuxiliaryExpression["type"]> extends T ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression : never : never;
+        T extends NonNullable<TypedAuxiliaryExpression["type"]> ? V extends NonNullable<TypedAuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T, V> : never :
+        NonNullable<TypedAuxiliaryExpression["type"]> extends T ? V extends NonNullable<TypedAuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression : never : never;
     "magic_function_call_expression":
-        T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T, V> : never :
-        NonNullable<MagicFunctionCallExpression["type"]> extends T ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression : never : never;
+        T extends NonNullable<TypedMagicFunctionCallExpression["type"]> ? V extends NonNullable<TypedMagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression<T, V> : never :
+        NonNullable<TypedMagicFunctionCallExpression["type"]> extends T ? V extends NonNullable<TypedMagicFunctionCallExpression["valueCategory"]> ? TypedMagicFunctionCallExpression : never : never;
     "function_call_expression":
-        T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression<T, V> : never :
-        NonNullable<FunctionCallExpression["type"]> extends T ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression : never : never;
+        T extends NonNullable<TypedFunctionCallExpression["type"]> ? V extends NonNullable<TypedFunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression<T, V> : never :
+        NonNullable<TypedFunctionCallExpression["type"]> extends T ? V extends NonNullable<TypedFunctionCallExpression["valueCategory"]> ? TypedFunctionCallExpression : never : never;
     "ImplicitConversion":
-        T extends NonNullable<ImplicitConversion["type"]> ? V extends NonNullable<ImplicitConversion["valueCategory"]> ? ImplicitConversion<T> : never :
-        NonNullable<ImplicitConversion["type"]> extends T ? V extends NonNullable<ImplicitConversion["valueCategory"]> ? ImplicitConversion : never : never;
+        T extends NonNullable<TypedImplicitConversion["type"]> ? V extends NonNullable<TypedImplicitConversion["valueCategory"]> ? TypedImplicitConversion<CompleteObjectType, ValueCategory, T, V> : never :
+        NonNullable<TypedImplicitConversion["type"]> extends T ? V extends NonNullable<TypedImplicitConversion["valueCategory"]> ? TypedImplicitConversion : never : never;
 }
+
+let x!: AnalyticTypedExpression<AssignmentExpression, Bool, ValueCategory>
 
 export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
-    "comma_expression": T extends NonNullable<CommaExpression["type"]> ? V extends NonNullable<CommaExpression["valueCategory"]> ? CompiledCommaExpression<T, V> : never : never;
-    "ternary_expression": T extends NonNullable<TernaryExpression["type"]> ? V extends NonNullable<TernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T, V> : never : never;
-    "assignment_expression": T extends NonNullable<AssignmentExpression["type"]> ? V extends NonNullable<AssignmentExpression["valueCategory"]> ? CompiledAssignmentExpression<T> : never : never;
+    "comma_expression": T extends NonNullable<CompiledCommaExpression["type"]> ? V extends NonNullable<CompiledCommaExpression["valueCategory"]> ? CompiledCommaExpression<T, V> : never : never;
+    "ternary_expression": T extends NonNullable<CompiledTernaryExpression["type"]> ? V extends NonNullable<CompiledTernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T, V> : never : never;
+    "assignment_expression": T extends NonNullable<CompiledAssignmentExpression["type"]> ? V extends NonNullable<CompiledAssignmentExpression["valueCategory"]> ? CompiledAssignmentExpression<T> : never : never;
 
     "arithmetic_binary_operator_expression":
-        T extends NonNullable<ArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never :
-        NonNullable<ArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<ArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
+        T extends NonNullable<CompiledArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never :
+        NonNullable<ArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<CompiledArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
 
-    "pointer_diference_expression": T extends NonNullable<PointerDifferenceExpression["type"]> ? V extends NonNullable<PointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
-    "pointer_offset_expression": T extends NonNullable<CompiledPointerOffsetExpression["type"]> ? V extends NonNullable<PointerOffsetExpression["valueCategory"]> ? CompiledPointerOffsetExpression<T> : never : never;
-    "relational_binary_operator_expression": T extends NonNullable<RelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<RelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
-    "pointer_comparison_expression": T extends NonNullable<PointerComparisonExpression["type"]> ? V extends NonNullable<PointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
-    "logical_binary_operator_expression": T extends NonNullable<LogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<LogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
-    "dereference_expression": T extends NonNullable<DereferenceExpression["type"]> ? V extends NonNullable<DereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
-    "address_of_expression": T extends NonNullable<AddressOfExpression["type"]> ? V extends NonNullable<AddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
-    "subscript_expression": T extends NonNullable<SubscriptExpression["type"]> ? V extends NonNullable<SubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
+    "pointer_diference_expression": T extends NonNullable<CompiledPointerDifferenceExpression["type"]> ? V extends NonNullable<CompiledPointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
+    "pointer_offset_expression": T extends NonNullable<CompiledPointerOffsetExpression["type"]> ? V extends NonNullable<CompiledPointerOffsetExpression["valueCategory"]> ? CompiledPointerOffsetExpression<T> : never : never;
+    "relational_binary_operator_expression": T extends NonNullable<CompiledRelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledRelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
+    "pointer_comparison_expression": T extends NonNullable<CompiledPointerComparisonExpression["type"]> ? V extends NonNullable<CompiledPointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
+    "logical_binary_operator_expression": T extends NonNullable<CompiledLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledLogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
+    "dereference_expression": T extends NonNullable<CompiledDereferenceExpression["type"]> ? V extends NonNullable<CompiledDereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
+    "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
+    "subscript_expression": T extends NonNullable<CompiledSubscriptExpression["type"]> ? V extends NonNullable<CompiledSubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
     "dot_expression": V extends NonNullable<DotExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectDotExpression<T> : T extends FunctionType ? CompiledFunctionDotExpression<T> : never) : never;
     "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectIdentifierExpression<T> : T extends FunctionType ? CompiledFunctionIdentifierExpression<T> : never) : never;
-    "numeric_literal_expression": T extends NonNullable<NumericLiteralExpression["type"]> ? V extends NonNullable<NumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
-    "string_literal_expression": T extends NonNullable<StringLiteralExpression["type"]> ? V extends NonNullable<StringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
-    "parentheses_expression": T extends NonNullable<ParenthesesExpression["type"]> ? V extends NonNullable<ParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T, V> : never : never;
-    "auxiliary_expression": T extends NonNullable<AuxiliaryExpression["type"]> ? V extends NonNullable<AuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T, V> : never : never;
-    "magic_function_call_expression": T extends NonNullable<MagicFunctionCallExpression["type"]> ? V extends NonNullable<MagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
-    "function_call_expression": T extends NonNullable<FunctionCallExpression["type"]> ? V extends NonNullable<FunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
-    "ImplicitConversion": T extends NonNullable<ImplicitConversion["type"]> ? V extends NonNullable<ImplicitConversion["valueCategory"]> ? CompiledImplicitConversion<T> : never : never;
+    "numeric_literal_expression": T extends NonNullable<CompiledNumericLiteralExpression["type"]> ? V extends NonNullable<CompiledNumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
+    "string_literal_expression": T extends NonNullable<CompiledStringLiteralExpression["type"]> ? V extends NonNullable<CompiledStringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
+    "parentheses_expression": T extends NonNullable<CompiledParenthesesExpression["type"]> ? V extends NonNullable<CompiledParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T, V> : never : never;
+    "auxiliary_expression": T extends NonNullable<CompiledAuxiliaryExpression["type"]> ? V extends NonNullable<CompiledAuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T, V> : never : never;
+    "magic_function_call_expression": T extends NonNullable<CompiledMagicFunctionCallExpression["type"]> ? V extends NonNullable<CompiledMagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
+    "function_call_expression": T extends NonNullable<CompiledFunctionCallExpression["type"]> ? V extends NonNullable<CompiledFunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
+    "ImplicitConversion": T extends NonNullable<CompiledImplicitConversion["type"]> ? V extends NonNullable<CompiledImplicitConversion["valueCategory"]> ? CompiledImplicitConversion<T> : never : never;
 }
 
 export type AnalyticTypedExpression<C extends AnalyticExpression, T extends ExpressionType = NonNullable<C["type"]>, V extends ValueCategory = NonNullable<C["valueCategory"]>> = TypedExpressionKinds<T, V>[C["construct_type"]];
@@ -659,7 +661,7 @@ export interface TypedCommaExpression<T extends ExpressionType = ExpressionType,
     readonly right: TypedExpression<T, V>;
 }
 
-export interface CompiledCommaExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedCommaExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledCommaExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedCommaExpression<T, V>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly left: CompiledExpression;
     readonly right: CompiledExpression<T, V>;
@@ -793,7 +795,7 @@ export interface TypedTernaryExpression<T extends ExpressionType = ExpressionTyp
     readonly otherwise: TypedExpression<T, V>;
 }
 
-export interface CompiledTernaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedTernaryExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledTernaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedTernaryExpression<T, V>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly then: CompiledExpression<T, V>;
@@ -1015,7 +1017,7 @@ export interface TypedAssignmentExpression<T extends AtomicType = AtomicType> ex
 }
 
 
-export interface CompiledAssignmentExpression<T extends AtomicType = AtomicType> extends TypedAssignmentExpression<T>, SuccessfullyCompiled {
+export interface CompiledAssignmentExpression<T extends AtomicType = AtomicType> extends TypedAssignmentExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
@@ -1194,7 +1196,7 @@ export interface TypedBinaryOperatorExpression<T extends AtomicType = AtomicType
     readonly right: TypedExpression<AtomicType, "prvalue">;
 }
 
-export interface CompiledBinaryOperatorExpression<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpression<T>, SuccessfullyCompiled {
+export interface CompiledBinaryOperatorExpression<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     // Note valueCategory is defined as "prvalue" in BinaryOperator
     readonly left: CompiledExpression<AtomicType, "prvalue">;
@@ -1366,7 +1368,7 @@ export interface TypedArithmeticBinaryOperatorExpression<T extends ArithmeticTyp
     readonly right: TypedExpression<T, "prvalue">;
 }
 
-export interface CompiledArithmeticBinaryOperatorExpression<T extends ArithmeticType = ArithmeticType> extends TypedArithmeticBinaryOperatorExpression<T>, SuccessfullyCompiled {
+export interface CompiledArithmeticBinaryOperatorExpression<T extends ArithmeticType = ArithmeticType> extends TypedArithmeticBinaryOperatorExpression<T>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1456,7 +1458,7 @@ export interface TypedPointerDifferenceExpression extends PointerDifferenceExpre
 
 }
 
-export interface CompiledPointerDifferenceExpression extends TypedPointerDifferenceExpression, SuccessfullyCompiled {
+export interface CompiledPointerDifferenceExpression extends TypedPointerDifferenceExpression, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<PointerToCompleteType, "prvalue">;
@@ -1583,7 +1585,7 @@ export interface TypedPointerOffsetExpression<T extends PointerType = PointerTyp
     readonly offset: TypedExpression<IntegralType, "prvalue">;
 }
 
-export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType = PointerToCompleteType> extends TypedPointerOffsetExpression<T>, SuccessfullyCompiled {
+export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType = PointerToCompleteType> extends TypedPointerOffsetExpression<T>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1758,7 +1760,7 @@ export interface TypedRelationalBinaryOperatorExpression extends RelationalBinar
 
 }
 
-export interface CompiledRelationalBinaryOperatorExpression<OperandT extends ArithmeticType = ArithmeticType> extends TypedRelationalBinaryOperatorExpression, SuccessfullyCompiled {
+export interface CompiledRelationalBinaryOperatorExpression<OperandT extends ArithmeticType = ArithmeticType> extends TypedRelationalBinaryOperatorExpression, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1839,7 +1841,7 @@ export interface TypedPointerComparisonExpression extends PointerComparisonExpre
 
 }
 
-export interface CompiledPointerComparisonExpression<OperandT extends PointerType = PointerType> extends TypedPointerComparisonExpression, SuccessfullyCompiled {
+export interface CompiledPointerComparisonExpression<OperandT extends PointerType = PointerType> extends TypedPointerComparisonExpression, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<OperandT, "prvalue">;
@@ -1952,7 +1954,7 @@ export interface TypedLogicalBinaryOperatorExpression extends LogicalBinaryOpera
 
 }
 
-export interface CompiledLogicalBinaryOperatorExpression extends TypedLogicalBinaryOperatorExpression, SuccessfullyCompiled {
+export interface CompiledLogicalBinaryOperatorExpression extends TypedLogicalBinaryOperatorExpression, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<Bool, "prvalue">;
@@ -2116,7 +2118,7 @@ export interface TypedUnaryOperatorExpression<T extends CompleteObjectType | Voi
     readonly valueCategory: ValueCategory;
 }
 
-export interface CompiledUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends TypedUnaryOperatorExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends TypedUnaryOperatorExpression<T, V>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression;
 }
@@ -2181,7 +2183,7 @@ export interface TypedDereferenceExpression<T extends CompleteObjectType = Compl
     readonly operand: TypedExpression<PointerType<T>, "prvalue">;
 }
 
-export interface CompiledDereferenceExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedDereferenceExpression<T>, SuccessfullyCompiled {
+export interface CompiledDereferenceExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedDereferenceExpression<T>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2321,7 +2323,7 @@ export interface TypedAddressOfExpression<T extends PointerType = PointerType> e
     readonly operand: TypedExpression<T["ptrTo"]>;
 }
 
-export interface CompiledAddressOfExpression<T extends PointerType = PointerType> extends TypedAddressOfExpression<T>, SuccessfullyCompiled {
+export interface CompiledAddressOfExpression<T extends PointerType = PointerType> extends TypedAddressOfExpression<T>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2668,7 +2670,7 @@ export interface TypedSubscriptExpression<T extends CompleteObjectType = Complet
     readonly operand: TypedExpression<PointerType<T>, "prvalue">;
 }
 
-export interface CompiledSubscriptExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedSubscriptExpression<T>, SuccessfullyCompiled {
+export interface CompiledSubscriptExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedSubscriptExpression<T>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2744,7 +2746,7 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
 
     public static createFromAST(ast: DotExpressionASTNode, context: ExpressionContext): DotExpression {
         let operand: Expression = createExpressionFromAST(ast.operand, context);
-        let receiverContext = Predicates.isTypedExpression(operand, isCompleteClassType) ?
+        let receiverContext = operand.type?.isCompleteClassType() ?
             createExpressionContextWithReceiverType(context, operand.type) :
             context;
         return new DotExpression(receiverContext, ast, operand, ast.member.identifier);
@@ -2756,7 +2758,7 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
         this.attach(this.operand = operand);
         this.memberName = memberName;
 
-        if (!Predicates.isTypedExpression(this.operand, isClassType)) {
+        if (!Predicates.isTypedExpression(this.operand, isPotentiallyCompleteClassType)) {
             this.addNote(CPPError.expr.dot.class_type_only(this));
             return;
         }
@@ -2816,13 +2818,13 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
     //     }
 }
 
-export interface TypedObjectDotExpression<T extends CompleteObjectType = CompleteObjectType> extends DotExpression, t_TypedExpression {
+export interface TypedObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends DotExpression, t_TypedExpression {
     readonly type: T;
     readonly entity: MemberVariableEntity;
     readonly operand: TypedExpression<CompleteClassType>;
 }
 
-export interface CompiledObjectDotExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedObjectDotExpression<T>, SuccessfullyCompiled {
+export interface CompiledObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectDotExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<CompleteClassType>;
 }
@@ -2833,7 +2835,7 @@ export interface TypedFunctionDotExpression<T extends FunctionType = FunctionTyp
     readonly operand: TypedExpression<CompleteClassType>;
 }
 
-export interface CompiledFunctionDotExpression<T extends FunctionType = FunctionType> extends TypedFunctionDotExpression<T>, SuccessfullyCompiled {
+export interface CompiledFunctionDotExpression<T extends FunctionType = FunctionType> extends TypedFunctionDotExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<CompleteClassType>;}
 
@@ -2962,7 +2964,175 @@ export class RuntimeFunctionDotExpression extends RuntimeExpression<FunctionType
 //     }
 // });
 
+export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
+    public readonly construct_type = "arrow_expression";
 
+    public readonly type?: PotentiallyCompleteObjectType | FunctionType;
+    public readonly valueCategory = "lvalue";
+
+    public readonly operand: Expression;
+    public readonly memberName: string;
+
+    public readonly entity?: MemberVariableEntity | FunctionEntity;
+    public readonly functionCallReceiver?: ObjectEntity<CompleteClassType>
+
+    public static createFromAST(ast: ArrowExpressionASTNode, context: ExpressionContext): ArrowExpression {
+        let operand: Expression = createExpressionFromAST(ast.operand, context);
+        let receiverContext = operand.type?.isPointerType() && operand.type.ptrTo.isCompleteClassType() ?
+            createExpressionContextWithReceiverType(context, operand.type.ptrTo) :
+            context;
+        return new ArrowExpression(receiverContext, ast, operand, ast.member.identifier);
+    }
+
+    public constructor(context: ExpressionContext, ast: ArrowExpressionASTNode, operand: Expression, memberName: string) {
+        super(context, ast);
+
+        this.attach(this.operand = operand);
+        this.memberName = memberName;
+
+        let operandType = this.operand.type;
+
+        if ( ! ( operandType?.isPointerType() && operandType.ptrTo.isPotentiallyCompleteClassType() ) ) {
+            this.addNote(CPPError.expr.arrow.class_pointer_type(this));
+            return;
+        }
+
+        if (!operandType.ptrTo.isCompleteClassType()) {
+            this.addNote(CPPError.expr.arrow.incomplete_class_type_prohibited(this));
+            return;
+        }
+
+        let classType = operandType.ptrTo;
+
+        let entityOrError = entityLookup(this, memberName, classType.classScope, {kind: "normal", noParent: true})
+        switch (entityOrError) {
+            case "not_found":
+                this.addNote(CPPError.expr.arrow.no_such_member(this, classType, memberName));
+                break;
+            case "ambiguous":
+                this.addNote(CPPError.expr.arrow.ambiguous_member(this, memberName));
+                break;
+            case "class_found":
+                this.addNote(CPPError.expr.arrow.class_entity_found(this, memberName));
+                break;
+            default:
+                if (entityOrError.declarationKind === "function") {
+                    this.entity = entityOrError;
+                }
+                else if (entityOrError.variableLocation === "member") {
+                    this.entity = entityOrError;
+                    
+                }
+                else {
+                    assertFalse("non-member variable found during member access lookup");
+                }
+                this.entity = entityOrError;
+        }
+
+        this.type = peelReference(this.entity?.type);
+    }
+
+    public createDefaultOutlet(this: CompiledObjectArrowExpression | CompiledFunctionArrowExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new ArrowExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+
+    //     isTailChild : function(child){
+    //         return {isTail: false,
+    //             reason: "The subscripting will happen after the recursive call returns.",
+    //             others: [this]
+    //         };
+    //     }
+}
+
+export interface TypedObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends ArrowExpression, t_TypedExpression {
+    readonly type: T;
+    readonly entity: MemberVariableEntity;
+    readonly operand: TypedExpression<PointerType<CompleteClassType>>;
+}
+
+export interface CompiledObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectArrowExpression<T>, t_CompiledConstruct {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly operand: CompiledExpression<PointerType<CompleteClassType>>;
+}
+
+export interface TypedFunctionArrowExpression<T extends FunctionType = FunctionType> extends ArrowExpression, t_TypedExpression {
+    readonly type: T;
+    readonly entity: FunctionEntity<T>;
+    readonly operand: TypedExpression<PointerType<CompleteClassType>>;
+}
+
+export interface CompiledFunctionArrowExpression<T extends FunctionType = FunctionType> extends TypedFunctionArrowExpression<T>, t_CompiledConstruct {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly operand: CompiledExpression<PointerType<CompleteClassType>>;}
+
+export class RuntimeObjectArrowExpression<T extends CompleteObjectType = CompleteObjectType> extends RuntimeExpression<T, "lvalue", CompiledObjectArrowExpression<T>> {
+
+    readonly operand: RuntimeExpression<PointerType<CompleteClassType>>;
+
+    public constructor(model: CompiledObjectArrowExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+    }
+
+    protected upNextImpl() {
+        if (!this.operand.isDone) {
+            this.sim.push(this.operand);
+        }
+    }
+
+    protected stepForwardImpl() {
+
+        let evalResult = this.operand.evalResult;
+        let addr = evalResult instanceof Value ? evalResult : evalResult.getValue();
+
+        if (PointerType.isNull(addr.rawValue)) {
+            this.sim.eventOccurred(SimulationEvent.CRASH, "Ow! Your code just tried to use the arrow operator on a null pointer!", true);
+        }
+
+        let obj = this.sim.memory.dereference(addr);
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>obj.getMemberObject(this.model.entity.name)!);
+        this.startCleanup();
+    }
+}
+
+export class RuntimeFunctionArrowExpression extends RuntimeExpression<FunctionType, "lvalue", CompiledFunctionArrowExpression> {
+
+    readonly operand: RuntimeExpression<PointerType<CompleteClassType>>;
+
+    private receiverCalledOn?: CPPObject<CompleteClassType>;
+
+    public constructor(model: CompiledFunctionArrowExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+    }
+
+    protected upNextImpl() {
+        if (!this.operand.isDone) {
+            this.sim.push(this.operand);
+        }
+    }
+
+    protected stepForwardImpl() {
+        let evalResult = this.operand.evalResult;
+        let addr = evalResult instanceof Value ? evalResult : evalResult.getValue();
+
+        if (PointerType.isNull(addr.rawValue)) {
+            this.sim.eventOccurred(SimulationEvent.CRASH, "Ow! Your code just tried to use the arrow operator on a null pointer!", true);
+        }
+
+        this.receiverCalledOn = this.sim.memory.dereference(addr);
+        this.setEvalResult(this.model.entity);
+        this.startCleanup();
+    }
+
+    public get contextualReceiver() {
+        return this.receiverCalledOn ?? super.contextualReceiver;
+    }
+}
 
 // export var Arrow  = Expression.extend({
 //     _name: "Arrow",
@@ -3079,6 +3249,8 @@ export interface DotExpressionASTNode extends ASTNode {
 
 export interface ArrowExpressionASTNode extends ASTNode {
     readonly construct_type: "arrow_expression";
+    readonly operand: ExpressionASTNode;
+    readonly member: IdentifierExpressionASTNode;
 }
 
 export interface PostfixIncrementExpressionASTNode extends ASTNode {
@@ -3629,12 +3801,12 @@ function entityLookup(expression: Expression, name: string, scope: Scope, option
     }
 }
 
-export interface TypedObjectIdentifierExpression<T extends CompleteObjectType = CompleteObjectType> extends IdentifierExpression, t_TypedExpression {
+export interface TypedObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends IdentifierExpression, t_TypedExpression {
     readonly type: T;
-    readonly entity: ObjectEntity<T>;
+    readonly entity: ObjectEntity<Extract<T, CompleteObjectType>> | BoundReferenceEntity<ReferenceType<T>>;
 }
 
-export interface CompiledObjectIdentifierExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedObjectIdentifierExpression<T>, SuccessfullyCompiled {
+export interface CompiledObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectIdentifierExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -3643,7 +3815,7 @@ export interface TypedFunctionIdentifierExpression<T extends FunctionType = Func
     readonly entity: FunctionEntity<T>;
 }
 
-export interface CompiledFunctionIdentifierExpression<T extends FunctionType = FunctionType> extends TypedFunctionIdentifierExpression<T>, SuccessfullyCompiled {
+export interface CompiledFunctionIdentifierExpression<T extends FunctionType = FunctionType> extends TypedFunctionIdentifierExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -3654,7 +3826,7 @@ export class RuntimeObjectIdentifierExpression<T extends CompleteObjectType = Co
     }
 
     protected upNextImpl() {
-        this.setEvalResult(<VCResultTypes<T, "lvalue">>this.model.entity.runtimeLookup(this));
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>runtimeObjectLookup(this.model.entity, this));
         this.startCleanup();
     }
 
@@ -3834,7 +4006,7 @@ export interface TypedNumericLiteralExpression<T extends ArithmeticType = Arithm
 
 }
 
-export interface CompiledNumericLiteralExpression<T extends ArithmeticType = ArithmeticType> extends TypedNumericLiteralExpression<T>, SuccessfullyCompiled {
+export interface CompiledNumericLiteralExpression<T extends ArithmeticType = ArithmeticType> extends TypedNumericLiteralExpression<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -3911,7 +4083,7 @@ export interface TypedStringLiteralExpression extends StringLiteralExpression, t
 
 }
 
-export interface CompiledStringLiteralExpression extends TypedStringLiteralExpression, SuccessfullyCompiled {
+export interface CompiledStringLiteralExpression extends TypedStringLiteralExpression, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -3979,7 +4151,7 @@ export interface TypedParenthesesExpression<T extends ExpressionType = Expressio
     readonly subexpression: TypedExpression<T, V>;
 }
 
-export interface CompiledParenthesesExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedParenthesesExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledParenthesesExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedParenthesesExpression<T, V>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -4050,7 +4222,7 @@ export interface TypedAuxiliaryExpression<T extends ExpressionType = ExpressionT
 
 }
 
-export interface CompiledAuxiliaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedAuxiliaryExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledAuxiliaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedAuxiliaryExpression<T, V>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -4286,7 +4458,7 @@ export interface TypedMagicFunctionCallExpression<T extends PeelReference<Comple
     readonly valueCategory: V;
 }
 
-export interface CompiledMagicFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMagicFunctionCallExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledMagicFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMagicFunctionCallExpression<T, V>, t_CompiledConstruct {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -4357,7 +4529,12 @@ export abstract class ImplicitConversion<FromType extends CompleteObjectType = C
     }
 }
 
-export interface CompiledImplicitConversion<FromType extends CompleteObjectType = CompleteObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends CompleteObjectType = CompleteObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, SuccessfullyCompiled {
+export interface TypedImplicitConversion<FromType extends CompleteObjectType = CompleteObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends CompleteObjectType = CompleteObjectType, ToVC extends ValueCategory = ValueCategory> extends ImplicitConversion<FromType, FromVC, ToType, ToVC>, t_TypedExpression {
+
+
+}
+
+export interface CompiledImplicitConversion<FromType extends CompleteObjectType = CompleteObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends CompleteObjectType = CompleteObjectType, ToVC extends ValueCategory = ValueCategory> extends TypedImplicitConversion<FromType, FromVC, ToType, ToVC>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly from: CompiledExpression<FromType, FromVC>;
@@ -4431,8 +4608,11 @@ export class LValueToRValueConversion<T extends AtomicType> extends ImplicitConv
     // }
 
 }
+export interface TypedLValueToRValueConversion<T extends AtomicType = AtomicType> extends LValueToRValueConversion<T>, t_TypedExpression {
 
-export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicType> extends LValueToRValueConversion<T>, SuccessfullyCompiled {
+}
+
+export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicType> extends TypedLValueToRValueConversion<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and LValueToRValue structure
 }
@@ -4457,7 +4637,11 @@ export class ArrayToPointerConversion<T extends BoundedArrayType> extends Implic
     // }
 }
 
-export interface CompiledArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends ArrayToPointerConversion<T>, SuccessfullyCompiled {
+export interface TypedArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends ArrayToPointerConversion<T>, t_TypedExpression {
+
+}
+
+export interface CompiledArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends TypedArrayToPointerConversion<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and ArrayToPointer structure
 }
@@ -4502,7 +4686,11 @@ abstract class TypeConversion<FromType extends AtomicType, ToType extends Atomic
 
 }
 
-export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypeConversion<FromType, ToType>, SuccessfullyCompiled {
+export interface TypedTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypeConversion<FromType, ToType>, t_TypedExpression {
+
+}
+
+export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypedTypeConversion<FromType, ToType>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<FromType, "prvalue">; // satisfies CompiledImplicitConversion and TypeConversion structure
 }
@@ -4527,6 +4715,8 @@ export interface IntegerLiteralZero extends CompiledNumericLiteralExpression {
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
     // public readonly construct_type = "NullPointerConversion";
 
+    readonly from!: IntegerLiteralZero; // narrows from base type
+
     public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
         assert(from.value.rawValue === 0);
@@ -4534,18 +4724,26 @@ export class NullPointerConversion<P extends PointerType> extends NoOpTypeConver
 
 }
 
-export interface CompiledNullPointerConversion<P extends PointerType> extends NullPointerConversion<P>, SuccessfullyCompiled {
+export interface TypedNullPointerConversion<P extends PointerType> extends NullPointerConversion<P>, t_TypedExpression {
+    
+}
+
+export interface CompiledNullPointerConversion<P extends PointerType> extends TypedNullPointerConversion<P>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: IntegerLiteralZero;
 }
+
 
 export class PointerConversion<FromType extends PointerType, ToType extends PointerType> extends NoOpTypeConversion<FromType, ToType> {
     // public readonly construct_type = "PointerConversion";
 
 }
 
-export interface CompiledPointerConversion<FromType extends PointerType, ToType extends PointerType> extends CompiledTypeConversion<FromType, ToType>, SuccessfullyCompiled {
+export interface TypedPointerConversion<FromType extends PointerType, ToType extends PointerType> extends TypedTypeConversion<FromType, ToType> {
 
+}
+
+export interface CompiledPointerConversion<FromType extends PointerType, ToType extends PointerType> extends CompiledTypeConversion<FromType, ToType> {
 
 }
 
@@ -4650,7 +4848,10 @@ export class QualificationConversion<T extends AtomicType = AtomicType> extends 
 
 }
 
-export interface CompiledQualificationConversion<T extends AtomicType = AtomicType> extends QualificationConversion<T>, SuccessfullyCompiled {
+export interface TypedQualificationConversion<T extends AtomicType = AtomicType> extends QualificationConversion<T>, t_TypedExpression {
+}
+
+export interface CompiledQualificationConversion<T extends AtomicType = AtomicType> extends TypedQualificationConversion<T>, t_CompiledConstruct {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "prvalue">; // satisfies CompiledImplicitConversion and QualificationConversion structure
 }

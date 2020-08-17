@@ -669,7 +669,7 @@ export class InvalidObject<T extends CompleteObjectType = CompleteObjectType> ex
     public constructor(type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.setValidity(false);
-        this.kill()
+        this.kill();
     }
 
     public describe(): ObjectDescription {
