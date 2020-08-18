@@ -654,6 +654,42 @@ new SingleTranslationUnitTest(
     assert(a.func(3) == 3);
     assert(a.getY() == 5.0);
     assert(&a.getY() == &a.y);
+    
+    A *ptr = &a;
+    x = 1;
+    y = 2;
+    a.x = 1;
+    a.y = 2;
+    *a.z = 3;
+    
+    assert(ptr->x == a.x);
+    assert(ptr->y == a.y);
+    assert(ptr->z == a.z);
+    assert(&ptr->x == &a.x);
+    assert(&ptr->y == &a.y);
+    assert(&ptr->z == &a.z);
+  	
+    assert(ptr->x == x);
+    assert(x == 1);
+    assert(&ptr->x != &x);
+    
+    assert(ptr->y == y);
+    assert(y == 2);
+    assert(&ptr->y == &y);
+    ptr->y = 5;
+    assert(ptr->y == 5);
+    assert(y == 5);
+    assert(&ptr->y == &y);
+    
+    assert(*ptr->z == z);
+    assert(z == 3);
+    *ptr->z = 7;
+    assert(*ptr->z == 7);
+    assert(z == 7);
+    
+    assert(ptr->func(3) == 3);
+    assert(ptr->getY() == 5.0);
+    assert(&ptr->getY() == &a.y);
   }`,
 [
     new NoErrorsNoWarningsVerifier(),

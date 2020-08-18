@@ -9,7 +9,7 @@ import { escapeString, assertNever, assert, assertFalse } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 
 
@@ -86,7 +86,7 @@ const ExpressionConstructsMap = {
     "subscript_expression": (ast: SubscriptExpressionASTNode, context: ExpressionContext) => SubscriptExpression.createFromAST(ast, context),
     "function_call_expression": (ast: FunctionCallExpressionASTNode, context: ExpressionContext) => FunctionCallExpression.createFromAST(ast, context),
     "dot_expression": (ast: DotExpressionASTNode, context: ExpressionContext) => DotExpression.createFromAST(ast, context),
-    "arrow_expression": (ast: ArrowExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "arrow operator"),
+    "arrow_expression": (ast: ArrowExpressionASTNode, context: ExpressionContext) => ArrowExpression.createFromAST(ast, context),
     "postfix_increment_expression": (ast: PostfixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix increment"),
     "postfix_decrement_expression": (ast: PostfixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix decrement"),
 
@@ -125,6 +125,7 @@ export type AnalyticExpression =
     AnalyticUnaryOperatorExpression |
     SubscriptExpression |
     DotExpression |
+    ArrowExpression |
     FunctionCallExpression |
     // ConstructExpression |
     IdentifierExpression |
@@ -185,6 +186,14 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
             : never)
         : never;
 
+    "arrow_expression":
+        V extends NonNullable<ArrowExpression["valueCategory"]> ? (
+            T extends CompleteObjectType ? TypedObjectArrowExpression<T> :
+            T extends FunctionType ? TypedFunctionArrowExpression<T> :
+            CompleteObjectType extends T ? FunctionType extends T ? TypedObjectArrowExpression | TypedFunctionArrowExpression : never
+            : never)
+        : never;
+
     "identifier_expression":
         V extends NonNullable<IdentifierExpression["valueCategory"]> ? (
             T extends CompleteObjectType ? TypedObjectIdentifierExpression<T> :
@@ -237,6 +246,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
     "subscript_expression": T extends NonNullable<CompiledSubscriptExpression["type"]> ? V extends NonNullable<CompiledSubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
     "dot_expression": V extends NonNullable<DotExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectDotExpression<T> : T extends FunctionType ? CompiledFunctionDotExpression<T> : never) : never;
+    "arrow_expression": V extends NonNullable<ArrowExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectArrowExpression<T> : T extends FunctionType ? CompiledFunctionArrowExpression<T> : never) : never;
     "identifier_expression": V extends NonNullable<IdentifierExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectIdentifierExpression<T> : T extends FunctionType ? CompiledFunctionIdentifierExpression<T> : never) : never;
     "numeric_literal_expression": T extends NonNullable<CompiledNumericLiteralExpression["type"]> ? V extends NonNullable<CompiledNumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
     "string_literal_expression": T extends NonNullable<CompiledStringLiteralExpression["type"]> ? V extends NonNullable<CompiledStringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
@@ -277,6 +287,14 @@ const ExpressionConstructsRuntimeMap = {
             return new RuntimeObjectDotExpression(<any>construct, parent);
         }
     },
+    "arrow_expression": (construct: CompiledObjectArrowExpression | CompiledFunctionArrowExpression, parent: RuntimeConstruct) => {
+        if (construct.entity instanceof FunctionEntity) {
+            return new RuntimeFunctionArrowExpression(<any>construct, parent);
+        }
+        else {
+            return new RuntimeObjectArrowExpression(<any>construct, parent);
+        }
+    },
     "identifier_expression": (construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent: RuntimeConstruct) => {
         if (construct.entity instanceof FunctionEntity) {
             return new RuntimeFunctionIdentifierExpression(<any>construct, parent);
@@ -313,6 +331,9 @@ export function createRuntimeExpression(construct: CompiledObjectIdentifierExpre
 export function createRuntimeExpression(construct: CompiledObjectDotExpression, parent: RuntimeConstruct): RuntimeObjectDotExpression;
 export function createRuntimeExpression(construct: CompiledFunctionDotExpression, parent: RuntimeConstruct): RuntimeFunctionDotExpression;
 export function createRuntimeExpression(construct: CompiledObjectDotExpression | CompiledFunctionDotExpression, parent: RuntimeConstruct): RuntimeObjectDotExpression | RuntimeFunctionDotExpression;
+export function createRuntimeExpression(construct: CompiledObjectArrowExpression, parent: RuntimeConstruct): RuntimeObjectArrowExpression;
+export function createRuntimeExpression(construct: CompiledFunctionArrowExpression, parent: RuntimeConstruct): RuntimeFunctionArrowExpression;
+export function createRuntimeExpression(construct: CompiledObjectArrowExpression | CompiledFunctionArrowExpression, parent: RuntimeConstruct): RuntimeObjectArrowExpression | RuntimeFunctionDotExpression;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledNumericLiteralExpression<T>, parent: RuntimeConstruct): RuntimeNumericLiteral<T>;
 export function createRuntimeExpression(construct: CompiledStringLiteralExpression, parent: RuntimeConstruct): RuntimeStringLiteralExpression;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledParenthesesExpression<T, V>, parent: RuntimeConstruct): RuntimeParentheses<T, V>;
@@ -2802,7 +2823,7 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
         this.type = peelReference(this.entity?.type);
     }
 
-    public createDefaultOutlet(this: CompiledObjectDotExpression | CompiledFunctionDotExpression, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledObjectDotExpression<CompleteObjectType> | CompiledFunctionDotExpression, element: JQuery, parent?: ConstructOutlet) {
         return new DotExpressionOutlet(element, this, parent);
     }
 
@@ -3032,7 +3053,7 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
         this.type = peelReference(this.entity?.type);
     }
 
-    public createDefaultOutlet(this: CompiledObjectArrowExpression | CompiledFunctionArrowExpression, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledObjectArrowExpression<CompleteObjectType> | CompiledFunctionArrowExpression, element: JQuery, parent?: ConstructOutlet) {
         return new ArrowExpressionOutlet(element, this, parent);
     }
 
@@ -3726,7 +3747,7 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
         return this.entity;
     }
 
-    public createDefaultOutlet(this: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, element: JQuery, parent?: ConstructOutlet) {
+    public createDefaultOutlet(this: CompiledObjectIdentifierExpression<CompleteObjectType> | CompiledFunctionIdentifierExpression, element: JQuery, parent?: ConstructOutlet) {
         return new IdentifierOutlet(element, this, parent);
     }
 

@@ -1,7 +1,7 @@
 import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression } from "./expressions";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression } from "./expressions";
 import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, PeelReference, peelReference, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType, PotentiallyCompleteObjectType, CompleteReturnType, PotentiallyCompleteClassType } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
@@ -304,7 +304,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
             return;
         }
 
-        if (!(operand instanceof IdentifierExpression || operand instanceof DotExpression/* || operand instanceof ArrowExpression*/)) {
+        if (!(operand instanceof IdentifierExpression || operand instanceof DotExpression || operand instanceof ArrowExpression)) {
             this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, operand));
             this.attachAll(args);
             return;
