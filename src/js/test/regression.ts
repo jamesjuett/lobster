@@ -697,6 +697,96 @@ new SingleTranslationUnitTest(
 ]
 );
 
+
+// ---------- Basic Class Composition Test ----------
+
+new SingleTranslationUnitTest(
+  "Basic Class Composition Test",
+  `class Coffee {
+    public:  
+      int creams;
+      int sugars;
+      bool isDecaf;
+    
+      // Regular coffee with creams/sugars
+      Coffee(int creams, int sugars) : creams(creams), sugars(sugars), isDecaf(false) {}
+    
+      // This ctor can specify regular/decaf
+      Coffee(int creams, int sugars,
+             bool isDecaf) : creams(creams), sugars(sugars), isDecaf(isDecaf) {}
+    
+      void addCream() {
+        creams = creams + 1;
+      }
+    
+      void addSugar() {
+        sugars = sugars + 1;
+      }
+      
+    };
+    
+    class Triangle {
+    public:
+      int a, b, c;
+    
+      Triangle()
+        : a(1), b(1), c(1) { }
+    
+      Triangle(int side)
+        : a(side), b(side), c(side) { }
+    
+      Triangle(int a_in, int b_in, int c_in)
+        : a(a_in), b(b_in), c(c_in) { }
+    };
+    
+    class Professor {
+    public:
+      int id;
+      Coffee favCoffee;
+      Triangle favTriangle;
+    
+      Professor(int id)
+       : id(id), favCoffee(0, 0, true) {
+      }
+      
+      Professor()
+        : id(2), favCoffee(2, 2), favTriangle(3, 4, 5) { }
+      
+    };
+    
+    
+    int main() {
+      Professor prof1(1);
+      assert(prof1.id == 1);
+      assert(prof1.favCoffee.creams == 0);
+      assert(prof1.favCoffee.sugars == 0);
+      assert(prof1.favCoffee.isDecaf == true);
+      assert(prof1.favTriangle.a == 1);
+      assert(prof1.favTriangle.b == 1);
+      assert(prof1.favTriangle.c == 1);
+      
+      Professor prof2;
+      assert(prof2.id == 2);
+      assert(prof2.favCoffee.creams == 2);
+      assert(prof2.favCoffee.sugars == 2);
+      assert(prof2.favCoffee.isDecaf == false);
+      assert(prof2.favTriangle.a == 3);
+      assert(prof2.favTriangle.b == 4);
+      assert(prof2.favTriangle.c == 5);
+      
+      assert(&prof1 != &prof2);
+      assert(&prof1.favCoffee != &prof2.favCoffee);
+      assert(&prof1.favTriangle != &prof2.favTriangle);
+      
+    }`,
+  [
+      new NoErrorsNoWarningsVerifier(),
+      new NoBadRuntimeEventsVerifier(true)
+  ]
+  );
+
+
+
     // ---------- Constructor Declaration Test ----------
     
     new SingleTranslationUnitTest(
