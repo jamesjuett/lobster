@@ -1,16 +1,16 @@
-import { Type, BoundedArrayType, ClassType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, ObjectType } from "./types";
+import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, CompleteObjectType, CompleteClassType } from "./types";
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
-import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition } from "./declarations";
+import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition, CompiledClassDefinition } from "./declarations";
 
 export interface ObjectDescription {
     name: string;
     message: string;
 }
 
-abstract class ObjectData<T extends ObjectType> {
+abstract class ObjectData<T extends CompleteObjectType> {
     protected readonly object: CPPObject<T>;
     protected readonly size: number;
     protected readonly memory: Memory;
@@ -101,42 +101,58 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
     // }
 }
 
-class ClassObjectData<T extends ClassType> extends ObjectData<T> {
+class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
 
-    // public readonly subobjects: Subobject[];
-    // public readonly baseSubobjects: BaseSubobject[];
-    // public readonly memberSubobjects: MemberSubobject[];
-    // private readonly memberSubobjectMap: {[index: string]: MemberSubobject} = {};
+    private readonly subobjects: readonly Subobject[];
+    private readonly baseSubobjects: readonly BaseSubobject[];
+    private readonly memberSubobjects: readonly MemberSubobject[];
+    private readonly memberObjectMap: {[index: string]: CPPObject | undefined} = {};
 
-    // public constructor(object: CPPObject<T>, memory: Memory, address: number) {
-    //     super(object, memory, address);
+    public constructor(object: CPPObject<T>, memory: Memory, address: number) {
+        super(object, memory, address);
 
-    //     let subAddr = this.address;
+        let subAddr = this.address;
 
-    //     this.baseSubobjects = (<ClassType>this.object.type).cppClass.baseSubobjectEntities.map((base) => {
-    //         let subObj = base.objectInstance(this.object, memory, subAddr);
-    //         subAddr += subObj.size;
-    //         return subObj;
-    //     });
+        let classDef = this.object.type.classDefinition;
 
-    //     this.memberSubobjects = (<ClassType>this.object.type).cppClass.memberSubobjectEntities.map((mem) => {
-    //         let subObj = mem.objectInstance(this.object, memory, subAddr);
-    //         subAddr += subObj.size;
-    //         this.memberSubobjectMap[mem.name] = subObj;
-    //         return subObj;
-    //     });
+        assert(classDef?.isSuccessfullyCompiled(), "Cannot create an object at runtime for a class type that has not been defined and successfully compiled.");
 
+        // this.baseSubobjects = classDef.baseSpecifiers.map((base) => {
+        //     let subObj = new BaseSubobject(this.object, base.baseEntity.type, memory, subAddr);
+        //     // let subObj = base.objectInstance(this.object, memory, subAddr);
+        //     subAddr += subObj.size;
+        //     return subObj;
+        // });
+        this.baseSubobjects = [];
+        if (classDef.baseClass) {
+            let baseObj = new BaseSubobject(this.object, classDef.baseClass, memory, subAddr);
+            asMutable(this.baseSubobjects).push(baseObj);
+            subAddr += baseObj.size;
+        }
 
-    //     this.subobjects = this.baseSubobjects.concat(this.memberSubobjects);
-    // }
+        this.memberSubobjects = classDef.memberObjectEntities.map((mem) => {
+            let subObj = new MemberSubobject(this.object, mem.type, mem.name, memory, subAddr);
+            // let subObj = mem.objectInstance(this.object, memory, subAddr);
+            subAddr += subObj.size;
+            this.memberObjectMap[mem.name] = subObj;
+            return subObj;
+        });
 
-    // public getMemberSubobject(name: string) {
-    //     return this.memberSubobjectMap[name];
-    // }
+        this.subobjects = [];
+        this.subobjects = this.subobjects.concat(this.baseSubobjects).concat(this.memberSubobjects);
+    }
 
-    // public getBaseSubobject() : BaseSubobject | undefined {
-    //     return this.baseSubobjects[0];
-    // }
+    public getMemberObject(name: string) : CPPObject | undefined {
+        return this.memberObjectMap[name] ?? this.baseSubobjects[0]?.getMemberObject(name);
+    }
+
+    public bindMemberReference(name: string, obj: CPPObject<CompleteObjectType>) {
+        this.memberObjectMap[name] = obj;
+    }
+
+    public getBaseSubobject() : BaseSubobject | undefined {
+        return this.baseSubobjects[0];
+    }
 
     // TODO: Could remove? This isn't currently used and I don't think it's useful for anything
     // public getSubobjectByAddress(address: number) {
@@ -218,20 +234,20 @@ class ClassObjectData<T extends ClassType> extends ObjectData<T> {
 //     }
 // }
 
-type ObjectValueRepresentation<T extends ObjectType> =
+type ObjectValueRepresentation<T extends CompleteObjectType> =
     T extends AtomicType ? Value<T> :
     T extends BoundedArrayType<infer Elem_type> ? ObjectValueRepresentation<Elem_type>[] :
-    T extends ClassType ? { [index: string]: ObjectRawValueRepresentation<ObjectType> } : never;
+    T extends CompleteClassType ? { [index: string]: ObjectRawValueRepresentation<CompleteObjectType> } : never;
 
-type ObjectRawValueRepresentation<T extends ObjectType> =
+type ObjectRawValueRepresentation<T extends CompleteObjectType> =
     T extends AtomicType ? RawValueType :
     T extends BoundedArrayType<infer Elem_type> ? ObjectRawValueRepresentation<Elem_type>[] :
-    T extends ClassType ? { [index: string]: ObjectRawValueRepresentation<ObjectType> } : unknown;
+    T extends CompleteClassType ? { [index: string]: ObjectRawValueRepresentation<CompleteObjectType> } : unknown;
 
 // TODO: it may be more elegant to split into 3 derived types of CPPObject for arrays, classes, and
 // atomic objects and use a public factory function to create the appropriate instance based on the
 // template parameter. (Rather than the current awkward composition and conditional method strategy)
-export abstract class CPPObject<T extends ObjectType = ObjectType> {
+export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectType> {
 
     public readonly observable = new Observable(this);
 
@@ -256,11 +272,11 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         this.size = type.size;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
-        if (this.type instanceof BoundedArrayType) {
+        if (this.type.isBoundedArrayType()) {
             // this.isArray = true;
             this.data = <any>new ArrayObjectData(<any>this, memory, address);
         }
-        else if (this.type instanceof ClassType) {
+        else if (this.type.isCompleteClassType()) {
             this.data = <any>new ClassObjectData(<any>this, memory, address);
         }
         else {
@@ -288,15 +304,26 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
         return this.data.getArrayElemSubobjectByAddress(address);
     }
 
-    // // Only allowed if receiver matches CPPObject<ClassType>
-    // public getMemberSubobject(this: CPPObject<ClassType>, name: string) : MemberSubobject {
-    //     return (<ClassObjectData<ClassType>>this.data).getMemberSubobject(name);
-    // }
+    /**
+     * Only allowed if receiver matches CPPObject<CompleteClassType>
+     * Note that this returns CPPObject rather than MemberSubobject because
+     * a reference member may refer to an external object that is not a subobject
+     * @param this 
+     * @param name 
+     */
+    public getMemberObject(this: CPPObject<CompleteClassType>, name: string) {
+        return (<ClassObjectData<CompleteClassType>>this.data).getMemberObject(name);
+    }
 
-    // // Only allowed if receiver matches CPPObject<ClassType>
-    // public getBaseSubobject(this: CPPObject<ClassType>) : BaseSubobject | undefined {
-    //     return (<ClassObjectData<ClassType>>this.data).getBaseSubobject();
-    // }
+    // Only allowed if receiver matches CPPObject<CompleteClassType>
+    public bindMemberReference(this: CPPObject<CompleteClassType>, name: string, obj: CPPObject<CompleteObjectType>) {
+        return (<ClassObjectData<CompleteClassType>>this.data).bindMemberReference(name, obj);
+    }
+
+    // Only allowed if receiver matches CPPObject<CompleteClassType>
+    public getBaseSubobject(this: CPPObject<CompleteClassType>) {
+        return (<ClassObjectData<CompleteClassType>>this.data).getBaseSubobject();
+    }
 
     public subobjectValueWritten() {
         this.observable.send("valueWritten");
@@ -583,7 +610,7 @@ export abstract class CPPObject<T extends ObjectType = ObjectType> {
 //     return new CPPObject(entity.type, memory, address, new EntityObjectDescriptor(entity));
 // }
 
-export class AutoObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class AutoObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public readonly name: string;
 
@@ -614,7 +641,7 @@ export class MainReturnObject extends CPPObject<Int> {
 
 }
 
-export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class StaticObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public readonly name: string;
 
@@ -629,7 +656,7 @@ export class StaticObject<T extends ObjectType = ObjectType> extends CPPObject<T
 
 }
 
-export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class DynamicObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public describe(): ObjectDescription {
         return { name: `[dynamic @${this.address}]`, message: `the heap object at 0x${this.address}` };
@@ -637,12 +664,12 @@ export class DynamicObject<T extends ObjectType = ObjectType> extends CPPObject<
 
 }
 
-export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class InvalidObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public constructor(type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.setValidity(false);
-        this.kill()
+        this.kill();
     }
 
     public describe(): ObjectDescription {
@@ -650,7 +677,7 @@ export class InvalidObject<T extends ObjectType = ObjectType> extends CPPObject<
     }
 }
 
-export class ThisObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class ThisObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public describe(): ObjectDescription {
         return { name: "this", message: "the this pointer" };
@@ -670,11 +697,11 @@ export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
 
 }
 
-abstract class Subobject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+abstract class Subobject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
-    public readonly containingObject: CPPObject<BoundedArrayType | ClassType>;
+    public readonly containingObject: CPPObject<BoundedArrayType | CompleteClassType>;
 
-    public constructor(containingObject: CPPObject<BoundedArrayType | ClassType>, type: T, memory: Memory, address: number) {
+    public constructor(containingObject: CPPObject<BoundedArrayType | CompleteClassType>, type: T, memory: Memory, address: number) {
         super(type, memory, address);
         this.containingObject = containingObject;
     }
@@ -722,26 +749,26 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
 
 }
 
-export class BaseSubobject extends Subobject<ClassType> {
+export class BaseSubobject extends Subobject<CompleteClassType> {
 
-    public readonly containingObject!: CPPObject<ClassType>; // Handled by parent (TODO: is this a good idea?)
+    public readonly containingObject!: CPPObject<CompleteClassType>; // Handled by parent (TODO: is this a good idea?)
 
-    public constructor(containingObject: CPPObject<ClassType>, type: ClassType, memory: Memory, address: number) {
+    public constructor(containingObject: CPPObject<CompleteClassType>, type: CompleteClassType, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
     }
 
     public describe(): ObjectDescription {
         let contDesc = this.containingObject.describe();
-        return { name: `[${this.type.name} base of ${contDesc.name}]`, message: "the " + this.type.name + " base of " + contDesc.message };
+        return { name: `[${this.type.className} base of ${contDesc.name}]`, message: "the " + this.type.className + " base of " + contDesc.message };
     }
 }
 
-export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobject<T> {
+export class MemberSubobject<T extends CompleteObjectType = CompleteObjectType> extends Subobject<T> {
 
-    public readonly containingObject!: CPPObject<ClassType>; // Handled by parent (TODO: is this a good idea?)
+    public readonly containingObject!: CPPObject<CompleteClassType>; // Handled by parent (TODO: is this a good idea?)
     public readonly name: string;
 
-    public constructor(containingObject: CPPObject<ClassType>, type: T, name: string, memory: Memory, address: number) {
+    public constructor(containingObject: CPPObject<CompleteClassType>, type: T, name: string, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
         this.name = name;
     }
@@ -759,7 +786,7 @@ export class MemberSubobject<T extends ObjectType = ObjectType> extends Subobjec
 
 // export type TemporaryObjectType<T extends ObjectType> = T extends ObjectType ? TemporaryObject<T> : never;
 
-export class TemporaryObject<T extends ObjectType = ObjectType> extends CPPObject<T> {
+export class TemporaryObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     private description: string;
 

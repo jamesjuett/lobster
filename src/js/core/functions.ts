@@ -1,4 +1,4 @@
-import { FunctionType, ClassType, VoidType, NoRefType, ObjectType, ReferenceType, AtomicType } from "./types";
+import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "./types";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -8,37 +8,44 @@ import { RuntimeBlock, createRuntimeStatement } from "./statements";
 import { Simulation } from "./Simulation";
 import { Mutable, assert } from "../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
+import { RuntimeCtorInitializer } from "./initializers";
 
 enum RuntimeFunctionIndices {
 
 }
 
-export class RuntimeFunction<T extends FunctionType = FunctionType> extends RuntimeConstruct<CompiledFunctionDefinition<T>> {
+export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends RuntimeConstruct<CompiledFunctionDefinition<T>> {
 
     public readonly caller?: RuntimeFunctionCall;
     // public readonly containingRuntimeFunction: this;
 
     public readonly stackFrame?: MemoryFrame;
 
-    public readonly receiver?: CPPObject<ClassType>;
+    public readonly receiver?: CPPObject<CompleteClassType>;
 
     /**
      * The object returned by the function, either an original returned-by-reference or a temporary
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?: T extends FunctionType<VoidType> ? undefined : CPPObject<NoRefType<Exclude<T["returnType"], VoidType>>>;
+    public readonly returnObject?:
+        T extends FunctionType<VoidType> ? undefined :
+        T extends FunctionType<ReferenceType<CompleteObjectType>> ? CPPObject<ReferredType<T["returnType"]>> :
+        T extends (FunctionType<AtomicType> | FunctionType<CompleteClassType>) ? CPPObject<T["returnType"]> :
+        never; // includese FunctionType<ReferenceType<IncompleteObjectType>> - that should never be created at runtime
 
     public readonly hasControl: boolean = false;
 
+    public readonly ctorInitializer?: RuntimeCtorInitializer;
     public readonly body: RuntimeBlock;
 
-    public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<ClassType>) {
+    public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<CompleteClassType>) {
         super(model, "function", caller || sim);
         if (caller) { this.caller = caller };
         this.receiver = receiver;
         // A function is its own containing function context
-        // this.containingRuntimeFunction = this;
+        this.setContainingRuntimeFunction(this);
+        this.ctorInitializer = this.model.ctorInitializer?.createRuntimeCtorInitializer(this);
         this.body = createRuntimeStatement(this.model.body, this);
     }
 
@@ -62,16 +69,18 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends FunctionType<ObjectType | ReferenceType>>(this: RuntimeFunction<T>, obj: CPPObject<NoRefType<T["returnType"]>>) {
+    public setReturnObject<T extends AtomicType | CompleteClassType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>) : void;
+    public setReturnObject<T extends ReferenceType<CompleteObjectType>>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<ReferredType<T>>) : void;
+    public setReturnObject(obj: CPPObject) {
         // This should only be used once
         assert(!this.returnObject);
-        (<Mutable<RuntimeFunction<FunctionType<ObjectType>> | RuntimeFunction<FunctionType<ReferenceType>>>>this).returnObject = obj;
+        (<Mutable<this>>this).returnObject = <this["returnObject"]>obj;
 
     }
 
     public getParameterObject(num: number) {
         let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
+        assert(param?.variableKind === "object", "Can't look up an object for a reference parameter.");
         assert(this.stackFrame);
         return this.stackFrame.localObjectLookup(param);
     }
@@ -128,15 +137,15 @@ export class RuntimeFunction<T extends FunctionType = FunctionType> extends Runt
     // },
 
     protected stepForwardImpl(): void {
-
+            this.popStackFrame();
+            this.startCleanup();
     }
 
     protected upNextImpl(): void {
-        if (this.body.isDone) {
-            this.popStackFrame();
-            this.startCleanup();
+        if (this.ctorInitializer && !this.ctorInitializer.isDone) {
+            this.sim.push(this.ctorInitializer);
         }
-        else {
+        else if (!this.body.isDone) {
             this.sim.push(this.body);
         }
     }

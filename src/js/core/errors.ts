@@ -1,11 +1,11 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, ObjectType, ClassType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
-import { IdentifierExpression } from "./expressions";
+import { IdentifierExpression, PointerDifferenceExpression } from "./expressions";
 
 export enum NoteKind {
     ERROR = "error",
@@ -231,8 +231,11 @@ export const CPPError = {
         prev_def: function (construct: TranslationUnitConstruct, name: string, prev: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "class_def.prev_def", name + " cannot be defined more than once. Note that Lobster just puts all class names (i.e. types) in one global sort of namespace, so you can't ever have two classes of the same name.");
         },
-        base_class_type: function (construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_type", "I cannot find a suitable class called \"" + name + "\" to use as a base.");
+        base_class_type: function (construct: BaseSpecifier) {
+            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_type", "I cannot find a suitable class called \"" + construct.name + "\" to use as a base.");
+        },
+        base_class_incomplete: function (construct: BaseSpecifier) {
+            return new CompilerNote(construct, NoteKind.ERROR, "class_def.base_class_incomplete", `The class ${construct.name} is incomplete at this point and may not be used as a base class.`);
         },
         big_three: function (construct: TranslationUnitConstruct, bigThreeYes: readonly string[], bigThreeNo: readonly string[]) {
             var yStr = bigThreeYes.join(" and ");
@@ -255,25 +258,40 @@ export const CPPError = {
     declaration: {
         ctor: {
             copy: {
-                pass_by_value: function (construct: TranslationUnitConstruct, type: ObjectType, name: string) {
+                pass_by_value: function (construct: TranslationUnitConstruct, type: CompleteObjectType, name: string) {
                     var constRef = new ReferenceType(type.cvQualified(true));
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.copy.pass_by_value", "A copy constructor cannot take its parameter by value. Because pass-by-value itself uses the copy constructor, this would cause infinite recursion if it were allowed. Try passing by reference-to-const instead! (i.e. " + constRef.typeString(false, name, false) + ")");
                 }
             },
             init: {
-                no_such_member: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.no_such_member", "Class " + classType.toString() + " has no member named " + name + ".");
+                constructor_only: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.constructor_only", "Constructor-initializer syntax may only be used with constructors. (This function is not a constructor.)");
                 },
-                improper_member: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_member", "A member initializer can only be used for non-static data members. There is no such member named " + name + " in the " + classType.className + " class.");
+                improper_name: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.improper_name", "A member initializer can only be used for non-static data members or base classes. There is no such member or base class named " + name + " in the " + classType.className + " class.");
                 },
-                delegating_only: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.delegating_only", "If a constructor's initializer list delegates to another constructor from the same class, that must be the only thing it does.");
+                delegate_only: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.delegating_only", "This constructor-initializer delegates to another constructor from the same class. In this case, no other base or member initializers are allowed, because that would mean those members get initialized twice - once in the delegated-to constructor and again here.");
                 },
-                multiple_base_inits: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
+                multiple_delegates: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_delegates", "A constructor may not delegate to more than one other constructor.");
+                },
+                multiple_base_inits: function (construct: TranslationUnitConstruct) {
                     return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_base_inits", "A constructor's initializer list cannot specify more than one base class constructor to use.");
+                },
+                multiple_member_inits: function (construct: TranslationUnitConstruct) {
+                    return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.init.multiple_member_inits", "A constructor's initializer list cannot specify more than one initializer for each member.");
                 }
-            }
+            },
+            return_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.return_type_prohibited", "A constructor is not allowed to specify a return type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.const_prohibited", "A constructor is not allowed to have a const specification.");
+            },
+            previous_declaration: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
+            },
         },
         dtor: {
             no_destructor_auto: function (construct: TranslationUnitConstruct, entity: LocalObjectEntity) {
@@ -287,6 +305,9 @@ export const CPPError = {
             // },
             no_destructor_temporary: function (construct: TranslationUnitConstruct, entity: TemporaryObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            },
+            return_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.return_type_prohibited", "A destructor is not allowed to specify a return type.");
             }
             // TODO Add warning for non-virtual destructor if derived classes exist
         },
@@ -300,7 +321,10 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_def", name + " cannot be defined more than once in this scope.");
         },
         prev_local: function (construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_local", `This declaration of a local variable ${name} conflicts with an earlier declaration of ${name} in the same scope.`);
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_local", `This re-declaration of a local variable ${name} is not allowed - ${name} was already declared earlier in the same scope.`);
+        },
+        prev_member: function (construct: TranslationUnitConstruct, name: string) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_member", `This re-declaration of a member variable ${name} is not allowed - ${name} was already declared as a member earlier.`);
         },
         // prev_main : function(construct: TranslationUnitConstruct, name, prev) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.prev_main", name + " cannot be defined more than once in this scope.");
@@ -355,7 +379,7 @@ export const CPPError = {
             }
         },
         classes: {
-            multiple_def: function (construct: ClassDefinition, prev: ClassDefinition) {
+            multiple_def: function (construct: ClassDefinition, prev: ClassDefinition) : CompilerNote {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.classes.multiple_def", `The class ${construct.name} cannot be defined more than once.`);
             },
             storage_prohibited: function (construct: StorageSpecifier) {
@@ -421,18 +445,18 @@ export const CPPError = {
             list_length: function (construct: TranslationUnitConstruct, length: number) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_length", "Length of initializer list must match length of array (" + length + ").");
             },
-            matching_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<ClassType>, argTypes: readonly Type[]) {
+            matching_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>, argTypes: readonly Type[]) {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.matching_constructor", "Trying to initialize " + (desc.name || desc.message) + ", but unable to find a matching constructor definition for the " + entity.type.className + " class using the given arguments (" + argTypes.join(", ") + ").");
             },
-            no_default_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<ClassType>) {
+            no_default_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>) {
                 var desc = entity.describe();
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
             },
             referencePrvalueConst: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
             },
-            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: ObjectType) {
+            referenceType: function (construct: TranslationUnitConstruct, from: Type, to: ReferenceType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
             referenceBind: function (construct: TranslationUnitConstruct) {
@@ -504,11 +528,17 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.friend.virtual_prohibited", "A virtual function may not be declared as a friend.");
             }
         },
+        missing_type_specifier: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.missing_type_specifier", "This declaration appears to be missing a type specifier.");
+        },
         unknown_type: function (construct: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.unknown_type", "Unable to determine the type declared here.");
         },
         void_prohibited: function (construct: VoidDeclaration) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.void_prohibited", `The variable ${construct.declarator.name || "here"} may not be declared as type void.`);
+        },
+        incomplete_type_definition_prohibited: function (construct: IncompleteTypeVariableDefinition) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.incomplete_type_definition_prohibited", `Because the type ${construct.type} is incomplete, defining a variable with that type is not allowed.`);
         },
         virtual_prohibited: function (construct: TranslationUnitConstruct) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.virtual_prohibited", "The virtual keyword may only be used in member function declarations.");
@@ -518,6 +548,11 @@ export const CPPError = {
         },
         symbol_mismatch: function (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.symbol_mismatch", `Cannot redeclare ${newEntity.name} as a different kind of symbol.`);
+        },
+        member : {
+            incomplete_type_declaration_prohibited: function (construct: IncompleteTypeMemberVariableDeclaration) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.member.incomplete_type_declaration_prohibited", `Because the type ${construct.type} is incomplete, declaring a member variable with that type is not allowed.`);
+            },
         }
     },
     type: {
@@ -574,6 +609,16 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binary.arithmetic_common_type", "Performing the usual arithmetic conversions yielded operands of types (" + left.type + ", " + right.type + ") for operator " + operator + ", but a common arithmetic type could not be found.");
             }
         },
+        pointer_difference: {
+            incomplete_pointed_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_difference.incomplete_pointed_type", `Pointer subtraction is not allowed in this case, because the pointers point to an incomplete type, ${type}. (The size of objects of an incomplete type is unknown, which prevents the subtraction.)`);
+            }
+        },
+        pointer_offset: {
+            incomplete_pointed_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_offset.incomplete_pointed_type", `Computing a pointer offset is not allowed in this case, because the pointer points to an incomplete type, ${type}. (The size of objects of an incomplete type is unknown, which prevents the subtraction.)`);
+            }
+        },
         pointer_comparison: {
             same_pointer_type_required: function (construct: TranslationUnitConstruct, left: TypedExpression, right: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_comparison.same_pointer_type_requried", `Comparing the addresses of pointers to different types is prohibited (${left.type} and ${right.type}).`);
@@ -591,7 +636,7 @@ export const CPPError = {
             // }
         },
         delete: {
-            no_destructor: function (construct: TranslationUnitConstruct, type: ClassType) {
+            no_destructor: function (construct: TranslationUnitConstruct, type: CompleteClassType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.no_destructor", "I can't find a destructor for the " + type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
             },
             pointer: function (construct: TranslationUnitConstruct, type: Type) {
@@ -613,30 +658,45 @@ export const CPPError = {
             invalid_operand_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_operand_type", "Type " + type + " cannot be subscripted.");
             },
+            incomplete_element_type: function (construct: TranslationUnitConstruct, type: PointerType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_operand_type", "This subscript operation is not allowed, becasue the element type of " + type.ptrTo + " is incomplete. Since an incomplete type does not have a known size, the pointer arithmetic necessary for the subscript cannot be done.");
+            },
             invalid_offset_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.subscript.invalid_offset_type", "Invalid type (" + type + ") for array subscript offset.");
             }
         },
         dot: {
-            class_type: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_type", "The dot operator can only be used to access members of an operand with class type.");
+            class_type_only: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_type_only", "The dot operator can only be used to access members of an operand with class type.");
             },
-            no_such_member: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.no_such_member", "Operand of type " + classType + " has no member named " + name + ".");
+            incomplete_class_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.incomplete_class_type_prohibited", "The dot operator may not be used to access members from an incomplete type. (Since it's incomplete, the compiler doesn't know what members it has yet!)");
             },
-            memberLookup: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.memberLookup", "Member lookup for " + name + " in class " + classType + " failed...");
+            no_such_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.no_such_member", "The type " + classType + " has no member named " + name + ".");
+            },
+            ambiguous_member: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.ambiguous", "The member \"" + name + "\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which member this refers to.)");
+            },
+            class_entity_found: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.dot.class_entity_found", `The name "${name}" refers to a type member in this context. The type itself cannot be used in an expression.`);
             }
         },
         arrow: {
             class_pointer_type: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.class_pointer_type", "The arrow operator can only be used to access members of an operand with pointer-to-class type.");
             },
-            no_such_member: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.no_such_member", "Operand of type " + classType + " has no member named " + name + ".");
+            no_such_member: function (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.no_such_member", "The type " + classType + " has no member named " + name + ".");
             },
-            memberLookup: function (construct: TranslationUnitConstruct, classType: ClassType, name: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.memberLookup", "Member lookup for " + name + " in class " + classType + " failed...");
+            ambiguous_member: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.ambiguous", "The member \"" + name + "\" is ambiguous. (There is not enough contextual type information for name lookup to figure out which member this refers to.)");
+            },
+            class_entity_found: function (construct: TranslationUnitConstruct, name: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.class_entity_found", `The name "${name}" refers to a type member in this context. The type itself cannot be used in an expression.`);
+            },
+            incomplete_class_type_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.arrow.incomplete_class_type_prohibited", "The arrow operator may not be used to access members from an incomplete type. (Since it's incomplete, the compiler doesn't know what members it has yet!)");
             }
         },
         invalid_operand: function (construct: TranslationUnitConstruct, operator: string, operand: TypedExpression) {
@@ -697,7 +757,7 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.numParams", "Improper number of arguments for this function call.");
             },
             invalid_operand_expression: function (construct: TranslationUnitConstruct, operand: Expression) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.invalid_operand_expression", "The expression " + operand + " cannot be called as a function.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.invalid_operand_expression", "This expression cannot be called as a function.");
             },
             operand: function (construct: TranslationUnitConstruct, operand: CPPEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.operand", "Operand of type " + operand.type + " cannot be called as a function.");
@@ -717,6 +777,9 @@ export const CPPError = {
                         return pt.toString();
                     }).join(", ")
                     + ") for the class type " + type + " has not been defined.");
+            },
+            incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
             }
             //,
             //tail_recursive : function(construct: TranslationUnitConstruct, reason) {
@@ -755,7 +818,7 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "iden.alt_op", "\"" + name + "\" is a C++ operator and cannot be used as an identifier.");
         },
         not_found: function (construct: TranslationUnitConstruct, name: string) {
-            return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find a variable or function called "${name}" in this scope.`);
+            return new CompilerNote(construct, NoteKind.ERROR, "iden.not_found", `Name lookup was unable to find "${name}" in this scope.`);
         }
     },
     param: {
@@ -803,6 +866,9 @@ export const CPPError = {
             },
             exprVoid: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.exprVoid", "A return statement with an expression of non-void type is only allowed in a non-void function.");
+            },
+            incomplete_type: function (construct: TranslationUnitConstruct, type: IncompleteObjectType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.incomplete_type", `A function may not return (by-value) an object of incomplete type. (${type} is an incomplete type)`);
             },
             convert: function (construct: TranslationUnitConstruct, from: Type, to: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "stmt.returnStatement.convert", "Cannot convert " + from + " to return type of " + to + " in return statement.");

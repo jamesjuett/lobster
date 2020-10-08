@@ -599,6 +599,248 @@ int main() {
           new NoBadRuntimeEventsVerifier(true)
       ]
   );
+
+  
+  
+// ---------- Basic Class Test ----------
+
+new SingleTranslationUnitTest(
+"Basic Class Test",
+`class A {
+  public:
+    
+    int x;
+    double &y;
+    int *z;
+    
+    A(int x, double &y, int *z)
+     : x(x), y(y), z(z) {
+      
+    }
+  
+  	int func(int mult) {
+      return x * mult;
+    }
+  
+    double &getY() {
+      return y;
+    }
+  };
+  
+  int main() {
+    int x = 1;
+    double y = 2;
+    int z = 3;
+    A a(x, y, &z);
+    
+    assert(a.x == x);
+    assert(x == 1);
+    assert(&a.x != &x);
+    
+    assert(a.y == y);
+    assert(y == 2);
+    assert(&a.y == &y);
+    a.y = 5;
+    assert(a.y == 5);
+    assert(y == 5);
+    assert(&a.y == &y);
+    
+    assert(*a.z == z);
+    assert(z == 3);
+    *a.z = 7;
+    assert(*a.z == 7);
+    assert(z == 7);
+    
+    assert(a.func(3) == 3);
+    assert(a.getY() == 5.0);
+    assert(&a.getY() == &a.y);
+    
+    A *ptr = &a;
+    x = 1;
+    y = 2;
+    a.x = 1;
+    a.y = 2;
+    *a.z = 3;
+    
+    assert(ptr->x == a.x);
+    assert(ptr->y == a.y);
+    assert(ptr->z == a.z);
+    assert(&ptr->x == &a.x);
+    assert(&ptr->y == &a.y);
+    assert(&ptr->z == &a.z);
+  	
+    assert(ptr->x == x);
+    assert(x == 1);
+    assert(&ptr->x != &x);
+    
+    assert(ptr->y == y);
+    assert(y == 2);
+    assert(&ptr->y == &y);
+    ptr->y = 5;
+    assert(ptr->y == 5);
+    assert(y == 5);
+    assert(&ptr->y == &y);
+    
+    assert(*ptr->z == z);
+    assert(z == 3);
+    *ptr->z = 7;
+    assert(*ptr->z == 7);
+    assert(z == 7);
+    
+    assert(ptr->func(3) == 3);
+    assert(ptr->getY() == 5.0);
+    assert(&ptr->getY() == &a.y);
+  }`,
+[
+    new NoErrorsNoWarningsVerifier(),
+    new NoBadRuntimeEventsVerifier(true)
+]
+);
+
+
+// ---------- Basic Class Composition Test ----------
+
+new SingleTranslationUnitTest(
+  "Basic Class Composition Test",
+  `class Coffee {
+    public:  
+      int creams;
+      int sugars;
+      bool isDecaf;
+    
+      // Regular coffee with creams/sugars
+      Coffee(int creams, int sugars) : creams(creams), sugars(sugars), isDecaf(false) {}
+    
+      // This ctor can specify regular/decaf
+      Coffee(int creams, int sugars,
+             bool isDecaf) : creams(creams), sugars(sugars), isDecaf(isDecaf) {}
+    
+      void addCream() {
+        creams = creams + 1;
+      }
+    
+      void addSugar() {
+        sugars = sugars + 1;
+      }
+      
+    };
+    
+    class Triangle {
+    public:
+      int a, b, c;
+    
+      Triangle()
+        : a(1), b(1), c(1) { }
+    
+      Triangle(int side)
+        : a(side), b(side), c(side) { }
+    
+      Triangle(int a_in, int b_in, int c_in)
+        : a(a_in), b(b_in), c(c_in) { }
+    };
+    
+    class Professor {
+    public:
+      int id;
+      Coffee favCoffee;
+      Triangle favTriangle;
+    
+      Professor(int id)
+       : id(id), favCoffee(0, 0, true) {
+      }
+      
+      Professor()
+        : id(2), favCoffee(2, 2), favTriangle(3, 4, 5) { }
+      
+    };
+    
+    
+    int main() {
+      Professor prof1(1);
+      assert(prof1.id == 1);
+      assert(prof1.favCoffee.creams == 0);
+      assert(prof1.favCoffee.sugars == 0);
+      assert(prof1.favCoffee.isDecaf == true);
+      assert(prof1.favTriangle.a == 1);
+      assert(prof1.favTriangle.b == 1);
+      assert(prof1.favTriangle.c == 1);
+      
+      Professor prof2;
+      assert(prof2.id == 2);
+      assert(prof2.favCoffee.creams == 2);
+      assert(prof2.favCoffee.sugars == 2);
+      assert(prof2.favCoffee.isDecaf == false);
+      assert(prof2.favTriangle.a == 3);
+      assert(prof2.favTriangle.b == 4);
+      assert(prof2.favTriangle.c == 5);
+      
+      assert(&prof1 != &prof2);
+      assert(&prof1.favCoffee != &prof2.favCoffee);
+      assert(&prof1.favTriangle != &prof2.favTriangle);
+      
+    }`,
+  [
+      new NoErrorsNoWarningsVerifier(),
+      new NoBadRuntimeEventsVerifier(true)
+  ]
+  );
+
+
+
+    // ---------- Constructor Declaration Test ----------
+    
+    new SingleTranslationUnitTest(
+      "Constructor Declaration Test",
+`class A {
+public:
+  A();
+  A(int);
+  A A(int, double);
+  B(int);
+  int A(int, double);
+  void A();
+  B(int);
+  A();
+};
+
+int main() {
+  
+}`,
+      [
+          new NoteVerifier([
+            {line: 5, id: "declaration.ctor.return_type_prohibited"},
+            {line: 6, id: "declaration.missing_type_specifier"},
+            {line: 7, id: "declaration.ctor.return_type_prohibited"},
+            {line: 8, id: "declaration.ctor.return_type_prohibited"},
+            {line: 8, id: "declaration.ctor.previous_declaration"},
+            {line: 9, id: "declaration.missing_type_specifier"},
+            {line: 10, id: "declaration.ctor.previous_declaration"},
+          ])
+      ]
+    );
+
+        // ---------- Basic Default Ctor Test ----------
+    
+new SingleTranslationUnitTest(
+"Basic Default Constructor Test",
+`class A {
+  private:
+    int a;
+    int b;
+  public:
+    A() {};
+  };
+  
+  int main() {
+    int x = 2;
+    A a;
+    int y = 2;
+  }`,
+[
+    new NoErrorsNoWarningsVerifier(),
+    new NoBadRuntimeEventsVerifier(true)
+]
+);
     
       // ---------- Basic SimulationRunner Test ----------
 
