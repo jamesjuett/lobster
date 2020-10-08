@@ -11795,7 +11795,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         return {
           construct_type: exprType,
           operator: right[0],
-          left: composeBinaryOp(first, rest, assoc, exprType),
+          left: track(composeBinaryOp(first, rest, assoc, exprType), location(), text()),
           right: right[1],
           associativity: assoc
         }
@@ -11806,7 +11806,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           construct_type: exprType,
           operator: left[0],
           left: first,
-          right: composeBinaryOp(left[1], rest, assoc, exprType),
+          right: track(composeBinaryOp(left[1], rest, assoc, exprType), location(), text()),
           associativity: assoc
         }
       }
