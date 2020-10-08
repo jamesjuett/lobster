@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="bootstrap/js/bootstrap.js"></script>
+
+    <title>Lobster</title>
+    <meta name="description" content="" />
+    <meta name="author" content="James Juett" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.css">
+    <link rel="stylesheet" href="css/buttons.css">
+    <link rel="stylesheet" href="font-awesome-4.7.0/css/font-awesome.min.css">
+    <!-- <link rel="stylesheet" href="css/codemirror.css">
+    <link rel="stylesheet" href="css/monokai.css"> -->
+    <!-- <link rel="stylesheet" href="css/lobster.css"> -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/code.css">
+    <link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
+
+    <script src = "lobster/js/exercises.bundle.js"></script>
+
+</head>
+
+<body>
+
+
+<div id="lobster1" class="container-fluid">
+    <div>
+        <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
+            <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
+                <div style="display: inline-block">
+                    <div class = "compilation-status-outlet" >
+                    </div>
+                </div>
+            </div>
+
+            <li><a data-toggle="tab" href="#compilationPane">Compilation</a></li>
+            <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
+            <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
+
+        </ul>
+
+        <div class="tab-content">
+
+            <div id="sourcePane" class="tab-pane fade active in">
+                <ul class="project-files nav nav-pills"></ul>
+
+                <div style = "height: 22px; padding: 2px; background-color: lightgray;">
+                    <button class = "runButton" style="display: inline-block">Simulate</button>
+                </div>
+                <ul class = "semanticProblems" style = "width: 100%; max-height: 100px; overflow-y: auto; box-sizing: border-box;"></ul>
+                <div class="codeMirrorEditor" style = "position: relative; height:400px; background-color: #272822">
+                    <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
+                    <!--<div style="height: 400px;"></div>-->
+                </div>
+
+                <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
+                    <div class="annotationMessages">
+                        <div style="height: 100px; margin-left: 5px; float: right;">
+                            <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
+                            <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
+                            <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
+                        </div>
+                        <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
+                    </div>
+                </div>
+            </div>
+            <div id="simPane" class="tab-pane fade">
+                <div style="margin-bottom: 5px;">
+                    <button class = "restart">Restart</button>
+                    <!--<span style = "display: inline-block; width: 4ch"></span>-->
+                    <input type="text" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
+                    <button class = "stepForward">Step Forward</button>
+                    <button class = "stepOver">Step Over</button>
+                    <button class = "stepOut">Step Out</button>
+                    <button class = "runToEnd">Run</button>
+                    <button class = "pause">Pause</button>
+                    <button class = "skipToEnd">Skip to End (FAST)</button>
+
+                    <!--Show Functions<input type="checkbox" class="stepInto"/>-->
+                    <button class = "stepBackward">Step Backward</button>
+                    <input type="text" style="width: 4ch" class="stepBackwardNum" value="1" />
+                    <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
+                </div>
+                <div style="position: relative">
+                    <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
+                        Thinking...
+                        <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
+                    </div>
+                    <div class="alerts-container">
+                        <div class="alerts">
+                            <div style="display:inline-block; padding: 5px">
+                                <div style="height: 100px; margin-left: 5px; float: right;">
+                                    <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
+                                    <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
+                                </div>
+                                <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 25%; vertical-align: top;">
+                            <div style="position: relative;">
+                                <div style = "text-align: center">Console</div>
+                                <div style="position: relative; min-height: 80px">
+                                    <div class="console" style="min-height: 20px; resize: both; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(255,255,255,0.7);"></div>
+                                </div>
+                                <div style = "text-align: center">Memory</div>
+                                <div style="overflow-y: auto; overflow-x: hidden;"><div class="memory readOnly"></div></div>
+
+                            </div>
+                        </td>
+                        <td style="vertical-align: top;">
+                            <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; position: relative; white-space: nowrap;"> </div>
+                        </td>
+                    </tr>
+                </table>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+</body>
+</html>
