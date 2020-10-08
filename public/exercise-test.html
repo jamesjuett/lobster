@@ -48,6 +48,34 @@
         </ul>
 
         <div class="tab-content">
+            <div id="compilationPane" class="tab-pane fade">
+                <div>
+                    <h3>Translation Units</h3>
+                    <p>A program may be composed of many different translation units, one for each source file
+                        that needs to be compiled into the executable program. Generally, you want a translation
+                        unit for each .cpp file, and these are the files you would list out in a compile command.
+                        The files being used for this purpose are highlighted below. Note that files may be
+                        indirectly used if they are #included in other translation units, but not shown here.
+                    </p>
+                    <p style="font-weight: bold;">
+                        Click files below to toggle whether they are being used to create a translation unit.
+                    </p>
+                    <ul class="translation-units-list list-inline">
+                    </ul>
+                </div>
+                <div>
+                    <h3>Compilation Errors</h3>
+                    <p>These errors were based on your last compilation.
+                    </p>
+                    <ul class="compilation-notes-list">
+                    </ul>
+                </div>
+                <div>
+                    Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
+
+                    The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.
+                </div>
+            </div>
 
             <div id="sourcePane" class="tab-pane fade active in">
                 <ul class="project-files nav nav-pills"></ul>

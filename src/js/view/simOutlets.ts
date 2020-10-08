@@ -755,6 +755,7 @@ export class SimpleExerciseLobsterOutlet {
             $("#simulateTab").tab("show");
         });
 
+        new CompilationOutlet(element.find("#compilationPane"), this.projectEditor);
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
     }
 
