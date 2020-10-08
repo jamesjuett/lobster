@@ -1,17 +1,11 @@
-import { DefaultLobsterOutlet } from "./view/simOutlets";
+import { DefaultLobsterOutlet, SimpleExerciseLobsterOutlet } from "./view/simOutlets";
 
 $(() => {
 
     let element = $("#lobster1");
 
-    let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
-
-    // let sourcePane = element.find("#sourcePane");
-    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"));
+    let lobsterOutlet = new SimpleExerciseLobsterOutlet($("#lobster1"));
     let projectEditor = lobsterOutlet.projectEditor;
-
-    // let errorStatus = ValueEntity.instance();
-
 
     projectEditor.setProject("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
 
