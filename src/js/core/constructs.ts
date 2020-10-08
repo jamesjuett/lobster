@@ -187,12 +187,16 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     private setAST(ast: ASTType) {
         asMutable(this).ast = ast;
-        if (!ast.source) {
-            console.log("WARNING: AST source is undefined. A track() call is likely missing in the grammar.");
-            // assertFalse("AST source is undefined. A track() call is likely missing in the grammar.");
+
+        // assert(ast.source, "AST source is undefined. A track() call is likely missing in the grammar.");
+
+        if (ast.source) {
+            if (this.context.translationUnit) {
+                asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+            }
         }
-        if (this.context.translationUnit) {
-            asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+        else {
+            console.log("WARNING: AST source is undefined. A track() call is likely missing in the grammar.");
         }
     }
 
