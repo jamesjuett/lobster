@@ -1,14 +1,15 @@
 import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
-import { DeclarationASTNode, FunctionDefinition, createSimpleDeclarationFromAST, createDeclarationFromAST, VariableDefinition, ClassDefinition, AnalyticSimpleDeclaration, AnalyticCompiledDeclaration } from "./declarations";
+import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool } from "./types";
+import { VoidType, ReferenceType, Bool, isType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
-import { Mutable, asMutable } from "../util/util";
+import { Mutable, asMutable, assertNever } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
+import { Predicates } from "./predicates";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -240,19 +241,19 @@ export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement
 
 export interface DeclarationStatementASTNode extends ASTNode {
     readonly construct_type: "declaration_statement";
-    readonly declaration: DeclarationASTNode;
+    readonly declaration: LocalDeclarationASTNode;
 }
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
     public readonly construct_type = "declaration_statement";
 
-    public readonly declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
+    public readonly declarations: readonly LocalDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
     public static createFromAST(ast: DeclarationStatementASTNode, context: BlockContext) {
-        return new DeclarationStatement(context, ast, createDeclarationFromAST(ast.declaration, context));
+        return new DeclarationStatement(context, ast, createLocalDeclarationFromAST(ast.declaration, context));
     }
 
-    public constructor(context: BlockContext, ast: DeclarationStatementASTNode, declarations: readonly AnalyticSimpleDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
+    public constructor(context: BlockContext, ast: DeclarationStatementASTNode, declarations: readonly LocalDeclaration[] | FunctionDefinition | ClassDefinition | InvalidConstruct) {
         super(context, ast);
 
         if (declarations instanceof InvalidConstruct) {
@@ -289,7 +290,7 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 export interface CompiledDeclarationStatement extends DeclarationStatement, SuccessfullyCompiled {
 
     // narrows to compiled version and rules out a FunctionDefinition, ClassDefinition, or InvalidConstruct
-    readonly declarations: readonly AnalyticCompiledDeclaration<AnalyticSimpleDeclaration>[];
+    readonly declarations: readonly AnalyticCompiledDeclaration<LocalSimpleDeclaration>[];
 }
 
 export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclarationStatement> {
@@ -377,11 +378,20 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
             return;
         }
 
-        if (returnType instanceof ReferenceType) {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType.refTo), [expression], "copy");
+        if (returnType.isIncompleteObjectType()) {
+            this.addNote(CPPError.stmt.returnStatement.incomplete_type(this, returnType));
+            this.attach(this.expression = expression);
+            return;
+        }
+
+        if (returnType.isReferenceType()) {
+            this.returnInitializer = DirectInitializer.create(context, new ReturnByReferenceEntity(returnType), [expression], "copy");
+        }
+        else if (returnType.isCompleteObjectType()) {
+            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "copy");
         }
         else {
-            this.returnInitializer = DirectInitializer.create(context, new ReturnObjectEntity(returnType), [expression], "copy");
+            assertNever(returnType);
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.
@@ -446,9 +456,9 @@ export interface BlockASTNode extends ASTNode {
     readonly statements: readonly StatementASTNode[];
 }
 
-function createBlockContext(context: FunctionContext): BlockContext {
-    return Object.assign({}, context, {
-        contextualScope: new BlockScope(context.translationUnit, context.contextualScope)
+function createBlockContext(parentContext: FunctionContext): BlockContext {
+    return Object.assign({}, parentContext, {
+        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope)
     });
 }
 
@@ -648,7 +658,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
             this.attach(this.otherwise = otherwise);
         }
 
-        if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+        if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
             this.addNote(CPPError.stmt.if.condition_bool(this, this.condition));
         }
     }
@@ -777,7 +787,7 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
 
         this.attach(this.body = body);
 
-        if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+        if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
             this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
         }
     }
@@ -916,7 +926,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // didn't have any type, we don't want error spam, so we won't
       // say anything. (Any non-well-typed exppression will already
       // have an error of its own.) 
-      if (this.condition.isWellTyped() && !this.condition.isTyped(Bool)) {
+      if (this.condition.isWellTyped() && !Predicates.isTypedExpression(this.condition, isType(Bool))) {
         this.addNote(CPPError.stmt.iteration.condition_bool(this, this.condition));
       }
   

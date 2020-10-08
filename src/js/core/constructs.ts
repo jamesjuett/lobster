@@ -1,13 +1,14 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity } from "./entities";
+import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { ObjectType, ClassType, ReferenceType, NoRefType, VoidType, PotentialReturnType, Type, AtomicType, FunctionType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, AnalyticSimpleDeclaration, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
+import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType } from "./types";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
+import { CPPObject } from "./objects";
 
 
 
@@ -43,36 +44,64 @@ export interface ProgramContext {
     readonly libraryUnsupported?: boolean;
 }
 
+export function createImplicitContext<ContextType extends ProgramContext>(context: ContextType): ContextType {
+    return Object.assign({}, context, { implicit: true });
+}
+
+
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
-    readonly containingClass?: ClassType;
+    readonly containingClass?: CompleteClassEntity;
 }
 
-export function createTranslationUnitContext(context: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
-    return Object.assign({}, context, { translationUnit: translationUnit, contextualScope: contextualScope });
+export function createTranslationUnitContext(parentContext: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
+    return Object.assign({}, parentContext, { translationUnit: translationUnit, contextualScope: contextualScope });
 }
 
 export interface ExpressionContext extends TranslationUnitContext {
-    readonly contextualParameterTypes?: readonly (Type | undefined)[];
-    readonly contextualReceiverType?: ClassType;
+    readonly contextualParameterTypes?: readonly (ExpressionType | undefined)[];
+    readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createExpressionContext(context: TranslationUnitContext, contextualParameterTypes: readonly (Type | undefined)[]): ExpressionContext {
-    return Object.assign({}, context, { contextualParameterTypes: contextualParameterTypes });
+export function createExpressionContextWithParameterTypes(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (ExpressionType | undefined)[]): ExpressionContext {
+    return Object.assign({}, parentContext, { contextualParameterTypes: contextualParameterTypes });
+}
+
+export function createExpressionContextWithReceiverType(parentContext: TranslationUnitContext, contextualReceiverType: CompleteClassType): ExpressionContext {
+    return Object.assign({}, parentContext, { contextualReceiverType: contextualReceiverType });
 }
 
 export interface FunctionContext extends TranslationUnitContext {
     readonly containingFunction: FunctionEntity;
     readonly functionLocals: FunctionLocals;
+    readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createFunctionContext(context: TranslationUnitContext, containingFunction: FunctionEntity): FunctionContext {
-    return Object.assign({}, context, { containingFunction: containingFunction, functionLocals: new FunctionLocals() });
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
+    return Object.assign({}, parentContext, {
+        containingFunction: containingFunction,
+        functionLocals: new FunctionLocals(),
+        contextualReceiverType: contextualReceiverType
+    });
+}
+
+export function isMemberFunctionContext(context: FunctionContext) : context is MemberFunctionContext {
+    return !!context.contextualReceiverType;
+}
+
+export interface MemberFunctionContext extends FunctionContext {
+    readonly contextualReceiverType: CompleteClassType;
 }
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
+}
+
+export interface MemberBlockContext extends BlockContext {
+    readonly contextualReceiverType: CompleteClassType;
 }
 
 export function isBlockContext(context: TranslationUnitContext): context is BlockContext {
@@ -81,33 +110,54 @@ export function isBlockContext(context: TranslationUnitContext): context is Bloc
 
 
 
-export class ClassMembers {
+// export class ClassMembers {
 
-    // public readonly localObjects: readonly AutoEntity[] = [];
-    // public readonly localReferences: readonly LocalReferenceEntity[] = [];
-    // public readonly localVariablesByEntityId: {
-    //     [index: number] : LocalVariableEntity
-    // } = {};
+//     // public readonly localObjects: readonly AutoEntity[] = [];
+//     // public readonly localReferences: readonly LocalReferenceEntity[] = [];
+//     // public readonly localVariablesByEntityId: {
+//     //     [index: number] : LocalVariableEntity
+//     // } = {};
 
-    // public registerLocalVariable(local: LocalVariableEntity) {
-    //     assert(!this.localVariablesByEntityId[local.entityId]);
-    //     this.localVariablesByEntityId[local.entityId] = local;
-    //     if (local.kind === "AutoEntity") {
-    //         asMutable(this.localObjects).push(local)
-    //     }
-    //     else {
-    //         asMutable(this.localReferences).push(local);
-    //     }
-    // }
+//     public registerMemberVariable(member: MemberVariableEntity) {
+//         // assert(!this.localVariablesByEntityId[local.entityId]);
+//         // this.localVariablesByEntityId[local.entityId] = local;
+//         // if (local.kind === "AutoEntity") {
+//         //     asMutable(this.localObjects).push(local)
+//         // }
+//         // else {
+//         //     asMutable(this.localReferences).push(local);
+//         // }
+//     }
+// }
+
+export function isClassContext(context: TranslationUnitContext) : context is ClassContext {
+    return !!(context as ClassContext).containingClass; // && !!(context as ClassContext).classMembers;
 }
 
 export interface ClassContext extends TranslationUnitContext {
-    readonly classEntity: ClassEntity;
-    readonly classMembers: ClassMembers;
+    readonly contextualScope: ClassScope;
+    readonly containingClass: CompleteClassEntity;
 }
 
-export function createClassContext(context: TranslationUnitContext, classEntity: ClassEntity): ClassContext {
-    return Object.assign({}, context, { classEntity: classEntity, classMembers: new ClassMembers() });
+export function createClassContext(parentContext: TranslationUnitContext, classEntity: ClassEntity, baseClass?: ClassEntity): ClassContext {
+    return Object.assign({}, parentContext, {
+        contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?.context.contextualScope),
+        containingClass: classEntity
+    });
+}
+
+export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
+    return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
+}
+
+export interface MemberSpecificationContext extends ClassContext {
+    readonly accessLevel: AccessSpecifier;
+}
+
+export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext {
+    return Object.assign({}, parentContext, {
+        accessLevel: accessLevel
+    });
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
@@ -272,7 +322,7 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 
 
-export type StackType = "statement" | "expression" | "function" | "initializer" | "call";
+export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 
@@ -332,6 +382,26 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         }
 
         this.stepsTakenAtStart = this.sim.stepsTaken;
+    }
+
+    protected setContainingRuntimeFunction(func: RuntimeFunction) {
+        (<Mutable<this>>this).containingRuntimeFunction = func;
+    }
+
+    protected setContextualReceiver(obj: CPPObject<CompleteClassType>) {
+        (<Mutable<this>>this).contextualReceiver = obj;
+    }
+
+    /**
+     * WARNING: The contextualReceiver property may be undefined, even though it's type suggests it will always
+     * be defined. In most places where it is accessed, there is an implicit assumption that the runtime construct
+     * for whom the lookup is being performed is situated in a context where there is a contextual receiver (e.g.
+     * inside a member function) and the client code would end up needing a non-null assertion anyway. Those
+     * non-null assertions are annoying, so instead we trick the type system and trust that this property will
+     * be used appropriately by the programmer.
+     */
+    public get contextualReceiver() {
+        return this.containingRuntimeFunction?.receiver!;
     }
 
     /**
@@ -464,9 +534,10 @@ export abstract class BasicCPPConstruct<ContextType extends TranslationUnitConte
 }
 
 export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
-    public readonly construct_type = "InvalidConstruct";
+    public readonly construct_type = "invalid_construct";
 
     public readonly note: Note;
+    public readonly type: undefined;
 
     public constructor(context: TranslationUnitContext, ast: ASTNode, errorFn: (construct: CPPConstruct) => Note) {
         super(context, ast);
@@ -486,8 +557,8 @@ export class FunctionLocals {
     public registerLocalVariable(local: LocalVariableEntity) {
         assert(!this.localVariablesByEntityId[local.entityId]);
         this.localVariablesByEntityId[local.entityId] = local;
-        if (local.kind === "AutoEntity") {
-            asMutable(this.localObjects).push(local)
+        if (local.variableKind === "object") {
+            asMutable(this.localObjects).push(local);
         }
         else {
             asMutable(this.localReferences).push(local);

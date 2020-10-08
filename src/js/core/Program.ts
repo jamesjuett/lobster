@@ -2,7 +2,7 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, TopLevelDeclaration, createDeclarationFromAST, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, createSimpleDeclarationFromAST, FunctionDefinitionGroup, ClassDefinition } from "./declarations";
+import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
@@ -586,7 +586,7 @@ class PreprocessedSource {
 
 export interface TranslationUnitAST {
     readonly construct_type: "translation_unit";
-    readonly declarations: readonly DeclarationASTNode[];
+    readonly declarations: readonly TopLevelDeclarationASTNode[];
 }
 
 /**
@@ -710,7 +710,7 @@ export class TranslationUnit {
 
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
-            let declsOrFuncDef = createDeclarationFromAST(declAST, this.context);
+            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, this.context);
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
                     asMutable(this.topLevelDeclarations).push(decl);

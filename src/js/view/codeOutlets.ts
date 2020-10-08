@@ -5,13 +5,13 @@ import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, 
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledParameterDeclaration, LocalVariableDefinition, CompiledSimpleDeclaration, CompiledLocalVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer } from "../core/initializers";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer, RuntimeClassDefaultInitializer, CompiledClassDefaultInitializer, RuntimeClassDirectInitializer, CompiledClassDirectInitializer, RuntimeCtorInitializer, CompiledCtorInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
-import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity } from "../core/entities";
+import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifier, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifier, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion } from "../core/expressions";
-import { Bool, AtomicType } from "../core/types";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression } from "../core/expressions";
+import { Bool, AtomicType, CompleteObjectType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
@@ -204,6 +204,7 @@ export class PotentialFullExpressionOutlet<RT extends RuntimePotentialFullExpres
 
 export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
 
+    public readonly ctorInitializer?: CtorInitializerOutlet;
     public readonly body: BlockOutlet;
 
     private readonly paramsElem: JQuery;
@@ -214,12 +215,13 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         listener && listenTo(listener, this);
         this.element.addClass("function");
 
-        // Set up DOM and child outlets
-        // if (!isA(this.code, ConstructorDefinition) && !isA(this.code, DestructorDefinition)){ // Constructors/destructors use this outlet too for now and they don't have return type
+        // Constructors/destructors have a dummy return type of void in the representation,
+        // but we don't want to show that in the visualization.
+        if (!this.construct.declaration.isConstructor) {
             var returnTypeElem = $('<span class="code-returnType">' + this.construct.type.returnType.toString() + "</span>");
             this.element.append(returnTypeElem);
             this.element.append(" ");
-        // }
+        }
         var nameElem = $('<span class="code-functionName">' + this.construct.name + "</span>");
         this.element.append(nameElem);
 
@@ -242,6 +244,14 @@ export class FunctionOutlet extends ConstructOutlet<RuntimeFunction> {
         //         }
         //     }
         // }
+
+        if (this.construct.ctorInitializer) {
+            this.element.append("<br />");
+            this.ctorInitializer = new CtorInitializerOutlet(
+                $("<span></span>").appendTo(this.element),
+                this.construct.ctorInitializer,
+                this);
+        }
 
         let bodyElem = $("<span></span>").appendTo(this.element);
         this.body = new BlockOutlet(bodyElem, this.construct.body, this);
@@ -348,6 +358,73 @@ export class ParameterOutlet {
 
     public setPassedContents(html: string) {
         this.passedValueElem.html(html);
+    }
+}
+
+export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitializer> {
+    
+    public readonly delegatedConstructorInitializer?: ClassDirectInitializerOutlet;
+    public readonly baseInitializer?: ClassDefaultInitializerOutlet | ClassDirectInitializerOutlet;
+    public readonly memberInitializers: readonly InitializerOutlet[];
+
+    public constructor(element: JQuery, construct: CompiledCtorInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.element.addClass("code-ctor-initializer");
+
+        this.element.append(" : ");
+
+        if (construct.delegatedConstructorInitializer) {
+            this.element.append(construct.delegatedConstructorInitializer.target.type.className);
+            this.delegatedConstructorInitializer = construct.delegatedConstructorInitializer?.createDefaultOutlet(
+                $("<span></span>").appendTo(this.element),
+                this
+            );
+        }
+        
+        let first = !this.delegatedConstructorInitializer;
+
+        if (construct.baseInitializer?.kind === "default") {
+            if (!first) {
+                this.element.append(", ");
+            }
+            else {
+                first = false;
+            }
+            this.element.append(construct.baseInitializer.target.type.className);
+            this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
+                $("<span></span>").appendTo(this.element),
+                this
+            );
+        }
+        else if (construct.baseInitializer?.kind === "direct") {
+            if (!first) {
+                this.element.append(", ");
+            }
+            else {
+                first = false;
+            }
+            this.element.append(construct.baseInitializer.target.type.className);
+            this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
+                $("<span></span>").appendTo(this.element),
+                this
+            );
+
+        }
+
+        this.memberInitializers = construct.memberInitializers.map(memInit => {
+            if (!first) {
+                this.element.append(", ");
+            }
+            else {
+                first = false;
+            }
+            this.element.append((<MemberVariableEntity>(memInit.target)).name);
+            return memInit.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
+
+        });
+
+        this.element.append(" ");
     }
 }
 
@@ -884,16 +961,7 @@ export class InitializerOutlet<RT extends RuntimeInitializer = RuntimeInitialize
     
     public constructor(element: JQuery, construct: CompiledInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
-    }
-    
-}
-
-
-export class DefaultInitializerOutlet extends InitializerOutlet<RuntimeDefaultInitializer> {
-    
-    public constructor(element: JQuery, construct: CompiledDefaultInitializer, parent?: ConstructOutlet) {
-        super(element, construct, parent);
-        this.element.addClass("code-defaultInitializer");
+        this.element.addClass("code-initializer-" + this.construct.kind);
     }
     
 }
@@ -920,24 +988,29 @@ export class ArrayDefaultInitializerOutlet extends InitializerOutlet<RuntimeArra
     
 }
 
-// export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClassDefaultInitializer> {
+export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClassDefaultInitializer> {
     
-//     public constructor(element: JQuery, construct: CompiledClassDefaultInitializer, parent?: ConstructOutlet) {
-//         super(element, construct, parent);
+    public readonly ctorCallOutlet: FunctionCallOutlet;
 
-//         this.addChildOutlet(Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this, this.argOutlets));
-//     }
-    
-// }
-
-
-export class DirectInitializerOutlet extends InitializerOutlet<RuntimeDirectInitializer> {
-    
-    public constructor(element: JQuery, construct: CompiledDirectInitializer, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledClassDefaultInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
-        this.element.addClass("code-directInitializer");
+
+        // this.element.append(htmlDecoratedType(construct.target.type.className));
+
+        this.element.append("(");
+
+        this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);
+
+        this.element.append(")");
     }
+    
 }
+
+export type DefaultInitializerOutlet =
+    AtomicDefaultInitializerOutlet |
+    ArrayDefaultInitializerOutlet |
+    ClassDefaultInitializerOutlet;
+
 
 export class AtomicDirectInitializerOutlet extends InitializerOutlet<RuntimeAtomicDirectInitializer> {
     
@@ -993,30 +1066,26 @@ export class ArrayDirectInitializerOutlet extends InitializerOutlet<RuntimeArray
 }
 
 
-// export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
+export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
     
-//     public readonly argOutlets: readonly ExpressionOutlet[];
+    public readonly ctorCallOutlet: FunctionCallOutlet;
 
-//     public constructor(element: JQuery, construct: CompiledClassDirectInitializer, parent?: ConstructOutlet) {
-//         super(element, construct, parent);
-    
-//         this.element.append("(");
+    public constructor(element: JQuery, construct: CompiledClassDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
 
-//         var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this, this.argOutlets);
-//             this.addChildOutlet(callOutlet);
+        this.element.append("(");
 
-//             this.argOutlets = callOutlet.argOutlets;
-//             this.argOutlets.forEach(function(argOutlet,i,arr){
-//                 self.addChildOutlet(argOutlet);
-//                 self.element.append(argOutlet.element);
-//                 if (i < arr.length - 1) {
-//                     self.element.append(", ");
-//                 }
-//             });
+        this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);
 
-//         this.element.append(")");
-//     }
-// }
+        this.element.append(")");
+    }
+}
+
+export type DirectInitializerOutlet =
+    AtomicDirectInitializerOutlet |
+    ReferenceDirectInitializerOutlet |
+    ArrayDirectInitializerOutlet |
+    ClassDirectInitializerOutlet;
 
 
 
@@ -1055,30 +1124,19 @@ export class ReferenceCopyInitializerOutlet extends InitializerOutlet<RuntimeRef
 }
 
 
-// export class ClassDirectInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
+export class ClassCopyInitializerOutlet extends InitializerOutlet<RuntimeClassDirectInitializer> {
     
-//     public readonly argOutlets: readonly ExpressionOutlet[];
+    public readonly ctorCallOutlet: FunctionCallOutlet;
 
-//     public constructor(element: JQuery, construct: CompiledClassDirectInitializer, parent?: ConstructOutlet) {
-//         super(element, construct, parent);
-    
-//         this.element.append("(");
+    public constructor(element: JQuery, construct: CompiledClassDirectInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
 
-//         var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this, this.argOutlets);
-//             this.addChildOutlet(callOutlet);
+        this.element.append(" = ");
 
-//             this.argOutlets = callOutlet.argOutlets;
-//             this.argOutlets.forEach(function(argOutlet,i,arr){
-//                 self.addChildOutlet(argOutlet);
-//                 self.element.append(argOutlet.element);
-//                 if (i < arr.length - 1) {
-//                     self.element.append(", ");
-//                 }
-//             });
+        this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);
+    }
+}
 
-//         this.element.append(")");
-//     }
-// }
 
 export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExpression> extends PotentialFullExpressionOutlet<RT> {
     
@@ -1767,6 +1825,36 @@ export class SubscriptExpressionOutlet extends ExpressionOutlet<RuntimeSubscript
     }
 }
 
+
+export class DotExpressionOutlet extends ExpressionOutlet<RuntimeObjectDotExpression | RuntimeFunctionDotExpression> {
+
+    public readonly operand: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledObjectDotExpression<CompleteObjectType> | CompiledFunctionDotExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent, false);
+        this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
+        this.exprElem.append(htmlDecoratedOperator(".", "code-postfixOp"));
+        this.exprElem.append(construct.entity.name);
+
+    }
+
+}
+
+
+export class ArrowExpressionOutlet extends ExpressionOutlet<RuntimeObjectArrowExpression | RuntimeFunctionArrowExpression> {
+
+    public readonly operand: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledObjectArrowExpression<CompleteObjectType> | CompiledFunctionArrowExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent, false);
+        this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
+        this.exprElem.append(htmlDecoratedOperator("->", "code-postfixOp"));
+        this.exprElem.append(construct.entity.name);
+
+    }
+
+}
+
 // Lobster.Outlets.CPP.Dot = Outlets.CPP.Expression.extend({
 //     _name: "Outlets.CPP.Dot",
 
@@ -1822,9 +1910,9 @@ export class ParenthesesOutlet extends ExpressionOutlet<RuntimeParentheses> {
     }
 }
 
-export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifier | RuntimeFunctionIdentifier> {
+export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifierExpression | RuntimeFunctionIdentifierExpression> {
 
-    public constructor(element: JQuery, construct: CompiledObjectIdentifierExpression | CompiledFunctionIdentifierExpression, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledObjectIdentifierExpression<CompleteObjectType> | CompiledFunctionIdentifierExpression, parent?: ConstructOutlet) {
         super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
 
@@ -1927,6 +2015,10 @@ export function createStatementOutlet(element: JQuery, construct: CompiledStatem
 
 export function addChildExpressionOutlet(parentElement: JQuery, construct: CompiledExpression, parent: ConstructOutlet) {
     return createExpressionOutlet($("<span></span>").appendTo(parentElement), construct, parent);
+}
+
+export function addChildInitializerOutlet(parentElement: JQuery, construct: CompiledInitializer, parent: ConstructOutlet) {
+    return createInitializerOutlet($("<span></span>").appendTo(parentElement), construct, parent);
 }
 
 export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent: ConstructOutlet, indented: boolean = true) {

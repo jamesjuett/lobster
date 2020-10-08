@@ -1,6 +1,6 @@
 import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
-import { ObjectType } from "./types";
+import { CompleteObjectType } from "./types";
 import { TemporaryObject } from "./objects";
 import { TranslationUnitContext, ASTNode, BasicCPPConstruct, TemporaryDeallocator, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, RuntimeTemporaryDeallocator, StackType, CPPConstruct } from "./constructs";
 
@@ -49,7 +49,7 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         this.temporaryObjects.push(tempObjEnt);
         tempObjEnt.setOwner(this);
     }
-    public createTemporaryObject<T extends ObjectType>(type: T, name: string): TemporaryObjectEntity<T> {
+    public createTemporaryObject<T extends CompleteObjectType>(type: T, name: string): TemporaryObjectEntity<T> {
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, name);
         this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;
@@ -63,10 +63,13 @@ export interface CompiledPotentialFullExpression extends PotentialFullExpression
 
 export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
+
     public readonly temporaryObjects: {
         [index: number]: TemporaryObject | undefined;
     } = {};
+
     public readonly containingFullExpression: RuntimePotentialFullExpression;
+
     public constructor(model: C, stackType: StackType, parent: RuntimeConstruct) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
@@ -75,6 +78,7 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         }
         this.containingFullExpression = this.findFullExpression();
     }
+    
     private findFullExpression(): RuntimePotentialFullExpression {
         let rt: RuntimeConstruct = this;
         while (rt instanceof RuntimePotentialFullExpression && !rt.model.isFullExpression() && rt.parent) {
