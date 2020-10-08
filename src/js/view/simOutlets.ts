@@ -2,15 +2,15 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, ObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, ClassType, Int } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
-import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "../core/entities";
+import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
-import { RuntimeFunctionIdentifier } from "../core/expressions";
+import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
@@ -967,7 +967,7 @@ export class MemoryOutlet {
     // },
 }
 
-export abstract class MemoryObjectOutlet<T extends ObjectType = ObjectType> {
+export abstract class MemoryObjectOutlet<T extends CompleteObjectType = CompleteObjectType> {
 
     public readonly object: CPPObject<T>;
     
@@ -1125,9 +1125,9 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
 //       so the might not really be much useful that's inherited. Or maybe better, SingleMemoryObject
 //       should make updateObject abstract and the default behavior there should move to a new subclass
 //       like RegularMemoryObject or something like that.
-export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObject<T> {
+export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> extends SingleMemoryObject<T> {
     
-    private static instances : PointerMemoryObject<PointerType>[] = [];
+    private static instances : PointerMemoryObject<PointerType<CompleteObjectType>>[] = [];
     public static updateArrows() {
         this.instances = this.instances.filter((ptrMemObj) => {
             if (jQuery.contains($("body")[0], ptrMemObj.element[0])) {
@@ -1360,7 +1360,7 @@ export class PointerMemoryObject<T extends PointerType> extends SingleMemoryObje
 //     Outlets.CPP.CPP_ANIMATIONS = temp;
 // }, 20);
 
-export class ReferenceMemoryOutlet<T extends ObjectType = ObjectType> {
+export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObjectType> {
 
     public readonly entity: (UnboundReferenceEntity | BoundReferenceEntity) & NamedEntity;
     public readonly object?: CPPObject<T>;
@@ -1421,7 +1421,7 @@ export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutl
             elemContainer.append(elemElem);
             elemContainer.append('<div style="line-height: 1ch; font-size: 6pt">'+i+'</div>');
             this.objElem.append(elemContainer);
-            if (elemSubobject.type.isClassType()) {
+            if (elemSubobject.type.isPotentiallyCompleteClassType()) {
                 return createMemoryObjectOutlet(elemElem, elemSubobject, this.memoryOutlet);
             }
             else{
@@ -1520,7 +1520,7 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
     }
 }
 
-export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T> {
+export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
     protected readonly objElem: JQuery;
     private readonly addrElem?: JQuery;
@@ -1554,17 +1554,18 @@ export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T
 
         let membersElem = $('<div class="members"></div>');
 
-        let memberOutlets = [];
+        this.object.type.classDefinition.memberEntities.forEach(memEntity => {
+            let memName = memEntity.name;
+            if (memEntity instanceof MemberReferenceEntity) {
+                new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
+            }
+            else {
+                createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
+            }
 
-//         for(var i = 0; i < this.length; ++i) {
-//             var elemElem = $("<div></div>");
-//             membersElem.append(elemElem);
-//             memberOutlets.push(createMemoryObjectOutlet(elemElem, this.object.subobjects[i], this.memoryOutlet));
-// //            if (i % 10 == 9) {
-// //                this.objElem.append("<br />");
-//             // }
-//         }
-//         this.objElem.append(membersElem);
+        })
+        
+        this.objElem.append(membersElem);
 
         this.element.append(this.objElem);
 
@@ -1580,13 +1581,14 @@ export class ClassMemoryObject<T extends ClassType> extends MemoryObjectOutlet<T
 
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
     if(obj.type.isPointerType()) {
-        return new PointerMemoryObject(elem, <CPPObject<PointerType>>obj, memoryOutlet);
+        assert(obj.type.ptrTo.isCompleteObjectType(), "pointers to incomplete types should not exist at runtime");
+        return new PointerMemoryObject(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
     }
     else if(obj.type.isBoundedArrayType()) {
         return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
     }
-    else if(obj.type.isClassType()) {
-        return new ClassMemoryObject(elem, <CPPObject<ClassType>>obj, memoryOutlet);
+    else if(obj.type.isCompleteClassType()) {
+        return new ClassMemoryObject(elem, <CPPObject<CompleteClassType>>obj, memoryOutlet);
     }
     else{
         return new SingleMemoryObject(elem, <CPPObject<AtomicType>>obj, memoryOutlet);

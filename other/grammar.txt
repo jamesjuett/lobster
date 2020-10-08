@@ -1,4 +1,22 @@
 {
+  const KEYWORDS = new Set([
+      "alignas", "continue", "friend", "register", "true",
+      "alignof", "decltype", "goto", "reinterpret_cast", "try",
+      "asm", "default", "if", "return", "typedef",
+      "auto", "delete", "inline", "short", "typeid",
+      "bool", "do", "int", "signed", "typename",
+      "break", "double", "long", "sizeof", "union",
+      "case", "dynamic_cast", "mutable", "static", "unsigned",
+      "catch", "else", "namespace", "static_assert", "using",
+      "char", "enum", "new", "static_cast", "virtual",
+      "char16_t", "explicit", "noexcept", "struct", "void",
+      "char32_t", "export", "nullptr", "switch", "volatile",
+      "class", "extern", "operator", "template", "wchar_t",
+      "const", "false", "private", "this", "while",
+      "constexpr", "float", "protected", "thread_local",
+      "const_cast", "for", "public", "throw"
+  ]);
+
   function composeBinaryOp(first: any, rest: any, assoc: "left" | "right", exprType: string) : any {
     if(!rest || rest.length === 0){
       return first;
@@ -74,6 +92,16 @@
   }
 
   var _type_specifier_user_type_allowed_stack = true;
+
+  var emptyDeclSpecs = {
+    typeSpecs: [],
+    storageSpecs: [],
+    length: 0
+  };
+
+  var classNameStack: string[] = [];
+
+  var prohibitOwnClassName: boolean = false;
 
 }
 
@@ -186,19 +214,28 @@ class_definition
   }
 
 function_definition
-  = specs:decl_specifiers ! identifier ws declarator:declarator ws body:function_body
-    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, body:body}, location(), text()); }
+
+  /* constructors */
+  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
+
+  / ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:emptyDeclSpecs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
+
+  /* regular functions */
+  / specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
 
-constructor_definition
+/*constructor_definition
   = name:class_name ws "(" ws args:argument_declaration_list ws ")" ws init:ctor_initializer? ws body:function_body
-    {return track({construct_type: "constructor_definition", name:name, body:body, ctorInitializer:init, args: args}, location(), text()); }
+    {return track({construct_type: "constructor_definition", name:name, body:body, ctorInitializer:init, args: args}, location(), text()); } */
 
-destructor_definition
+/*destructor_definition
   = "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
     {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body}, location(), text()); }
   / "virtual" WS "~" name:class_name ws "(" ws ")" ws body:(function_body / ";" {return null;})
-    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body, virtual:true}, location(), text()); }
+    {return track({construct_type: "destructor_definition", name:{identifier: "~"+name.identifier}, body:body, virtual:true}, location(), text()); }*/
 
 ctor_initializer
   = ":" ws first:mem_initializer rest:(ws "," ws m:mem_initializer {return m;})* {rest.unshift(first); return track({construct_type: "ctor_initializer", initializers: rest}, location(), text());}
@@ -253,6 +290,9 @@ decl_specifiers
 _decl_specifiers_non_type
   = first:decl_specifier_non_type? rest:(WS s:decl_specifier_non_type ! identifier {return s;})* {first && rest.unshift(first); return rest;}
 
+_decl_specifiers_non_user_type_name
+  = first:decl_specifier_non_user_type_name? rest:(WS s:decl_specifier_non_user_type_name ! identifier {return s;})* {first && rest.unshift(first); return rest;}
+
 decl_specifier
   = t:type_specifier { return {typeSpec:t}; }
   / s:storage_class_specifier { return {storageSpec:s}; }
@@ -281,6 +321,10 @@ decl_specifier_non_user_type_name
   / "typedef"
   / "friend"
 
+decl_specifiers_prohibit_class_name
+  = & { prohibitOwnClassName = true; return true;} d: decl_specifiers { prohibitOwnClassName = false; return d;}
+  / & { prohibitOwnClassName = false; return false;} "PEG_doesnt_realize_we_never_get_to_here"
+
 type_specifiers
   = first:type_specifier rest:(WS s:type_specifier {return s})*
     { rest.unshift(first);
@@ -292,7 +336,7 @@ type_specifier
   / enum_specifier
 
 trailing_type_specifier
-  = simple_type_name
+  = t:simple_type_name ! { return prohibitOwnClassName && t === classNameStack[classNameStack.length - 1]; } { return t; }
   / elaborated_type_specifier
   / "const"
   / "volatile"
@@ -431,7 +475,7 @@ declarator_postfix
 
 
 declarator_simple
-  = d:dname {return {name:d}; }
+  = d:dname { return {name:d}; }
 
   /* TODO ptr to member/ "::*" ws cv_qualifier? WS _declarator */
 
@@ -444,7 +488,7 @@ abs_declarator_simple
   / "" {return {};}
 
 
-dname = name
+dname = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
   /* / class_name
   / "~" ws class_name
   / typedef_name
@@ -839,12 +883,20 @@ class_name
   // / simple_template_id
 
 class_specifier
-  = head:class_head &{return getUserTypeNames()[head.name.identifier]=true;} ws "{" ws mems:member_specification* ws "}"
-    { return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text()); }
+  = head:class_head & {
+      classNameStack.push(head.name.identifier);
+      getUserTypeNames()[head.name.identifier]=true;
+      return true;
+    } ws "{" ws mems:member_specification* ws "}"
+    { 
+      classNameStack.pop();
+      return track({construct_type: "class_definition", head: head, memberSpecs: mems}, location(), text());
+    }
+  / head:class_head & { classNameStack.pop(); return false; }
 
 class_head
   = key:class_key WS name:class_head_name bases:(WS b:base_clause {return b;})?
-    { return track({construct_type: "class_head", key:key, name:name, bases:bases}, location(), text()); }
+    { return track({construct_type: "class_head", classKey:key, name:name, bases:bases ?? []}, location(), text()); }
   // = key:class_key WS base:base_clause?
   //   { return track({key:key, base:base}, location(), text()); }
 
@@ -857,10 +909,10 @@ class_key
   / "union"
 
 member_specification
-  = members:(m:member_declaration ws {return m})+
-    { return track({construct_type: "member_specification", members: members}, location(), text()); }
-  / access:access_specifier ws ":" ws members:(m:member_declaration ws {return m})*
+  = access:access_specifier ws ":" ws members:(m:member_declaration ws {return m})*
     { return track({construct_type: "member_specification", members: members, access: access}, location(), text()); }
+  / members:(m:member_declaration ws {return m})+
+    { return track({construct_type: "member_specification", members: members}, location(), text()); }
 
 access_specifier
   = "private"
@@ -868,10 +920,25 @@ access_specifier
   / "public"
 
 member_declaration
-  = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
-    { return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text()); }
-  / c:constructor_definition ws ";"? { return c; }
-  / d:destructor_definition ws ";"? { return d; }
+
+  /* constructor declarations */
+  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
+    }
+  / ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:emptyDeclSpecs, declarators:declarators}, location(), text());
+    }
+    
+  /* regular declaration */
+  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
+    {
+      return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
+    }
+
+  /* / c:constructor_definition ws ";"? { return c; } */
+  /* / d:destructor_definition ws ";"? { return d; } */
   / f:function_definition ws ";"? { return f; }
 
 
@@ -895,16 +962,16 @@ base_specifier_list
 
 base_specifier
   = "virtual" WS a:(a:access_specifier WS {return a;}) c:qualified_class_name{
-    return track({name: c, virtual: true, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, virtual: true, access: a}, location(), text());}
 
   / a:(a:access_specifier WS {return a;}) "virtual" WS c:qualified_class_name{
-    return track({name: c, virtual: true, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, virtual: true, access: a}, location(), text());}
 
   / a:access_specifier WS c:qualified_class_name{
-    return track({name: c, access: a}, location(), text());}
+    return track({construct_type: "base_specifier", name: c, access: a}, location(), text());}
 
   / c:qualified_class_name{
-    return track({name: c}, location(), text());}
+    return track({construct_type: "base_specifier", name: c}, location(), text());}
 
   
 qualified_class_name

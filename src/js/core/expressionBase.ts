@@ -1,9 +1,9 @@
-import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds } from "./expressions";
+import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
-import { Type, ObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, ClassType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType } from "./types";
+import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
 
 import { Constructor, Mutable } from "../util/util";
 
@@ -13,21 +13,24 @@ import { Value } from "./runtimeEnvironment";
 
 import { CPPObject } from "./objects";
 import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
+import { Predicates } from "./predicates";
 
 
 export type ValueCategory = "prvalue" | "lvalue";
 
 export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
-    public abstract readonly type?: Type;
+    public abstract readonly type?: ExpressionType;
     public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
+
+    public readonly foo?: string;
 
     protected constructor(context: ExpressionContext, ast: ASTType | undefined) {
         super(context, ast);
     }
 
-    // public abstract createRuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
+    // public abstract createRuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory>(this: CompiledExpression<T,V>, parent: RuntimeConstruct) : RuntimeExpression<T,V>;
 
     public abstract createDefaultOutlet(this: CompiledExpression, element: JQuery, parent?: ConstructOutlet): ExpressionOutlet;
 
@@ -35,63 +38,11 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return !!this.type && !!this.valueCategory;
     }
 
-    public isTyped<T extends Type>(ctor: Constructor<T>): this is TypedExpression<T, ValueCategory> {
-        return !!this.type && this.type.isType(ctor);
-    }
-
-    public isObjectTyped(): this is TypedExpression<ObjectType, ValueCategory> {
-        return !!this.type && this.type.isObjectType();
-    }
-
-    public isAtomicTyped(): this is TypedExpression<AtomicType, ValueCategory> {
-        return !!this.type && this.type.isAtomicType();
-    }
-
-    public isArithmeticTyped(): this is TypedExpression<ArithmeticType, ValueCategory> {
-        return !!this.type && this.type.isArithmeticType();
-    }
-
-    public isIntegralTyped(): this is TypedExpression<IntegralType, ValueCategory> {
-        return !!this.type && this.type.isIntegralType();
-    }
-
-    public isFloatingPointTyped(): this is TypedExpression<FloatingPointType, ValueCategory> {
-        return !!this.type && this.type.isFloatingPointType();
-    }
-
-    public isPointerTyped(): this is TypedExpression<PointerType, ValueCategory> {
-        return !!this.type && this.type.isPointerType();
-    }
-
-    public isReferenceTyped(): this is TypedExpression<ReferenceType, ValueCategory> {
-        return !!this.type && this.type.isReferenceType();
-    }
-
-    public isClassTyped(): this is TypedExpression<ClassType, ValueCategory> {
-        return !!this.type && this.type.isClassType();
-    }
-
-    public isBoundedArrayTyped(): this is TypedExpression<BoundedArrayType, "lvalue"> {
-        return !!this.type && this.type.isBoundedArrayType();
-    }
-
-    public isArrayOfUnknownBoundTyped(): this is TypedExpression<ArrayOfUnknownBoundType, "lvalue"> {
-        return !!this.type && this.type.isArrayOfUnknownBoundType();
-    }
-
-    public isGenericArrayTyped(): this is TypedExpression<BoundedArrayType | ArrayOfUnknownBoundType, "lvalue"> {
-        return !!this.type && this.type.isGenericArrayType();
-    }
-
-    public isFunctionTyped(): this is TypedExpression<FunctionType> {
-        return !!this.type && this.type.isFunctionType();
-    }
-
-    public isPrvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "prvalue"> {
+    public isPrvalue<T extends ExpressionType, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "prvalue"> {
         return this.valueCategory === "prvalue";
     }
 
-    public isLvalue<T extends Type, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "lvalue"> {
+    public isLvalue<T extends ExpressionType, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "lvalue"> {
         return this.valueCategory === "lvalue";
     }
 
@@ -110,23 +61,27 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     public abstract describeEvalResult(depth: number): ConstructDescription;
 }
 
-export interface TypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends Expression<ExpressionASTNode> {
+export interface t_TypedExpression {
+    readonly _t_isTyped: never; // workaround for https://github.com/microsoft/TypeScript/issues/40035
+}
+
+export interface TypedExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends Expression<ExpressionASTNode> {
     readonly type: T;
     readonly valueCategory: V;
 }
 
-export interface CompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> extends TypedExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedExpression<T, V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
-export type SpecificCompiledExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T, V> : never;
+export type SpecificCompiledExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> = V extends ValueCategory ? CompiledExpression<T, V> : never;
 
-export interface WellTyped<T extends Type = Type, V extends ValueCategory = ValueCategory> {
+export interface WellTyped<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> {
     readonly type: T;
     readonly valueCategory: V;
 }
 
-export type SpecificTypedExpression<T extends Type = Type, V extends ValueCategory = ValueCategory> = TypedExpression<T, V>;
+export type SpecificTypedExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> = TypedExpression<T, V>;
 
 
 export function allWellTyped(expressions: Expression[]): expressions is TypedExpression[];
@@ -135,10 +90,10 @@ export function allWellTyped(expressions: readonly Expression[]): expressions is
     return expressions.every((expr) => { return expr.isWellTyped(); });
 }
 
-export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[];
-export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<ObjectType>[] {
-    return expressions.every((expr) => { return expr.isObjectTyped(); });
+export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<CompleteObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[];
+export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[] {
+    return expressions.every((expr) => { return Predicates.isTypedExpression(expr, isCompleteObjectType) });
 }
 
 export type VCResultTypes<T extends Type, V extends ValueCategory> =
@@ -152,7 +107,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
         V extends "xvalue" ? CPPObject<T> :
         CPPObject<T> // lvalue
     )
-    : T extends ObjectType ? (
+    : T extends CompleteObjectType ? (
 
         // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
         //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
@@ -161,9 +116,9 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
         CPPObject<T> // lvalue
     )
     : /*ObjectType extends T ?*/ ( // That is, T is more general, so it's possible T is an AtomicType or an ObjectType
-        V extends "prvalue" ? Value<AtomicType> | CPPObject<ObjectType> :
-        V extends "xvalue" ? CPPObject<ObjectType> :
-        CPPObject<ObjectType> // lvalue
+        V extends "prvalue" ? Value<AtomicType> | CPPObject<CompleteObjectType> :
+        V extends "xvalue" ? CPPObject<CompleteObjectType> :
+        CPPObject<CompleteObjectType> // lvalue
     )
 // : { // Otherwise, T is NOT possibly an ObjectType. This could happen with e.g. an lvalue expression that yields a function
 //     readonly prvalue: number;
@@ -171,7 +126,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
 //     readonly lvalue: number;
 // };
 
-export abstract class RuntimeExpression<T extends Type = Type, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T, V> = CompiledExpression<T, V>> extends RuntimePotentialFullExpression<C> {
+export abstract class RuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T, V> = CompiledExpression<T, V>> extends RuntimePotentialFullExpression<C> {
 
     /**
      * WARNING: The evalResult property may be undefined, even though it's type suggests it will always
