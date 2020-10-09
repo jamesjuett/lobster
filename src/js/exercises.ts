@@ -9,6 +9,7 @@ $(() => {
 
     projectEditor.setProject("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
 
+    projectEditor.turnOnAutoCompile(500);
 
 
 //        console = ValueEntity.instance();

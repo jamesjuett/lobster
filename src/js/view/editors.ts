@@ -65,6 +65,9 @@ export class ProjectEditor {
 
     private codeMirror: CodeMirror.Editor;
 
+    private pendingAutoCompileTimeout?: number;
+    private autoCompileDelay?: number;
+
     public constructor(element: JQuery) {
 
         let codeMirrorElement = element.find(".codeMirrorEditor");
@@ -93,6 +96,14 @@ export class ProjectEditor {
         this.program = new Program([], []);
 
         ProjectEditor.instances.push(this);
+    }
+
+    public turnOnAutoCompile(autoCompileDelay: number | undefined) {
+        this.autoCompileDelay = autoCompileDelay;
+    }
+
+    public turnOffAutoCompile() {
+        this.autoCompileDelay = undefined;
     }
 
     public isTranslationUnit(tuName: string) {
@@ -243,6 +254,23 @@ export class ProjectEditor {
 
     private compilationOutOfDate() {
         this.observable.send("compilationOutOfDate");
+        
+        if (this.autoCompileDelay) {
+
+            // Clear old recompile timeout if one was pending
+            if (this.pendingAutoCompileTimeout) {
+                clearTimeout(this.pendingAutoCompileTimeout);
+                this.pendingAutoCompileTimeout = undefined;
+            }
+    
+            // Start new autocomplete timeout
+            this.pendingAutoCompileTimeout = setTimeout(() => {
+                this.recompile();
+
+                // no longer a pending timeout once this one finishes
+                this.pendingAutoCompileTimeout = undefined;
+            }, this.autoCompileDelay);
+        }
     }
 
     public recompile() {
@@ -570,27 +598,6 @@ export class CompilationStatusOutlet {
         this.element = element;
         this.projectEditor = projectEditor;
 
-        this.notesElem = $('<span></span>').appendTo(this.element).hide();
-        this.errorsButton = $('<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numErrorsElem = $('<span></span>'))
-            .append(" ")
-            .append('<span class="glyphicon glyphicon-remove"></span>')
-            .appendTo(this.notesElem);
-        this.notesElem.append(" ");
-        this.warningsButton = $('<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numWarningsElem = $('<span></span>'))
-            .append(" ")
-            .append('<span class="glyphicon glyphicon-alert"></span>')
-            .appendTo(this.notesElem);
-        this.notesElem.append(" ");
-        this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numStyleElem = $('<span></span>'))
-            .append(" ")
-            .append('<span class="glyphicon glyphicon-sunglasses"></span>')
-            .appendTo(this.notesElem);
-
-        this.element.append(" ");
-
         this.compileButtonText = "Compile";
         this.compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
             .click(() => {
@@ -620,6 +627,29 @@ export class CompilationStatusOutlet {
 
 
         this.element.append(this.compileButton);
+
+        this.element.append(" ");
+
+        this.notesElem = $('<span></span>').appendTo(this.element).hide();
+        this.errorsButton = $('<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>')
+            .append(this.numErrorsElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-remove"></span>')
+            .appendTo(this.notesElem);
+        this.notesElem.append(" ");
+        this.warningsButton = $('<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>')
+            .append(this.numWarningsElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-alert"></span>')
+            .appendTo(this.notesElem);
+        this.notesElem.append(" ");
+        this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
+            .append(this.numStyleElem = $('<span></span>'))
+            .append(" ")
+            .append('<span class="glyphicon glyphicon-sunglasses"></span>')
+            .appendTo(this.notesElem);
+
+        
 
 
 
