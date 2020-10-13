@@ -309,12 +309,12 @@ export class SimulationOutlet {
         // });
 
         element.find(".stackFrames").on("mousedown", (e) => {
-            element.find("#simPane").focus();
+            element.find(".lobster-sim-pane").focus();
         });
 
         $(document).on("keydown", (e) => {
             //console.log(e.which);
-            if (element.find("#simPane").css("display") !== "none") {
+            if (element.find(".lobster-sim-pane").css("display") !== "none") {
                 if (e.which == 39) {
                     this.stepForward().catch(() => {});
                     e.preventDefault();
@@ -585,14 +585,14 @@ export class DefaultLobsterOutlet {
 
         this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-        this.projectEditor = new ProjectEditor(element.find("#sourcePane"));
+        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"));
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", () => {
+        this.tabsElem.find('a.lobster-sim-tab').on("shown.bs.tab", () => {
             this.projectEditor.refreshEditorView();
         });
 
-        this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
+        this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
 
 
         let runButtonElem = element.find(".runButton")
@@ -601,10 +601,10 @@ export class DefaultLobsterOutlet {
             if (program.isRunnable()) {
                 this.setSimulation(new Simulation(program));
             }
-            $("#simulateTab").tab("show");
+            this.element.find(".lobster-simulate-tab").tab("show");
         });
 
-        new CompilationOutlet(element.find("#compilationPane"), this.projectEditor);
+        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.projectEditor);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
         new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
@@ -645,7 +645,7 @@ export class DefaultLobsterOutlet {
     @messageResponse("requestFocus")
     private requestFocus(msg: Message<undefined>) {
         if (msg.source === this.projectEditor) {
-            this.tabsElem.find('a[href="#sourcePane"]').tab("show");
+            this.tabsElem.find('a.lobster-source-tab').tab("show");
         }
     }
 
@@ -737,14 +737,14 @@ export class SimpleExerciseLobsterOutlet {
 
         this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-        this.projectEditor = new ProjectEditor(element.find("#sourcePane"));
+        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"));
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", () => {
+        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
             this.projectEditor.refreshEditorView();
         });
 
-        this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
+        this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
 
         let runButtonElem = element.find(".runButton")
             .click(() => {
@@ -752,10 +752,10 @@ export class SimpleExerciseLobsterOutlet {
             if (program.isRunnable()) {
                 this.setSimulation(new Simulation(program));
             }
-            $("#simulateTab").tab("show");
+            this.element.find(".lobster-simulate-tab").tab("show");
         });
 
-        new CompilationOutlet(element.find("#compilationPane"), this.projectEditor);
+        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.projectEditor);
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
     }
 
@@ -788,7 +788,7 @@ export class SimpleExerciseLobsterOutlet {
     @messageResponse("requestFocus")
     private requestFocus(msg: Message<undefined>) {
         if (msg.source === this.projectEditor) {
-            this.tabsElem.find('a[href="#sourcePane"]').tab("show");
+            this.tabsElem.find('a.lobster-source-tab').tab("show");
         }
     }
 

@@ -657,7 +657,7 @@ export class TranslationUnit {
                         err.location.start.offset, err.location.start.offset + 1),
                     NoteKind.ERROR,
                     "syntax",
-                    err.message));
+                    "A syntax error was detected on this line. If there doesn't appear to be an issue here, the error might have occurred on a previous line that caused the compiler to get off track."));
             }
             else {
                 console.log(err.stack);

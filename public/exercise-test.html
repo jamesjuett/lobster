@@ -22,6 +22,7 @@
     <!-- <link rel="stylesheet" href="css/lobster.css"> -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/code.css">
+    <link rel="stylesheet" href="css/exercises.css">
     <link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
 
     <script src = "lobster/js/exercises.bundle.js"></script>
@@ -31,132 +32,30 @@
 <body>
 
 
-<div id="lobster1" style="min-width: 600px" class="container-fluid">
-    <div>
-        <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
-            <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
-                <div style="display: inline-block">
-                </div>
-            </div>
-
-            <li><a data-toggle="tab" href="#compilationPane">Compilation</a></li>
-            <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
-            <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
-
-        </ul>
-
-        <div class="tab-content">
-            <div id="compilationPane" class="tab-pane fade">
-                <div>
-                    <h3>Compilation Units</h3>
-                    <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
-                        that needs to be compiled into the executable program. Generally, you want a compilation
-                        unit for each .cpp file, and these are the files you would list out in a compile command.
-                        The files being used for this purpose are highlighted below. Note that files may be
-                        indirectly used if they are #included in other compilation units, even if they are not
-                        selected to form a compilation unit here.
-                    </p>
-                    <p style="font-weight: bold;">
-                        Click files below to toggle whether they are being used to create a compilation unit.
-                    </p>
-                    <ul class="translation-units-list list-inline">
-                    </ul>
-                </div>
-                <div>
-                    <h3>Compilation Errors</h3>
-                    <p>These errors were based on your last compilation.
-                    </p>
-                    <ul class="compilation-notes-list">
-                    </ul>
-                </div>
-            </div>
-
-            <div id="sourcePane" class="tab-pane fade active in">
-                <div style="padding-top:5px; padding-bottom: 5px;">
-                    <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
-                    
-                    <button class = "btn btn-primary runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                    <div class = "compilation-status-outlet" style="float:right">
-                    </div>
-                </div>
-                <div class="codeMirrorEditor" style = "position: relative; height:400px; background-color: #272822">
-                    <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
-                    <!--<div style="height: 400px;"></div>-->
-                </div>
-
-                <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                    <div class="annotationMessages">
-                        <div style="height: 100px; margin-left: 5px; float: right;">
-                            <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                            <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                            <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
-                        </div>
-                        <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
-                    </div>
-                </div>
-            </div>
-            <div id="simPane" class="tab-pane fade">
-                <div style="margin-top: 5px; margin-bottom: 5px;">
-                    <button class = "restart btn btn-warning"><span class="glyphicon glyphicon-fast-backward"></span></button>
-                    <!--<span style = "display: inline-block; width: 4ch"></span>-->
-                    <!-- <button class = "stepOver">Step Over</button> -->
-                    <!-- <button class = "stepOut">Step Out</button> -->
-                    <!-- <button class = "runToEnd">Run</button> -->
-                    <!-- <button class = "pause">Pause</button> -->
-                    <!-- <button class = "skipToEnd">Skip to End (FAST)</button> -->
-
-                    <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                    <button class = "stepBackward btn btn-success"><span class="glyphicon glyphicon-step-backward"></span></button>
-                    <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
-
-                    
-                    <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                    <button class = "stepForward btn btn-success"><span class="glyphicon glyphicon-step-forward"></span></button>
-                    <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
-                </div>
-                <div style="position: relative">
-                    <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
-                        Thinking...
-                        <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
-                    </div>
-                    <div class="alerts-container">
-                        <div class="alerts">
-                            <div style="display:inline-block; padding: 5px">
-                                <div style="height: 100px; margin-left: 5px; float: right;">
-                                    <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
-                                    <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
-                                </div>
-                                <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
-                <table style="width: 100%;">
-                    <tr>
-                        <td style="width: 25%; vertical-align: top;">
-                            <div style="position: relative;">
-                                <div style = "text-align: center">Console</div>
-                                <div style="position: relative; min-height: 80px">
-                                    <div class="console" style="min-height: 20px; resize: both; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(255,255,255,0.7);"></div>
-                                </div>
-                                <div style = "text-align: center">Memory</div>
-                                <div style="overflow-y: auto; overflow-x: hidden;"><div class="memory readOnly"></div></div>
-
-                            </div>
-                        </td>
-                        <td style="vertical-align: top;">
-                            <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; position: relative; white-space: nowrap;"> </div>
-                        </td>
-                    </tr>
-                </table>
-
-            </div>
-        </div>
-
+<div class="lobster-ex" style="width: 600px; margin-left: auto; margin-right: auto">
+    <div class="lobster-ex-init-code">
+int main() {
+  int x = 2;
+}
     </div>
+    
 
 </div>
+
+
+
+
+<div class="lobster-ex" style="width: 600px; margin-left: auto; margin-right: auto">
+    <div class="lobster-ex-init-code">
+int main() {
+  int x = 22342342;
+}
+    </div>
+    
+
+</div>
+
+
 
 
 </body>
