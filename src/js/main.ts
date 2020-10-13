@@ -1,4 +1,3 @@
-import {ProjectEditor, CompilationOutlet, CompilationStatusOutlet, ProjectSaveOutlet} from "./view/editors";
 import { DefaultLobsterOutlet } from "./view/simOutlets";
 
 $(() => {

@@ -438,7 +438,10 @@
     padding: 2px;
     font-family: monospace;
     text-align: right;
-    width: 300px;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    resize: vertical;
 }
 
 .code-memoryStack{

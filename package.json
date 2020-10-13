@@ -13,7 +13,7 @@
         "@types/codemirror": "0.0.80",
         "@types/gapi": "^0.0.35",
         "@types/gapi.auth2": "^0.0.47",
-        "@types/jquery": "^3.3.4",
+        "@types/jquery": "^3.5.2",
         "@types/lodash": "^4.14.111",
         "codemirror": "^5.49.2",
         "css-loader": "^3.2.0",
