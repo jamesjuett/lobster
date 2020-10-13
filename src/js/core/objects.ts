@@ -673,7 +673,7 @@ export class InvalidObject<T extends CompleteObjectType = CompleteObjectType> ex
     }
 
     public describe(): ObjectDescription {
-        return { name: `[invalid @${this.address}`, message: `an invalid object at 0x${this.address}` };
+        return { name: `[invalid @${this.address}]`, message: `an invalid object at 0x${this.address}` };
     }
 }
 

@@ -309,12 +309,12 @@ export class SimulationOutlet {
         // });
 
         element.find(".stackFrames").on("mousedown", (e) => {
-            element.find("#simPane").focus();
+            element.find(".lobster-sim-pane").focus();
         });
 
         $(document).on("keydown", (e) => {
             //console.log(e.which);
-            if (element.find("#simPane").css("display") !== "none") {
+            if (element.find(".lobster-sim-pane").css("display") !== "none") {
                 if (e.which == 39) {
                     this.stepForward().catch(() => {});
                     e.preventDefault();
@@ -585,26 +585,26 @@ export class DefaultLobsterOutlet {
 
         this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-        this.projectEditor = new ProjectEditor(element.find("#sourcePane"));
+        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"));
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a[href="#sourcePane"]').on("shown.bs.tab", () => {
+        this.tabsElem.find('a.lobster-sim-tab').on("shown.bs.tab", () => {
             this.projectEditor.refreshEditorView();
         });
 
-        this.simulationOutlet = new SimulationOutlet(element.find("#simPane"));
+        this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
 
 
         let runButtonElem = element.find(".runButton")
             .click(() => {
             let program = this.projectEditor.program;
             if (program.isRunnable()) {
-                this.simulationOutlet.setSimulation(new Simulation(program));
+                this.setSimulation(new Simulation(program));
             }
-            $("#simulateTab").tab("show");
+            this.element.find(".lobster-simulate-tab").tab("show");
         });
 
-        new CompilationOutlet(element.find("#compilationPane"), this.projectEditor);
+        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.projectEditor);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
         new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
@@ -645,7 +645,150 @@ export class DefaultLobsterOutlet {
     @messageResponse("requestFocus")
     private requestFocus(msg: Message<undefined>) {
         if (msg.source === this.projectEditor) {
-            this.tabsElem.find('a[href="#sourcePane"]').tab("show");
+            this.tabsElem.find('a.lobster-source-tab').tab("show");
+        }
+    }
+
+    
+    @messageResponse("beforeStepForward")
+    private beforeStepForward(msg: Message<RuntimeConstruct>) {
+        var oldGets = $(".code-memoryObject .get");
+        var oldSets = $(".code-memoryObject .set");
+        setTimeout(() => {
+            oldGets.removeClass("get");
+            oldSets.removeClass("set");
+        }, 300);
+    }
+
+    // _act : {
+    //     loadCode : "loadCode",
+    //     loadProject : "loadProject",
+
+    //     annotationMessage : function(msg) {
+    //         this.hideAnnotationMessage();
+    //         var text = msg.data.text;
+    //         if (msg.data.after) {
+    //             this.afterAnnotation.unshift(msg.data.after);
+    //         }
+    //         this.annotationMessagesElem.find(".annotation-message").html(text);
+    //         this.annotationMessagesElem.css("top", "0px");
+    //         if (msg.data.aboutRecursion) {
+    //             this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "inline");
+    //             this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "none");
+    //         }
+    //         else{
+    //             this.annotationMessagesElem.find(".lobsterTeachingImage").css("display", "none");
+    //             this.annotationMessagesElem.find(".lobsterRecursionImage").css("display", "inline");
+    //         }
+    //     },
+
+    //     alert : function(msg) {
+    //         msg = msg.data;
+    //         this.pause();
+    //         this.alertsElem.find(".alerts-message").html(msg);
+    //         this.alertsElem.css("left", "0px");
+    //     },
+    //     explain : function(msg) {
+    //         msg = msg.data;
+    //         this.alertsElem.find(".alerts-message").html(msg);
+    //         this.alertsElem.css("left", "0px");
+    //     },
+    //     closeMessage : function() {
+    //         this.hideAlerts();
+    //     },
+    //     started : function(msg) {
+    //         this.hideAlerts();
+    //     },
+    // }
+
+//     mousewheel : function(ev) {
+//         ev.preventDefault();
+//         if (ev.deltaY < 0) {
+//             this.stepForward();
+//         }
+//         else{
+// //            this.stepBackward();
+//         }
+//     }
+
+}
+
+
+
+export class SimpleExerciseLobsterOutlet {
+    
+    public projectEditor: ProjectEditor;
+    public simulationOutlet: SimulationOutlet;
+    
+    public readonly sim?: Simulation;
+
+    private readonly element: JQuery;
+    private readonly tabsElem: JQuery;
+    // private readonly annotationMessagesElem: JQuery;
+
+    public _act!: MessageResponses;
+
+    public constructor(element: JQuery) {
+        this.element = element;
+
+        // Set up simulation and source tabs
+        // var sourceTab = element.find(".sourceTab");
+        // var simTab = element.find(".simTab");
+
+        this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
+
+        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"));
+
+        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
+            this.projectEditor.refreshEditorView();
+        });
+
+        this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
+
+        let runButtonElem = element.find(".runButton")
+            .click(() => {
+            let program = this.projectEditor.program;
+            if (program.isRunnable()) {
+                this.setSimulation(new Simulation(program));
+            }
+            this.element.find(".lobster-simulate-tab").tab("show");
+        });
+
+        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.projectEditor);
+        new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.projectEditor);
+    }
+
+    public setSimulation(sim: Simulation) {
+        this.clearSimulation();
+        (<Mutable<this>>this).sim = sim;
+        listenTo(this, sim);
+
+        this.simulationOutlet.setSimulation(sim);
+    }
+    
+    public clearSimulation() {
+        this.simulationOutlet.clearSimulation();
+
+        if (this.sim) {
+            stopListeningTo(this, this.sim);
+        }
+        delete (<Mutable<this>>this).sim;
+    }
+
+    // private hideAnnotationMessage() {
+    //     this.annotationMessagesElem.css("top", "125px");
+        
+    //     if (this.afterAnnotation.length > 0) {
+    //         this.afterAnnotation.forEach(fn => fn());
+    //         this.afterAnnotation.length = 0;
+    //     }
+    // }
+
+    @messageResponse("requestFocus")
+    private requestFocus(msg: Message<undefined>) {
+        if (msg.source === this.projectEditor) {
+            this.tabsElem.find('a.lobster-source-tab').tab("show");
         }
     }
 

@@ -5,6 +5,7 @@ module.exports = {
   // mode: "development",
   entry: {
     main: './src/js/main.ts',
+    exercises: './src/js/exercises.ts',
     regression: './src/js/test/regression.ts'
   },
   devtool: "inline-source-map",
