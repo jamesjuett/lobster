@@ -1326,7 +1326,7 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         // % operator and shift operators require integral operands
         if ((operator === "%" || operator === "<<" || operator == ">>") &&
             (!Predicates.isTypedExpression(left, isIntegralType) || !Predicates.isTypedExpression(right, isIntegralType))) {
-            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, left, right));
+            this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, left, right));
             this.attach(this.left = left);
             this.attach(this.right = right);
             return;
