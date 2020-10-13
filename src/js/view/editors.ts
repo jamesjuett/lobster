@@ -88,7 +88,7 @@ export class ProjectEditor {
             },
             gutters: ["CodeMirror-linenumbers", "errors"]
         });
-        this.codeMirror.setSize(null, "auto");
+        // this.codeMirror.setSize(null, "auto");
 
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
@@ -646,7 +646,7 @@ export class CompilationStatusOutlet {
         this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
             .append(this.numStyleElem = $('<span></span>'))
             .append(" ")
-            .append('<span class="glyphicon glyphicon-sunglasses"></span>')
+            .append('<span class="glyphicon glyphicon-lamp"></span>')
             .appendTo(this.notesElem);
 
         

@@ -179,66 +179,6 @@ h2{
 	/*font-weight: bold;*/
 }
 
-/*.mathExpr:hover{
-	cursor: url(eval_cursor5.png) 5 8,auto;
-	text-decoration: underline;
-}*/
-#variable_area{
-	border-right: solid 1px;
-	background-color: #eeeeee;
-	height: 100%;
-}
-
-#main_area{
-	margin: 10px;
-	padding-left: 15px;
-	padding-right: 15px;
-	/*left: 131px;*/
-	/*right: 131px;*/
-	/*width: 400px;*/
-	border: solid 1px #cccccc;
-	background-color: #ffffe0;
-	/*max-width: 1100px;*/
-	min-width: 600px;
-}
-
-/*img {*/
-	/*background: white;*/
-	/*border: outset 1px #aaaaaa;*/
-	/*box-shadow: 3px 3px 5px #888888;*/
-	/*border-radius: 7px;*/
-	/*padding: 7px;*/
-/*}*/
-
-#tool_area{
-	position: fixed;
-	float: right;
-	margin-left: 15px;
-	margin-right: 5px;
-	margin-top: 20px;
-}
-
-#variable_list{
-	list-style-type: none;
-	padding-left: 5px;
-}
-
-#variable_list li{
-	display: block;
-}
-
-#eval_input {
-	display: none;
-}
-
-#eval_button {
-	display: none;
-}
-
-#eval_output {
-	display: none;
-}
-
 .variableValue{
 	display: inline;
 }
@@ -500,9 +440,13 @@ div .tabPane {
     padding-left: 20px;
 }
 
+.lobster-console-contents {
+    white-space: pre;
+    font-size: 8pt;
+}
+
 .console {
     display: block;
-    white-space: pre;
     overflow-y: auto;
     /*position: absolute;*/
     z-index: 10;

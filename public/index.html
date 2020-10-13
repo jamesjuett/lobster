@@ -106,15 +106,15 @@
                     </div>
                 </div>
 
-                <li><a data-toggle="tab" href="#compilationPane">Compilation</a></li>
-                <li class="active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
-                <li><a id="simulateTab" data-toggle="tab" href="#simPane">Simulation</a></li>
+                <li><a class="lobster-compilation-tab" data-toggle="tab" href="#compilationPane">Compilation</a></li>
+                <li class="lobster-source-tab active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
+                <li><a class="lobster-sim-tab" data-toggle="tab" href="#simPane">Simulation</a></li>
 
             </ul>
 
             <div class="tab-content">
 
-                <div id="compilationPane" class="tab-pane fade">
+                <div id="compilationPane" class="lobster-compilation-pane tab-pane fade">
                     <div>
                         <h3>Translation Units</h3>
                         <p>A program may be composed of many different translation units, one for each source file
@@ -144,7 +144,7 @@
                 </div>
 
 
-                <div id="sourcePane" class="tab-pane fade active in">
+                <div id="sourcePane" class="lobster-source-pane tab-pane fade active in">
                     <ul class="project-files nav nav-pills"></ul>
 
                     <div style = "height: 22px; padding: 2px; background-color: lightgray;">
@@ -167,7 +167,7 @@
                         </div>
                     </div>
                 </div>
-                <div id="simPane" class="tab-pane fade">
+                <div id="simPane" class="lobster-sim-pane tab-pane fade">
                     <div style="margin-bottom: 5px;">
                         <button class = "restart">Restart</button>
                         <!--<span style = "display: inline-block; width: 4ch"></span>-->
@@ -228,127 +228,6 @@
     </div>
 </div>
 
-
-<!--<div class="fill" style="margin-left: auto; margin-right: auto">-->
-    <!--<div class="fill" id="main_area" style="display:flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column;">-->
-        <!--<div style="text-align: center; flex:0 1 auto;-webkit-flex:0 1 auto; -ms-flex:0 1 auto">-->
-            <!--<div style="font-size: 8pt; color: red">If possible, please use Google Chrome for Lobster. It runs poorly on other browsers. Sorry for the inconvenience!</div>-->
-            <!--(<a href="https://drive.google.com/file/d/0B49xEM_rtERAMHRFZW5oREdGdjA/view?usp=sharing" target="_blank">Usage Guide</a>)-->
-            <!--&lt;!&ndash;(Press the "s" or "->" key to step forward, or scroll while holding ctrl)&ndash;&gt;-->
-        <!--</div>-->
-        <!--<div id="lobster1" style="display:flex; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch; flex: 1 1 auto; -webkit-flex: 1 1 auto; -ms-flex: 1 1 auto; margin-top: 5px; margin-bottom: 5px; overflow-y: scroll">-->
-            <!--<div style="width: 175px; margin-right: 5px; display: flex; flex-direction:column;-webkit-flex-direction: column;-ms-flex-direction: column; align-items: stretch;-webkit-align-items: stretch;-ms-align-items: stretch;">-->
-                <!--<div style="margin-top: 2ch; text-align: center">My Projects</div>-->
-                <!--<ul class="projectList coursePills nav nav-pills nav-stacked"></ul>-->
-                <!--&lt;!&ndash;<div class = "projectList" style="flex: 1 1 100px;-webkit-flex: 1 1 100px;-ms-flex: 1 1 100px; overflow-y: auto; "></div>&ndash;&gt;-->
-                <!--<div style="margin-top: 2ch; text-align: center">My Code</div>-->
-                <!--<div style="text-align: center; font-size: 7pt">(Check the box to make the code public.)</div>-->
-                <!--<div class = "codeList codeListMe" style="flex: 1 1 100px;-webkit-flex: 1 1 100px;-ms-flex: 1 1 100px; overflow-y: auto; "></div>-->
-                <!--<div style="margin-top: 2ch; text-align: center">EECS280 Code</div>-->
-                <!--<div class = "codeList codeListAll" style="flex: 1 1 100px; -webkit-flex: 1 1 100px; -ms-flex: 1 1 100px; overflow-y: auto; "></div>-->
-                <!--<div style="margin-top: 2ch; text-align: center">A Friend's Code</div>-->
-                <!--<span style="font-size: 7pt">Email:</span><input class="friendsUniqname" style="width: 100px" type="text" maxlength="100" value="uniqname" />-->
-                <!--<span style="font-size: 7pt">Code Name:</span><input class="friendsProgramName" style="width: 100px" type="text" maxlength="30" value="program.cpp" />-->
-                <!--<button class="friendCodeButton">Find</button>-->
-            <!--</div>-->
-            <!--<div style="flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; display: flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column;">-->
-                <!--<div class="tabs" style="flex: 0 0 auto;-webkit-flex: 0 0 auto;-ms-flex: 0 0 auto;">-->
-                    <!--<span class="sourceTab" class="active">Source Code</span>-->
-                    <!--<span class="simTab">Simulation</span>-->
-                <!--</div>-->
-                <!--<div class = "tabPanes" style="position: relative; background-color: white; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto;">-->
-                    <!--<div class="sourcePane" style="display: flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column">-->
-                        <!--<div>-->
-                            <!--<div class="container">-->
-                                <!--<div class="row">-->
-                                    <!--<ul class="project-files nav nav-tabs">-->
-
-                                    <!--</ul>-->
-                                <!--</div>-->
-                            <!--</div>-->
-                        <!--</div>-->
-                        <!--<div style= "padding:2px">-->
-                            <!--<input class="saveName" type="text" maxlength="30" value="" />-->
-                            <!--<button class="saveButton">Save</button>-->
-                            <!--<span class="saveMessage" style="display: none">Saving...</span>-->
-                        <!--</div>-->
-                        <!--<div style = "height: 22px; padding: 2px; background-color: lightgray;flex: 0 0 auto;-webkit-flex: 0 0 auto;-ms-flex: 0 0 auto;">-->
-                            <!--<button class = "runButton" style="display: inline-block">Simulate</button>-->
-                            <!--<span class="status"></span>-->
-                        <!--</div>-->
-                        <!--<ul class = "semanticProblems" style = "width: 100%; max-height: 100px; overflow-y: auto; box-sizing: border-box;"></ul>-->
-                        <!--<div class="codeMirrorEditor" style = "position: relative; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; background-color: #272822">-->
-                            <!--&lt;!&ndash;<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>&ndash;&gt;-->
-                            <!--&lt;!&ndash;<div style="height: 400px;"></div>&ndash;&gt;-->
-                        <!--</div>-->
-
-                        <!--<div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">-->
-                            <!--<div class="annotationMessages">-->
-                                <!--<div style="height: 100px; margin-left: 5px; float: right;">-->
-                                    <!--<img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>-->
-                                    <!--<img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>-->
-                                    <!--<div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>-->
-                                <!--</div>-->
-                                <!--<div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>-->
-                            <!--</div>-->
-                        <!--</div>-->
-                    <!--</div>-->
-                    <!--<div class="simPane" style="display: none; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column; padding: 5px" tabindex="0">-->
-                        <!--<div style="margin-bottom: 5px;">-->
-                            <!--<button class = "restart">Restart</button>-->
-                            <!--&lt;!&ndash;<span style = "display: inline-block; width: 4ch"></span>&ndash;&gt;-->
-                            <!--<input type="text" style="display: none; width: 4ch" class="stepForwardNum" value="1" />-->
-                            <!--<button class = "stepForward">Step Forward</button>-->
-                            <!--<button class = "stepOver">Step Over</button>-->
-                            <!--<button class = "stepOut">Step Out</button>-->
-                            <!--<button class = "runToEnd">Run</button>-->
-                            <!--<button class = "pause">Pause</button>-->
-                            <!--<button class = "skipToEnd">Skip to End (FAST)</button>-->
-
-                            <!--&lt;!&ndash;Show Functions<input type="checkbox" class="stepInto"/>&ndash;&gt;-->
-                            <!--<button class = "stepBackward">Step Backward</button>-->
-                            <!--<input type="text" style="width: 4ch" class="stepBackwardNum" value="1" />-->
-                            <!--&lt;!&ndash;<input type="checkbox" id="tcoCheckbox" checked="false" />&ndash;&gt;-->
-                        <!--</div>-->
-                        <!--<div style="position: relative">-->
-                            <!--<div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">-->
-                                <!--Thinking...-->
-                                <!--&lt;!&ndash;<progress style="display: inline-block; vertical-align: top"></progress>&ndash;&gt;-->
-                            <!--</div>-->
-                            <!--<div class="alerts-container">-->
-                                <!--<div class="alerts">-->
-                                    <!--<div style="display:inline-block; padding: 5px">-->
-                                        <!--<div style="height: 100px; margin-left: 5px; float: right;">-->
-                                            <!--<img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>-->
-                                            <!--<div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>-->
-                                        <!--</div>-->
-                                        <!--<table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>-->
-                                    <!--</div>-->
-                                <!--</div>-->
-                            <!--</div>-->
-                        <!--</div>-->
-                        <!--&lt;!&ndash; <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> &ndash;&gt;-->
-                        <!--<div style="flex: 1 1 200px;-webkit-flex: 1 1 200px;-ms-flex: 1 1 200px; display: flex;">-->
-                            <!--<div style="display:flex; flex-direction: column;-webkit-flex-direction: column;-ms-flex-direction: column">-->
-                                <!--<div style = "text-align: center">Console</div>-->
-                                <!--<div style="position: relative; min-height: 80px">-->
-                                    <!--<div class="console" style="min-height: 20px; resize: both; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(255,255,255,0.7);"></div>-->
-                                <!--</div>-->
-                                <!--<div style = "text-align: center">Memory</div>-->
-                                <!--<div class = "" style="flex: 1 1 0;-webkit-flex: 1 1 0;-ms-flex: 1 1 0; overflow-y: auto; width: 200px; overflow-x: hidden;"><div class="memory readOnly"></div></div>-->
-
-                            <!--</div>-->
-                            <!--<div class = "stackFrames readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; text-wrap: avoid; position: relative; white-space: nowrap;"> </div>-->
-                        <!--</div>-->
-
-                        <!--&lt;!&ndash; <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> &ndash;&gt;-->
-
-                    <!--</div>-->
-                <!--</div>-->
-
-            <!--</div>-->
-        <!--</div>-->
-    <!--</div>-->
 
 </body>
 </html>
