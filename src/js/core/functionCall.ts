@@ -239,7 +239,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         }
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
-            this.containingRuntimeFunction.gainControl();
+            this.containingRuntimeFunction?.gainControl();
             this.startCleanup();
         }
     }
@@ -255,7 +255,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
 
-            this.containingRuntimeFunction.loseControl();
+            this.containingRuntimeFunction?.loseControl();
             this.sim.push(this.calledFunction);
             this.calledFunction.gainControl();
             this.receiver && this.receiver.callReceived();

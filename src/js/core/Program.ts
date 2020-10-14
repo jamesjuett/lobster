@@ -2,13 +2,15 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration } from "./declarations";
+import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int } from "./types";
+import { startCase } from "lodash";
+
 
 
 /**
@@ -25,7 +27,7 @@ export class Program {
 
     public readonly isCompilationUpToDate: boolean = true;
 
-    public readonly sourceFiles: { [index: string]: SourceFile } = {};
+    public readonly sourceFiles: { [index: string]: SourceFile } = Object.assign({}, LIBRARY_FILES);
     public readonly translationUnits: { [index: string]: TranslationUnit } = {};
 
     public readonly globalObjects: readonly GlobalVariableDefinition[] = [];
@@ -167,22 +169,6 @@ export class Program {
         }
 
         (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
-        //look for main - TODO: this should just be a prerequisite for actually simulating.
-        // I think it's a bit annoying that a program without main necessarily has this error.
-        // try{
-        //     this.i_main = this.i_globalScope.requiredLookup("main", {paramTypes: []});
-        // }
-        // catch(e){
-        //     if (isA(e, SemanticExceptions.BadLookup)){
-        //         this.addNote(e.annotation());
-        //     }
-        //     else{
-        //         console.log(e.stack);
-        //         throw e;
-        //     }
-        // }
-
-        // this.send("linkingFinished");
 
     }
 
@@ -436,7 +422,7 @@ class PreprocessedSource {
 
         // Find and replace #include lines. Will also populate i_includes array.
         // [^\S\n] is a character class for all whitespace other than newlines
-        this.preprocessedText = codeStr.replace(/#include[^\S\n]+"(.*)"/g,
+        this.preprocessedText = codeStr.replace(/#include[^\S\n]+["<](.*)[">]/g,
             (includeLine, filename, offset, original) => {
 
                 let mapping: Mutable<Partial<IncludeMapping>> = {};
@@ -537,9 +523,9 @@ class PreprocessedSource {
             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         }
         // if (codeStr.contains(/#include.*<.*>/g)){
-        codeStr = codeStr.replace(/#include.*<.*>/g, function (match) {
-            return Array(match.length + 1).join(" ");
-        });
+        // codeStr = codeStr.replace(/#include.*<.*>/g, function (match) {
+        //     return Array(match.length + 1).join(" ");
+        // });
         // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
         // }
         if (codeStr.includes("using namespace")) {
@@ -677,11 +663,16 @@ export class TranslationUnit {
         // }
 
         // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
-        //     cpp_parse("class ostream;", {startRule: "declaration"}),
-        //     this.context)[0]);
+        //     <ClassDefinitionASTNode>cpp_parse("class ostream { };", {startRule: "declaration"}),
+        //     this.context));
 
         // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
-        //     cpp_parse("ostream cout;", {startRule: "declaration"}),
+        //     <NonMemberSimpleDeclarationASTNode>{
+        //         construct_type: "simple_declaration",
+        //         declarators: [<DeclaratorASTNode>cpp_parse("cout", {startRule: "declarator"})],
+        //         source: {column: 1, line: 1, end: 1, start: 1, text: "ostream cout;"},
+        //         specs: {typeSpecs: ["ostream"], classSpecifiers: [], storageSpecs: [], elaboratedTypeSpecifiers: []},
+        //     },
         //     this.context)[0]);
 
         // // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
@@ -760,3 +751,11 @@ export class TranslationUnit {
 }
 
 
+
+export const LIBRARY_FILES = {
+    iostream: new SourceFile("iostream", `
+        class ostream {};
+        ostream cout;
+        const char endl = '\\n';
+    `)
+}

@@ -380,7 +380,7 @@ div .tabPane {
 	top: 0;
 	/*margin-top: 20px;*/
 	left: 100%;
-	width: 700px;
+	width: 500px;
 	background-color: rgba(255,255,255,0.7);
 	color: black;
 	z-index: 50;

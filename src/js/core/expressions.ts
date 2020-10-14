@@ -6,7 +6,7 @@ import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse } from "../util/util";
-import { checkIdentifier, MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_IDENTIFIERS, LOBSTER_MAGIC_FUNCTIONS } from "./lexical";
+import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet } from "../view/codeOutlets";
@@ -1709,9 +1709,7 @@ export class OutputOperatorExpression extends Expression<ArithmeticBinaryOperato
             return;
         }
 
-        this.right = convertToPRValue(right);
-
-        this.attach(this.right = right);
+        this.attach(this.right = convertToPRValue(right));
     }
 
     public createDefaultOutlet(this: CompiledOutputOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -3805,10 +3803,6 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     public constructor(context: ExpressionContext, ast: IdentifierExpressionASTNode | undefined, name: string) {
         super(context, ast);
         this.name = name;
-
-        if (LOBSTER_MAGIC_IDENTIFIERS.has(name)) {
-            this.entity
-        }
 
         checkIdentifier(this, name, this);
 
