@@ -1743,7 +1743,3 @@ export const builtInTypes = {
     "double": Double,
     "void": VoidType
 };
-
-export const INTRINSIC_TYPES = {
-    "ostream" : createClassType("ostream")
-}

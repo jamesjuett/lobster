@@ -2,7 +2,7 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
+import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
@@ -675,6 +675,14 @@ export class TranslationUnit {
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
         // }
+
+        // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
+        //     cpp_parse("class ostream;", {startRule: "declaration"}),
+        //     this.context)[0]);
+
+        // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
+        //     cpp_parse("ostream cout;", {startRule: "declaration"}),
+        //     this.context)[0]);
 
         // // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
         // this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
