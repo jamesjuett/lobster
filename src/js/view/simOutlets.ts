@@ -258,7 +258,7 @@ export class SimulationOutlet {
         this.element = element;
 
         this.runningProgressElem = findExactlyOne(element, ".runningProgress");
-        this.consoleElems = findExactlyOne(element, ".console");
+        this.consoleElems = findExactlyOne(element, ".lobster-console-contents");
         this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
         this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
 

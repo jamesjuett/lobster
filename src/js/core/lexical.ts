@@ -26,8 +26,15 @@ export enum MAGIC_FUNCTION_NAMES {
     pause = "pause",
     pauseIf = "pauseIf"
 }
+export const LOBSTER_MAGIC_FUNCTIONS = new Set(Object.keys(MAGIC_FUNCTION_NAMES));
 
-export const LOBSTER_KEYWORDS = new Set(Object.keys(MAGIC_FUNCTION_NAMES));
+export enum MAGIC_IDENTIFIER_NAMES {
+    cout = "cout",
+    cin = "cin"
+}
+export const LOBSTER_MAGIC_IDENTIFIERS = new Set(Object.keys(MAGIC_IDENTIFIER_NAMES));
+
+export const LOBSTER_KEYWORDS = new Set([...Object.keys(MAGIC_FUNCTION_NAMES), ...Object.keys(MAGIC_IDENTIFIER_NAMES)]);
 
 export const ALT_OPS = new Set([
     "and", "and_eq", "bitand", "bitor", "compl", "not",

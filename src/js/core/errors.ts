@@ -1,6 +1,6 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType, ExpressionType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
@@ -617,6 +617,11 @@ export const CPPError = {
         pointer_offset: {
             incomplete_pointed_type: function (construct: TranslationUnitConstruct, type: PointerType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_offset.incomplete_pointed_type", `Computing a pointer offset is not allowed in this case, because the pointer points to an incomplete type, ${type}. (The size of objects of an incomplete type is unknown, which prevents the subtraction.)`);
+            }
+        },
+        output: {
+            unsupported_type: function (construct: TranslationUnitConstruct, type: ExpressionType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.output.unsupported_type", `The built-in << operator does not support the type: ${type}`);
             }
         },
         pointer_comparison: {
