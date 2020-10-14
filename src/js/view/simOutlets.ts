@@ -250,7 +250,7 @@ export class SimulationOutlet {
     private readonly buttonElems: {[k in SimulationButtonNames]: JQuery};
     private readonly alertsElem: JQuery;
 
-    private readonly consoleElems: JQuery;
+    private readonly consoleElem: JQuery;
 
     public _act!: MessageResponses;
 
@@ -258,7 +258,7 @@ export class SimulationOutlet {
         this.element = element;
 
         this.runningProgressElem = findExactlyOne(element, ".runningProgress");
-        this.consoleElems = findExactlyOne(element, ".lobster-console-contents");
+        this.consoleElem = findExactlyOne(element, ".lobster-console-contents");
         this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
         this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
 
@@ -539,7 +539,7 @@ export class SimulationOutlet {
     
     @messageResponse("cout")
     private cout(msg: Message<string>) {
-        this.consoleElems.html(msg.data);
+        this.consoleElem.append(msg.data);
     }
     
     @messageResponse("reset")

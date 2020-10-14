@@ -278,7 +278,7 @@ export class ProjectEditor {
             this.sourceFiles.map(file => file.name).filter(name => this.isTranslationUnit(name)));
 
         if (this.projectName)
-            projectAnalyses[this.projectName](this.program);
+            projectAnalyses[this.projectName] && projectAnalyses[this.projectName](this.program);
 
         Object.keys(this.fileEditors).forEach((ed: string) => {
             this.fileEditors[ed].clearMarks();
