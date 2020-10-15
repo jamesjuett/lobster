@@ -55,6 +55,7 @@ export class Simulation {
     public readonly random = new CPPRandom();
 
     public readonly stepsTaken: number;
+    public readonly allOutput: string;
 
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
@@ -104,6 +105,8 @@ export class Simulation {
         this.stepsTaken = 0;
         this.atEnd = false;
 
+        this.allOutput = "";
+
         this.start();
     }
 
@@ -128,6 +131,8 @@ export class Simulation {
         _this.isPaused = true;
         _this.stepsTaken = 0;
         _this.atEnd = false;
+
+        (<Mutable<this>>this).allOutput = "";
 
         this.observable.send("reset");
 
