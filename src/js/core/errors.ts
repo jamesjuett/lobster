@@ -624,6 +624,14 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.output.unsupported_type", `The built-in << operator does not support the type: ${type}`);
             }
         },
+        input: {
+            unsupported_type: function (construct: TranslationUnitConstruct, type: ExpressionType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.input.unsupported_type", `The built-in >> operator does not support the type: ${type}`);
+            },
+            lvalue_required: function (construct: TranslationUnitConstruct, type: ExpressionType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.input.lvalue_required", `An input operation using >> must have an object as its right operand so that the data has a place to be read into.`);
+            }
+        },
         pointer_comparison: {
             same_pointer_type_required: function (construct: TranslationUnitConstruct, left: TypedExpression, right: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.pointer_comparison.same_pointer_type_requried", `Comparing the addresses of pointers to different types is prohibited (${left.type} and ${right.type}).`);
