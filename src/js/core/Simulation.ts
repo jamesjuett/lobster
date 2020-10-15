@@ -143,12 +143,17 @@ export class Simulation {
         // in this.callMain()
 
         this.callMain();
-        this.push(this.program.globalObjectAllocator.createRuntimeConstruct(this));
+        let globalAllocator = this.program.globalObjectAllocator.createRuntimeConstruct(this);
+        this.push(globalAllocator);
 
         this.observable.send("started");
 
         // Needed for whatever is first on the execution stack
         this.upNext();
+
+        while(!globalAllocator.isDone) {
+            this.stepForward();
+        }
     }
 
     private callMain() {

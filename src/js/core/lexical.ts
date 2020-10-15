@@ -26,6 +26,8 @@ export enum MAGIC_FUNCTION_NAMES {
     pause = "pause",
     pauseIf = "pauseIf"
 }
+export const LOBSTER_MAGIC_FUNCTIONS = new Set(Object.keys(MAGIC_FUNCTION_NAMES));
+
 
 export const LOBSTER_KEYWORDS = new Set(Object.keys(MAGIC_FUNCTION_NAMES));
 

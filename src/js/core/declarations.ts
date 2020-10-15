@@ -955,7 +955,7 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly type: VariableDefinitionType;
     public readonly declaredEntity!: GlobalObjectEntity<CompleteObjectType>; // TODO definite assignment assertion can be removed when global references are supported
 
-    public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: VariableDefinitionType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
