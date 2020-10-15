@@ -38,6 +38,10 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
         return !!this.type && !!this.valueCategory;
     }
 
+    public isTyped<T extends ExpressionType>(type: T) : this is TypedExpression<T> {
+        return !!this.type?.sameType(type);
+    }
+
     public isPrvalue<T extends ExpressionType, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "prvalue"> {
         return this.valueCategory === "prvalue";
     }

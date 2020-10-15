@@ -8,7 +8,7 @@ import { CPPObject } from "./objects";
 import { CompiledFunctionDefinition } from "./declarations";
 import { CPPError } from "./errors";
 import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, TypedExpression, ValueCategory, Expression } from "./expressionBase";
-import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES } from "./lexical";
+import { LOBSTER_KEYWORDS, MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_FUNCTIONS } from "./lexical";
 import { Value } from "./runtimeEnvironment";
 import { SimulationEvent } from "./Simulation";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
@@ -239,7 +239,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         }
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.calledFunction.loseControl();
-            this.containingRuntimeFunction.gainControl();
+            this.containingRuntimeFunction?.gainControl();
             this.startCleanup();
         }
     }
@@ -255,7 +255,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
 
-            this.containingRuntimeFunction.loseControl();
+            this.containingRuntimeFunction?.loseControl();
             this.sim.push(this.calledFunction);
             this.calledFunction.gainControl();
             this.receiver && this.receiver.callReceived();
@@ -354,7 +354,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         let args = ast.args.map(arg => createExpressionFromAST(arg, context));
 
         if (ast.operand.construct_type === "identifier_expression") {
-            if (LOBSTER_KEYWORDS.has(ast.operand.identifier)) {
+            if (LOBSTER_MAGIC_FUNCTIONS.has(ast.operand.identifier)) {
                 return new MagicFunctionCallExpression(context, ast, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args);
             }
         }
