@@ -48,7 +48,7 @@ export class Program {
     public readonly mainFunction?: FunctionDefinition;
 
 
-    public constructor(sourceFiles: readonly SourceFile[], translationUnits: readonly string[]) {
+    public constructor(sourceFiles: readonly SourceFile[], translationUnits: Set<string>) {
 
         sourceFiles.forEach(file => {
             this.sourceFiles[file.name] = file;

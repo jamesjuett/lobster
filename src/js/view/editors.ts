@@ -7,9 +7,10 @@ import 'codemirror/addon/display/fullscreen.js';
 import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
-import { Observable, messageResponse, Message, addListener, MessageResponses } from "../util/observe";
+import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo } from "../util/observe";
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
 import { projectAnalyses } from "../core/analysis";
+import { update } from "lodash";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -17,8 +18,210 @@ const API_URL_SAVE_PROJECT = "/api/me/project/save/";
 interface FileData {
     readonly name: string;
     readonly code: string;
-    readonly isTranslationUnit: "yes" | "no";
+    readonly isTranslationUnit: boolean;
 }
+
+type ProjectMessages =
+    "translationUnitAdded" |
+    "translationUnitRemoved" |
+    "compilationFinished" |
+    "compilationOutOfDate" |
+    "fileAdded" |
+    "fileContentsSet" |
+    "translationUnitStatusSet";
+
+export class Project {
+
+    public observable = new Observable<ProjectMessages>(this);
+
+    public readonly name: string;
+
+    public readonly sourceFiles: readonly SourceFile[] = [];
+    private translationUnitNames: Set<string> = new Set<string>();
+
+    public readonly program!: Program; // ! set by call to this.compile() in ctor
+    
+    public readonly isCompilationOutOfDate: boolean = true;
+
+    private pendingAutoCompileTimeout?: number;
+    private autoCompileDelay?: number;
+
+    public constructor(name: string, files: readonly FileData[]) {
+        this.name = name;
+        files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
+
+        this.compilationOutOfDate();
+    }
+
+    public addFile(file: SourceFile, isTranslationUnit: boolean) {
+
+        let i = this.sourceFiles.findIndex(sf => sf.name === file.name);
+        assert(i === -1, "Attempt to add duplicate file.");
+
+        // Add file
+        asMutable(this.sourceFiles).push(file);
+
+        // Add a translation unit if appropriate
+        if (isTranslationUnit) {
+            this.translationUnitNames.add(file.name);
+        }
+
+        this.observable.send("fileAdded", file);
+
+        this.compilationOutOfDate();
+    }
+
+    public setFileContents(file: SourceFile) {
+        
+        let i = this.sourceFiles.findIndex(sf => sf.name === file.name);
+        assert(i !== -1, "Cannot update contents for a file that is not part of this project.");
+
+        // Update file contents
+        asMutable(this.sourceFiles)[i] = file;
+
+        this.observable.send("fileContentsSet", file);
+
+        this.compilationOutOfDate();
+    }
+
+    public setTranslationUnit(name: string, isTranslationUnit: boolean) {
+        
+        let i = this.sourceFiles.findIndex(sf => sf.name === name);
+        assert(i !== -1, "Cannot update translation unit status for a file that is not part of this project.");
+
+        // Update translation unit status
+        if (isTranslationUnit) {
+            this.translationUnitNames.add(name);
+        }
+        else {
+            this.translationUnitNames.delete(name);
+        }
+
+        this.observable.send("translationUnitStatusSet", name);
+
+        this.compilationOutOfDate();
+    }
+
+    public recompile() {
+        (<Mutable<this>>this).program = new Program(this.sourceFiles, this.translationUnitNames);
+
+        if (this.name) {
+            projectAnalyses[this.name] && projectAnalyses[this.name](this.program);
+        }
+
+        this.observable.send("compilationFinished", this.program);
+    }
+
+    public isTranslationUnit(name: string) {
+        return this.translationUnitNames.has(name);
+    }
+
+    /**
+     * Toggles whether a source file in this project is being used as a translation unit
+     * and should be compiled as part of the program. The name given for the translation
+     * unit to be toggled must match the name of one of this project's source files.
+     * @param tuName
+     */
+    public toggleTranslationUnit(tuName: string) {
+        // If it's a valid source file, its name will be a key in the map
+        assert(this.sourceFiles.map(sf => sf.name).indexOf(tuName) !== -1, `No source file found for translation unit: ${tuName}`);
+
+        if (this.translationUnitNames.has(tuName)) {
+            this.translationUnitNames.delete(tuName);
+            this.observable.send("translationUnitRemoved");
+        }
+        else {
+            this.translationUnitNames.add(tuName);
+            this.observable.send("translationUnitAdded");
+        }
+
+        this.compilationOutOfDate();
+    }
+
+    private compilationOutOfDate() {
+        (<Mutable<this>>this).isCompilationOutOfDate = true;
+        this.observable.send("compilationOutOfDate");
+        
+        if (this.autoCompileDelay !== undefined) {
+            this.dispatchAutoCompile();
+        }
+    }
+
+    private dispatchAutoCompile() {
+        assert(this.autoCompileDelay !== undefined);
+        // Clear old recompile timeout if one was pending
+        if (this.pendingAutoCompileTimeout) {
+            clearTimeout(this.pendingAutoCompileTimeout);
+            this.pendingAutoCompileTimeout = undefined;
+        }
+
+        // Start new autocomplete timeout
+        this.pendingAutoCompileTimeout = setTimeout(() => {
+            this.recompile();
+
+            // no longer a pending timeout once this one finishes
+            this.pendingAutoCompileTimeout = undefined;
+        }, this.autoCompileDelay);
+    }
+    
+    public turnOnAutoCompile(autoCompileDelay: number | undefined) {
+        this.autoCompileDelay = autoCompileDelay;
+        if (this.isCompilationOutOfDate) {
+            this.dispatchAutoCompile();
+        }
+    }
+
+    public turnOffAutoCompile() {
+        this.autoCompileDelay = undefined;
+    }
+
+    // @messageResponse("projectCleared")
+    // private projectCleared() {
+    //     let _this = <Mutable<this>>this;
+
+    //     _this.projectName = "";
+    //     _this.sourceFiles = [];
+    //     this.translationUnitNamesMap = {};
+    //     this.recompile();
+
+    //     _this.isSaved = true;
+    //     _this.isOpen = false;
+
+    //     this.fileTabs = {};
+    //     this.filesElem.empty();
+    //     this.fileEditors = {};
+    // }
+
+    // @messageResponse("projectLoaded")
+    // private projectLoaded(project: Project) {
+
+    //     this.clearProject();
+
+    //     let _this = <Mutable<this>>this;
+
+    //     project.sourceFiles.forEach(file => this.createFile(file));
+
+    //     _this.isSaved = true;
+    //     _this.isOpen = true;
+
+    //     // document.title = projectName; // TODO: this is too aggressive because there may be multiple project editors. replace in favor of projectLoaded message
+
+    //     // Set first file to be active
+    //     if (projectData.length > 0) {
+    //         this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
+    //         this.selectFile(projectData[0]["name"]);
+    //     }
+
+    //     this.recompile();
+    // }
+}
+
+type ProjectEditorMessages =
+    "saveAttempted" |
+    "unsavedChanges" |
+    "saveSuccessful" |
+    "projectCleared" |
+    "projectLoaded";
 
 /**
  * This class manages all of the source files associated with a project and the editors
@@ -26,17 +229,6 @@ interface FileData {
  * also internally routes annotations (e.g. for compilation errors) to the appropriate
  * editor based on the source reference of the annotation.
  */
-type ProjectEditorMessages =
-    "translationUnitAdded" |
-    "translationUnitRemoved" |
-    "saveAttempted" |
-    "unsavedChanges" |
-    "saveSuccessful" |
-    "projectCleared" |
-    "projectLoaded" |
-    "compilationOutOfDate" |
-    "compilationFinished";
-
 export class ProjectEditor {
 
     private static instances: ProjectEditor[] = [];
@@ -44,17 +236,13 @@ export class ProjectEditor {
     public observable = new Observable<ProjectEditorMessages>(this);
     public _act!: MessageResponses;
 
-    public static onBeforeUnload() {
-        let unsaved = ProjectEditor.instances.find(inst => inst.isOpen && !inst.isSaved);
-        if (unsaved) {
-            return "The project \"" + unsaved.projectName + "\" has unsaved changes.";
-        }
-    }
-
-    public readonly projectName?: string;
-    public readonly sourceFiles: readonly SourceFile[] = [];
-    private translationUnitNamesMap: {[index: string]: boolean} = {};
-    public readonly program: Program;
+    // TODO: transfer to Project class
+    // public static onBeforeUnload() {
+    //     let unsaved = ProjectEditor.instances.find(inst => inst.isOpen && !inst.isSaved);
+    //     if (unsaved) {
+    //         return "The project \"" + unsaved.project.name + "\" has unsaved changes.";
+    //     }
+    // }
 
     public readonly isSaved: boolean = true;
     public readonly isOpen: boolean = false;
@@ -65,10 +253,9 @@ export class ProjectEditor {
 
     private codeMirror: CodeMirror.Editor;
 
-    private pendingAutoCompileTimeout?: number;
-    private autoCompileDelay?: number;
+    public readonly project: Project;
 
-    public constructor(element: JQuery) {
+    public constructor(element: JQuery, project: Project) {
 
         let codeMirrorElement = element.find(".codeMirrorEditor");
         assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
@@ -80,9 +267,9 @@ export class ProjectEditor {
             keyMap: "sublime",
             extraKeys: {
                 "Ctrl-S" : () => {
-                    if (!this.isSaved) {
-                        this.saveProject();
-                    }
+                    // if (!this.isSaved) {
+                    //     this.saveProject();
+                    // }
                 },
 
             },
@@ -93,199 +280,131 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        this.program = new Program([], []);
-
         ProjectEditor.instances.push(this);
+
+        this.project = project;
+        listenTo(this, project);
+
+        project.sourceFiles.forEach(f => this.onFileAdded(f));
     }
 
-    public turnOnAutoCompile(autoCompileDelay: number | undefined) {
-        this.autoCompileDelay = autoCompileDelay;
-    }
+    // private loadProject(projectName: string) {
+    //     if (!this.isSaved) {
+    //         if (!confirm("WARNING: Your current project has unsaved changes. These will be lost if you load a new project. Are you sure?")) {
+    //             return;
+    //         };
+    //     }
 
-    public turnOffAutoCompile() {
-        this.autoCompileDelay = undefined;
-    }
+    //     $.ajax({
+    //         type: "GET",
+    //         url: API_URL_LOAD_PROJECT + projectName,
+    //         success: (data) => {
+    //             if (!data) {
+    //                 alert("Project not found! :(");
+    //                 return;
+    //             }
+    //             this.setProject(projectName, data);
+    //         },
+    //         dataType: "json"
+    //     });
 
-    public isTranslationUnit(tuName: string) {
-        // If it's a valid source file, its name will be a key in the map
-        assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
+    // }
 
-        return this.translationUnitNamesMap[tuName];
-    }
+    // public saveProject() {
+    //     let projectFiles = this.sourceFiles.map((file) => ({
+    //         name: file.name,
+    //         text: file.text,
+    //         isTranslationUnit: this.isTranslationUnit(file.name) ? "yes" : "no"
+    //     }));
 
-    /**
-     * Toggles whether a source file in this project is being used as a translation unit
-     * and should be compiled as part of the program. The name given for the translation
-     * unit to be toggled must match the name of one of this project's source files.
-     * @param tuName
-     */
-    public toggleTranslationUnit(tuName: string) {
-        // If it's a valid source file, its name will be a key in the map
-        assert(tuName in this.translationUnitNamesMap, `No source file found for translation unit: ${tuName}`);
+    //     $.ajax({
+    //         type: "POST",
+    //         url: API_URL_SAVE_PROJECT + this.projectName,
+    //         data: {files: projectFiles},
+    //         success: () => {
+    //             console.log("saved successfully");
+    //             this.setSaved(true);
+    //         },
+    //         dataType: "json"
+    //     });
+    //     this.observable.send("saveAttempted");
+    // }
 
-        let isTU = this.translationUnitNamesMap[tuName] = !this.translationUnitNamesMap[tuName];
-        if (isTU) {
-            this.observable.send("translationUnitAdded");
-        }
-        else {
-            this.observable.send("translationUnitRemoved");
-        }
+    // public setSaved(isSaved: boolean) {
+    //     (<Mutable<this>>this).isSaved = isSaved;
+    //     if (!isSaved) {
+    //         this.observable.send("unsavedChanges");
+    //     }
+    //     else {
+    //         this.observable.send("saveSuccessful");
+    //     }
+    // }
 
-        this.compilationOutOfDate();
-    }
+    // @messageResponse("projectCleared")
+    // private projectCleared() {
+    //     let _this = <Mutable<this>>this;
 
-    private loadProject(projectName: string) {
-        if (!this.isSaved) {
-            if (!confirm("WARNING: Your current project has unsaved changes. These will be lost if you load a new project. Are you sure?")) {
-                return;
-            };
-        }
+    //     _this.projectName = "";
+    //     _this.sourceFiles = [];
+    //     this.translationUnitNamesMap = {};
+    //     this.recompile();
 
-        $.ajax({
-            type: "GET",
-            url: API_URL_LOAD_PROJECT + projectName,
-            success: (data) => {
-                if (!data) {
-                    alert("Project not found! :(");
-                    return;
-                }
-                this.setProject(projectName, data);
-            },
-            dataType: "json"
-        });
+    //     _this.isSaved = true;
+    //     _this.isOpen = false;
 
-    }
+    //     this.fileTabs = {};
+    //     this.filesElem.empty();
+    //     this.fileEditors = {};
+    // }
 
-    public saveProject() {
-        let projectFiles = this.sourceFiles.map((file) => ({
-            name: file.name,
-            text: file.text,
-            isTranslationUnit: this.isTranslationUnit(file.name) ? "yes" : "no"
-        }));
+    // @messageResponse("projectLoaded")
+    // private projectLoaded(project: Project) {
 
-        $.ajax({
-            type: "POST",
-            url: API_URL_SAVE_PROJECT + this.projectName,
-            data: {files: projectFiles},
-            success: () => {
-                console.log("saved successfully");
-                this.setSaved(true);
-            },
-            dataType: "json"
-        });
-        this.observable.send("saveAttempted");
-    }
+    //     this.clearProject();
 
-    public setSaved(isSaved: boolean) {
-        (<Mutable<this>>this).isSaved = isSaved;
-        if (!isSaved) {
-            this.observable.send("unsavedChanges");
-        }
-        else {
-            this.observable.send("saveSuccessful");
-        }
-    }
+    //     let _this = <Mutable<this>>this;
 
-    private clearProject() {
-        let _this = <Mutable<this>>this;
+    //     project.sourceFiles.forEach(file => this.createFile(file));
 
-        _this.projectName = "";
-        _this.sourceFiles = [];
-        this.translationUnitNamesMap = {};
-        this.recompile();
+    //     _this.isSaved = true;
+    //     _this.isOpen = true;
 
-        _this.isSaved = true;
-        _this.isOpen = false;
+    //     // document.title = projectName; // TODO: this is too aggressive because there may be multiple project editors. replace in favor of projectLoaded message
 
-        this.fileTabs = {};
-        this.filesElem.empty();
-        this.fileEditors = {};
+    //     // Set first file to be active
+    //     this.recompile();
+    // }
 
-        this.observable.send("projectCleared");
-    }
-
-    public setProject(projectName: string, projectData: readonly FileData[]) {
-
-        this.clearProject();
-
-        let _this = <Mutable<this>>this;
-
-        _this.projectName = projectName;
-        projectData.forEach(fileData => this.createFile(fileData));
-
-        _this.isSaved = true;
-        _this.isOpen = true;
-
-        document.title = projectName; // TODO: this is too aggressive. replace in favor of projectLoaded message
-
-        // Set first file to be active
-        if (projectData.length > 0) {
-            this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
-            this.selectFile(projectData[0]["name"]);
-        }
-
-        this.recompile();
-        this.observable.send("projectLoaded");
-    }
-
-    private createFile(fileData: FileData) {
-        let fileName = fileData.name;
-
-        // Create the file itself
-        let sourceFile = new SourceFile(fileName, fileData.code);
-        asMutable(this.sourceFiles).push(sourceFile);
-
-        // Add a translation unit if appropriate
-        this.translationUnitNamesMap[fileName] = fileData.isTranslationUnit === "yes";
+    @messageResponse("fileAdded")
+    private onFileAdded(file: SourceFile) {
 
         // Create a FileEditor object to manage editing the file
-        let fileEd = new FileEditor(sourceFile);
-        this.fileEditors[fileName] = fileEd;
+        let fileEd = new FileEditor(file);
+        this.fileEditors[file.name] = fileEd;
         addListener(fileEd, this);
 
         // Create tab to select this file for viewing/editing
         let item = $('<li></li>');
-        let link = $('<a href="" data-toggle="pill">' + fileData.name + '</a>');
-        link.on("shown.bs.tab", () => this.selectFile(fileName));
+        let link = $('<a href="" data-toggle="pill">' + file.name + '</a>');
+        link.on("shown.bs.tab", () => this.selectFile(file.name));
         item.append(link);
-        this.fileTabs[fileData.name] = link;
+        this.fileTabs[file.name] = link;
         this.filesElem.append(item);
+
+        this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
+        this.selectFile(file.name);
+
     }
 
-    private compilationOutOfDate() {
-        this.observable.send("compilationOutOfDate");
-        
-        if (this.autoCompileDelay) {
-
-            // Clear old recompile timeout if one was pending
-            if (this.pendingAutoCompileTimeout) {
-                clearTimeout(this.pendingAutoCompileTimeout);
-                this.pendingAutoCompileTimeout = undefined;
-            }
-    
-            // Start new autocomplete timeout
-            this.pendingAutoCompileTimeout = setTimeout(() => {
-                this.recompile();
-
-                // no longer a pending timeout once this one finishes
-                this.pendingAutoCompileTimeout = undefined;
-            }, this.autoCompileDelay);
-        }
-    }
-
-    public recompile() {
-        (<Mutable<this>>this).program = new Program(this.sourceFiles,
-            this.sourceFiles.map(file => file.name).filter(name => this.isTranslationUnit(name)));
-
-        if (this.projectName)
-            projectAnalyses[this.projectName] && projectAnalyses[this.projectName](this.program);
+    @messageResponse("compilationFinished")
+    public onCompilationFinished() {
 
         Object.keys(this.fileEditors).forEach((ed: string) => {
             this.fileEditors[ed].clearMarks();
             this.fileEditors[ed].clearGutterErrors();
         });
 
-        this.program.notes.allNotes.forEach(note => {
+        this.project.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
                 let editor = this.fileEditors[sourceRef.sourceFile.name];
@@ -300,7 +419,6 @@ export class ProjectEditor {
         //     // alert(this.i_semanticProblems.get(i));
         //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         // }
-        this.observable.send("compilationFinished", this.program);
     }
 
     private selectFile(filename: string) {
@@ -336,10 +454,8 @@ export class ProjectEditor {
     @messageResponse()
     private textChanged(msg: Message) {
         let updatedFile: SourceFile = msg.data;
-        let i = this.sourceFiles.findIndex(file => file.name === updatedFile.name);
-        asMutable(this.sourceFiles)[i] = updatedFile;
-        this.setSaved(false);
-        this.compilationOutOfDate();
+        this.project.setFileContents(updatedFile);
+        // this.setSaved(false);
     }
 
 
@@ -367,7 +483,7 @@ export class ProjectEditor {
     // },
 
 }
-$(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
+// $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
 
 export class ProjectSaveOutlet {
 
@@ -402,7 +518,7 @@ export class ProjectSaveOutlet {
 
     private saveAction() {
         if (this.projectEditor.isOpen && !this.projectEditor.isSaved) {
-            this.projectEditor.saveProject();
+            // this.projectEditor.saveProject();
         }
     }
 
@@ -455,25 +571,24 @@ export class CompilationOutlet {
 
     public _act!: MessageResponses;
 
-    private readonly projectEditor: ProjectEditor;
+    public readonly project: Project;
+
     private readonly compilationNotesOutlet: CompilationNotesOutlet;
 
     private readonly element: JQuery;
     private readonly translationUnitsListElem: JQuery;
 
-    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+    public constructor(element: JQuery, project: Project) {
         this.element = element;
-        this.projectEditor = projectEditor;
+        this.project = project;
 
         this.translationUnitsListElem = element.find(".translation-units-list");
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
         this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"));
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
-        addListener(this.compilationNotesOutlet, projectEditor);
-        addListener(projectEditor, this.compilationNotesOutlet);
 
-        addListener(projectEditor, this);
+        listenTo(this, project);
 
     }
 
@@ -487,11 +602,11 @@ export class CompilationOutlet {
         this.translationUnitsListElem.empty();
 
         // Create buttons for each file to toggle whether it's a translation unit or not
-        this.projectEditor.sourceFiles.forEach(file => {
+        this.project.sourceFiles.forEach(file => {
 
             let button = $('<button class="btn">' + file.name + '</button>')
-            .addClass(this.projectEditor.isTranslationUnit(file.name) ? "btn-info" : "text-muted")
-            .click(() => this.projectEditor.toggleTranslationUnit(file.name));
+            .addClass(this.project.isTranslationUnit(file.name) ? "btn-info" : "text-muted")
+            .click(() => this.project.toggleTranslationUnit(file.name));
 
             this.translationUnitsListElem.append($('<li></li>').append(button));
         });
@@ -580,7 +695,7 @@ export class CompilationStatusOutlet {
 
     public _act!: MessageResponses;
 
-    private readonly projectEditor: ProjectEditor;
+    private readonly project: Project;
 
     private readonly element: JQuery;
 
@@ -594,9 +709,9 @@ export class CompilationStatusOutlet {
     private readonly compileButton: JQuery;
     private compileButtonText: string;
 
-    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+    public constructor(element: JQuery, project: Project) {
         this.element = element;
-        this.projectEditor = projectEditor;
+        this.project = project;
 
         this.compileButtonText = "Compile";
         this.compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
@@ -610,7 +725,7 @@ export class CompilationStatusOutlet {
                 // this.compileButton.offsetHeight = redraw;
                 // ^^^TODO apparently the above isn't necessary?
                 window.setTimeout(() => {
-                    this.projectEditor.recompile();
+                    this.project.recompile();
                 },1);
             })
             /*.hover(
@@ -649,20 +764,15 @@ export class CompilationStatusOutlet {
             .append('<span class="glyphicon glyphicon-lamp"></span>')
             .appendTo(this.notesElem);
 
-        
-
-
-
-        addListener(projectEditor, this);
-
+        listenTo(this, project);
     }
 
     @messageResponse("compilationFinished")
     private onCompilationFinished() {
         this.notesElem.show();
-        this.numErrorsElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.ERROR));
-        this.numWarningsElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.WARNING));
-        this.numStyleElem.html("" + this.projectEditor.program.notes.numNotes(NoteKind.STYLE));
+        this.numErrorsElem.html("" + this.project.program.notes.numNotes(NoteKind.ERROR));
+        this.numWarningsElem.html("" + this.project.program.notes.numNotes(NoteKind.WARNING));
+        this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
 
         this.compileButton.removeClass("btn-warning-muted");
         this.compileButton.addClass("btn-success-muted");
@@ -749,7 +859,7 @@ export class FileEditor {
         // when used as part of a declarator vs. other operators like &, [], and (). So here
         // we manually fix the * spans.
         $(".cm-type").filter(function() {
-            return $(this).html().trim() === "*"
+            return $(this).html().trim() === "*";
         }).removeClass("cm-type").addClass("cm-operator");
 
         this.observable.send("textChanged", this.file);

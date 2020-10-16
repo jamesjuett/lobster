@@ -326,7 +326,7 @@ export class ProgramTest {
         }
         this.verifiers = verifiers;
 
-        this.program = new Program(sourceFiles, translationUnits);
+        this.program = new Program(sourceFiles, new Set<string>(translationUnits));
 
         this.reporter = reporter!;
 
