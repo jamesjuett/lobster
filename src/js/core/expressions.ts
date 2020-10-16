@@ -70,7 +70,7 @@ const ExpressionConstructsMap = {
     "address_of_expression": (ast: AddressOfExpressionASTNode, context: ExpressionContext) => AddressOfExpression.createFromAST(ast, context),
     "unary_plus_expression": (ast: UnaryPlusExpressionASTNode, context: ExpressionContext) => UnaryPlusExpression.createFromAST(ast, context),
     "unary_minus_expression": (ast: UnaryMinusExpressionASTNode, context: ExpressionContext) => UnaryMinusExpression.createFromAST(ast, context),
-    "logical_not_expression": (ast: LogicalNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "logical not"),
+    "logical_not_expression": (ast: LogicalNotExpressionASTNode, context: ExpressionContext) => LogicalNotExpression.createFromAST(ast, context),
     "bitwise_not_expression": (ast: BitwiseNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "bitwise not"),
     "sizeof_expression": (ast: SizeofExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof"),
     "sizeof_type_expression": (ast: SizeofTypeExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof (type)"),
@@ -183,6 +183,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "unary_minus_expression":
         T extends NonNullable<TypedUnaryMinusExpression["type"]> ? V extends NonNullable<TypedUnaryMinusExpression["valueCategory"]> ? TypedUnaryMinusExpression<T> : never :
         NonNullable<TypedUnaryMinusExpression["type"]> extends T ? V extends NonNullable<TypedUnaryMinusExpression["valueCategory"]> ? TypedUnaryMinusExpression : never : never;
+    "logical_not_expression":
+        T extends NonNullable<TypedLogicalNotExpression["type"]> ? V extends NonNullable<TypedLogicalNotExpression["valueCategory"]> ? TypedLogicalNotExpression : never :
+        NonNullable<TypedLogicalNotExpression["type"]> extends T ? V extends NonNullable<TypedLogicalNotExpression["valueCategory"]> ? TypedLogicalNotExpression : never : never;
     "subscript_expression":
         T extends NonNullable<TypedSubscriptExpression["type"]> ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never :
         NonNullable<TypedSubscriptExpression["type"]> extends T ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression : never : never;
@@ -256,6 +259,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
     "unary_plus_expression": T extends NonNullable<CompiledUnaryPlusExpression["type"]> ? V extends NonNullable<CompiledUnaryPlusExpression["valueCategory"]> ? CompiledUnaryPlusExpression<T> : never : never;
     "unary_minus_expression": T extends NonNullable<CompiledUnaryMinusExpression["type"]> ? V extends NonNullable<CompiledUnaryMinusExpression["valueCategory"]> ? CompiledUnaryMinusExpression<T> : never : never;
+    "logical_not_expression": T extends NonNullable<CompiledLogicalNotExpression["type"]> ? V extends NonNullable<CompiledLogicalNotExpression["valueCategory"]> ? CompiledLogicalNotExpression : never : never;
     "subscript_expression": T extends NonNullable<CompiledSubscriptExpression["type"]> ? V extends NonNullable<CompiledSubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
     "dot_expression": V extends NonNullable<DotExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectDotExpression<T> : T extends FunctionType ? CompiledFunctionDotExpression<T> : never) : never;
     "arrow_expression": V extends NonNullable<ArrowExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectArrowExpression<T> : T extends FunctionType ? CompiledFunctionArrowExpression<T> : never) : never;
@@ -293,6 +297,7 @@ const ExpressionConstructsRuntimeMap = {
     "address_of_expression": <T extends CompiledAddressOfExpression["type"]>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
     "unary_plus_expression": <T extends CompiledUnaryPlusExpression["type"]>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": <T extends CompiledUnaryMinusExpression["type"]>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryMinusExpression(construct, parent),
+    "logical_not_expression": <T extends CompiledLogicalNotExpression["type"]>(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct) => new RuntimeLogicalNotExpression(construct, parent),
     "subscript_expression": <T extends CompiledSubscriptExpression["type"]>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) => new RuntimeSubscriptExpression(construct, parent),
     "dot_expression": (construct: CompiledObjectDotExpression | CompiledFunctionDotExpression, parent: RuntimeConstruct) => {
         if (construct.entity instanceof FunctionEntity) {
@@ -340,6 +345,9 @@ export function createRuntimeExpression(construct: CompiledPointerComparisonExpr
 export function createRuntimeExpression(construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct): RuntimeLogicalBinaryOperatorExpression;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct): RuntimeDereferenceExpression<T>;
 export function createRuntimeExpression<T extends PointerType>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct): RuntimeAddressOfExpression<T>;
+export function createRuntimeExpression<T extends ArithmeticType | PointerType>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryPlusExpression<T>;
+export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryMinusExpression<T>;
+export function createRuntimeExpression(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct): RuntimeLogicalNotExpression;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct): RuntimeSubscriptExpression<T>;
 export function createRuntimeExpression(construct: CompiledObjectIdentifierExpression, parent: RuntimeConstruct): RuntimeObjectIdentifierExpression;
 export function createRuntimeExpression(construct: CompiledFunctionIdentifierExpression, parent: RuntimeConstruct): RuntimeFunctionIdentifierExpression;
@@ -2327,7 +2335,8 @@ export type AnalyticUnaryOperatorExpression =
     DereferenceExpression |
     AddressOfExpression |
     UnaryPlusExpression |
-    UnaryMinusExpression;
+    UnaryMinusExpression |
+    LogicalNotExpression;
 
 export interface TypedUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends UnaryOperatorExpression, t_TypedExpression {
     readonly type: T;
@@ -2718,39 +2727,86 @@ export class RuntimeUnaryMinusExpression<T extends ArithmeticType> extends Simpl
     }
 
     protected operate() {
-        this.setEvalResult(<this["evalResult"]>this.operand.evalResult.negate());
+        this.setEvalResult(<this["evalResult"]>this.operand.evalResult.arithmeticNegate());
     }
 
 }
 
 
-// export var UnaryMinus = UnaryOp.extend({
-//     _name: "UnaryMinus",
-//     valueCategory: "prvalue",
 
-//     convert : function(){
-//         this.operand = this.operand = convertToPRValue(this.operand);
-//         if (this.Predicates.isTypedExpression(operand, isIntegralType)){
-//             this.operand = this.operand = integralPromotion(this.operand);
-//         }
-//     },
 
-//     typeCheck : function(){
-//         if(this.operand.type.isArithmeticType) {
-//             this.type = this.operand.type;
-//             return true;
-//         }
-//         else{
-//             this.addNote(CPPError.expr.unaryMinus.operand(this));
-//             return false;
-//         }
-//     },
 
-//     operate: function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         var val = inst.childInstances.operand.evalResult.value;
-//         inst.setEvalResult(Value.instance(-val, this.type));
-//     }
-// });
+
+
+
+export class LogicalNotExpression extends UnaryOperatorExpression<LogicalNotExpressionASTNode> {
+    public readonly construct_type = "logical_not_expression";
+
+    public readonly type = Bool.BOOL;
+    public readonly valueCategory = "prvalue";
+
+    public readonly operand: Expression;
+
+    public readonly operator = "!";
+
+    public constructor(context: ExpressionContext, ast: LogicalNotExpressionASTNode, operand: Expression) {
+        super(context, ast);
+
+        if (!operand.isWellTyped()) {
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        let convertedOperand = standardConversion(operand, Bool.BOOL);
+
+        if (!Predicates.isTypedExpression(convertedOperand, isType(Bool))) {
+            this.addNote(CPPError.expr.logicalNot.operand_bool(this, operand));
+            this.attach(this.operand = operand);
+        }
+
+        this.attach(this.operand = convertedOperand);
+    }
+
+    public static createFromAST(ast: LogicalNotExpressionASTNode, context: ExpressionContext): LogicalNotExpression {
+        return new LogicalNotExpression(context, ast, createExpressionFromAST(ast.operand, context));
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface TypedLogicalNotExpression extends LogicalNotExpression, t_TypedExpression {
+    readonly operand: TypedExpression<Bool, "prvalue">;
+}
+
+export interface CompiledLogicalNotExpression extends TypedLogicalNotExpression, t_CompiledConstruct {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly operand: CompiledExpression<Bool, "prvalue">;
+}
+
+export class RuntimeLogicalNotExpression extends SimpleRuntimeExpression<Bool, "prvalue", CompiledLogicalNotExpression> {
+
+    public operand: RuntimeExpression<Bool, "prvalue">;
+
+    public constructor(model: CompiledLogicalNotExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+        this.setSubexpressions([this.operand]);
+    }
+
+    protected operate() {
+        this.setEvalResult(this.operand.evalResult.logicalNot());
+    }
+
+}
+
+
+
+
+
 
 // export var LogicalNot = UnaryOp.extend({
 //     _name: "LogicalNot",

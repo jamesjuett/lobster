@@ -102,8 +102,12 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid);
     }
     
-    public negate() {
+    public arithmeticNegate() {
         return this.modify(a => -a);
+    }
+    
+    public logicalNot() {
+        return this.modify(a => a === 0 ? 1 : 0);
     }
 
     public toString() {
