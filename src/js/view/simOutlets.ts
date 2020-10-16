@@ -343,6 +343,7 @@ export class SimulationOutlet {
 
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
+        this.consoleElem.html(sim.allOutput);
     }
     
     public clearSimulation() {
@@ -550,6 +551,7 @@ export class SimulationOutlet {
         }, true);
         this.element.find(".simPane").focus();
         this.runningProgressElem.css("visibility", "hidden");
+        this.consoleElem.html("");
     }
 
     @messageResponse("atEnded")
