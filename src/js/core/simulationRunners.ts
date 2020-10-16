@@ -29,6 +29,14 @@ export class SynchronousSimulationRunner {
     }
 
     /**
+     * Moves the simulation forward until n steps have been taken.
+     * @param n Target number of steps taken.
+     */
+    public async stepUntil(n: number) {
+        return this.stepForward(n - this.simulation.stepsTaken);
+    }
+
+    /**
      * Repeatedly steps forward until the simulation has ended.
      */
     public stepToEnd() {
@@ -88,9 +96,9 @@ export class SynchronousSimulationRunner {
             return;
         }
 
-        let newSteps = this.simulation.stepsTaken - n;
+        let newStepTarget = this.simulation.stepsTaken - n;
         this.reset();
-        this.stepForward(newSteps);
+        this.stepUntil(newStepTarget);
     }
 
 }
@@ -182,7 +190,7 @@ export class AsynchronousSimulationRunner {
      * @param n Number of steps to move forward. Default 1 step.
      */
     public async stepForward(n: number = 1, delay: number = this.delay) {
-        if (n === 0) {
+        if (n <= 0) {
             return;
         }
 
@@ -193,6 +201,14 @@ export class AsynchronousSimulationRunner {
         for (let i = 1; !this.simulation.atEnd && i < n; ++i) {
             await this.takeOneStep(delay);
         }
+    }
+
+    /**
+     * Moves the simulation forward, asynchronously, until n steps have been taken.
+     * @param n Target number of steps taken.
+     */
+    public async stepUntil(n: number, delay: number = this.delay) {
+        return this.stepForward(n - this.simulation.stepsTaken);
     }
 
     /**
@@ -257,9 +273,9 @@ export class AsynchronousSimulationRunner {
             return;
         }
 
-        let newSteps = this.simulation.stepsTaken - n;
+        let newStepTarget = this.simulation.stepsTaken - n;
         await this.reset();
-        await this.stepForward(newSteps, 0);
+        await this.stepUntil(newStepTarget, 0);
     }
 
     /**
@@ -275,12 +291,12 @@ export class AsynchronousSimulationRunner {
 
 export async function asyncCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
     let newSim = new Simulation(sim.program);
-    await (new AsynchronousSimulationRunner(newSim).stepForward(stepsTaken));
+    await (new AsynchronousSimulationRunner(newSim).stepUntil(stepsTaken));
     return newSim;
 }
 
 export function synchronousCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
     let newSim = new Simulation(sim.program);
-    new SynchronousSimulationRunner(newSim).stepForward(stepsTaken);
+    new SynchronousSimulationRunner(newSim).stepUntil(stepsTaken);
     return newSim;
 }
