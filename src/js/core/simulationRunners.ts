@@ -117,8 +117,9 @@ export class AsynchronousSimulationRunner {
      * The handle returned by the call to setInterval() that was used to start
      * the current run thread, or undefined if there is no current run thread.
      */
-    private rejectFn?: () => void;
     private timeoutHandle?: number;
+    
+    private rejectFn?: () => void;
 
     /**
      * Creates a new runner that can be used to control the given simulation.
