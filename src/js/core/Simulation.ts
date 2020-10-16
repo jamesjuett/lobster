@@ -495,6 +495,7 @@ export class Simulation {
         else {
             text = escapeString(value.valueToOstreamString());
         }
+        (<Mutable<this>>this).allOutput += text;
         this.observable.send("cout", text);
     }
 

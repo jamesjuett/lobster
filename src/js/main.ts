@@ -1,4 +1,5 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
+import { Project } from "./view/editors";
 
 $(() => {
 
@@ -6,14 +7,10 @@ $(() => {
 
     let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
+    let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
     // let sourcePane = element.find("#sourcePane");
-    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"));
-    let projectEditor = lobsterOutlet.projectEditor;
-
-    // let errorStatus = ValueEntity.instance();
-
-
-    projectEditor.setProject("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: "yes"}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: "no"} ]);
+    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
+    
 
 
 

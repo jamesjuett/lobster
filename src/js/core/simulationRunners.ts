@@ -198,9 +198,12 @@ export class AsynchronousSimulationRunner {
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public async stepToEnd(delay: number = this.delay) {
-        while (!this.simulation.atEnd) {
+    public async stepToEnd(delay: number = this.delay, stepLimit?: number) {
+        let stepsTaken = 0;
+        while (!this.simulation.atEnd && (stepLimit === undefined || stepsTaken < stepLimit)) {
             await this.takeOneStep(delay);
+            ++stepsTaken;
+            console.log(stepsTaken);
         }
     }
 
