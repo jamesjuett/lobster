@@ -101,6 +101,10 @@ export class Value<T extends AtomicType = AtomicType> {
             this.type,
             this.isValid);
     }
+    
+    public negate() {
+        return this.modify(a => -a);
+    }
 
     public toString() {
         return this.valueString();
