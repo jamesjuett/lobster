@@ -6,6 +6,7 @@ import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomi
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
+import { FunctionCallExpression, FunctionCall } from "./functionCall";
 
 
 
@@ -108,6 +109,11 @@ export namespace Predicates {
     export function byFunctionName(name: string) {
         return <(construct: AnalyticConstruct) => construct is FunctionDefinition>
                 ((construct) => (construct instanceof FunctionDefinition) && construct.name === name);
+    }
+
+    export function byFunctionCallName<N extends string>(name: N) {
+        return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
+                ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
     }
 
     export function byIdentifierName<N extends string>(name: N) {
