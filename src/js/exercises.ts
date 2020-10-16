@@ -392,6 +392,8 @@ export class OutputCheckpoint extends Checkpoint {
     public readonly stepLimit: number;
 
     private expected: (output: string) => boolean;
+    
+    private runner?: AsynchronousSimulationRunner;
 
     public constructor(name: string, expected: (output: string) => boolean, stepLimit: number = 1000) {
         super(name);
@@ -401,6 +403,11 @@ export class OutputCheckpoint extends Checkpoint {
 
     public async evaluate(project: Project) {
         
+        if (this.runner) {
+            this.runner.pause();
+            delete this.runner;
+        }
+
         let program = project.program;
 
         if (!program.isRunnable()) {
@@ -408,10 +415,14 @@ export class OutputCheckpoint extends Checkpoint {
         }
 
         let sim = new Simulation(program);
-        let runner = new AsynchronousSimulationRunner(sim);
-        await runner.stepToEnd(0, this.stepLimit);
-
-        return this.expected(sim.allOutput);
+        let runner = this.runner = new AsynchronousSimulationRunner(sim);
+        try {
+            await runner.stepToEnd(0, this.stepLimit);
+            return sim.atEnd && this.expected(sim.allOutput);
+        }
+        catch {
+            return false;
+        }
     }
     
 }
