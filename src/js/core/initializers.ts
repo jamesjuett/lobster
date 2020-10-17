@@ -542,7 +542,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
 
     public readonly target: ObjectEntity<AtomicType>;
     public readonly args: readonly Expression[];
-    public readonly arg?: Expression;
+    public readonly arg: Expression;
 
     public constructor(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[], kind: DirectInitializerKind) {
         super(context, kind);
@@ -554,6 +554,7 @@ export class AtomicDirectInitializer extends DirectInitializer {
         assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
 
         if (args.length > 1) {
+            this.arg = args[0];
             this.attachAll(this.args = args);
             this.addNote(CPPError.declaration.init.scalar_args(this, targetType));
             return;

@@ -6,6 +6,9 @@ import { Mutable } from "./util/util";
 import { RuntimeConstruct } from "./core/constructs";
 import { decode } from "he";
 import { AsynchronousSimulationRunner } from "./core/simulationRunners";
+import { Program } from "./core/Program";
+import { Predicates } from "./core/predicates";
+import { findFirstConstruct } from "./core/analysis";
 
 $(() => {
 
@@ -119,7 +122,7 @@ $(() => {
                                             <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
                                         </div>
                                         <div class="console" style="position: relative; min-height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
-                                            <span style = "position: absolute; top: 5px; right: 5px;">Console</span>
+                                            <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
                                             <span class="lobster-console-contents"></span>
                                         </div>
                                         <div style = "margin-top: 5px; text-align: center;">Memory</div>
@@ -135,9 +138,9 @@ $(() => {
 
                     </div>
                 </div>
-                <div class="panel panel-default" style="margin-top: 0.5em;">
-                    <div class="panel-heading">Exercise Checkpoints</div>
-                    <div class="lobster-ex-checkpoints panel-body">
+                <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
+                    <div class="panel-heading"></div>
+                    <div class="panel-body">
                         
                     </div>
                 </div>
@@ -147,12 +150,16 @@ $(() => {
 
         let filename = $(this).find(".lobster-ex-file-name").html()?.trim() ?? "file.cpp";
         let projectName = $(this).find(".lobster-ex-project-name").html()?.trim() ?? "UnnamedProject";
+        let completeMessage = $(this).find(".lobster-ex-complete-message").html()?.trim() ?? "Well done! Exercise complete!";
         let initCode = decode($(this).find(".lobster-ex-init-code").html()?.trim() ?? "");
+        if (initCode === "") {
+            initCode = EXERCISE_STARTER_CODE[projectName] ?? "";
+        }
 
         let project = new Project(projectName, [{name: filename, code: initCode, isTranslationUnit: true}]);
         project.turnOnAutoCompile(500);
 
-        let exOutlet = new SimpleExerciseLobsterOutlet($(this), project);
+        let exOutlet = new SimpleExerciseLobsterOutlet($(this), project, completeMessage);
 
         ++exID;
     });
@@ -168,6 +175,8 @@ export class SimpleExerciseLobsterOutlet {
     private simulationOutlet: SimulationOutlet;
     
     public readonly project: Project;
+    public readonly completeMessage: string;
+
     public readonly sim?: Simulation;
 
     private readonly element: JQuery;
@@ -177,9 +186,10 @@ export class SimpleExerciseLobsterOutlet {
 
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, project = new Project("unnammed project", [])) {
+    public constructor(element: JQuery, project: Project, completeMessage: string) {
         this.element = element;
         this.project = project;
+        this.completeMessage = completeMessage;
         // Set up simulation and source tabs
         // var sourceTab = element.find(".sourceTab");
         // var simTab = element.find(".simTab");
@@ -207,7 +217,7 @@ export class SimpleExerciseLobsterOutlet {
         new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
 
-        new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project, getExerciseCheckpoints(project.name));
+        new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project, getExerciseCheckpoints(project.name), completeMessage);
     }
 
     public setSimulation(sim: Simulation) {
@@ -237,7 +247,7 @@ export class SimpleExerciseLobsterOutlet {
     // }
 
     @messageResponse("requestFocus")
-    private requestFocus(msg: Message<undefined>) {
+    protected requestFocus(msg: Message<undefined>) {
         if (msg.source === this.projectEditor) {
             this.tabsElem.find('a.lobster-source-tab').tab("show");
         }
@@ -245,7 +255,7 @@ export class SimpleExerciseLobsterOutlet {
 
     
     @messageResponse("beforeStepForward")
-    private beforeStepForward(msg: Message<RuntimeConstruct>) {
+    protected beforeStepForward(msg: Message<RuntimeConstruct>) {
         var oldGets = $(".code-memoryObject .get");
         var oldSets = $(".code-memoryObject .set");
         setTimeout(() => {
@@ -308,23 +318,75 @@ export class SimpleExerciseLobsterOutlet {
 }
 
 export class CheckpointsOutlet {
+
+    public _act!: MessageResponses;
     
     public readonly project: Project;
     public readonly checkpoints: readonly Checkpoint[];
     
     private readonly element: JQuery;
+    private readonly headerElem: JQuery;
+    private readonly completeMessage: string;
+
     private readonly checkpointOutlets: readonly CheckpointOutlet[];
 
-    public constructor(element: JQuery, project: Project, checkpoints: readonly Checkpoint[]) {
+    public constructor(element: JQuery, project: Project, checkpoints: readonly Checkpoint[], completeMessage: string) {
         this.element = element;
         this.project = project;
+        listenTo(this, project);
         this.checkpoints = checkpoints;
+        this.completeMessage = completeMessage;
+
+        if (this.checkpoints.length === 0) {
+            this.element.hide();
+        }
+
+        let checkpointsContainerElem = element.find(".panel-body");
+        this.headerElem = element.find(".panel-heading").html("Exercise Progress");
 
         this.checkpointOutlets = checkpoints.map(c => new CheckpointOutlet(
-            $(`<span class="lobster-checkpoint"></span>`).appendTo(element),
-            project,
-            c
+            $(`<span class="lobster-checkpoint"></span>`).appendTo(checkpointsContainerElem),
+            c.name
         ));
+    }
+
+    @messageResponse("compilationFinished")
+    protected async onCompilationFinished() {
+
+        let statuses = await Promise.all(this.checkpoints.map(
+            async (checkpoint, i) => {
+                try {
+                    let passed = await checkpoint.evaluate(this.project);
+                    this.checkpointOutlets[i].update(passed);
+                    return passed;
+                }
+                catch {
+                    return false;
+                }
+            }
+        ));
+
+        if (statuses[statuses.length - 1]) {
+            this.headerElem.html(`<b>${this.completeMessage}</b>`);
+            this.element.removeClass("panel-default");
+            this.element.removeClass("panel-danger");
+            this.element.addClass("panel-success");
+        }
+        else {
+            
+            this.element.removeClass("panel-success");
+            this.element.removeClass("panel-default");
+            this.element.removeClass("panel-danger");
+            if (this.project.program.hasSyntaxErrors()) {
+                this.headerElem.html("Exercise Progress (Please note: checkpoints cannot be verified due to syntax errors.)");
+                this.element.addClass("panel-danger");
+            }
+            else {
+                this.headerElem.html("Exercise Progress");
+                this.element.addClass("panel-default");
+            }
+        }
+
     }
 };
 
@@ -337,27 +399,17 @@ export class CheckpointOutlet {
     private readonly element: JQuery;
     private readonly statusElem: JQuery;
 
-    public readonly project: Project;
-    public readonly checkpoint: Checkpoint;
-
-    public _act!: MessageResponses;
-
-    public constructor(element: JQuery, project: Project, checkpoint: Checkpoint) {
-        this.project = project;
-        listenTo(this, project);
-        
-        this.checkpoint = checkpoint;
+    public constructor(element: JQuery, name: string) {
         
         this.element = element;
-        element.append(this.checkpoint.name + ": ");
+        element.append(name + ": ");
         
         this.statusElem = $("<span></span>").appendTo(element);
     }
 
-    @messageResponse("compilationFinished")
-    private async onCompilationFinished() {
+    public update(isComplete: boolean) {
 
-        if (await this.checkpoint.evaluate(this.project)) {
+        if (isComplete) {
             this.statusElem.html(completeStatus);
         }
         else {
@@ -401,6 +453,7 @@ export class OutputCheckpoint extends Checkpoint {
         this.stepLimit = stepLimit;
     }
 
+    // May throw if interrupted during async running
     public async evaluate(project: Project) {
         
         if (this.runner) {
@@ -416,15 +469,151 @@ export class OutputCheckpoint extends Checkpoint {
 
         let sim = new Simulation(program);
         let runner = this.runner = new AsynchronousSimulationRunner(sim);
-        try {
-            await runner.stepToEnd(0, this.stepLimit);
-            return sim.atEnd && this.expected(sim.allOutput);
-        }
-        catch {
-            return false;
-        }
+
+        // may throw if interrupted
+        await runner.stepToEnd(0, this.stepLimit);
+        return sim.atEnd && this.expected(sim.allOutput);
     }
     
+}
+
+
+
+export class StaticAnalysisCheckpoint extends Checkpoint {
+
+    private criterion: (program: Program) => boolean;
+    
+    private runner?: AsynchronousSimulationRunner;
+
+    public constructor(name: string, criterion: (program: Program) => boolean) {
+        super(name);
+        this.criterion = criterion;
+    }
+
+    public async evaluate(project: Project) {
+        return this.criterion(project.program);
+    }
+    
+}
+
+
+const EXERCISE_STARTER_CODE : {[index: string]: string} = {
+    "ch13_02_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+
+  // TODO: Put your code here!
+
+
+  cout << "done!" << endl;
+}`,
+
+    "ch13_03_ex" :
+`#include <iostream>
+using namespace std;
+
+int main() {
+
+  int x = 0;
+
+  while (x < 4) {
+    cout << x << endl;
+    x = x + 1;
+  }
+
+  x = x + 5;
+
+  while (x >= 0) {
+    cout << x << endl;
+    x = x - 3;
+  }
+
+  cout << "done!" << endl;
+}`,
+
+    "ch13_04_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+  int N = 6;
+
+  int val = 1;
+  int x = 0;
+  while (x < N) {
+    cout << val << " ";
+    
+    val *= 2; // Update val by doubling it
+    ++x;
+  }
+  cout << "done!" << endl;
+}`,
+
+    "ch13_05_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int N = 5;
+  
+    // YOUR CODE HERE
+  
+  
+  
+  
+  
+  
+  
+  }`,
+
+    "ch13_06_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+  int N = 5;
+  int a = 2;
+  int b = 3;
+  int x = 1; // HINT: Use x to search through numbers
+  while(      ) { // HINT: Keep going until you find enough
+
+    if(                       ) { // Check divisibility
+      cout << x << " ";
+      // HINT: In addition to printing x, update the count
+      //       of how many you've found here.
+    }
+
+    ++x;
+  }
+  cout << "done!" << endl;
+}`,
+
+    "ch13_06_ex_2":
+`#include <iostream>
+using namespace std;
+
+int main() {
+  int N = 5;
+  int x = 1;
+  // Outer loop: iterate through candidate x values
+  while(N > 0) {
+    int anyDivisible = false;
+    // Inner loop: check y values to make sure none divide x
+    for (int y = 2; y < x; ++y) {
+      if( x % y == 0 ) { // Check divisibility
+        anyDivisible = true;
+      }
+    }
+    if( !anyDivisible ) { // were any divisible?
+      cout << x << " ";
+      --N;
+    }
+    ++x;
+  }
+  cout << "done!" << endl;
+}`
 }
 
 function getExerciseCheckpoints(projectName: string) {
@@ -432,10 +621,75 @@ function getExerciseCheckpoints(projectName: string) {
 }
 
 const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
-    "ch13_ex_1": [
+    "ch13_02_ex": [
         new IsCompiledCheckpoint("Compiles"),
+        new StaticAnalysisCheckpoint("Start at 9", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableInitialValue(9));
+        }),
+        new StaticAnalysisCheckpoint("While Loop", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byKind("while_statement"));
+        }),
+        new StaticAnalysisCheckpoint("Condition", (program: Program) => {
+            let loopVar = findFirstConstruct(program, Predicates.byVariableInitialValue(9));
+            let loop = findFirstConstruct(program, Predicates.byKind("while_statement"));
+            if (!loopVar || !loop) {
+                return false;
+            }
+
+            // verify loop condition contains the right variable
+            if (!findFirstConstruct(loop.condition, Predicates.byIdentifierName(loopVar.name))) {
+                return false;
+            }
+
+            // verify loop condition contains a number
+            if (!findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"))) {
+                return false;
+            }
+
+            // verify loop condition contains a relational operator
+            if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
+                return false;
+            }
+            
+            return true;
+        }),
+        new StaticAnalysisCheckpoint("Update Expression", (program: Program) => {
+            let loopVar = findFirstConstruct(program, Predicates.byVariableInitialValue(9));
+            let loop = findFirstConstruct(program, Predicates.byKind("while_statement"));
+            if (!loopVar || !loop) {
+                return false;
+            }
+
+            // verify loop body contains an update for the var
+            return !! findFirstConstruct(loop.body, Predicates.byVariableUpdate(loopVar.name));
+        }),
         new OutputCheckpoint("Correct Output", (output: string) => {
             return output === "9 7 5 3 1 done!\n";
         })
+    ],
+    "ch13_03_ex": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "0\n1\n2\n3\n9\n6\n3\n0\ndone!\n";
+        })
+    ],
+    "ch13_04_ex": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "1 2 4 8 16 32 done!\n";
+        })
+    ],
+    "ch13_05_ex": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "X\nXX\nXXX\nXXXX\nXXXXX\n";
+        })
+        
+    ],
+    "ch13_06_ex": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "1 5 7 11 13 done!\n";
+        })
+        
+    ],
+    "ch13_06_ex_2": [
+        // no checkpoints, just an example not an exercise
     ]
 }

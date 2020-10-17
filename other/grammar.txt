@@ -540,7 +540,7 @@ expression
 
 exp_assn
   = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({construct_type: "assignment_expression", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
-  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
+  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment_expression", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
   / exp_cond
 
 op_comp_assn
@@ -640,7 +640,7 @@ exp_unary
       return track({construct_type: "prefix_increment_expression", operator:op, operand:sub}, location(), text());
 }
   / op:"--" ws sub:exp_unary {
-      return track({construct_type: "prefix_decrement_expression", operator:op, operand:sub}, location(), text());
+      return track({construct_type: "prefix_increment_expression", operator:op, operand:sub}, location(), text());
 }
   / op:op_unary ws sub:exp_cast {
       return track(absorb({operand:sub}, op), location(), text());
@@ -737,8 +737,8 @@ op_postfix
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
   / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
   / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }
-  / "++" { return track({construct_type: "postfix_increment_expression"}, location(), text()); }
-  / "--" { return track({construct_type: "postfix_decrement_expression"}, location(), text()); }
+  / "++" { return track({construct_type: "postfix_increment_expression", operator: "++"}, location(), text()); }
+  / "--" { return track({construct_type: "postfix_increment_expression", operator: "--"}, location(), text()); }
 
 exp_construct
   = type:simple_type_name ws "(" ws args:exp_list? ws ")" {

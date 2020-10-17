@@ -10,7 +10,7 @@ import { RuntimeExpression, Expression, CompiledExpression } from "../core/expre
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression } from "../core/expressions";
+import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression } from "../core/expressions";
 import { Bool, AtomicType, CompleteObjectType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
@@ -51,7 +51,7 @@ export abstract class ConstructOutlet<RTConstruct_type extends RuntimeConstruct 
         }
 
         this.element.addClass("codeInstance");
-        this.element.append("<span class=\"highlight\"></span>");
+        this.element.append("<span class=\"lobster-highlight\"></span>");
     }
 
     public setRuntimeInstance(inst: RTConstruct_type) {
@@ -455,7 +455,7 @@ export class BlockOutlet extends ConstructOutlet<RuntimeBlock> {
         this.element.append(" "); // spaces before braces :)
         this.element.append(curlyOpen);
         this.element.append("<br />");
-        let innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
+        let innerElem = $("<span class=\"inner\"><span class=\"lobster-highlight\"></span></span>");
         innerElem.addClass("code-indentedBlockBody");
         this.element.append(innerElem);
 
@@ -553,7 +553,7 @@ export class BlockOutlet extends ConstructOutlet<RuntimeBlock> {
 //         this.element.addClass("braces");
 //         this.element.append(curlyOpen);
 //         this.element.append("<br />");
-//         var inner = this.innerElem = $("<span class=\"inner\"><span class=\"highlight\"></span></span>");
+//         var inner = this.innerElem = $("<span class=\"inner\"><span class=\"lobster-highlight\"></span></span>");
 //         inner.addClass("code-indentedBlockBody");
 //         this.element.append(inner);
 //         var lineElem = $('<span class="blockLine">// Implementation not shown</span>');
@@ -613,7 +613,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
         declarations.forEach((declaration, i) => {
 
             // Create element for declarator
-            let declElem = $('<span class="codeInstance code-declarator"><span class="highlight"></span></span>');
+            let declElem = $('<span class="codeInstance code-declarator"><span class="lobster-highlight"></span></span>');
             this.declaratorElems.push(declElem);
             declElem.append(declaration.type.declaratorString(htmlDecoratedName(declaration.name, declaration.type)));
             declarationElem.append(declElem);
@@ -1654,7 +1654,7 @@ export class BinaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeBina
         //     });
         // }
         this.left = addChildExpressionOutlet(this.exprElem, this.construct.left, this);
-        this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='highlight'></span></span> ");
+        this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='lobster-highlight'></span></span> ");
         this.right = addChildExpressionOutlet(this.exprElem, this.construct.right, this);
     }
 }
@@ -1671,7 +1671,7 @@ export class OutputOperatorExpressionOutlet extends ExpressionOutlet<RuntimeOutp
         super(element, construct, parent);
         
         this.left = addChildExpressionOutlet(this.exprElem, this.construct.left, this);
-        this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='highlight'></span></span> ");
+        this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='lobster-highlight'></span></span> ");
         this.right = addChildExpressionOutlet(this.exprElem, this.construct.right, this);
     }
 }
@@ -1796,6 +1796,18 @@ export class UnaryOperatorExpressionOutlet extends ExpressionOutlet<RuntimeUnary
 //         }
 //     }
 // });
+
+export class PostfixIncrementExpressionOutlet extends ExpressionOutlet<RuntimePostfixIncrementExpression> {
+
+    public readonly operand: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledPostfixIncrementExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
+        this.exprElem.append(htmlDecoratedOperator(this.construct.operator, "code-unaryOp"));
+    }
+}
 
 // Lobster.Outlets.CPP.Increment = Outlets.CPP.Expression.extend({
 //     _name: "Outlets.CPP.Increment",

@@ -4,7 +4,8 @@
       "./src/js/parse/*.ts",
       "./src/js/test/*.ts",
       "./src/js/view/*.ts",
-      "./src/js/util/*.ts"
+      "./src/js/util/*.ts",
+      "./src/js/exercises.ts"
     ],
     "compilerOptions": {
       /* Basic Options */

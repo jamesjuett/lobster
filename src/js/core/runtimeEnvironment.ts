@@ -36,6 +36,10 @@ export class Value<T extends AtomicType = AtomicType> {
         return this._isValid && this.type.isValueValid(this.rawValue);
     }
 
+    public isTyped<NarrowedT extends AtomicType>(predicate: (t:AtomicType) => t is NarrowedT) : this is Value<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value<T>(valueToClone, this.type, this.isValid);
     }

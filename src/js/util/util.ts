@@ -44,7 +44,7 @@ export type MapDiscriminatedUnion<T extends Record<K, string>, K extends keyof T
   { [V in T[K]]: DiscriminateUnion<T, K, V> };
 
 export function htmlDecoratedOperator(operator: string, cssClass: string) {
-    return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='highlight'></span></span>";
+    return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='lobster-highlight'></span></span>";
 };
 
 export function htmlDecoratedKeyword(keyword: string){
@@ -57,10 +57,10 @@ export function htmlDecoratedType(type: string) {
 
 export function htmlDecoratedName(name: string, type?: Type) {
     if (type) {
-        return '<span class="code-name"><span class = "highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
+        return '<span class="code-name"><span class = "lobster-highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
     }
     else {
-        return '<span class="code-name"><span class = "highlight"></span>' + name + '</span>';
+        return '<span class="code-name"><span class = "lobster-highlight"></span>' + name + '</span>';
     }
 };
 

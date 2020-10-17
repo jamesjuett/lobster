@@ -260,11 +260,19 @@ export class Program {
         }
     }
 
-    public isCompiled(): this is CompiledProgram {
+    public hasSyntaxErrors() {
+        return this.notes.hasSyntaxErrors;
+    }
+
+    public hasErrors() {
+        return this.notes.hasErrors;
+    }
+
+    public isCompiled() : this is CompiledProgram {
         return !this.notes.hasErrors;
     }
 
-    public isRunnable(): this is RunnableProgram {
+    public isRunnable() : this is RunnableProgram {
         return this.isCompiled() && !!this.mainFunction;
     }
 
