@@ -2052,7 +2052,7 @@ export function addChildInitializerOutlet(parentElement: JQuery, construct: Comp
 
 export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent: ConstructOutlet, indented: boolean = true) {
     let childElem = $("<span></span>");
-    if (!construct.isBlock()) {
+    if (!construct.isBlock() && construct.parent instanceof Block) {
         parentElement.append("<br />");
         childElem.addClass("code-indentedBlockBody")
     }
