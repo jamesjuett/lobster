@@ -49,7 +49,13 @@ export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct |
 }
 
 export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    return findConstructs(root, test)[0];
+    let constructs = findConstructs(root, test);
+    if (constructs.length > 0) {
+        return constructs[0];
+    }
+    else {
+        return undefined;
+    }
 }
 
 // type TypedFilterable<Original extends CPPConstruct, Narrowed extends Original> = Original & {

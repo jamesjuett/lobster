@@ -1,5 +1,5 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
@@ -7,6 +7,8 @@ import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
 import { FunctionCallExpression, FunctionCall } from "./functionCall";
+import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
+import { findFirstConstruct } from "./analysis";
 
 
 
@@ -104,6 +106,51 @@ export namespace Predicates {
     export function byVariableName(name: string) {
         return <(construct: AnalyticConstruct) => construct is (LocalVariableDefinition | GlobalVariableDefinition)>
                 ((construct) => (construct instanceof LocalVariableDefinition || construct instanceof GlobalVariableDefinition) && construct.name === name);
+    }
+
+    export function byVariableInitialValue(queryValue: number) {
+        return <(construct: AnalyticConstruct) => construct is (LocalVariableDefinition | GlobalVariableDefinition)>
+            ((construct) => {
+                if (! (construct instanceof LocalVariableDefinition || construct instanceof GlobalVariableDefinition)) {
+                    return false;
+                }
+
+                let init = construct.initializer;
+                if (! (init instanceof AtomicDirectInitializer)) {
+                    return false;
+                }
+
+                let expr = init.arg;
+                while (expr instanceof ImplicitConversion) {
+                    expr = expr.from;
+                }
+
+                return expr instanceof NumericLiteralExpression && expr.value.rawEquals(queryValue);
+
+            });
+    }
+
+    // TODO: add compound assignment expressions once implemented
+    export function byVariableUpdate(name: string) {
+        return <(construct: AnalyticConstruct) => construct is (AssignmentExpression | PrefixIncrementExpression | PostfixIncrementExpression)>
+            ((construct) => {
+                if (Predicates.byKinds([
+                    "prefix_increment_expression",
+                    "postfix_increment_expression"
+                ])(construct)) {
+                    
+                    // check for var
+                    return !! findFirstConstruct(construct, Predicates.byIdentifierName(name));
+                }
+
+                if (Predicates.byKind("assignment_expression")(construct)) {
+                    // check for var on lhs and rhs
+                    return !! findFirstConstruct(construct.lhs, Predicates.byIdentifierName(name)) &&
+                           !! findFirstConstruct(construct.rhs, Predicates.byIdentifierName(name));
+                }
+                
+                return false;
+            });
     }
 
     export function byFunctionName(name: string) {

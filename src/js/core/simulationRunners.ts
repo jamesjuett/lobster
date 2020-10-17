@@ -220,7 +220,6 @@ export class AsynchronousSimulationRunner {
         while (!this.simulation.atEnd && (stepLimit === undefined || stepsTaken < stepLimit)) {
             await this.takeOneStep(delay);
             ++stepsTaken;
-            console.log(stepsTaken);
         }
     }
 

@@ -10,9 +10,6 @@ a {
 	font-family: 'Muli', sans-serif;
 }
 
-h1, h2, h3, h4, h5, h6 {
-	font-family: 'Muli', sans-serif;
-}
 
 .nav-tabs > li > a {
 	font-family: 'Muli', sans-serif;
@@ -26,13 +23,13 @@ body{
 	/*font-family: Arial;*/
 	/*font-size: 11pt;*/
 	/*background-color: #f4f4f4;*/
-	margin: 0;
+	/* margin: 0;
 	padding: 0;
 	position: absolute;
 	left: 0;
 	right: 0;
 	top: 0;
-	bottom: 0;
+	bottom: 0; */
 }
 
 body.noTransitions * {
@@ -112,20 +109,6 @@ div.fill {
 	font-style: italic;
 	color: rgb(102,102,102);
 	margin-top: 0;
-}
-
-h1{
-	font-family: "Trebuchet MS";
-	font-size: 16pt;
-}
-
-h2{
-	font-family: "Trebuchet MS";
-	font-size: 12pt;
-	font-weight: bold;
-	color: rgb(102,102,102);
-	margin-top: 5px;
-	margin-bottom: 5px;
 }
 
 /*li {*/

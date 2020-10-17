@@ -1,6 +1,6 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, IncompleteClassType, PotentiallyCompleteClassType, isGenericArrayType } from "./types";
+import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, IncompleteClassType, PotentiallyCompleteClassType, isGenericArrayType, isPointerToCompleteType } from "./types";
 import { ASTNode, SuccessfullyCompiled as t_CompiledConstruct, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
 import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup } from "./entities";
@@ -9,7 +9,7 @@ import { escapeString, assertNever, assert, assertFalse } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 
 
@@ -64,8 +64,7 @@ const ExpressionConstructsMap = {
     "c_style_cast_expression": (ast: CStyleCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "c-style cast"),
 
     // prefix operators
-    "prefix_increment_expression": (ast: PrefixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "prefix increment"),
-    "prefix_decrement_expression": (ast: PrefixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "prefix decrement"),
+    "prefix_increment_expression": (ast: PrefixIncrementExpressionASTNode, context: ExpressionContext) => PrefixIncrementExpression.createFromAST(ast, context),
     "dereference_expression": (ast: DereferenceExpressionASTNode, context: ExpressionContext) => DereferenceExpression.createFromAST(ast, context),
     "address_of_expression": (ast: AddressOfExpressionASTNode, context: ExpressionContext) => AddressOfExpression.createFromAST(ast, context),
     "unary_plus_expression": (ast: UnaryPlusExpressionASTNode, context: ExpressionContext) => UnaryPlusExpression.createFromAST(ast, context),
@@ -87,8 +86,7 @@ const ExpressionConstructsMap = {
     "function_call_expression": (ast: FunctionCallExpressionASTNode, context: ExpressionContext) => FunctionCallExpression.createFromAST(ast, context),
     "dot_expression": (ast: DotExpressionASTNode, context: ExpressionContext) => DotExpression.createFromAST(ast, context),
     "arrow_expression": (ast: ArrowExpressionASTNode, context: ExpressionContext) => ArrowExpression.createFromAST(ast, context),
-    "postfix_increment_expression": (ast: PostfixIncrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix increment"),
-    "postfix_decrement_expression": (ast: PostfixDecrementExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "postfix decrement"),
+    "postfix_increment_expression": (ast: PostfixIncrementExpressionASTNode, context: ExpressionContext) => PostfixIncrementExpression.createFromAST(ast, context),
 
     "construct_expression": (ast: ConstructExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "construct expression"),
 
@@ -109,6 +107,9 @@ const ExpressionConstructsMap = {
  * @param context The context in which this expression occurs.
  */
 export function createExpressionFromAST<ASTType extends ExpressionASTNode>(ast: ASTType, context: ExpressionContext): ReturnType<(typeof ExpressionConstructsMap)[ASTType["construct_type"]]> {
+    if (!ExpressionConstructsMap[ast.construct_type]) {
+        console.log("Oops! Can't find expression construct type: " + ast.construct_type);
+    }
     return <any>ExpressionConstructsMap[ast.construct_type](<any>ast, context);
 }
 
@@ -123,6 +124,7 @@ export type AnalyticExpression =
     // PointerToMemberExpression |
     // CStyleCastExpression |
     AnalyticUnaryOperatorExpression |
+    PostfixIncrementExpression |
     SubscriptExpression |
     DotExpression |
     ArrowExpression |
@@ -171,6 +173,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "logical_binary_operator_expression":
         T extends NonNullable<TypedLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never :
         NonNullable<TypedLogicalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
+    "prefix_increment_expression":
+        T extends NonNullable<TypedPrefixIncrementExpression["type"]> ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression<T> : never :
+        NonNullable<TypedPrefixIncrementExpression["type"]> extends T ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression : never : never;
     "dereference_expression":
         T extends NonNullable<TypedDereferenceExpression["type"]> ? V extends NonNullable<TypedDereferenceExpression["valueCategory"]> ? TypedDereferenceExpression<T> : never :
         NonNullable<TypedDereferenceExpression["type"]> extends T ? V extends NonNullable<TypedDereferenceExpression["valueCategory"]> ? TypedDereferenceExpression : never : never;
@@ -186,6 +191,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "logical_not_expression":
         T extends NonNullable<TypedLogicalNotExpression["type"]> ? V extends NonNullable<TypedLogicalNotExpression["valueCategory"]> ? TypedLogicalNotExpression : never :
         NonNullable<TypedLogicalNotExpression["type"]> extends T ? V extends NonNullable<TypedLogicalNotExpression["valueCategory"]> ? TypedLogicalNotExpression : never : never;
+    "postfix_increment_expression":
+        T extends NonNullable<TypedPostfixIncrementExpression["type"]> ? V extends NonNullable<TypedPostfixIncrementExpression["valueCategory"]> ? TypedPostfixIncrementExpression<T> : never :
+        NonNullable<TypedPostfixIncrementExpression["type"]> extends T ? V extends NonNullable<TypedPostfixIncrementExpression["valueCategory"]> ? TypedPostfixIncrementExpression : never : never;
     "subscript_expression":
         T extends NonNullable<TypedSubscriptExpression["type"]> ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression<T> : never :
         NonNullable<TypedSubscriptExpression["type"]> extends T ? V extends NonNullable<TypedSubscriptExpression["valueCategory"]> ? TypedSubscriptExpression : never : never;
@@ -255,11 +263,13 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "relational_binary_operator_expression": T extends NonNullable<CompiledRelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledRelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
     "pointer_comparison_expression": T extends NonNullable<CompiledPointerComparisonExpression["type"]> ? V extends NonNullable<CompiledPointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
     "logical_binary_operator_expression": T extends NonNullable<CompiledLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledLogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
+    "prefix_increment_expression": T extends NonNullable<CompiledPrefixIncrementExpression["type"]> ? V extends NonNullable<CompiledPrefixIncrementExpression["valueCategory"]> ? CompiledPrefixIncrementExpression<T> : never : never;
     "dereference_expression": T extends NonNullable<CompiledDereferenceExpression["type"]> ? V extends NonNullable<CompiledDereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
     "unary_plus_expression": T extends NonNullable<CompiledUnaryPlusExpression["type"]> ? V extends NonNullable<CompiledUnaryPlusExpression["valueCategory"]> ? CompiledUnaryPlusExpression<T> : never : never;
     "unary_minus_expression": T extends NonNullable<CompiledUnaryMinusExpression["type"]> ? V extends NonNullable<CompiledUnaryMinusExpression["valueCategory"]> ? CompiledUnaryMinusExpression<T> : never : never;
     "logical_not_expression": T extends NonNullable<CompiledLogicalNotExpression["type"]> ? V extends NonNullable<CompiledLogicalNotExpression["valueCategory"]> ? CompiledLogicalNotExpression : never : never;
+    "postfix_increment_expression": T extends NonNullable<CompiledPostfixIncrementExpression["type"]> ? V extends NonNullable<CompiledPostfixIncrementExpression["valueCategory"]> ? CompiledPrefixIncrementExpression<T> : never : never;
     "subscript_expression": T extends NonNullable<CompiledSubscriptExpression["type"]> ? V extends NonNullable<CompiledSubscriptExpression["valueCategory"]> ? CompiledSubscriptExpression<T> : never : never;
     "dot_expression": V extends NonNullable<DotExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectDotExpression<T> : T extends FunctionType ? CompiledFunctionDotExpression<T> : never) : never;
     "arrow_expression": V extends NonNullable<ArrowExpression["valueCategory"]> ? (T extends CompleteObjectType ? CompiledObjectArrowExpression<T> : T extends FunctionType ? CompiledFunctionArrowExpression<T> : never) : never;
@@ -293,11 +303,13 @@ const ExpressionConstructsRuntimeMap = {
     "relational_binary_operator_expression": <T extends CompiledRelationalBinaryOperatorExpression["type"]>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct) => new RuntimeRelationalBinaryOperator(construct, parent),
     "pointer_comparison_expression": (construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct) => new RuntimePointerComparisonExpression(construct, parent),
     "logical_binary_operator_expression": (construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct) => new RuntimeLogicalBinaryOperatorExpression(construct, parent),
+    "prefix_increment_expression": <T extends CompiledPrefixIncrementExpression["type"]>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePrefixIncrementExpression(construct, parent),
     "dereference_expression": <T extends CompiledDereferenceExpression["type"]>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) => new RuntimeDereferenceExpression(construct, parent),
     "address_of_expression": <T extends CompiledAddressOfExpression["type"]>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
     "unary_plus_expression": <T extends CompiledUnaryPlusExpression["type"]>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": <T extends CompiledUnaryMinusExpression["type"]>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryMinusExpression(construct, parent),
     "logical_not_expression": <T extends CompiledLogicalNotExpression["type"]>(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct) => new RuntimeLogicalNotExpression(construct, parent),
+    "postfix_increment_expression": <T extends CompiledPostfixIncrementExpression["type"]>(construct: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePostfixIncrementExpression(construct, parent),
     "subscript_expression": <T extends CompiledSubscriptExpression["type"]>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) => new RuntimeSubscriptExpression(construct, parent),
     "dot_expression": (construct: CompiledObjectDotExpression | CompiledFunctionDotExpression, parent: RuntimeConstruct) => {
         if (construct.entity instanceof FunctionEntity) {
@@ -343,11 +355,13 @@ export function createRuntimeExpression(construct: CompiledPointerOffsetExpressi
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeRelationalBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct): RuntimePointerComparisonExpression;
 export function createRuntimeExpression(construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct): RuntimeLogicalBinaryOperatorExpression;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePrefixIncrementExpression<T>;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct): RuntimeDereferenceExpression<T>;
 export function createRuntimeExpression<T extends PointerType>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct): RuntimeAddressOfExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType | PointerType>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryPlusExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryMinusExpression<T>;
 export function createRuntimeExpression(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct): RuntimeLogicalNotExpression;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePostfixIncrementExpression<T>;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct): RuntimeSubscriptExpression<T>;
 export function createRuntimeExpression(construct: CompiledObjectIdentifierExpression, parent: RuntimeConstruct): RuntimeObjectIdentifierExpression;
 export function createRuntimeExpression(construct: CompiledFunctionIdentifierExpression, parent: RuntimeConstruct): RuntimeFunctionIdentifierExpression;
@@ -2236,7 +2250,6 @@ export interface CStyleCastExpressionASTNode extends ASTNode {
 
 export type UnaryOperatorExpressionASTNode =
     PrefixIncrementExpressionASTNode |
-    PrefixDecrementExpressionASTNode |
     DereferenceExpressionASTNode |
     AddressOfExpressionASTNode |
     UnaryPlusExpressionASTNode |
@@ -2251,10 +2264,8 @@ export type UnaryOperatorExpressionASTNode =
 
 export interface PrefixIncrementExpressionASTNode extends ASTNode {
     readonly construct_type: "prefix_increment_expression";
-}
-
-export interface PrefixDecrementExpressionASTNode extends ASTNode {
-    readonly construct_type: "prefix_decrement_expression";
+    readonly operator: "++" | "--";
+    readonly operand: ExpressionASTNode;
 }
 
 export interface DereferenceExpressionASTNode extends ASTNode {
@@ -2336,7 +2347,8 @@ export type AnalyticUnaryOperatorExpression =
     AddressOfExpression |
     UnaryPlusExpression |
     UnaryMinusExpression |
-    LogicalNotExpression;
+    LogicalNotExpression |
+    PrefixIncrementExpression;
 
 export interface TypedUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends UnaryOperatorExpression, t_TypedExpression {
     readonly type: T;
@@ -2354,6 +2366,122 @@ export interface RuntimeUnaryOperatorExpression extends RuntimeExpression<Comple
     readonly operand: RuntimeExpression;
 
 }
+
+
+
+export class PrefixIncrementExpression extends UnaryOperatorExpression<PrefixIncrementExpressionASTNode> {
+    public readonly construct_type = "prefix_increment_expression";
+
+    public readonly type?: ArithmeticType | PointerToCompleteType;
+    public readonly valueCategory = "lvalue";
+
+    public readonly operand: Expression;
+
+    public readonly operator: "++" | "--";
+
+    public constructor(context: ExpressionContext, ast: PrefixIncrementExpressionASTNode, operand: Expression) {
+        super(context, ast);
+        this.operator = ast.operator;
+        
+        this.attach(this.operand = operand);
+
+        if (!operand.isWellTyped()) {
+            return;
+        }
+
+        if (!operand.isLvalue()) {
+            this.addNote(CPPError.expr.prefixIncrement.lvalue_required(this));
+        }
+        else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
+            this.addNote(CPPError.expr.prefixIncrement.decrement_bool_prohibited(this));
+        }
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+            this.type = operand.type;
+            if (operand.type.isConst) {
+                this.addNote(CPPError.expr.prefixIncrement.const_prohibited(this));
+            }
+        }
+        else {
+            this.addNote(CPPError.expr.prefixIncrement.operand(this));
+        }
+    }
+
+    public static createFromAST(ast: PrefixIncrementExpressionASTNode, context: ExpressionContext): PrefixIncrementExpression {
+        return new PrefixIncrementExpression(context, ast, createExpressionFromAST(ast.operand, context));
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface TypedPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends PrefixIncrementExpression, t_TypedExpression {
+    readonly type: T;
+    readonly operand: TypedExpression<T, "lvalue">;
+}
+
+export interface CompiledPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPrefixIncrementExpression<T>, t_CompiledConstruct {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly operand: CompiledExpression<T, "lvalue">;
+}
+
+export class RuntimePrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType> extends SimpleRuntimeExpression<T, "lvalue", CompiledPrefixIncrementExpression<T>> {
+
+    public operand: RuntimeExpression<T, "lvalue">;
+
+    public constructor(model: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+        this.setSubexpressions([this.operand]);
+    }
+
+    protected operate() {
+
+        let obj : CPPObject<ArithmeticType | PointerToCompleteType> = this.operand.evalResult;
+        let prevValue = obj.getValue();
+        // TODO: add alert if value is invalid??
+        // e.g. readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from);
+
+        // Three cases below:
+        //   - Special case. ++ on a boolean just makes it true
+        //   - arithmetic types modify by a delta
+        //   - pointers handled specially
+        let delta = this.model.operator === "++" ? 1 : -1;
+        let newValue =
+            prevValue.isTyped(isType(Bool)) ? new Value(1, Bool.BOOL) :
+            prevValue.isTyped(isArithmeticType) ? prevValue.modify(v => v + delta) :
+            prevValue.pointerOffset(new Value(delta, Int.INT));
+
+        obj.writeValue(newValue);
+        this.setEvalResult(<this["evalResult"]>obj);
+
+//         if (isA(obj.type, Types.ArrayPointer)){
+//             // Check that we haven't run off the array
+//             if (newRawValue < obj.type.min()){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+//                 }
+//             }
+//             else if (obj.type.onePast() < newRawValue){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the end of its array.");
+//                 }
+//             }
+//         }
+//         else if (isA(obj.type, Types.Pointer)){
+//             // If the RTTI works well enough, this should always be unsafe
+//             sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+//         }
+
+    }
+
+}
+
+
+
+
+
 
 export class DereferenceExpression extends UnaryOperatorExpression<DereferenceExpressionASTNode> {
     public readonly construct_type = "dereference_expression";
@@ -3611,8 +3739,7 @@ export type PostfixExpressionASTNode =
     FunctionCallExpressionASTNode |
     DotExpressionASTNode |
     ArrowExpressionASTNode |
-    PostfixIncrementExpressionASTNode |
-    PostfixDecrementExpressionASTNode;
+    PostfixIncrementExpressionASTNode;
 
 
 export interface StaticCastExpressionASTNode extends ASTNode {
@@ -3655,11 +3782,132 @@ export interface ArrowExpressionASTNode extends ASTNode {
 
 export interface PostfixIncrementExpressionASTNode extends ASTNode {
     readonly construct_type: "postfix_increment_expression";
+    readonly operand: ExpressionASTNode;
+    readonly operator: "++" | "--";
 }
 
-export interface PostfixDecrementExpressionASTNode extends ASTNode {
-    readonly construct_type: "postfix_decrement_expression";
+
+
+
+
+
+export class PostfixIncrementExpression extends Expression<PostfixIncrementExpressionASTNode> {
+    public readonly construct_type = "postfix_increment_expression";
+
+    public readonly type?: ArithmeticType | PointerToCompleteType;
+    public readonly valueCategory = "prvalue";
+
+    public readonly operand: Expression;
+
+    public readonly operator: "++" | "--";
+
+    public constructor(context: ExpressionContext, ast: PostfixIncrementExpressionASTNode, operand: Expression) {
+        super(context, ast);
+        this.operator = ast.operator;
+        
+        this.attach(this.operand = operand);
+
+        if (!operand.isWellTyped()) {
+            return;
+        }
+
+        if (!operand.isLvalue()) {
+            this.addNote(CPPError.expr.postfixIncrement.lvalue_required(this));
+        }
+        else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
+            this.addNote(CPPError.expr.postfixIncrement.decrement_bool_prohibited(this));
+        }
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+            
+            // Use cv-unqualified type since result is a prvalue
+            this.type = operand.type.cvUnqualified();
+            
+            if (operand.type.isConst) {
+                this.addNote(CPPError.expr.postfixIncrement.const_prohibited(this));
+            }
+        }
+        else {
+            this.addNote(CPPError.expr.postfixIncrement.operand(this));
+        }
+    }
+
+    public static createFromAST(ast: PostfixIncrementExpressionASTNode, context: ExpressionContext): PostfixIncrementExpression {
+        return new PostfixIncrementExpression(context, ast, createExpressionFromAST(ast.operand, context));
+    }
+
+    public createDefaultOutlet(this: CompiledPostfixIncrementExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new PostfixIncrementExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
 }
+
+export interface TypedPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends PostfixIncrementExpression, t_TypedExpression {
+    readonly type: T;
+    readonly operand: TypedExpression<T, "lvalue">;
+}
+
+export interface CompiledPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPostfixIncrementExpression<T>, t_CompiledConstruct {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly operand: CompiledExpression<T, "lvalue">;
+}
+
+export class RuntimePostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPostfixIncrementExpression<T>> {
+
+    public operand: RuntimeExpression<T, "lvalue">;
+
+    public constructor(model: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+        this.setSubexpressions([this.operand]);
+    }
+
+    protected operate() {
+
+        let obj : CPPObject<ArithmeticType | PointerToCompleteType> = this.operand.evalResult;
+        let prevValue = obj.getValue();
+        // TODO: add alert if value is invalid??
+        // e.g. readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from);
+
+        // Three cases below:
+        //   - Special case. ++ on a boolean just makes it true
+        //   - arithmetic types modify by a delta
+        //   - pointers handled specially
+        let delta = this.model.operator === "++" ? 1 : -1;
+        let newValue =
+            prevValue.isTyped(isType(Bool)) ? new Value(1, Bool.BOOL) :
+            prevValue.isTyped(isArithmeticType) ? prevValue.modify(v => v + delta) :
+            prevValue.pointerOffset(new Value(delta, Int.INT));
+
+        this.setEvalResult(<this["evalResult"]>prevValue);
+        obj.writeValue(newValue);
+
+//         if (isA(obj.type, Types.ArrayPointer)){
+//             // Check that we haven't run off the array
+//             if (newRawValue < obj.type.min()){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the beginning of its array.");
+//                 }
+//             }
+//             else if (obj.type.onePast() < newRawValue){
+//                 if (obj.isValueValid()){ // it was valid but is just now becoming invalid
+//                     sim.alert("Oops. That pointer just wandered off the end of its array.");
+//                 }
+//             }
+//         }
+//         else if (isA(obj.type, Types.Pointer)){
+//             // If the RTTI works well enough, this should always be unsafe
+//             sim.undefinedBehavior("Uh, I don't think you're supposed to do arithmetic with that pointer. It's not pointing into an array.");
+//         }
+
+    }
+
+}
+
+
 
 
 

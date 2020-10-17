@@ -1497,7 +1497,7 @@ export class StackFrameOutlet {
         let header = $("<div class='header'></div>");
         this.element.append(header);
 
-        let body = $("<div class='body'></div>");
+        let body = $("<div></div>");
         this.element.append(body);
 
         let minimizeButton = $("<span class='button'></span>");
@@ -1593,7 +1593,7 @@ export class StackFramesOutlet {
         let header = $("<div class='header'>The Stack</div>");
         this.element.append(header);
 
-        this.framesElem = $('<div class="body"></div>');
+        this.framesElem = $('<div></div>');
         this.element.append(this.framesElem);
 
         this.memory.stack.frames.forEach(frame => this.pushFrame(frame));

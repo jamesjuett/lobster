@@ -762,6 +762,34 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.unaryMinus.operand", "The unary minus operator (-) requires an operand of arithmetic type.");
             }
         },
+        prefixIncrement: {
+            lvalue_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.lvalue_required", "The operand of the prefix increment/decrement operators must be an lvalue.");
+            },
+            operand: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.operand", "The prefix increment/decrement operators requires an operand whose type is arithmetic or a pointer to a completely-defined object type.");
+            },
+            decrement_bool_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.decrement_bool_prohibited", "The -- operator may not be used on an object of boolean type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.const_prohibited", "The prefix increment/decrement operator may not be used on a const object.");
+            }
+        },
+        postfixIncrement: {
+            lvalue_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.lvalue_required", "The operand of the postfix increment/decrement operators must be an lvalue.");
+            },
+            operand: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.operand", "The postfix increment/decrement operators requires an operand whose type is arithmetic or a pointer to a completely-defined object type.");
+            },
+            decrement_bool_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.decrement_bool_prohibited", "The -- operator may not be used on an object of boolean type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.const_prohibited", "The -- operator may not be used on a const object.");
+            }
+        },
         functionCall: {
             main: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.main", "You can't explicitly call main.");
