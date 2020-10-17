@@ -104,24 +104,24 @@ $(() => {
                                 <td style="width: 30%; min-width: 260px; vertical-align: top; height: 100%">
                                     <div style="position: relative; display: flex; flex-direction: column;">
                                         <div style="margin-bottom: 5px;">
-                                            <button class = "restart btn btn-warning-muted"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
+                                            <button class = "restart btn btn-sm btn-warning-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
                                             <!--<span style = "display: inline-block; width: 4ch"></span>-->
                                             <!-- <button class = "stepOver">Step Over</button> -->
                                             <!-- <button class = "stepOut">Step Out</button> -->
-                                            <!-- <button class = "runToEnd">Run</button> -->
-                                            <!-- <button class = "pause">Pause</button> -->
-                                            <!-- <button class = "skipToEnd">Skip to End (FAST)</button> -->
+                                            <button class = "runToEnd btn btn-sm btn-success-muted" style="padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
+                                            <button class = "pause btn btn-sm btn-warning-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
+                                            <!-- <button class = "skipToEnd"><span class="glyphicon glyphicon-fast-forward"></button> -->
 
                                             <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                                            <button class = "stepBackward btn btn-success-muted"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+                                            <button class = "stepBackward btn btn-sm btn-success-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
                                             <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
 
                                             
                                             <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                                            <button class = "stepForward btn btn-success-muted">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
+                                            <button class = "stepForward btn btn-sm btn-success-muted" style="padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
                                             <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
                                         </div>
-                                        <div class="console" style="position: relative; min-height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
+                                        <div class="console" style="position: relative; min-height: 80px; height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
                                             <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
                                             <span class="lobster-console-contents"></span>
                                         </div>
@@ -498,7 +498,7 @@ export class StaticAnalysisCheckpoint extends Checkpoint {
 
 
 const EXERCISE_STARTER_CODE : {[index: string]: string} = {
-    "ch13_02_ex":
+    "ch12_01_ex":
 `#include <iostream>
 using namespace std;
 
@@ -508,6 +508,60 @@ int main() {
 
 
   cout << "done!" << endl;
+}`,
+
+    "ch12_02_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+
+  int int_1 = 7;
+  double double_1 = 3.5;
+
+  int int_2 = double_1;
+  double double_2 = int_1;
+  
+  int x = false;
+  double y = true;
+
+  bool b1 = 1;
+  bool b2 = 0;
+  bool b3 = 3.14;
+  bool b4 = -1;
+}`,
+
+    "ch12_04_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+
+  int int_1 = 7;
+  double double_1 = 3.5;
+
+  int int_2 = double_1;
+  double double_2 = int_1;
+  
+  int x = false;
+  double y = true;
+
+  bool b1 = 1;
+  bool b2 = 0;
+  bool b3 = 3.14;
+  bool b4 = -1;
+}`,
+
+    "ch13_02_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+
+// TODO: Put your code here!
+
+
+cout << "done!" << endl;
 }`,
 
     "ch13_03_ex" :
@@ -650,7 +704,7 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
             if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
                 return false;
             }
-            
+
             return true;
         }),
         new StaticAnalysisCheckpoint("Update Expression", (program: Program) => {

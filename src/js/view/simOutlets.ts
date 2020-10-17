@@ -233,7 +233,7 @@ function findExactlyOne(element: JQuery, selector: string) {
     return found;
 }
 
-const DEFAULT_RUNNER_DELAY = 1000;
+const DEFAULT_RUNNER_DELAY = 0;
 
 export class SimulationOutlet {
 
@@ -344,6 +344,8 @@ export class SimulationOutlet {
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
         this.consoleElem.html(sim.allOutput);
+
+        this.simRunner.reset();
     }
     
     public clearSimulation() {
@@ -541,6 +543,7 @@ export class SimulationOutlet {
     @messageResponse("cout")
     private cout(msg: Message<string>) {
         this.consoleElem.append(msg.data);
+        this.element.find(".console").scrollTop(this.element.find(".console")[0].scrollHeight);
     }
     
     @messageResponse("reset")
