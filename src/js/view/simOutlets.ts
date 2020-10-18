@@ -344,8 +344,6 @@ export class SimulationOutlet {
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
         this.consoleElem.html(sim.allOutput);
-
-        this.simRunner.reset();
     }
     
     public clearSimulation() {
