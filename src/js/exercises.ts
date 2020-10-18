@@ -8,7 +8,7 @@ import { decode } from "he";
 import { AsynchronousSimulationRunner } from "./core/simulationRunners";
 import { Program } from "./core/Program";
 import { Predicates } from "./core/predicates";
-import { findFirstConstruct } from "./core/analysis";
+import { findFirstConstruct, findConstructs } from "./core/analysis";
 
 $(() => {
 
@@ -104,21 +104,21 @@ $(() => {
                                 <td style="width: 30%; min-width: 260px; vertical-align: top; height: 100%">
                                     <div style="position: relative; display: flex; flex-direction: column;">
                                         <div style="margin-bottom: 5px;">
-                                            <button class = "restart btn btn-sm btn-warning-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
+                                            <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
                                             <!--<span style = "display: inline-block; width: 4ch"></span>-->
                                             <!-- <button class = "stepOver">Step Over</button> -->
                                             <!-- <button class = "stepOut">Step Out</button> -->
-                                            <button class = "runToEnd btn btn-sm btn-success-muted" style="padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
-                                            <button class = "pause btn btn-sm btn-warning-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
+                                            <button class = "runToEnd btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
+                                            <button class = "pause btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
                                             <!-- <button class = "skipToEnd"><span class="glyphicon glyphicon-fast-forward"></button> -->
 
                                             <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                                            <button class = "stepBackward btn btn-sm btn-success-muted" style="padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
+                                            <button class = "stepBackward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
                                             <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
 
                                             
                                             <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                                            <button class = "stepForward btn btn-sm btn-success-muted" style="padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
+                                            <button class = "stepForward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
                                             <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
                                         </div>
                                         <div class="console" style="position: relative; min-height: 80px; height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
@@ -366,7 +366,7 @@ export class CheckpointsOutlet {
             }
         ));
 
-        if (statuses[statuses.length - 1]) {
+        if (statuses.every(Boolean) || this.project.name !== "ch13_03_ex" && this.project.name !== "ch13_04_ex" && statuses[statuses.length - 1]) {
             this.headerElem.html(`<b>${this.completeMessage}</b>`);
             this.element.removeClass("panel-default");
             this.element.removeClass("panel-danger");
@@ -402,7 +402,7 @@ export class CheckpointOutlet {
     public constructor(element: JQuery, name: string) {
         
         this.element = element;
-        element.append(name + ": ");
+        element.append(name + " ");
         
         this.statusElem = $("<span></span>").appendTo(element);
     }
@@ -503,11 +503,13 @@ const EXERCISE_STARTER_CODE : {[index: string]: string} = {
 using namespace std;
 
 int main() {
+  cout << "Hello World!" << endl;
+  
+  int x = 10 + 5;
 
-  // TODO: Put your code here!
+  // Compute y and z for a final result of z = 120
 
-
-  cout << "done!" << endl;
+  cout << "The result is " << z << "!" << endl;
 }`,
 
     "ch12_02_ex":
@@ -536,20 +538,59 @@ int main() {
 using namespace std;
 
 int main() {
-
-  int int_1 = 7;
-  double double_1 = 3.5;
-
-  int int_2 = double_1;
-  double double_2 = int_1;
+  int i1 = 3;
+  int i2 = 4;
   
-  int x = false;
-  double y = true;
+  double d1 = 3.0;
+  double d2 = 4.0;
+  
+  cout << i1 / i2 << endl;
+  
+  cout << d1 / d2 << endl;
+  
+  cout << i1 / d2 << endl;
+  
+  cout << d1 / i2 << endl;
+  
+}`,
 
-  bool b1 = 1;
-  bool b2 = 0;
-  bool b3 = 3.14;
-  bool b4 = -1;
+    "ch12_04_ex_stopwatch":
+`#include <iostream>
+using namespace std;
+
+int main() {
+  int x = 3753; // total seconds
+  
+  
+  // TODO: convert to hours, minutes, and seconds!
+  // For example, 3753 seconds is: 1 hour, 2 minutes, 33 seconds.
+  
+  // When you're finished, uncomment these lines to print your info
+  //cout << "Hours: " << h << endl;
+  //cout << "Minutes: " << m << endl;
+  //cout << "Seconds: " << s << endl;
+}`,
+
+    "ch12_05_ex":
+`#include <iostream>
+using namespace std;
+
+int main() {
+  int a = 3;
+  int b = 4;
+  double c = 3.5;
+  double d = 4.3;
+  bool e = true;
+  
+  cout << "test1: " << (a < b) << endl;
+  
+  cout << "test2: " << (c + 0.5 < d) << endl;
+  
+  cout << "test3: " << (a > 8 && 2 * a + 8 * b + 7 < 42) << endl;
+  
+  cout << "test4: " << (a < 1 || c < 10) << endl;
+  
+  cout << "test5: " << (e || 7 / 2 == 3) << endl;
 }`,
 
     "ch13_02_ex":
@@ -577,11 +618,9 @@ int main() {
     x = x + 1;
   }
 
-  x = x + 5;
-
   while (x >= 0) {
     cout << x << endl;
-    x = x - 3;
+    x = x - 1;
   }
 
   cout << "done!" << endl;
@@ -599,7 +638,7 @@ int main() {
   while (x < N) {
     cout << val << " ";
     
-    val *= 2; // Update val by doubling it
+    val = val * 2; // Update val by doubling it
     ++x;
   }
   cout << "done!" << endl;
@@ -675,6 +714,31 @@ function getExerciseCheckpoints(projectName: string) {
 }
 
 const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
+    "ch12_01_ex": [
+        new StaticAnalysisCheckpoint("Compute y", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableName("y"));
+        }),
+        new StaticAnalysisCheckpoint("Compute z", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableName("z"));
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "Hello World!\nThe result is 120!\n";
+        })
+    ],
+    "ch12_04_ex_stopwatch": [
+        new StaticAnalysisCheckpoint("Compute h", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableName("h"));
+        }),
+        new StaticAnalysisCheckpoint("Compute m", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableName("m"));
+        }),
+        new StaticAnalysisCheckpoint("Compute s", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableName("s"));
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "Hours: 1\nMinutes: 2\nSeconds: 33\n";
+        })
+    ],
     "ch13_02_ex": [
         new IsCompiledCheckpoint("Compiles"),
         new StaticAnalysisCheckpoint("Start at 9", (program: Program) => {
@@ -722,16 +786,33 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
         })
     ],
     "ch13_03_ex": [
+        new StaticAnalysisCheckpoint("Use ++", (program: Program) => {
+            return !! findConstructs(program, Predicates.byKinds(["prefix_increment_expression", "postfix_increment_expression"])).find(
+                construct => construct.operator === "++"
+            );
+        }),
+        new StaticAnalysisCheckpoint("Use --", (program: Program) => {
+            return !! findConstructs(program, Predicates.byKinds(["prefix_increment_expression", "postfix_increment_expression"])).find(
+                construct => construct.operator === "--"
+            );
+        }),
         new OutputCheckpoint("Correct Output", (output: string) => {
-            return output === "0\n1\n2\n3\n9\n6\n3\n0\ndone!\n";
+            return output === "0\n1\n2\n3\n4\n3\n2\n1\n0\ndone!\n";
         })
     ],
     "ch13_04_ex": [
+        new StaticAnalysisCheckpoint("for Loop Syntax", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byKind("for_statement"));
+        }),
         new OutputCheckpoint("Correct Output", (output: string) => {
             return output === "1 2 4 8 16 32 done!\n";
         })
     ],
     "ch13_05_ex": [
+        new StaticAnalysisCheckpoint("Nested Loops", (program: Program) => {
+            let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
+            return !!outerLoop && !! findFirstConstruct(outerLoop.body, Predicates.byKinds(["for_statement", "while_statement"]));
+        }),
         new OutputCheckpoint("Correct Output", (output: string) => {
             return output === "X\nXX\nXXX\nXXXX\nXXXXX\n";
         })
