@@ -230,11 +230,11 @@ export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement
     }
 
     public upNextImpl() {
-        return false;
+        this.startCleanup();
     }
 
     public stepForwardImpl() {
-        return false;
+        // nothing to do
     }
 
 }
