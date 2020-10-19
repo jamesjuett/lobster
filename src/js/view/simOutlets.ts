@@ -387,7 +387,15 @@ export class SimulationOutlet {
     private async stepForward(n: number = 1) {
         if (!this.sim) { return; }
         // this.setAnimationsOn(true);
+        if (n !== 1) {
+            this.runningProgressElem.css("visibility", "visible");
+        }
+        
         await this.simRunner!.stepForward(n);
+
+        if (n !== 1) {
+            this.runningProgressElem.css("visibility", "hidden");
+        }
     }
     
     private async stepOver() {
