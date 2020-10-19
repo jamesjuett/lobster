@@ -1734,14 +1734,20 @@ export class OutputOperatorExpression extends Expression<ArithmeticBinaryOperato
             return;
         }
 
-        if (! (Predicates.isTypedExpression(right, isAtomicType) || Predicates.isTypedExpression(right, isBoundedArrayType))) {
-            this.addNote(CPPError.expr.output.unsupported_type(this, right.type));
-
+        if (right.isStringLiteralExpression()) {
+            // Avoid array-to-pointer conversion which creates an
+            // awkward extra step as the string literal turns into
+            // a char* that is then just special cased by cout.
             this.attach(this.right = right);
-            return;
+        }
+        else if (Predicates.isTypedExpression(right, isAtomicType) || Predicates.isTypedExpression(right, isBoundedArrayType)) {
+            this.attach(this.right = convertToPRValue(right));
+        }
+        else {
+            this.addNote(CPPError.expr.output.unsupported_type(this, right.type));
+            this.attach(this.right = right);
         }
 
-        this.attach(this.right = convertToPRValue(right));
     }
 
     public createDefaultOutlet(this: CompiledOutputOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -1762,24 +1768,34 @@ export interface CompiledOutputOperatorExpression extends TypedOutputOperatorExp
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<PotentiallyCompleteClassType, "lvalue">;
-    readonly right: CompiledExpression<AtomicType, "prvalue">;
+    readonly right: CompiledExpression<AtomicType, "prvalue"> | CompiledStringLiteralExpression;
 }
 
 
 export class RuntimeOutputOperatorExpression extends SimpleRuntimeExpression<PotentiallyCompleteClassType, "lvalue", CompiledOutputOperatorExpression> {
 
     public readonly left: RuntimeExpression<PotentiallyCompleteClassType, "lvalue">;
-    public readonly right: RuntimeExpression<AtomicType, "prvalue">;
+    public readonly right: RuntimeExpression<AtomicType, "prvalue"> | RuntimeStringLiteralExpression;
 
     public constructor(model: CompiledOutputOperatorExpression, parent: RuntimeConstruct) {
         super(model, parent);
         this.left = createRuntimeExpression(this.model.left, this);
-        this.right = createRuntimeExpression(this.model.right, this);
+        if (this.model.right.isStringLiteralExpression()) {
+            this.right = createRuntimeExpression(this.model.right, this);
+        }
+        else {
+            this.right = createRuntimeExpression(this.model.right, this);
+        }
         this.setSubexpressions([this.left, this.right]);
     }
 
     public operate() {
-        this.sim.cout(this.right.evalResult);
+        if (this.right instanceof RuntimeStringLiteralExpression) {
+            this.sim.cout(new Value(this.right.evalResult.address, new ArrayPointerType(this.right.evalResult)));
+        }
+        else {
+            this.sim.cout(this.right.evalResult);
+        }
     }
 }
 
