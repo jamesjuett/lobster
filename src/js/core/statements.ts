@@ -5,7 +5,7 @@ import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefini
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool, isType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
-import { Mutable, asMutable, assertNever } from "../util/util";
+import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
@@ -867,7 +867,7 @@ export interface ForStatementASTNode extends ASTNode {
     readonly construct_type: "for_statement";
     readonly condition: ExpressionASTNode;
     readonly initial: ExpressionStatementASTNode | NullStatementASTNode | DeclarationStatementASTNode;
-    readonly post: ExpressionASTNode;
+    readonly post?: ExpressionASTNode;
     readonly body: StatementASTNode;
 }
 
@@ -888,7 +888,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
     public readonly condition: Expression;
     public readonly body: Statement;
-    public readonly post: Expression;
+    public readonly post?: Expression;
   
     // Constructors for language construct classes take
     // in a `context`, which provides contextual information
@@ -900,7 +900,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     // of their own. This is usually done by a createFromAST()
     // function (see below).
     public constructor(context: BlockContext, ast: ForStatementASTNode, initial: ExpressionStatement | NullStatement | DeclarationStatement,
-      condition: Expression, body: Statement, post: Expression) {
+      condition: Expression, body: Statement, post: Expression | undefined) {
   
       super(context, ast);
   
@@ -936,7 +936,9 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // constructor, we're already guaranteed the body is a
       // statement and the post is an expression as they should be.
       this.attach(this.body = body);
-      this.attach(this.post = post);
+      if (post) {
+          this.attach(this.post = post);
+      }
     }
   
     // The constructor above poses a conundrum. It asks that
@@ -980,7 +982,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
         createStatementFromAST(ast.initial, bodyContext),
         createExpressionFromAST(ast.condition, bodyContext),
         createStatementFromAST(ast.body, bodyContext),
-        createExpressionFromAST(ast.post, bodyContext));
+        ast.post && createExpressionFromAST(ast.post, bodyContext));
   
       // It's crucial that we handled things this way. Because
       // all of the context-sensitive stuff is handled by the
@@ -1006,7 +1008,7 @@ export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled
     readonly initial: CompiledExpressionStatement | CompiledNullStatement | CompiledDeclarationStatement;
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly body: CompiledStatement;
-    readonly post: CompiledExpression;
+    readonly post?: CompiledExpression;
 }
 
 export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> {
@@ -1018,11 +1020,21 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 
     private index = 0;
 
+    private upNextFns: ((rt: RuntimeForStatement) => void)[];
+
     public constructor(model: CompiledForStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.initial = createRuntimeStatement(model.initial, this);
         this.condition = createRuntimeExpression(model.condition, this);
         // Do not create body here, since it might not actually run
+        if (model.post) {
+            this.upNextFns = RuntimeForStatement.upNextFns;
+        }
+        else {
+            // remove 4th step which is the post step
+            this.upNextFns = RuntimeForStatement.upNextFns.slice();
+            this.upNextFns.splice(3,1);
+        }
     }
 
     private static upNextFns = [
@@ -1041,16 +1053,17 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
             }
         },
         (rt: RuntimeForStatement) => {
+            assert(rt.model.post);
             rt.sim.push(asMutable(rt).post = createRuntimeExpression(rt.model.post, rt));
         },
         (rt: RuntimeForStatement) => {
             // Do nothing, pass to stepForward, which will reset
         }
-    ]
+    ];
 
     protected upNextImpl() {
-        RuntimeForStatement.upNextFns[this.index++](this);
-        if (this.index == RuntimeForStatement.upNextFns.length) {
+        this.upNextFns[this.index++](this);
+        if (this.index === this.upNextFns.length) {
             this.index = 1; // reset to 1 rather than 0, since 0 is the initial which only happens once
         }
     }

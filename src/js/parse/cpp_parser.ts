@@ -1896,6 +1896,9 @@ function peg$parse(input: string, options?: IParseOptions) {
                           s10 = peg$parsews();
                           if (s10 !== peg$FAILED) {
                             s11 = peg$parseexpression();
+                            if (s11 === peg$FAILED) {
+                              s11 = null;
+                            }
                             if (s11 !== peg$FAILED) {
                               s12 = peg$parsews();
                               if (s12 !== peg$FAILED) {

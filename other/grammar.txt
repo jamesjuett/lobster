@@ -169,7 +169,7 @@ iteration_statement
 
   / "do" !identifierChar ws body:statement ws "while" ws "(" ws cond:expression ws ")" ws ";" { return track({construct_type:"dowhile_statement", condition:cond, body:body}, location(), text()); }
 
-  / "for" ws "(" ws init:for_init_statement ws cond:expression ws ";" ws post:expression ws ")" ws body:statement
+  / "for" ws "(" ws init:for_init_statement ws cond:expression ws ";" ws post:expression? ws ")" ws body:statement
     { return track({construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}, location(), text()); }
 
 for_init_statement
