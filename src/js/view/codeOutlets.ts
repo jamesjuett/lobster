@@ -798,7 +798,7 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
     public readonly initial: StatementOutlet;
     public readonly condition: ExpressionOutlet;
-    public readonly post: ExpressionOutlet;
+    public readonly post?: ExpressionOutlet;
     public readonly body: StatementOutlet;
 
     public constructor(element: JQuery, construct: CompiledForStatement, parent?: ConstructOutlet) {
@@ -817,7 +817,7 @@ export class ForStatementOutlet extends StatementOutlet<RuntimeForStatement> {
 
         this.element.append("; ");
 
-        this.post = addChildExpressionOutlet(this.element, construct.post, this);
+        this.post = construct.post && addChildExpressionOutlet(this.element, construct.post, this);
 
         this.element.append(") ");
 

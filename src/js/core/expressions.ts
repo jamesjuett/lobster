@@ -1801,94 +1801,102 @@ export class RuntimeOutputOperatorExpression extends SimpleRuntimeExpression<Pot
 
 
 
-// export class InputOperatorExpression extends Expression<ArithmeticBinaryOperatorExpressionASTNode> { // TODO: change to special Input AST?
-//     public readonly construct_type = "input_operator_expression";
+export class InputOperatorExpression extends Expression<ArithmeticBinaryOperatorExpressionASTNode> { // TODO: change to special Input AST?
+    public readonly construct_type = "input_operator_expression";
 
-//     public readonly type : PotentiallyCompleteClassType;
-//     public readonly valueCategory = "lvalue";
+    public readonly type : PotentiallyCompleteClassType;
+    public readonly valueCategory = "lvalue";
 
-//     public readonly left: TypedExpression<PotentiallyCompleteClassType, "lvalue">;
-//     public readonly right: Expression;
+    public readonly left: TypedExpression<PotentiallyCompleteClassType, "lvalue">;
+    public readonly right: Expression;
 
-//     public readonly operator = ">>";
+    public readonly operator = ">>";
 
-//     public constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode,
-//         left: TypedExpression<PotentiallyCompleteClassType, "lvalue">,
-//         right: Expression) {
-//         super(context, ast);
+    public constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode,
+        left: TypedExpression<PotentiallyCompleteClassType, "lvalue">,
+        right: Expression) {
+        super(context, ast);
         
-//         this.attach(this.left = left);
-//         this.attach(this.right = right);
-//         this.type = this.left.type;
+        this.attach(this.left = left);
+        this.attach(this.right = right);
+        this.type = this.left.type;
 
-//         // left is already well-typed via ctor parameter type
-//         if (!right.isWellTyped()) {
-//             return;
-//         }
+        // left is already well-typed via ctor parameter type
+        if (!right.isWellTyped()) {
+            return;
+        }
 
-//         if (!right.isLvalue()) {
-//             this.addNote(CPPError.expr.input.lvalue_required(this, right.type));
-//         }
+        if (!right.isLvalue()) {
+            this.addNote(CPPError.expr.input.lvalue_required(this, right.type));
+        }
 
-//         if (!Predicates.isTypedExpression(right, isAtomicType)) {
-//             this.addNote(CPPError.expr.input.unsupported_type(this, right.type));
-//         }
-//     }
+        if (!Predicates.isTypedExpression(right, isArithmeticType)) {
+            this.addNote(CPPError.expr.input.unsupported_type(this, right.type));
+        }
+    }
 
-//     public createDefaultOutlet(this: CompiledInputOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
-//         return new InputOperatorExpressionOutlet(element, this, parent);
-//     }
+    public createDefaultOutlet(this: CompiledInputOperatorExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new InputOperatorExpressionOutlet(element, this, parent);
+    }
 
-//     public describeEvalResult(depth: number): ConstructDescription {
-//         throw new Error("Method not implemented.");
-//     }
-// }
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
 
-// export interface TypedInputOperatorExpression extends InputOperatorExpression, t_TypedExpression {
+export interface TypedInputOperatorExpression extends InputOperatorExpression, t_TypedExpression {
 
-// }
+}
 
-// export interface CompiledInputOperatorExpression extends TypedInputOperatorExpression, t_CompiledConstruct {
+export interface CompiledInputOperatorExpression extends TypedInputOperatorExpression, t_CompiledConstruct {
 
-//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-//     readonly left: CompiledExpression<PotentiallyCompleteClassType, "lvalue">;
-//     readonly right: CompiledExpression<AtomicType, "lvalue">;
-// }
+    readonly left: CompiledExpression<PotentiallyCompleteClassType, "lvalue">;
+    readonly right: CompiledExpression<ArithmeticType, "lvalue">;
+}
 
 
-// export class RuntimeInputOperatorExpression extends RuntimeExpression<PotentiallyCompleteClassType, "lvalue", CompiledInputOperatorExpression> {
+export class RuntimeInputOperatorExpression extends RuntimeExpression<PotentiallyCompleteClassType, "lvalue", CompiledInputOperatorExpression> {
 
-//     public readonly left: RuntimeExpression<PotentiallyCompleteClassType, "lvalue">;
-//     public readonly right: RuntimeExpression<AtomicType, "lvalue">;
+    public readonly left: RuntimeExpression<PotentiallyCompleteClassType, "lvalue">;
+    public readonly right: RuntimeExpression<ArithmeticType, "lvalue">;
     
-//     private index: 0 | 1 = 0;
+    private index: 0 | 1 = 0;
 
-//     public constructor(model: CompiledInputOperatorExpression, parent: RuntimeConstruct) {
-//         super(model, parent);
-//         this.left = createRuntimeExpression(this.model.left, this);
-//         this.right = createRuntimeExpression(this.model.right, this);
-//     }
+    public constructor(model: CompiledInputOperatorExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.left = createRuntimeExpression(this.model.left, this);
+        this.right = createRuntimeExpression(this.model.right, this);
+    }
 
-//     protected upNextImpl() {
-//         switch(this.index) {
-//             case 0:
-//                 this.sim.push(this.right);
-//                 this.sim.push(this.left);
-//                 ++this.index;
-//                 break;
-//             case 1:
-//                 break;
-//             default:
-//                 assertNever(this.index);
-//         }
-//     }
+    protected upNextImpl() {
+        switch(this.index) {
+            case 0:
+                this.sim.push(this.right);
+                this.sim.push(this.left);
+                ++this.index;
+                break;
+            case 1:
+                this.sim.cinUpNext();
+                break;
+            default:
+                assertNever(this.index);
+        }
+    }
 
-//     protected stepForwardImpl() {
-//         this.operate();
-//         this.startCleanup()
-//     }
-// }
+    protected stepForwardImpl() {
+        let resultOrError = this.sim.cin(this.right.evalResult.type);
+
+        if (resultOrError.kind === "result") {
+            this.right.evalResult.writeValue(resultOrError.result);
+        }
+        else {
+            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "input parsing error", true);
+        }
+        this.startCleanup()
+    }
+}
 
 
 

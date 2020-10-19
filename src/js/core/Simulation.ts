@@ -4,11 +4,12 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { CPPRandom, Mutable, escapeString } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
+import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
+import { first } from "lodash";
 
 
 export enum SimulationEvent {
@@ -56,6 +57,8 @@ export class Simulation {
 
     public readonly stepsTaken: number;
     public readonly allOutput: string;
+
+    public readonly cinBuffer: string;
 
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
@@ -106,6 +109,7 @@ export class Simulation {
         this.atEnd = false;
 
         this.allOutput = "";
+        this.cinBuffer = "";
 
         this.start();
     }
@@ -133,6 +137,7 @@ export class Simulation {
         _this.atEnd = false;
 
         (<Mutable<this>>this).allOutput = "";
+        (<Mutable<this>>this).cinBuffer = "";
 
         this.observable.send("reset");
 
@@ -497,6 +502,32 @@ export class Simulation {
         }
         (<Mutable<this>>this).allOutput += text;
         this.observable.send("cout", text);
+    }
+
+    public extractFromCin(type: ArithmeticType) {
+        if (isType(type, Char)) {
+            let c = this.cinBuffer.charAt(0);
+            (<Mutable<this>>this).cinBuffer = this.cinBuffer.substring(1);
+            return type.parse(c);
+        }
+        else {
+            let firstSpace = this.cinBuffer.indexOf(" ");
+            if (firstSpace === -1) {
+                // no spaces, whole buffer is one word
+                let word = this.cinBuffer;
+                (<Mutable<this>>this).cinBuffer = "";
+                return type.parse(word);
+            }
+            else {
+                // extract first word, up to but not including space
+                let word = this.cinBuffer.substring(0, firstSpace);
+
+                // remove from buffer, including space.
+                (<Mutable<this>>this).cinBuffer = this.cinBuffer.substring(firstSpace + 1);
+
+                return type.parse(word);
+            }
+        }
     }
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {

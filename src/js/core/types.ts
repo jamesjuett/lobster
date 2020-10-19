@@ -1,5 +1,5 @@
 import { Constructor, htmlDecoratedType, unescapeString, Mutable } from "../util/util";
-import { byte, RawValueType } from "./runtimeEnvironment";
+import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
@@ -745,13 +745,41 @@ export abstract class SimpleType extends AtomicType {
 }
 
 
+export type ParsingResult<T extends ArithmeticType> = SuccessParsingResult<T> | ErrorParsingResult;
+
+export type SuccessParsingResult<T extends ArithmeticType> = {
+    kind: "success";
+    result: Value<T>;
+}
+
+export type ErrorParsingResult = {
+    kind: "error";
+};
+
+function createSuccessParsingResult<T extends ArithmeticType>(result: Value<T>) : SuccessParsingResult<T> {
+    return {
+        kind: "success",
+        result: result
+    };
+}
+
+function createErrorParsingResult() : ErrorParsingResult {
+    return {kind: "error"};
+}
+
 export abstract class ArithmeticType extends SimpleType {
 
+    public abstract parse(s: string) : ParsingResult<this>;
+
 }
+
+export type AnalyticArithmeticType = AnalyticIntegralType | AnalyticFloatingPointType;
 
 export abstract class IntegralType extends ArithmeticType {
 
 }
+
+export type AnalyticIntegralType = Char | Int | Size_t | Bool;
 
 
 export class Char extends IntegralType {
@@ -785,6 +813,15 @@ export class Char extends IntegralType {
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Char(isConst, isVolatile);
     }
+
+    public parse(s: string) : ParsingResult<this> {
+        if (s.length > 0) {
+            return createSuccessParsingResult(new Value(s.charCodeAt(0), this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
+    }
 }
 
 export class Int extends IntegralType {
@@ -796,6 +833,16 @@ export class Int extends IntegralType {
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Int(isConst, isVolatile);
     }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
+    }
 };
 
 export class Size_t extends IntegralType {
@@ -804,6 +851,16 @@ export class Size_t extends IntegralType {
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Size_t(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
@@ -815,6 +872,16 @@ export class Bool extends IntegralType {
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p === 0 ? 0 : 1, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
@@ -831,6 +898,8 @@ export abstract class FloatingPointType extends ArithmeticType {
     }
 }
 
+export type AnalyticFloatingPointType = Float | Double;
+
 export class Float extends FloatingPointType {
 
     public static readonly FLOAT = new Float();
@@ -840,6 +909,16 @@ export class Float extends FloatingPointType {
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Float(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseFloat(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
@@ -852,6 +931,16 @@ export class Double extends FloatingPointType {
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
+    }
+    
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
