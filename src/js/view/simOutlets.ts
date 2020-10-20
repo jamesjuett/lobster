@@ -250,7 +250,7 @@ export class SimulationOutlet {
     private readonly buttonElems: {[k in SimulationButtonNames]: JQuery};
     private readonly alertsElem: JQuery;
 
-    private readonly consoleElem: JQuery;
+    private readonly consoleContentsElem: JQuery;
     private readonly cinEntryElem: JQuery;
 
     public _act!: MessageResponses;
@@ -259,7 +259,7 @@ export class SimulationOutlet {
         this.element = element;
 
         this.runningProgressElem = findExactlyOne(element, ".runningProgress");
-        this.consoleElem = findExactlyOne(element, ".lobster-console-contents");
+        this.consoleContentsElem = findExactlyOne(element, ".lobster-console-contents");
         this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
         this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
 
@@ -334,12 +334,20 @@ export class SimulationOutlet {
             .on("keydown", (e) => {
                 if (e.which == 13) { // keycode 13 is <enter>
                     e.preventDefault();
-                    let input = this.cinEntryElem.html();
-                    this.cinEntryElem.html("");
-                    this.consoleElem.append(`<span class="lobster-console-user-input">${input}</span>\n`);
+                    let input = <string>this.cinEntryElem.val() || undefined;
+                    if (!input) {
+                        return;
+                    }
+                    this.cinEntryElem.val("");
+                    this.consoleContentsElem.append(`<span class="lobster-console-user-input">${input}</span>\n`);
                     this.sim?.cin.addToBuffer(input);
                 }
             });
+        findExactlyOne(element, ".console").on("click", () => {
+            if (!getSelection() || getSelection()?.toString() === "") {
+                this.cinEntryElem.focus();
+            }
+        });
 
         this.alertsElem = element.find(".alerts");
         this.alertsElem.find("button").click(() => {
@@ -355,7 +363,7 @@ export class SimulationOutlet {
 
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
-        this.consoleElem.html(sim.allOutput);
+        this.consoleContentsElem.html(sim.allOutput);
     }
     
     public clearSimulation() {
@@ -558,7 +566,7 @@ export class SimulationOutlet {
     
     @messageResponse("cout")
     private cout(msg: Message<string>) {
-        this.consoleElem.append(msg.data);
+        this.consoleContentsElem.append(msg.data);
         this.element.find(".console").scrollTop(this.element.find(".console")[0].scrollHeight);
     }
     
@@ -570,7 +578,7 @@ export class SimulationOutlet {
         }, true);
         this.element.find(".simPane").focus();
         this.runningProgressElem.css("visibility", "hidden");
-        this.consoleElem.html("");
+        this.consoleContentsElem.html("");
     }
 
     @messageResponse("atEnded")
