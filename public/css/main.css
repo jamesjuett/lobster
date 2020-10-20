@@ -445,6 +445,24 @@ div .tabPane {
 	padding: 5px;
 }
 
+.lobster-console-user-input {
+    display: inline-block;
+    color: #ffd943;
+}
+
+.lobster-console-user-input-entry {
+    display: inline-block;
+    color: #ffd943;
+    border: solid white 1px;
+    border-radius: 3px;
+    min-width: 1em;
+}
+
+/* https://stackoverflow.com/questions/14217902/how-to-set-empty-span-height-equal-to-default-line-height */
+.lobster-console-user-input-entry:empty:before {
+    content: "\200b"; /*unicode zero width space character*/
+}
+
 .multiParagraph ul{
 	display: block;
 	padding-left: 0;

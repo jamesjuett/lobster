@@ -251,6 +251,7 @@ export class SimulationOutlet {
     private readonly alertsElem: JQuery;
 
     private readonly consoleElem: JQuery;
+    private readonly cinEntryElem: JQuery;
 
     public _act!: MessageResponses;
 
@@ -328,6 +329,17 @@ export class SimulationOutlet {
                 }
             }
         });
+
+        this.cinEntryElem = findExactlyOne(element, ".lobster-console-user-input-entry")
+            .on("keydown", (e) => {
+                if (e.which == 13) { // keycode 13 is <enter>
+                    e.preventDefault();
+                    let input = this.cinEntryElem.html();
+                    this.cinEntryElem.html("");
+                    this.consoleElem.append(`<span class="lobster-console-user-input">${input}</span>\n`);
+                    this.sim?.cin.addToBuffer(input);
+                }
+            });
 
         this.alertsElem = element.find(".alerts");
         this.alertsElem.find("button").click(() => {
