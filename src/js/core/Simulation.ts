@@ -36,6 +36,7 @@ export type SimulationMessages =
     "parameterPassedByReference" |
     "parameterPassedByAtomicValue" |
     "returnPassed" |
+    "istreamBufferUpdated" | 
     "cout" |
     "eventOccurred";
 
@@ -58,7 +59,7 @@ export class Simulation {
     public readonly stepsTaken: number;
     public readonly allOutput: string;
 
-    public readonly cinBuffer: string;
+    public readonly cin: SimulationInputStream;
 
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
@@ -109,7 +110,7 @@ export class Simulation {
         this.atEnd = false;
 
         this.allOutput = "";
-        this.cinBuffer = "";
+        this.cin = new SimulationInputStream();
 
         this.start();
     }
@@ -137,7 +138,7 @@ export class Simulation {
         _this.atEnd = false;
 
         (<Mutable<this>>this).allOutput = "";
-        (<Mutable<this>>this).cinBuffer = "";
+        (<Mutable<this>>this).cin.reset();
 
         this.observable.send("reset");
 
@@ -504,32 +505,6 @@ export class Simulation {
         this.observable.send("cout", text);
     }
 
-    public extractFromCin(type: ArithmeticType) {
-        if (isType(type, Char)) {
-            let c = this.cinBuffer.charAt(0);
-            (<Mutable<this>>this).cinBuffer = this.cinBuffer.substring(1);
-            return type.parse(c);
-        }
-        else {
-            let firstSpace = this.cinBuffer.indexOf(" ");
-            if (firstSpace === -1) {
-                // no spaces, whole buffer is one word
-                let word = this.cinBuffer;
-                (<Mutable<this>>this).cinBuffer = "";
-                return type.parse(word);
-            }
-            else {
-                // extract first word, up to but not including space
-                let word = this.cinBuffer.substring(0, firstSpace);
-
-                // remove from buffer, including space.
-                (<Mutable<this>>this).cinBuffer = this.cinBuffer.substring(firstSpace + 1);
-
-                return type.parse(word);
-            }
-        }
-    }
-
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
         this._eventsOccurred[event].push(message);
 
@@ -698,4 +673,50 @@ export class Simulation {
     //     }
     //     return true;
     // },
+}
+
+
+type SimulationInputStreamMessages =
+    "bufferUpdated";
+
+export class SimulationInputStream {
+
+    public readonly observable = new Observable<SimulationInputStreamMessages>(this);
+
+    public readonly buffer: string = "";
+    
+    public reset() {
+        (<Mutable<this>>this).buffer = "";
+    }
+
+    public addToBuffer(s: string) {
+        (<Mutable<this>>this).buffer += s;
+        this.observable.send("bufferUpdated", this.buffer);
+    }
+
+    public extractFromBuffer(type: ArithmeticType) {
+        if (isType(type, Char)) {
+            let c = this.buffer.charAt(0);
+            (<Mutable<this>>this).buffer = this.buffer.substring(1);
+            return type.parse(c);
+        }
+        else {
+            let firstSpace = this.buffer.indexOf(" ");
+            if (firstSpace === -1) {
+                // no spaces, whole buffer is one word
+                let word = this.buffer;
+                (<Mutable<this>>this).buffer = "";
+                return type.parse(word);
+            }
+            else {
+                // extract first word, up to but not including space
+                let word = this.buffer.substring(0, firstSpace);
+
+                // remove from buffer, including space.
+                (<Mutable<this>>this).buffer = this.buffer.substring(firstSpace + 1);
+
+                return type.parse(word);
+            }
+        }
+    }
 }

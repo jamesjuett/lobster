@@ -765,5 +765,7 @@ export const LIBRARY_FILES = {
         class ostream {};
         ostream cout;
         const char endl = '\\n';
+        class istream {};
+        istream cin;
     `)
 }
