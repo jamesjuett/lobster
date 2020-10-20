@@ -439,10 +439,10 @@ div .tabPane {
     /*width: 100%; height: 100%;*/
     /*margin: 0; padding: 8px;*/
     font-family: monospace;
-    font-size: 12px;
+    font-size: 8pt;
     background: none;
     border: solid 1px #444444;
-	padding: 5px;
+    padding: 5px;
 }
 
 .lobster-console-user-input {
@@ -453,9 +453,18 @@ div .tabPane {
 .lobster-console-user-input-entry {
     display: inline-block;
     color: #ffd943;
-    border: solid white 1px;
-    border-radius: 3px;
+    border: solid white 0.5px;
+    border-radius: 2px;
     min-width: 1em;
+    background: none;
+}
+
+.lobster-console-user-input-entry:empty {
+    /* border: none */
+}
+
+.lobster-console-user-input-entry:focus {
+    /* border: none; */
 }
 
 /* https://stackoverflow.com/questions/14217902/how-to-set-empty-span-height-equal-to-default-line-height */

@@ -124,7 +124,7 @@ $(() => {
                                         <div class="console" style="position: relative; min-height: 80px; height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
                                             <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
                                             <span class="lobster-console-contents"></span>
-                                            <span class="lobster-console-user-input-entry" contenteditable></span>
+                                            <input type="text" class="lobster-console-user-input-entry"></span>
                                         </div>
                                         <div style = "margin-top: 5px; text-align: center;">Memory</div>
                                         <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="memory readOnly"></div></div>
