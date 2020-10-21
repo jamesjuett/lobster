@@ -364,6 +364,7 @@ _simple_type_name
   = "char"
   / "short"
   / "int"
+  / "size_t"
   / "bool"
   / "long"
   / "signed"
@@ -757,6 +758,7 @@ exp_primary
   / literal
   / "this" !identifierChar {return track({construct_type: "this_expression"}, location(), text()); }
   / exp_id
+  / opaque_expression
 
 exp_id
   = id:(qualified_id / unqualified_id) { return track(absorb({construct_type: "identifier_expression"}, id), location(), text()); }
@@ -865,6 +867,9 @@ identifier "identifier"
 identifierChar = [a-zA-Z0-9_]
 
 identifierFirstChar = [a-zA-Z_]
+
+opaque_expression
+  = "@" id:([a-zA-Z_1-9~]/"::"/operator_function_id)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
 
 
 ws "optional whitespace"

@@ -815,6 +815,11 @@ position: relative;}
     color: #ae81ff;
 }
 
+.code-opaque-expression {
+    white-space: pre;
+    color: #aaaaaa;
+}
+
 .code-unaryOp,
 .code-binaryOp,
 .code-ternaryOp,

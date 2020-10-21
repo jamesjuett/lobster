@@ -15,6 +15,7 @@ import { Bool, AtomicType, CompleteObjectType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
+import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -1984,6 +1985,17 @@ export class StringLiteralExpressionOutlet extends ExpressionOutlet<RuntimeStrin
 
         this.exprElem.addClass("code-string-literal");
         this.exprElem.append(`"${this.construct.str}"`);
+    }
+
+}
+
+export class OpaqueExpressionOutlet extends ExpressionOutlet<RuntimeOpaqueExpression> {
+
+    public constructor(element: JQuery, construct: CompiledOpaqueExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent, false);
+
+        this.exprElem.addClass("code-opaque-expression");
+        this.exprElem.append("/* IMPLEMENTATION NOT SHOWN */");
     }
 
 }

@@ -1,6 +1,7 @@
 {
     "include": [
       "./src/js/core/*.ts",
+      "./src/js/lib/*.ts",
       "./src/js/parse/*.ts",
       "./src/js/test/*.ts",
       "./src/js/view/*.ts",
