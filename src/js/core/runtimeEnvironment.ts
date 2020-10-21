@@ -106,6 +106,10 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid);
     }
     
+    public add(x: number) {
+        return this.modify(a => a + x);
+    }
+    
     public arithmeticNegate() {
         return this.modify(a => -a);
     }
@@ -547,23 +551,25 @@ class MemoryHeap {
     //     this.objectMap = {};
     // }
 
-    // public allocateNewObject(obj: DynamicObject) {
-    //     this.bottom -= obj.type.size;
-    //     this.memory.allocateObject(obj, this.bottom);
-    //     this.objectMap[obj.address] = obj;
-    //     this.memory.observable.send("heapObjectAllocated", obj);
-    // }
+    public allocateNewObject<T extends CompleteObjectType>(type: T) {
+        this.bottom -= type.size;
+        let obj = new DynamicObject(type, this.memory, this.bottom);
+        this.memory.allocateObject(obj);
+        this.objectMap[obj.address] = obj;
+        this.memory.observable.send("heapObjectAllocated", obj);
+        return obj;
+    }
 
-    // public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
-    //     var obj = this.objectMap[addr];
-    //     if (obj) {
-    //         delete this.objectMap[addr];
-    //         this.memory.deallocateObject(addr, rtConstruct);
-    //         this.memory.observable.send("heapObjectDeleted", obj);
-    //         // Note: responsibility for running destructor lies elsewhere
-    //     }
-    //     return obj;
-    // }
+    public deleteObject(addr: number, killer: RuntimeConstruct) {
+        var obj = this.objectMap[addr];
+        if (obj) {
+            delete this.objectMap[addr];
+            this.memory.killObject(addr, killer);
+            this.memory.observable.send("heapObjectDeleted", obj);
+            // Note: responsibility for running destructor lies elsewhere
+        }
+        return obj;
+    }
 }
 
 

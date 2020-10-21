@@ -760,12 +760,20 @@ export class TranslationUnit {
 
 
 
-export const LIBRARY_FILES = {
-    iostream: new SourceFile("iostream", `
+const LIBRARY_FILES : {[index:string]: SourceFile} = {
+    iostream: new SourceFile("iostream.h", `
         class ostream {};
         ostream cout;
         const char endl = '\\n';
         class istream {};
         istream cin;
+    `),
+    string: new SourceFile("string.h", `
+        class string {};
     `)
+}
+
+export function registerLibraryHeader(name: string, file: SourceFile) {
+    assert(!LIBRARY_FILES[name]);
+    LIBRARY_FILES[name] = file;
 }

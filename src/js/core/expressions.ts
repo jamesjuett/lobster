@@ -1,7 +1,7 @@
 import { CPPObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, IncompleteClassType, PotentiallyCompleteClassType, isGenericArrayType, isPointerToCompleteType } from "./types";
-import { ASTNode, SuccessfullyCompiled as t_CompiledConstruct, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
 import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -11,6 +11,7 @@ import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCal
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
+import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -44,7 +45,8 @@ export type ExpressionASTNode =
     ThisExpressionASTNode |
     NumericLiteralASTNode |
     StringLiteralASTNode |
-    ParenthesesExpressionASTNode;
+    ParenthesesExpressionASTNode |
+    OpaqueExpressionASTNode;
 
 const ExpressionConstructsMap = {
     "comma_expression": (ast: CommaASTNode, context: ExpressionContext) => CommaExpression.createFromAST(ast, context),
@@ -96,7 +98,8 @@ const ExpressionConstructsMap = {
 
     "numeric_literal_expression": (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
-    "parentheses_expression": (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context)
+    "parentheses_expression": (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context),
+    "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context)
 }
 
 /**
@@ -135,6 +138,7 @@ export type AnalyticExpression =
     NumericLiteralExpression |
     StringLiteralExpression |
     ParenthesesExpression |
+    OpaqueExpression |
     MagicFunctionCallExpression |
     AuxiliaryExpression |
     UnsupportedExpression |
@@ -234,6 +238,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "parentheses_expression":
     T extends NonNullable<TypedParenthesesExpression["type"]> ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T, V> : never :
     NonNullable<TypedParenthesesExpression["type"]> extends T ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression : never : never;
+    "opaque_expression":
+    T extends NonNullable<TypedOpaqueExpression["type"]> ? V extends NonNullable<TypedOpaqueExpression["valueCategory"]> ? TypedOpaqueExpression<T, V> : never :
+    NonNullable<TypedOpaqueExpression["type"]> extends T ? V extends NonNullable<TypedOpaqueExpression["valueCategory"]> ? TypedOpaqueExpression : never : never;
     "auxiliary_expression":
     T extends NonNullable<TypedAuxiliaryExpression["type"]> ? V extends NonNullable<TypedAuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression<T, V> : never :
     NonNullable<TypedAuxiliaryExpression["type"]> extends T ? V extends NonNullable<TypedAuxiliaryExpression["valueCategory"]> ? TypedAuxiliaryExpression : never : never;
@@ -247,8 +254,6 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     T extends NonNullable<TypedImplicitConversion["type"]> ? V extends NonNullable<TypedImplicitConversion["valueCategory"]> ? TypedImplicitConversion<CompleteObjectType, ValueCategory, T, V> : never :
     NonNullable<TypedImplicitConversion["type"]> extends T ? V extends NonNullable<TypedImplicitConversion["valueCategory"]> ? TypedImplicitConversion : never : never;
 }
-
-let x!: AnalyticTypedExpression<AssignmentExpression, Bool, ValueCategory>
 
 export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
@@ -281,6 +286,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "numeric_literal_expression": T extends NonNullable<CompiledNumericLiteralExpression["type"]> ? V extends NonNullable<CompiledNumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
     "string_literal_expression": T extends NonNullable<CompiledStringLiteralExpression["type"]> ? V extends NonNullable<CompiledStringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
     "parentheses_expression": T extends NonNullable<CompiledParenthesesExpression["type"]> ? V extends NonNullable<CompiledParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T, V> : never : never;
+    "opaque_expression": T extends NonNullable<CompiledOpaqueExpression["type"]> ? V extends NonNullable<CompiledOpaqueExpression["valueCategory"]> ? CompiledOpaqueExpression<T, V> : never : never;
     "auxiliary_expression": T extends NonNullable<CompiledAuxiliaryExpression["type"]> ? V extends NonNullable<CompiledAuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T, V> : never : never;
     "magic_function_call_expression": T extends NonNullable<CompiledMagicFunctionCallExpression["type"]> ? V extends NonNullable<CompiledMagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
     "function_call_expression": T extends NonNullable<CompiledFunctionCallExpression["type"]> ? V extends NonNullable<CompiledFunctionCallExpression["valueCategory"]> ? CompiledFunctionCallExpression<T> : never : never;
@@ -343,6 +349,7 @@ const ExpressionConstructsRuntimeMap = {
     "numeric_literal_expression": <T extends CompiledNumericLiteralExpression["type"]>(construct: CompiledNumericLiteralExpression<T>, parent: RuntimeConstruct) => new RuntimeNumericLiteral(construct, parent),
     "string_literal_expression": (construct: CompiledStringLiteralExpression, parent: RuntimeConstruct) => new RuntimeStringLiteralExpression(construct, parent),
     "parentheses_expression": <T extends CompiledParenthesesExpression["type"], V extends ValueCategory>(construct: CompiledParenthesesExpression<T, V>, parent: RuntimeConstruct) => new RuntimeParentheses(construct, parent),
+    "opaque_expression": <T extends CompiledOpaqueExpression["type"], V extends ValueCategory>(construct: CompiledOpaqueExpression<T, V>, parent: RuntimeConstruct) => new RuntimeOpaqueExpression(construct, parent),
     "auxiliary_expression": <T extends CompiledExpression["type"] = CompiledExpression["type"], V extends ValueCategory = ValueCategory>(construct: CompiledExpression<T, V>, parent: RuntimeConstruct) => { throw new Error("Auxiliary expressions must never be instantiated at runtime.") },
     "magic_function_call_expression": <RT extends CompiledMagicFunctionCallExpression["type"]>(construct: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct) => new RuntimeMagicFunctionCallExpression(construct, parent),
     "function_call_expression": <RT extends CompiledFunctionCallExpression["type"]>(construct: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct) => new RuntimeFunctionCallExpression(construct, parent),
@@ -727,7 +734,7 @@ export interface TypedCommaExpression<T extends ExpressionType = ExpressionType,
     readonly right: TypedExpression<T, V>;
 }
 
-export interface CompiledCommaExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedCommaExpression<T, V>, t_CompiledConstruct {
+export interface CompiledCommaExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedCommaExpression<T, V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly left: CompiledExpression;
     readonly right: CompiledExpression<T, V>;
@@ -861,7 +868,7 @@ export interface TypedTernaryExpression<T extends ExpressionType = ExpressionTyp
     readonly otherwise: TypedExpression<T, V>;
 }
 
-export interface CompiledTernaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedTernaryExpression<T, V>, t_CompiledConstruct {
+export interface CompiledTernaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedTernaryExpression<T, V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly then: CompiledExpression<T, V>;
@@ -1083,7 +1090,7 @@ export interface TypedAssignmentExpression<T extends AtomicType = AtomicType> ex
 }
 
 
-export interface CompiledAssignmentExpression<T extends AtomicType = AtomicType> extends TypedAssignmentExpression<T>, t_CompiledConstruct {
+export interface CompiledAssignmentExpression<T extends AtomicType = AtomicType> extends TypedAssignmentExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
@@ -1264,7 +1271,7 @@ export interface TypedBinaryOperatorExpression<T extends AtomicType = AtomicType
     readonly right: TypedExpression<AtomicType, "prvalue">;
 }
 
-export interface CompiledBinaryOperatorExpression<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpression<T>, t_CompiledConstruct {
+export interface CompiledBinaryOperatorExpression<T extends AtomicType = AtomicType> extends TypedBinaryOperatorExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     // Note valueCategory is defined as "prvalue" in BinaryOperator
     readonly left: CompiledExpression<AtomicType, "prvalue">;
@@ -1445,7 +1452,7 @@ export interface TypedArithmeticBinaryOperatorExpression<T extends ArithmeticTyp
     readonly right: TypedExpression<T, "prvalue">;
 }
 
-export interface CompiledArithmeticBinaryOperatorExpression<T extends ArithmeticType = ArithmeticType> extends TypedArithmeticBinaryOperatorExpression<T>, t_CompiledConstruct {
+export interface CompiledArithmeticBinaryOperatorExpression<T extends ArithmeticType = ArithmeticType> extends TypedArithmeticBinaryOperatorExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1535,7 +1542,7 @@ export interface TypedPointerDifferenceExpression extends PointerDifferenceExpre
 
 }
 
-export interface CompiledPointerDifferenceExpression extends TypedPointerDifferenceExpression, t_CompiledConstruct {
+export interface CompiledPointerDifferenceExpression extends TypedPointerDifferenceExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<PointerToCompleteType, "prvalue">;
@@ -1662,7 +1669,7 @@ export interface TypedPointerOffsetExpression<T extends PointerType = PointerTyp
     readonly offset: TypedExpression<IntegralType, "prvalue">;
 }
 
-export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType = PointerToCompleteType> extends TypedPointerOffsetExpression<T>, t_CompiledConstruct {
+export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType = PointerToCompleteType> extends TypedPointerOffsetExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1777,7 +1784,7 @@ export interface TypedOutputOperatorExpression extends OutputOperatorExpression,
 
 }
 
-export interface CompiledOutputOperatorExpression extends TypedOutputOperatorExpression, t_CompiledConstruct {
+export interface CompiledOutputOperatorExpression extends TypedOutputOperatorExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1862,7 +1869,7 @@ export interface TypedInputOperatorExpression extends InputOperatorExpression, t
 
 }
 
-export interface CompiledInputOperatorExpression extends TypedInputOperatorExpression, t_CompiledConstruct {
+export interface CompiledInputOperatorExpression extends TypedInputOperatorExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1902,7 +1909,7 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
         if (this.sim.cin.buffer.length === 0) {
             return;
         }
-        
+
         let resultOrError = this.sim.cin.extractFromBuffer(this.right.evalResult.type);
 
         if (resultOrError.kind === "success") {
@@ -2031,7 +2038,7 @@ export interface TypedRelationalBinaryOperatorExpression extends RelationalBinar
 
 }
 
-export interface CompiledRelationalBinaryOperatorExpression<OperandT extends ArithmeticType = ArithmeticType> extends TypedRelationalBinaryOperatorExpression, t_CompiledConstruct {
+export interface CompiledRelationalBinaryOperatorExpression<OperandT extends ArithmeticType = ArithmeticType> extends TypedRelationalBinaryOperatorExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2112,7 +2119,7 @@ export interface TypedPointerComparisonExpression extends PointerComparisonExpre
 
 }
 
-export interface CompiledPointerComparisonExpression<OperandT extends PointerType = PointerType> extends TypedPointerComparisonExpression, t_CompiledConstruct {
+export interface CompiledPointerComparisonExpression<OperandT extends PointerType = PointerType> extends TypedPointerComparisonExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<OperandT, "prvalue">;
@@ -2225,7 +2232,7 @@ export interface TypedLogicalBinaryOperatorExpression extends LogicalBinaryOpera
 
 }
 
-export interface CompiledLogicalBinaryOperatorExpression extends TypedLogicalBinaryOperatorExpression, t_CompiledConstruct {
+export interface CompiledLogicalBinaryOperatorExpression extends TypedLogicalBinaryOperatorExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly left: CompiledExpression<Bool, "prvalue">;
@@ -2396,7 +2403,7 @@ export interface TypedUnaryOperatorExpression<T extends CompleteObjectType | Voi
     readonly valueCategory: ValueCategory;
 }
 
-export interface CompiledUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends TypedUnaryOperatorExpression<T, V>, t_CompiledConstruct {
+export interface CompiledUnaryOperatorExpression<T extends CompleteObjectType | VoidType = CompleteObjectType | VoidType, V extends ValueCategory = ValueCategory> extends TypedUnaryOperatorExpression<T, V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression;
 }
@@ -2461,7 +2468,7 @@ export interface TypedPrefixIncrementExpression<T extends ArithmeticType | Point
     readonly operand: TypedExpression<T, "lvalue">;
 }
 
-export interface CompiledPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPrefixIncrementExpression<T>, t_CompiledConstruct {
+export interface CompiledPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPrefixIncrementExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly operand: CompiledExpression<T, "lvalue">;
@@ -2577,7 +2584,7 @@ export interface TypedDereferenceExpression<T extends CompleteObjectType = Compl
     readonly operand: TypedExpression<PointerType<T>, "prvalue">;
 }
 
-export interface CompiledDereferenceExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedDereferenceExpression<T>, t_CompiledConstruct {
+export interface CompiledDereferenceExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedDereferenceExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2717,7 +2724,7 @@ export interface TypedAddressOfExpression<T extends PointerType = PointerType> e
     readonly operand: TypedExpression<T["ptrTo"]>;
 }
 
-export interface CompiledAddressOfExpression<T extends PointerType = PointerType> extends TypedAddressOfExpression<T>, t_CompiledConstruct {
+export interface CompiledAddressOfExpression<T extends PointerType = PointerType> extends TypedAddressOfExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2802,7 +2809,7 @@ export interface TypedUnaryPlusExpression<T extends ArithmeticType | PointerType
     readonly operand: TypedExpression<T, "prvalue">;
 }
 
-export interface CompiledUnaryPlusExpression<T extends ArithmeticType | PointerType = ArithmeticType | PointerType> extends TypedUnaryPlusExpression<T>, t_CompiledConstruct {
+export interface CompiledUnaryPlusExpression<T extends ArithmeticType | PointerType = ArithmeticType | PointerType> extends TypedUnaryPlusExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2878,7 +2885,7 @@ export interface TypedUnaryMinusExpression<T extends ArithmeticType = Arithmetic
     readonly operand: TypedExpression<T, "prvalue">;
 }
 
-export interface CompiledUnaryMinusExpression<T extends ArithmeticType = ArithmeticType> extends TypedUnaryMinusExpression<T>, t_CompiledConstruct {
+export interface CompiledUnaryMinusExpression<T extends ArithmeticType = ArithmeticType> extends TypedUnaryMinusExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -2949,7 +2956,7 @@ export interface TypedLogicalNotExpression extends LogicalNotExpression, t_Typed
     readonly operand: TypedExpression<Bool, "prvalue">;
 }
 
-export interface CompiledLogicalNotExpression extends TypedLogicalNotExpression, t_CompiledConstruct {
+export interface CompiledLogicalNotExpression extends TypedLogicalNotExpression, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -3239,7 +3246,7 @@ export interface TypedSubscriptExpression<T extends CompleteObjectType = Complet
     readonly operand: TypedExpression<PointerType<T>, "prvalue">;
 }
 
-export interface CompiledSubscriptExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedSubscriptExpression<T>, t_CompiledConstruct {
+export interface CompiledSubscriptExpression<T extends CompleteObjectType = CompleteObjectType> extends TypedSubscriptExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -3393,7 +3400,7 @@ export interface TypedObjectDotExpression<T extends PotentiallyCompleteObjectTyp
     readonly operand: TypedExpression<CompleteClassType>;
 }
 
-export interface CompiledObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectDotExpression<T>, t_CompiledConstruct {
+export interface CompiledObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectDotExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<CompleteClassType>;
 }
@@ -3404,7 +3411,7 @@ export interface TypedFunctionDotExpression<T extends FunctionType = FunctionTyp
     readonly operand: TypedExpression<CompleteClassType>;
 }
 
-export interface CompiledFunctionDotExpression<T extends FunctionType = FunctionType> extends TypedFunctionDotExpression<T>, t_CompiledConstruct {
+export interface CompiledFunctionDotExpression<T extends FunctionType = FunctionType> extends TypedFunctionDotExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<CompleteClassType>;
 }
@@ -3624,7 +3631,7 @@ export interface TypedObjectArrowExpression<T extends PotentiallyCompleteObjectT
     readonly operand: TypedExpression<PointerType<CompleteClassType>>;
 }
 
-export interface CompiledObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectArrowExpression<T>, t_CompiledConstruct {
+export interface CompiledObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectArrowExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<PointerType<CompleteClassType>>;
 }
@@ -3635,7 +3642,7 @@ export interface TypedFunctionArrowExpression<T extends FunctionType = FunctionT
     readonly operand: TypedExpression<PointerType<CompleteClassType>>;
 }
 
-export interface CompiledFunctionArrowExpression<T extends FunctionType = FunctionType> extends TypedFunctionArrowExpression<T>, t_CompiledConstruct {
+export interface CompiledFunctionArrowExpression<T extends FunctionType = FunctionType> extends TypedFunctionArrowExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly operand: CompiledExpression<PointerType<CompleteClassType>>;
 }
@@ -3892,7 +3899,7 @@ export interface TypedPostfixIncrementExpression<T extends ArithmeticType | Poin
     readonly operand: TypedExpression<T, "lvalue">;
 }
 
-export interface CompiledPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPostfixIncrementExpression<T>, t_CompiledConstruct {
+export interface CompiledPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPostfixIncrementExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly operand: CompiledExpression<T, "lvalue">;
@@ -4498,7 +4505,7 @@ export interface TypedObjectIdentifierExpression<T extends PotentiallyCompleteOb
     readonly entity: ObjectEntity<Extract<T, CompleteObjectType>> | BoundReferenceEntity<ReferenceType<T>>;
 }
 
-export interface CompiledObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectIdentifierExpression<T>, t_CompiledConstruct {
+export interface CompiledObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectIdentifierExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -4507,7 +4514,7 @@ export interface TypedFunctionIdentifierExpression<T extends FunctionType = Func
     readonly entity: FunctionEntity<T>;
 }
 
-export interface CompiledFunctionIdentifierExpression<T extends FunctionType = FunctionType> extends TypedFunctionIdentifierExpression<T>, t_CompiledConstruct {
+export interface CompiledFunctionIdentifierExpression<T extends FunctionType = FunctionType> extends TypedFunctionIdentifierExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -4710,7 +4717,7 @@ export interface TypedNumericLiteralExpression<T extends ArithmeticType = Arithm
 
 }
 
-export interface CompiledNumericLiteralExpression<T extends ArithmeticType = ArithmeticType> extends TypedNumericLiteralExpression<T>, t_CompiledConstruct {
+export interface CompiledNumericLiteralExpression<T extends ArithmeticType = ArithmeticType> extends TypedNumericLiteralExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -4787,7 +4794,7 @@ export interface TypedStringLiteralExpression extends StringLiteralExpression, t
 
 }
 
-export interface CompiledStringLiteralExpression extends TypedStringLiteralExpression, t_CompiledConstruct {
+export interface CompiledStringLiteralExpression extends TypedStringLiteralExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -4855,7 +4862,7 @@ export interface TypedParenthesesExpression<T extends ExpressionType = Expressio
     readonly subexpression: TypedExpression<T, V>;
 }
 
-export interface CompiledParenthesesExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedParenthesesExpression<T, V>, t_CompiledConstruct {
+export interface CompiledParenthesesExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedParenthesesExpression<T, V>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -4926,7 +4933,7 @@ export interface TypedAuxiliaryExpression<T extends ExpressionType = ExpressionT
 
 }
 
-export interface CompiledAuxiliaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedAuxiliaryExpression<T, V>, t_CompiledConstruct {
+export interface CompiledAuxiliaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TypedAuxiliaryExpression<T, V>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 }
 
@@ -5162,7 +5169,7 @@ export interface TypedMagicFunctionCallExpression<T extends PeelReference<Comple
     readonly valueCategory: V;
 }
 
-export interface CompiledMagicFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMagicFunctionCallExpression<T, V>, t_CompiledConstruct {
+export interface CompiledMagicFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMagicFunctionCallExpression<T, V>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -5238,7 +5245,7 @@ export interface TypedImplicitConversion<FromType extends CompleteObjectType = C
 
 }
 
-export interface CompiledImplicitConversion<FromType extends CompleteObjectType = CompleteObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends CompleteObjectType = CompleteObjectType, ToVC extends ValueCategory = ValueCategory> extends TypedImplicitConversion<FromType, FromVC, ToType, ToVC>, t_CompiledConstruct {
+export interface CompiledImplicitConversion<FromType extends CompleteObjectType = CompleteObjectType, FromVC extends ValueCategory = ValueCategory, ToType extends CompleteObjectType = CompleteObjectType, ToVC extends ValueCategory = ValueCategory> extends TypedImplicitConversion<FromType, FromVC, ToType, ToVC>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly from: CompiledExpression<FromType, FromVC>;
@@ -5316,7 +5323,7 @@ export interface TypedLValueToRValueConversion<T extends AtomicType = AtomicType
 
 }
 
-export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicType> extends TypedLValueToRValueConversion<T>, t_CompiledConstruct {
+export interface CompiledLValueToRValueConversion<T extends AtomicType = AtomicType> extends TypedLValueToRValueConversion<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and LValueToRValue structure
 }
@@ -5345,7 +5352,7 @@ export interface TypedArrayToPointerConversion<T extends BoundedArrayType = Boun
 
 }
 
-export interface CompiledArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends TypedArrayToPointerConversion<T>, t_CompiledConstruct {
+export interface CompiledArrayToPointerConversion<T extends BoundedArrayType = BoundedArrayType> extends TypedArrayToPointerConversion<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and ArrayToPointer structure
 }
@@ -5394,7 +5401,7 @@ export interface TypedTypeConversion<FromType extends AtomicType = AtomicType, T
 
 }
 
-export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypedTypeConversion<FromType, ToType>, t_CompiledConstruct {
+export interface CompiledTypeConversion<FromType extends AtomicType = AtomicType, ToType extends AtomicType = AtomicType> extends TypedTypeConversion<FromType, ToType>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<FromType, "prvalue">; // satisfies CompiledImplicitConversion and TypeConversion structure
 }
@@ -5432,7 +5439,7 @@ export interface TypedNullPointerConversion<P extends PointerType> extends NullP
 
 }
 
-export interface CompiledNullPointerConversion<P extends PointerType> extends TypedNullPointerConversion<P>, t_CompiledConstruct {
+export interface CompiledNullPointerConversion<P extends PointerType> extends TypedNullPointerConversion<P>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: IntegerLiteralZero;
 }
@@ -5555,7 +5562,7 @@ export class QualificationConversion<T extends AtomicType = AtomicType> extends 
 export interface TypedQualificationConversion<T extends AtomicType = AtomicType> extends QualificationConversion<T>, t_TypedExpression {
 }
 
-export interface CompiledQualificationConversion<T extends AtomicType = AtomicType> extends TypedQualificationConversion<T>, t_CompiledConstruct {
+export interface CompiledQualificationConversion<T extends AtomicType = AtomicType> extends TypedQualificationConversion<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly from: CompiledExpression<T, "prvalue">; // satisfies CompiledImplicitConversion and QualificationConversion structure
 }

@@ -1820,13 +1820,14 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 }
 
-const builtInTypeNames = new Set(["char", "int", "bool", "float", "double", "void"]);
-export function isBuiltInTypeName(name: string): name is "char" | "int" | "bool" | "float" | "double" | "void" {
+const builtInTypeNames = new Set(["char", "int", "size_t", "bool", "float", "double", "void"]);
+export function isBuiltInTypeName(name: string): name is "char" | "int" | "size_t" | "bool" | "float" | "double" | "void" {
     return builtInTypeNames.has(name);
 }
 export const builtInTypes = {
     "char": Char,
     "int": Int,
+    "size_t": Int,
     "bool": Bool,
     "float": Float,
     "double": Double,

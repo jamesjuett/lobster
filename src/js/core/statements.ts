@@ -3,13 +3,14 @@ import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool, isType } from "./types";
+import { VoidType, ReferenceType, Bool, isType, Int } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
+import { Value } from "./runtimeEnvironment";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -34,7 +35,7 @@ const StatementConstructsMap = {
     "declaration_statement": (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
-};
+}
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
@@ -562,28 +563,31 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
 
 
-// export class OpaqueBlock extends StatementBase implements SuccessfullyCompiled {
+
+
+
+// export class OpaqueStatement extends StatementBase implements SuccessfullyCompiled {
 
 //     public _t_isCompiled: never;
 
-//     private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private readonly effects: (rtBlock: RuntimeOpaqueStatement) => void;
 
-//     public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//     public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueStatement) => void) {
 //         super(context);
 //         this.effects = effects;
 //     }
 
 //     public createRuntimeStatement(parent: RuntimeStatement | RuntimeFunction) {
-//         return new RuntimeOpaqueBlock(this, parent, this.effects);
+//         return new RuntimeOpaqueStatement(this, parent, this.effects);
 //     }
 
 // }
 
-// export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
+// export class RuntimeOpaqueStatement extends RuntimeStatement<OpaqueStatement> {
 
-//     private effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private effects: (rtBlock: RuntimeOpaqueStatement) => void;
 
-//     public constructor (model: OpaqueBlock, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//     public constructor (model: OpaqueStatement, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueStatement) => void) {
 //         super(model, parent);
 //         this.effects = effects;
 //     }

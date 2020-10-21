@@ -505,7 +505,7 @@ export class Simulation {
         this.observable.send("cout", text);
     }
 
-    public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean) {
+    public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean = false) {
         this._eventsOccurred[event].push(message);
 
         this.observable.send("eventOccurred", { event, message });
