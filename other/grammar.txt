@@ -869,7 +869,7 @@ identifierChar = [a-zA-Z0-9_]
 identifierFirstChar = [a-zA-Z_]
 
 opaque_expression
-  = "@" id:([a-zA-Z_1-9~]/"::"/operator_function_id)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
+  = "@" id:([a-zA-Z_1-9~]/"::"/overloadable_op)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
 
 
 ws "optional whitespace"

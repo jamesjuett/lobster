@@ -1,7 +1,7 @@
 import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression } from "./expressions";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
 import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, PeelReference, peelReference, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType, PotentiallyCompleteObjectType, CompleteReturnType, PotentiallyCompleteClassType } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
@@ -326,6 +326,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
 
 
         if (!operand.entity.returnsCompleteType()) {
+            this.attachAll(args);
             this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, operand.entity.type.returnType));
             return;
         }
@@ -340,14 +341,11 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         //     staticReceiver = operand.functionCallReceiver;
         // }
 
-        // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
-        // So the cast below should be fine.
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        // TODO: allow member function calls. (or make them a separate class idk)
         this.attach(this.call = new FunctionCall(
             context,
             operand.entity,
-            <readonly TypedExpression<CompleteObjectType, ValueCategory>[]>args));
+            args));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression {
@@ -398,7 +396,7 @@ export interface CompiledFunctionCallExpression<T extends PeelReference<Complete
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
 
-    readonly operand: CompiledFunctionIdentifierExpression | CompiledFunctionDotExpression;
+    readonly operand: CompiledFunctionIdentifierExpression | CompiledFunctionDotExpression | CompiledFunctionArrowExpression;
     readonly originalArgs: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<FunctionType<CompleteReturnType>>;
 }
@@ -408,7 +406,7 @@ export const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 export const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
 export class RuntimeFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledFunctionCallExpression<T, V>> {
 
-    public readonly operand: RuntimeFunctionIdentifierExpression | RuntimeFunctionDotExpression;
+    public readonly operand: RuntimeFunctionIdentifierExpression | RuntimeFunctionDotExpression | RuntimeFunctionArrowExpression;
     public readonly call?: RuntimeFunctionCall<FunctionType<CompleteReturnType>>;
 
     public readonly index: typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;

@@ -493,7 +493,7 @@ export class Simulation {
         if (value.type instanceof PointerType && value.type.ptrTo instanceof Char) {
             let addr = value.rawValue;
             let c = this.memory.getByte(addr);
-            while (!Char.isNullChar(c)) {
+            while (!Char.isNullChar(new Value(c, Char.CHAR))) {
                 text += value.type.ptrTo.valueToOstreamString(c);
                 c = this.memory.getByte(++addr);
             }

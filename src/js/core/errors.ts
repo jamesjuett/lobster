@@ -835,7 +835,18 @@ export const CPPError = {
             memberFunc: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpr.memberFunc", "You may only use the </span class='code'>this</span> keyword in non-static member functions.");
             }
-        }
+        },
+        binaryOperatorOverload: {
+            no_such_overload: function (construct: TranslationUnitConstruct, operator: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.no_such_overload", `The ${operator} operator cannot be used with these arguments (and a suitable operator overload function was not found for these types)`);
+            },
+            ambiguous_overload: function (construct: TranslationUnitConstruct, operator: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.ambiguous_overload", `The operator ${operator} is ambiguous in this expression. (Several potential operator overloads were found, but there is not enough contextual type information to determine which overload to select.)`);
+            },
+            incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
+            }
+        },
 
 
     },

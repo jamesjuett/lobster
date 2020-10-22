@@ -12,6 +12,7 @@ import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledEx
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
+import { BinaryOperatorOverloadExpression, TypedBinaryOperatorOverloadExpression, CompiledBinaryOperatorOverloadExpression, RuntimeBinaryOperatorOverloadExpression } from "./overloadedOperator";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -180,6 +181,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "logical_binary_operator_expression":
     T extends NonNullable<TypedLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never :
     NonNullable<TypedLogicalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
+    "binary_operator_overload_expression":
+    T extends NonNullable<TypedBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<TypedBinaryOperatorOverloadExpression["valueCategory"]> ? TypedBinaryOperatorOverloadExpression<T,V> : never :
+    NonNullable<TypedBinaryOperatorOverloadExpression["type"]> extends T ? V extends NonNullable<TypedBinaryOperatorOverloadExpression["valueCategory"]> ? TypedBinaryOperatorOverloadExpression : never : never;
     "prefix_increment_expression":
     T extends NonNullable<TypedPrefixIncrementExpression["type"]> ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression<T> : never :
     NonNullable<TypedPrefixIncrementExpression["type"]> extends T ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression : never : never;
@@ -272,6 +276,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "relational_binary_operator_expression": T extends NonNullable<CompiledRelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledRelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
     "pointer_comparison_expression": T extends NonNullable<CompiledPointerComparisonExpression["type"]> ? V extends NonNullable<CompiledPointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
     "logical_binary_operator_expression": T extends NonNullable<CompiledLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledLogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
+    "binary_operator_overload_expression": T extends NonNullable<CompiledBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<CompiledBinaryOperatorOverloadExpression["valueCategory"]> ? CompiledBinaryOperatorOverloadExpression<T,V> : never : never;
     "prefix_increment_expression": T extends NonNullable<CompiledPrefixIncrementExpression["type"]> ? V extends NonNullable<CompiledPrefixIncrementExpression["valueCategory"]> ? CompiledPrefixIncrementExpression<T> : never : never;
     "dereference_expression": T extends NonNullable<CompiledDereferenceExpression["type"]> ? V extends NonNullable<CompiledDereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
@@ -314,6 +319,7 @@ const ExpressionConstructsRuntimeMap = {
     "relational_binary_operator_expression": <T extends CompiledRelationalBinaryOperatorExpression["type"]>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct) => new RuntimeRelationalBinaryOperator(construct, parent),
     "pointer_comparison_expression": (construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct) => new RuntimePointerComparisonExpression(construct, parent),
     "logical_binary_operator_expression": (construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct) => new RuntimeLogicalBinaryOperatorExpression(construct, parent),
+    "binary_operator_overload_expression": <T extends CompiledBinaryOperatorOverloadExpression["type"], V extends ValueCategory>(construct: CompiledBinaryOperatorOverloadExpression<T, V>, parent: RuntimeConstruct) => new RuntimeBinaryOperatorOverloadExpression(construct, parent),
     "prefix_increment_expression": <T extends CompiledPrefixIncrementExpression["type"]>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePrefixIncrementExpression(construct, parent),
     "dereference_expression": <T extends CompiledDereferenceExpression["type"]>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) => new RuntimeDereferenceExpression(construct, parent),
     "address_of_expression": <T extends CompiledAddressOfExpression["type"]>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
@@ -367,6 +373,7 @@ export function createRuntimeExpression(construct: CompiledPointerOffsetExpressi
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeRelationalBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct): RuntimePointerComparisonExpression;
 export function createRuntimeExpression(construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct): RuntimeLogicalBinaryOperatorExpression;
+export function createRuntimeExpression(construct: CompiledBinaryOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeBinaryOperatorOverloadExpression;
 export function createRuntimeExpression(construct: CompiledOutputOperatorExpression, parent: RuntimeConstruct): RuntimeOutputOperatorExpression;
 export function createRuntimeExpression(construct: CompiledInputOperatorExpression, parent: RuntimeConstruct): RuntimeInputOperatorExpression;
 export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePrefixIncrementExpression<T>;
@@ -1232,7 +1239,7 @@ export type BinaryOperatorExpressionASTNode =
     RelationalBinaryOperatorExpressionASTNode |
     LogicalBinaryOperatorExpressionASTNode;
 
-type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
+export type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
 
 abstract class BinaryOperatorExpression<ASTType extends BinaryOperatorExpressionASTNode = BinaryOperatorExpressionASTNode> extends Expression<ASTType> {
 
@@ -1263,7 +1270,8 @@ export type AnalyticBinaryOperatorExpression =
     InputOperatorExpression |
     RelationalBinaryOperatorExpression |
     PointerComparisonExpression |
-    LogicalBinaryOperatorExpression;
+    LogicalBinaryOperatorExpression |
+    BinaryOperatorOverloadExpression;
 
 export interface TypedBinaryOperatorExpression<T extends AtomicType = AtomicType> extends BinaryOperatorExpression, t_TypedExpression {
     readonly type: T;
@@ -1400,7 +1408,7 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         this.attach(this.right = convertedRight);
     }
 
-    public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext): ArithmeticBinaryOperatorExpression | PointerDifferenceExpression | PointerOffsetExpression | OutputOperatorExpression | InputOperatorExpression {
+    public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext): ArithmeticBinaryOperatorExpression | PointerDifferenceExpression | PointerOffsetExpression | OutputOperatorExpression | InputOperatorExpression | BinaryOperatorOverloadExpression {
         let left: Expression = createExpressionFromAST(ast.left, context);
         let right: Expression = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
@@ -1415,6 +1423,11 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         if (op === ">>" && Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) && left.type.className === "istream" && left.isLvalue()) {
 
             return new InputOperatorExpression(context, ast, left, right);
+        }
+
+        // If either one is a class type, we consider operator overloads
+        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
+            return new BinaryOperatorOverloadExpression(context, ast, op, left, right);
         }
 
         // If operator is "-" and both are pointers or arrays, it's a pointer difference
@@ -1817,6 +1830,7 @@ export class RuntimeOutputOperatorExpression extends SimpleRuntimeExpression<Pot
         else {
             this.sim.cout(this.right.evalResult);
         }
+        this.setEvalResult(this.left.evalResult);
     }
 }
 
@@ -1918,7 +1932,8 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
         else {
             this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "input parsing error", true);
         }
-        this.startCleanup()
+        this.setEvalResult(this.left.evalResult);
+        this.startCleanup();
     }
 }
 
@@ -2005,11 +2020,16 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
         this.attach(this.right = convertedRight);
     }
 
-    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext): RelationalBinaryOperatorExpression | PointerComparisonExpression {
+    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext): RelationalBinaryOperatorExpression | PointerComparisonExpression | BinaryOperatorOverloadExpression{
 
         let left: Expression = createExpressionFromAST(ast.left, context);
         let right: Expression = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
+
+        // If either one is a class type, we consider operator overloads
+        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
+            return new BinaryOperatorOverloadExpression(context, ast, op, left, right);
+        }
 
         if (Predicates.isTypedExpression(left, isPointerType) || Predicates.isTypedExpression(left, isBoundedArrayType, "lvalue")) {
             if (Predicates.isTypedExpression(right, isPointerType) || Predicates.isTypedExpression(right, isBoundedArrayType, "lvalue")) {
@@ -2195,11 +2215,17 @@ export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression<Lo
         return subexpr;
     }
 
-    public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext): LogicalBinaryOperatorExpression {
-        return new LogicalBinaryOperatorExpression(context, ast,
-            createExpressionFromAST(ast.left, context),
-            createExpressionFromAST(ast.right, context),
-            ast.operator);
+    public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext): LogicalBinaryOperatorExpression  | BinaryOperatorOverloadExpression {
+        
+        let left = createExpressionFromAST(ast.left, context);
+        let right = createExpressionFromAST(ast.right, context);
+
+        // If either one is a class type, we consider operator overloads
+        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
+            return new BinaryOperatorOverloadExpression(context, ast, ast.operator, left, right);
+        }
+        
+        return new LogicalBinaryOperatorExpression(context, ast, left, right, ast.operator);
     }
 
     // public createRuntimeExpression(this: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct) : RuntimeLogicalBinaryOperatorExpression;
@@ -3350,7 +3376,7 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
 
         let classType = this.operand.type;
 
-        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true })
+        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true });
         switch (entityOrError) {
             case "not_found":
                 this.addNote(CPPError.expr.dot.no_such_member(this, classType, memberName));
@@ -3581,7 +3607,7 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
 
         let classType = operandType.ptrTo;
 
-        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true })
+        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true });
         switch (entityOrError) {
             case "not_found":
                 this.addNote(CPPError.expr.arrow.no_such_member(this, classType, memberName));
@@ -4396,7 +4422,7 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
 
         checkIdentifier(this, name, this);
 
-        let entityOrError = entityLookup(this, this.name, this.context.contextualScope)
+        let entityOrError = entityLookup(this, this.name, this.context.contextualScope);
         switch (entityOrError) {
             case "not_found":
                 this.addNote(CPPError.iden.not_found(this, this.name));
@@ -4451,12 +4477,12 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
 type EntityLookupError = "not_found" | "ambiguous" | "class_found";
 
 /**
- * Used as a helper for IdentifierExpression, DotExpression, and ArrowExpression
+ * Used as a helper for IdentifierExpression, DotExpression, and ArrowExpression, and overloaded operators
  * @param scope 
  * @param name 
  * @param expression 
  */
-function entityLookup(expression: Expression, name: string, scope: Scope, options: NameLookupOptions = { kind: "normal" }): VariableEntity | FunctionEntity | EntityLookupError {
+export function entityLookup(expression: Expression, name: string, scope: Scope, options: NameLookupOptions = { kind: "normal" }): VariableEntity | FunctionEntity | EntityLookupError {
     let lookupResult = scope.lookup(name, options);
 
     if (!lookupResult) {
@@ -5012,7 +5038,7 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
 
                     // Attempt standard conversion of an auxiliary expression of the argument's type to the param type
 
-                    let auxArg = new AuxiliaryExpression(argType, "prvalue");
+                    let auxArg = new AuxiliaryExpression(argType, "lvalue");
                     let convertedArg = standardConversion(auxArg, candidateParamType);
 
                     if (!sameType(convertedArg.type, candidateParamType)) {
