@@ -1,7 +1,7 @@
 import { CPPConstruct, RuntimeConstruct } from "../core/constructs";
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { SimulationOutlet } from "./simOutlets";
-import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue } from "../util/util";
+import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue, unescapeString } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledParameterDeclaration, LocalVariableDefinition, CompiledSimpleDeclaration, CompiledLocalVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block } from "../core/statements";
@@ -11,17 +11,48 @@ import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression } from "../core/expressions";
-import { Bool, AtomicType, CompleteObjectType } from "../core/types";
+import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
 import { CompiledBinaryOperatorOverloadExpression, RuntimeBinaryOperatorOverloadExpression } from "../core/overloadedOperator";
+import { Simulation } from "../core/Simulation";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
 
 export const CODE_ANIMATIONS = true;
+
+const CSTRING_PRINT_LIMIT = 10;
+
+function getValueString(value: Value) {
+    if (value.isTyped(isArrayPointerToType(Char))) {
+        let offset = value.type.toIndex(value.rawValue);
+        let chars = value.type.arrayObject.getValue().slice(offset);
+        let cstr = "";
+        for(let i = 0; !Char.isNullChar(chars[i]); ++i) {
+            if (i === chars.length) {
+                cstr += "...";
+                break;
+            }
+            else if (i > 10) {
+                cstr += "...";
+                break;
+            }
+            cstr += unescapeString(String.fromCharCode(chars[i].rawValue));
+        }
+        return `"${cstr}"`;
+    }
+    else {
+        return value.valueString();
+    }
+}
+
+
+
+
+
 
 type ConstructOutletMessages = "childOutletAdded" | "parameterPassed" | "registerCallOutlet" | "returnPassed";
 
@@ -891,7 +922,7 @@ export class ReturnInitializerOutlet extends ConstructOutlet<RuntimeDirectInitia
         this.observable.send("returnPassed", {
             func: data.containingRuntimeFunction,
             start: this.element,
-            html: htmlDecoratedValue(value.valueString()),
+            html: htmlDecoratedValue(getValueString(value)),
             result: value
         });
     }
@@ -1176,7 +1207,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
             this.evalResultElem.addClass("lvalue");
         }
         else if (result instanceof Value) {  // result.isA(Value)
-            this.evalResultElem.html(result.valueString());
+            this.evalResultElem.html(getValueString(result));
             this.evalResultElem.addClass("rvalue");
             if (!result.isValid) {
                 this.evalResultElem.addClass("invalid");
@@ -1574,7 +1605,7 @@ export class ArgumentInitializerOutlet extends ConstructOutlet<RuntimeDirectInit
         this.observable.send("parameterPassed", {
             num: (<PassByValueParameterEntity>data.model.target).num,
             start: this.element,
-            html: htmlDecoratedValue(data.args[0].evalResult.valueString())
+            html: htmlDecoratedValue(getValueString(data.args[0].evalResult))
         });
     }
 }
@@ -2024,7 +2055,7 @@ export class NumericLiteralOutlet extends ExpressionOutlet<RuntimeNumericLiteral
         super(element, construct, parent, false);
 
         this.exprElem.addClass("code-literal");
-        this.exprElem.append(this.construct.value.valueString());
+        this.exprElem.append(getValueString(this.construct.value));
     }
 
 }

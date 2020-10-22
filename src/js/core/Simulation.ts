@@ -52,8 +52,6 @@ export class Simulation {
     private readonly _execStack: RuntimeConstruct[];
     public readonly execStack: readonly RuntimeConstruct[];
 
-    public readonly pendingCalledFunction?: RuntimeFunction;
-
     public readonly random = new CPPRandom();
 
     public readonly stepsTaken: number;
@@ -126,8 +124,6 @@ export class Simulation {
     public reset() {
         this.memory.reset();
         this._execStack.length = 0;
-
-        delete (<Mutable<this>>this).pendingCalledFunction;
 
         this.pendingNews.length = 0;
         this.leakCheckIndex = 0;
@@ -226,10 +222,6 @@ export class Simulation {
                 return runtimeConstruct;
             }
         }
-    }
-
-    public setPendingCalledFunction(rtFunc: RuntimeFunction) {
-        (<Mutable<this>>this).pendingCalledFunction = rtFunc;
     }
 
     private allocateStringLiterals() {

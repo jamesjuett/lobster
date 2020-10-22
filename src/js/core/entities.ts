@@ -998,7 +998,7 @@ export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteO
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 
-        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        let pendingCalledFunction = rtConstruct.sim.memory.stack.topFrame()?.func;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
 
@@ -1032,7 +1032,7 @@ export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceT
     }
 
     public bindTo<X extends CompleteObjectType>(this: PassByReferenceParameterEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
-        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        let pendingCalledFunction = rtConstruct.sim.memory.stack.topFrame()?.func;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
 

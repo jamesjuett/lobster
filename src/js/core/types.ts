@@ -199,6 +199,14 @@ abstract class TypeBase {
     public isObjectPointerType(): this is ObjectPointerType {
         return this instanceof ObjectPointerType;
     }
+    
+    public isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): this is PointerType<InstanceType<typeof ctor>> {
+        return this.isPointerType() && this.ptrTo instanceof ctor;
+    }
+    
+    public isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): this is ArrayPointerType<InstanceType<typeof ctor>> {
+        return this.isArrayPointerType() && this.ptrTo instanceof ctor;
+    }
 
     public isReferenceType(): this is ReferenceType {
         return this instanceof ReferenceType;
@@ -398,12 +406,20 @@ export function isPointerType(type: Type): type is PointerType {
     return type.isPointerType();
 }
 
+export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): (type: Type) => type is PointerType<T> {
+    return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
+}
+
 export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
     return type.isPointerToCompleteType();
 }
 
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
     return type.isArrayPointerType();
+}
+
+export function isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): (type: Type) => type is ArrayPointerType<T> {
+    return <(type: Type) => type is ArrayPointerType<T>>((type: Type) => type.isArrayPointerToType(ctor));
 }
 
 export function isObjectPointerType(type: Type): type is ObjectPointerType {

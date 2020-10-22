@@ -313,6 +313,30 @@ string operator+(const string &left, const string &right) {
     @operator+_string_string;
 }
 
+bool operator==(const string &left, const string &right) {
+    return @operator==_string_string;
+}
+
+bool operator!=(const string &left, const string &right) {
+    return @operator!=_string_string;
+}
+
+bool operator<(const string &left, const string &right) {
+    return @operator<_string_string;
+}
+
+bool operator<=(const string &left, const string &right) {
+    return @operator<=_string_string;
+}
+
+bool operator>(const string &left, const string &right) {
+    return @operator>_string_string;
+}
+
+bool operator>=(const string &left, const string &right) {
+    return @operator>=_string_string;
+}
+
 `
     )
 );
@@ -344,6 +368,11 @@ function lookupStringType(context: ExpressionContext) {
     let customType = context.contextualScope.lookup("string");
     assert(customType?.declarationKind === "class");
     return customType.type.cvUnqualified();
+}
+
+function extractStringValue(obj: CPPObject<CompleteClassType>) {
+    let chars = getDataPtr(obj).type.arrayObject.getValue();
+    return chars.slice(0, chars.findIndex(c => Char.isNullChar(c))).map(c => c.rawValue).join("");
 }
 
 registerOpaqueExpression("string::string_default", {
@@ -663,6 +692,9 @@ registerOpaqueExpression(
             let newSize = leftSize.add(rightSize);
             let newCapacity = newSize.addRaw(1);
 
+            getSize(returnObject).writeValue(newSize);
+            getCapacity(returnObject).writeValue(newCapacity);
+
             let newData = getDataPtr(left).type.arrayObject.getValue().slice(0, leftSize.rawValue).concat(
                           getDataPtr(right).type.arrayObject.getValue().slice(0, rightSize.rawValue));
             newData.push(Char.NULL_CHAR);
@@ -670,6 +702,70 @@ registerOpaqueExpression(
             // allocate new array with enough space
             allocateNewArray(rt, returnObject, newCapacity.rawValue, newData);
         }
+    }
+);
+
+function compareStrings(compare: (left: string, right: string) => boolean) {
+    return (rt: RuntimeOpaqueExpression<Bool, "prvalue">) => {
+        let left = getLocal<CompleteClassType>(rt, "left");
+        let right = getLocal<CompleteClassType>(rt, "right");
+
+        // TODO: this doesn't preserve runtime type validity information
+        return new Value(compare(extractStringValue(left), extractStringValue(right)) ? 1 : 0, Bool.BOOL);
+    };
+}
+
+registerOpaqueExpression(
+    "operator==_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left === right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator!=_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left !== right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left < right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<=_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left <= right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left > right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>=_string_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStrings((left, right) => left >= right)
     }
 );
 
