@@ -531,6 +531,8 @@ export type CompleteParameterType = AtomicType | CompleteClassType | ReferenceTy
 
 export class VoidType extends TypeBase {
 
+    public readonly type_kind = "void";
+
     public static readonly VOID = new VoidType();
 
 
@@ -788,17 +790,17 @@ export class Char extends IntegralType {
     protected readonly simpleType = "char";
     public readonly size = 1;
 
-    public static readonly NULL_CHAR = 0;
+    public static readonly NULL_CHAR = new Value(0, Char.CHAR);
 
-    public static isNullChar(value: RawValueType) {
-        return value === this.NULL_CHAR;
+    public static isNullChar(value: Value<Char>) {
+        return value.rawValue === 0;
     }
 
     public static jsStringToNullTerminatedCharArray(str: string) {
         var chars = str.split("").map(function (c) {
             return c.charCodeAt(0);
         });
-        chars.push(Char.NULL_CHAR);
+        chars.push(0); // null character
         return chars;
     }
 
@@ -826,6 +828,7 @@ export class Char extends IntegralType {
 
 export class Int extends IntegralType {
     public static readonly INT = new Int();
+    public static readonly ZERO = new Value(0, Int.INT);
 
     protected readonly simpleType = "int";
     public readonly size = 4;
@@ -1699,6 +1702,8 @@ export function createClassType(className: string) : IncompleteClassType {
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
 export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
+
+    public readonly type_kind = "function";
 
     public readonly precedence = 2;
 

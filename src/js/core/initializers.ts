@@ -454,12 +454,12 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         if (!referenceCompatible(this.arg.type, targetType)) {
             this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
         }
-        else if (this.arg.valueCategory === "prvalue" && !targetType.isConst) {
+        else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
         }
-        else if (this.arg.valueCategory === "prvalue") {
-            this.addNote(CPPError.lobster.referencePrvalue(this));
-        }
+        // else if (this.arg.valueCategory === "prvalue") {
+        //     this.addNote(CPPError.lobster.referencePrvalue(this));
+        // }
     }
 
     public createRuntimeInitializer<T extends ReferenceType<CompleteObjectType>>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
@@ -740,7 +740,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
 
         // pad with zeros
         while (charsToWrite.length < target.type.length) {
-            charsToWrite.push(new Value(Char.NULL_CHAR, Char.CHAR));
+            charsToWrite.push(Char.NULL_CHAR);
         }
 
         let arrayElemSubobjects = target.getArrayElemSubobjects();

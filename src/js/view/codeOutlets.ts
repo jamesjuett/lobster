@@ -16,6 +16,7 @@ import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
+import { CompiledBinaryOperatorOverloadExpression, RuntimeBinaryOperatorOverloadExpression } from "../core/overloadedOperator";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -1515,15 +1516,17 @@ export class FunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeFuncti
 export class FunctionCallOutlet extends ConstructOutlet<RuntimeFunctionCall> {
 
     public readonly argInitializerOutlets: readonly ArgumentInitializerOutlet[];
-    public readonly returnOutlet?: FunctionCallExpressionOutlet;
+    public readonly returnOutlet?: FunctionCallExpressionOutlet | BinaryOperatorOverloadExpressionOutlet;
     
-    public constructor(element: JQuery, construct: CompiledFunctionCall, parent: ConstructOutlet, returnOutlet?: FunctionCallExpressionOutlet) {
+    public constructor(element: JQuery, construct: CompiledFunctionCall, parent: ConstructOutlet,
+                       returnOutlet?: FunctionCallExpressionOutlet | BinaryOperatorOverloadExpressionOutlet,
+                       argumentSeparator: string = ", ") {
         super(element, construct, parent);
         this.returnOutlet = returnOutlet;
 
         this.argInitializerOutlets = construct.argInitializers.map((argInit, i) => {
             if (i > 0) {
-                this.element.append(", ");
+                this.element.append(argumentSeparator);
             }
             return new ArgumentInitializerOutlet($("<span></span>").appendTo(this.element), argInit, this);
         });
@@ -1598,6 +1601,56 @@ export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeM
         // if (this.construct.funcCall.func.isVirtual()){
         //     this.exprElem.append("<sub>v</sub>");
         // }
+    }
+
+//     _act: mixin({}, Outlets.CPP.Expression._act, {
+
+// //        calleeOutlet : function(callee, source){
+// //            this.addChildOutlet(callee);
+// //        },
+
+//         returned: function(msg){
+//             var value = msg.data;
+//             this.setEvalResult(value);
+
+//             this.evalResultElem.removeClass("lobster-hidden-expression");
+//             this.exprElem.addClass("lobster-hidden-expression");
+//         },
+//         tailCalled : function(msg){
+//             var callee = msg.data;
+//             callee.send("tailCalled", this);
+//         }
+
+//     }, true)
+}
+
+export class BinaryOperatorOverloadExpressionOutlet extends ExpressionOutlet<RuntimeBinaryOperatorOverloadExpression> {
+
+    public readonly callOutlet: FunctionCallOutlet;
+    public readonly returnDestinationElement: JQuery;
+    
+    public constructor(element: JQuery, construct: CompiledBinaryOperatorOverloadExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+        this.element.addClass("functionCall");
+        this.returnDestinationElement = this.exprElem;
+
+        // if (this.construct.funcCall.func.isVirtual()){
+        //     this.element.addClass("virtual");
+        // }
+
+        // if (this.construct.recursiveStatus === "recursive" && this.construct.isTail) {
+        //     this.element.addClass("tail");
+        // }
+
+        this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this, ` ${this.construct.operator} `);
+
+        // if (this.construct.funcCall.func.isVirtual()){
+        //     this.exprElem.append("<sub>v</sub>");
+        // }
+    }
+
+    public setReturnedResult(result: RuntimeBinaryOperatorOverloadExpression["evalResult"], suppressAnimation: boolean = false) {
+        this.setEvalResult(result);
     }
 
 //     _act: mixin({}, Outlets.CPP.Expression._act, {

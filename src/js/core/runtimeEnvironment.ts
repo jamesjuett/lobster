@@ -106,8 +106,20 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid);
     }
     
-    public add(x: number) {
+    public add(otherValue: Value<T>) {
+        return this.combine(otherValue, (a,b) => a + b);
+    }
+
+    public addRaw(x: number) {
         return this.modify(a => a + x);
+    }
+    
+    public sub(otherValue: Value<T>) {
+        return this.combine(otherValue, (a,b) => a - b);
+    }
+
+    public subRaw(x: number) {
+        return this.modify(a => a - x);
     }
     
     public arithmeticNegate() {
@@ -560,7 +572,7 @@ class MemoryHeap {
         return obj;
     }
 
-    public deleteObject(addr: number, killer: RuntimeConstruct) {
+    public deleteObject(addr: number, killer?: RuntimeConstruct) {
         var obj = this.objectMap[addr];
         if (obj) {
             delete this.objectMap[addr];

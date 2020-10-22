@@ -8,9 +8,10 @@ import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl
 import { ExpressionContext } from "../core/constructs";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
+import { nth } from "lodash";
 
 
-function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>) {
+function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>) {
     let sim = rt.sim;
     let ptrType = ptrValue.type;
 
@@ -24,14 +25,15 @@ function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char
     let seenInvalidChar = false;
 
     let c = sim.memory.dereference(ptrValue).getValue();
-    // Copy in-bounds characters until null char
-    while (ptrType.isValueDereferenceable(ptrValue.rawValue) && !Char.isNullChar(c.rawValue)) {
+    // Copy in-bounds characters until null char or limit
+    while ((!nToCopy || nToCopy.rawValue > 0) && ptrType.isValueDereferenceable(ptrValue.rawValue) && !Char.isNullChar(c)) {
         if (!c.isValid) {
             seenInvalidChar = true;
         }
         charValuesToCopy.push(seenInvalidChar ? c.invalidated() : c);
-        ptrValue = ptrValue.add(ptrValue.type.ptrTo.size);
+        ptrValue = ptrValue.pointerOffset(new Value(1, Int.INT));
         c = sim.memory.dereference(ptrValue).getValue();
+        nToCopy = nToCopy?.subRaw(1);
     }
 
     if (!ptrType.isValueDereferenceable(ptrValue.rawValue)) {
@@ -41,11 +43,11 @@ function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char
         outOfBounds = true;
         let count = 0;
         let limit = 100;
-        while (count < limit && !Char.isNullChar(c.rawValue)) {
+        while (count < limit && !Char.isNullChar(c)) {
             // invalidate c here since even if was a valid char value, the fact we got this particular
             // value is a coincidence because we were off the end of an arary in no man's land
             charValuesToCopy.push(c.invalidated());
-            ptrValue = ptrValue.add(ptrValue.type.ptrTo.size);
+            ptrValue = ptrValue.pointerOffset(new Value(1, Int.INT));
             c = sim.memory.dereference(ptrValue).getValue();
             ++count;
         }
@@ -80,28 +82,19 @@ function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char
     }
 
     // Use the null char we found or a synthetic (invalid) one for the last thing to copy
-    if (!outOfBounds && Char.isNullChar(c.rawValue)) {
+    if (!outOfBounds && Char.isNullChar(c)) {
         charValuesToCopy.push(c);
     }
     else {
-        charValuesToCopy.push(new Value(Char.NULL_CHAR, Char.CHAR, false));
+        charValuesToCopy.push(Char.NULL_CHAR.invalidated());
     }
 
     let rec = rt.contextualReceiver;
     // If something was uncertain that could have affected the length, invalidate capacity/size
-    getCapacity(rec).writeValue(new Value(charValuesToCopy.length, Int.INT, !seenInvalidChar && !outOfBounds));
-    getSize(rec).writeValue(new Value(charValuesToCopy.length-1, Int.INT, !seenInvalidChar && !outOfBounds));
+    getCapacity(rec).writeValue(new Value(charValuesToCopy.length, Int.INT, !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)));
+    getSize(rec).writeValue(new Value(charValuesToCopy.length-1, Int.INT, !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)));
 
-
-    // allocate a new array
-
-    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, charValuesToCopy.length));
-    let arrElems = arrObj.getArrayElemSubobjects();
-
-    arrElems.forEach((arrElem, i) => arrElem.writeValue(charValuesToCopy[i]))
-
-    // store pointer to new array
-    getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+    allocateNewArray(rt, rec, charValuesToCopy.length, charValuesToCopy);
 };
 
 // var resizeStrang = function(sim: Simulation, rtConstruct: RuntimeConstruct, n, c) {
@@ -266,13 +259,13 @@ public:
     
     // size_t max_size() const @library_unsupported;
 
-    void resize(size_t n, char c) {
-        @string::resize_1;
-    }
+    // void resize(size_t n, char c) {
+    //     @string::resize_1;
+    // }
 
-    void resize(size_t n) {
-        @string::resize_2;
-    }
+    // void resize(size_t n) {
+    //     @string::resize_2;
+    // }
 
     size_t capacity() const {
         return @string::capacity;
@@ -314,7 +307,13 @@ public:
     const char &front(size_t pos) const {
         return @string::front_const;
     }
-};`
+};
+
+string operator+(const string &left, const string &right) {
+    @operator+_string_string;
+}
+
+`
     )
 );
 
@@ -354,8 +353,8 @@ registerOpaqueExpression("string::string_default", {
         getCapacity(rt.contextualReceiver).writeValue(new Value(initialStrangCapacity, Int.INT));
         getSize(rt.contextualReceiver).writeValue(new Value(0, Int.INT));
 
+        allocateNewArray(rt, rt.contextualReceiver, initialStrangCapacity, [Char.NULL_CHAR])
         let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
-        getDataPtr(rt.contextualReceiver).writeValue(obj.getArrayElemSubobject(0).getPointerTo());
     }
 });
 
@@ -367,36 +366,78 @@ registerOpaqueExpression("string::string_copy", {
         let rec = rt.contextualReceiver;
         let other = getLocal<CompleteClassType>(rt, "other");
         let newSize = getSize(other).getValue();
-        let newCapacity = newSize.add(1);
+        let newCapacity = newSize.addRaw(1);
 
         // copy regular members
         getCapacity(rec).writeValue(newCapacity);
         getSize(rec).writeValue(newSize);
 
         // deep copy the array
-        let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity.rawValue));
-        let arrElems = arrObj.getArrayElemSubobjects();
-        let otherArrElems = getDataPtr(other).type.arrayObject.getArrayElemSubobjects();
-
-        arrElems.forEach((arrElem, i) => arrElem.writeValue(otherArrElems[i].getValue()))
-
-        // store pointer to new array
-        getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+        let otherArrElems = getDataPtr(other).type.arrayObject.getValue();
+        allocateNewArray(rt, rec, newCapacity.rawValue, otherArrElems);
     }
 });
 
+// Substring ctor (with 3rd argument provided)
 registerOpaqueExpression("string::string_substring_1", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
 
+        let rec = rt.contextualReceiver;
+        let other = getLocal<CompleteClassType>(rt, "other");
+        let pos = getLocal<Int>(rt, "pos").getValue();
+        
+        let availableChars = getSize(other).getValue().sub(pos);
+
+        if (availableChars.rawValue < 0) {
+            rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
+        }
+        else {
+            let len = getLocal<Int>(rt, "len").getValue();
+            let newSize = len.combine(availableChars, (a,b) => Math.min(a,b));
+            let newCapacity = newSize.addRaw(1);
+            
+            // copy regular members
+            getCapacity(rec).writeValue(newCapacity);
+            getSize(rec).writeValue(newSize);
+
+            // deep copy the array
+            let newChars = getDataPtr(other).type.arrayObject.getValue().slice(pos.rawValue, pos.rawValue + newSize.rawValue);
+            newChars.push(Char.NULL_CHAR);
+            allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
+        }
+
     }
 });
 
+// Substring ctor (without 3rd argument, so use default)
 registerOpaqueExpression("string::string_substring_2", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
+        let rec = rt.contextualReceiver;
+        let other = getLocal<CompleteClassType>(rt, "other");
+        let pos = getLocal<Int>(rt, "pos").getValue();
+        
+        let availableChars = getSize(other).getValue().sub(pos);
+
+        if (availableChars.rawValue < 0) {
+            rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
+        }
+        else {
+            let newSize = availableChars;
+            let newCapacity = newSize.addRaw(1);
+            
+            // copy regular members
+            getCapacity(rec).writeValue(newCapacity);
+            getSize(rec).writeValue(newSize);
+
+            // deep copy the array
+            let newChars = getDataPtr(other).type.arrayObject.getValue().slice(pos.rawValue, pos.rawValue + newSize.rawValue);
+            newChars.push(Char.NULL_CHAR);
+            allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
+        }
 
     }
 });
@@ -413,14 +454,28 @@ registerOpaqueExpression("string::string_cstring_n", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-
+        copyFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue(), getLocal<Int>(rt, "n").getValue());
     }
 });
 
+// fill constructor from char
 registerOpaqueExpression("string::string_fill", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
+
+        let rec = rt.contextualReceiver;
+        let numChars = getLocal<Int>(rt, "n").getValue();
+        let char = getLocal<Char>(rt, "c").getValue();
+
+        getSize(rec).writeValue(numChars);
+        getCapacity(rec).writeValue(numChars.addRaw(1));
+
+        // allocate array
+        let arrElems = allocateNewArray(rt, rec, numChars.rawValue + 1, []);
+
+        // fill array
+        arrElems.forEach((arrElem, i) => arrElem.writeValue(char));
 
     }
 });
@@ -429,72 +484,72 @@ registerOpaqueExpression("string::~string", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-
+        rt.sim.memory.heap.deleteObject(getDataPtr(rt.contextualReceiver).getValue().rawValue);
     }
 });
 
-registerOpaqueExpression("string::operator=_copy", {
-    type: lookupStringType,
-    valueCategory: "lvalue",
-    operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
-        // TODO
-        return rt.contextualReceiver;
-    }
-});
+// registerOpaqueExpression("string::operator=_copy", {
+//     type: lookupStringType,
+//     valueCategory: "lvalue",
+//     operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+//         // TODO
+//         return rt.contextualReceiver;
+//     }
+// });
 
-registerOpaqueExpression("string::operator=_cstring", {
-    type: lookupStringType,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::operator=_cstring", {
+//     type: lookupStringType,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
         
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::operator=_char", {
-    type: lookupStringType,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::operator=_char", {
+//     type: lookupStringType,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::size", {
+registerOpaqueExpression("string::size", <OpaqueExpressionImpl<Int, "lvalue">> {
     type: Int.INT,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+    valueCategory: "lvalue",
+    operate: (rt: RuntimeOpaqueExpression<Int, "lvalue">) => {
+        return getSize(rt.contextualReceiver);
     }
 });
 
-registerOpaqueExpression("string::length", {
+registerOpaqueExpression("string::length", <OpaqueExpressionImpl<Int, "lvalue">> {
     type: Int.INT,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+    valueCategory: "lvalue",
+    operate: (rt: RuntimeOpaqueExpression<Int, "lvalue">) => {
+        return getSize(rt.contextualReceiver);
     }
 });
 
-registerOpaqueExpression("string::resize_1", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::resize_1", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::resize_2", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::resize_2", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::capacity", {
+registerOpaqueExpression("string::capacity", <OpaqueExpressionImpl<Int, "lvalue">> {
     type: Int.INT,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+    valueCategory: "lvalue",
+    operate: (rt: RuntimeOpaqueExpression<Int, "lvalue">) => {
+        return getCapacity(rt.contextualReceiver);
     }
 });
 
@@ -502,15 +557,18 @@ registerOpaqueExpression("string::clear", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-
+        let rec = rt.contextualReceiver;
+        let arrElems = getDataPtr(rec).type.arrayObject.getArrayElemSubobjects();
+        arrElems[0].writeValue(Char.NULL_CHAR);
+        getSize(rec).writeValue(new Value(0, Int.INT));
     }
 });
 
-registerOpaqueExpression("string::empty", {
+registerOpaqueExpression("string::empty", <OpaqueExpressionImpl<Bool, "prvalue">>{
     type: Bool.BOOL,
     valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+    operate: (rt: RuntimeOpaqueExpression<Bool, "prvalue">) => {
+        return getSize(rt.contextualReceiver).getValue().equals(Int.ZERO);
     }
 });
 
@@ -588,8 +646,46 @@ registerOpaqueExpression(
     }
 });
 
+registerOpaqueExpression(
+    "operator+_string_string",
+    <OpaqueExpressionImpl<VoidType, "prvalue">> {
+        type: VoidType.VOID,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+            let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
+            assert(returnObject, "String + operator lacking return-by-value object");
+
+            let left = getLocal<CompleteClassType>(rt, "left");
+            let right = getLocal<CompleteClassType>(rt, "right");
+
+            let leftSize = getSize(left).getValue();
+            let rightSize = getSize(right).getValue();
+            let newSize = leftSize.add(rightSize);
+            let newCapacity = newSize.addRaw(1);
+
+            let newData = getDataPtr(left).type.arrayObject.getValue().slice(0, leftSize.rawValue).concat(
+                          getDataPtr(right).type.arrayObject.getValue().slice(0, rightSize.rawValue));
+            newData.push(Char.NULL_CHAR);
+
+            // allocate new array with enough space
+            allocateNewArray(rt, returnObject, newCapacity.rawValue, newData);
+        }
+    }
+);
 
 
+
+
+function allocateNewArray(rt: RuntimeExpression, rec: CPPObject<CompleteClassType>, newCapacity: number, values: readonly Value<Char>[]) {
+    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity));
+    let arrElems = arrObj.getArrayElemSubobjects();
+
+    values.forEach((val, i) => arrElems[i].writeValue(val));
+
+    // store pointer to new array
+    getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+    return arrElems;
+}
 // var strangAst = {
 //     construct_type : "class_declaration",
 //     library_id : "strang",
@@ -605,202 +701,6 @@ registerOpaqueExpression(
 //             access : "public",
 //             members : [
 
-//                 // Default ctor
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : [],
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//                             this.blockScope.requiredLookup("_capacity").runtimeLookup(sim, inst).writeValue(initialStrangCapacity);
-//                             this.blockScope.requiredLookup("_size").runtimeLookup(sim, inst).writeValue(0);
-
-
-//                             var arrType = Types.Array.instance(Types.Char.instance(), initialStrangCapacity);
-//                             var arrObj = DynamicObject.instance(arrType);
-//                             sim.memory.heap.allocateNewObject(arrObj);
-
-//                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
-//                         }
-//                     }, null)
-//                 },
-
-//                 // Copy ctor
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : Lobster.cPlusPlusParser.parse("const strang &other", {startRule : "argument_declaration_list"}),
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//                         }
-//                     }, null)
-//                 },
-
-//                 // Substring ctor (with 3rd argument provided)
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : Lobster.cPlusPlusParser.parse("const strang &other, size_t pos, size_t len", {startRule : "argument_declaration_list"}),
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
-//                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
-
-//                             var len = this.blockScope.requiredLookup("len").runtimeLookup(sim, inst).getValue();
-//                             var rawPos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst).rawValue();
-
-//                             var newCapacity = len.plus(1);
-//                             var otherArrValue = other.getMemberSubobject("data_ptr").type.arrObj.getValue();
-
-//                             if (rawPos > otherArrValue.length) {
-//                                 sim.exception("The start position you requested in this string constructor is greater than the length of the other string.");
-//                             }
-//                             else {
-//                                 // copy regular members
-//                                 rec.getMemberSubobject("_capacity").writeValue(newCapacity);
-//                                 rec.getMemberSubobject("_size").writeValue(len);
-
-//                                 // deep copy the array
-//                                 var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), newCapacity));
-//                                 sim.memory.heap.allocateNewObject(arrObj);
-//                                 otherArrValue.setRawValue(otherArrValue.rawValue().slice(rawPos, rawPos + newCapacity.rawValue()));
-//                                 arrObj.writeValue(otherArrValue);
-
-//                                 // store pointer to new array
-//                                 var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                                 this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
-//                             }
-//                         }
-//                     }, null)
-//                 },
-
-//                 // Substring ctor (without 3rd argument, so use default)
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : Lobster.cPlusPlusParser.parse("const strang &other, size_t pos", {startRule : "argument_declaration_list"}),
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
-//                             var other = this.blockScope.requiredLookup("other").runtimeLookup(sim, inst);
-
-//                             var rawPos = this.blockScope.requiredLookup("pos").runtimeLookup(sim, inst).rawValue();
-
-//                             var newCapacity = other.getMemberSubobject("_capacity").getValue().minus(rawPos);
-//                             var otherArrValue = other.getMemberSubobject("data_ptr").type.arrObj.getValue();
-
-//                             if (rawPos > otherArrValue.length) {
-//                                 sim.exception("The start position you requested in this string constructor is greater than the length of the other string.");
-//                             }
-//                             else {
-//                                 // copy regular members
-//                                 rec.getMemberSubobject("_capacity").writeValue(newCapacity);
-//                                 rec.getMemberSubobject("_size").writeValue(newCapacity.minus(1));
-
-//                                 // deep copy the array
-//                                 var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), newCapacity));
-//                                 sim.memory.heap.allocateNewObject(arrObj);
-//                                 otherArrValue.setRawValue(otherArrValue.rawValue().slice(rawPos, rawPos + newCapacity.rawValue()));
-//                                 arrObj.writeValue(otherArrValue);
-
-//                                 // store pointer to new array
-//                                 var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                                 this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
-//                             }
-//                         }
-//                     }, null)
-//                 },
-
-
-//                 // ctor from cstring
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : Lobster.cPlusPlusParser.parse("const char *cstr", {startRule : "argument_declaration_list"}),
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
-//                             copyFromCString.call(this, sim, inst, ptrValue);
-
-//                         }
-//                     }, null)
-//                 },
-
-//                 // ctor from cstring with n
-//                 {
-//                     construct_type : "constructor_definition",
-//                     args : Lobster.cPlusPlusParser.parse("const char *cstr, size_t n", {startRule : "argument_declaration_list"}),
-//                     initializer : null,
-//                     name : { identifier : "strang"},
-//                     body : Statements.OpaqueFunctionBodyBlock.instance({
-//                         effects : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
-//                             var ptrValue = this.blockScope.requiredLookup("cstr").runtimeLookup(sim, inst).getValue();
-//                             var n = this.blockScope.requiredLookup("n").runtimeLookup(sim, inst).getValue();
-//                             var numToCopy = n.rawValue();
-
-//                             if (Types.Pointer.isNull(ptrValue.rawValue())) {
-//                                 sim.undefinedBehavior("Oops, the char* you passed to the string constructor was null. This results in undefined behavior.");
-//                                 return;
-//                             }
-
-//                             var invalidSize = !n.isValueValid();
-
-//                             var charValuesToCopy = [];
-//                             var outOfBounds = false;
-
-//                             var c = sim.memory.dereference(ptrValue).getValue();
-//                             while (numToCopy > 0) {
-//                                 if (!ptrValue.isValueDereferenceable()) {
-//                                     outOfBounds = true;
-//                                     break; // break and go to second loop that copies all chars as invalid
-//                                 }
-//                                 charValuesToCopy.push(c);
-//                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.dereference(ptrValue).getValue();
-//                                 --numToCopy;
-//                             }
-
-//                             while (numToCopy > 0) {
-//                                 charValuesToCopy.push(c.invalidate());
-//                                 ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//                                 c = sim.memory.dereference(ptrValue).getValue();
-//                                 --numToCopy;
-//                             }
-
-//                             // add a null char
-//                             charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance()));
-
-//                             if (outOfBounds) {
-//                                 if (!isA(ptrValue.type, Types.ArrayPointer)) {
-//                                     sim.undefinedBehavior("You passed a pointer to a single character (rather than an array) to this string constructor, but also asked for more than one char to be copied, which means some memory junk was used to initialize the string.");
-//                                 }
-//                                 else{
-//                                     sim.undefinedBehavior("You asked for more characters to be copied than were in the original source array, which means some memory junk was used to initialize the string.");
-//                                 }
-//                             }
-
-//                             var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
-//                             rec.getMemberSubobject("_capacity").writeValue(n.plus(1));
-//                             rec.getMemberSubobject("_size").writeValue(n);
-
-//                             // deep copy the array
-//                             var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), charValuesToCopy.length));
-//                             sim.memory.heap.allocateNewObject(arrObj);
-//                             arrObj.writeValue(charValuesToCopy);
-
-//                             // store pointer to new array
-//                             var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//                             this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
-//                         }
-//                     }, null)
-//                 },
 
 //                 // fill ctor
 //                 {

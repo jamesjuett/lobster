@@ -10665,7 +10665,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (peg$silentFails === 0) { peg$fail(peg$c357); }
         }
         if (s3 === peg$FAILED) {
-          s3 = peg$parseoperator_function_id();
+          s3 = peg$parseoverloadable_op();
         }
       }
       if (s3 !== peg$FAILED) {
@@ -10687,7 +10687,7 @@ function peg$parse(input: string, options?: IParseOptions) {
               if (peg$silentFails === 0) { peg$fail(peg$c357); }
             }
             if (s3 === peg$FAILED) {
-              s3 = peg$parseoperator_function_id();
+              s3 = peg$parseoverloadable_op();
             }
           }
         }

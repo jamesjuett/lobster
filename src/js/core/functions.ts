@@ -28,11 +28,16 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
      * object created to hold a return-by-value. Once the function call has been executed, will be
      * defined unless it's a void function.
      */
-    public readonly returnObject?:
-        T extends FunctionType<VoidType> ? undefined :
-        T extends FunctionType<ReferenceType<CompleteObjectType>> ? CPPObject<ReferredType<T["returnType"]>> :
-        T extends (FunctionType<AtomicType> | FunctionType<CompleteClassType>) ? CPPObject<T["returnType"]> :
-        never; // includese FunctionType<ReferenceType<IncompleteObjectType>> - that should never be created at runtime
+    public readonly returnObject?: T extends FunctionType<infer RT> ? (
+        RT extends VoidType ? undefined : 
+        RT extends CompleteObjectType ? CPPObject<RT> :
+        RT extends ReferenceType<CompleteObjectType> ? CPPObject<ReferredType<RT>> : never
+        ): never;
+        // T extends FunctionType<VoidType> ? undefined :
+        // T extends FunctionType<ReferenceType<CompleteObjectType>> ? CPPObject<ReferredType<T["returnType"]>> :
+        // T extends (FunctionType<AtomicType> | FunctionType<CompleteClassType>) ? CPPObject<T["returnType"]> :
+        // T extends FunctionType<infer T> ? 
+        // never; // includese FunctionType<ReferenceType<IncompleteObjectType>> - that should never be created at runtime
 
     public readonly hasControl: boolean = false;
 
