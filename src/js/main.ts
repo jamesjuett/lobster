@@ -1,5 +1,6 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
 import { Project } from "./view/editors";
+import "./lib/string"
 
 $(() => {
 

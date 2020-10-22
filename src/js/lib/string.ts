@@ -6,11 +6,14 @@
 
 import { registerLibraryHeader, SourceFile } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
-import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType } from "../core/types";
+import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, createClassType, PotentiallyCompleteClassType, Bool } from "../core/types";
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
 import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl } from "../core/opaqueExpression";
+import { ExpressionContext } from "../core/constructs";
+import { assert } from "../util/util";
+import { Expression, RuntimeExpression } from "../core/expressionBase";
 
 //     var charValuesToCopy = [];
 //     var outOfBounds = false;
@@ -232,15 +235,15 @@ public:
     // }
 
     // string &operator=(const string &rhs) {
-    //     @string::operator=_copy;
+    //     return @string::operator=_copy;
     // }
 
     // string &operator=(&operator=(const char *cstr)) {
-    //     @string::operator=_cstring;
+    //     return @string::operator=_cstring;
     // }
 
     // string &operator=(&operator=(char c)) {
-    //     @string::operator=_char;
+    //     return @string::operator=_char;
     // }
 
     // void begin() @library_unsupported;
@@ -253,11 +256,11 @@ public:
     // void crend() const @library_unsupported;
 
     size_t size() const {
-        @string::size;
+        return @string::size;
     }
 
     size_t length() const {
-        @string::length;
+        return @string::length;
     }
     
     // size_t max_size() const @library_unsupported;
@@ -271,7 +274,7 @@ public:
     }
 
     size_t capacity() const {
-        @string::capacity;
+        return @string::capacity;
     }
 
     // void reserve() @library_unsupported;
@@ -282,33 +285,33 @@ public:
     }
 
     bool empty() const {
-        @string::empty;
+        return @string::empty;
     }
 
     // void shrink_to_fit() @library_unsupported;
 
-    char &operator[](size_t pos) {
-        @string::operator[];
-    }
+    // char &operator[](size_t pos) {
+    //     @string::operator[];
+    // }
 
-    const char &operator[](size_t pos) const {
-        @string::operator[]_const;
-    }
+    // const char &operator[](size_t pos) const {
+    //     @string::operator[]_const;
+    // }
 
     char &at(size_t pos) {
-        @string::at;
+        return @string::at;
     }
 
     const char &at(size_t pos) const {
-        @string::at_const;
+        return @string::at_const;
     }
 
     char &front(size_t pos) {
-        @string::front;
+        return @string::front;
     }
 
     const char &front(size_t pos) const {
-        @string::front_const;
+        return @string::front_const;
     }
 };`
     )
@@ -320,14 +323,14 @@ function getCapacity(obj: CPPObject<CompleteClassType>) {
 }
 
 function getSize(obj: CPPObject<CompleteClassType>) {
-    return <MemberSubobject<Int>>obj.getMemberObject("_capacity");
+    return <MemberSubobject<Int>>obj.getMemberObject("_size");
 }
 
 function getDataPtr(obj: CPPObject<CompleteClassType>) {
-    return <MemberSubobject<ArrayPointerType<Char>>>obj.getMemberObject("_capacity");
+    return <MemberSubobject<ArrayPointerType<Char>>>obj.getMemberObject("data_ptr");
 }
 
-function getLocal<T extends CompleteObjectType>(rt: RuntimeOpaqueExpression, name: string) {
+function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: string) {
     let local = <LocalObjectEntity<T> | LocalReferenceEntity<ReferenceType<T>>>rt.model.context.contextualScope.lookup(name);
     if(local.variableKind === "object") {
         return local.runtimeLookup(rt);
@@ -337,34 +340,48 @@ function getLocal<T extends CompleteObjectType>(rt: RuntimeOpaqueExpression, nam
     }
 }
 
-registerOpaqueExpression("string::string_default", (rt: RuntimeOpaqueExpression) => {
-    getCapacity(rt.contextualReceiver).writeValue(new Value(initialStrangCapacity, Int.INT));
-    getSize(rt.contextualReceiver).writeValue(new Value(0, Int.INT));
+function lookupStringType(context: ExpressionContext) {
+    let customType = context.contextualScope.lookup("string");
+    assert(customType?.declarationKind === "class");
+    return customType.type.cvUnqualified();
+}
 
-    let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
-    getDataPtr(rt.contextualReceiver).writeValue(obj.getArrayElemSubobject(0).getPointerTo());
+registerOpaqueExpression("string::string_default", {
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression) => {
+        getCapacity(rt.contextualReceiver).writeValue(new Value(initialStrangCapacity, Int.INT));
+        getSize(rt.contextualReceiver).writeValue(new Value(0, Int.INT));
+
+        let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
+        getDataPtr(rt.contextualReceiver).writeValue(obj.getArrayElemSubobject(0).getPointerTo());
+    }
 });
 
-registerOpaqueExpression("string::string_copy", (rt: RuntimeOpaqueExpression) => {
+registerOpaqueExpression("string::string_copy", {
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression) => {
 
-    let rec = rt.contextualReceiver;
-    let other = getLocal<CompleteClassType>(rt, "other");
-    let newSize = getSize(other).getValue();
-    let newCapacity = newSize.add(1);
+        let rec = rt.contextualReceiver;
+        let other = getLocal<CompleteClassType>(rt, "other");
+        let newSize = getSize(other).getValue();
+        let newCapacity = newSize.add(1);
 
-    // copy regular members
-    getCapacity(rec).writeValue(newCapacity);
-    getSize(rec).writeValue(newSize);
+        // copy regular members
+        getCapacity(rec).writeValue(newCapacity);
+        getSize(rec).writeValue(newSize);
 
-    // deep copy the array
-    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity.rawValue));
-    let arrElems = arrObj.getArrayElemSubobjects();
-    let otherArrElems = getDataPtr(other).type.arrayObject.getArrayElemSubobjects();
+        // deep copy the array
+        let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity.rawValue));
+        let arrElems = arrObj.getArrayElemSubobjects();
+        let otherArrElems = getDataPtr(other).type.arrayObject.getArrayElemSubobjects();
 
-    arrElems.forEach((arrElem, i) => arrElem.writeValue(otherArrElems[i].getValue()))
+        arrElems.forEach((arrElem, i) => arrElem.writeValue(otherArrElems[i].getValue()))
 
-    // store pointer to new array
-    getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+        // store pointer to new array
+        getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+    }
 });
 
 registerOpaqueExpression("string::string_substring_1", {
@@ -416,23 +433,24 @@ registerOpaqueExpression("string::~string", {
 });
 
 registerOpaqueExpression("string::operator=_copy", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+    type: lookupStringType,
+    valueCategory: "lvalue",
+    operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+        // TODO
+        return rt.contextualReceiver;
     }
 });
 
 registerOpaqueExpression("string::operator=_cstring", {
-    type: VoidType.VOID,
+    type: lookupStringType,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-
+        
     }
 });
 
 registerOpaqueExpression("string::operator=_char", {
-    type: VoidType.VOID,
+    type: lookupStringType,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
 
@@ -440,7 +458,7 @@ registerOpaqueExpression("string::operator=_char", {
 });
 
 registerOpaqueExpression("string::size", {
-    type: VoidType.VOID,
+    type: Int.INT,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
 
@@ -448,6 +466,14 @@ registerOpaqueExpression("string::size", {
 });
 
 registerOpaqueExpression("string::length", {
+    type: Int.INT,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression) => {
+
+    }
+});
+
+registerOpaqueExpression("string::resize_1", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
@@ -455,15 +481,7 @@ registerOpaqueExpression("string::length", {
     }
 });
 
-registerOpaqueExpression("string::resize_", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
-    }
-});
-
-registerOpaqueExpression("string::resize_", {
+registerOpaqueExpression("string::resize_2", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
@@ -472,7 +490,7 @@ registerOpaqueExpression("string::resize_", {
 });
 
 registerOpaqueExpression("string::capacity", {
-    type: VoidType.VOID,
+    type: Int.INT,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
 
@@ -488,66 +506,84 @@ registerOpaqueExpression("string::clear", {
 });
 
 registerOpaqueExpression("string::empty", {
-    type: VoidType.VOID,
+    type: Bool.BOOL,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
 
     }
 });
 
-registerOpaqueExpression("string::operator[]", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::operator[]", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::operator[]_const", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::operator[]_const", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-    }
-});
+//     }
+// });
 
-registerOpaqueExpression("string::at", {
-    type: Char.CHAR,
-    valueCategory: "lvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-        let ptr = getDataPtr(rt.contextualReceiver).getValue();
-        let pos = getLocal<Int>(rt, "pos").getValue();
-        ptr = ptr.pointerOffset(pos);
+registerOpaqueExpression(
+    "string::at",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: Char.CHAR,
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            let ptr = getDataPtr(rt.contextualReceiver).getValue();
+            let pos = getLocal<Int>(rt, "pos").getValue();
+            ptr = ptr.pointerOffset(pos);
 
-        if (!ptr.isValid) {
-            rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+            if (!ptr.isValid) {
+                rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+            }
+
+            return rt.sim.memory.dereference(ptr);
         }
+    }
+);
 
-        return rt.sim.memory.dereference(ptr);
+registerOpaqueExpression(
+    "string::at_const",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: new Char(true),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            let ptr = getDataPtr(rt.contextualReceiver).getValue();
+            let pos = getLocal<Int>(rt, "pos").getValue();
+            ptr = ptr.pointerOffset(pos);
+
+            if (!ptr.isValid) {
+                rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+            }
+
+            return rt.sim.memory.dereference(ptr);
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::front",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: Char.CHAR,
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            return rt.sim.memory.dereference(getDataPtr(rt.contextualReceiver).getValue());
     }
 });
 
-registerOpaqueExpression("string::at_const", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
-    }
-});
-
-registerOpaqueExpression("string::front", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
-    }
-});
-
-registerOpaqueExpression("string::front_const", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-
+registerOpaqueExpression(
+    "string::front_const",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: new Char(true),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            return rt.sim.memory.dereference(getDataPtr(rt.contextualReceiver).getValue());
     }
 });
 

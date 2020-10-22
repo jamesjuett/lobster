@@ -1398,10 +1398,11 @@ class ClassTypeBase extends TypeBase {
     }
 
     /** Two class types are the same if they originated from the same ClassEntity (e.g.
+     *  the same class declaration from the same .h include file, or
      *  two class declarations with the same name in the same scope) or if they have 
      *  been associated with the same definition during linking. */
     private sameClassType(other: ClassTypeBase) {
-        return this.classId == other.classId
+        return this.classId === other.classId
             || (!!this.shared.classDefinition && this.shared.classDefinition === other.shared.classDefinition);
     }
 

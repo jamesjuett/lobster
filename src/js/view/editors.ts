@@ -249,7 +249,7 @@ export class ProjectEditor {
 
     private fileTabs: {[index: string]: JQuery} = {};
     private filesElem: JQuery;
-    private fileEditors: {[index: string]: FileEditor} = {};
+    private fileEditors: {[index: string]: FileEditor | undefined} = {};
 
     private codeMirror: CodeMirror.Editor;
 
@@ -400,16 +400,16 @@ export class ProjectEditor {
     public onCompilationFinished() {
 
         Object.keys(this.fileEditors).forEach((ed: string) => {
-            this.fileEditors[ed].clearMarks();
-            this.fileEditors[ed].clearGutterErrors();
+            this.fileEditors[ed]!.clearMarks();
+            this.fileEditors[ed]!.clearGutterErrors();
         });
 
         this.project.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
                 let editor = this.fileEditors[sourceRef.sourceFile.name];
-                editor.addMark(sourceRef, note.kind);
-                editor.addGutterError(sourceRef.line, note.message);
+                editor?.addMark(sourceRef, note.kind);
+                editor?.addGutterError(sourceRef.line, note.message);
             }
         });
 
@@ -422,8 +422,8 @@ export class ProjectEditor {
     }
 
     private selectFile(filename: string) {
-        assert(!!this.fileEditors[filename], `File ${filename} does not exist in this project.`);
-        this.codeMirror.swapDoc(this.fileEditors[filename].doc);
+        assert(this.fileEditors[filename], `File ${filename} does not exist in this project.`);
+        this.codeMirror.swapDoc(this.fileEditors[filename]!.doc);
     }
 
     public refreshEditorView() {
@@ -589,6 +589,7 @@ export class CompilationOutlet {
         assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
 
         listenTo(this, project);
+        listenTo(this.compilationNotesOutlet, project);
 
     }
 
