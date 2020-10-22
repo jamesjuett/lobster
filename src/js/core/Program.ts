@@ -767,9 +767,6 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
         const char endl = '\\n';
         class istream {};
         istream cin;
-    `),
-    string: new SourceFile("string.h", `
-        class string {};
     `)
 }
 

@@ -6,7 +6,7 @@ import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExp
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
 
 export type OpaqueExpressionImpl<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> = {
-    type: T,
+    type: T | ((context: ExpressionContext) => T),
     valueCategory: VC,
     operate: (rt: RuntimeOpaqueExpression<T,VC>) => T extends VoidType ? void : VCResultTypes<T,VC>
 }
@@ -19,9 +19,9 @@ const OPAQUE_EXPRESSIONS : {[index: string]: OpaqueExpressionImpl} = {
     }
 };
 
-export function registerOpaqueExpression(id: string, impl: OpaqueExpressionImpl) {
+export function registerOpaqueExpression<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory>(id: string, impl: OpaqueExpressionImpl<T,VC>) {
     assert(!OPAQUE_EXPRESSIONS[id]);
-    OPAQUE_EXPRESSIONS[id] = impl;
+    OPAQUE_EXPRESSIONS[id] = <any>impl;
 }
 
 export interface OpaqueExpressionASTNode extends ASTNode {
@@ -38,13 +38,19 @@ export class OpaqueExpression<T extends ExpressionType = ExpressionType, VC exte
     public readonly impl: OpaqueExpressionImpl<T,VC>;
 
     public static createFromAST(ast: OpaqueExpressionASTNode, context: ExpressionContext) {
+        assert(OPAQUE_EXPRESSIONS[ast.id]);
         return new OpaqueExpression(context, OPAQUE_EXPRESSIONS[ast.id], ast);
     }
 
     public constructor(context: ExpressionContext, impl: OpaqueExpressionImpl<T,VC>, ast?: OpaqueExpressionASTNode) {
         super(context, undefined);
         this.impl = impl;
-        this.type = impl.type;
+        if (typeof impl.type === "function") {
+            this.type = impl.type(context);
+        }
+        else {
+            this.type = impl.type;
+        }
         this.valueCategory = impl.valueCategory;
     }
 
