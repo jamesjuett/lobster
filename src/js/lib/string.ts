@@ -1,12 +1,6 @@
-// var copyFromCString = function(sim: Simulation, rtConstruct: RuntimeConstruct, ptrValue) {
-//     if (Types.Pointer.isNull(ptrValue.rawValue())) {
-//         sim.undefinedBehavior("Oops, the char* you're using passed to the string constructor was null. This results in undefined behavior.");
-//         return;
-//     }
-
 import { registerLibraryHeader, SourceFile } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
-import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, createClassType, PotentiallyCompleteClassType, Bool } from "../core/types";
+import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, createClassType, PotentiallyCompleteClassType, Bool, isArrayPointerType } from "../core/types";
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
@@ -15,93 +9,100 @@ import { ExpressionContext } from "../core/constructs";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
 
-//     var charValuesToCopy = [];
-//     var outOfBounds = false;
-//     var seenInvalidChar = false;
 
-//     var c = sim.memory.dereference(ptrValue).getValue();
-//     // Copy in-bounds characters until null char
-//     while (ptrValue.isValueDereferenceable() && !Types.Char.isNullChar(c.rawValue())) {
-//         if (!c.isValueValid()) {
-//             seenInvalidChar = true;
-//         }
-//         charValuesToCopy.push(seenInvalidChar ? c.invalidate() : c);
-//         ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//         c = sim.memory.dereference(ptrValue).getValue();
-//     }
+function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>) {
+    let sim = rt.sim;
+    let ptrType = ptrValue.type;
 
-//     if (!ptrValue.isValueDereferenceable()) {
-//         // We stopped previously because the pointer was no longer safely dereferenceable, so
-//         // now we'll go ahead and let the pointer keep going, but stop it after a while to prevent
-//         // an infinite loop.
-//         outOfBounds = true;
-//         var count = 0;
-//         var limit = 100;
-//         while (count < limit && !Types.Char.isNullChar(c.rawValue())) {
-//             // invalidate c here since even if was a valid char value, the fact we got this particular
-//             // value is a coincidence because we were off the end of an arary in no man's land
-//             charValuesToCopy.push(c.invalidate());
-//             ptrValue = ptrValue.plus(ptrValue.type.ptrTo.size);
-//             c = sim.memory.dereference(ptrValue).getValue();
-//             ++count;
-//         }
+    if (PointerType.isNull(ptrValue.rawValue)) {
+        sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using passed to the string constructor was null. This results in undefined behavior.");
+        return;
+    }
 
-//         if (!isA(ptrValue.type, Types.ArrayPointer)) {
-//             if (count === limit) {
-//                 sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
-//             }
-//             else if (count > 0) {
-//                 sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
-//             }
-//             else {
-//                 sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
-//             }
-//         }
-//         else {
-//             if (count === limit) {
-//                 sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
-//             }
-//             else if (count > 0) {
-//                 sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
-//             }
-//             else {
-//                 sim.undefinedBehavior("This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
-//             }
-//         }
-//     }
-//     else {
-//         if (!isA(ptrValue.type, Types.ArrayPointer)) {
-//             sim.undefinedBehavior("This string constructor expects the char* you give it to be pointing into an array. That doesn't appear to be the case here, which can lead to undefined behavior.");
-//         }
-//     }
+    let charValuesToCopy : Value<Char>[] = [];
+    let outOfBounds = false;
+    let seenInvalidChar = false;
 
-//     // Use the null char we found or a synthetic (invalid) one for the last thing to copy
-//     if (!outOfBounds && Types.Char.isNullChar(c.rawValue())) {
-//         charValuesToCopy.push(c);
-//     }
-//     else {
-//         charValuesToCopy.push(Value.instance(Types.Char.NULL_CHAR, Types.Char.instance(), {invalid: true}));
-//     }
+    let c = sim.memory.dereference(ptrValue).getValue();
+    // Copy in-bounds characters until null char
+    while (ptrType.isValueDereferenceable(ptrValue.rawValue) && !Char.isNullChar(c.rawValue)) {
+        if (!c.isValid) {
+            seenInvalidChar = true;
+        }
+        charValuesToCopy.push(seenInvalidChar ? c.invalidated() : c);
+        ptrValue = ptrValue.add(ptrValue.type.ptrTo.size);
+        c = sim.memory.dereference(ptrValue).getValue();
+    }
 
-//     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
-//     rec.getMemberSubobject("_capacity").writeValue(charValuesToCopy.length);
-//     rec.getMemberSubobject("_size").writeValue(charValuesToCopy.length-1);
+    if (!ptrType.isValueDereferenceable(ptrValue.rawValue)) {
+        // We stopped previously because the pointer was no longer safely dereferenceable, so
+        // now we'll go ahead and let the pointer keep going, but stop it after a while to prevent
+        // an infinite loop.
+        outOfBounds = true;
+        let count = 0;
+        let limit = 100;
+        while (count < limit && !Char.isNullChar(c.rawValue)) {
+            // invalidate c here since even if was a valid char value, the fact we got this particular
+            // value is a coincidence because we were off the end of an arary in no man's land
+            charValuesToCopy.push(c.invalidated());
+            ptrValue = ptrValue.add(ptrValue.type.ptrTo.size);
+            c = sim.memory.dereference(ptrValue).getValue();
+            ++count;
+        }
 
-//     // If something was uncertain that could have affected the length, invalidate capacity/size
-//     if (seenInvalidChar || outOfBounds) {
-//         rec.getMemberSubobject("_capacity").invalidate();
-//         rec.getMemberSubobject("_size").invalidate();
-//     }
+        if (!isArrayPointerType(ptrType)) {
+            if (count === limit) {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
+            }
+            else if (count > 0) {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+            }
+            else {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+            }
+        }
+        else {
+            if (count === limit) {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
+            }
+            else if (count > 0) {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+            }
+            else {
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+            }
+        }
+    }
+    else {
+        if (!isArrayPointerType(ptrType)) {
+            sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array. That doesn't appear to be the case here, which can lead to undefined behavior.");
+        }
+    }
 
-//     // deep copy the array
-//     var arrObj = DynamicObject.instance(Types.Array.instance(Types.Char.instance(), charValuesToCopy.length));
-//     sim.memory.heap.allocateNewObject(arrObj);
-//     arrObj.writeValue(charValuesToCopy);
+    // Use the null char we found or a synthetic (invalid) one for the last thing to copy
+    if (!outOfBounds && Char.isNullChar(c.rawValue)) {
+        charValuesToCopy.push(c);
+    }
+    else {
+        charValuesToCopy.push(new Value(Char.NULL_CHAR, Char.CHAR, false));
+    }
 
-//     // store pointer to new array
-//     var addr = Value.instance(arrObj.address, Types.ArrayPointer.instance(arrObj));
-//     this.blockScope.requiredLookup("data_ptr").runtimeLookup(sim, inst).writeValue(addr);
-// };
+    let rec = rt.contextualReceiver;
+    // If something was uncertain that could have affected the length, invalidate capacity/size
+    getCapacity(rec).writeValue(new Value(charValuesToCopy.length, Int.INT, !seenInvalidChar && !outOfBounds));
+    getSize(rec).writeValue(new Value(charValuesToCopy.length-1, Int.INT, !seenInvalidChar && !outOfBounds));
+
+
+    // allocate a new array
+
+    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, charValuesToCopy.length));
+    let arrElems = arrObj.getArrayElemSubobjects();
+
+    arrElems.forEach((arrElem, i) => arrElem.writeValue(charValuesToCopy[i]))
+
+    // store pointer to new array
+    getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
+};
 
 // var resizeStrang = function(sim: Simulation, rtConstruct: RuntimeConstruct, n, c) {
 //     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
@@ -404,7 +405,7 @@ registerOpaqueExpression("string::string_cstring", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-
+        copyFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue());
     }
 });
 
