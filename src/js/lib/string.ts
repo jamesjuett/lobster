@@ -11,12 +11,12 @@ import { Expression, RuntimeExpression } from "../core/expressionBase";
 import { nth } from "lodash";
 
 
-function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>) {
+function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>) {
     let sim = rt.sim;
     let ptrType = ptrValue.type;
 
     if (PointerType.isNull(ptrValue.rawValue)) {
-        sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using passed to the string constructor was null. This results in undefined behavior.");
+        sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using was null. This results in undefined behavior.");
         return;
     }
 
@@ -54,30 +54,30 @@ function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char
 
         if (!isArrayPointerType(ptrType)) {
             if (count === limit) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
             }
             else if (count > 0) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
             }
             else {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array, otherwise you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
             }
         }
         else {
             if (count === limit) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
             }
             else if (count > 0) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
             }
             else {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor was trying to read from an array through the char* you gave it, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
             }
         }
     }
     else {
         if (!isArrayPointerType(ptrType)) {
-            sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "This string constructor expects the char* you give it to be pointing into an array. That doesn't appear to be the case here, which can lead to undefined behavior.");
+            sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which can lead to undefined behavior.");
         }
     }
 
@@ -89,13 +89,17 @@ function copyFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char
         charValuesToCopy.push(Char.NULL_CHAR.invalidated());
     }
 
-    let rec = rt.contextualReceiver;
-    // If something was uncertain that could have affected the length, invalidate capacity/size
-    getCapacity(rec).writeValue(new Value(charValuesToCopy.length, Int.INT, !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)));
-    getSize(rec).writeValue(new Value(charValuesToCopy.length-1, Int.INT, !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)));
-
-    allocateNewArray(rt, rec, charValuesToCopy.length, charValuesToCopy);
+    return {charValues: charValuesToCopy, validLength: !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)};
 };
+
+function copyFromCString(rt: RuntimeExpression, rec: CPPObject<CompleteClassType>, charsToCopy: readonly Value<Char>[], validLength: boolean = true) {
+    
+    // If something was uncertain that could have affected the length, invalidate capacity/size
+    getCapacity(rec).writeValue(new Value(charsToCopy.length, Int.INT, validLength));
+    getSize(rec).writeValue(new Value(charsToCopy.length-1, Int.INT, validLength));
+
+    allocateNewArray(rt, rec, charsToCopy.length, charsToCopy);
+}
 
 // var resizeStrang = function(sim: Simulation, rtConstruct: RuntimeConstruct, n, c) {
 //     var rec = ReceiverEntity.instance(this.containingFunction().receiverType).runtimeLookup(sim, inst);
@@ -313,6 +317,22 @@ string operator+(const string &left, const string &right) {
     @operator+_string_string;
 }
 
+string operator+(const string &str, const char *cstr) {
+    @operator+_string_cstring;
+}
+
+string operator+(const char *cstr, const string &str) {
+    @operator+_cstring_string;
+}
+
+string operator+(const string &str, char c) {
+    @operator+_string_char;
+}
+
+string operator+(char c, const string &str) {
+    @operator+_char_string;
+}
+
 bool operator==(const string &left, const string &right) {
     return @operator==_string_string;
 }
@@ -370,8 +390,8 @@ function lookupStringType(context: ExpressionContext) {
     return customType.type.cvUnqualified();
 }
 
-function extractStringValue(obj: CPPObject<CompleteClassType>) {
-    let chars = getDataPtr(obj).type.arrayObject.getValue();
+function extractStringValue(cstr: CPPObject<ArrayPointerType<Char>> | Value<ArrayPointerType<Char>>) {
+    let chars = cstr.type.arrayObject.getValue();
     return chars.slice(0, chars.findIndex(c => Char.isNullChar(c))).map(c => c.rawValue).join("");
 }
 
@@ -475,7 +495,10 @@ registerOpaqueExpression("string::string_cstring", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-        copyFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue());
+        let {charValues, validLength} = extractCharsFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue());
+        copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
+
+        
     }
 });
 
@@ -483,7 +506,8 @@ registerOpaqueExpression("string::string_cstring_n", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-        copyFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue(), getLocal<Int>(rt, "n").getValue());
+        let {charValues, validLength} = extractCharsFromCString(rt, getLocal<PointerType<Char>>(rt, "cstr").getValue(), getLocal<Int>(rt, "n").getValue());
+        copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
     }
 });
 
@@ -675,6 +699,26 @@ registerOpaqueExpression(
     }
 });
 
+
+
+
+function addFromCStrings(rt: RuntimeExpression, result: CPPObject<CompleteClassType>, left: Value<PointerType<Char>>, right: Value<PointerType<Char>>) {
+    let {charValues: leftChars, validLength: leftValidLength} = extractCharsFromCString(rt, left);
+    leftChars.pop(); // remove null char that would otherwise be in the middle of left + right
+    let {charValues: rightChars, validLength: rightValidLength} = extractCharsFromCString(rt, right);
+
+    let newChars = leftChars.concat(rightChars);
+
+    let newCapacity = new Value(newChars.length, Int.INT, leftValidLength && rightValidLength);
+    let newSize = newCapacity.subRaw(1);
+
+    getCapacity(result).writeValue(newCapacity);
+    getSize(result).writeValue(newSize);
+
+    // allocate new array with enough space
+    allocateNewArray(rt, result, newCapacity.rawValue, newChars);
+}
+
 registerOpaqueExpression(
     "operator+_string_string",
     <OpaqueExpressionImpl<VoidType, "prvalue">> {
@@ -684,23 +728,99 @@ registerOpaqueExpression(
             let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
             assert(returnObject, "String + operator lacking return-by-value object");
 
-            let left = getLocal<CompleteClassType>(rt, "left");
-            let right = getLocal<CompleteClassType>(rt, "right");
+            addFromCStrings(rt, returnObject,
+                            getDataPtr(getLocal<CompleteClassType>(rt, "left")).getValue(),
+                            getDataPtr(getLocal<CompleteClassType>(rt, "right")).getValue());
+        }
+    }
+);
 
-            let leftSize = getSize(left).getValue();
-            let rightSize = getSize(right).getValue();
-            let newSize = leftSize.add(rightSize);
-            let newCapacity = newSize.addRaw(1);
+registerOpaqueExpression(
+    "operator+_string_cstring",
+    <OpaqueExpressionImpl<VoidType, "prvalue">> {
+        type: VoidType.VOID,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+            let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
+            assert(returnObject, "String + operator lacking return-by-value object");
 
-            getSize(returnObject).writeValue(newSize);
+            addFromCStrings(rt, returnObject,
+                            getDataPtr(getLocal<CompleteClassType>(rt, "str")).getValue(),
+                            getLocal<PointerType<Char>>(rt, "cstr").getValue());
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "operator+_cstring_string",
+    <OpaqueExpressionImpl<VoidType, "prvalue">> {
+        type: VoidType.VOID,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+            let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
+            assert(returnObject, "String + operator lacking return-by-value object");
+
+            addFromCStrings(rt, returnObject,
+                            getLocal<PointerType<Char>>(rt, "cstr").getValue(),
+                            getDataPtr(getLocal<CompleteClassType>(rt, "str")).getValue());
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "operator+_string_char",
+    <OpaqueExpressionImpl<VoidType, "prvalue">> {
+        type: VoidType.VOID,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+            let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
+            assert(returnObject, "String + operator lacking return-by-value object");
+
+            let left = getLocal<CompleteClassType>(rt, "str");
+            let right = getLocal<Char>(rt, "c");
+
+                            
+            let {charValues: leftChars, validLength: leftValidLength} = extractCharsFromCString(rt, getDataPtr(left).getValue());
+            leftChars.pop(); // remove null char that would otherwise be in the middle of left + right
+            leftChars.push(right.getValue());
+            leftChars.push(Char.NULL_CHAR); // add back on null char
+
+            let newCapacity = new Value(leftChars.length, Int.INT, leftValidLength);
+            let newSize = newCapacity.subRaw(1);
+
             getCapacity(returnObject).writeValue(newCapacity);
-
-            let newData = getDataPtr(left).type.arrayObject.getValue().slice(0, leftSize.rawValue).concat(
-                          getDataPtr(right).type.arrayObject.getValue().slice(0, rightSize.rawValue));
-            newData.push(Char.NULL_CHAR);
+            getSize(returnObject).writeValue(newSize);
 
             // allocate new array with enough space
-            allocateNewArray(rt, returnObject, newCapacity.rawValue, newData);
+            allocateNewArray(rt, returnObject, newCapacity.rawValue, leftChars);
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "operator+_char_string",
+    <OpaqueExpressionImpl<VoidType, "prvalue">> {
+        type: VoidType.VOID,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+            let returnObject = <CPPObject<CompleteClassType>>rt.containingRuntimeFunction.returnObject;
+            assert(returnObject, "String + operator lacking return-by-value object");
+
+            let left = getLocal<Char>(rt, "c");
+            let right = getLocal<CompleteClassType>(rt, "str");
+
+                            
+            let {charValues: rightChars, validLength: rightValidLength} = extractCharsFromCString(rt, getDataPtr(right).getValue());
+            rightChars.unshift(left.getValue())
+
+            let newCapacity = new Value(rightChars.length, Int.INT, rightValidLength);
+            let newSize = newCapacity.subRaw(1);
+
+            getCapacity(returnObject).writeValue(newCapacity);
+            getSize(returnObject).writeValue(newSize);
+
+            // allocate new array with enough space
+            allocateNewArray(rt, returnObject, newCapacity.rawValue, rightChars);
         }
     }
 );
@@ -711,7 +831,7 @@ function compareStrings(compare: (left: string, right: string) => boolean) {
         let right = getLocal<CompleteClassType>(rt, "right");
 
         // TODO: this doesn't preserve runtime type validity information
-        return new Value(compare(extractStringValue(left), extractStringValue(right)) ? 1 : 0, Bool.BOOL);
+        return new Value(compare(extractStringValue(getDataPtr(left)), extractStringValue(getDataPtr(right))) ? 1 : 0, Bool.BOOL);
     };
 }
 
