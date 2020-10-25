@@ -766,7 +766,7 @@ export class SimulationInputStream {
     // }
 
     public reset() {
-        (<Mutable<this>>this).buffer = "";
+        this.updateBuffer("");
         // (<Mutable<this>>this).bufferAdditionRecord = [];
         return this;
     }
