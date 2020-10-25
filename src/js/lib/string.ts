@@ -288,13 +288,13 @@ public:
 
     // void shrink_to_fit() @library_unsupported;
 
-    // char &operator[](size_t pos) {
-    //     @string::operator[];
-    // }
+    char &operator[](size_t pos) {
+        return @string::operator[];
+    }
 
-    // const char &operator[](size_t pos) const {
-    //     @string::operator[]_const;
-    // }
+    const char &operator[](size_t pos) const {
+        return @string::operator[]_const;
+    }
 
     char &at(size_t pos) {
         return @string::at;
@@ -643,7 +643,7 @@ registerOpaqueExpression("string::empty", <OpaqueExpressionImpl<Bool, "prvalue">
 // });
 
 registerOpaqueExpression(
-    "string::at",
+    "string::operator[]",
     <OpaqueExpressionImpl<Char, "lvalue">> {
         type: Char.CHAR,
         valueCategory: "lvalue",
@@ -662,7 +662,7 @@ registerOpaqueExpression(
 );
 
 registerOpaqueExpression(
-    "string::at_const",
+    "string::operator[]_const",
     <OpaqueExpressionImpl<Char, "lvalue">> {
         type: new Char(true),
         valueCategory: "lvalue",
@@ -673,6 +673,44 @@ registerOpaqueExpression(
 
             if (!ptr.isValid) {
                 rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+            }
+
+            return rt.sim.memory.dereference(ptr);
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::at",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: Char.CHAR,
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            let ptr = getDataPtr(rt.contextualReceiver).getValue();
+            let pos = getLocal<Int>(rt, "pos").getValue();
+            ptr = ptr.pointerOffset(pos);
+
+            if (!ptr.isValid) {
+                rt.sim.eventOccurred(SimulationEvent.CRASH, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
+            }
+
+            return rt.sim.memory.dereference(ptr);
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::at_const",
+    <OpaqueExpressionImpl<Char, "lvalue">> {
+        type: new Char(true),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
+            let ptr = getDataPtr(rt.contextualReceiver).getValue();
+            let pos = getLocal<Int>(rt, "pos").getValue();
+            ptr = ptr.pointerOffset(pos);
+
+            if (!ptr.isValid) {
+                rt.sim.eventOccurred(SimulationEvent.CRASH, "It looks like the position you requested is out of bounds for that string. The character reference you got back just refers to memory junk somewhere!");
             }
 
             return rt.sim.memory.dereference(ptr);

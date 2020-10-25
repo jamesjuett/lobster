@@ -16,7 +16,7 @@ import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
-import { CompiledNonMemberBinaryOperatorOverloadExpression, RuntimeNonMemberBinaryOperatorOverloadExpression, RuntimeMemberBinaryOperatorOverloadExpression, CompiledMemberBinaryOperatorOverloadExpression } from "../core/overloadedOperator";
+import { CompiledNonMemberOperatorOverloadExpression, RuntimeNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression } from "../core/overloadedOperator";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -27,7 +27,7 @@ const CSTRING_PRINT_LIMIT = 10;
 
 export function getValueString(value: Value) {
     if (value.isTyped(isType(Bool))) {
-        return value.rawValue === 1 ? "1 (true)" : "0 (false)";
+        return value.rawValue === 1 ? "true" : "false";
     }
     if (value.isTyped(isArrayPointerToType(Char))) {
         let offset = value.type.toIndex(value.rawValue);
@@ -1678,12 +1678,12 @@ export class MagicFunctionCallExpressionOutlet extends ExpressionOutlet<RuntimeM
 //     }, true)
 }
 
-export class BinaryNonMemberOperatorOverloadExpressionOutlet extends ExpressionOutlet<RuntimeNonMemberBinaryOperatorOverloadExpression> implements ReturnDestinationOutlet{
+export class NonMemberOperatorOverloadExpressionOutlet extends ExpressionOutlet<RuntimeNonMemberOperatorOverloadExpression> implements ReturnDestinationOutlet{
 
     public readonly callOutlet: FunctionCallOutlet;
     public readonly returnDestinationElement: JQuery;
     
-    public constructor(element: JQuery, construct: CompiledNonMemberBinaryOperatorOverloadExpression, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledNonMemberOperatorOverloadExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("functionCall");
         this.returnDestinationElement = this.exprElem;
@@ -1691,28 +1691,36 @@ export class BinaryNonMemberOperatorOverloadExpressionOutlet extends ExpressionO
         this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this, ` ${this.construct.operator} `);
     }
 
-    public setReturnedResult(result: RuntimeNonMemberBinaryOperatorOverloadExpression["evalResult"], suppressAnimation: boolean = false) {
+    public setReturnedResult(result: RuntimeNonMemberOperatorOverloadExpression["evalResult"], suppressAnimation: boolean = false) {
         this.setEvalResult(result);
     }
 }
 
-export class BinaryMemberOperatorOverloadExpressionOutlet extends ExpressionOutlet<RuntimeMemberBinaryOperatorOverloadExpression> implements ReturnDestinationOutlet {
+export class MemberOperatorOverloadExpressionOutlet extends ExpressionOutlet<RuntimeMemberOperatorOverloadExpression> implements ReturnDestinationOutlet {
 
     public readonly receiverOutlet: ExpressionOutlet
     public readonly callOutlet: FunctionCallOutlet;
     public readonly returnDestinationElement: JQuery;
     
-    public constructor(element: JQuery, construct: CompiledMemberBinaryOperatorOverloadExpression, parent?: ConstructOutlet) {
+    public constructor(element: JQuery, construct: CompiledMemberOperatorOverloadExpression, parent?: ConstructOutlet) {
         super(element, construct, parent);
         this.element.addClass("functionCall");
         this.returnDestinationElement = this.exprElem;
 
-        this.receiverOutlet = addChildExpressionOutlet(this.exprElem, this.construct.receiverExpression, this);
-        this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='lobster-highlight'></span></span> ");
-        this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this, ` ${this.construct.operator} `);
+        if (this.construct.operator === "[]") {
+            this.receiverOutlet = addChildExpressionOutlet(this.exprElem, this.construct.receiverExpression, this);
+            this.exprElem.append("<span class='codeInstance code-binaryOp'>[<span class='lobster-highlight'></span></span>");
+            this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this);
+            this.exprElem.append("<span class='codeInstance code-binaryOp'>]<span class='lobster-highlight'></span></span>");
+        }
+        else {
+            this.receiverOutlet = addChildExpressionOutlet(this.exprElem, this.construct.receiverExpression, this);
+            this.exprElem.append(" <span class='codeInstance code-binaryOp'>" + this.construct.operator + "<span class='lobster-highlight'></span></span> ");
+            this.callOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.exprElem), construct.call, this, this, ` ${this.construct.operator} `);
+        }
     }
 
-    public setReturnedResult(result: RuntimeMemberBinaryOperatorOverloadExpression["evalResult"], suppressAnimation: boolean = false) {
+    public setReturnedResult(result: RuntimeMemberOperatorOverloadExpression["evalResult"], suppressAnimation: boolean = false) {
         this.setEvalResult(result);
     }
 }

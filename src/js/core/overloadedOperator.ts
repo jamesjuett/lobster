@@ -6,37 +6,36 @@ import { IdentifierExpression, DotExpression, ArrowExpression, createExpressionF
 import { CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, Scope, DeclaredScopeEntry } from "./entities";
 import { LOBSTER_MAGIC_FUNCTIONS, MAGIC_FUNCTION_NAMES } from "./lexical";
-import { ConstructOutlet, BinaryNonMemberOperatorOverloadExpressionOutlet, BinaryMemberOperatorOverloadExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet } from "../view/codeOutlets";
 import { Mutable, assertFalse, assert } from "../util/util";
 import { CPPObject } from "./objects";
 
-export function selectBinaryOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: OverloadableOperator, left: Expression, right: Expression) {
+export function selectOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: OverloadableOperator, originalArgs: Expression[]) {
 
-    if (!left.isWellTyped() || !right.isWellTyped()) {
+    if (!allWellTyped(originalArgs)) {
         return;
     }
 
-    let leftType = left.type;
-    let rightType = right.type;
+    let leftmost = originalArgs[0];
 
     let operatorFunctionName = "operator" + operator;
     
     let lookupResult: DeclaredScopeEntry | undefined;
-    let argTypes: ExpressionType[] | undefined;
-    if (leftType.isCompleteClassType()) {
+    let adjustedArgs: Expression[] | undefined;
+    if (leftmost.type.isCompleteClassType()) {
         // Attempt member lookup for operator overload function
-        lookupResult = leftType.classScope.lookup(operatorFunctionName, { kind: "normal", noParent: true });
-        argTypes = [right.type];
+        adjustedArgs = originalArgs.slice(1);
+        lookupResult = leftmost.type.classScope.lookup(operatorFunctionName, { kind: "normal", noParent: true });
     }
 
     // If we didn't find a member option
     if (!lookupResult) {
         lookupResult = context.contextualScope.lookup(operatorFunctionName, { kind: "normal" });
-        argTypes = [left.type, right.type];
+        adjustedArgs = originalArgs;
     }
 
     // If we still don't have anything
-    if (!lookupResult || !argTypes) {
+    if (!lookupResult || !adjustedArgs) {
         return;
     }
 
@@ -45,14 +44,14 @@ export function selectBinaryOperatorOverload(context: ExpressionContext, ast: Ex
     assert(lookupResult.declarationKind !== "variable");
     assert(lookupResult.declarationKind !== "class");
 
-    let selected = overloadResolution(lookupResult.overloads, argTypes).selected;
+    let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type)).selected;
 
     if (selected) {
         if (selected.isMemberFunction()) {
-            return new MemberBinaryOperatorOverloadExpression(context, ast, operator, <TypedExpression<CompleteClassType>>left, right, selected);
+            return new MemberOperatorOverloadExpression(context, ast, operator, <TypedExpression<CompleteClassType>>leftmost, adjustedArgs, selected);
         }
         else {
-            return new NonMemberBinaryOperatorOverloadExpression(context, ast, operator, left, right, selected);
+            return new NonMemberOperatorOverloadExpression(context, ast, operator, adjustedArgs, selected);
         }
     }
     else {
@@ -65,50 +64,45 @@ export function selectBinaryOperatorOverload(context: ExpressionContext, ast: Ex
 //     BinaryOperatorExpressionASTNode |
 //     AssignmentExpressionASTNode;
 
-export type OverloadableOperator = t_BinaryOperators | "=";
+export type OverloadableOperator = t_BinaryOperators | "=" | "[]";
 
-export class NonMemberBinaryOperatorOverloadExpression extends Expression<ExpressionASTNode> {
-    public readonly construct_type = "non_member_binary_operator_overload_expression";
+export class NonMemberOperatorOverloadExpression extends Expression<ExpressionASTNode> {
+    public readonly construct_type = "non_member_operator_overload_expression";
 
     public readonly type?: PeelReference<CompleteReturnType>;
     public readonly valueCategory?: ValueCategory;
 
     public readonly operator: OverloadableOperator;
 
-    public readonly originalLeft: Expression;
-    public readonly originalRight: Expression;
+    public readonly originalArgs: readonly Expression[];
 
     public readonly call?: FunctionCall;
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined,
-                       operator: OverloadableOperator, left: Expression, right: Expression,
+                       operator: OverloadableOperator, args: readonly Expression[],
                        selectedFunctionEntity: FunctionEntity | undefined) {
         super(context, ast);
 
         this.operator = operator;
-        this.originalLeft = left;
-        this.originalRight = right;
+        this.originalArgs = args;
 
         // If any arguments are not well typed, we can't select a function.
-        if (!left.isWellTyped() || !right.isWellTyped()) {
+        if (!allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attach(left);
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
         if (!selectedFunctionEntity) {
             // type, valueCategory, and call remain undefined
             this.addNote(CPPError.expr.binaryOperatorOverload.no_such_overload(this, this.operator));
-            this.attach(left);
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
         if (!selectedFunctionEntity.returnsCompleteType()) {
             this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, selectedFunctionEntity.type.returnType));
-            this.attach(left);
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
@@ -119,11 +113,11 @@ export class NonMemberBinaryOperatorOverloadExpression extends Expression<Expres
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
         this.attach(this.call = new FunctionCall(
             context,
-            selectedFunctionEntity,[left, right]));
+            selectedFunctionEntity, args));
     }
 
-    public createDefaultOutlet(this: CompiledNonMemberBinaryOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
-        return new BinaryNonMemberOperatorOverloadExpressionOutlet(element, this, parent);
+    public createDefaultOutlet(this: CompiledNonMemberOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new NonMemberOperatorOverloadExpressionOutlet(element, this, parent);
     }
 
     // TODO
@@ -140,27 +134,25 @@ export class NonMemberBinaryOperatorOverloadExpression extends Expression<Expres
     // }
 }
 
-export interface TypedNonMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends NonMemberBinaryOperatorOverloadExpression {
+export interface TypedNonMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends NonMemberOperatorOverloadExpression {
     readonly type: T
     readonly valueCategory: V;
     readonly call: TypedFunctionCall<FunctionType<CompleteReturnType>>;
 }
 
-export interface CompiledNonMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedNonMemberBinaryOperatorOverloadExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledNonMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedNonMemberOperatorOverloadExpression<T, V>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-
-    readonly originalLeft: CompiledExpression;
-    readonly originalRight: CompiledExpression;
+    readonly originalArgs: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<FunctionType<CompleteReturnType>>;
 }
 
-export class RuntimeNonMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledNonMemberBinaryOperatorOverloadExpression<T, V>> {
+export class RuntimeNonMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledNonMemberOperatorOverloadExpression<T, V>> {
 
     public readonly call: RuntimeFunctionCall<FunctionType<CompleteReturnType>>;
 
-    public constructor(model: CompiledNonMemberBinaryOperatorOverloadExpression<T,V>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledNonMemberOperatorOverloadExpression<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.call = this.model.call.createRuntimeFunctionCall(this, undefined);
     }
@@ -211,45 +203,45 @@ export class RuntimeNonMemberBinaryOperatorOverloadExpression<T extends PeelRefe
 
 
 
-export class MemberBinaryOperatorOverloadExpression extends Expression<ExpressionASTNode> {
-    public readonly construct_type = "member_binary_operator_overload_expression";
+export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNode> {
+    public readonly construct_type = "member_operator_overload_expression";
 
     public readonly type?: PeelReference<CompleteReturnType>;
     public readonly valueCategory?: ValueCategory;
 
     public readonly operator: OverloadableOperator;
 
-    public readonly originalRight: Expression;
+    public readonly originalArgs: readonly Expression[];
     
     public readonly receiverExpression: TypedExpression<CompleteClassType>;
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined,
-                       operator: OverloadableOperator, left: TypedExpression<CompleteClassType>, right: Expression,
+    public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined, operator: OverloadableOperator,
+                       receiverExpression: TypedExpression<CompleteClassType>, args: readonly Expression[],
                        selectedFunctionEntity: FunctionEntity | undefined) {
         super(context, ast);
 
         this.operator = operator;
-        this.attach(this.receiverExpression = left);
-        this.originalRight = right;
+        this.attach(this.receiverExpression = receiverExpression);
+        this.originalArgs = args;
 
         // If any arguments are not well typed, we can't select a function.
-        if (!left.isWellTyped() || !right.isWellTyped()) {
+        if (!receiverExpression.isWellTyped() || !allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
         if (!selectedFunctionEntity) {
             // type, valueCategory, and call remain undefined
             this.addNote(CPPError.expr.binaryOperatorOverload.no_such_overload(this, this.operator));
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
         if (!selectedFunctionEntity.returnsCompleteType()) {
             this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, selectedFunctionEntity.type.returnType));
-            this.attach(right);
+            this.attachAll(args);
             return;
         }
 
@@ -261,11 +253,11 @@ export class MemberBinaryOperatorOverloadExpression extends Expression<Expressio
         // Left is the receiver of that call and was already attached as a child.
         this.attach(this.call = new FunctionCall(
             context,
-            selectedFunctionEntity,[right]));
+            selectedFunctionEntity, args));
     }
 
-    public createDefaultOutlet(this: CompiledMemberBinaryOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
-        return new BinaryMemberOperatorOverloadExpressionOutlet(element, this, parent);
+    public createDefaultOutlet(this: CompiledMemberOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new MemberOperatorOverloadExpressionOutlet(element, this, parent);
     }
 
     // TODO
@@ -282,28 +274,28 @@ export class MemberBinaryOperatorOverloadExpression extends Expression<Expressio
     // }
 }
 
-export interface TypedMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends MemberBinaryOperatorOverloadExpression {
+export interface TypedMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends MemberOperatorOverloadExpression {
     readonly type: T
     readonly valueCategory: V;
     readonly call: TypedFunctionCall<FunctionType<CompleteReturnType>>;
 }
 
-export interface CompiledMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMemberBinaryOperatorOverloadExpression<T, V>, SuccessfullyCompiled {
+export interface CompiledMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends TypedMemberOperatorOverloadExpression<T, V>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
 
-    readonly originalRight: CompiledExpression;
+    readonly originalArgs: readonly CompiledExpression[];
     readonly receiverExpression: CompiledExpression<CompleteClassType>;
     readonly call: CompiledFunctionCall<FunctionType<CompleteReturnType>>;
 }
 
-export class RuntimeMemberBinaryOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledMemberBinaryOperatorOverloadExpression<T, V>> {
+export class RuntimeMemberOperatorOverloadExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledMemberOperatorOverloadExpression<T, V>> {
 
     public readonly receiverExpression: RuntimeExpression<CompleteClassType>;
     public readonly call?: RuntimeFunctionCall<FunctionType<CompleteReturnType>>;
 
-    public constructor(model: CompiledMemberBinaryOperatorOverloadExpression<T,V>, parent: RuntimeConstruct) {
+    public constructor(model: CompiledMemberOperatorOverloadExpression<T,V>, parent: RuntimeConstruct) {
         super(model, parent);
         this.receiverExpression = createRuntimeExpression(this.model.receiverExpression, this);
     }
@@ -355,6 +347,6 @@ export class RuntimeMemberBinaryOperatorOverloadExpression<T extends PeelReferen
 }
 
 
-export type BinaryOperatorOverloadExpression =
-    NonMemberBinaryOperatorOverloadExpression |
-    MemberBinaryOperatorOverloadExpression;
+export type OperatorOverloadExpression =
+    NonMemberOperatorOverloadExpression |
+    MemberOperatorOverloadExpression;
