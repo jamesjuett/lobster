@@ -98,3 +98,11 @@ export class RuntimeOpaqueExpression<T extends ExpressionType = ExpressionType, 
         this.startCleanup();
     }
 }
+
+export function lookupTypeInContext(typeName: string) {
+    return (context: ExpressionContext) => {
+        let customType = context.contextualScope.lookup(typeName);
+        assert(customType?.declarationKind === "class");
+        return customType.type.cvUnqualified();
+    }
+}

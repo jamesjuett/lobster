@@ -103,7 +103,7 @@ $(() => {
                         <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
                         <table style="width: 100%; margin-top: 5px; ">
                             <tr>
-                                <td style="width: 30%; min-width: 260px; vertical-align: top; height: 100%">
+                                <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
                                     <div style="position: relative; display: flex; flex-direction: column;">
                                         <div style="margin-bottom: 5px;">
                                             <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
@@ -123,11 +123,12 @@ $(() => {
                                             <button class = "stepForward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
                                             <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
                                         </div>
-                                        <div class="console" style="position: relative; min-height: 80px; height: 80px; resize: vertical; background-color: rgb(39, 40, 34); color: white;">
+                                        <div class="console">
                                             <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
                                             <span class="lobster-console-contents"></span>
                                             <input type="text" class="lobster-console-user-input-entry"></span>
                                         </div>
+                                        <div class="lobster-cin-buffer" style = "margin-top: 5px;"></div>
                                         <div style = "margin-top: 5px; text-align: center;">Memory</div>
                                         <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="memory readOnly"></div></div>
 
@@ -212,7 +213,11 @@ export class SimpleExerciseLobsterOutlet {
             .click(() => {
             let program = this.project.program;
             if (program.isRunnable()) {
-                this.setSimulation(new Simulation(program));
+                let sim = new Simulation(program);
+                while(!sim.globalAllocator.isDone) {
+                    sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
+                }
+                this.setSimulation(sim);
             }
             this.element.find(".lobster-simulate-tab").tab("show");
         });
@@ -709,6 +714,76 @@ int main() {
     ++x;
   }
   cout << "done!" << endl;
+}`,
+
+    "ch14_02_ex":
+`#include <iostream>
+using namespace std;
+
+// Returns true if n is prime, false otherwise
+// Works for any number n
+bool isPrime(int n) {
+  for(int x = 2; x < n; ++x) {
+    if (n % x == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int main() {
+  int N = 5;
+  int x = 2;
+  // Iterate through candidate x values
+  while(N > 0) {
+    if( isPrime(x) ) { // Check primeness
+      cout << x << " ";
+      --N;
+    }
+    ++x;
+  }
+  cout << "done!" << endl;
+}`,
+
+    "ch14_03_ex":
+`#include <iostream>
+using namespace std;
+
+void print_row_of_X(int num) {
+  for (int x = 0; x < num; ++x) {
+    cout << "X";
+  }
+  cout << endl;
+}
+  
+void print_triangle_X3() {
+  
+  // YOUR CODE HERE!
+  
+}
+
+int main() {
+  print_triangle_X3();
+}`,
+
+    "ch14_04_ex":
+`#include <iostream>
+using namespace std;
+
+const double PI = 3.14159;
+
+double circleArea(double rad) {
+  return PI * rad * rad;
+}
+
+double circleCircumference(double rad) {
+  return 2 * PI * rad;
+}
+
+int main() {
+  double rad = 5;
+  cout << "Area: " << circleArea(rad) << endl;
+  cout << "Circumference: " << circleCircumference(rad) << endl;
 }`
 }
 
@@ -829,5 +904,11 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
     ],
     "ch13_06_ex_2": [
         // no checkpoints, just an example not an exercise
-    ]
+    ],
+    "ch14_03_ex": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output.replace(/\s+/g, '') === "X\nXX\nXXX\nXX\nX\n".replace(/\s+/g, '');
+        })
+        
+    ],
 }

@@ -68,7 +68,7 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public combine(otherValue: Value<T>, combiner: (a: RawValueType, b: RawValueType) => RawValueType) {
-        assert(sameType(this.type, otherValue.type));
+        assert(similarType(this.type, otherValue.type));
         return new Value<T>(
             combiner(this.rawValue, otherValue.rawValue),
             this.type,
@@ -92,7 +92,7 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public compare(otherValue: Value<T>, comparer: (a: RawValueType, b: RawValueType) => boolean) {
-        assert(sameType(this.type, otherValue.type));
+        assert(similarType(this.type, otherValue.type));
         return new Value<Bool>(
             comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
             new Bool(),
@@ -426,7 +426,7 @@ export class Memory {
 
             // write value of string literal into the object
             Char.jsStringToNullTerminatedCharArray(contents).forEach((c, i) => {
-                object.getArrayElemSubobject(i).setValue(new Value(c, Char.CHAR));
+                object.getArrayElemSubobject(i).setValue(c);
             });
 
             // adjust location for next static object

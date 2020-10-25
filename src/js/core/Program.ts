@@ -8,8 +8,11 @@ import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
 import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
-import { FunctionType, Int } from "./types";
+import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
+import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
+import { getDataPtr } from "../lib/string";
+import { Value } from "./runtimeEnvironment";
 
 
 
