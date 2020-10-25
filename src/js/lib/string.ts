@@ -4,7 +4,7 @@ import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, Reference
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
-import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext } from "../core/opaqueExpression";
+import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext, getLocal } from "../core/opaqueExpression";
 import { ExpressionContext } from "../core/constructs";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
@@ -365,7 +365,9 @@ istream &operator>>(istream &is, const string &str) {
     return @operator>>_istream_string;
 }
 
-`
+int stoi(const string &s) {
+    return @stoi;
+}`
     )
 );
 
@@ -379,16 +381,6 @@ function getSize(obj: CPPObject<CompleteClassType>) {
 
 export function getDataPtr(obj: CPPObject<CompleteClassType>) {
     return <MemberSubobject<ArrayPointerType<Char>>>obj.getMemberObject("data_ptr");
-}
-
-function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: string) {
-    let local = <LocalObjectEntity<T> | LocalReferenceEntity<ReferenceType<T>>>rt.model.context.contextualScope.lookup(name);
-    if(local.variableKind === "object") {
-        return local.runtimeLookup(rt);
-    }
-    else {
-        return local.runtimeLookup(rt);
-    }
 }
 
 function extractStringValue(cstr: CPPObject<ArrayPointerType<Char>> | Value<ArrayPointerType<Char>>) {
@@ -945,6 +937,11 @@ registerOpaqueExpression(
     <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
         type: lookupTypeInContext("istream"),
         valueCategory: "lvalue",
+        upNext: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            if (rt.sim.cin.buffer.length === 0) {
+                rt.sim.blockUntilCin();
+            }
+        },
         operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
 
             let chars = Char.jsStringToNullTerminatedCharArray(rt.sim.cin.extractWordFromBuffer());
@@ -1005,6 +1002,25 @@ registerOpaqueExpression(
             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
             copyFromCString(rt, rt.contextualReceiver, [c.getValue(), Char.NULL_CHAR]);
             return rt.contextualReceiver;
+        }
+    }
+);
+
+
+registerOpaqueExpression(
+    "stoi",
+    <OpaqueExpressionImpl<Int, "prvalue">> {
+        type: Int.INT,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<Int, "prvalue">) => {
+            let str = extractStringValue(getDataPtr(getLocal<CompleteClassType>(rt, "str")));
+            let val = parseInt(str);
+            if (!Number.isNaN(val)) {
+                return new Value(val, Int.INT);
+            }
+            else {
+                return new Value(Math.floor(Math.random()*100), Int.INT, false);
+            }
         }
     }
 );

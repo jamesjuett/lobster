@@ -1,22 +1,25 @@
 import {ASTNode, ExpressionContext, CPPConstruct, SuccessfullyCompiled, ConstructDescription, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs"
 import { Value } from "./runtimeEnvironment";
-import { Int, ExpressionType, VoidType } from "./types";
+import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";
 import { assert } from "../util/util";
 import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
+import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
+
 
 export type OpaqueExpressionImpl<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> = {
     type: T | ((context: ExpressionContext) => T),
     valueCategory: VC,
-    operate: (rt: RuntimeOpaqueExpression<T,VC>) => T extends VoidType ? void : VCResultTypes<T,VC>
+    upNext?: (rt: RuntimeOpaqueExpression<T,VC>) => void
+    operate: (rt: RuntimeOpaqueExpression<T,VC>) => T extends VoidType ? void : VCResultTypes<T,VC>,
 }
 
 const OPAQUE_EXPRESSIONS : {[index: string]: OpaqueExpressionImpl} = {
-    "test": <OpaqueExpressionImpl> {
-        type: VoidType.VOID,
-        valueCategory: "prvalue",
-        operate: (rt: RuntimeOpaqueExpression<VoidType,"prvalue">) => { rt.sim.cout(new Value(10, Int.INT)); }
-    }
+    // "test": <OpaqueExpressionImpl> {
+    //     type: VoidType.VOID,
+    //     valueCategory: "prvalue",
+    //     operate: (rt: RuntimeOpaqueExpression<VoidType,"prvalue">) => { rt.sim.cout(new Value(10, Int.INT)); }
+    // }
 };
 
 export function registerOpaqueExpression<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory>(id: string, impl: OpaqueExpressionImpl<T,VC>) {
@@ -83,7 +86,7 @@ export class RuntimeOpaqueExpression<T extends ExpressionType = ExpressionType, 
     }
 
     protected upNextImpl() {
-        // Nothing to do
+        this.model.impl.upNext && this.model.impl.upNext(this)
     }
 
     private isVoid() : this is RuntimeOpaqueExpression<VoidType> {
@@ -104,5 +107,15 @@ export function lookupTypeInContext(typeName: string) {
         let customType = context.contextualScope.lookup(typeName);
         assert(customType?.declarationKind === "class");
         return customType.type.cvUnqualified();
+    }
+}
+
+export function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: string) {
+    let local = <LocalObjectEntity<T> | LocalReferenceEntity<ReferenceType<T>>>rt.model.context.contextualScope.lookup(name);
+    if(local.variableKind === "object") {
+        return local.runtimeLookup(rt);
+    }
+    else {
+        return local.runtimeLookup(rt);
     }
 }

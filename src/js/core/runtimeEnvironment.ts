@@ -1,4 +1,4 @@
-import { assert, assertFalse, Mutable } from "../util/util";
+import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
@@ -222,10 +222,12 @@ export class Memory {
 
     public reset() {
 
+        let rng = new CPPRandom(0);
+
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
         for (var i = 0; i < this.capacity + this.temporaryCapacity; ++i) {
-            this.bytes[i] = Math.floor(Math.random() * 100);
+            this.bytes[i] = rng.randomInteger(0, 100);
         }
 
         this.objects = {};
