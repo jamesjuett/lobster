@@ -12,7 +12,7 @@ import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledEx
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
-import { NonMemberBinaryOperatorOverloadExpression, TypedNonMemberBinaryOperatorOverloadExpression, CompiledNonMemberBinaryOperatorOverloadExpression, RuntimeNonMemberBinaryOperatorOverloadExpression, selectBinaryOperatorOverload, BinaryOperatorOverloadExpression, TypedMemberBinaryOperatorOverloadExpression, CompiledMemberBinaryOperatorOverloadExpression, RuntimeMemberBinaryOperatorOverloadExpression } from "./overloadedOperator";
+import { NonMemberOperatorOverloadExpression, TypedNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeNonMemberOperatorOverloadExpression, selectOperatorOverload, OperatorOverloadExpression, TypedMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, MemberOperatorOverloadExpression } from "./overloadedOperator";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -181,12 +181,12 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "logical_binary_operator_expression":
     T extends NonNullable<TypedLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never :
     NonNullable<TypedLogicalBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedLogicalBinaryOperatorExpression["valueCategory"]> ? TypedLogicalBinaryOperatorExpression : never : never;
-    "non_member_binary_operator_overload_expression":
-    T extends NonNullable<TypedNonMemberBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<TypedNonMemberBinaryOperatorOverloadExpression["valueCategory"]> ? TypedNonMemberBinaryOperatorOverloadExpression<T,V> : never :
-    NonNullable<TypedNonMemberBinaryOperatorOverloadExpression["type"]> extends T ? V extends NonNullable<TypedNonMemberBinaryOperatorOverloadExpression["valueCategory"]> ? TypedNonMemberBinaryOperatorOverloadExpression : never : never;
-    "member_binary_operator_overload_expression":
-    T extends NonNullable<TypedMemberBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<TypedMemberBinaryOperatorOverloadExpression["valueCategory"]> ? TypedMemberBinaryOperatorOverloadExpression<T,V> : never :
-    NonNullable<TypedMemberBinaryOperatorOverloadExpression["type"]> extends T ? V extends NonNullable<TypedMemberBinaryOperatorOverloadExpression["valueCategory"]> ? TypedMemberBinaryOperatorOverloadExpression : never : never;
+    "non_member_operator_overload_expression":
+    T extends NonNullable<TypedNonMemberOperatorOverloadExpression["type"]> ? V extends NonNullable<TypedNonMemberOperatorOverloadExpression["valueCategory"]> ? TypedNonMemberOperatorOverloadExpression<T,V> : never :
+    NonNullable<TypedNonMemberOperatorOverloadExpression["type"]> extends T ? V extends NonNullable<TypedNonMemberOperatorOverloadExpression["valueCategory"]> ? TypedNonMemberOperatorOverloadExpression : never : never;
+    "member_operator_overload_expression":
+    T extends NonNullable<TypedMemberOperatorOverloadExpression["type"]> ? V extends NonNullable<TypedMemberOperatorOverloadExpression["valueCategory"]> ? TypedMemberOperatorOverloadExpression<T,V> : never :
+    NonNullable<TypedMemberOperatorOverloadExpression["type"]> extends T ? V extends NonNullable<TypedMemberOperatorOverloadExpression["valueCategory"]> ? TypedMemberOperatorOverloadExpression : never : never;
     "prefix_increment_expression":
     T extends NonNullable<TypedPrefixIncrementExpression["type"]> ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression<T> : never :
     NonNullable<TypedPrefixIncrementExpression["type"]> extends T ? V extends NonNullable<TypedPrefixIncrementExpression["valueCategory"]> ? TypedPrefixIncrementExpression : never : never;
@@ -279,8 +279,8 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "relational_binary_operator_expression": T extends NonNullable<CompiledRelationalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledRelationalBinaryOperatorExpression["valueCategory"]> ? CompiledRelationalBinaryOperatorExpression : never : never;
     "pointer_comparison_expression": T extends NonNullable<CompiledPointerComparisonExpression["type"]> ? V extends NonNullable<CompiledPointerComparisonExpression["valueCategory"]> ? CompiledPointerComparisonExpression : never : never;
     "logical_binary_operator_expression": T extends NonNullable<CompiledLogicalBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledLogicalBinaryOperatorExpression["valueCategory"]> ? CompiledLogicalBinaryOperatorExpression : never : never;
-    "non_member_binary_operator_overload_expression": T extends NonNullable<CompiledNonMemberBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<CompiledNonMemberBinaryOperatorOverloadExpression["valueCategory"]> ? CompiledNonMemberBinaryOperatorOverloadExpression<T,V> : never : never;
-    "member_binary_operator_overload_expression": T extends NonNullable<CompiledMemberBinaryOperatorOverloadExpression["type"]> ? V extends NonNullable<CompiledMemberBinaryOperatorOverloadExpression["valueCategory"]> ? CompiledMemberBinaryOperatorOverloadExpression<T,V> : never : never;
+    "non_member_operator_overload_expression": T extends NonNullable<CompiledNonMemberOperatorOverloadExpression["type"]> ? V extends NonNullable<CompiledNonMemberOperatorOverloadExpression["valueCategory"]> ? CompiledNonMemberOperatorOverloadExpression<T,V> : never : never;
+    "member_operator_overload_expression": T extends NonNullable<CompiledMemberOperatorOverloadExpression["type"]> ? V extends NonNullable<CompiledMemberOperatorOverloadExpression["valueCategory"]> ? CompiledMemberOperatorOverloadExpression<T,V> : never : never;
     "prefix_increment_expression": T extends NonNullable<CompiledPrefixIncrementExpression["type"]> ? V extends NonNullable<CompiledPrefixIncrementExpression["valueCategory"]> ? CompiledPrefixIncrementExpression<T> : never : never;
     "dereference_expression": T extends NonNullable<CompiledDereferenceExpression["type"]> ? V extends NonNullable<CompiledDereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
@@ -323,8 +323,8 @@ const ExpressionConstructsRuntimeMap = {
     "relational_binary_operator_expression": <T extends CompiledRelationalBinaryOperatorExpression["type"]>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct) => new RuntimeRelationalBinaryOperator(construct, parent),
     "pointer_comparison_expression": (construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct) => new RuntimePointerComparisonExpression(construct, parent),
     "logical_binary_operator_expression": (construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct) => new RuntimeLogicalBinaryOperatorExpression(construct, parent),
-    "non_member_binary_operator_overload_expression": <T extends CompiledNonMemberBinaryOperatorOverloadExpression["type"], V extends ValueCategory>(construct: CompiledNonMemberBinaryOperatorOverloadExpression<T, V>, parent: RuntimeConstruct) => new RuntimeNonMemberBinaryOperatorOverloadExpression(construct, parent),
-    "member_binary_operator_overload_expression": <T extends CompiledMemberBinaryOperatorOverloadExpression["type"], V extends ValueCategory>(construct: CompiledMemberBinaryOperatorOverloadExpression<T, V>, parent: RuntimeConstruct) => new RuntimeMemberBinaryOperatorOverloadExpression(construct, parent),
+    "non_member_operator_overload_expression": <T extends CompiledNonMemberOperatorOverloadExpression["type"], V extends ValueCategory>(construct: CompiledNonMemberOperatorOverloadExpression<T, V>, parent: RuntimeConstruct) => new RuntimeNonMemberOperatorOverloadExpression(construct, parent),
+    "member_operator_overload_expression": <T extends CompiledMemberOperatorOverloadExpression["type"], V extends ValueCategory>(construct: CompiledMemberOperatorOverloadExpression<T, V>, parent: RuntimeConstruct) => new RuntimeMemberOperatorOverloadExpression(construct, parent),
     "prefix_increment_expression": <T extends CompiledPrefixIncrementExpression["type"]>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePrefixIncrementExpression(construct, parent),
     "dereference_expression": <T extends CompiledDereferenceExpression["type"]>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) => new RuntimeDereferenceExpression(construct, parent),
     "address_of_expression": <T extends CompiledAddressOfExpression["type"]>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
@@ -378,8 +378,8 @@ export function createRuntimeExpression(construct: CompiledPointerOffsetExpressi
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeRelationalBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct): RuntimePointerComparisonExpression;
 export function createRuntimeExpression(construct: CompiledLogicalBinaryOperatorExpression, parent: RuntimeConstruct): RuntimeLogicalBinaryOperatorExpression;
-export function createRuntimeExpression(construct: CompiledNonMemberBinaryOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeNonMemberBinaryOperatorOverloadExpression;
-export function createRuntimeExpression(construct: CompiledMemberBinaryOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeMemberBinaryOperatorOverloadExpression;
+export function createRuntimeExpression(construct: CompiledNonMemberOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeNonMemberOperatorOverloadExpression;
+export function createRuntimeExpression(construct: CompiledMemberOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeMemberOperatorOverloadExpression;
 export function createRuntimeExpression(construct: CompiledOutputOperatorExpression, parent: RuntimeConstruct): RuntimeOutputOperatorExpression;
 export function createRuntimeExpression(construct: CompiledInputOperatorExpression, parent: RuntimeConstruct): RuntimeInputOperatorExpression;
 export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePrefixIncrementExpression<T>;
@@ -987,13 +987,13 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         this.attach(this.rhs = rhs);
     }
 
-    public static createFromAST(ast: AssignmentExpressionASTNode, context: ExpressionContext): AssignmentExpression | BinaryOperatorOverloadExpression | UnsupportedExpression {
+    public static createFromAST(ast: AssignmentExpressionASTNode, context: ExpressionContext): AssignmentExpression | OperatorOverloadExpression | UnsupportedExpression {
         let lhs = createExpressionFromAST(ast.lhs, context);
         let rhs = createExpressionFromAST(ast.rhs, context);
 
         // Consider an assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            let overload = selectBinaryOperatorOverload(context, ast, "=", lhs, rhs);
+            let overload = selectOperatorOverload(context, ast, "=", [lhs, rhs]);
             if (overload) {
                 return overload;
             }
@@ -1286,7 +1286,7 @@ export type AnalyticBinaryOperatorExpression =
     RelationalBinaryOperatorExpression |
     PointerComparisonExpression |
     LogicalBinaryOperatorExpression |
-    BinaryOperatorOverloadExpression;
+    OperatorOverloadExpression;
 
 export interface TypedBinaryOperatorExpression<T extends AtomicType = AtomicType> extends BinaryOperatorExpression, t_TypedExpression {
     readonly type: T;
@@ -1423,14 +1423,14 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         this.attach(this.right = convertedRight);
     }
 
-    public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext): ArithmeticBinaryOperatorExpression | PointerDifferenceExpression | PointerOffsetExpression | OutputOperatorExpression | InputOperatorExpression | BinaryOperatorOverloadExpression {
+    public static createFromAST(ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext): ArithmeticBinaryOperatorExpression | PointerDifferenceExpression | PointerOffsetExpression | OutputOperatorExpression | InputOperatorExpression | OperatorOverloadExpression {
         let left: Expression = createExpressionFromAST(ast.left, context);
         let right: Expression = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
 
         // If either one is a class type, we consider operator overloads
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
-            let overload = selectBinaryOperatorOverload(context, ast, op, left, right);
+            let overload = selectOperatorOverload(context, ast, op, [left, right]);
             if (overload) {
                 return overload;
             }
@@ -2038,7 +2038,7 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
         this.attach(this.right = convertedRight);
     }
 
-    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext): RelationalBinaryOperatorExpression | PointerComparisonExpression | BinaryOperatorOverloadExpression{
+    public static createFromAST(ast: RelationalBinaryOperatorExpressionASTNode, context: ExpressionContext): RelationalBinaryOperatorExpression | PointerComparisonExpression | OperatorOverloadExpression{
 
         let left: Expression = createExpressionFromAST(ast.left, context);
         let right: Expression = createExpressionFromAST(ast.right, context);
@@ -2046,7 +2046,7 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
         // If either one is a class type, we consider operator overloads
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
-            let overload = selectBinaryOperatorOverload(context, ast, op, left, right);
+            let overload = selectOperatorOverload(context, ast, op, [left, right]);
             if (overload) {
                 return overload;
             }
@@ -2236,14 +2236,14 @@ export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression<Lo
         return subexpr;
     }
 
-    public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext): LogicalBinaryOperatorExpression | BinaryOperatorOverloadExpression {
+    public static createFromAST(ast: LogicalBinaryOperatorExpressionASTNode, context: ExpressionContext): LogicalBinaryOperatorExpression | OperatorOverloadExpression {
         
         let left = createExpressionFromAST(ast.left, context);
         let right = createExpressionFromAST(ast.right, context);
 
         // If either one is a class type, we consider operator overloads
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
-            let overload = selectBinaryOperatorOverload(context, ast, ast.operator, left, right);
+            let overload = selectOperatorOverload(context, ast, ast.operator, [left, right]);
             if (overload) {
                 return overload;
             }
@@ -3262,10 +3262,20 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
         }
     }
 
-    public static createFromAST(ast: SubscriptExpressionASTNode, context: ExpressionContext): SubscriptExpression {
-        return new SubscriptExpression(context, ast,
-            createExpressionFromAST(ast.operand, context),
-            createExpressionFromAST(ast.offset, context));
+    public static createFromAST(ast: SubscriptExpressionASTNode, context: ExpressionContext): SubscriptExpression | OperatorOverloadExpression {
+
+        let operand = createExpressionFromAST(ast.operand, context)
+        let offset = createExpressionFromAST(ast.offset, context)
+
+        // Consider an assignment operator overload if the LHS is class type
+        if (Predicates.isTypedExpression(operand, isPotentiallyCompleteClassType)) {
+            let overload = selectOperatorOverload(context, ast, "[]", [operand, offset]);
+            if (overload) {
+                return overload;
+            }
+        }
+
+        return new SubscriptExpression(context, ast, operand, offset);
     }
 
     // public createRuntimeExpression<T extends ObjectType>(this: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) : RuntimeSubscriptExpression<T>;

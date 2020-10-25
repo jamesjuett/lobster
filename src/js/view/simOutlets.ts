@@ -14,6 +14,7 @@ import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
+import { RuntimeFunctionCall } from "../core/functionCall";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -422,7 +423,13 @@ export class SimulationOutlet {
             this.runningProgressElem.css("visibility", "visible");
         }
         
-        await this.simRunner!.stepForward(n);
+        // let top = this.sim.top();
+        // if (top instanceof RuntimeFunctionCall && top.model.func.name.indexOf("operator") !== -1) {
+        //     await this.simRunner!.stepOver(n);
+        // }
+        // else {
+            await this.simRunner!.stepForward(n);
+        // }
 
         if (n !== 1) {
             this.runningProgressElem.css("visibility", "hidden");
