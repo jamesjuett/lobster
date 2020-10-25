@@ -10,6 +10,7 @@ import { Program } from "./core/Program";
 import { Predicates } from "./core/predicates";
 import { findFirstConstruct, findConstructs } from "./core/analysis";
 
+import "./lib/cstdlib"
 import "./lib/string"
 
 $(() => {

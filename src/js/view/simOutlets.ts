@@ -20,7 +20,7 @@ const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
 const VALUE_TRANSFER_DURATION = 500;
 
-const CPP_ANIMATIONS = true;
+export var CPP_ANIMATIONS = true;
 
 // export class CodeList {
     
@@ -255,6 +255,8 @@ export class SimulationOutlet {
     private readonly consoleContentsElem: JQuery;
     private readonly cinEntryElem: JQuery;
 
+    private breadcrumbs: number[] = [];
+
     public _act!: MessageResponses;
 
     public constructor(element: JQuery) {
@@ -342,7 +344,7 @@ export class SimulationOutlet {
                         return;
                     }
                     this.cinEntryElem.val("");
-                    this.sim?.cinInput(input)
+                    this.sim?.cinInput(input + "\n")
                 }
             });
         findExactlyOne(element, ".console").on("click", () => {
@@ -382,6 +384,7 @@ export class SimulationOutlet {
         }
         delete (<Mutable<this>>this).sim;
         delete this.simRunner;
+        this.breadcrumbs = [];
     }
 
     private refreshSimulation() {
@@ -414,6 +417,9 @@ export class SimulationOutlet {
         while(!this.sim.globalAllocator.isDone) {
             await this.simRunner!.stepForward();
         }
+        if (this.sim) {
+            this.breadcrumbs = [];
+        }
     }
     
     private async stepForward(n: number = 1) {
@@ -423,29 +429,42 @@ export class SimulationOutlet {
             this.runningProgressElem.css("visibility", "visible");
         }
         
-        // let top = this.sim.top();
-        // if (top instanceof RuntimeFunctionCall && top.model.func.name.indexOf("operator") !== -1) {
-        //     await this.simRunner!.stepOver(n);
-        // }
-        // else {
+        this.leaveBreadcrumb();
+
+        let top = this.sim.top();
+        if (top instanceof RuntimeFunctionCall && top.model.func.name.indexOf("operator") !== -1) {
+            CPP_ANIMATIONS = false;
+            await this.simRunner!.stepOver(n);
+            CPP_ANIMATIONS = true;
+        }
+        else {
             await this.simRunner!.stepForward(n);
-        // }
+        }
+
 
         if (n !== 1) {
             this.runningProgressElem.css("visibility", "hidden");
         }
     }
     
+    private leaveBreadcrumb() {
+        if (this.sim) {
+            if (this.breadcrumbs.length === 0 || this.sim.stepsTaken !== this.breadcrumbs[this.breadcrumbs.length-1]) {
+                this.breadcrumbs.push(this.sim.stepsTaken);
+            }
+        }
+    }
+
     private async stepOver() {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
         // this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
+
+        this.leaveBreadcrumb();
         
         // this.sim.speed = Simulation.MAX_SPEED;
         await this.simRunner!.stepOver();
-        
-        this.refreshSimulation();
 
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         
@@ -465,11 +484,12 @@ export class SimulationOutlet {
         this.setEnabledButtons({"pause":true});
         
         // this.sim.speed = Simulation.MAX_SPEED;
+
+        this.leaveBreadcrumb();
         
         await this.simRunner!.stepOut();
         
         // RuntimeConstruct.prototype.silent = false;
-        this.refreshSimulation();
 
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         this.runningProgressElem.css("visibility", "hidden");
@@ -485,10 +505,12 @@ export class SimulationOutlet {
         if (!this.sim) { return; }
         this.runningProgressElem.css("visibility", "visible");
         
+
         //RuntimeConstruct.prototype.silent = true;
         // this.setAnimationsOn(false);
         this.setEnabledButtons({"pause":true});
         
+        this.leaveBreadcrumb();
         
         // this.sim.speed = 1;
         await this.simRunner!.stepToEnd();
@@ -550,11 +572,18 @@ export class SimulationOutlet {
         // this.setAnimationsOn(false);
 
         // Temporarily detach from simulation
-        let newSim = await asyncCloneSimulation(this.sim, this.sim.stepsTaken - 1);
+
+        let breadcrumbs = this.breadcrumbs;
+        let targetSteps = this.breadcrumbs.length >= n
+            ? breadcrumbs.splice(this.breadcrumbs.length - n, n)[0]
+            : this.sim.stepsTaken - n;
+
+        let newSim = await asyncCloneSimulation(this.sim, targetSteps);
         // await this.simRunner!.stepBackward(n);
 
         // RuntimeConstruct.prototype.silent = false;
         this.setSimulation(newSim);
+        this.breadcrumbs = breadcrumbs;
         // setTimeout(function() {this.setAnimationsOn(true);}, 10);
         this.setEnabledButtons({
             "pause": false
@@ -827,7 +856,7 @@ export class MemoryOutlet {
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+        // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
     }
     
     public clearMemory() {
@@ -1701,12 +1730,16 @@ export class StackFramesOutlet {
 
     private pushFrame(frame: MemoryFrame) {
 
+
         let frameElem = $("<div style=\"display: none\"></div>");
         new StackFrameOutlet(frameElem, frame, this.memoryOutlet);
 
         this.frameElems.push(frameElem);
         this.framesElem.prepend(frameElem);
-        if (CPP_ANIMATIONS) {
+        if (frame.func.model.name.indexOf("operator") !== -1) {
+            // leave display as none
+        }
+        else if (CPP_ANIMATIONS) {
             (this.frameElems.length == 1 ? frameElem.fadeIn(FADE_DURATION) : frameElem.slideDown(SLIDE_DURATION));
         }
         else{
@@ -2058,7 +2091,11 @@ export class CodeStackOutlet extends RunningCodeOutlet {
         this.functionOutlets.push(funcOutlet);
 
         // Animate!
-        if (CPP_ANIMATIONS) {
+        
+        if (rtFunc.model.name.indexOf("operator") !== -1) {
+            // HACK: don't animate in
+        }
+        else if (CPP_ANIMATIONS) {
             (this.frameElems.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function() {
 //                elem.scrollTop = elem.scrollHeight;
                 }}));
@@ -2103,8 +2140,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
             return;
         }
 
-        this.sim.memory.stack.frames
-            .forEach(frame => this.pushFunction(frame.func));
+        this.sim.memory.stack.frames.forEach(frame => this.pushFunction(frame.func));
     }
 
     //refresh : Class.ADDITIONALLY(function() {

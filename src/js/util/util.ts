@@ -99,7 +99,11 @@ export function unescapeString(text: string){
 
 export class CPPRandom {
 
-    private seed = 0;
+    private seed: number;
+
+    public constructor(seed: number = 0) {
+        this.seed = seed;
+    }
 
     public setRandomSeed(newSeed: number) {
         this.seed = newSeed;
@@ -108,6 +112,10 @@ export class CPPRandom {
     public random(min: number = 0, max: number = 1) {
         this.seed = (this.seed * 9301 + 49297) % 233280;
         return this.seededRandom(this.seed, min, max);
+    }
+
+    public randomInteger(min: number, max: number) {
+        return Math.floor(this.random(min, max));
     }
 
     public seededRandom(seed: number, min: number = 0, max: number = 1) {

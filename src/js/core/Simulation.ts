@@ -104,6 +104,8 @@ export class Simulation {
 
     public readonly cin: SimulationInputStream;
 
+    public readonly rng: CPPRandom;
+
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
     public readonly isBlockingUntilCin: boolean;
@@ -159,6 +161,7 @@ export class Simulation {
         this.allOutput = "";
         asMutable(this.outputProduced).length = 0;
         this.cin = cin ?? new SimulationInputStream();
+        this.rng = new CPPRandom();
 
         this.start();
     }
@@ -186,6 +189,7 @@ export class Simulation {
         (<Mutable<this>>this).allOutput = "";
         asMutable(this.outputProduced).length = 0;
         (<Mutable<this>>this).cin.reset();
+        (<Mutable<this>>this).rng = new CPPRandom();
 
         this.observable.send("reset");
 
@@ -544,7 +548,6 @@ export class Simulation {
     }
 
     public cinInput(text: string) {
-        text = text + "\n";
         ++(<Mutable<this>>this).stepsTaken;
         this._actionsTaken.push({kind: SimulationActionKind.CIN_INPUT, text: text});
         this.cin.addToBuffer(text);
@@ -810,7 +813,7 @@ export class SimulationInputStream {
             // no spaces, whole buffer is one word
             let word = this.buffer;
             this.updateBuffer("");
-            return word;
+            return word.trim();
         }
         else {
             // extract first word, up to but not including space
@@ -818,7 +821,7 @@ export class SimulationInputStream {
 
             // remove from buffer, including space.
             this.updateBuffer(this.buffer.substring(firstSpace + 1));
-            return word;
+            return word.trim();
         }
     }
 }
