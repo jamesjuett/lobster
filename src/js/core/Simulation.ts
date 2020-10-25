@@ -1,15 +1,15 @@
 import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
-import { CPPRandom, Mutable, escapeString } from "../util/util";
+import { RuntimeConstruct, RuntimeGlobalObjectAllocator } from "./constructs";
+import { CPPRandom, Mutable, escapeString, asMutable, assertNever } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
 import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
-import { first } from "lodash";
+import { first, clone } from "lodash";
 
 
 export enum SimulationEvent {
@@ -20,6 +20,47 @@ export enum SimulationEvent {
     ASSERTION_FAILURE = "assertion_failure",
     CRASH = "crash",
 }
+
+export enum SimulationActionKind {
+    STEP_FORWARD,
+    CIN_INPUT
+}
+
+export interface StepForwardAction {
+    kind: SimulationActionKind.STEP_FORWARD;
+}
+
+export interface CinInputAction {
+    kind: SimulationActionKind.CIN_INPUT;
+    text: string;
+}
+
+export type SimulationAction = 
+    StepForwardAction |
+    CinInputAction;
+
+export const STEP_FORWARD_ACTION : StepForwardAction = {
+    kind: SimulationActionKind.STEP_FORWARD
+};
+
+export enum SimulationOutputKind {
+    COUT,
+    CIN_ECHO
+}
+
+export interface CoutOutput {
+    kind: SimulationOutputKind.COUT;
+    text: string;
+}
+
+export interface CinEchoOutput {
+    kind: SimulationOutputKind.CIN_ECHO;
+    text: string;
+}
+
+export type SimulationOutput = 
+    CoutOutput |
+    CinEchoOutput;
 
 export type SimulationMessages =
     "started" |
@@ -38,6 +79,7 @@ export type SimulationMessages =
     "returnPassed" |
     "istreamBufferUpdated" | 
     "cout" |
+    "cinInput" |
     "eventOccurred";
 
 // TODO: add observer stuff
@@ -55,12 +97,16 @@ export class Simulation {
     public readonly random = new CPPRandom();
 
     public readonly stepsTaken: number;
+    private readonly _actionsTaken: SimulationAction[] = [];
+    public readonly actionsTaken: readonly SimulationAction[] = this._actionsTaken;
     public readonly allOutput: string;
+    public readonly outputProduced: readonly SimulationOutput[] = [];
 
     public readonly cin: SimulationInputStream;
 
     public readonly isPaused: boolean;
     public readonly atEnd: boolean;
+    public readonly isBlockingUntilCin: boolean;
 
     private readonly pendingNews: DynamicObject[];
     private leakCheckIndex: number;
@@ -88,8 +134,9 @@ export class Simulation {
 
     public readonly mainReturnObject!: MainReturnObject;
     public readonly mainFunction!: RuntimeFunction<FunctionType<Int>>;
+    public readonly globalAllocator!: RuntimeGlobalObjectAllocator;
 
-    constructor(program: RunnableProgram) {
+    constructor(program: RunnableProgram, cin?: SimulationInputStream) {
         this.program = program;
 
         // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;
@@ -105,19 +152,20 @@ export class Simulation {
 
         this.isPaused = true;
         this.stepsTaken = 0;
+        this._actionsTaken.length = 0;
         this.atEnd = false;
+        this.isBlockingUntilCin = false;
 
         this.allOutput = "";
-        this.cin = new SimulationInputStream();
+        asMutable(this.outputProduced).length = 0;
+        this.cin = cin ?? new SimulationInputStream();
 
         this.start();
     }
 
     public clone(stepsTaken = this.stepsTaken) {
         let newSim = new Simulation(this.program);
-        for (let i = 0; i < stepsTaken; ++i) {
-            newSim.stepForward();
-        }
+        this.actionsTaken.slice(0, stepsTaken).forEach(action => newSim.takeAction(action));
         return newSim;
     }
 
@@ -131,9 +179,12 @@ export class Simulation {
         let _this = <Mutable<this>>this;
         _this.isPaused = true;
         _this.stepsTaken = 0;
+        this._actionsTaken.length = 0;
         _this.atEnd = false;
+        _this.isBlockingUntilCin = false;
 
         (<Mutable<this>>this).allOutput = "";
+        asMutable(this.outputProduced).length = 0;
         (<Mutable<this>>this).cin.reset();
 
         this.observable.send("reset");
@@ -150,17 +201,13 @@ export class Simulation {
         // in this.callMain()
 
         this.callMain();
-        let globalAllocator = this.program.globalObjectAllocator.createRuntimeConstruct(this);
-        this.push(globalAllocator);
+        (<Mutable<this>>this).globalAllocator = this.program.globalObjectAllocator.createRuntimeConstruct(this);
+        this.push(this.globalAllocator);
 
         this.observable.send("started");
 
         // Needed for whatever is first on the execution stack
         this.upNext();
-
-        while(!globalAllocator.isDone) {
-            this.stepForward();
-        }
     }
 
     private callMain() {
@@ -231,7 +278,26 @@ export class Simulation {
         };
     }
 
+    public takeAction(action: SimulationAction) {
+        switch(action.kind) {
+            case SimulationActionKind.STEP_FORWARD:
+                this.stepForward();
+                break;
+            case SimulationActionKind.CIN_INPUT:
+                this.cinInput(action.text);
+                break;
+            default:
+                assertNever(action);
+        }
+    }
+
     public stepForward() {
+        if (this.isBlockingUntilCin) {
+            return;
+        }
+
+        ++(<Mutable<this>>this).stepsTaken;
+        this._actionsTaken.push({kind: SimulationActionKind.STEP_FORWARD});
 
         // Top rt construct will do stuff
         let rt = this.top();
@@ -244,8 +310,6 @@ export class Simulation {
         this.observable.send("beforeStepForward", rt);
         rt.stepForward();
         this.observable.send("afterStepForward", rt);
-
-        ++(<Mutable<this>>this).stepsTaken;
 
         // After each step call upNext. Note that the "up next" construct may
         // be different if rt popped itself off the stack. upNext also checks
@@ -289,7 +353,7 @@ export class Simulation {
     }
 
     public stepToEnd() {
-        while (!this.atEnd) {
+        while (!this.atEnd && !this.isBlockingUntilCin) {
             this.stepForward();
         }
     }
@@ -479,6 +543,20 @@ export class Simulation {
         this.observable.send("returnPassed", rt);
     }
 
+    public cinInput(text: string) {
+        text = text + "\n";
+        ++(<Mutable<this>>this).stepsTaken;
+        this._actionsTaken.push({kind: SimulationActionKind.CIN_INPUT, text: text});
+        this.cin.addToBuffer(text);
+        asMutable(this.outputProduced).push({kind: SimulationOutputKind.CIN_ECHO, text: text});
+        (<Mutable<this>>this).isBlockingUntilCin = false;
+        this.observable.send("cinInput", text);
+    }
+
+    public blockUntilCin() {
+        (<Mutable<this>>this).isBlockingUntilCin = true;
+    }
+
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
         let text = "";
@@ -494,6 +572,7 @@ export class Simulation {
             text = escapeString(value.valueToOstreamString());
         }
         (<Mutable<this>>this).allOutput += text;
+        asMutable(this.outputProduced).push({kind: SimulationOutputKind.COUT, text: text});
         this.observable.send("cout", text);
     }
 
@@ -676,39 +755,70 @@ export class SimulationInputStream {
     public readonly observable = new Observable<SimulationInputStreamMessages>(this);
 
     public readonly buffer: string = "";
+
+    // public readonly bufferAdditionRecord : readonly {readonly stepsTaken: number; readonly contents: string}[] = [];
     
+    // public clone() {
+    //     let dup = new SimulationInputStream();
+    //     (<Mutable<SimulationInputStream>>dup).buffer = this.buffer;
+    //     (<Mutable<SimulationInputStream>>dup).bufferAdditionRecord = clone(this.bufferAdditionRecord)
+    //     return dup;
+    // }
+
     public reset() {
         (<Mutable<this>>this).buffer = "";
+        // (<Mutable<this>>this).bufferAdditionRecord = [];
+        return this;
     }
+    
+    // public rewind(stepsTaken: number) {
+    //     let i = this.bufferAdditionRecord.length;
+    //     while (i > 0 && this.bufferAdditionRecord[i-1].stepsTaken >= stepsTaken+1) {
+    //         --i;
+    //     }
+
+    //     (<Mutable<this>>this).bufferAdditionRecord = this.bufferAdditionRecord.slice(0, i);
+    //     this.updateBuffer(this.bufferAdditionRecord.map(record => record.contents).join(""));
+    //     return this;
+    // }
 
     public addToBuffer(s: string) {
-        (<Mutable<this>>this).buffer += s;
+        this.updateBuffer(this.buffer + s);
+        // asMutable(this.bufferAdditionRecord).push({stepsTaken:stepsTaken, contents: s});
+        return this;
+    }
+
+    private updateBuffer(contents: string) {
+        (<Mutable<this>>this).buffer = contents;
         this.observable.send("bufferUpdated", this.buffer);
     }
 
-    public extractFromBuffer(type: ArithmeticType) {
+    public extractAndParseFromBuffer(type: ArithmeticType) {
         if (isType(type, Char)) {
             let c = this.buffer.charAt(0);
             (<Mutable<this>>this).buffer = this.buffer.substring(1);
             return type.parse(c);
         }
         else {
-            let firstSpace = this.buffer.indexOf(" ");
-            if (firstSpace === -1) {
-                // no spaces, whole buffer is one word
-                let word = this.buffer;
-                (<Mutable<this>>this).buffer = "";
-                return type.parse(word);
-            }
-            else {
-                // extract first word, up to but not including space
-                let word = this.buffer.substring(0, firstSpace);
+            return type.parse(this.extractWordFromBuffer());
+        }
+    }
 
-                // remove from buffer, including space.
-                (<Mutable<this>>this).buffer = this.buffer.substring(firstSpace + 1);
+    public extractWordFromBuffer() {
+        let firstSpace = this.buffer.indexOf(" ");
+        if (firstSpace === -1) {
+            // no spaces, whole buffer is one word
+            let word = this.buffer;
+            this.updateBuffer("");
+            return word;
+        }
+        else {
+            // extract first word, up to but not including space
+            let word = this.buffer.substring(0, firstSpace);
 
-                return type.parse(word);
-            }
+            // remove from buffer, including space.
+            this.updateBuffer(this.buffer.substring(firstSpace + 1));
+            return word;
         }
     }
 }

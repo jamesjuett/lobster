@@ -9,6 +9,7 @@ import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFun
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
 import { CPPObject } from "./objects";
+import { ForStatement, WhileStatement } from "./statements";
 
 
 
@@ -98,6 +99,7 @@ export interface MemberFunctionContext extends FunctionContext {
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
+    readonly withinLoop?: true;
 }
 
 export interface MemberBlockContext extends BlockContext {
@@ -108,7 +110,11 @@ export function isBlockContext(context: TranslationUnitContext): context is Bloc
     return context.contextualScope instanceof BlockScope;
 }
 
-
+export function createLoopContext<C extends BlockContext>(parentContext: C) {
+    return Object.assign({}, parentContext, {
+        withinLoop: true
+    });
+}
 
 // export class ClassMembers {
 
@@ -430,8 +436,12 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         //     }
         // }
         if (this.cleanupStarted) {
-            this.sim.pop();
-            return;
+            if (this.cleanupConstruct && !this.cleanupConstruct.isDone) {
+                this.sim.push(this.cleanupConstruct);
+            }
+            else {
+                this.sim.pop();
+            }
         }
         else {
             return this.upNextImpl();
@@ -461,15 +471,19 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
     public startCleanup() {
 
-        // Cleanup should not be started if you have children pending on the stack
-        assert(this === this.sim.top());
-
         (<Mutable<this>>this).cleanupStarted = true;
-        if (this.cleanupConstruct) {
-            this.sim.push(this.cleanupConstruct);
-        }
-        else {
-            this.sim.pop();
+
+        // If we're on top of the stack, go ahead and start the cleanup
+        // (otherwise, wait until the next time we're on top and receive an upNext)
+        // We do need to do this now, since startCleanup() could be called from
+        // somewhere where we don't immediately get another upNext()
+        if (this === this.sim.top()) {
+            if (this.cleanupConstruct) {
+                this.sim.push(this.cleanupConstruct);
+            }
+            else {
+                this.sim.pop();
+            }
         }
     }
 

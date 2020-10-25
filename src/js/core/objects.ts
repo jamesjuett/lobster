@@ -550,6 +550,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("validitySet", valid);
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is CPPObject<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public abstract describe(): ObjectDescription;
 
 };

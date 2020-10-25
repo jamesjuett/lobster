@@ -68,6 +68,10 @@ export function htmlDecoratedValue(value: string){
     return '<span class="code-literal">' + value + '</span>';
 };
 
+export function htmlDecoratedObject(value: string){
+    return '<span class="code-object">' + value + '</span>';
+};
+
 
 var escapes = ["\\\"", "\\'", "\\?", "\\\\", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\0"];
 var escaped = ["\"", "\'", "", "\\", "", "\b", "\f", "\n", "\r", "\t", "\v", "\0"];

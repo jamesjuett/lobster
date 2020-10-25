@@ -817,7 +817,7 @@ export class Char extends IntegralType {
             return c.charCodeAt(0);
         });
         chars.push(0); // null character
-        return chars;
+        return chars.map(c => new Value(c, Char.CHAR));
     }
 
     public valueToString(value: RawValueType) {

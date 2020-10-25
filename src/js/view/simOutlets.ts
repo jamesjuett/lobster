@@ -2,14 +2,14 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
-import { Simulation } from "../core/Simulation";
+import { Simulation, SimulationInputStream, SimulationOutputKind } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet, Project } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
-import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
+import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";
 import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
@@ -244,6 +244,7 @@ export class SimulationOutlet {
 
     public readonly codeStackOutlet: CodeStackOutlet;
     public readonly memoryOutlet: MemoryOutlet;
+    public readonly cinBufferOutlet: IstreamBufferOutlet;
 
     private readonly element: JQuery;
     private readonly runningProgressElem: JQuery;
@@ -262,6 +263,7 @@ export class SimulationOutlet {
         this.consoleContentsElem = findExactlyOne(element, ".lobster-console-contents");
         this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
         this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
+        this.cinBufferOutlet = new IstreamBufferOutlet(findExactlyOne(element, ".lobster-cin-buffer"), "cin");
 
         let stepForwardNumElem = findExactlyOne(element, ".stepForwardNum").val(1);
         let stepBackwardNumElem = findExactlyOne(element, ".stepBackwardNum").val(1);
@@ -339,8 +341,7 @@ export class SimulationOutlet {
                         return;
                     }
                     this.cinEntryElem.val("");
-                    this.consoleContentsElem.append(`<span class="lobster-console-user-input">${input}</span>\n`);
-                    this.sim?.cin.addToBuffer(input);
+                    this.sim?.cinInput(input)
                 }
             });
         findExactlyOne(element, ".console").on("click", () => {
@@ -363,12 +364,17 @@ export class SimulationOutlet {
 
         this.codeStackOutlet.setSimulation(sim);
         this.memoryOutlet.setMemory(sim.memory);
-        this.consoleContentsElem.html(sim.allOutput);
+        this.cinBufferOutlet.setIstream(sim.cin);
+        this.consoleContentsElem.html(sim.outputProduced.map(
+            out => out.kind === SimulationOutputKind.COUT
+                ? out.text
+                : `<span class="lobster-console-user-input">${out.text}</span>`).join(""));
     }
     
     public clearSimulation() {
         this.codeStackOutlet.clearSimulation();
         this.memoryOutlet.clearMemory();
+        this.cinBufferOutlet.clearIstream();
 
         if (this.sim) {
             stopListeningTo(this, this.sim);
@@ -381,9 +387,11 @@ export class SimulationOutlet {
         this.codeStackOutlet.refreshSimulation();
         if (this.sim) {
             this.memoryOutlet.setMemory(this.sim.memory)
+            this.cinBufferOutlet.setIstream(this.sim.cin);
         }
         else {
             this.memoryOutlet.clearMemory();
+            this.cinBufferOutlet.clearIstream();
         }
     }
 
@@ -402,6 +410,9 @@ export class SimulationOutlet {
         if (!this.sim) { return; }
         this.setEnabledButtons({}, true);
         await this.simRunner!.reset();
+        while(!this.sim.globalAllocator.isDone) {
+            await this.simRunner!.stepForward();
+        }
     }
     
     private async stepForward(n: number = 1) {
@@ -569,6 +580,11 @@ export class SimulationOutlet {
         this.consoleContentsElem.append(msg.data);
         this.element.find(".console").scrollTop(this.element.find(".console")[0].scrollHeight);
     }
+
+    @messageResponse("cinInput")
+    private onCinInput(msg: Message<string>) {
+        this.consoleContentsElem.append(`<span class="lobster-console-user-input">${msg.data}</span>`);
+    }
     
     @messageResponse("reset")
     private reset() {
@@ -630,7 +646,11 @@ export class DefaultLobsterOutlet {
             .click(() => {
             let program = this.project.program;
             if (program.isRunnable()) {
-                this.setSimulation(new Simulation(program));
+                let sim = new Simulation(program);
+                while(!sim.globalAllocator.isDone) {
+                    sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
+                }
+                this.setSimulation(sim);
             }
             this.element.find(".lobster-simulate-tab").tab("show");
         });
@@ -1412,7 +1432,7 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
     }
 }
 
-export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
+export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
     protected readonly objElem: JQuery;
     private readonly addrElem?: JQuery;
@@ -1471,16 +1491,62 @@ export class ClassMemoryObject<T extends CompleteClassType> extends MemoryObject
 
 
 
+export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
+
+    protected readonly addrElem : JQuery;
+    protected readonly objElem : JQuery;
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+        
+        this.element.addClass("code-memoryObjectSingle");
+
+        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
+        this.element.append(this.addrElem);
+
+        this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
+        this.element.append(this.objElem);
+
+        if (this.object.name) {
+            this.element.append("<span> </span>");
+            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        }
+
+        this.updateObject();
+        
+    }
+
+    protected updateObject() {
+        var elem = this.objElem;
+        var str = getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue());
+        if (this.object.type.isType(Char)) {
+            str = str.substr(1,str.length-2);
+        }
+        elem.html(str);
+        if ((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).isValueValid()) {
+            elem.removeClass("invalid");
+        }
+        else{
+            elem.addClass("invalid");
+        }
+    }
+}
+
+
+
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
-    if(obj.type.isPointerType()) {
+    if(obj.isTyped(isPointerType)) {
         assert(obj.type.ptrTo.isCompleteObjectType(), "pointers to incomplete types should not exist at runtime");
         return new PointerMemoryObject(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
     }
-    else if(obj.type.isBoundedArrayType()) {
+    else if(obj.isTyped(isBoundedArrayType)) {
         return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
     }
-    else if(obj.type.isCompleteClassType()) {
-        return new ClassMemoryObject(elem, <CPPObject<CompleteClassType>>obj, memoryOutlet);
+    else if(obj.isTyped(isCompleteClassType)) {
+        if (obj.type.className === "string") {
+            return new StringMemoryObject(elem, obj, memoryOutlet);
+        }
+        return new ClassMemoryObjectOutlet(elem, <CPPObject<CompleteClassType>>obj, memoryOutlet);
     }
     else{
         return new SingleMemoryObject(elem, <CPPObject<AtomicType>>obj, memoryOutlet);
@@ -2104,6 +2170,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 }
 
 
+
+
 // Lobster.Outlets.CPP.SourceSimulation = Outlets.CPP.RunningCode.extend({
 //     _name: "SourceSimulation",
 //     init: function(element, sim, simOutlet)
@@ -2240,3 +2308,45 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
 // });
 
+
+export class IstreamBufferOutlet {
+
+    public readonly name: string;
+    public readonly istream?: SimulationInputStream;
+    
+    private readonly element: JQuery;
+    private readonly bufferContentsElem: JQuery;
+    
+    public _act!: MessageResponses;
+    
+    public constructor(element: JQuery, name: string) {
+        
+        this.element = element.addClass("lobster-istream-buffer");
+        element.append(`<span class="lobster-istream-buffer-name">${name} buffer</span>`)
+        this.name = name;
+        this.bufferContentsElem = $('<div class="lobster-istream-buffer-contents"></div>').appendTo(element);
+    }
+
+    public setIstream(istream: SimulationInputStream) {
+        this.clearIstream();
+        (<Mutable<this>>this).istream = istream;
+        listenTo(this, istream);
+
+        this.onBufferUpdate(istream.buffer);
+    }
+    
+    public clearIstream() {
+        this.bufferContentsElem.html("");
+
+        if (this.istream) {
+            stopListeningTo(this, this.istream);
+        }
+        delete (<Mutable<this>>this).istream;
+    }
+    
+    @messageResponse("bufferUpdated", "unwrap")
+    protected onBufferUpdate(contents: string) {
+        this.bufferContentsElem.html(`cin <span class="glyphicon glyphicon-arrow-left"></span> ${contents}`);
+    }
+
+}

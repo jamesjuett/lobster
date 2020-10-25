@@ -1,10 +1,10 @@
 import { registerLibraryHeader, SourceFile } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
-import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, createClassType, PotentiallyCompleteClassType, Bool, isArrayPointerType } from "../core/types";
+import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, createClassType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double } from "../core/types";
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
-import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl } from "../core/opaqueExpression";
+import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext } from "../core/opaqueExpression";
 import { ExpressionContext } from "../core/constructs";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
@@ -92,13 +92,13 @@ function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerT
     return {charValues: charValuesToCopy, validLength: !seenInvalidChar && !outOfBounds && (!nToCopy || nToCopy.isValid)};
 };
 
-function copyFromCString(rt: RuntimeExpression, rec: CPPObject<CompleteClassType>, charsToCopy: readonly Value<Char>[], validLength: boolean = true) {
+function copyFromCString(rt: RuntimeExpression, str: CPPObject<CompleteClassType>, charsToCopy: readonly Value<Char>[], validLength: boolean = true) {
     
     // If something was uncertain that could have affected the length, invalidate capacity/size
-    getCapacity(rec).writeValue(new Value(charsToCopy.length, Int.INT, validLength));
-    getSize(rec).writeValue(new Value(charsToCopy.length-1, Int.INT, validLength));
+    getCapacity(str).writeValue(new Value(charsToCopy.length, Int.INT, validLength));
+    getSize(str).writeValue(new Value(charsToCopy.length-1, Int.INT, validLength));
 
-    allocateNewArray(rt, rec, charsToCopy.length, charsToCopy);
+    allocateNewArray(rt, str, charsToCopy.length, charsToCopy);
 }
 
 // var resizeStrang = function(sim: Simulation, rtConstruct: RuntimeConstruct, n, c) {
@@ -232,17 +232,17 @@ public:
     //     @string::~string;
     // }
 
-    // string &operator=(const string &rhs) {
-    //     return @string::operator=_copy;
-    // }
+    string &operator=(const string &rhs) {
+        return @string::operator=_string;
+    }
 
-    // string &operator=(&operator=(const char *cstr)) {
-    //     return @string::operator=_cstring;
-    // }
+    string &operator=(const char *cstr) {
+        return @string::operator=_cstring;
+    }
 
-    // string &operator=(&operator=(char c)) {
-    //     return @string::operator=_char;
-    // }
+    string &operator=(char c) {
+        return @string::operator=_char;
+    }
 
     // void begin() @library_unsupported;
     // void end() @library_unsupported;
@@ -357,10 +357,17 @@ bool operator>=(const string &left, const string &right) {
     return @operator>=_string_string;
 }
 
+ostream &operator<<(ostream &os, const string &str) {
+    return @operator<<_ostream_string;
+}
+
+istream &operator>>(istream &is, const string &str) {
+    return @operator>>_istream_string;
+}
+
 `
     )
 );
-
 
 function getCapacity(obj: CPPObject<CompleteClassType>) {
     return <MemberSubobject<Int>>obj.getMemberObject("_capacity");
@@ -370,7 +377,7 @@ function getSize(obj: CPPObject<CompleteClassType>) {
     return <MemberSubobject<Int>>obj.getMemberObject("_size");
 }
 
-function getDataPtr(obj: CPPObject<CompleteClassType>) {
+export function getDataPtr(obj: CPPObject<CompleteClassType>) {
     return <MemberSubobject<ArrayPointerType<Char>>>obj.getMemberObject("data_ptr");
 }
 
@@ -384,15 +391,9 @@ function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: str
     }
 }
 
-function lookupStringType(context: ExpressionContext) {
-    let customType = context.contextualScope.lookup("string");
-    assert(customType?.declarationKind === "class");
-    return customType.type.cvUnqualified();
-}
-
 function extractStringValue(cstr: CPPObject<ArrayPointerType<Char>> | Value<ArrayPointerType<Char>>) {
     let chars = cstr.type.arrayObject.getValue();
-    return chars.slice(0, chars.findIndex(c => Char.isNullChar(c))).map(c => c.rawValue).join("");
+    return chars.slice(0, chars.findIndex(c => Char.isNullChar(c))).map(c => String.fromCharCode(c.rawValue)).join("");
 }
 
 registerOpaqueExpression("string::string_default", {
@@ -403,7 +404,7 @@ registerOpaqueExpression("string::string_default", {
         getSize(rt.contextualReceiver).writeValue(new Value(0, Int.INT));
 
         allocateNewArray(rt, rt.contextualReceiver, initialStrangCapacity, [Char.NULL_CHAR])
-        let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
+        // let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
     }
 });
 
@@ -886,6 +887,87 @@ registerOpaqueExpression(
         type: Bool.BOOL,
         valueCategory: "prvalue",
         operate: compareStrings((left, right) => left >= right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<<_ostream_string",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("ostream"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            rt.sim.cout(getDataPtr(getLocal<CompleteClassType>(rt, "str")).getValue());
+            return getLocal<CompleteClassType>(rt, "os");
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "operator>>_istream_string",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("istream"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+
+            let chars = Char.jsStringToNullTerminatedCharArray(rt.sim.cin.extractWordFromBuffer());
+
+            let str = getLocal<CompleteClassType>(rt, "str");
+
+            rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+            copyFromCString(rt, str, chars)
+            return getLocal<CompleteClassType>(rt, "is");
+        }
+    }
+);
+
+
+registerOpaqueExpression(
+    "string::operator=_string",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            let rec = rt.contextualReceiver;
+            let rhs = getLocal<CompleteClassType>(rt, "rhs");
+            
+            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(rhs).getValue());
+            copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
+            return rt.contextualReceiver;
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::operator=_cstring",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            let rec = rt.contextualReceiver;
+            let cstr = getLocal<PointerType<Char>>(rt, "cstr");
+            
+            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            let {charValues, validLength} = extractCharsFromCString(rt, cstr.getValue());
+            copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
+            return rt.contextualReceiver;
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::operator=_char",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            let rec = rt.contextualReceiver;
+            let c = getLocal<Char>(rt, "c");
+            
+            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            copyFromCString(rt, rt.contextualReceiver, [c.getValue(), Char.NULL_CHAR]);
+            return rt.contextualReceiver;
+        }
     }
 );
 

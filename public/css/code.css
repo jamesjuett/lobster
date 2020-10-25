@@ -222,6 +222,7 @@
 .codeInstance.code-implicitConversion,
 .codeInstance.code-lValueToRValue,
 .codeInstance.code-arrayToPointer,
+.codeInstance.code-streamToBool,
 .codeInstance.code-qualificationConversion{
     padding-left:1px;
     padding-right:1px;
@@ -238,6 +239,11 @@
 }
 
 .codeInstance.code-arrayToPointer.upNext > .lobster-highlight{
+    border: solid 1px rgb(176,255,158);
+    background-color: rgba(176,255,158,0.3);
+}
+
+.codeInstance.code-streamToBool.upNext > .lobster-highlight{
     border: solid 1px rgb(176,255,158);
     background-color: rgba(176,255,158,0.3);
 }
@@ -808,6 +814,13 @@ position: relative;}
 .code-literal {
     white-space: pre;
     color: #ae81ff;
+}
+
+.code-object {
+    display: inline-block;
+    min-width: 1em;
+    white-space: pre;
+    border: solid 1px white;
 }
 
 .code-string-literal {
