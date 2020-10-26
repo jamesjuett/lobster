@@ -1,6 +1,9 @@
 import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
 import { FunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Mutable } from "../util/util";
+import { setCPP_ANIMATIONS } from "../view/simOutlets";
+import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 
 
 export class SynchronousSimulationRunner {
@@ -258,9 +261,10 @@ export class AsynchronousSimulationRunner {
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public async stepToEnd(delay: number = this.delay, stepLimit?: number) {
+    public async stepToEnd(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
         let stepsTaken = 0;
-        while (!this.simulation.atEnd && (stepLimit === undefined || stepsTaken < stepLimit)) {
+        while (!this.simulation.atEnd && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
             await this.takeOneAction(STEP_FORWARD_ACTION, delay);
             ++stepsTaken;
         }
@@ -275,15 +279,60 @@ export class AsynchronousSimulationRunner {
      */
     public async stepOver(delay: number = this.delay) {
         let top = this.simulation.top();
-        if (top instanceof RuntimeFunctionCall) {
+
+        if (!top) {
+            return;
+        }
+
+        // if (top instanceof RuntimeFunctionCall) {
             while (!top.isDone) {
                 await this.takeOneAction(STEP_FORWARD_ACTION, delay);
             }
-        }
-        else {
-            await this.stepForward();
-        }
+        // }
+        // else {
+        //     await this.stepForward();
+        // }
     }
+
+    
+    public async stepOverLibrary(delay: number = this.delay) {
+        let top = this.simulation.top();
+        let originalTop = top;
+
+        if (!top || !originalTop) {
+            return;
+        }
+
+        // Take first step with no delay
+        // if (top instanceof RuntimeFunctionCall && top.model.func.firstDeclaration.context.isLibrary) {
+        
+        if ((<any>top.model.context).isLibrary) {
+            setCPP_ANIMATIONS(false);
+        }
+        await this.takeOneAction(STEP_FORWARD_ACTION, 0);
+
+        if ((<any>top.model.context).isLibrary) {
+            setCPP_ANIMATIONS(false);
+        }
+        // if (top instanceof RuntimeFunctionCall) {
+            top = this.simulation.top();
+            while (top && !originalTop.isDone && ((<any>top.model.context).isLibrary
+                || (top instanceof RuntimeFunctionCall && top.calledFunction.model.context.isLibrary)
+                || (top instanceof RuntimeDirectInitializer && top.model.target instanceof PassByReferenceParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary)
+                || (top instanceof RuntimeDirectInitializer && top.model.target instanceof PassByValueParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary)
+                )) {
+                await this.takeOneAction(STEP_FORWARD_ACTION, delay);
+                top = this.simulation.top();
+            }
+            
+        setCPP_ANIMATIONS(true);
+        
+        // }
+        // else {
+        //     await this.stepForward();
+        // }
+    }
+
 
 
     /**

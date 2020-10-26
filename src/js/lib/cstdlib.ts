@@ -14,7 +14,7 @@ registerLibraryHeader("cstdlib",
 
 void srand(int seed) {
     @srand;
-}`
+}`, true
     )
 );
 

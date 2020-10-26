@@ -5,7 +5,7 @@ import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
 import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
@@ -320,10 +320,12 @@ export class SourceFile {
 
     public readonly name: string;
     public readonly text: string;
+    public readonly isLibrary: boolean;
 
-    public constructor(name: string, text: string) {
+    public constructor(name: string, text: string, isLibrary: boolean = false) {
         this.name = name;
         this.text = text;
+        this.isLibrary = isLibrary;
     }
 
     // setText : function(text) {
@@ -720,7 +722,11 @@ export class TranslationUnit {
 
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
-            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, this.context);
+            let sourceRef = this.getSourceReferenceForAST(declAST);
+            let topLevelContext = sourceRef.sourceFile.isLibrary
+                ? createLibraryContext(this.context) : this.context;
+            
+            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, topLevelContext);
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
                     asMutable(this.topLevelDeclarations).push(decl);
@@ -751,6 +757,11 @@ export class TranslationUnit {
         return this.getSourceReference(src.line, src.column, src.start, src.end);
     }
 
+    public getSourceReferenceForAST(ast: ASTNode) {
+        let src = ast.source;
+        return this.getSourceReference(src.line, src.column, src.start, src.end);
+    }
+
     public getSourceReference(line: number, column: number, start: number, end: number) {
         return this.source.getSourceReference(line, column, start, end);
     }
@@ -770,7 +781,7 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
         const char endl = '\\n';
         class istream {};
         istream cin;
-    `)
+    `, true)
 }
 
 export function registerLibraryHeader(name: string, file: SourceFile) {

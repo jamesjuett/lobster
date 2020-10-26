@@ -17,7 +17,7 @@ function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerT
 
     if (PointerType.isNull(ptrValue.rawValue)) {
         sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using was null. This results in undefined behavior.");
-        return;
+        return {charValues: [], validLength: false};
     }
 
     let charValuesToCopy : Value<Char>[] = [];
@@ -208,13 +208,13 @@ public:
         @string::string_copy;
     }
 
-    string(const string &other, size_t pos, size_t len) {
-        @string::string_substring_1;
-    }
+    // string(const string &other, size_t pos, size_t len) {
+    //     @string::string_substring_1;
+    // }
 
-    string(const string &other, size_t pos) {
-        @string::string_substring_2;
-    }
+    // string(const string &other, size_t pos) {
+    //     @string::string_substring_2;
+    // }
 
     string(const char *cstr) {
         @string::string_cstring;
@@ -242,6 +242,18 @@ public:
 
     string &operator=(char c) {
         return @string::operator=_char;
+    }
+
+    string &operator+=(const string &rhs) {
+        return @string::operator+=_string;
+    }
+
+    string &operator+=(const char *cstr) {
+        return @string::operator+=_cstring;
+    }
+
+    string &operator+=(char c) {
+        return @string::operator+=_char;
     }
 
     // void begin() @library_unsupported;
@@ -357,17 +369,81 @@ bool operator>=(const string &left, const string &right) {
     return @operator>=_string_string;
 }
 
+bool operator==(const string &left, const char *right) {
+    return @operator==_string_cstring;
+}
+
+bool operator!=(const string &left, const char *right) {
+    return @operator!=_string_cstring;
+}
+
+bool operator<(const string &left, const char *right) {
+    return @operator<_string_cstring;
+}
+
+bool operator<=(const string &left, const char *right) {
+    return @operator<=_string_cstring;
+}
+
+bool operator>(const string &left, const char *right) {
+    return @operator>_string_cstring;
+}
+
+bool operator>=(const string &left, const char *right) {
+    return @operator>=_string_cstring;
+}
+
+bool operator==(const char *left, const string &right) {
+    return @operator==_cstring_string;
+}
+
+bool operator!=(const char *left, const string &right) {
+    return @operator!=_cstring_string;
+}
+
+bool operator<(const char *left, const string &right) {
+    return @operator<_cstring_string;
+}
+
+bool operator<=(const char *left, const string &right) {
+    return @operator<=_cstring_string;
+}
+
+bool operator>(const char *left, const string &right) {
+    return @operator>_cstring_string;
+}
+
+bool operator>=(const char *left, const string &right) {
+    return @operator>=_cstring_string;
+}
+
 ostream &operator<<(ostream &os, const string &str) {
     return @operator<<_ostream_string;
 }
 
-istream &operator>>(istream &is, const string &str) {
+istream &operator>>(istream &is, string &str) {
     return @operator>>_istream_string;
 }
 
-int stoi(const string &s) {
+istream &getline(istream &is, string &str) {
+    return @getline_istream_string;
+}
+
+int stoi(const string &str) {
     return @stoi;
-}`
+}
+
+int stol(const string &str) {
+    return @stoi;
+}
+
+int stod(const string &str) {
+    return @stod;
+}
+
+int stof(const string &str) {
+    return @stod;
+}`, true
     )
 );
 
@@ -380,12 +456,11 @@ function getSize(obj: CPPObject<CompleteClassType>) {
 }
 
 export function getDataPtr(obj: CPPObject<CompleteClassType>) {
-    return <MemberSubobject<ArrayPointerType<Char>>>obj.getMemberObject("data_ptr");
+    return <MemberSubobject<PointerType<Char>>>obj.getMemberObject("data_ptr");
 }
 
-function extractStringValue(cstr: CPPObject<ArrayPointerType<Char>> | Value<ArrayPointerType<Char>>) {
-    let chars = cstr.type.arrayObject.getValue();
-    return chars.slice(0, chars.findIndex(c => Char.isNullChar(c))).map(c => String.fromCharCode(c.rawValue)).join("");
+function extractStringValue(rt: RuntimeExpression, cstr: Value<PointerType<Char>>) {
+    return extractCharsFromCString(rt, cstr).charValues.map(c => String.fromCharCode(c.rawValue)).join("");
 }
 
 registerOpaqueExpression("string::string_default", {
@@ -407,82 +482,76 @@ registerOpaqueExpression("string::string_copy", {
 
         let rec = rt.contextualReceiver;
         let other = getLocal<CompleteClassType>(rt, "other");
-        let newSize = getSize(other).getValue();
-        let newCapacity = newSize.addRaw(1);
 
-        // copy regular members
-        getCapacity(rec).writeValue(newCapacity);
-        getSize(rec).writeValue(newSize);
-
-        // deep copy the array
-        let otherArrElems = getDataPtr(other).type.arrayObject.getValue();
-        allocateNewArray(rt, rec, newCapacity.rawValue, otherArrElems);
+        let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(other).getValue());
+        copyFromCString(rt, rec, charValues, validLength);
     }
 });
 
 // Substring ctor (with 3rd argument provided)
-registerOpaqueExpression("string::string_substring_1", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+// registerOpaqueExpression("string::string_substring_1", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
 
-        let rec = rt.contextualReceiver;
-        let other = getLocal<CompleteClassType>(rt, "other");
-        let pos = getLocal<Int>(rt, "pos").getValue();
+//         let rec = rt.contextualReceiver;
+//         let other = getLocal<CompleteClassType>(rt, "other");
+//         let pos = getLocal<Int>(rt, "pos").getValue();
         
-        let availableChars = getSize(other).getValue().sub(pos);
+//         let availableChars = getSize(other).getValue().sub(pos);
 
-        if (availableChars.rawValue < 0) {
-            rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
-        }
-        else {
-            let len = getLocal<Int>(rt, "len").getValue();
-            let newSize = len.combine(availableChars, (a,b) => Math.min(a,b));
-            let newCapacity = newSize.addRaw(1);
+//         if (availableChars.rawValue < 0) {
+//             rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
+//         }
+//         else {
+//             let len = getLocal<Int>(rt, "len").getValue();
+//             let newSize = len.combine(availableChars, (a,b) => Math.min(a,b));
+//             let newCapacity = newSize.addRaw(1);
             
-            // copy regular members
-            getCapacity(rec).writeValue(newCapacity);
-            getSize(rec).writeValue(newSize);
+//             let newChars = extractCharsFromCString(rt, getDataPtr(other).getValue()).charValues.slice(pos.rawValue, pos.rawValue + newSize.rawValue);
+            
+//             // copy regular members
+//             getCapacity(rec).writeValue(newCapacity);
+//             getSize(rec).writeValue(newSize);
 
-            // deep copy the array
-            let newChars = getDataPtr(other).type.arrayObject.getValue().slice(pos.rawValue, pos.rawValue + newSize.rawValue);
-            newChars.push(Char.NULL_CHAR);
-            allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
-        }
+//             // deep copy the array
+//             newChars.push(Char.NULL_CHAR);
+//             allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
+//         }
 
-    }
-});
+//     }
+// });
 
-// Substring ctor (without 3rd argument, so use default)
-registerOpaqueExpression("string::string_substring_2", {
-    type: VoidType.VOID,
-    valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-        let rec = rt.contextualReceiver;
-        let other = getLocal<CompleteClassType>(rt, "other");
-        let pos = getLocal<Int>(rt, "pos").getValue();
+// // Substring ctor (without 3rd argument, so use default)
+// registerOpaqueExpression("string::string_substring_2", {
+//     type: VoidType.VOID,
+//     valueCategory: "prvalue",
+//     operate: (rt: RuntimeOpaqueExpression) => {
+//         let rec = rt.contextualReceiver;
+//         let other = getLocal<CompleteClassType>(rt, "other");
+//         let pos = getLocal<Int>(rt, "pos").getValue();
         
-        let availableChars = getSize(other).getValue().sub(pos);
+//         let availableChars = getSize(other).getValue().sub(pos);
 
-        if (availableChars.rawValue < 0) {
-            rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
-        }
-        else {
-            let newSize = availableChars;
-            let newCapacity = newSize.addRaw(1);
+//         if (availableChars.rawValue < 0) {
+//             rt.sim.eventOccurred(SimulationEvent.CRASH, "The start position you requested in this string constructor is greater than the length of the other string.");
+//         }
+//         else {
+//             let newSize = availableChars;
+//             let newCapacity = newSize.addRaw(1);
             
-            // copy regular members
-            getCapacity(rec).writeValue(newCapacity);
-            getSize(rec).writeValue(newSize);
+//             // copy regular members
+//             getCapacity(rec).writeValue(newCapacity);
+//             getSize(rec).writeValue(newSize);
 
-            // deep copy the array
-            let newChars = getDataPtr(other).type.arrayObject.getValue().slice(pos.rawValue, pos.rawValue + newSize.rawValue);
-            newChars.push(Char.NULL_CHAR);
-            allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
-        }
+//             // deep copy the array
+//             let newChars = extractCharsFromCString(rt, getDataPtr(other).getValue()).charValues.slice(pos.rawValue, pos.rawValue + newSize.rawValue);
+//             newChars.push(Char.NULL_CHAR);
+//             allocateNewArray(rt, rec, newCapacity.rawValue, newChars);
+//         }
 
-    }
-});
+//     }
+// });
 
 registerOpaqueExpression("string::string_cstring", {
     type: VoidType.VOID,
@@ -534,31 +603,6 @@ registerOpaqueExpression("string::~string", {
     }
 });
 
-// registerOpaqueExpression("string::operator=_copy", {
-//     type: lookupStringType,
-//     valueCategory: "lvalue",
-//     operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
-//         // TODO
-//         return rt.contextualReceiver;
-//     }
-// });
-
-// registerOpaqueExpression("string::operator=_cstring", {
-//     type: lookupStringType,
-//     valueCategory: "prvalue",
-//     operate: (rt: RuntimeOpaqueExpression) => {
-        
-//     }
-// });
-
-// registerOpaqueExpression("string::operator=_char", {
-//     type: lookupStringType,
-//     valueCategory: "prvalue",
-//     operate: (rt: RuntimeOpaqueExpression) => {
-
-//     }
-// });
-
 registerOpaqueExpression("string::size", <OpaqueExpressionImpl<Int, "lvalue">> {
     type: Int.INT,
     valueCategory: "lvalue",
@@ -604,8 +648,8 @@ registerOpaqueExpression("string::clear", {
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
         let rec = rt.contextualReceiver;
-        let arrElems = getDataPtr(rec).type.arrayObject.getArrayElemSubobjects();
-        arrElems[0].writeValue(Char.NULL_CHAR);
+        let firstElem = rt.sim.memory.dereference(getDataPtr(rec).getValue());
+        firstElem.writeValue(Char.NULL_CHAR);
         getSize(rec).writeValue(new Value(0, Int.INT));
     }
 });
@@ -733,7 +777,7 @@ registerOpaqueExpression(
 
 
 
-function addFromCStrings(rt: RuntimeExpression, result: CPPObject<CompleteClassType>, left: Value<PointerType<Char>>, right: Value<PointerType<Char>>) {
+function addFromCStrings(rt: RuntimeExpression, result: CPPObject<CompleteClassType>, left: Value<PointerType<Char>>, right: Value<PointerType<Char>>, deleteOld: boolean = false) {
     let {charValues: leftChars, validLength: leftValidLength} = extractCharsFromCString(rt, left);
     leftChars.pop(); // remove null char that would otherwise be in the middle of left + right
     let {charValues: rightChars, validLength: rightValidLength} = extractCharsFromCString(rt, right);
@@ -746,6 +790,9 @@ function addFromCStrings(rt: RuntimeExpression, result: CPPObject<CompleteClassT
     getCapacity(result).writeValue(newCapacity);
     getSize(result).writeValue(newSize);
 
+    if (deleteOld) {
+        rt.sim.memory.heap.deleteObject(getDataPtr(result).getValue().rawValue);
+    }
     // allocate new array with enough space
     allocateNewArray(rt, result, newCapacity.rawValue, newChars);
 }
@@ -862,7 +909,27 @@ function compareStrings(compare: (left: string, right: string) => boolean) {
         let right = getLocal<CompleteClassType>(rt, "right");
 
         // TODO: this doesn't preserve runtime type validity information
-        return new Value(compare(extractStringValue(getDataPtr(left)), extractStringValue(getDataPtr(right))) ? 1 : 0, Bool.BOOL);
+        return new Value(compare(extractStringValue(rt, getDataPtr(left).getValue()), extractStringValue(rt, getDataPtr(right).getValue())) ? 1 : 0, Bool.BOOL);
+    };
+}
+
+function compareStringCstring(compare: (left: string, right: string) => boolean) {
+    return (rt: RuntimeOpaqueExpression<Bool, "prvalue">) => {
+        let left = getLocal<CompleteClassType>(rt, "left");
+        let right = getLocal<PointerType<Char>>(rt, "right");
+
+        // TODO: this doesn't preserve runtime type validity information
+        return new Value(compare(extractStringValue(rt, getDataPtr(left).getValue()), extractStringValue(rt, right.getValue())) ? 1 : 0, Bool.BOOL);
+    };
+}
+
+function compareCstringString(compare: (left: string, right: string) => boolean) {
+    return (rt: RuntimeOpaqueExpression<Bool, "prvalue">) => {
+        let left = getLocal<PointerType<Char>>(rt, "left");
+        let right = getLocal<CompleteClassType>(rt, "right");
+
+        // TODO: this doesn't preserve runtime type validity information
+        return new Value(compare(extractStringValue(rt, left.getValue()), extractStringValue(rt, getDataPtr(right).getValue())) ? 1 : 0, Bool.BOOL);
     };
 }
 
@@ -921,6 +988,114 @@ registerOpaqueExpression(
 );
 
 registerOpaqueExpression(
+    "operator==_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left === right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator!=_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left !== right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left < right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<=_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left <= right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left > right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>=_string_cstring",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareStringCstring((left, right) => left >= right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator==_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left === right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator!=_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left !== right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left < right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator<=_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left <= right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left > right)
+    }
+);
+
+registerOpaqueExpression(
+    "operator>=_cstring_string",
+    <OpaqueExpressionImpl<Bool, "prvalue">> {
+        type: Bool.BOOL,
+        valueCategory: "prvalue",
+        operate: compareCstringString((left, right) => left >= right)
+    }
+);
+
+registerOpaqueExpression(
     "operator<<_ostream_string",
     <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
         type: lookupTypeInContext("ostream"),
@@ -943,8 +1118,31 @@ registerOpaqueExpression(
             }
         },
         operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
-
+            rt.sim.cin.skipws();
             let chars = Char.jsStringToNullTerminatedCharArray(rt.sim.cin.extractWordFromBuffer());
+
+            let str = getLocal<CompleteClassType>(rt, "str");
+
+            rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+            copyFromCString(rt, str, chars)
+            return getLocal<CompleteClassType>(rt, "is");
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "getline_istream_string",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("istream"),
+        valueCategory: "lvalue",
+        upNext: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            if (rt.sim.cin.buffer.length === 0) {
+                rt.sim.blockUntilCin();
+            }
+        },
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+
+            let chars = Char.jsStringToNullTerminatedCharArray(rt.sim.cin.extractLineFromBuffer());
 
             let str = getLocal<CompleteClassType>(rt, "str");
 
@@ -1006,6 +1204,52 @@ registerOpaqueExpression(
     }
 );
 
+registerOpaqueExpression(
+    "string::operator+=_string",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            addFromCStrings(rt, rt.contextualReceiver,
+                getDataPtr(rt.contextualReceiver).getValue(),
+                getDataPtr(getLocal<CompleteClassType>(rt, "rhs")).getValue(), true);
+            return rt.contextualReceiver;
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::operator+=_cstring",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            addFromCStrings(rt, rt.contextualReceiver,
+                getDataPtr(rt.contextualReceiver).getValue(),
+                getLocal<PointerType<Char>>(rt, "cstr").getValue(), true);
+            return rt.contextualReceiver;
+        }
+    }
+);
+
+registerOpaqueExpression(
+    "string::operator+=_char",
+    <OpaqueExpressionImpl<PotentiallyCompleteClassType, "lvalue">> {
+        type: lookupTypeInContext("string"),
+        valueCategory: "lvalue",
+        operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
+            let rec = rt.contextualReceiver;
+            let c = getLocal<Char>(rt, "c");
+            
+            let orig = extractCharsFromCString(rt, getDataPtr(rt.contextualReceiver).getValue());
+            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            copyFromCString(rt, rt.contextualReceiver, [...orig.charValues, c.getValue(), Char.NULL_CHAR], orig.validLength);
+            return rt.contextualReceiver;
+        }
+    }
+);
+
+
 
 registerOpaqueExpression(
     "stoi",
@@ -1013,13 +1257,32 @@ registerOpaqueExpression(
         type: Int.INT,
         valueCategory: "prvalue",
         operate: (rt: RuntimeOpaqueExpression<Int, "prvalue">) => {
-            let str = extractStringValue(getDataPtr(getLocal<CompleteClassType>(rt, "str")));
+            let str = extractStringValue(rt, getDataPtr(getLocal<CompleteClassType>(rt, "str")).getValue());
             let val = parseInt(str);
             if (!Number.isNaN(val)) {
                 return new Value(val, Int.INT);
             }
             else {
                 return new Value(Math.floor(Math.random()*100), Int.INT, false);
+            }
+        }
+    }
+);
+
+
+registerOpaqueExpression(
+    "stod",
+    <OpaqueExpressionImpl<Double, "prvalue">> {
+        type: Double.DOUBLE,
+        valueCategory: "prvalue",
+        operate: (rt: RuntimeOpaqueExpression<Double, "prvalue">) => {
+            let str = extractStringValue(rt, getDataPtr(getLocal<CompleteClassType>(rt, "str")).getValue());
+            let val = parseFloat(str);
+            if (!Number.isNaN(val)) {
+                return new Value(val, Double.DOUBLE);
+            }
+            else {
+                return new Value(Math.floor(Math.random()*100), Double.DOUBLE, false);
             }
         }
     }

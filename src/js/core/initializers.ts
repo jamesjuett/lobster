@@ -3,7 +3,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType } from "./entities";
 import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
-import { assertFalse, assert, asMutable, assertNever } from "../util/util";
+import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject } from "./objects";
@@ -884,18 +884,18 @@ export interface CompiledClassDirectInitializer<T extends CompleteClassType = Co
 
 export class RuntimeClassDirectInitializer<T extends CompleteClassType = CompleteClassType> extends RuntimeDirectInitializer<T, CompiledClassDirectInitializer<T>> {
 
-    public readonly ctorCall: RuntimeFunctionCall<FunctionType<VoidType>>;
+    public readonly ctorCall?: RuntimeFunctionCall<FunctionType<VoidType>>;
 
     private index = "callCtor";
 
     public constructor (model: CompiledClassDirectInitializer<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
     }
-
+    
     protected upNextImpl() {
+        (<Mutable<this>>this).ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
         if (this.index === "callCtor") {
-            this.sim.push(this.ctorCall);
+            this.sim.push(this.ctorCall!);
             this.index = "done";
         }
         else {

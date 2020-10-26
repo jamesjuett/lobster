@@ -54,10 +54,15 @@ export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
     readonly containingClass?: CompleteClassEntity;
+    readonly isLibrary: boolean;
 }
 
 export function createTranslationUnitContext(parentContext: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
-    return Object.assign({}, parentContext, { translationUnit: translationUnit, contextualScope: contextualScope });
+    return Object.assign({}, parentContext, { translationUnit: translationUnit, contextualScope: contextualScope, isLibrary: false });
+}
+
+export function createLibraryContext(parentContext: TranslationUnitContext): TranslationUnitContext {
+    return Object.assign({}, parentContext, { isLibrary: true });
 }
 
 export interface ExpressionContext extends TranslationUnitContext {
