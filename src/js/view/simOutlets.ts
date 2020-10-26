@@ -14,13 +14,17 @@ import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
-import { RuntimeFunctionCall } from "../core/functionCall";
+import { RuntimeFunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
 const VALUE_TRANSFER_DURATION = 500;
 
 export var CPP_ANIMATIONS = true;
+
+export function setCPP_ANIMATIONS(onOff: boolean) {
+    CPP_ANIMATIONS = onOff;
+}
 
 // export class CodeList {
     
@@ -431,15 +435,15 @@ export class SimulationOutlet {
         
         this.leaveBreadcrumb();
 
-        let top = this.sim.top();
-        if (top instanceof RuntimeFunctionCall && top.model.func.name.indexOf("operator") !== -1) {
-            CPP_ANIMATIONS = false;
-            await this.simRunner!.stepOver(n);
-            CPP_ANIMATIONS = true;
-        }
-        else {
-            await this.simRunner!.stepForward(n);
-        }
+        // let top = this.sim.top();
+        // if (top instanceof RuntimeFunctionCall && top.model.func.firstDeclaration.context.isLibrary) {
+        //     CPP_ANIMATIONS = false;
+            await this.simRunner!.stepOverLibrary(n);
+        //     CPP_ANIMATIONS = true;
+        // }
+        // else {
+        //     await this.simRunner!.stepForward(n);
+        // }
 
 
         if (n !== 1) {
@@ -1736,7 +1740,7 @@ export class StackFramesOutlet {
 
         this.frameElems.push(frameElem);
         this.framesElem.prepend(frameElem);
-        if (frame.func.model.name.indexOf("operator") !== -1) {
+        if (frame.func.model.context.isLibrary) {
             // leave display as none
         }
         else if (CPP_ANIMATIONS) {
@@ -2092,8 +2096,8 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 
         // Animate!
         
-        if (rtFunc.model.name.indexOf("operator") !== -1) {
-            // HACK: don't animate in
+        if (rtFunc.model.context.isLibrary) {
+            // don't animate in
         }
         else if (CPP_ANIMATIONS) {
             (this.frameElems.length == 1 ? frame.fadeIn(FADE_DURATION) : frame.slideDown({duration: SLIDE_DURATION, progress: function() {

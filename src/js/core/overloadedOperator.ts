@@ -64,7 +64,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
 //     BinaryOperatorExpressionASTNode |
 //     AssignmentExpressionASTNode;
 
-export type OverloadableOperator = t_BinaryOperators | "=" | "[]";
+export type OverloadableOperator = t_BinaryOperators | "=" | "+=" | "[]";
 
 export class NonMemberOperatorOverloadExpression extends Expression<ExpressionASTNode> {
     public readonly construct_type = "non_member_operator_overload_expression";

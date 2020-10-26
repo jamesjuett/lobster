@@ -55,7 +55,20 @@ const ExpressionConstructsMap = {
     "ternary_expression": (ast: TernaryASTNode, context: ExpressionContext) => TernaryExpression.createFromAST(ast, context),
 
     "assignment_expression": (ast: AssignmentExpressionASTNode, context: ExpressionContext) => AssignmentExpression.createFromAST(ast, context),
-    "compound_assignment_expression": (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "compound assignment"),
+    "compound_assignment_expression": (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => {
+        let lhs = createExpressionFromAST(ast.lhs, context);
+        let rhs = createExpressionFromAST(ast.rhs, context);
+       
+        // Consider an assignment operator overload if the LHS is class type
+        if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
+            let overload = selectOperatorOverload(context, ast, "+=", [lhs, rhs]);
+            if (overload) {
+                return overload;
+            }
+        }
+        
+        return new UnsupportedExpression(context, ast, "compound assignment");
+    },
 
     // binary operators
     "arithmetic_binary_operator_expression": (ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext) => ArithmeticBinaryOperatorExpression.createFromAST(ast, context),
@@ -1931,6 +1944,7 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
                 ++this.index;
                 break;
             case 1:
+                this.sim.cin.skipws();
                 if (this.sim.cin.buffer.length === 0) {
                     this.sim.blockUntilCin();
                 }
@@ -4963,7 +4977,8 @@ export class RuntimeParentheses<T extends ExpressionType = ExpressionType, V ext
 const AUXILIARY_EXPRESSION_CONTEXT: ExpressionContext = {
     program: <never>undefined,
     translationUnit: <never>undefined,
-    contextualScope: <never>undefined
+    contextualScope: <never>undefined,
+    isLibrary: false
 }
 
 export class AuxiliaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends Expression<never> {

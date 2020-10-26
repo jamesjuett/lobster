@@ -757,6 +757,8 @@ export class SimulationInputStream {
 
     public readonly observable = new Observable<SimulationInputStreamMessages>(this);
 
+    public readonly trimws: boolean = true;
+
     public readonly buffer: string = "";
 
     // public readonly bufferAdditionRecord : readonly {readonly stepsTaken: number; readonly contents: string}[] = [];
@@ -796,32 +798,59 @@ export class SimulationInputStream {
         this.observable.send("bufferUpdated", this.buffer);
     }
 
+    public skipws() {
+        (<Mutable<this>>this).buffer = this.buffer.trimStart();
+    }
+
+
     public extractAndParseFromBuffer(type: ArithmeticType) {
         if (isType(type, Char)) {
-            let c = this.buffer.charAt(0);
-            (<Mutable<this>>this).buffer = this.buffer.substring(1);
-            return type.parse(c);
+            return type.parse(this.extractCharFromBuffer());
         }
         else {
             return type.parse(this.extractWordFromBuffer());
         }
     }
 
+    public extractCharFromBuffer() {
+        let c = this.buffer.charAt(0);
+        this.updateBuffer(this.buffer.substring(1));
+        return c;
+    }
+
     public extractWordFromBuffer() {
-        let firstSpace = this.buffer.indexOf(" ");
-        if (firstSpace === -1) {
+        let firstWhitespace = this.buffer.search(/\s/g);
+        if (firstWhitespace === -1) {
             // no spaces, whole buffer is one word
             let word = this.buffer;
             this.updateBuffer("");
-            return word.trim();
+            return word;
         }
         else {
-            // extract first word, up to but not including space
-            let word = this.buffer.substring(0, firstSpace);
+            // extract first word, up to but not including whitespace
+            let word = this.buffer.substring(0, firstWhitespace);
 
             // remove from buffer, including space.
-            this.updateBuffer(this.buffer.substring(firstSpace + 1));
-            return word.trim();
+            this.updateBuffer(this.buffer.substring(firstWhitespace + 1));
+            return word;
+        }
+    }
+
+    public extractLineFromBuffer() {
+        let firstNewline = this.buffer.indexOf("\n");
+        if (firstNewline === -1) {
+            // no spaces, whole buffer is one word
+            let word = this.buffer;
+            this.updateBuffer("");
+            return word;
+        }
+        else {
+            // extract first word, up to but not including newline
+            let word = this.buffer.substring(0, firstNewline);
+
+            // remove from buffer, including space.
+            this.updateBuffer(this.buffer.substring(firstNewline + 1));
+            return word;
         }
     }
 }

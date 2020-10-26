@@ -450,15 +450,17 @@ export class IsCompiledCheckpoint extends Checkpoint {
 
 export class OutputCheckpoint extends Checkpoint {
 
+    public readonly input: string;
     public readonly stepLimit: number;
 
     private expected: (output: string) => boolean;
     
     private runner?: AsynchronousSimulationRunner;
 
-    public constructor(name: string, expected: (output: string) => boolean, stepLimit: number = 1000) {
+    public constructor(name: string, expected: (output: string) => boolean, input: string = "", stepLimit: number = 1000) {
         super(name);
         this.expected = expected;
+        this.input = input;
         this.stepLimit = stepLimit;
     }
 
@@ -477,10 +479,13 @@ export class OutputCheckpoint extends Checkpoint {
         }
 
         let sim = new Simulation(program);
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
         let runner = this.runner = new AsynchronousSimulationRunner(sim);
 
         // may throw if interrupted
-        await runner.stepToEnd(0, this.stepLimit);
+        await runner.stepToEnd(0, this.stepLimit, true);
         return sim.atEnd && this.expected(sim.allOutput);
     }
     
@@ -785,7 +790,49 @@ int main() {
   double rad = 5;
   cout << "Area: " << circleArea(rad) << endl;
   cout << "Circumference: " << circleCircumference(rad) << endl;
-}`
+}`,
+
+    "ch15_ex_echo":
+`#include <iostream>
+#include <string>
+using namespace std;
+// A very annoying program: It echoes until you say stop
+int main() {
+  
+  // Use to hold input
+  string word;
+
+  // TODO: read a word and print it back out
+  // continuously until the user enters "STOP"
+
+
+  // Print at the end (don't remove this)
+  cout << "Ok fine I'll stop :(" << endl;
+}`,
+
+"ch15_ex_repeat":
+`#include <iostream>
+#include <string>
+using namespace std;
+
+string repeat(string s, int n) {
+
+
+  // TODO: write your code here
+
+
+}
+
+int main() {
+  // DO NOT CHANGE ANY OF THE CODE IN MAIN
+  // IT IS USED BY LOBSTER TO CHECK YOUR WORK
+  string s = "ab";
+  string s2 = repeat(s, 4);
+  cout << s2 << endl; // "ababababab"
+
+  cout << repeat("echo ", 2) << endl; // "echo echo "
+}
+`
 }
 
 function getExerciseCheckpoints(projectName: string) {
@@ -912,4 +959,22 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
         })
         
     ],
+    "ch15_ex_echo": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output.indexOf("Hi") !== -1
+                && output.indexOf("How") !== -1
+                && output.indexOf("are") !== -1
+                && output.indexOf("you") !== -1
+                && output.indexOf("Stop") !== -1
+                && output.indexOf("Ok fine I'll stop :(") !== -1;
+        }, "Hi\nHow are you\nStop\nSTOP\n")
+        
+    ],
+    "ch15_ex_repeat": [
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output.indexOf("abababab") !== -1
+                && output.indexOf("echo echo ") !== -1;
+        })
+        
+    ]
 }

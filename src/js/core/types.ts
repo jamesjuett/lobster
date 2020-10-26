@@ -953,7 +953,7 @@ export class Double extends FloatingPointType {
     }
     
     public parse(s: string) : ParsingResult<this> {
-        let p = parseInt(s);
+        let p = parseFloat(s);
         if (!Number.isNaN(p)) {
             return createSuccessParsingResult(new Value(p, this, true));
         }

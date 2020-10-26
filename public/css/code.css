@@ -616,7 +616,7 @@
     background-color: #131313;
     max-width: 15ch;
     overflow: hidden;
-    white-space: nowrap;
+    white-space: pre;
     text-overflow: ellipsis;
     transition: background-color 0.5s, border-color 0.5s;
 }
