@@ -1363,6 +1363,8 @@ class ClassTypeBase extends TypeBase {
 
     private readonly classId: number;
     private readonly shared: ClassShared;
+
+    public readonly templateParameters: readonly AtomicType[] = [];
     
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
