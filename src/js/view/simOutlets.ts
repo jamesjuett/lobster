@@ -860,7 +860,7 @@ export class MemoryOutlet {
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
     }
     
     public clearMemory() {
@@ -972,7 +972,7 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
         //this.element.removeClass("leaked"); // TODO: why is this commented?
     }
 
-    @messageResponse("validitySet")
+    @messageResponse("validitySet", "unwrap")
     protected validitySet(isValid: boolean) {
         if (isValid) {
             this.objElem.removeClass("invalid");

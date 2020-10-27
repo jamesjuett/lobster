@@ -15,11 +15,8 @@ import { nth } from "lodash";
 
 const initialVectorCapacity = 4;
 
-const element_type = "int";
-
-registerLibraryHeader("vector",
-    new SourceFile("vector.h",
-`class vector<${element_type}> {
+function instantiateVectorTemplate(element_type: string) {
+    return `class vector<${element_type}> {
 private:
     size_t _size;
     size_t _capacity;
@@ -29,9 +26,9 @@ public:
         @vector::vector_default;
     }
 
-    // vector(const vector<${element_type}> &other) {
-    //     @vector::vector_copy;
-    // }
+    vector(const vector<${element_type}> &other) {
+        @vector::vector_copy;
+    }
 
     // ~vector() {
     //     @vector::~vector;
@@ -45,21 +42,21 @@ public:
         return _size;
     }
    
-    // void clear() {
-    //     @vector::clear;
-    // }
+    void clear() {
+        @vector::clear;
+    }
 
-    // bool empty() const {
-    //     return _size !== 0;
-    // }
+    bool empty() const {
+        return _size == 0;
+    }
 
-    // void push_back(const ${element_type} &val) {
-    //     return @vector::push_back;
-    // }
+    void push_back(const ${element_type} &val) {
+        @vector::push_back;
+    }
 
-    // void pop_back() {
-    //     return @vector::pop_back;
-    // }
+    void pop_back() {
+        @vector::pop_back;
+    }
 
     ${element_type} &operator[](size_t pos) {
         return data_ptr[pos];
@@ -69,29 +66,29 @@ public:
         return data_ptr[pos];
     }
 
-//     ${element_type} &at(size_t pos) {
-//         return data_ptr[pos];
-//     }
+    ${element_type} &at(size_t pos) {
+        return data_ptr[pos];
+    }
 
-//     const ${element_type} &at(size_t pos) const {
-//         return data_ptr[pos];
-//     }
+    const ${element_type} &at(size_t pos) const {
+        return data_ptr[pos];
+    }
 
-//     ${element_type} &front(size_t pos) {
-//         return data_ptr[0];
-//     }
+    ${element_type} &front(size_t pos) {
+        return data_ptr[0];
+    }
 
-//     const ${element_type} &front(size_t pos) const {
-//         return data_ptr[0];
-//     }
+    const ${element_type} &front(size_t pos) const {
+        return data_ptr[0];
+    }
 
-//     ${element_type} &back(size_t pos) {
-//         return data_ptr[_size-1];
-//     }
+    ${element_type} &back(size_t pos) {
+        return data_ptr[_size-1];
+    }
 
-//     const ${element_type} &back(size_t pos) const {
-//         return data_ptr[_size-1];
-//     }
+    const ${element_type} &back(size_t pos) const {
+        return data_ptr[_size-1];
+    }
 
 };
 
@@ -103,7 +100,17 @@ public:
 //     return !@operator==_string_string;
 // }
 
-`, true
+
+`
+}
+
+registerLibraryHeader("vector",
+    new SourceFile("vector.h",
+        instantiateVectorTemplate("int") + 
+        instantiateVectorTemplate("double") +
+        instantiateVectorTemplate("char") +
+        instantiateVectorTemplate("bool"),
+        true
     )
 );
 
@@ -116,16 +123,17 @@ function getSize(obj: CPPObject<CompleteClassType>) {
 }
 
 export function getDataPtr(obj: CPPObject<CompleteClassType>) {
-    return <MemberSubobject<PointerType<AtomicType>>>obj.getMemberObject("data_ptr");
+    return <MemberSubobject<ArrayPointerType<AtomicType>>>obj.getMemberObject("data_ptr");
 }
 
 function allocateNewArray<T extends AtomicType>(
     rt: RuntimeExpression, rec: CPPObject<CompleteClassType>,
-    newCapacity: number, elt_type: T) {
-    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(elt_type, newCapacity));
+    newCapacity: Value<Int>, elt_type: T) {
+    let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(elt_type, newCapacity.rawValue));
 
     // store pointer to new array
     getDataPtr(rec).writeValue(arrObj.getArrayElemSubobject(0).getPointerTo());
+    getCapacity(rec).writeValue(newCapacity);
     return arrObj;
 }
 
@@ -138,23 +146,28 @@ registerOpaqueExpression("vector::vector_default", {
         
         let context = rt.model.context;
         assert(isClassContext(context) && context.templateType);
-        allocateNewArray(rt, rt.contextualReceiver, initialVectorCapacity, context.templateType)
+        allocateNewArray(rt, rt.contextualReceiver, new Value(initialVectorCapacity, Int.INT), context.templateType)
         // let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
     }
 });
 
-// registerOpaqueExpression("vector::vector_copy", {
-//     type: VoidType.VOID,
-//     valueCategory: "prvalue",
-//     operate: (rt: RuntimeOpaqueExpression) => {
+registerOpaqueExpression("vector::vector_copy", {
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression) => {
 
-//         let rec = rt.contextualReceiver;
-//         let other = getLocal<CompleteClassType>(rt, "other");
+        let rec = rt.contextualReceiver;
+        let other = getLocal<CompleteClassType>(rt, "other");
+        let otherSize = getSize(other).getValue();
+        let otherArr = getDataPtr(other).type.arrayObject;
 
-//         let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(other).getValue());
-//         copyFromCString(rt, rec, charValues, validLength);
-//     }
-// });
+        let arr = allocateNewArray(rt, rec, otherSize, getDataPtr(rec).type.ptrTo);
+        arr.getArrayElemSubobjects().forEach(
+            (elemObj, i) => elemObj.writeValue(otherArr.getArrayElemSubobject(i).getValue()));
+        getSize(rec).writeValue(otherSize);
+        
+    }
+});
 
 
 // registerOpaqueExpression("string::string_cstring", {
@@ -232,16 +245,58 @@ registerOpaqueExpression("vector::vector_default", {
 //     }
 // });
 
-// registerOpaqueExpression("string::clear", {
-//     type: VoidType.VOID,
-//     valueCategory: "prvalue",
-//     operate: (rt: RuntimeOpaqueExpression) => {
-//         let rec = rt.contextualReceiver;
-//         let firstElem = rt.sim.memory.dereference(getDataPtr(rec).getValue());
-//         firstElem.writeValue(Char.NULL_CHAR);
-//         getSize(rec).writeValue(new Value(0, Int.INT));
-//     }
-// });
+registerOpaqueExpression("vector::clear", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let rec = rt.contextualReceiver;
+        getSize(rec).writeValue(new Value(0, Int.INT));
+        getDataPtr(rec).type.arrayObject.getArrayElemSubobjects().forEach(elemObj => elemObj.setValidity(false))
+    }
+});
+
+registerOpaqueExpression("vector::push_back", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let rec = rt.contextualReceiver;
+        let size = getSize(rec);
+        let cap = getCapacity(rec);
+        let arr = getDataPtr(rec).type.arrayObject;
+
+        if (size.rawValue() === cap.rawValue()) {
+            // grow array
+            let oldArr = getDataPtr(rec).type.arrayObject;
+            arr = allocateNewArray(rt, rec, cap.getValue().modify(x => 2*x), getDataPtr(rec).type.ptrTo);
+            oldArr.getArrayElemSubobjects().forEach(
+                (elemObj, i) => arr.getArrayElemSubobject(i).writeValue(elemObj.getValue()));
+            rt.sim.memory.heap.deleteObject(oldArr.address, rt);
+        }
+        
+        // add new object to back
+        arr.getArrayElemSubobject(size.rawValue()).writeValue(getLocal<AtomicType>(rt, "val").getValue());
+
+        size.writeValue(size.getValue().addRaw(1));
+    }
+});
+
+registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let rec = rt.contextualReceiver;
+        let size = getSize(rec);
+
+        // decrease size by 1
+        size.writeValue(size.getValue().subRaw(1));
+
+        // popped element data is still there but is invalid
+        let arr = getDataPtr(rec).type.arrayObject;
+        arr.getArrayElemSubobject(size.getValue().rawValue).setValidity(false);
+    }
+});
+
+
 
 // registerOpaqueExpression("string::empty", <OpaqueExpressionImpl<Bool, "prvalue">>{
 //     type: Bool.BOOL,
@@ -267,49 +322,49 @@ registerOpaqueExpression("vector::vector_default", {
 //     }
 // });
 
-registerOpaqueExpression(
-    "vector::operator[]",
-    <OpaqueExpressionImpl<Char, "lvalue">> {
-        type: (context: ExpressionContext) => {
-            assert(isClassContext(context));
-            return context.templateType;
-        },
-        valueCategory: "lvalue",
-        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
-            let ptr = getDataPtr(rt.contextualReceiver).getValue();
-            let pos = getLocal<Int>(rt, "pos").getValue();
-            ptr = ptr.pointerOffset(pos);
+// registerOpaqueExpression(
+//     "vector::operator[]",
+//     <OpaqueExpressionImpl<AtomicType, "lvalue">> {
+//         type: (context: ExpressionContext) => {
+//             assert(isClassContext(context));
+//             return context.templateType;
+//         },
+//         valueCategory: "lvalue",
+//         operate: (rt: RuntimeOpaqueExpression<AtomicType, "lvalue">) => {
+//             let ptr = getDataPtr(rt.contextualReceiver).getValue();
+//             let pos = getLocal<Int>(rt, "pos").getValue();
+//             ptr = ptr.pointerOffset(pos);
 
-            if (!ptr.isValid) {
-                rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that vector. The element reference you got back just refers to memory junk somewhere!");
-            }
+//             if (!ptr.isValid) {
+//                 rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that vector. The element reference you got back just refers to memory junk somewhere!");
+//             }
 
-            return rt.sim.memory.dereference(ptr);
-        }
-    }
-);
+//             return rt.sim.memory.dereference(ptr);
+//         }
+//     }
+// );
 
-registerOpaqueExpression(
-    "vector::operator[]_const",
-    <OpaqueExpressionImpl<Char, "lvalue">> {
-        type: (context: ExpressionContext) => {
-            assert(isClassContext(context) && context.templateType);
-            return context.templateType.cvQualified(true);
-        },
-        valueCategory: "lvalue",
-        operate: (rt: RuntimeOpaqueExpression<Char, "lvalue">) => {
-            let ptr = getDataPtr(rt.contextualReceiver).getValue();
-            let pos = getLocal<Int>(rt, "pos").getValue();
-            ptr = ptr.pointerOffset(pos);
+// registerOpaqueExpression(
+//     "vector::operator[]_const",
+//     <OpaqueExpressionImpl<AtomicType, "lvalue">> {
+//         type: (context: ExpressionContext) => {
+//             assert(isClassContext(context) && context.templateType);
+//             return context.templateType.cvQualified(true);
+//         },
+//         valueCategory: "lvalue",
+//         operate: (rt: RuntimeOpaqueExpression<AtomicType, "lvalue">) => {
+//             let ptr = getDataPtr(rt.contextualReceiver).getValue();
+//             let pos = getLocal<Int>(rt, "pos").getValue();
+//             ptr = ptr.pointerOffset(pos);
 
-            if (!ptr.isValid) {
-                rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that vector. The element reference you got back just refers to memory junk somewhere!");
-            }
+//             if (!ptr.isValid) {
+//                 rt.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "It looks like the position you requested is out of bounds for that vector. The element reference you got back just refers to memory junk somewhere!");
+//             }
 
-            return rt.sim.memory.dereference(ptr);
-        }
-    }
-);
+//             return rt.sim.memory.dereference(ptr);
+//         }
+//     }
+// );
 
 // registerOpaqueExpression(
 //     "string::at",
