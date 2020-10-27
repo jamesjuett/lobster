@@ -868,6 +868,9 @@ identifierChar = [a-zA-Z0-9_]
 
 identifierFirstChar = [a-zA-Z_]
 
+template_identifier
+  = id:identifier "<" t:identifier ">" { return {identifier: id.identifier + "<" + t.identifier + ">"}; }
+
 opaque_expression
   = "@" id:([a-zA-Z_1-9~]/"::"/overloadable_op)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
 
@@ -884,7 +887,8 @@ WS "whitespace"
 
 
 class_name
-  = id:identifier & {return isUserTypeName(id.identifier);} {return id;}
+  = id:template_identifier & {return isUserTypeName(id.identifier);} {return id;}
+  / id:identifier & {return isUserTypeName(id.identifier);} {return id;}
   // / simple_template_id
 
 class_specifier
@@ -906,7 +910,8 @@ class_head
   //   { return track({key:key, base:base}, location(), text()); }
 
 class_head_name
-  = /* nested_name_specifier? ws */ identifier
+  = template_identifier
+  / /* nested_name_specifier? ws */ identifier
 
 class_key
   = "class"

@@ -148,12 +148,16 @@ export function isClassContext(context: TranslationUnitContext) : context is Cla
 export interface ClassContext extends TranslationUnitContext {
     readonly contextualScope: ClassScope;
     readonly containingClass: CompleteClassEntity;
+    readonly templateType?: AtomicType;
 }
 
-export function createClassContext(parentContext: TranslationUnitContext, classEntity: ClassEntity, baseClass?: ClassEntity): ClassContext {
+export function createClassContext(
+    parentContext: TranslationUnitContext, classEntity: ClassEntity,
+    baseClass?: ClassEntity, templateType?: AtomicType): ClassContext {
     return Object.assign({}, parentContext, {
         contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?.context.contextualScope),
-        containingClass: classEntity
+        containingClass: classEntity,
+        templateType: templateType
     });
 }
 

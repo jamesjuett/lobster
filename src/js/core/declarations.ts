@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
@@ -1237,6 +1237,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
         if (this.name && isClassContext(this.context)) {
             let className = this.context.containingClass.name;
+            className = className.replace(/<.*>/g, ""); // remove template parameters
             if (this.name === className) {
                 (<Mutable<this>>this).hasConstructorName = true;
             }
@@ -2026,8 +2027,18 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
 
+        let templateType : AtomicType | undefined = undefined;
+        let tpMatch = ast.head.name.identifier.match(/<.*>/);
+        if (tpMatch) {
+            let templateParameter = tpMatch[0].slice(1, -1); // remove the < >
+            let t = new TypeSpecifier(tuContext, [templateParameter]).baseType;
+            if (t && isAtomicType(t)) {
+                templateType = t;
+            }
+        }
+
         // Create class context based on class entity from the declaration
-        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0]?.baseEntity);
+        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0]?.baseEntity, templateType);
 
         let memDecls : MemberDeclaration[] = []
         let functionDefsToCompile : [FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];

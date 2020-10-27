@@ -12,6 +12,7 @@ import { findFirstConstruct, findConstructs } from "./core/analysis";
 
 import "./lib/cstdlib"
 import "./lib/string"
+import "./lib/vector"
 
 $(() => {
 
