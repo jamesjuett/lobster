@@ -821,6 +821,11 @@ position: relative;}
     min-width: 1em;
     white-space: pre;
     border: solid 1px white;
+    color: #ae81ff;
+}
+
+.code-object.invalid {
+    color: #c50000;
 }
 
 .code-string-literal {

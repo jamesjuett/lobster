@@ -17,6 +17,7 @@ import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpressio
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
 import { CompiledNonMemberOperatorOverloadExpression, RuntimeNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression } from "../core/overloadedOperator";
+import { encode } from "he";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -53,9 +54,9 @@ export function getValueString(value: Value) {
 
 function getObjectString(obj: CPPObject) {
     let name = obj.describe().name;
-    if (name.indexOf("[") !== -1) {
+    if (name.startsWith("[")) {
         if (obj.isTyped(isAtomicType)) {
-            return htmlDecoratedObject(htmlDecoratedValue(getValueString(obj.getValue())));
+            return htmlDecoratedObject(getValueString(obj.getValue()));
         }
         else if (obj.isTyped(isCompleteClassType) && obj.type.className === "string") { // TODO make this robust to check for the actual string, not just something named string.
             return htmlDecoratedObject(getValueString((<CPPObject<PointerType<Char>>>obj.getMemberObject("data_ptr")).getValue()));
@@ -1209,7 +1210,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
         this.element.append(this.wrapperElem);
 
-        this.element.append("<span class='exprType'>" + this.construct.type.toString() + "</span>");
+        this.element.append("<span class='exprType'>" + encode(this.construct.type.toString()) + "</span>");
 
     }
 
@@ -1223,6 +1224,9 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
         else if (result instanceof CPPObject) {
             this.evalResultElem.html(getObjectString(result));
             this.evalResultElem.addClass("lvalue");
+            if (!result.isAlive || result.isTyped(isAtomicType) && !result.isValueValid()) {
+                this.evalResultElem.find(".code-object").addClass("invalid");
+            }
         }
         else if (result instanceof Value) {  // result.isA(Value)
             this.evalResultElem.html(getValueString(result));

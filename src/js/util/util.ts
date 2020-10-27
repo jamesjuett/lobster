@@ -1,5 +1,6 @@
 import assign from "lodash/assign";
 import { Type } from "../core/types";
+import { encode } from "he";
 
 export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
@@ -44,32 +45,32 @@ export type MapDiscriminatedUnion<T extends Record<K, string>, K extends keyof T
   { [V in T[K]]: DiscriminateUnion<T, K, V> };
 
 export function htmlDecoratedOperator(operator: string, cssClass: string) {
-    return "<span class='codeInstance " + (cssClass || "") + "'>" + operator + "<span class='lobster-highlight'></span></span>";
+    return "<span class='codeInstance " + (cssClass || "") + "'>" + encode(operator) + "<span class='lobster-highlight'></span></span>";
 };
 
 export function htmlDecoratedKeyword(keyword: string){
-    return '<span class="code-keyword">' + keyword + '</span>';
+    return '<span class="code-keyword">' + encode(keyword) + '</span>';
 };
 
 export function htmlDecoratedType(type: string) {
-    return '<span class="code-type">' + type + '</span>';
+    return '<span class="code-type">' + encode(type) + '</span>';
 };
 
 export function htmlDecoratedName(name: string, type?: Type) {
     if (type) {
-        return '<span class="code-name"><span class = "lobster-highlight"></span><span class="type">' + type.englishString(false) + '</span>' + name + '</span>';
+        return '<span class="code-name"><span class = "lobster-highlight"></span><span class="type">' + encode(type.englishString(false)) + '</span>' + name + '</span>';
     }
     else {
-        return '<span class="code-name"><span class = "lobster-highlight"></span>' + name + '</span>';
+        return '<span class="code-name"><span class = "lobster-highlight"></span>' + encode(name) + '</span>';
     }
 };
 
 export function htmlDecoratedValue(value: string){
-    return '<span class="code-literal">' + value + '</span>';
+    return '<span class="code-literal">' + encode(value) + '</span>';
 };
 
 export function htmlDecoratedObject(value: string){
-    return '<span class="code-object">' + value + '</span>';
+    return '<span class="code-object">' + encode(value) + '</span>';
 };
 
 
