@@ -720,7 +720,7 @@ export abstract class SimpleType extends AtomicType {
      * Subclasses must implement a concrete type property that should be a
      * string indicating the kind of type e.g. "int", "double", "bool", etc.
      */
-    protected abstract simpleType: string;
+    public abstract simpleType: string;
 
     public readonly precedence = 0;
 
@@ -803,7 +803,7 @@ export type AnalyticIntegralType = Char | Int | Size_t | Bool;
 export class Char extends IntegralType {
     public static readonly CHAR = new Char();
 
-    protected readonly simpleType = "char";
+    public readonly simpleType = "char";
     public readonly size = 1;
 
     public static readonly NULL_CHAR = new Value(0, Char.CHAR);
@@ -846,7 +846,7 @@ export class Int extends IntegralType {
     public static readonly INT = new Int();
     public static readonly ZERO = new Value(0, Int.INT);
 
-    protected readonly simpleType = "int";
+    public readonly simpleType = "int";
     public readonly size = 4;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -865,7 +865,7 @@ export class Int extends IntegralType {
 };
 
 export class Size_t extends IntegralType {
-    protected readonly simpleType = "size_t";
+    public readonly simpleType = "size_t";
     public readonly size = 8;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -886,7 +886,7 @@ export class Size_t extends IntegralType {
 export class Bool extends IntegralType {
     public static readonly BOOL = new Bool();
 
-    protected readonly simpleType = "bool";
+    public readonly simpleType = "bool";
     public readonly size = 1;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -923,7 +923,7 @@ export class Float extends FloatingPointType {
 
     public static readonly FLOAT = new Float();
 
-    protected readonly simpleType = "float";
+    public readonly simpleType = "float";
     public readonly size = 4;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -945,7 +945,7 @@ export class Double extends FloatingPointType {
 
     public static readonly DOUBLE = new Double();
 
-    protected readonly simpleType = "double";
+    public readonly simpleType = "double";
     public readonly size = 8;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -965,7 +965,7 @@ export class Double extends FloatingPointType {
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
-//     protected readonly simpleType = "ostream";
+//     public readonly simpleType = "ostream";
 //     public readonly size = 4;
 
 // }

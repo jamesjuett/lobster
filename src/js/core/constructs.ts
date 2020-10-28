@@ -562,9 +562,10 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly note: Note;
     public readonly type: undefined;
 
-    public constructor(context: TranslationUnitContext, ast: ASTNode, errorFn: (construct: CPPConstruct) => Note) {
+    public constructor(context: TranslationUnitContext, ast: ASTNode | undefined, errorFn: (construct: CPPConstruct) => Note, children: readonly CPPConstruct[]) {
         super(context, ast);
         this.addNote(this.note = errorFn(this));
+        children.forEach(child => this.attach(child));
     }
 
 }

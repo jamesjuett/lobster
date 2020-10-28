@@ -25,6 +25,14 @@ public:
     vector() : _size(0), _capacity(${initialVectorCapacity}) {
         @vector::vector_default;
     }
+    
+    vector(size_t n) : _size(n) {
+        @vector::vector_int;
+    }
+    
+    vector(size_t n, const ${element_type} &val) : _size(n) {
+        @vector::vector_int_elt;
+    }
 
     vector(const vector<${element_type}> &other) {
         @vector::vector_copy;
@@ -126,9 +134,8 @@ export function getDataPtr(obj: CPPObject<CompleteClassType>) {
     return <MemberSubobject<ArrayPointerType<AtomicType>>>obj.getMemberObject("data_ptr");
 }
 
-function allocateNewArray<T extends AtomicType>(
-    rt: RuntimeExpression, rec: CPPObject<CompleteClassType>,
-    newCapacity: Value<Int>, elt_type: T) {
+function allocateNewArray(rt: RuntimeExpression, rec: CPPObject<CompleteClassType>, newCapacity: Value<Int>) {
+    let elt_type = getDataPtr(rec).type.ptrTo.cvUnqualified();
     let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(elt_type, newCapacity.rawValue));
 
     // store pointer to new array
@@ -137,31 +144,55 @@ function allocateNewArray<T extends AtomicType>(
     return arrObj;
 }
 
-registerOpaqueExpression("vector::vector_default", {
+registerOpaqueExpression("vector::vector_default", <OpaqueExpressionImpl<VoidType, "prvalue">>{
     type: VoidType.VOID,
     valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
-        getCapacity(rt.contextualReceiver).writeValue(new Value(initialVectorCapacity, Int.INT));
-        getSize(rt.contextualReceiver).writeValue(new Value(0, Int.INT));
-        
-        let context = rt.model.context;
-        assert(isClassContext(context) && context.templateType);
-        allocateNewArray(rt, rt.contextualReceiver, new Value(initialVectorCapacity, Int.INT), context.templateType)
-        // let obj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, initialStrangCapacity));
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        allocateNewArray(rt, rt.contextualReceiver, new Value(initialVectorCapacity, Int.INT));
+        // set set in member initializer list
     }
 });
 
-registerOpaqueExpression("vector::vector_copy", {
+registerOpaqueExpression("vector::vector_int", <OpaqueExpressionImpl<VoidType, "prvalue">>{
     type: VoidType.VOID,
     valueCategory: "prvalue",
-    operate: (rt: RuntimeOpaqueExpression) => {
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let initialCapacity = getLocal<Int>(rt, "n").getValue().modify(x => Math.max(x, initialVectorCapacity));
+
+        allocateNewArray(rt, rt.contextualReceiver, initialCapacity);
+        // size set in member initializer list
+    }
+});
+
+registerOpaqueExpression("vector::vector_int_elt", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let n = getLocal<Int>(rt, "n").getValue();
+        let initialCapacity = n.modify(x => Math.max(x, initialVectorCapacity));
+
+        let arr = allocateNewArray(rt, rt.contextualReceiver, initialCapacity);
+        // size set in member initializer list
+        
+        let val = getLocal<AtomicType>(rt, "val").getValue();
+        let n_raw = n.rawValue;
+        for(let i = 0; i < n_raw; ++i) {
+            arr.getArrayElemSubobject(i).writeValue(val);
+        }
+    }
+});
+
+registerOpaqueExpression("vector::vector_copy", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
 
         let rec = rt.contextualReceiver;
         let other = getLocal<CompleteClassType>(rt, "other");
         let otherSize = getSize(other).getValue();
         let otherArr = getDataPtr(other).type.arrayObject;
 
-        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)), getDataPtr(rec).type.ptrTo);
+        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)));
         let n = otherSize.rawValue;
         for (let i = 0; i < n; ++i) {
             arr.getArrayElemSubobject(i).writeValue(otherArr.getArrayElemSubobject(i).getValue());
@@ -192,7 +223,7 @@ registerOpaqueExpression("vector::operator=_vector", <OpaqueExpressionImpl<Compl
         let otherSize = getSize(rhs).getValue();
         let otherArr = getDataPtr(rhs).type.arrayObject;
 
-        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)), getDataPtr(rec).type.ptrTo);
+        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)));
         let n = otherSize.rawValue;
         for (let i = 0; i < n; ++i) {
             arr.getArrayElemSubobject(i).writeValue(otherArr.getArrayElemSubobject(i).getValue());
@@ -301,7 +332,7 @@ registerOpaqueExpression("vector::push_back", <OpaqueExpressionImpl<VoidType, "p
         if (size.rawValue() === cap.rawValue()) {
             // grow array
             let oldArr = getDataPtr(rec).type.arrayObject;
-            arr = allocateNewArray(rt, rec, cap.getValue().modify(x => 2*x), getDataPtr(rec).type.ptrTo);
+            arr = allocateNewArray(rt, rec, cap.getValue().modify(x => 2*x));
             oldArr.getArrayElemSubobjects().forEach(
                 (elemObj, i) => arr.getArrayElemSubobject(i).writeValue(elemObj.getValue()));
             rt.sim.memory.heap.deleteObject(oldArr.address, rt);

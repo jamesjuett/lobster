@@ -422,7 +422,7 @@ initializer_list
   = first:exp_assn rest:(ws op:"," ws e:exp_assn {return e;})*
     {
       rest.unshift(first);
-      return track({construct_type:"initializer_list", args: rest}, location(), text());
+      return track({construct_type:"list_initializer", args: rest}, location(), text());
     }
   /// exp:expression {return exp;}
 

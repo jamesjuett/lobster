@@ -450,6 +450,10 @@ export class IsCompiledCheckpoint extends Checkpoint {
 
 }
 
+function removeWhitespace(str: string) {
+    return str.replace(/\s+/g, '');
+}
+
 export class OutputCheckpoint extends Checkpoint {
 
     public readonly input: string;
@@ -857,6 +861,38 @@ int main() {
   printDoubled(someInts); // prints { 84 84 10 84 }
 } 
 
+`,
+
+"ch16_ex_all_negative":
+`#include <iostream>
+#include <vector>
+using namespace std;
+
+// Returns whether all the elements in the vector are negative
+bool all_negative(const vector<int> &vec) {
+
+  // TODO: iterate and check for any non-negative
+
+}
+
+int main() {
+  // DO NOT CHANGE ANY OF THE CODE IN MAIN
+  // IT IS USED BY LOBSTER TO CHECK YOUR WORK
+
+  vector<int> vec1 = {0, 5, 10, 36, 8, 19, 1};
+  cout << "Is the first vector all negative numbers? ";
+  cout << all_negative(vec1) << endl;
+
+  vector<int> vec2 = {35, 16, -7, 0, 9, 25};
+  cout << "Is the second vector all negative numbers? ";
+  cout << all_negative(vec2) << endl;
+
+  vector<int> vec3 = {-4, -16, -99};
+  cout << "Is the third vector all negative numbers? ";
+  cout << all_negative(vec3) << endl;
+}
+
+
 `
 }
 
@@ -980,7 +1016,7 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
     ],
     "ch14_03_ex": [
         new OutputCheckpoint("Correct Output", (output: string) => {
-            return output.replace(/\s+/g, '') === "X\nXX\nXXX\nXX\nX\n".replace(/\s+/g, '');
+            return removeWhitespace(output) === removeWhitespace("X\nXX\nXXX\nXX\nX\n");
         })
         
     ],
@@ -1058,12 +1094,71 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
 
             return true;
         }),
-        new StaticAnalysisCheckpoint("Nested Loops", (program: Program) => {
-            let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
-            return !!outerLoop && !! findFirstConstruct(outerLoop.body, Predicates.byKinds(["for_statement", "while_statement"]));
-        }),
         new OutputCheckpoint("Correct Output", (output: string) => {
             return output.indexOf("{ 84 84 10 84 }") !== -1
+        })
+        
+    ],
+    "ch16_ex_all_negative": [
+        new StaticAnalysisCheckpoint("Start at 0", (program: Program,) => {
+            return !! findFirstConstruct(program, Predicates.byVariableInitialValue(0));
+        }),
+        new StaticAnalysisCheckpoint("Check against size", (program: Program, project: Project) => {
+            // Find a loop, either while or for
+            let loop = findFirstConstruct(program, Predicates.byKinds(["while_statement", "for_statement"]));
+            if (!loop) {
+                return false;
+            }
+
+            // Give a specific hint if loop condition does contains a number
+            let hardcodedLimit = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+            if (hardcodedLimit) {
+                project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "hardcoded_vector_size",
+                `Uh oh! It looks like you've got a hardcoded number ${hardcodedLimit.value.rawValue} for the loop size. This might work for the test case in main, but what if the function was called on a different vector?`));
+                return false;
+            }
+
+            // verify loop condition contains a relational operator
+            if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
+                return false;
+            }
+
+            // if loop condition does not contain a call to vector.size() return false
+            if (!findFirstConstruct(loop.condition, Predicates.byFunctionCallName("size"))) {
+                return false;
+            }
+
+            // tricky - don't look for subscript expressions, since with a vector it's actually
+            // an overloaded [] and we need to look for that as a function call
+            let indexingOperations = findConstructs(loop.body, Predicates.byOperatorOverloadCall("[]"));
+
+            // loop condition contains size (from before), but also has <= or >=
+            // and no arithmetic operators or pre/post increments that could make up for the equal to part
+            // (e.g. i <= v.size() is very much wrong, but i <= v.size() - 1 is ok)
+            let conditionOperator = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+            if (conditionOperator){
+                if (!findFirstConstruct(loop.condition,
+                    Predicates.byKinds(["arithmetic_binary_operator_expression", "prefix_increment_expression", "postfix_increment_expression"]))) {
+                    if (conditionOperator.operator === "<=" || conditionOperator.operator === ">=") {
+                        if (!indexingOperations.some(indexingOp => findFirstConstruct(indexingOp,
+                            Predicates.byKinds([
+                                "arithmetic_binary_operator_expression",
+                                "prefix_increment_expression",
+                                "postfix_increment_expression"])
+                            ))) {
+                                project.addNote(new CompilerNote(conditionOperator, NoteKind.STYLE, "hardcoded_vector_size",
+                                    `Double check the limit in this condition. I think there might be an off-by-one error that takes you out of bounds if you're using the ${conditionOperator.operator} operator.`));
+                                return false;
+                            }
+                    }
+                }
+            }
+
+            return true;
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return removeWhitespace(output).indexOf("001") !== -1
+                || removeWhitespace(output).indexOf("falsefalsetrue") !== -1;
         })
         
     ]

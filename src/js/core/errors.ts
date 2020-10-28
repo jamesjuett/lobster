@@ -436,6 +436,15 @@ export const CPPError = {
             convert: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.convert", "Invalid conversion from " + initType + " to " + declType + ".");
             },
+            list_reference_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_reference_prohibited", "A reference may not be initialized using list-initialization.");
+            },
+            list_atomic_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_atomic_prohibited", "An atomic type may not be initialized using list-initialization.");
+            },
+            list_array_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_array_prohibited", "Sorry, Lobster doesn't currently support using list-initialization for arrays.");
+            },
             list_narrowing: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_narrowing", "Implicit narrowing conversion from " + initType + " to " + declType + " is not allowed in initializer list.");
             },
@@ -444,6 +453,15 @@ export const CPPError = {
             },
             list_length: function (construct: TranslationUnitConstruct, length: number) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_length", "Length of initializer list must match length of array (" + length + ").");
+            },
+            list_empty: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_empty", "Sorry, lobster does not currently support empty list initialization.");
+            },
+            list_same_type: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_same_type", "All elements of an initializer-list must have the same type in Lobster.");
+            },
+            list_arithmetic_type: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_arithmetic_type", "Sorry, for now Lobster only supports initializer lists with arithmetic types.");
             },
             matching_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>, argTypes: readonly Type[]) {
                 var desc = entity.describe();

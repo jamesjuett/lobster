@@ -196,7 +196,7 @@ export class Memory {
     private temporaryBottom!: number;
 
     constructor(capacity?: number, staticCapacity?: number, stackCapacity?: number) {
-        this.capacity = capacity || 10000;
+        this.capacity = capacity || 100000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
         this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);
         this.heapCapacity = this.capacity - this.staticCapacity - this.stackCapacity;
@@ -211,7 +211,7 @@ export class Memory {
         this.heapEnd = this.heapStart + this.heapCapacity;
 
         this.temporaryStart = this.heapEnd + 100;
-        this.temporaryCapacity = 10000;
+        this.temporaryCapacity = 100000;
         this.temporaryEnd = this.temporaryStart + this.temporaryCapacity;
 
         assert(this.staticCapacity < this.capacity && this.stackCapacity < this.capacity && this.heapCapacity < this.capacity);
