@@ -13,6 +13,7 @@ import { findFirstConstruct, findConstructs } from "./core/analysis";
 import "./lib/cstdlib"
 import "./lib/string"
 import "./lib/vector"
+import { CompilerNote, NoteKind } from "./core/errors";
 
 $(() => {
 
@@ -496,17 +497,17 @@ export class OutputCheckpoint extends Checkpoint {
 
 export class StaticAnalysisCheckpoint extends Checkpoint {
 
-    private criterion: (program: Program) => boolean;
+    private criterion: (program: Program, project: Project) => boolean;
     
     private runner?: AsynchronousSimulationRunner;
 
-    public constructor(name: string, criterion: (program: Program) => boolean) {
+    public constructor(name: string, criterion: (program: Program, project: Project) => boolean) {
         super(name);
         this.criterion = criterion;
     }
 
     public async evaluate(project: Project) {
-        return this.criterion(project.program);
+        return this.criterion(project.program, project);
     }
     
 }
@@ -833,6 +834,29 @@ int main() {
 
   cout << repeat("echo ", 2) << endl; // "echo echo "
 }
+`,
+
+"ch16_ex_printDoubled":
+`#include <iostream>
+#include <vector>
+using namespace std;
+
+// prints out double the contents of a vector of ints
+void printDoubled(vector<int> vec) {
+  cout << "{ ";
+  // TODO: add code to traverse the vector and print 2 times each value
+
+  cout << "}" << endl;
+}
+
+int main() {
+  // DO NOT CHANGE ANY OF THE CODE IN MAIN
+  // IT IS USED BY LOBSTER TO CHECK YOUR WORK
+  vector<int> someInts(4,42);
+  someInts.at(2) = 5; 
+  printDoubled(someInts); // prints { 84 84 10 84 }
+} 
+
 `
 }
 
@@ -975,6 +999,71 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
         new OutputCheckpoint("Correct Output", (output: string) => {
             return output.indexOf("abababab") !== -1
                 && output.indexOf("echo echo ") !== -1;
+        })
+        
+    ],
+    "ch16_ex_printDoubled": [
+        new StaticAnalysisCheckpoint("Start at 0", (program: Program,) => {
+            return !! findFirstConstruct(program, Predicates.byVariableInitialValue(0));
+        }),
+        new StaticAnalysisCheckpoint("Check against size", (program: Program, project: Project) => {
+            let loop = findFirstConstruct(program, Predicates.byKinds(["while_statement", "for_statement"]));
+            if (!loop) {
+                return false;
+            }
+
+            // verify loop condition does NOT contain a number
+            let hardcodedLimit = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+            if (hardcodedLimit) {
+                project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "hardcoded_vector_size",
+                `Uh oh! It looks like you've got a hardcoded number ${hardcodedLimit.value.rawValue} for the loop size. This might work for the test case in main, but what if the function was called on a different vector?`));
+                return false;
+            }
+
+            // verify loop condition contains a relational operator
+            if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
+                return false;
+            }
+
+            // if loop condition does not contain a call to vector.size() return false
+            if (!findFirstConstruct(loop.condition, Predicates.byFunctionCallName("size"))) {
+                return false;
+            }
+
+            // tricky - don't look for subscript expressions, since with a vector it's actually
+            // an overloaded [] and we need to look for that as a function call
+            let indexingOperations = findConstructs(loop.body, Predicates.byOperatorOverloadCall("[]"));
+
+            // loop condition contains size (from before), but also has <= or >=
+            // and no arithmetic operators or pre/post increments that could make up for the equal to part
+            // (e.g. i <= v.size() is very much wrong, but i <= v.size() - 1 is ok)
+            let conditionOperator = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+            if (conditionOperator){
+                if (!findFirstConstruct(loop.condition,
+                    Predicates.byKinds(["arithmetic_binary_operator_expression", "prefix_increment_expression", "postfix_increment_expression"]))) {
+                    if (conditionOperator.operator === "<=" || conditionOperator.operator === ">=") {
+                        if (!indexingOperations.some(indexingOp => findFirstConstruct(indexingOp,
+                            Predicates.byKinds([
+                                "arithmetic_binary_operator_expression",
+                                "prefix_increment_expression",
+                                "postfix_increment_expression"])
+                            ))) {
+                                project.addNote(new CompilerNote(conditionOperator, NoteKind.STYLE, "hardcoded_vector_size",
+                                    `Double check the limit in this condition. I think there might be an off-by-one error that takes you out of bounds if you're using the ${conditionOperator.operator} operator.`));
+                                return false;
+                            }
+                    }
+                }
+            }
+
+            return true;
+        }),
+        new StaticAnalysisCheckpoint("Nested Loops", (program: Program) => {
+            let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
+            return !!outerLoop && !! findFirstConstruct(outerLoop.body, Predicates.byKinds(["for_statement", "while_statement"]));
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output.indexOf("{ 84 84 10 84 }") !== -1
         })
         
     ]

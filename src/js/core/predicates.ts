@@ -1,5 +1,5 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, isOperatorOverloadExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
@@ -161,6 +161,11 @@ export namespace Predicates {
     export function byFunctionCallName<N extends string>(name: N) {
         return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
                 ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
+    }
+
+    export function byOperatorOverloadCall<N extends string>(operator: OverloadableOperator) {
+        return <(construct: AnalyticConstruct) => construct is OperatorOverloadExpression>
+                ((construct) => isOperatorOverloadExpression(construct) && construct.operator === operator);
     }
 
     export function byIdentifierName<N extends string>(name: N) {
