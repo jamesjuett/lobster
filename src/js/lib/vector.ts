@@ -34,9 +34,9 @@ public:
     //     @vector::~vector;
     // }
 
-    // vector<${element_type}> &operator=(const vector<${element_type}> &rhs) {
-    //     return @vector::operator=_vector;
-    // }
+    vector<${element_type}> &operator=(const vector<${element_type}> &rhs) {
+        return @vector::operator=_vector;
+    }
 
     size_t size() const {
         return _size;
@@ -161,11 +161,45 @@ registerOpaqueExpression("vector::vector_copy", {
         let otherSize = getSize(other).getValue();
         let otherArr = getDataPtr(other).type.arrayObject;
 
-        let arr = allocateNewArray(rt, rec, otherSize, getDataPtr(rec).type.ptrTo);
-        arr.getArrayElemSubobjects().forEach(
-            (elemObj, i) => elemObj.writeValue(otherArr.getArrayElemSubobject(i).getValue()));
+        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)), getDataPtr(rec).type.ptrTo);
+        let n = otherSize.rawValue;
+        for (let i = 0; i < n; ++i) {
+            arr.getArrayElemSubobject(i).writeValue(otherArr.getArrayElemSubobject(i).getValue());
+        }
         getSize(rec).writeValue(otherSize);
         
+    }
+});
+
+registerOpaqueExpression("vector::operator=_vector", <OpaqueExpressionImpl<CompleteClassType, "lvalue">>{
+    type: (context: ExpressionContext) => {
+        assert(isClassContext(context));
+        return context.containingClass.type;
+    },
+    valueCategory: "lvalue",
+    operate: (rt: RuntimeOpaqueExpression<CompleteClassType, "lvalue">) => {
+
+        let rec = rt.contextualReceiver;
+        let rhs = getLocal<CompleteClassType>(rt, "rhs");
+
+        // Do nothing if self-assignment
+        if (rt.contextualReceiver.address === rhs.address) {
+            return rt.contextualReceiver;
+        }
+
+        rt.sim.memory.heap.deleteObject(getDataPtr(rec).rawValue());
+
+        let otherSize = getSize(rhs).getValue();
+        let otherArr = getDataPtr(rhs).type.arrayObject;
+
+        let arr = allocateNewArray(rt, rec, otherSize.modify(x => Math.max(x, initialVectorCapacity)), getDataPtr(rec).type.ptrTo);
+        let n = otherSize.rawValue;
+        for (let i = 0; i < n; ++i) {
+            arr.getArrayElemSubobject(i).writeValue(otherArr.getArrayElemSubobject(i).getValue());
+        }
+        getSize(rec).writeValue(otherSize);
+        
+        return rec;
     }
 });
 

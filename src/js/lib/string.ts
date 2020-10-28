@@ -1163,10 +1163,15 @@ registerOpaqueExpression(
             let rec = rt.contextualReceiver;
             let rhs = getLocal<CompleteClassType>(rt, "rhs");
             
+            // do nothing if self assignment
+            if (rec.address === rhs.address) {
+                return rec;
+            }
+
             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
             let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(rhs).getValue());
-            copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
-            return rt.contextualReceiver;
+            copyFromCString(rt, rec, charValues, validLength);
+            return rec;
         }
     }
 );
@@ -1179,10 +1184,14 @@ registerOpaqueExpression(
         operate: (rt: RuntimeOpaqueExpression<PotentiallyCompleteClassType, "lvalue">) => {
             let rec = rt.contextualReceiver;
             let cstr = getLocal<PointerType<Char>>(rt, "cstr");
+
+            let oldArrAddr = getDataPtr(rec).getValue().rawValue;
             
-            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
             let {charValues, validLength} = extractCharsFromCString(rt, cstr.getValue());
             copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
+
+            rt.sim.memory.heap.deleteObject(oldArrAddr);
+
             return rt.contextualReceiver;
         }
     }

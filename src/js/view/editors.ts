@@ -28,7 +28,8 @@ type ProjectMessages =
     "compilationOutOfDate" |
     "fileAdded" |
     "fileContentsSet" |
-    "translationUnitStatusSet";
+    "translationUnitStatusSet" |
+    "noteAdded";
 
 export class Project {
 
@@ -173,6 +174,11 @@ export class Project {
 
     public turnOffAutoCompile() {
         this.autoCompileDelay = undefined;
+    }
+
+    public addNote(note: Note) {
+        this.program.addNote(note);
+        this.observable.send("noteAdded", note);
     }
 
     // @messageResponse("projectCleared")
@@ -419,6 +425,18 @@ export class ProjectEditor {
         //     // alert(this.i_semanticProblems.get(i));
         //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
         // }
+    }
+
+    @messageResponse("noteAdded", "unwrap")
+    public onNoteAdded(note: Note) {
+
+        let sourceRef = note.primarySourceReference;
+        if (sourceRef) {
+            let editor = this.fileEditors[sourceRef.sourceFile.name];
+            editor?.addMark(sourceRef, note.kind);
+            editor?.addGutterError(sourceRef.line, note.message);
+        }
+
     }
 
     private selectFile(filename: string) {

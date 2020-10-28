@@ -439,12 +439,11 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         // layered over the expressions for a reference initialization
         args.forEach((a) => { this.attach(a); });
 
-        // Note: With a reference, no conversions are done
         if (this.args.length > 1) {
             this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
             return;
         }
-
+        // this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
         this.arg = this.args[0];
         if (!this.arg.isWellTyped()) {
             return;
@@ -457,6 +456,8 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
             this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
         }
+        // TODO: I'm pretty sure the fact that this is commented out causes errors
+        //       because the prvalue is not being materialized into a temporary object
         // else if (this.arg.valueCategory === "prvalue") {
         //     this.addNote(CPPError.lobster.referencePrvalue(this));
         // }
