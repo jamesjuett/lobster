@@ -643,7 +643,7 @@ export class TranslationUnit {
 
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
-            let parsedAST: TranslationUnitAST = cpp_parse(this.source.preprocessedText);
+            let parsedAST: TranslationUnitAST = cpp_parse(LIBRARY_FILES["_lobster_implicit"].text +  this.source.preprocessedText);
             this.parsedAST = parsedAST;
 
             this.createBuiltInGlobals();
@@ -775,6 +775,14 @@ export class TranslationUnit {
 
 
 const LIBRARY_FILES : {[index:string]: SourceFile} = {
+    lobster_implicit: new SourceFile("_lobster_implicit.h", `
+        class initializer_list<int> { const int *elts; };
+        class initializer_list<double> { const double *elts; };
+        class initializer_list<char> { const char *elts; };
+        class initializer_list<bool> { const bool *elts; };
+
+        
+    `, true),
     iostream: new SourceFile("iostream.h", `
         class ostream {};
         ostream cout;

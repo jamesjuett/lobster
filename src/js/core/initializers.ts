@@ -1,18 +1,19 @@
-import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext } from "./constructs";
+import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, CompiledTemporaryDeallocator, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity } from "./entities";
 import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
 import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
-import { CPPObject } from "./objects";
+import { CPPObject, TemporaryObject } from "./objects";
 import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from "./expressionBase";
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
 import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
-import { Statement } from "./statements";
+import { Statement, UnsupportedStatement } from "./statements";
 import { CtorInitializerASTNode } from "./declarations";
+import { lookupTypeInContext, OpaqueExpression } from "./opaqueExpression";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode;
 
@@ -894,8 +895,8 @@ export class RuntimeClassDirectInitializer<T extends CompleteClassType = Complet
     }
     
     protected upNextImpl() {
-        (<Mutable<this>>this).ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
         if (this.index === "callCtor") {
+            (<Mutable<this>>this).ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
             this.sim.push(this.ctorCall!);
             this.index = "done";
         }
@@ -1629,65 +1630,208 @@ export class RuntimeCtorInitializer extends RuntimeConstruct<CompiledCtorInitial
 // });
 
 
-export interface InitializerListASTNode extends ASTNode {
-    readonly construct_type: "initializer_list";
+export interface ListInitializerASTNode extends ASTNode {
+    readonly construct_type: "list_initializer";
     readonly args: ExpressionASTNode[];
 }
 
-// export var InitializerList = CPPConstruct.extend({
-//     _name : "InitializerList",
-//     init: function(ast, context) {
-//         this.initParent(ast, context);
-//         this.initializerListLength = ast.args.length;
-//     },
-//     compile : function(entity){
-//         assert(entity, "Initializer context must specify entity to be initialized!");
-//         this.i_entityToInitialize = entity;
-//         var ast = this.ast;
-//         var type = this.i_entityToInitialize.type;
+export abstract class ListInitializer extends Initializer {
 
-//         if (!isA(type, Types.Array)){
-//             this.addNote(CPPError.declaration.init.list_array(this));
-//         }
-//         else if (type.length !== ast.args.length){
-//             this.addNote(CPPError.declaration.init.list_length(this, type.length));
-//         }
+    public static create(context: TranslationUnitContext, target: UnboundReferenceEntity, args: readonly Expression[]): InvalidConstruct;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<AtomicType>, args: readonly Expression[]): InvalidConstruct;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>, args: readonly Expression[]) : InvalidConstruct; //ArrayListInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[]) : ClassListInitializer;
+    public static create(context: TranslationUnitContext, target: ObjectEntity, args: readonly Expression[]): /*ArrayListInitializer*/ | ClassListInitializer | InvalidConstruct;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]): /*ArrayListInitializer*/ | ClassListInitializer | InvalidConstruct;
+    public static create(context: TranslationUnitContext, target: ObjectEntity | UnboundReferenceEntity, args: readonly Expression[]): ListInitializer | InvalidConstruct {
+        if (target.type.isReferenceType()) { // check for presence of bindTo to detect reference entities
+            return new InvalidConstruct(context, undefined, CPPError.declaration.init.list_reference_prohibited, args);
+        }
+        else if (target.type.isAtomicType()) {
+            return new InvalidConstruct(context, undefined, CPPError.declaration.init.list_atomic_prohibited, args);
+        }
+        else if (target.type.isBoundedArrayType()) {
+            // TODO fix
+            return new InvalidConstruct(context, undefined, CPPError.declaration.init.list_atomic_prohibited, args);
+        }
+        else if (target.type.isCompleteClassType()) {
+            return new ClassListInitializer(context, <ObjectEntity<CompleteClassType>> target, args);
+        }
+        else {
+            return assertNever(target.type);
+        }
+    }
 
-//         if (this.hasErrors()){ return; }
+    public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
+    public abstract readonly args: readonly Expression[];
 
-//         var list = ast.args;
-//         //this.initializerList = [];
-//         this.i_childrenToExecute = [];
-//         for(var i = 0; i < list.length; ++i){
-//             var initListElem = this["arg"+i] = this.i_createAndCompileChildExpr(list[i], type.elemType);
-//             this.i_childrenToExecute.push("arg"+i);
+    public constructor(context: TranslationUnitContext) {
+        super(context, undefined);
+    }
 
-//             if(!sameType(initListElem.type, type.elemType)){
-//                 this.addNote(CPPError.declaration.init.convert(initListElem, initListElem.type, type.elemType));
-//             }
-//             else if (initListElem.isNarrowingConversion){
-//                 // TODO: as of now, still need to add code that identifies certain conversions as narrowing
-//                 this.addNote(CPPError.declaration.init.list_narrowing(initListElem, initListElem.from.type, type.elemType));
-//             }
-//             //this.initializerList.push(initListElem);
-//         }
+    public abstract createRuntimeInitializer<T extends ObjectEntityType>(this: CompiledListInitializer<T>, parent: RuntimeConstruct): RuntimeListInitializer<T>;
+}
 
-//         return;
-//     },
 
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (inst.index !== "afterChildren"){
-//             return;
-//         }
-//         var obj = this.i_entityToInitialize.runtimeLookup(sim, inst);
+export interface CompiledListInitializer<T extends ObjectEntityType = ObjectEntityType> extends ListInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>> | UnboundReferenceEntity<Extract<T, ReferenceType>>;
+    readonly args: readonly CompiledExpression[];
+}
 
-//         var arr = [];
-//         for(var i = 0; i < this.initializerListLength; ++i){
-//             arr[i] = inst.childInstances["arg"+i].evalResult.getValue();
-//         }
-//         obj.writeValue(arr);
+export abstract class RuntimeListInitializer<T extends ObjectEntityType = ObjectEntityType, C extends CompiledListInitializer<T> = CompiledListInitializer<T>> extends RuntimeInitializer<C> {
 
-//         inst.index = "done";
-//         this.done(sim, inst);
-//     }
-// });
+    protected constructor(model: C, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+
+}
+
+
+export class ClassListInitializer extends DirectInitializer {
+    public readonly construct_type = "ClassListInitializer";
+
+    public readonly target: ObjectEntity<CompleteClassType>;
+    public readonly args: readonly Expression[];
+
+    public readonly initializerList?: TemporaryObjectEntity<CompleteClassType>;
+    
+    public readonly ctor?: FunctionEntity<FunctionType<VoidType>>;
+    public readonly ctorCall?: FunctionCall;
+
+    public constructor(context: TranslationUnitContext, target: ObjectEntity<CompleteClassType>, args: readonly Expression[], kind: DirectInitializerKind) {
+        super(context, kind);
+
+        this.target = target;
+
+        if (args.length === 0) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.args = args);
+            return;
+
+        }
+
+        // If any arguments are not well typed, we can't select a constructor
+        if (!allWellTyped(args)) {
+            this.attachAll(this.args = args);
+            // ctor and ctorCall remain undefined
+            return;
+        }
+
+        let eltType = args[0].type;
+        if (!args.every(arg => arg.type.sameType(eltType))) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.args = args);
+            return;
+        }
+
+        if (!eltType.isArithmeticType()) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.args = args);
+            return;
+        }
+
+        let typeEntity = context.contextualScope.lookup(`initializer_list<${eltType.simpleType}>`);
+        assert(typeEntity?.declarationKind === "class");
+        assert(typeEntity.isComplete());
+        let initializerListType = typeEntity.type.cvUnqualified();
+
+        this.initializerList = this.createTemporaryObject(initializerListType, "[initializer list]");
+
+        // Try to find a matching constructor. Not using lookup because constructors have no name.
+        let overloadResult = overloadResolution(target.type.classDefinition.constructors, [initializerListType]);
+        if (!overloadResult.selected) {
+            this.addNote(CPPError.declaration.init.matching_constructor(this, this.target, [initializerListType]));
+            this.attachAll(this.args = args);
+            return;
+        }
+
+        this.ctor = overloadResult.selected;
+
+        this.ctorCall = new FunctionCall(context, this.ctor, [
+            new OpaqueExpression(context, {
+                type: initializerListType,
+                valueCategory: "lvalue",
+                operate: (rt: RuntimeExpression) => {
+                    while (!(rt instanceof RuntimeClassListInitializer)) {
+                        rt = rt.parent!;
+                    }
+                    return rt.initializerList!;
+                }
+            })
+        ]);
+        
+        this.attach(this.ctorCall);
+        this.args = this.ctorCall.args;
+
+
+    }
+
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassListInitializer<T>, parent: RuntimeConstruct): RuntimeClassListInitializer<T>;
+    public createRuntimeInitializer<T extends CompleteObjectType>(this: CompiledDirectInitializer<T>, parent: RuntimeConstruct): never;
+    public createRuntimeInitializer<T extends CompleteClassType>(this: CompiledClassListInitializer<T>, parent: RuntimeConstruct): RuntimeClassListInitializer<T> {
+        return new RuntimeClassListInitializer(this, parent);
+    }
+
+    public createDefaultOutlet(this: CompiledClassListInitializer, element: JQuery, parent?: ConstructOutlet): ClassListInitializerOutlet {
+        return this.kind === "direct" ?
+            new ClassListInitializerOutlet(element, this, parent) :
+            new ClassCopyInitializerOutlet(element, this, parent);
+    }
+
+    // TODO; change explain everywhere to be separate between compile time and runtime constructs
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        let targetDesc = this.target.runtimeLookup(rtConstruct).describe();
+        let rhsDesc = this.args[0].describeEvalResult(0);
+        return { message: (targetDesc.name || targetDesc.message) + " will be initialized with " + (rhsDesc.name || rhsDesc.message) + "." };
+    }
+}
+
+export interface CompiledClassListInitializer<T extends CompleteClassType = CompleteClassType> extends ClassListInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
+    readonly target: ObjectEntity<Exclude<T, ReferenceType>>; // Not sure why, but the Exclude here is needed to make TS happy
+    readonly args: readonly CompiledExpression[];
+    
+    readonly ctor: FunctionEntity<FunctionType<VoidType>>;
+    readonly ctorCall: CompiledFunctionCall<FunctionType<VoidType>>;
+}
+
+export class RuntimeClassListInitializer<T extends CompleteClassType = CompleteClassType> extends RuntimeDirectInitializer<T, CompiledClassListInitializer<T>> {
+
+    public readonly ctorCall?: RuntimeFunctionCall<FunctionType<VoidType>>;
+    public readonly initializerList?: TemporaryObject;
+
+    private index = "evaluateArgs";
+    private argIndex: number = 0;
+
+    public constructor (model: CompiledClassListInitializer<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+    
+    protected upNextImpl() {
+
+        if (this.index === "evaluateArgs") {
+            this.args
+        }
+        else if (this.index == "buildList") {
+            (<Mutable<this>>this).initializerList = this.model.initializerList?.objectInstance(this);
+        }
+
+        else if (this.index === "callCtor") {
+            (<Mutable<this>>this).ctorCall = this.model.ctorCall.createRuntimeFunctionCall(this, this.model.target.runtimeLookup(this));
+            this.sim.push(this.ctorCall!);
+            this.index = "done";
+        }
+        else {
+            let target = this.model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
+            this.startCleanup();
+        }
+    }
+
+    public stepForwardImpl() {
+        // do nothing
+    }
+
+}
