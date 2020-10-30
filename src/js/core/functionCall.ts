@@ -22,8 +22,9 @@ export class FunctionCall extends PotentialFullExpression {
 
     public readonly func: FunctionEntity<FunctionType<CompleteReturnType>>;
     public readonly args: readonly Expression[];
+    public readonly receiverType?: CompleteClassType;
 
-    public readonly argInitializers: readonly DirectInitializer[];
+    public readonly argInitializers?: readonly DirectInitializer[];
 
     public readonly returnByValueTarget?: TemporaryObjectEntity;
     /**
@@ -35,18 +36,29 @@ export class FunctionCall extends PotentialFullExpression {
      * @param context 
      * @param func Specifies which function is being called.
      * @param args Arguments to the function.
-     * @param receiver 
+     * @param receiverType
      */
-    public constructor(context: TranslationUnitContext, func: FunctionEntity<FunctionType<CompleteReturnType>>, args: readonly TypedExpression[]) {
+    public constructor(context: TranslationUnitContext, func: FunctionEntity<FunctionType<CompleteReturnType>>, args: readonly TypedExpression[], receiverType: CompleteClassType | undefined) {
         super(context, undefined);
 
         this.func = func;
+        this.receiverType = receiverType;
 
         // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
+        let paramTypes = this.func.type.paramTypes;
+        if (args.length !== paramTypes.length) {
+            this.addNote(CPPError.param.numParams(this));
+            this.attachAll(this.args = args);
+            return;
+        }
+       
+        if (this.func.isMemberFunction() && receiverType?.isConst && this.func.type.receiverType?.isConst) {
+            this.addNote(CPPError.param.thisConst(this, receiverType));
+        }
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            let paramType = this.func.type.paramTypes[i];
+            let paramType = paramTypes[i];
             if (paramType.isReferenceType()) {
                 return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType, i), [arg], "copy");
             }
@@ -341,10 +353,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         // }
 
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        this.attach(this.call = new FunctionCall(
-            context,
-            operand.entity,
-            args));
+        this.attach(this.call = new FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression {

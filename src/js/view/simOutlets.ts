@@ -2,7 +2,7 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
@@ -860,7 +860,7 @@ export class MemoryOutlet {
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+        // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
     }
     
     public clearMemory() {
@@ -938,6 +938,10 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
         this.memoryOutlet = memoryOutlet;
 
         listenTo(this, object);
+    }
+
+    public disconnect() {
+        stopListeningTo(this, this.object);
     }
 
     protected abstract updateObject() : void;
@@ -1350,11 +1354,9 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
     }
 }
 
-export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
+export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
     protected readonly objElem : JQuery;
-    private readonly nameElem: JQuery;
-    private readonly addrElem : JQuery;
 
     private readonly elemOutlets: MemoryObjectOutlet[];
 
@@ -1363,8 +1365,6 @@ export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutl
 
         this.element.addClass("code-memoryObjectArray");
 
-        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
-        this.nameElem = $('<div class="entity">'+(this.object.name || "")+'</div>');
         this.objElem = $("<div class='array'></div>");
 
         this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T>, i: number) => {
@@ -1393,8 +1393,7 @@ export class ArrayMemoryObject<T extends ArrayElemType> extends MemoryObjectOutl
         });
 
         this.updateObject();
-        this.element.append(this.addrElem);
-        this.element.append(this.nameElem).append(this.objElem);
+        this.element.append(this.objElem);
     }
 
     protected updateObject() {
@@ -1573,6 +1572,128 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
 }
 
 
+export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
+
+    // protected readonly addrElem : JQuery;
+    protected readonly objElem : JQuery;
+
+    private arrayOutlet?: ArrayMemoryObjectOutlet;
+    // private dataPtr: 
+
+    public constructor(element: JQuery, object: CPPObject<PointerType>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+
+        this.objElem = $("<span></span>").appendTo(this.element);
+
+        // this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
+        // this.element.append(this.objElem);
+
+        // if (this.object.name) {
+        //     this.element.append("<span> </span>");
+        //     this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        // }
+
+        this.updateObject();
+        
+    }
+
+    private setArrayOutlet(arrayObject: CPPObject<BoundedArrayType> | undefined) {
+        this.arrayOutlet?.disconnect();
+        this.objElem.empty();
+        delete this.arrayOutlet;
+        if (arrayObject) {
+            this.arrayOutlet = new ArrayMemoryObjectOutlet(this.objElem, arrayObject, this.memoryOutlet);
+        }
+    }
+
+    protected updateObject() {
+        
+        let type = this.object.type;
+        if (!type.isArrayPointerType()) {
+            this.setArrayOutlet(undefined);
+            return;
+        }
+
+        let pointedArr = type.arrayObject;
+
+        if (pointedArr !== this.arrayOutlet?.object) {
+            this.setArrayOutlet(pointedArr);
+        }
+    }
+}
+
+export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
+
+    protected readonly objElem : JQuery;
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+        super(element, object, memoryOutlet);
+
+        if (this.object.name) {
+            this.element.append("<span> </span>");
+            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        }
+        
+        this.objElem = $("<div></div>").appendTo(this.element);
+        
+        new InlinePointedArrayOutlet(this.objElem, <CPPObject<PointerType>>this.object.getMemberObject("data_ptr")!, memoryOutlet);
+        
+        
+    }
+
+    protected updateObject() {
+
+    }
+}
+
+// export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
+
+//     protected readonly addrElem : JQuery;
+//     protected readonly objElem : JQuery;
+
+//     private arrayOutlet?: ArrayMemoryObjectOutlet<ArithmeticType>;
+//     private dataPtr: 
+
+//     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+//         super(element, object, memoryOutlet);
+        
+//         this.element.addClass("code-memoryObjectSingle");
+
+//         this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
+//         this.element.append(this.addrElem);
+
+//         this.objElem = $("<span></span>").appendTo(this.element);
+
+//         // this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
+//         // this.element.append(this.objElem);
+
+//         // if (this.object.name) {
+//         //     this.element.append("<span> </span>");
+//         //     this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+//         // }
+
+//         this.updateObject();
+        
+//     }
+
+//     protected updateObject() {
+        
+//         new ArrayMemoryObjectOutlet(this.objElem, (<CPPObject<ArrayPointerType>>object.getMemberObject("data_ptr")).type.arrayObject, memoryOutlet);
+//         // var elem = this.objElem;
+//         // var str = getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue());
+//         // if (this.object.type.isType(Char)) {
+//         //     str = str.substr(1,str.length-2);
+//         // }
+//         // elem.html(str);
+//         // if ((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).isValueValid()) {
+//         //     elem.removeClass("invalid");
+//         // }
+//         // else{
+//         //     elem.addClass("invalid");
+//         // }
+//     }
+// }
+
 
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
     if(obj.isTyped(isPointerType)) {
@@ -1580,11 +1701,14 @@ export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOut
         return new PointerMemoryObject(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
     }
     else if(obj.isTyped(isBoundedArrayType)) {
-        return new ArrayMemoryObject(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
+        return new ArrayMemoryObjectOutlet(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
     }
     else if(obj.isTyped(isCompleteClassType)) {
         if (obj.type.className === "string") {
             return new StringMemoryObject(elem, obj, memoryOutlet);
+        }
+        if (obj.type.className.indexOf("vector") !== -1) {
+            return new VectorMemoryObject(elem, obj, memoryOutlet);
         }
         return new ClassMemoryObjectOutlet(elem, <CPPObject<CompleteClassType>>obj, memoryOutlet);
     }

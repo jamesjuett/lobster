@@ -1,6 +1,6 @@
 import { registerLibraryHeader, SourceFile } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
-import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double, ArrayElemType, AtomicType } from "../core/types";
+import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double, ArrayElemType, AtomicType, ArithmeticType } from "../core/types";
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
@@ -30,8 +30,12 @@ public:
         @vector::vector_int;
     }
     
-    vector(size_t n, const ${element_type} &val) : _size(n) {
+    vector(size_t n, ${element_type} val) : _size(n) {
         @vector::vector_int_elt;
+    }
+    
+    vector(initializer_list<${element_type}> elts) {
+        @vector::vector_initializer_list;
     }
 
     vector(const vector<${element_type}> &other) {
@@ -58,7 +62,7 @@ public:
         return _size == 0;
     }
 
-    void push_back(const ${element_type} &val) {
+    void push_back(${element_type} val) {
         @vector::push_back;
     }
 
@@ -178,6 +182,31 @@ registerOpaqueExpression("vector::vector_int_elt", <OpaqueExpressionImpl<VoidTyp
         let n_raw = n.rawValue;
         for(let i = 0; i < n_raw; ++i) {
             arr.getArrayElemSubobject(i).writeValue(val);
+        }
+    }
+});
+
+
+
+registerOpaqueExpression("vector::vector_initializer_list", <OpaqueExpressionImpl<VoidType, "prvalue">>{
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression<VoidType, "prvalue">) => {
+        let elts = getLocal<CompleteClassType>(rt, "elts");
+        let begin = <CPPObject<ArrayPointerType<ArithmeticType>>>elts.getMemberObject("begin");
+        let elems = begin.type.arrayObject.getArrayElemSubobjects();
+        
+        let n = new Value(elems.length, Int.INT);
+        let initialCapacity = n.modify(x => Math.max(x, initialVectorCapacity));
+
+        getSize(rt.contextualReceiver).writeValue(n);
+
+        let arr = allocateNewArray(rt, rt.contextualReceiver, initialCapacity);
+        // size set in member initializer list
+        
+        let n_raw = n.rawValue;
+        for(let i = 0; i < n_raw; ++i) {
+            arr.getArrayElemSubobject(i).writeValue(elems[i].getValue());
         }
     }
 });

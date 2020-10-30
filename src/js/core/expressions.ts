@@ -1,15 +1,15 @@
-import { CPPObject } from "./objects";
+import { CPPObject, TemporaryObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, IncompleteClassType, PotentiallyCompleteClassType, isGenericArrayType, isPointerToCompleteType } from "./types";
 import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CompiledTemporaryDeallocator, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType } from "./constructs";
 import { Note, CPPError, NoteHandler } from "./errors";
-import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry } from "./entities";
+import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression, FunctionCall, TypedFunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 
@@ -46,7 +46,8 @@ export type ExpressionASTNode =
     NumericLiteralASTNode |
     StringLiteralASTNode |
     ParenthesesExpressionASTNode |
-    OpaqueExpressionASTNode;
+    InitializerListExpressionASTNode|
+    OpaqueExpressionASTNode ;
 
 const ExpressionConstructsMap = {
     "comma_expression": (ast: CommaASTNode, context: ExpressionContext) => CommaExpression.createFromAST(ast, context),
@@ -112,6 +113,7 @@ const ExpressionConstructsMap = {
     "numeric_literal_expression": (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression": (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context),
+    "initializer_list_expression": (ast: InitializerListExpressionASTNode, context: ExpressionContext) => InitializerListExpression.createFromAST(ast, context),
     "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context)
 }
 
@@ -151,6 +153,7 @@ export type AnalyticExpression =
     NumericLiteralExpression |
     StringLiteralExpression |
     ParenthesesExpression |
+    InitializerListExpression |
     OpaqueExpression |
     MagicFunctionCallExpression |
     AuxiliaryExpression |
@@ -257,6 +260,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "parentheses_expression":
     T extends NonNullable<TypedParenthesesExpression["type"]> ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression<T, V> : never :
     NonNullable<TypedParenthesesExpression["type"]> extends T ? V extends NonNullable<TypedParenthesesExpression["valueCategory"]> ? TypedParenthesesExpression : never : never;
+    "initializer_list_expression":
+    T extends NonNullable<TypedInitializerListExpression["type"]> ? V extends NonNullable<TypedInitializerListExpression["valueCategory"]> ? TypedInitializerListExpression<T> : never :
+    NonNullable<TypedInitializerListExpression["type"]> extends T ? V extends NonNullable<TypedInitializerListExpression["valueCategory"]> ? TypedInitializerListExpression : never : never;
     "opaque_expression":
     T extends NonNullable<TypedOpaqueExpression["type"]> ? V extends NonNullable<TypedOpaqueExpression["valueCategory"]> ? TypedOpaqueExpression<T, V> : never :
     NonNullable<TypedOpaqueExpression["type"]> extends T ? V extends NonNullable<TypedOpaqueExpression["valueCategory"]> ? TypedOpaqueExpression : never : never;
@@ -307,6 +313,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "numeric_literal_expression": T extends NonNullable<CompiledNumericLiteralExpression["type"]> ? V extends NonNullable<CompiledNumericLiteralExpression["valueCategory"]> ? CompiledNumericLiteralExpression<T> : never : never;
     "string_literal_expression": T extends NonNullable<CompiledStringLiteralExpression["type"]> ? V extends NonNullable<CompiledStringLiteralExpression["valueCategory"]> ? CompiledStringLiteralExpression : never : never;
     "parentheses_expression": T extends NonNullable<CompiledParenthesesExpression["type"]> ? V extends NonNullable<CompiledParenthesesExpression["valueCategory"]> ? CompiledParenthesesExpression<T, V> : never : never;
+    "initializer_list_expression": T extends NonNullable<CompiledInitializerListExpression["type"]> ? V extends NonNullable<CompiledInitializerListExpression["valueCategory"]> ? CompiledInitializerListExpression<T> : never : never;
     "opaque_expression": T extends NonNullable<CompiledOpaqueExpression["type"]> ? V extends NonNullable<CompiledOpaqueExpression["valueCategory"]> ? CompiledOpaqueExpression<T, V> : never : never;
     "auxiliary_expression": T extends NonNullable<CompiledAuxiliaryExpression["type"]> ? V extends NonNullable<CompiledAuxiliaryExpression["valueCategory"]> ? CompiledAuxiliaryExpression<T, V> : never : never;
     "magic_function_call_expression": T extends NonNullable<CompiledMagicFunctionCallExpression["type"]> ? V extends NonNullable<CompiledMagicFunctionCallExpression["valueCategory"]> ? CompiledMagicFunctionCallExpression<T> : never : never;
@@ -372,6 +379,7 @@ const ExpressionConstructsRuntimeMap = {
     "numeric_literal_expression": <T extends CompiledNumericLiteralExpression["type"]>(construct: CompiledNumericLiteralExpression<T>, parent: RuntimeConstruct) => new RuntimeNumericLiteral(construct, parent),
     "string_literal_expression": (construct: CompiledStringLiteralExpression, parent: RuntimeConstruct) => new RuntimeStringLiteralExpression(construct, parent),
     "parentheses_expression": <T extends CompiledParenthesesExpression["type"], V extends ValueCategory>(construct: CompiledParenthesesExpression<T, V>, parent: RuntimeConstruct) => new RuntimeParentheses(construct, parent),
+    "initializer_list_expression": <T extends CompiledInitializerListExpression["type"]>(construct: CompiledInitializerListExpression<T>, parent: RuntimeConstruct) => new RuntimeInitializerListExpression(construct, parent),
     "opaque_expression": <T extends CompiledOpaqueExpression["type"], V extends ValueCategory>(construct: CompiledOpaqueExpression<T, V>, parent: RuntimeConstruct) => new RuntimeOpaqueExpression(construct, parent),
     "auxiliary_expression": <T extends CompiledExpression["type"] = CompiledExpression["type"], V extends ValueCategory = ValueCategory>(construct: CompiledExpression<T, V>, parent: RuntimeConstruct) => { throw new Error("Auxiliary expressions must never be instantiated at runtime.") },
     "magic_function_call_expression": <RT extends CompiledMagicFunctionCallExpression["type"]>(construct: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct) => new RuntimeMagicFunctionCallExpression(construct, parent),
@@ -414,6 +422,7 @@ export function createRuntimeExpression(construct: CompiledObjectArrowExpression
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledNumericLiteralExpression<T>, parent: RuntimeConstruct): RuntimeNumericLiteral<T>;
 export function createRuntimeExpression(construct: CompiledStringLiteralExpression, parent: RuntimeConstruct): RuntimeStringLiteralExpression;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledParenthesesExpression<T, V>, parent: RuntimeConstruct): RuntimeParentheses<T, V>;
+export function createRuntimeExpression<T extends CompleteClassType>(construct: CompiledInitializerListExpression<T>, parent: RuntimeConstruct): RuntimeInitializerListExpression<T>;
 export function createRuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory>(construct: AuxiliaryExpression<T, V>, parent: RuntimeConstruct): never;
 export function createRuntimeExpression<RT extends PeelReference<CompleteReturnType>>(construct: CompiledMagicFunctionCallExpression<RT>, parent: RuntimeConstruct): RuntimeMagicFunctionCallExpression<RT>;
 export function createRuntimeExpression<RT extends PeelReference<CompleteReturnType>>(construct: CompiledFunctionCallExpression<RT>, parent: RuntimeConstruct): RuntimeFunctionCallExpression<RT>;
@@ -4972,6 +4981,145 @@ export class RuntimeParentheses<T extends ExpressionType = ExpressionType, V ext
 }
 
 
+export interface InitializerListExpressionASTNode extends ASTNode {
+    readonly construct_type: "initializer_list_expression";
+    readonly elements: ExpressionASTNode[];
+}
+
+
+export class InitializerListExpression extends Expression<InitializerListExpressionASTNode> {
+    public readonly construct_type = "initializer_list_expression";
+
+    public readonly type?: CompleteClassType;
+    public readonly valueCategory = "lvalue";
+
+    public readonly elements: readonly Expression[];
+    public readonly elementType?: ArithmeticType;
+
+    public readonly initializerList?: TemporaryObjectEntity<CompleteClassType>;
+    public readonly elementsArray?: TemporaryObjectEntity<BoundedArrayType<ArithmeticType>>;
+
+    public constructor(context: ExpressionContext, ast: InitializerListExpressionASTNode | undefined, elements: readonly Expression[]) {
+        super(context, ast);
+
+        if (elements.length === 0) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.elements = elements);
+            return;
+        }
+
+        // If any arguments are not well typed, we can't select a constructor
+        if (!allWellTyped(elements)) {
+            this.attachAll(this.elements = elements);
+            return;
+        }
+
+        let eltType = elements[0].type;
+        if (!elements.every(arg => arg.type.sameType(eltType))) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.elements = elements);
+            return;
+        }
+
+        if (!eltType.isArithmeticType()) {
+            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.attachAll(this.elements = elements);
+            return;
+        }
+
+        let typeEntity = context.contextualScope.lookup(`initializer_list<${eltType.simpleType}>`);
+        assert(typeEntity?.declarationKind === "class");
+        assert(typeEntity.isComplete());
+        this.type = typeEntity.type.cvUnqualified();
+
+        this.initializerList = this.createTemporaryObject(this.type, "[initializer list]");
+        this.elementsArray = this.createTemporaryObject(new BoundedArrayType(eltType.cvQualified(true), elements.length), "[initializer list array]");
+
+
+        this.attachAll(this.elements = elements);
+
+    }
+
+    public static createFromAST(ast: InitializerListExpressionASTNode, context: ExpressionContext): InitializerListExpression {
+        return new InitializerListExpression(context, ast, ast.elements.map(eltAST => createExpressionFromAST(eltAST, context)));
+    }
+
+    public createDefaultOutlet(this: CompiledInitializerListExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new InitializerListExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+
+    // isTailChild : function(child){
+    //     return {isTail: true};
+    // }
+}
+
+export interface TypedInitializerListExpression<T extends CompleteClassType = CompleteClassType> extends InitializerListExpression, t_TypedExpression {
+    readonly type: T;
+
+    readonly elements: readonly TypedExpression[];
+    readonly elementType: ArithmeticType;
+    readonly initializerList: TemporaryObjectEntity<CompleteClassType>;
+    readonly elementsArray: TemporaryObjectEntity<BoundedArrayType<ArithmeticType>>;
+}
+
+export interface CompiledInitializerListExpression<T extends CompleteClassType = CompleteClassType> extends TypedInitializerListExpression<T>, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly elements: readonly CompiledExpression[];
+}
+
+export class RuntimeInitializerListExpression<T extends CompleteClassType = CompleteClassType> extends RuntimeExpression<T, "lvalue", CompiledInitializerListExpression<T>> {
+
+    public elements: readonly RuntimeExpression[];
+    readonly initializerList?: TemporaryObject<CompleteClassType>;
+    readonly elementsArray?: TemporaryObject<BoundedArrayType<ArithmeticType>>;
+
+    private elementIndex: number = 0;
+
+    public constructor(model: CompiledInitializerListExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.elements = this.model.elements.map(element => createRuntimeExpression(element, this));
+    }
+
+    protected upNextImpl() {
+        if (this.elementIndex < this.elements.length) {
+            this.sim.push(this.elements[this.elementIndex++]);
+        }
+        else {
+            (<Mutable<this>>this).elementsArray = this.model.elementsArray.objectInstance(this);
+            this.elements.forEach((elem, i) => this.elementsArray!.getArrayElemSubobject(i).setValue(
+                <Value<ArithmeticType>>(elem.evalResult instanceof CPPObject ? elem.evalResult.getValue() : elem.evalResult)
+                ));
+
+            (<Mutable<this>>this).initializerList = this.model.initializerList.objectInstance(this);
+            let eltsPointer = this.elementsArray!.getArrayElemSubobject(0).getPointerTo();
+            (<CPPObject<PointerType<ArithmeticType>>>this.initializerList!.getMemberObject("begin")!).setValue(eltsPointer);
+            (<CPPObject<PointerType<ArithmeticType>>>this.initializerList!.getMemberObject("begin")!).setValue(eltsPointer.pointerOffsetRaw(this.elements.length));
+            this.setEvalResult(<this["evalResult"]><unknown>this.initializerList!);
+            this.startCleanup();
+        }
+    }
+
+    protected stepForwardImpl() {
+        // Do nothing
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 
 const AUXILIARY_EXPRESSION_CONTEXT: ExpressionContext = {
     program: <never>undefined,
@@ -5063,9 +5211,9 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
             notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        // else if (receiverType.isConst && cand instanceof MemberFunctionEntity && !cand.type.isThisConst){
-        //     problems.push(CPPError.param.thisConst(cand.declaration));
-        // }
+        else if (receiverType?.isConst && candidate.isMemberFunction() && !candidate.type.receiverType?.isConst){
+            notes.push(CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
+        }
         else {
             argTypes.forEach((argType, i) => {
                 if (!argType) {
@@ -5921,16 +6069,19 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
     
     let lookupResult: DeclaredScopeEntry | undefined;
     let adjustedArgs: Expression[] | undefined;
+    let receiverType : CompleteClassType | undefined;
     if (leftmost.type.isCompleteClassType()) {
         // Attempt member lookup for operator overload function
         adjustedArgs = originalArgs.slice(1);
         lookupResult = leftmost.type.classScope.lookup(operatorFunctionName, { kind: "normal", noParent: true });
+        receiverType = leftmost.type;
     }
 
     // If we didn't find a member option
     if (!lookupResult) {
         lookupResult = context.contextualScope.lookup(operatorFunctionName, { kind: "normal" });
         adjustedArgs = originalArgs;
+        receiverType = undefined;
     }
 
     // If we still don't have anything
@@ -5943,7 +6094,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
     assert(lookupResult.declarationKind !== "variable");
     assert(lookupResult.declarationKind !== "class");
 
-    let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type)).selected;
+    let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type), receiverType).selected;
 
     if (selected) {
         if (selected.isMemberFunction()) {
@@ -6010,9 +6161,7 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
         this.valueCategory = returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        this.attach(this.call = new FunctionCall(
-            context,
-            selectedFunctionEntity, args));
+        this.attach(this.call = new FunctionCall(context, selectedFunctionEntity, args, undefined));
     }
 
     public createDefaultOutlet(this: CompiledNonMemberOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -6150,9 +6299,7 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
 
         // Attach the right as an argument of the function call.
         // Left is the receiver of that call and was already attached as a child.
-        this.attach(this.call = new FunctionCall(
-            context,
-            selectedFunctionEntity, args));
+        this.attach(this.call = new FunctionCall(context, selectedFunctionEntity, args, receiverExpression.type));
     }
 
     public createDefaultOutlet(this: CompiledMemberOperatorOverloadExpression, element: JQuery, parent?: ConstructOutlet) {
