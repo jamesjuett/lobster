@@ -641,9 +641,12 @@ export class TranslationUnit {
             // which will potentially be used by other translation units.
             // resetUserTypeNames(); //Object.assign({}, Types.defaultUserTypeNames); // TODO
 
+            let libAST = cpp_parse(LIBRARY_FILES["_lobster_implicit"].text);
+            this.compileTopLevelDeclarations(libAST);
+
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
-            let parsedAST: TranslationUnitAST = cpp_parse(LIBRARY_FILES["_lobster_implicit"].text +  this.source.preprocessedText);
+            let parsedAST: TranslationUnitAST = cpp_parse(this.source.preprocessedText);
             this.parsedAST = parsedAST;
 
             this.createBuiltInGlobals();
@@ -775,12 +778,38 @@ export class TranslationUnit {
 
 
 const LIBRARY_FILES : {[index:string]: SourceFile} = {
-    lobster_implicit: new SourceFile("_lobster_implicit.h", `
-        class initializer_list<int> { const int *elts; };
-        class initializer_list<double> { const double *elts; };
-        class initializer_list<char> { const char *elts; };
-        class initializer_list<bool> { const bool *elts; };
+    _lobster_implicit: new SourceFile("_lobster_implicit.h", `
+        class initializer_list<int> {
+          const int *begin;
+          const int *end;
 
+          initializer_list(const initializer_list<int> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<double> {
+          const double *begin;
+          const double *end;
+
+          initializer_list(const initializer_list<double> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<char> {
+          const char *begin;
+          const char *end;
+
+          initializer_list(const initializer_list<char> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<bool> {
+          const bool *begin;
+          const bool *end;
+
+          initializer_list(const initializer_list<bool> &other)
+           : begin(other.begin), end(other.end) {}
+        };
         
     `, true),
     iostream: new SourceFile("iostream.h", `

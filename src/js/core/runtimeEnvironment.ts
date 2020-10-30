@@ -84,6 +84,15 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && offsetValue.isValid);
     }
 
+    public pointerOffsetRaw<T extends PointerToCompleteType>(this: Value<T>, rawOffsetValue: number, subtract: boolean = false) {
+        return new Value<T>(
+            (subtract ?
+                this.rawValue - this.type.ptrTo.size * rawOffsetValue :
+                this.rawValue + this.type.ptrTo.size * rawOffsetValue),
+            this.type,
+            this.isValid);
+    }
+
     public pointerDifference(this: Value<PointerToCompleteType>, otherValue: Value<PointerToCompleteType>) {
         return new Value<Int>(
             (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,

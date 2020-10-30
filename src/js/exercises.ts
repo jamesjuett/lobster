@@ -880,15 +880,15 @@ int main() {
   // IT IS USED BY LOBSTER TO CHECK YOUR WORK
 
   vector<int> vec1 = {0, 5, 10, 36, 8, 19, 1};
-  cout << "Is the first vector all negative numbers? ";
+  cout << "vec1 all negative? ";
   cout << all_negative(vec1) << endl;
 
   vector<int> vec2 = {35, 16, -7, 0, 9, 25};
-  cout << "Is the second vector all negative numbers? ";
+  cout << "vec2 all negative? ";
   cout << all_negative(vec2) << endl;
 
   vector<int> vec3 = {-4, -16, -99};
-  cout << "Is the third vector all negative numbers? ";
+  cout << "vec3 all negative? ";
   cout << all_negative(vec3) << endl;
 }
 
@@ -1157,8 +1157,8 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
             return true;
         }),
         new OutputCheckpoint("Correct Output", (output: string) => {
-            return removeWhitespace(output).indexOf("001") !== -1
-                || removeWhitespace(output).indexOf("falsefalsetrue") !== -1;
+            return removeWhitespace(output) === removeWhitespace("vec1 all negative? 0\nvec2 all negative? 0\nvec3 all negative? 1\n")
+                || removeWhitespace(output) === removeWhitespace("vec1 all negative? false\nvec2 all negative? false\nvec3 all negative? true\n");
         })
         
     ]

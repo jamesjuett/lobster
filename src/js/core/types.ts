@@ -1,16 +1,19 @@
-import { Constructor, htmlDecoratedType, unescapeString, Mutable } from "../util/util";
+import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
+import { ConstructDescription, TranslationUnitContext } from "./constructs";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
-import { ConstructDescription, TranslationUnitContext } from "./constructs";
-import { ClassEntity, ClassScope } from "./entities";
 import { ClassDefinition } from "./declarations";
-import { proxy } from "jquery";
+import { ClassScope } from "./entities";
+
+
 
 
 var vowels = ["a", "e", "i", "o", "u"];
+
 function isVowel(c: string) {
     return vowels.indexOf(c) != -1;
+    
 };
 
 

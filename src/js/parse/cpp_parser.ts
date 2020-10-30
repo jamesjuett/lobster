@@ -371,11 +371,11 @@ function peg$parse(input: string, options?: IParseOptions) {
       return track({construct_type:"direct_initializer", args:args}, location(), text());
     };
   const peg$c154 = function(init: any): any {return track({construct_type:"copy_initializer", args:[init]}, location(), text());};
-  const peg$c155 = function(init: any): any {return init;};
+  const peg$c155 = function(init: any): any {return track({construct_type:"list_initializer", arg:init}, location(), text());};
   const peg$c156 = function(first: any, op: any, e: any): any {return e;};
   const peg$c157 = function(first: any, rest: any): any {
         rest.unshift(first);
-        return track({construct_type:"initializer_list", args: rest}, location(), text());
+        return track({construct_type:"initializer_list_expression", elements: rest}, location(), text());
       };
   const peg$c158 = function(d: any): any {
       var d2 = track(absorb({construct_type:"declarator"}, d), location(), text());
@@ -12142,7 +12142,12 @@ function peg$parse(input: string, options?: IParseOptions) {
       }
     }
 
-    let _userTypeNames = {};
+    let _userTypeNames = {
+      "initializer_list<int>": true,
+      "initializer_list<double>": true,
+      "initializer_list<char>": true,
+      "initializer_list<bool>": true
+    };
 
     function getUserTypeNames() : any {
       //if (typeof Types !== "undefined"){

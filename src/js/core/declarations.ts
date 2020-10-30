@@ -2,7 +2,7 @@ import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, Invalid
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
+import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
@@ -321,18 +321,18 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
     });
 }
 
-export function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode | undefined, context: TranslationUnitContext) {
+export function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode | undefined, context: TranslationUnitContext) {
     if (!initAST) {
         declaration.setDefaultInitializer();
     }
-    else if (initAST.construct_type == "direct_initializer") {
+    else if (initAST.construct_type === "direct_initializer") {
         declaration.setDirectInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (initAST.construct_type == "copy_initializer") {
+    else if (initAST.construct_type === "copy_initializer") {
         declaration.setCopyInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (initAST.construct_type == "initializer_list") {
-        declaration.setInitializerList(initAST.args.map((a) => createExpressionFromAST(a, context)));
+    else if (initAST.construct_type === "list_initializer") {
+        declaration.setInitializerList(initAST.arg.elements.map((a) => createExpressionFromAST(a, context)));
     }
 }
 
@@ -868,8 +868,12 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
 
     public setInitializerList(args: readonly Expression[]) {
         // TODO implement initializer lists
-        this.addNote(CPPError.lobster.unsupported_feature(this, "initializer lists"));
-        return this;
+        let init = ListInitializer.create(this.context, this.declaredEntity, args);
+        if (init instanceof InvalidConstruct) {
+            this.attach(init);
+            return;
+        }
+        return this.setInitializer(init);
     }
 }
 
