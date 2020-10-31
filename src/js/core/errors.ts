@@ -908,7 +908,7 @@ export const CPPError = {
         //     return new CompilerNote(construct, NoteKind.ERROR, "param.paramCopyConstructor", "Cannot find a copy constructor to pass a parameter of type " + type + " by value.");
         // },
         thisConst: function (construct: TranslationUnitConstruct, type: Type) {
-            return new CompilerNote(construct, NoteKind.ERROR, "param.thisConst", "A non-const member function cannot be called on a const instance of the " + type + " class.");
+            return new CompilerNote(construct, NoteKind.ERROR, "param.thisConst", "A non-const member function cannot be called on a const instance of the " + type.cvUnqualified() + " class.");
         }
     },
     stmt: {
