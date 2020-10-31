@@ -5211,7 +5211,7 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
             notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        else if (receiverType?.isConst && candidate.isMemberFunction() && !candidate.type.receiverType?.isConst){
+        else if (candidate.isMemberFunction() && receiverType?.isConst && !candidate.type.receiverType?.isConst){
             notes.push(CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }
         else {

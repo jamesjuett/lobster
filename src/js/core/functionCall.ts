@@ -52,7 +52,7 @@ export class FunctionCall extends PotentialFullExpression {
             return;
         }
        
-        if (this.func.isMemberFunction() && receiverType?.isConst && this.func.type.receiverType?.isConst) {
+        if (this.func.isMemberFunction() && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
 
