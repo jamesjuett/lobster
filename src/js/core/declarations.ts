@@ -2229,11 +2229,11 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // If any const data members do not have a user-provided
         // default constructor, do not create the implicitly default constructor
         // (this includes const non-class type objects).
-        // ^That's the language from the spec. But the basic idea of it is that
+        // ^That's the language from the standard. But the basic idea of it is that
         // we don't want any const members being default-initialized unless it's
         // done in a way the user specified (e.g. atomic objects are initialized
         // with junk, which is permanent since they're const).
-        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible(true))) {
+        if (this.memberObjectEntities.some(memObj => memObj.type.isConst && !memObj.type.isDefaultConstructible(true))) {
             return;
         }
 
