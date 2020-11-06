@@ -4,7 +4,7 @@ import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType } from "../core/types";
 import { Mutable, assert, isInstance } from "../util/util";
-import { Simulation, SimulationInputStream, SimulationOutputKind } from "../core/Simulation";
+import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet, Project } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
@@ -624,6 +624,15 @@ export class SimulationOutlet {
     @messageResponse("cinInput")
     private onCinInput(msg: Message<string>) {
         this.consoleContentsElem.append(`<span class="lobster-console-user-input">${msg.data}</span>`);
+        this.element.find(".console").scrollTop(this.element.find(".console")[0].scrollHeight);
+    }
+
+    @messageResponse("eventOccurred", "unwrap")
+    private onEventOccurred(data: {event: SimulationEvent, message: string}) {
+        if(data.event === SimulationEvent.ASSERTION_FAILURE) {
+            this.consoleContentsElem.append(`<span class="lobster-console-error">${data.message + "\n"}</span>`);
+            this.element.find(".console").scrollTop(this.element.find(".console")[0].scrollHeight);
+        }
     }
     
     @messageResponse("reset")
@@ -1633,7 +1642,7 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
             this.element.append("<span> </span>");
             this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
         }
-        
+
         this.objElem = $("<div></div>").appendTo(this.element);
         
         new InlinePointedArrayOutlet(this.objElem, <CPPObject<PointerType>>this.object.getMemberObject("data_ptr")!, memoryOutlet);

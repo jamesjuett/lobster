@@ -58,6 +58,10 @@ export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstru
     }
 }
 
+export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+    return !!findFirstConstruct(root, test);
+}
+
 // type TypedFilterable<Original extends CPPConstruct, Narrowed extends Original> = Original & {
 //     typedPredicate<T extends Type>(typePredicate: (o: Type) => o is T) : (decl: Original) => decl is Narrowed;
 // }

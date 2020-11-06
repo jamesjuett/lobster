@@ -8,12 +8,15 @@ import { decode } from "he";
 import { AsynchronousSimulationRunner } from "./core/simulationRunners";
 import { Program } from "./core/Program";
 import { Predicates } from "./core/predicates";
-import { findFirstConstruct, findConstructs } from "./core/analysis";
+import { findFirstConstruct, findConstructs, containsConstruct } from "./core/analysis";
 
 import "./lib/cstdlib"
 import "./lib/string"
 import "./lib/vector"
 import { CompilerNote, NoteKind } from "./core/errors";
+import { isCompleteClassType, Char, isType } from "./core/types";
+import { contains } from "jquery";
+import { MagicFunctionCallExpressionOutlet } from "./view/codeOutlets";
 
 $(() => {
 
@@ -517,6 +520,51 @@ export class StaticAnalysisCheckpoint extends Checkpoint {
 }
 
 
+
+// export class TestCaseCheckpoint extends Checkpoint {
+
+//     public readonly input: string;
+//     public readonly stepLimit: number;
+
+//     private validTest: (assertion: MagicFunctionCallExpressionOutlet) => boolean;
+    
+//     private runner?: AsynchronousSimulationRunner;
+
+//     public constructor(name: string, validTest: (output: string) => boolean, input: string = "", stepLimit: number = 1000) {
+//         super(name);
+//         this.validTest = validTest;
+//         this.input = input;
+//         this.stepLimit = stepLimit;
+//     }
+
+//     // May throw if interrupted during async running
+//     public async evaluate(project: Project) {
+        
+//         if (this.runner) {
+//             this.runner.pause();
+//             delete this.runner;
+//         }
+
+//         let program = project.program;
+
+//         if (!program.isRunnable()) {
+//             return false;
+//         }
+
+//         let sim = new Simulation(program);
+//         if (this.input !== "") {
+//             sim.cin.addToBuffer(this.input)
+//         }
+//         let runner = this.runner = new AsynchronousSimulationRunner(sim);
+
+//         // may throw if interrupted
+//         await runner.stepToEnd(0, this.stepLimit, true);
+//         return sim.atEnd && this.expected(sim.allOutput);
+//     }
+    
+// }
+
+
 const EXERCISE_STARTER_CODE : {[index: string]: string} = {
     "ch12_01_ex":
 `#include <iostream>
@@ -890,10 +938,58 @@ int main() {
   vector<int> vec3 = {-4, -16, -99};
   cout << "vec3 all negative? ";
   cout << all_negative(vec3) << endl;
+}`,
+
+"ch17_ex_encrypt_word":
+`#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+char shift_letter(char c, int offset) {
+  // compute original letter "position"
+  int pos = c - 'a';
+  // adjust position by offset, mod 26
+  pos = (pos + offset) % 26;
+  // convert "position" back to letter
+  return 'a' + pos;
 }
 
+string encrypt_word(const string &text, int offset) {
+  
+  // YOUR CODE HERE
+  
+}
 
-`
+int main() {
+  string s = "hello";
+  cout << encrypt_word(s, 5) << endl; // mjqqt
+}`,
+
+"ch17_ex_unit_testing":
+`#include <iostream>
+#include <string>
+
+using namespace std;
+
+char shift_letter(char c, int offset) {
+  // compute original letter "position"
+  int pos = c - 'a';
+  // adjust position by offset, mod 26
+  pos = (pos + offset) % 26;
+  // convert "position" back to letter
+  return 'a' + pos;
+}
+
+int main() {
+  string s = "hello";
+  assert(shift_letter('b', 3) == 'e');
+	assert(shift_letter('y', 3) == 'b');
+  assert(shift_letter('e', -1) == 'd');
+  
+  cout << "Tests finished." << endl;
+}`
 }
 
 function getExerciseCheckpoints(projectName: string) {
@@ -1161,5 +1257,52 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
                 || removeWhitespace(output) === removeWhitespace("vec1 all negative? false\nvec2 all negative? false\nvec3 all negative? true\n");
         })
         
+    ],
+    "ch17_ex_encrypt_word": [
+        // new StaticAnalysisCheckpoint("Local copy of text parameter", (program: Program) => {
+        //     let fn = findFirstConstruct(program, Predicates.byFunctionName("encrypt_word"));
+        //     let textParam = fn?.parameters.find(p => p.type?.isCompleteClassType() && p.type.className === "string");
+        //     let textParamName = textParam?.name;
+        //     if (!fn || !textParam || !textParamName) { return false; }
+
+
+        //     // find all local string variable definitions
+        //     let localStrings = findConstructs(fn, Predicates.byKind("local_variable_definition")).filter(
+        //         def => def.type.isCompleteClassType() && def.type.className === "string"
+        //     );
+
+        //     let stringAssignments = findConstructs(fn, Predicates.byKind("member_operator_overload_expression")).filter(
+        //         assn => assn.receiverExpression.type.className === "string"
+        //     );
+
+        //     // one of those either needs to be initialized with "text" parameter or
+        //     // later on assigned its value
+        //     return localStrings.some(s => s.initializer && containsConstruct(s.initializer, Predicates.byIdentifierName(textParamName!))) ||
+        //             stringAssignments.some(assn => containsConstruct(assn, Predicates.byVariableName(textParamName!)));
+
+        // }),
+        new StaticAnalysisCheckpoint("loop", (program: Program) => {
+            let fn = findFirstConstruct(program, Predicates.byFunctionName("encrypt_word"));
+            return !!fn && containsConstruct(fn, Predicates.byKinds(["while_statement", "for_statement"]));
+        }),
+        new StaticAnalysisCheckpoint("Call shift_letter()", (program: Program) => {
+            let fn = findFirstConstruct(program, Predicates.byFunctionName("encrypt_word"));
+            let call = fn && findFirstConstruct(fn, Predicates.byFunctionCallName("shift_letter"));
+            return !!call?.isSuccessfullyCompiled();
+
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return output.indexOf("mjqqt") !== -1;
+        })
+    ],
+    "ch17_ex_unit_testing": [
+        new StaticAnalysisCheckpoint("Add 3 more test cases (6 total)", (program: Program) => {
+            let main = findFirstConstruct(program, Predicates.byFunctionName("main"));
+            if (!main) { return false; }
+            return findConstructs(main, Predicates.byKind("magic_function_call_expression")).filter(
+                call => call.functionName === "assert"
+            ).length >= 6;
+
+        })
     ]
 }
