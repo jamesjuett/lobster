@@ -5287,7 +5287,7 @@ const MAGIC_FUNCTIONS: { [k in MAGIC_FUNCTION_NAMES]: MagicFunctionImpl } = {
         operate: (rt: RuntimeMagicFunctionCallExpression) => {
             let arg = <Value<Bool>>rt.args[0].evalResult;
             if (!arg.rawValue) {
-                rt.sim.eventOccurred(SimulationEvent.ASSERTION_FAILURE, "An assertion failed.", true);
+                rt.sim.eventOccurred(SimulationEvent.ASSERTION_FAILURE, `Assertion failed on line ${rt.model.getNearestSourceReference().line}.`, true);
             }
         }
     },

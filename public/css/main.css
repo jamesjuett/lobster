@@ -497,6 +497,12 @@ div .tabPane {
     content: "\200b"; /*unicode zero width space character*/
 }
 
+.lobster-console-error {
+    /* display: inline-block; */
+	color: red;
+	font-weight: bold;
+}
+
 .multiParagraph ul{
 	display: block;
 	padding-left: 0;
