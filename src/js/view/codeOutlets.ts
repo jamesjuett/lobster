@@ -1043,11 +1043,7 @@ export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClas
 
         // this.element.append(htmlDecoratedType(construct.target.type.className));
 
-        this.element.append("(");
-
         this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);
-
-        this.element.append(")");
     }
     
 }
