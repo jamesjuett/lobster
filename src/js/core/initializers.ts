@@ -1075,7 +1075,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         }));
     }
 
-    public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode, components: readonly CtorInitializerComponent[]) {
+    public constructor(context: MemberBlockContext, ast: CtorInitializerASTNode | undefined, components: readonly CtorInitializerComponent[]) {
         super(context, ast);
 
         let receiverType = context.contextualReceiverType;
@@ -1146,7 +1146,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
             this.baseInitializer = new ClassDefaultInitializer(createImplicitContext(context), new BaseSubobjectEntity(this.target, baseType));
         }
 
-        receiverType.classDefinition.memberEntities.forEach(memEntity => {
+        receiverType.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
             let memInit = this.memberInitializersByName[memName];
 
@@ -1653,9 +1653,13 @@ export abstract class ListInitializer extends Initializer {
         }
         else if (target.type.isBoundedArrayType()) {
             // TODO fix
-            return new InvalidConstruct(context, undefined, CPPError.declaration.init.list_atomic_prohibited, args);
+            return new InvalidConstruct(context, undefined, CPPError.declaration.init.list_array_unsupported, args);
         }
         else if (target.type.isCompleteClassType()) {
+            if (target.type.isAggregate()) {
+                return new InvalidConstruct(context, undefined, CPPError.declaration.init.aggregate_unsupported, args);
+            }
+
             let initializerList = new InitializerListExpression(context, undefined, args);
             return new ClassDirectInitializer(context, <ObjectEntity<CompleteClassType>> target, [initializerList], "direct");
         }

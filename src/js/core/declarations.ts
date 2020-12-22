@@ -1545,11 +1545,16 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         });
 
         let ctorInitializer: CtorInitializer | InvalidConstruct | undefined;
-        if (ast.ctor_initializer) {
-            if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+        if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+            if (ast.ctor_initializer) {
                 ctorInitializer = CtorInitializer.createFromAST(ast.ctor_initializer, bodyContext);
             }
             else {
+                ctorInitializer = new CtorInitializer(bodyContext, undefined, []);
+            }
+        }
+        else {
+            if (ast.ctor_initializer) {
                 ctorInitializer = new InvalidConstruct(bodyContext, ast.ctor_initializer, CPPError.declaration.ctor.init.constructor_only);
             }
         }
@@ -1990,7 +1995,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     
     public readonly baseClass?: CompleteClassType;
     
-    public readonly memberEntities: readonly MemberVariableEntity[] = [];
+    public readonly memberVariableEntities: readonly MemberVariableEntity[] = [];
     public readonly memberObjectEntities: readonly MemberObjectEntity[] = [];
     public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
     public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
@@ -2117,7 +2122,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
 
-                asMutable(this.memberEntities).push(decl.declaredEntity);
+                asMutable(this.memberVariableEntities).push(decl.declaredEntity);
 
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
                     asMutable(this.memberObjectEntities).push(decl.declaredEntity);
@@ -2166,8 +2171,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             }
         });
 
-        this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
-
 
         // Compute size of objects of this class
         let size = 0;
@@ -2181,6 +2184,9 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.declaration.declaredEntity.setDefinition(this);
         assert(declaration.type.isCompleteClassType());
         this.type = declaration.type;
+        
+        // This needs to happen after setting the definition on the entity above
+        this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }

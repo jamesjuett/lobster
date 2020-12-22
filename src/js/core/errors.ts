@@ -442,8 +442,11 @@ export const CPPError = {
             list_atomic_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_atomic_prohibited", "An atomic type may not be initialized using list-initialization.");
             },
-            list_array_prohibited: function (construct: TranslationUnitConstruct) {
+            list_array_unsupported: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_array_prohibited", "Sorry, Lobster doesn't currently support using list-initialization for arrays.");
+            },
+            aggregate_unsupported: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.aggregate_unsupported", "Sorry, Lobster doesn't currently support aggregate initialization for compound objects.");
             },
             list_narrowing: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_narrowing", "Implicit narrowing conversion from " + initType + " to " + declType + " is not allowed in initializer list.");

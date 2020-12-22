@@ -5016,13 +5016,13 @@ export class InitializerListExpression extends Expression<InitializerListExpress
 
         let eltType = elements[0].type;
         if (!elements.every(arg => arg.type.sameType(eltType))) {
-            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.addNote(CPPError.declaration.init.list_same_type(this));
             this.attachAll(this.elements = elements);
             return;
         }
 
         if (!eltType.isArithmeticType()) {
-            this.addNote(CPPError.declaration.init.list_empty(this));
+            this.addNote(CPPError.declaration.init.list_arithmetic_type(this));
             this.attachAll(this.elements = elements);
             return;
         }
