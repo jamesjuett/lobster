@@ -985,11 +985,65 @@ char shift_letter(char c, int offset) {
 int main() {
   string s = "hello";
   assert(shift_letter('b', 3) == 'e');
-	assert(shift_letter('y', 3) == 'b');
+  assert(shift_letter('y', 3) == 'b');
   assert(shift_letter('e', -1) == 'd');
   
   cout << "Tests finished." << endl;
-}`
+}`,
+
+"ch18_ex_printRover":
+`#include <iostream>
+#include <string>
+
+using namespace std;
+
+struct Rover {
+  int type;
+  string id;
+  double charge;
+};
+
+void printRover(const Rover &rover, ostream &output) {
+
+  // YOUR CODE HERE
+
+}
+
+int main() {
+  Rover myRover;
+  myRover.type = 1;
+  myRover.id = "a238";
+  myRover.charge = 0.8;
+
+  // This should print "Type 1 Rover #a238 (80%)"
+  printRover(myRover, cout);
+  cout << endl; 
+}
+`,
+
+"ch19_ex_printVecOfInts":
+`#include <iostream>
+#include <vector>
+using namespace std;
+
+// prints out the contents of a vector of ints 
+void printVecOfInts(vector<int> vec) {
+  // TODO: add code to traverse the vector and print each value
+  // See the tests in main for formatting examples
+
+}
+
+int main() {
+  // DO NOT CHANGE ANY OF THE CODE IN MAIN
+  // IT IS USED BY LOBSTER TO CHECK YOUR WORK
+
+  vector<int> someInts = {1, 2, 3, 4, 5};
+  printVecOfInts(someInts); // prints { 1 2 3 4 5 }
+
+  vector<int> moreInts = {0, -5, 94, 16};
+  printVecOfInts(moreInts); // prints { 0 -5 94 16 }
+}
+`
 }
 
 function getExerciseCheckpoints(projectName: string) {
@@ -1135,7 +1189,7 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
         
     ],
     "ch16_ex_printDoubled": [
-        new StaticAnalysisCheckpoint("Start at 0", (program: Program,) => {
+        new StaticAnalysisCheckpoint("Start at 0", (program: Program) => {
             return !! findFirstConstruct(program, Predicates.byVariableInitialValue(0));
         }),
         new StaticAnalysisCheckpoint("Check against size", (program: Program, project: Project) => {
@@ -1196,7 +1250,7 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
         
     ],
     "ch16_ex_all_negative": [
-        new StaticAnalysisCheckpoint("Start at 0", (program: Program,) => {
+        new StaticAnalysisCheckpoint("Start at 0", (program: Program) => {
             return !! findFirstConstruct(program, Predicates.byVariableInitialValue(0));
         }),
         new StaticAnalysisCheckpoint("Check against size", (program: Program, project: Project) => {
@@ -1304,5 +1358,102 @@ const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[]} = {
             ).length >= 6;
 
         })
+    ],
+    "ch18_ex_printRover": [
+        new StaticAnalysisCheckpoint("Print type", (program: Program, project: Project) => {
+            let printRover = findFirstConstruct(program, Predicates.byFunctionName("printRover"));
+            if (!printRover) { return false; }
+
+            // Give a specific hint if they accidentally use cout in the function
+            let cout = findFirstConstruct(printRover, Predicates.byIdentifierName("cout"));
+            if (cout) {
+                project.addNote(new CompilerNote(cout, NoteKind.STYLE, "cout_in_ostream_function",
+                `Oops! This is a very easy mistake to make, since we're all so used to typing cout. But printRover() takes in a particular ostream parameter called 'output', and you should make sure to send your output through that stream (in case it turns out to be different from cout).`));
+                return false;
+            }
+
+            return findConstructs(printRover, Predicates.byKind("output_operator_expression")).some(
+                operator => operator.operator === "<<" && containsConstruct(operator.right, Predicates.byMemberAccessName("type"))
+            );
+        }),
+        new StaticAnalysisCheckpoint("Print id", (program: Program) => {
+            let printRover = findFirstConstruct(program, Predicates.byFunctionName("printRover"));
+            if (!printRover) { return false; }
+            return findConstructs(printRover, Predicates.byKind("non_member_operator_overload_expression")).some(
+                operator => operator.operator === "<<" && containsConstruct(operator, Predicates.byMemberAccessName("id"))
+            );
+        }),
+        new StaticAnalysisCheckpoint("Print charge", (program: Program) => {
+            let printRover = findFirstConstruct(program, Predicates.byFunctionName("printRover"));
+            if (!printRover) { return false; }
+            return findConstructs(printRover, Predicates.byKind("output_operator_expression")).some(
+                operator => operator.operator === "<<" && containsConstruct(operator.right, Predicates.byMemberAccessName("charge"))
+            );
+        }),
+        new OutputCheckpoint("Correct Output (and formatting)", (output: string) => {
+            return removeWhitespace(output) === removeWhitespace("Type 1 Rover #a238 (80%)")
+        })
+    ],
+    "ch19_ex_printVecOfInts": [
+        new StaticAnalysisCheckpoint("Start at 0", (program: Program) => {
+            return !! findFirstConstruct(program, Predicates.byVariableInitialValue(0));
+        }),
+        new StaticAnalysisCheckpoint("Check against size", (program: Program, project: Project) => {
+            let loop = findFirstConstruct(program, Predicates.byKinds(["while_statement", "for_statement"]));
+            if (!loop) {
+                return false;
+            }
+
+            // verify loop condition does NOT contain a number
+            let hardcodedLimit = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+            if (hardcodedLimit) {
+                project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "hardcoded_vector_size",
+                `Uh oh! It looks like you've got a hardcoded number ${hardcodedLimit.value.rawValue} for the loop size. This might work for the test case in main, but what if the function was called on a different vector?`));
+                return false;
+            }
+
+            // verify loop condition contains a relational operator
+            if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
+                return false;
+            }
+
+            // if loop condition does not contain a call to vector.size() return false
+            if (!findFirstConstruct(loop.condition, Predicates.byFunctionCallName("size"))) {
+                return false;
+            }
+
+            // tricky - don't look for subscript expressions, since with a vector it's actually
+            // an overloaded [] and we need to look for that as a function call
+            let indexingOperations = findConstructs(loop.body, Predicates.byOperatorOverloadCall("[]"));
+
+            // loop condition contains size (from before), but also has <= or >=
+            // and no arithmetic operators or pre/post increments that could make up for the equal to part
+            // (e.g. i <= v.size() is very much wrong, but i <= v.size() - 1 is ok)
+            let conditionOperator = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+            if (conditionOperator){
+                if (!findFirstConstruct(loop.condition,
+                    Predicates.byKinds(["arithmetic_binary_operator_expression", "prefix_increment_expression", "postfix_increment_expression"]))) {
+                    if (conditionOperator.operator === "<=" || conditionOperator.operator === ">=") {
+                        if (!indexingOperations.some(indexingOp => findFirstConstruct(indexingOp,
+                            Predicates.byKinds([
+                                "arithmetic_binary_operator_expression",
+                                "prefix_increment_expression",
+                                "postfix_increment_expression"])
+                            ))) {
+                                project.addNote(new CompilerNote(conditionOperator, NoteKind.STYLE, "hardcoded_vector_size",
+                                    `Double check the limit in this condition. I think there might be an off-by-one error that takes you out of bounds if you're using the ${conditionOperator.operator} operator.`));
+                                return false;
+                            }
+                    }
+                }
+            }
+
+            return true;
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+            return removeWhitespace(output).indexOf(removeWhitespace("{ 1 2 3 4 5 }")) !== -1
+                && removeWhitespace(output).indexOf(removeWhitespace("{ 0 -5 94 16 }")) !== -1;
+        })
+        
     ]
 }

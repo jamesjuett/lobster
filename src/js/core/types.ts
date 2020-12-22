@@ -918,6 +918,10 @@ export abstract class FloatingPointType extends ArithmeticType {
         var str = "" + <number>value;
         return str.indexOf(".") != -1 ? str : str + ".";
     }
+
+    public valueToOstreamString(value: RawValueType) {
+        return "" + value;
+    }
 }
 
 export type AnalyticFloatingPointType = Float | Double;
@@ -1476,6 +1480,26 @@ class ClassTypeBase extends TypeBase {
     
     public isDestructible(this: CompleteClassType) {
         return !!this.classDefinition.destructor;
+    }
+
+    public isAggregate(this: CompleteClassType) {
+
+        // Aggregates may not have private member variables
+        if (this.classDefinition.memberVariableEntities.some(memEnt => memEnt.firstDeclaration.context.accessLevel === "private")) {
+            return false;
+        }
+
+        // Aggregates may not have user-provided constructors
+        if (this.classDefinition.constructorDeclarations.some(ctorDecl => !ctorDecl.context.implicit)) {
+            return false;
+        }
+
+        // Aggregates may not have base classes (until c++17)
+        if (this.classDefinition.baseClass) {
+            return false;
+        }
+
+        return true;
     }
 }
 

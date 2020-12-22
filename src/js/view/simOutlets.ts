@@ -1514,7 +1514,7 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
 
         let membersElem = $('<div class="members"></div>');
 
-        this.object.type.classDefinition.memberEntities.forEach(memEntity => {
+        this.object.type.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
             if (memEntity instanceof MemberReferenceEntity) {
                 new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
