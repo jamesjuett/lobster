@@ -9,7 +9,7 @@ import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
-import { first, clone } from "lodash";
+import { first, clone, trimStart } from "lodash";
 
 
 export enum SimulationEvent {
@@ -799,7 +799,7 @@ export class SimulationInputStream {
     }
 
     public skipws() {
-        (<Mutable<this>>this).buffer = this.buffer.trimStart();
+        (<Mutable<this>>this).buffer = trimStart(this.buffer);
     }
 
 

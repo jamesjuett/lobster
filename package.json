@@ -16,20 +16,20 @@
         "@types/he": "^1.1.1",
         "@types/jquery": "^3.5.2",
         "@types/lodash": "^4.14.111",
-        "codemirror": "^5.49.2",
         "css-loader": "^3.2.0",
-        "he": "^1.2.0",
-        "lodash": "^4.17.19",
-        "pegjs": "^0.10.0",
         "style-loader": "^1.0.0",
         "ts-loader": "^6.2.1",
         "ts-pegjs": "^0.2.6",
         "typescript": "^3.9.0-beta",
-        "webpack": "^4.41.2",
-        "webpack-cli": "^3.3.10"
+        "webpack": "^5.11.1",
+        "webpack-cli": "^4.3.0"
     },
     "dependencies": {
-        "circular-dependency-plugin": "^5.2.0"
+        "codemirror": "^5.49.2",
+        "he": "^1.2.0",
+        "lodash": "^4.17.19",
+        "pegjs": "^0.10.0"
+
     },
     "scripts": {
         "build": "webpack --config webpack.config.js"
