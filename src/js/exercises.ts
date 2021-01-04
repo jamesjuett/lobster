@@ -442,7 +442,7 @@ abstract class Checkpoint {
         this.name = name;
     }
 
-    public abstract async evaluate(project: Project): Promise<boolean>;
+    public abstract evaluate(project: Project): Promise<boolean>;
 }
 
 export class IsCompiledCheckpoint extends Checkpoint {
