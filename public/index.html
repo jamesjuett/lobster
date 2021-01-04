@@ -56,136 +56,16 @@
 
         </div>
         <div class="col-xs-8 col-sm-9 col-md-10">
-            <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
-                <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
-                    <div style="display: inline-block">
-                        <div class = "compilation-status-outlet" >
-                        </div>
-                    </div>
-                    <div style="display: inline-block">
-                        <div>
-                            <span class = "project-save-outlet"></span>
-                        </div>
-                    </div>
-                </div>
+            
+            <div class="lobster-ex" style="width: 800px; margin-left: auto; margin-right: auto">
+                <div class="lobster-ex-project-name">ch16_ex_printDoubled</div>
+                <pre class="lobster-ex-init-code">#include &lt;iostream&gt;
+using namespace std;
 
-                <li><a class="lobster-compilation-tab" data-toggle="tab" href="#compilationPane">Compilation</a></li>
-                <li class="lobster-source-tab active"><a data-toggle="tab" href="#sourcePane">Source Code</a></li>
-                <li><a class="lobster-sim-tab" data-toggle="tab" href="#simPane">Simulation</a></li>
-
-            </ul>
-
-            <div class="tab-content">
-
-                <div id="compilationPane" class="lobster-compilation-pane tab-pane fade">
-                    <div>
-                        <h3>Translation Units</h3>
-                        <p>A program may be composed of many different translation units, one for each source file
-                            that needs to be compiled into the executable program. Generally, you want a translation
-                            unit for each .cpp file, and these are the files you would list out in a compile command.
-                            The files being used for this purpose are highlighted below. Note that files may be
-                            indirectly used if they are #included in other translation units, but not shown here.
-                        </p>
-                        <p style="font-weight: bold;">
-                            Click files below to toggle whether they are being used to create a translation unit.
-                        </p>
-                        <ul class="translation-units-list list-inline">
-                        </ul>
-                    </div>
-                    <div>
-                        <h3>Compilation Errors</h3>
-                        <p>These errors were based on your last compilation.
-                        </p>
-                        <ul class="compilation-notes-list">
-                        </ul>
-                    </div>
-                    <div>
-                        Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
-
-                        The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.
-                    </div>
-                </div>
-
-
-                <div id="sourcePane" class="lobster-source-pane tab-pane fade active in">
-                    <ul class="project-files nav nav-pills"></ul>
-
-                    <div style = "height: 22px; padding: 2px; background-color: lightgray;">
-                        <button class = "runButton" style="display: inline-block">Simulate</button>
-                    </div>
-                    <ul class = "semanticProblems" style = "width: 100%; max-height: 100px; overflow-y: auto; box-sizing: border-box;"></ul>
-                    <div class="codeMirrorEditor" style = "position: relative; height: 75vh; overflow-y: auto; background-color: #272822">
-                        <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
-                        <!--<div style="height: 400px;"></div>-->
-                    </div>
-
-                    <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                        <div class="annotationMessages">
-                            <div style="height: 100px; margin-left: 5px; float: right;">
-                                <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                                <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                                <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
-                            </div>
-                            <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="simPane" class="lobster-sim-pane tab-pane fade">
-                    <div style="margin-bottom: 5px;">
-                        <button class = "restart">Restart</button>
-                        <!--<span style = "display: inline-block; width: 4ch"></span>-->
-                        <input type="text" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                        <button class = "stepForward">Step Forward</button>
-                        <button class = "stepOver">Step Over</button>
-                        <button class = "stepOut">Step Out</button>
-                        <button class = "runToEnd">Run</button>
-                        <button class = "pause">Pause</button>
-                        <button class = "skipToEnd">Skip to End (FAST)</button>
-
-                        <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                        <button class = "stepBackward">Step Backward</button>
-                        <input type="text" style="width: 4ch" class="stepBackwardNum" value="1" />
-                        <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
-                    </div>
-                    <div style="position: relative">
-                        <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
-                            Thinking...
-                            <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
-                        </div>
-                        <div class="alerts-container">
-                            <div class="alerts">
-                                <div style="display:inline-block; padding: 5px">
-                                    <div style="height: 100px; margin-left: 5px; float: right;">
-                                        <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
-                                        <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
-                                    </div>
-                                    <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
-                    <table style="width: 100%;">
-                        <tr>
-                            <td style="width: 25%; vertical-align: top;">
-                                <div style="position: relative;">
-                                    <div style = "text-align: center">Console</div>
-                                    <div style="position: relative; min-height: 80px; height: 80px;">
-                                        <div class="console" style="min-height: 20px; resize: both; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(255,255,255,0.7);"></div>
-                                    </div>
-                                    <div style = "text-align: center">Memory</div>
-                                    <div style="overflow-y: auto; overflow-x: hidden;"><div class="memory readOnly"></div></div>
-
-                                </div>
-                            </td>
-                            <td style="vertical-align: top;">
-                                <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; flex: 1 1 auto;-webkit-flex: 1 1 auto;-ms-flex: 1 1 auto; text-wrap: avoid; position: relative; white-space: nowrap;"> </div>
-                            </td>
-                        </tr>
-                    </table>
-
-                </div>
-            </div>
+int main() {
+  cout << "Hello World!" << endl;
+}
+</pre>
 
         </div>
     </div>

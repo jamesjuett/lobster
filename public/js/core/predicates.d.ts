@@ -50,10 +50,19 @@ export declare namespace Predicates {
     }) | (ClassDefinition & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (UnknownTypeDeclaration & {
+    }) | (LocalVariableDefinition & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (VoidDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./declarations").IncompleteTypeVariableDefinition & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (UnknownTypeDeclaration & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./declarations").TypedefDeclaration & {
@@ -65,16 +74,7 @@ export declare namespace Predicates {
     }) | (import("./declarations").UnknownBoundArrayDeclaration & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./declarations").IncompleteTypeVariableDefinition & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (LocalVariableDefinition & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./declarations").MemberVariableDeclaration & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").CommaExpression & {
@@ -234,9 +234,15 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (ClassDefinition & {
         type?: OriginalT | undefined;
-    }) | (UnknownTypeDeclaration & {
+    }) | (LocalVariableDefinition & {
         type?: OriginalT | undefined;
     }) | (VoidDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (import("./declarations").IncompleteTypeVariableDefinition & {
+        type?: OriginalT | undefined;
+    }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (UnknownTypeDeclaration & {
         type?: OriginalT | undefined;
     }) | (import("./declarations").TypedefDeclaration & {
         type?: OriginalT | undefined;
@@ -244,13 +250,7 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (import("./declarations").UnknownBoundArrayDeclaration & {
         type?: OriginalT | undefined;
-    }) | (import("./declarations").IncompleteTypeVariableDefinition & {
-        type?: OriginalT | undefined;
-    }) | (LocalVariableDefinition & {
-        type?: OriginalT | undefined;
     }) | (import("./declarations").MemberVariableDeclaration & {
-        type?: OriginalT | undefined;
-    }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").CommaExpression & {
         type?: OriginalT | undefined;
@@ -340,8 +340,8 @@ export declare namespace Predicates {
     function isTypedDeclaration<OriginalT extends Type, NarrowedT extends Type, Original extends AnalyticConstruct & {
         type?: OriginalT;
     }, Narrowed extends (Original extends AnalyticDeclaration ? AnalyticTypedDeclaration<Original, NarrowedT> : never)>(construct: Original, typePredicate?: (o: Type) => o is NarrowedT): construct is (Narrowed extends Original ? Narrowed : never);
-    function byVariableName(name: string): (construct: AnalyticConstruct) => construct is GlobalVariableDefinition | LocalVariableDefinition;
-    function byVariableInitialValue(queryValue: number): (construct: AnalyticConstruct) => construct is GlobalVariableDefinition | LocalVariableDefinition;
+    function byVariableName(name: string): (construct: AnalyticConstruct) => construct is import("./declarations").VariableDefinition;
+    function byVariableInitialValue(queryValue: number): (construct: AnalyticConstruct) => construct is import("./declarations").VariableDefinition;
     function byVariableUpdate(name: string): (construct: AnalyticConstruct) => construct is AssignmentExpression | PrefixIncrementExpression | PostfixIncrementExpression;
     function byFunctionName(name: string): (construct: AnalyticConstruct) => construct is FunctionDefinition;
     function byFunctionCallName<N extends string>(name: N): (construct: AnalyticConstruct) => construct is FunctionCallExpression & {
