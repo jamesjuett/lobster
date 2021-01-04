@@ -1,7 +1,7 @@
 import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression } from "./expressions";
+import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
 import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, PeelReference, peelReference, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType, PotentiallyCompleteObjectType, CompleteReturnType, PotentiallyCompleteClassType } from "./types";
 import { clone } from "lodash";
 import { CPPObject } from "./objects";
@@ -22,8 +22,9 @@ export class FunctionCall extends PotentialFullExpression {
 
     public readonly func: FunctionEntity<FunctionType<CompleteReturnType>>;
     public readonly args: readonly Expression[];
+    public readonly receiverType?: CompleteClassType;
 
-    public readonly argInitializers: readonly DirectInitializer[];
+    public readonly argInitializers?: readonly DirectInitializer[];
 
     public readonly returnByValueTarget?: TemporaryObjectEntity;
     /**
@@ -35,18 +36,29 @@ export class FunctionCall extends PotentialFullExpression {
      * @param context 
      * @param func Specifies which function is being called.
      * @param args Arguments to the function.
-     * @param receiver 
+     * @param receiverType
      */
-    public constructor(context: TranslationUnitContext, func: FunctionEntity<FunctionType<CompleteReturnType>>, args: readonly TypedExpression[]) {
+    public constructor(context: TranslationUnitContext, func: FunctionEntity<FunctionType<CompleteReturnType>>, args: readonly TypedExpression[], receiverType: CompleteClassType | undefined) {
         super(context, undefined);
 
         this.func = func;
+        this.receiverType = receiverType;
 
         // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
+        let paramTypes = this.func.type.paramTypes;
+        if (args.length !== paramTypes.length) {
+            this.addNote(CPPError.param.numParams(this));
+            this.attachAll(this.args = args);
+            return;
+        }
+       
+        if (this.func.isMemberFunction() && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
+            this.addNote(CPPError.param.thisConst(this, receiverType));
+        }
 
         // Create initializers for each argument/parameter pair
         this.argInitializers = args.map((arg, i) => {
-            let paramType = this.func.type.paramTypes[i];
+            let paramType = paramTypes[i];
             if (paramType.isReferenceType()) {
                 return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType, i), [arg], "copy");
             }
@@ -250,7 +262,6 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
 
             this.calledFunction.pushStackFrame();
-            this.sim.setPendingCalledFunction(this.calledFunction);
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_ARGUMENTS;
         }
         else if (this.index === INDEX_FUNCTION_CALL_CALL) {
@@ -326,6 +337,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
 
 
         if (!operand.entity.returnsCompleteType()) {
+            this.attachAll(args);
             this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, operand.entity.type.returnType));
             return;
         }
@@ -340,14 +352,8 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         //     staticReceiver = operand.functionCallReceiver;
         // }
 
-        // If any of the arguments were not ObjectType, lookup wouldn't have found a function.
-        // So the cast below should be fine.
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        // TODO: allow member function calls. (or make them a separate class idk)
-        this.attach(this.call = new FunctionCall(
-            context,
-            operand.entity,
-            <readonly TypedExpression<CompleteObjectType, ValueCategory>[]>args));
+        this.attach(this.call = new FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression {
@@ -398,7 +404,7 @@ export interface CompiledFunctionCallExpression<T extends PeelReference<Complete
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
 
-    readonly operand: CompiledFunctionIdentifierExpression | CompiledFunctionDotExpression;
+    readonly operand: CompiledFunctionIdentifierExpression | CompiledFunctionDotExpression | CompiledFunctionArrowExpression;
     readonly originalArgs: readonly CompiledExpression[];
     readonly call: CompiledFunctionCall<FunctionType<CompleteReturnType>>;
 }
@@ -408,7 +414,7 @@ export const INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
 export const INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
 export class RuntimeFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends RuntimeExpression<T, V, CompiledFunctionCallExpression<T, V>> {
 
-    public readonly operand: RuntimeFunctionIdentifierExpression | RuntimeFunctionDotExpression;
+    public readonly operand: RuntimeFunctionIdentifierExpression | RuntimeFunctionDotExpression | RuntimeFunctionArrowExpression;
     public readonly call?: RuntimeFunctionCall<FunctionType<CompleteReturnType>>;
 
     public readonly index: typeof INDEX_FUNCTION_CALL_EXPRESSION_OPERAND | typeof INDEX_FUNCTION_CALL_EXPRESSION_CALL | typeof INDEX_FUNCTION_CALL_EXPRESSION_RETURN = INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;

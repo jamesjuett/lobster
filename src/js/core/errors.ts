@@ -436,6 +436,18 @@ export const CPPError = {
             convert: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.convert", "Invalid conversion from " + initType + " to " + declType + ".");
             },
+            list_reference_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_reference_prohibited", "A reference may not be initialized using list-initialization.");
+            },
+            list_atomic_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_atomic_prohibited", "An atomic type may not be initialized using list-initialization.");
+            },
+            list_array_unsupported: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_array_prohibited", "Sorry, Lobster doesn't currently support using list-initialization for arrays.");
+            },
+            aggregate_unsupported: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.aggregate_unsupported", "Sorry, Lobster doesn't currently support aggregate initialization for compound objects.");
+            },
             list_narrowing: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_narrowing", "Implicit narrowing conversion from " + initType + " to " + declType + " is not allowed in initializer list.");
             },
@@ -444,6 +456,15 @@ export const CPPError = {
             },
             list_length: function (construct: TranslationUnitConstruct, length: number) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_length", "Length of initializer list must match length of array (" + length + ").");
+            },
+            list_empty: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_empty", "Sorry, lobster does not currently support empty list initialization.");
+            },
+            list_same_type: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_same_type", "All elements of an initializer-list must have the same type in Lobster.");
+            },
+            list_arithmetic_type: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_arithmetic_type", "Sorry, for now Lobster only supports initializer lists with arithmetic types.");
             },
             matching_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>, argTypes: readonly Type[]) {
                 var desc = entity.describe();
@@ -762,6 +783,34 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.unaryMinus.operand", "The unary minus operator (-) requires an operand of arithmetic type.");
             }
         },
+        prefixIncrement: {
+            lvalue_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.lvalue_required", "The operand of the prefix increment/decrement operators must be an lvalue.");
+            },
+            operand: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.operand", "The prefix increment/decrement operators requires an operand whose type is arithmetic or a pointer to a completely-defined object type.");
+            },
+            decrement_bool_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.decrement_bool_prohibited", "The -- operator may not be used on an object of boolean type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.prefixIncrement.const_prohibited", "The prefix increment/decrement operator may not be used on a const object.");
+            }
+        },
+        postfixIncrement: {
+            lvalue_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.lvalue_required", "The operand of the postfix increment/decrement operators must be an lvalue.");
+            },
+            operand: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.operand", "The postfix increment/decrement operators requires an operand whose type is arithmetic or a pointer to a completely-defined object type.");
+            },
+            decrement_bool_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.decrement_bool_prohibited", "The -- operator may not be used on an object of boolean type.");
+            },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.const_prohibited", "The -- operator may not be used on a const object.");
+            }
+        },
         functionCall: {
             main: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.functionCall.main", "You can't explicitly call main.");
@@ -807,7 +856,18 @@ export const CPPError = {
             memberFunc: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpr.memberFunc", "You may only use the </span class='code'>this</span> keyword in non-static member functions.");
             }
-        }
+        },
+        binaryOperatorOverload: {
+            no_such_overload: function (construct: TranslationUnitConstruct, operator: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.no_such_overload", `The ${operator} operator cannot be used with these arguments (and a suitable operator overload function was not found for these types)`);
+            },
+            ambiguous_overload: function (construct: TranslationUnitConstruct, operator: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.ambiguous_overload", `The operator ${operator} is ambiguous in this expression. (Several potential operator overloads were found, but there is not enough contextual type information to determine which overload to select.)`);
+            },
+            incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
+            }
+        },
 
 
     },
@@ -851,7 +911,7 @@ export const CPPError = {
         //     return new CompilerNote(construct, NoteKind.ERROR, "param.paramCopyConstructor", "Cannot find a copy constructor to pass a parameter of type " + type + " by value.");
         // },
         thisConst: function (construct: TranslationUnitConstruct, type: Type) {
-            return new CompilerNote(construct, NoteKind.ERROR, "param.thisConst", "A non-const member function cannot be called on a const instance of the " + type + " class.");
+            return new CompilerNote(construct, NoteKind.ERROR, "param.thisConst", "A non-const member function cannot be called on a const instance of the " + type.cvUnqualified() + " class.");
         }
     },
     stmt: {

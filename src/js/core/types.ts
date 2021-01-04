@@ -1,16 +1,19 @@
-import { Constructor, htmlDecoratedType, unescapeString, Mutable } from "../util/util";
-import { byte, RawValueType } from "./runtimeEnvironment";
+import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
+import { ConstructDescription, TranslationUnitContext } from "./constructs";
+import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
-import { ConstructDescription, TranslationUnitContext } from "./constructs";
-import { ClassEntity, ClassScope } from "./entities";
 import { ClassDefinition } from "./declarations";
-import { proxy } from "jquery";
+import { ClassScope } from "./entities";
+
+
 
 
 var vowels = ["a", "e", "i", "o", "u"];
+
 function isVowel(c: string) {
     return vowels.indexOf(c) != -1;
+    
 };
 
 
@@ -198,6 +201,14 @@ abstract class TypeBase {
 
     public isObjectPointerType(): this is ObjectPointerType {
         return this instanceof ObjectPointerType;
+    }
+    
+    public isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): this is PointerType<InstanceType<typeof ctor>> {
+        return this.isPointerType() && this.ptrTo instanceof ctor;
+    }
+    
+    public isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): this is ArrayPointerType<InstanceType<typeof ctor>> {
+        return this.isArrayPointerType() && this.ptrTo instanceof ctor;
     }
 
     public isReferenceType(): this is ReferenceType {
@@ -398,12 +409,20 @@ export function isPointerType(type: Type): type is PointerType {
     return type.isPointerType();
 }
 
+export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): (type: Type) => type is PointerType<T> {
+    return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
+}
+
 export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
     return type.isPointerToCompleteType();
 }
 
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
     return type.isArrayPointerType();
+}
+
+export function isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): (type: Type) => type is ArrayPointerType<T> {
+    return <(type: Type) => type is ArrayPointerType<T>>((type: Type) => type.isArrayPointerToType(ctor));
 }
 
 export function isObjectPointerType(type: Type): type is ObjectPointerType {
@@ -530,6 +549,8 @@ export type CompleteParameterType = AtomicType | CompleteClassType | ReferenceTy
 
 
 export class VoidType extends TypeBase {
+
+    public readonly type_kind = "void";
 
     public static readonly VOID = new VoidType();
 
@@ -702,7 +723,7 @@ export abstract class SimpleType extends AtomicType {
      * Subclasses must implement a concrete type property that should be a
      * string indicating the kind of type e.g. "int", "double", "bool", etc.
      */
-    protected abstract simpleType: string;
+    public abstract simpleType: string;
 
     public readonly precedence = 0;
 
@@ -745,33 +766,61 @@ export abstract class SimpleType extends AtomicType {
 }
 
 
+export type ParsingResult<T extends ArithmeticType> = SuccessParsingResult<T> | ErrorParsingResult;
+
+export type SuccessParsingResult<T extends ArithmeticType> = {
+    kind: "success";
+    result: Value<T>;
+}
+
+export type ErrorParsingResult = {
+    kind: "error";
+};
+
+function createSuccessParsingResult<T extends ArithmeticType>(result: Value<T>) : SuccessParsingResult<T> {
+    return {
+        kind: "success",
+        result: result
+    };
+}
+
+function createErrorParsingResult() : ErrorParsingResult {
+    return {kind: "error"};
+}
+
 export abstract class ArithmeticType extends SimpleType {
 
+    public abstract parse(s: string) : ParsingResult<this>;
+
 }
+
+export type AnalyticArithmeticType = AnalyticIntegralType | AnalyticFloatingPointType;
 
 export abstract class IntegralType extends ArithmeticType {
 
 }
 
+export type AnalyticIntegralType = Char | Int | Size_t | Bool;
+
 
 export class Char extends IntegralType {
     public static readonly CHAR = new Char();
 
-    protected readonly simpleType = "char";
+    public readonly simpleType = "char";
     public readonly size = 1;
 
-    public static readonly NULL_CHAR = 0;
+    public static readonly NULL_CHAR = new Value(0, Char.CHAR);
 
-    public static isNullChar(value: RawValueType) {
-        return value === this.NULL_CHAR;
+    public static isNullChar(value: Value<Char>) {
+        return value.rawValue === 0;
     }
 
     public static jsStringToNullTerminatedCharArray(str: string) {
         var chars = str.split("").map(function (c) {
             return c.charCodeAt(0);
         });
-        chars.push(Char.NULL_CHAR);
-        return chars;
+        chars.push(0); // null character
+        return chars.map(c => new Value(c, Char.CHAR));
     }
 
     public valueToString(value: RawValueType) {
@@ -785,36 +834,76 @@ export class Char extends IntegralType {
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Char(isConst, isVolatile);
     }
+
+    public parse(s: string) : ParsingResult<this> {
+        if (s.length > 0) {
+            return createSuccessParsingResult(new Value(s.charCodeAt(0), this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
+    }
 }
 
 export class Int extends IntegralType {
     public static readonly INT = new Int();
+    public static readonly ZERO = new Value(0, Int.INT);
 
-    protected readonly simpleType = "int";
+    public readonly simpleType = "int";
     public readonly size = 4;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Int(isConst, isVolatile);
     }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
+    }
 };
 
 export class Size_t extends IntegralType {
-    protected readonly simpleType = "size_t";
+    public readonly simpleType = "size_t";
     public readonly size = 8;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Size_t(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
 export class Bool extends IntegralType {
     public static readonly BOOL = new Bool();
 
-    protected readonly simpleType = "bool";
+    public readonly simpleType = "bool";
     public readonly size = 1;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseInt(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p === 0 ? 0 : 1, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
@@ -829,17 +918,33 @@ export abstract class FloatingPointType extends ArithmeticType {
         var str = "" + <number>value;
         return str.indexOf(".") != -1 ? str : str + ".";
     }
+
+    public valueToOstreamString(value: RawValueType) {
+        return "" + value;
+    }
 }
+
+export type AnalyticFloatingPointType = Float | Double;
 
 export class Float extends FloatingPointType {
 
     public static readonly FLOAT = new Float();
 
-    protected readonly simpleType = "float";
+    public readonly simpleType = "float";
     public readonly size = 4;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Float(isConst, isVolatile);
+    }
+
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseFloat(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
     }
 }
 
@@ -847,17 +952,27 @@ export class Double extends FloatingPointType {
 
     public static readonly DOUBLE = new Double();
 
-    protected readonly simpleType = "double";
+    public readonly simpleType = "double";
     public readonly size = 8;
 
     protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
     }
+    
+    public parse(s: string) : ParsingResult<this> {
+        let p = parseFloat(s);
+        if (!Number.isNaN(p)) {
+            return createSuccessParsingResult(new Value(p, this, true));
+        }
+        else {
+            return createErrorParsingResult();
+        }
+    }
 }
 
 // TODO: OStream shouldn't be a primitive type, should be an instrinsic class
 // export class OStream extends SimpleType {
-//     protected readonly simpleType = "ostream";
+//     public readonly simpleType = "ostream";
 //     public readonly size = 4;
 
 // }
@@ -1255,6 +1370,8 @@ class ClassTypeBase extends TypeBase {
 
     private readonly classId: number;
     private readonly shared: ClassShared;
+
+    public readonly templateParameters: readonly AtomicType[] = [];
     
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
@@ -1309,10 +1426,11 @@ class ClassTypeBase extends TypeBase {
     }
 
     /** Two class types are the same if they originated from the same ClassEntity (e.g.
+     *  the same class declaration from the same .h include file, or
      *  two class declarations with the same name in the same scope) or if they have 
      *  been associated with the same definition during linking. */
     private sameClassType(other: ClassTypeBase) {
-        return this.classId == other.classId
+        return this.classId === other.classId
             || (!!this.shared.classDefinition && this.shared.classDefinition === other.shared.classDefinition);
     }
 
@@ -1362,6 +1480,26 @@ class ClassTypeBase extends TypeBase {
     
     public isDestructible(this: CompleteClassType) {
         return !!this.classDefinition.destructor;
+    }
+
+    public isAggregate(this: CompleteClassType) {
+
+        // Aggregates may not have private member variables
+        if (this.classDefinition.memberVariableEntities.some(memEnt => memEnt.firstDeclaration.context.accessLevel === "private")) {
+            return false;
+        }
+
+        // Aggregates may not have user-provided constructors
+        if (this.classDefinition.constructorDeclarations.some(ctorDecl => !ctorDecl.context.implicit)) {
+            return false;
+        }
+
+        // Aggregates may not have base classes (until c++17)
+        if (this.classDefinition.baseClass) {
+            return false;
+        }
+
+        return true;
     }
 }
 
@@ -1610,6 +1748,8 @@ export function createClassType(className: string) : IncompleteClassType {
 //           argTypes must be an array of types
 export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
 
+    public readonly type_kind = "function";
+
     public readonly precedence = 2;
 
     public readonly returnType: ReturnType;
@@ -1731,13 +1871,14 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 }
 
-const builtInTypeNames = new Set(["char", "int", "bool", "float", "double", "void"]);
-export function isBuiltInTypeName(name: string): name is "char" | "int" | "bool" | "float" | "double" | "void" {
+const builtInTypeNames = new Set(["char", "int", "size_t", "bool", "float", "double", "void"]);
+export function isBuiltInTypeName(name: string): name is "char" | "int" | "size_t" | "bool" | "float" | "double" | "void" {
     return builtInTypeNames.has(name);
 }
 export const builtInTypes = {
     "char": Char,
     "int": Int,
+    "size_t": Int,
     "bool": Bool,
     "float": Float,
     "double": Double,

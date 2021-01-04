@@ -1,7 +1,7 @@
 import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeConstruct, isClassContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject } from "./objects";
@@ -998,7 +998,7 @@ export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteO
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
 
-        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        let pendingCalledFunction = rtConstruct.sim.memory.stack.topFrame()?.func;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
 
@@ -1032,7 +1032,7 @@ export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceT
     }
 
     public bindTo<X extends CompleteObjectType>(this: PassByReferenceParameterEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
-        let pendingCalledFunction = rtConstruct.sim.pendingCalledFunction;
+        let pendingCalledFunction = rtConstruct.sim.memory.stack.topFrame()?.func;
         assert(pendingCalledFunction);
         assert(pendingCalledFunction.model === this.calledFunction.definition);
 
@@ -1448,6 +1448,10 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
 
     public isMain() {
         return this.qualifiedName === "::main";
+    }
+
+    public isMemberFunction() {
+        return isClassContext(this.firstDeclaration.context);
     }
 
     public registerCall(call: FunctionCall) {

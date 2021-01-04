@@ -10,7 +10,7 @@
     vertical-align: top;
 }
 
-.highlight{
+.lobster-highlight {
     display: block;
     position: absolute;
     left: 0;
@@ -26,12 +26,12 @@
 }
 
 
-.codeInstance.current > .highlight{
+.codeInstance.current > .lobster-highlight{
     background-color: rgb(90, 90, 90);
     opacity: 1;
 }
 
-.codeInstance.upNext > .highlight{
+.codeInstance.upNext > .lobster-highlight{
     opacity: 1;
 }
 
@@ -99,41 +99,41 @@
 /*}*/
 
 
-/*.codeInstance:hover > .highlight{*/
+/*.codeInstance:hover > .lobster-highlight{*/
     /*opacity: 1;*/
     /*border-bottom: solid 1px rgba(0,0,0,0.5);*/
 /*}*/
 
-.codeInstance.declaration.upNext > .highlight,
-.codeInstance.code-initializerList.upNext > .highlight,
-.codeInstance.code-initializer.upNext > .highlight,
-.codeInstance.code-initializer-direct.upNext > .highlight,
-.codeInstance.code-initializer-copy.upNext > .highlight,
-.codeInstance.code-declarator.active > .highlight
+.codeInstance.declaration.upNext > .lobster-highlight,
+.codeInstance.code-initializerList.upNext > .lobster-highlight,
+.codeInstance.code-initializer.upNext > .lobster-highlight,
+.codeInstance.code-initializer-direct.upNext > .lobster-highlight,
+.codeInstance.code-initializer-copy.upNext > .lobster-highlight,
+.codeInstance.code-declarator.active > .lobster-highlight
 {
     border-bottom-style: solid;
     border-bottom-width: 2px;
     opacity: 1;
 }
 
-.codeInstance.expression.upNext > .highlight{
+.codeInstance.expression.upNext > .lobster-highlight{
     border-bottom-style: none;
 }
 
 
-.codeInstance.declaration.wait > .highlight {
+.codeInstance.declaration.wait > .lobster-highlight {
 
 }
 
-.codeInstance.expression.wait > .highlight
+.codeInstance.expression.wait > .lobster-highlight
 {
     border-bottom-style: none;
 }
-.codeInstance.code-initializerList.wait > .highlight,
-.codeInstance.code-initializer.wait > .highlight,
-.codeInstance.parameter.wait > .highlight,
-.codeInstance.code-initializer-direct.wait > .highlight,
-.codeInstance.code-initializer-copy.wait > .highlight
+.codeInstance.code-initializerList.wait > .lobster-highlight,
+.codeInstance.code-initializer.wait > .lobster-highlight,
+.codeInstance.parameter.wait > .lobster-highlight,
+.codeInstance.code-initializer-direct.wait > .lobster-highlight,
+.codeInstance.code-initializer-copy.wait > .lobster-highlight
 {
     /*border-bottom-style: dotted;*/
     /*border-bottom-width: 2px;*/
@@ -141,21 +141,21 @@
     /*opacity: 1;*/
 }
 
-.codeInstance.code-initializer-default.wait > .highlight
+.codeInstance.code-initializer-default.wait > .lobster-highlight
 {
     border-bottom-style: solid;
     border-bottom-width: 2px;
     opacity: 1;
 }
 
-.codeInstance.declaration > .highlight,
-.codeInstance.expression > .highlight,
-.codeInstance.code-initializerList > .highlight,
-.codeInstance.code-initializer > .highlight,
-.codeInstance.code-initializer-default > .highlight,
-.codeInstance.code-initializer-direct > .highlight,
-.codeInstance.code-initializer-copy > .highlight,
-.codeInstance.code-declarator > .highlight
+.codeInstance.declaration > .lobster-highlight,
+.codeInstance.expression > .lobster-highlight,
+.codeInstance.code-initializerList > .lobster-highlight,
+.codeInstance.code-initializer > .lobster-highlight,
+.codeInstance.code-initializer-default > .lobster-highlight,
+.codeInstance.code-initializer-direct > .lobster-highlight,
+.codeInstance.code-initializer-copy > .lobster-highlight,
+.codeInstance.code-declarator > .lobster-highlight
  {
     border-bottom-color: #00A138;
 }
@@ -165,20 +165,20 @@
     /*padding-bottom: 1px;*/
 }
 
-.codeInstance.statement > .highlight,
-.codeInstance.function > .highlight {
+.codeInstance.statement > .lobster-highlight,
+.codeInstance.function > .lobster-highlight {
     left: -0.4ch;
 }
 
-.codeInstance.statement.wait > .highlight,
-.codeInstance.function.wait > .highlight {
+.codeInstance.statement.wait > .lobster-highlight,
+.codeInstance.function.wait > .lobster-highlight {
     /*opacity: 1;*/
     /*border-left-style: dotted;*/
     /*border-left-width: 2px;*/
 }
 
-.codeInstance.statement.upNext > .highlight,
-.codeInstance.statement.wait > .highlight {
+.codeInstance.statement.upNext > .lobster-highlight,
+.codeInstance.statement.wait > .lobster-highlight {
     opacity: 1;
     border-left-style: solid;
     border-left-width: 2px;
@@ -190,7 +190,7 @@
     vertical-align: baseline;
 }
 
-.codeInstance.function > .highlight{
+.codeInstance.function > .lobster-highlight{
     border-left-color: #7A00DE;
 }
 /*.codeInstance.expression{*/
@@ -213,7 +213,7 @@
     opacity: 1;
 }
 
-/*.codeInstance.function.wait > .highlight{*/
+/*.codeInstance.function.wait > .lobster-highlight{*/
     /*opacity: 1;*/
     /*left: -0.4ch;*/
     /*border-left: solid 2px #C09BDE;*/
@@ -221,32 +221,44 @@
 
 .codeInstance.code-implicitConversion,
 .codeInstance.code-lValueToRValue,
+.codeInstance.code-arrayToPointer,
+.codeInstance.code-streamToBool,
 .codeInstance.code-qualificationConversion{
     padding-left:1px;
     padding-right:1px;
 }
 
-.codeInstance.code-implicitConversion.upNext > .highlight{
+.codeInstance.code-implicitConversion.upNext > .lobster-highlight{
     border: solid 1px rgb(255,165,240);
     background-color: rgba(255,165,240,0.3);
 }
 
-.codeInstance.code-lValueToRValue.upNext > .highlight{
+.codeInstance.code-lValueToRValue.upNext > .lobster-highlight{
     border: solid 1px rgb(176,255,158);
     background-color: rgba(176,255,158,0.3);
 }
 
-.codeInstance.code-qualificationConversion.upNext > .highlight{
+.codeInstance.code-arrayToPointer.upNext > .lobster-highlight{
+    border: solid 1px rgb(176,255,158);
+    background-color: rgba(176,255,158,0.3);
+}
+
+.codeInstance.code-streamToBool.upNext > .lobster-highlight{
+    border: solid 1px rgb(176,255,158);
+    background-color: rgba(176,255,158,0.3);
+}
+
+.codeInstance.code-qualificationConversion.upNext > .lobster-highlight{
     border: solid 1px rgb(101, 107, 255);
     background-color: rgba(101,107,255,0.3);
 }
 
-/*.codeInstance.expression.wait > .highlight{*/
+/*.codeInstance.expression.wait > .lobster-highlight{*/
     /*opacity: 1;*/
     /*border-bottom: solid 2px #9BDEB3;*/
 /*}*/
 
-/*.codeInstance.expression.functionCall.wait > .highlight{*/
+/*.codeInstance.expression.functionCall.wait > .lobster-highlight{*/
     /*opacity: 1;*/
     /*border-bottom: solid 2px #9BDEB3;*/
 /*}*/
@@ -364,12 +376,12 @@
     font-style: italic;
 }
 
-.codeInstance.expression.functionCall.tail > .highlight{
+.codeInstance.expression.functionCall.tail > .lobster-highlight{
     opacity: 1;
     border-bottom-color: rgb(0,255,255);
 }
 
-.codeInstance.expression.functionCall.wait > .highlight
+.codeInstance.expression.functionCall.wait > .lobster-highlight
 {
     border-bottom-style: solid;
     border-bottom-width: 1px;
@@ -385,7 +397,7 @@
 }
 
 
-/*.codeInstance.wait > .block > .highlight{*/
+/*.codeInstance.wait > .block > .lobster-highlight{*/
     /*display: block;*/
     /*display: inline-block;*/
     /*width: 0;*/
@@ -447,8 +459,6 @@
 .code-memoryStack{
     padding: 2px;
     border: solid 1px black;
-}
-.code-memoryStack > .body{
 }
 
 .code-stackFrame{
@@ -606,7 +616,7 @@
     background-color: #131313;
     max-width: 15ch;
     overflow: hidden;
-    white-space: nowrap;
+    white-space: pre;
     text-overflow: ellipsis;
     transition: background-color 0.5s, border-color 0.5s;
 }
@@ -806,9 +816,26 @@ position: relative;}
     color: #ae81ff;
 }
 
+.code-object {
+    display: inline-block;
+    min-width: 1em;
+    white-space: pre;
+    border: solid 1px white;
+    color: #ae81ff;
+}
+
+.code-object.invalid {
+    color: #c50000;
+}
+
 .code-string-literal {
     white-space: pre;
     color: #ae81ff;
+}
+
+.code-opaque-expression {
+    white-space: pre;
+    color: #aaaaaa;
 }
 
 .code-unaryOp,
@@ -823,22 +850,22 @@ position: relative;}
 }
 
 
-.code-unaryOp > .highlight,
-.code-binaryOp > .highlight,
-.code-assignmentOp > .highlight {
+.code-unaryOp > .lobster-highlight,
+.code-binaryOp > .lobster-highlight,
+.code-assignmentOp > .lobster-highlight {
     /*background-color: #00A138;*/
     border-bottom-style: solid;
     border-bottom-color: #00A138;
     border-bottom-width: 2px;
 }
 
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .highlight,
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-unaryOp > .highlight,
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .highlight {
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .lobster-highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-unaryOp > .lobster-highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .lobster-highlight {
     opacity: 1;
 }
 
-.codeInstance.declaration.wait .code-declarator.active > .highlight {
+.codeInstance.declaration.wait .code-declarator.active > .lobster-highlight {
     /*border: solid 1px #239229;*/
     /*background-color: rgba(25,146,41,0.3);*/
     /*opacity: 1;*/

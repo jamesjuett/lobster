@@ -5,11 +5,14 @@ import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
 import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
-import { FunctionType, Int } from "./types";
+import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
+import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
+import { getDataPtr } from "../lib/string";
+import { Value } from "./runtimeEnvironment";
 
 
 
@@ -48,7 +51,7 @@ export class Program {
     public readonly mainFunction?: FunctionDefinition;
 
 
-    public constructor(sourceFiles: readonly SourceFile[], translationUnits: readonly string[]) {
+    public constructor(sourceFiles: readonly SourceFile[], translationUnits: Set<string>) {
 
         sourceFiles.forEach(file => {
             this.sourceFiles[file.name] = file;
@@ -260,11 +263,19 @@ export class Program {
         }
     }
 
-    public isCompiled(): this is CompiledProgram {
+    public hasSyntaxErrors() {
+        return this.notes.hasSyntaxErrors;
+    }
+
+    public hasErrors() {
+        return this.notes.hasErrors;
+    }
+
+    public isCompiled() : this is CompiledProgram {
         return !this.notes.hasErrors;
     }
 
-    public isRunnable(): this is RunnableProgram {
+    public isRunnable() : this is RunnableProgram {
         return this.isCompiled() && !!this.mainFunction;
     }
 
@@ -309,10 +320,12 @@ export class SourceFile {
 
     public readonly name: string;
     public readonly text: string;
+    public readonly isLibrary: boolean;
 
-    public constructor(name: string, text: string) {
+    public constructor(name: string, text: string, isLibrary: boolean = false) {
         this.name = name;
         this.text = text;
+        this.isLibrary = isLibrary;
     }
 
     // setText : function(text) {
@@ -628,6 +641,9 @@ export class TranslationUnit {
             // which will potentially be used by other translation units.
             // resetUserTypeNames(); //Object.assign({}, Types.defaultUserTypeNames); // TODO
 
+            let libAST = cpp_parse(LIBRARY_FILES["_lobster_implicit"].text);
+            this.compileTopLevelDeclarations(libAST);
+
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
             let parsedAST: TranslationUnitAST = cpp_parse(this.source.preprocessedText);
@@ -709,7 +725,11 @@ export class TranslationUnit {
 
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
-            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, this.context);
+            let sourceRef = this.getSourceReferenceForAST(declAST);
+            let topLevelContext = sourceRef.sourceFile.isLibrary
+                ? createLibraryContext(this.context) : this.context;
+            
+            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, topLevelContext);
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
                     asMutable(this.topLevelDeclarations).push(decl);
@@ -740,6 +760,11 @@ export class TranslationUnit {
         return this.getSourceReference(src.line, src.column, src.start, src.end);
     }
 
+    public getSourceReferenceForAST(ast: ASTNode) {
+        let src = ast.source;
+        return this.getSourceReference(src.line, src.column, src.start, src.end);
+    }
+
     public getSourceReference(line: number, column: number, start: number, end: number) {
         return this.source.getSourceReference(line, column, start, end);
     }
@@ -752,10 +777,51 @@ export class TranslationUnit {
 
 
 
-export const LIBRARY_FILES = {
-    iostream: new SourceFile("iostream", `
+const LIBRARY_FILES : {[index:string]: SourceFile} = {
+    _lobster_implicit: new SourceFile("_lobster_implicit.h", `
+        class initializer_list<int> {
+          const int *begin;
+          const int *end;
+
+          initializer_list(const initializer_list<int> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<double> {
+          const double *begin;
+          const double *end;
+
+          initializer_list(const initializer_list<double> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<char> {
+          const char *begin;
+          const char *end;
+
+          initializer_list(const initializer_list<char> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+
+        class initializer_list<bool> {
+          const bool *begin;
+          const bool *end;
+
+          initializer_list(const initializer_list<bool> &other)
+           : begin(other.begin), end(other.end) {}
+        };
+        
+    `, true),
+    iostream: new SourceFile("iostream.h", `
         class ostream {};
         ostream cout;
         const char endl = '\\n';
-    `)
+        class istream {};
+        istream cin;
+    `, true)
+}
+
+export function registerLibraryHeader(name: string, file: SourceFile) {
+    assert(!LIBRARY_FILES[name]);
+    LIBRARY_FILES[name] = file;
 }

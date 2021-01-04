@@ -49,7 +49,17 @@ export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct |
 }
 
 export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    return findConstructs(root, test)[0];
+    let constructs = findConstructs(root, test);
+    if (constructs.length > 0) {
+        return constructs[0];
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+    return !!findFirstConstruct(root, test);
 }
 
 // type TypedFilterable<Original extends CPPConstruct, Narrowed extends Original> = Original & {
@@ -82,7 +92,7 @@ export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstru
 
 // Why is explicit type declaration necessary? otherwise I get string can't be used to index into object of type blah
 export const projectAnalyses: { [projectName: string]: (p: Program) => void } = {
-    "Test Project": analyze_wip
+    // "Test Project": analyze_wip
 }
 
 // export function analyze(program: Program) {
@@ -267,39 +277,39 @@ export function isUpdateAssignment(exp: AnalyticConstruct): exp is AssignmentExp
 }
 
 // ASK JAMES -> ok to have CPPConstruct param type? Is there a better fit for this? (AnalyticConstruct caused analyzer errors)
-export function hasIncrement(construct: CPPConstruct) {
-    // Proof of concept one-liner
-    /* let inc = findConstructs(loop,
-        // Predicates.byKinds(["prefix_increment_expression", "prefix_decrement_expression",
-        //                     "postfix_increment_expression", "postfix_decrement_expression",
-        //                     "compound_assignment_expression"]) ||
-        (e) : e is IdentifierExpression | AssignmentExpression => Predicates.byKind("identifier_expression")(e) ||
-        isUpdateAssignment(e)
-        ); */
+// export function hasIncrement(construct: CPPConstruct) {
+//     // Proof of concept one-liner
+//     /* let inc = findConstructs(loop,
+//         // Predicates.byKinds(["prefix_increment_expression", "prefix_decrement_expression",
+//         //                     "postfix_increment_expression", "postfix_decrement_expression",
+//         //                     "compound_assignment_expression"]) ||
+//         (e) : e is IdentifierExpression | AssignmentExpression => Predicates.byKind("identifier_expression")(e) ||
+//         isUpdateAssignment(e)
+//         ); */
 
-    // Find increments -> includes post/prefix inc/dec, compound assg, all constructs for which isUpdateAssignment returns true for
-    // As of right now, only update assignments are implemented, so TODO is also include the others
-    return findConstructs(construct, isUpdateAssignment).length !== 0; // TODO include other incr types when they're implemented
-}
+//     // Find increments -> includes post/prefix inc/dec, compound assg, all constructs for which isUpdateAssignment returns true for
+//     // As of right now, only update assignments are implemented, so TODO is also include the others
+//     return findConstructs(construct, isUpdateAssignment).length !== 0; // TODO include other incr types when they're implemented
+// }
 
-function hasDoubleIncrement(loop: ForStatement) {
-    // return findConstructs(loop.body, isUpdateAssignment).length !== 0 && findConstructs(loop.post, isUpdateAssignment).length !== 0;
-    return hasIncrement(loop.body) && hasIncrement(loop.post);
-}
+// function hasDoubleIncrement(loop: ForStatement) {
+//     // return findConstructs(loop.body, isUpdateAssignment).length !== 0 && findConstructs(loop.post, isUpdateAssignment).length !== 0;
+//     return hasIncrement(loop.body) && hasIncrement(loop.post);
+// }
 
-function analyze_wip(program: Program) {
-    // EECS183.L07_01
-    const loop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
-    if (!loop) {
-        return;
-    }
-    if (!hasIncrement(loop)) {
-        loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.no_loop_increment", "Loop doesn't have an increment!"));
-    } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
-        loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.double_loop_increment", "Loop has two increments!"));
-    }
+// function analyze_wip(program: Program) {
+//     // EECS183.L07_01
+//     const loop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
+//     if (!loop) {
+//         return;
+//     }
+//     if (!hasIncrement(loop)) {
+//         loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.no_loop_increment", "Loop doesn't have an increment!"));
+//     } else if (Predicates.byKind("for_statement")(loop) && hasDoubleIncrement(loop)) {
+//         loop.addNote(new CompilerNote(loop, NoteKind.ERROR, "EECS183.L04_02.double_loop_increment", "Loop has two increments!"));
+//     }
 
-}
+// }
 
 // function analyze2(program: Program) {
 

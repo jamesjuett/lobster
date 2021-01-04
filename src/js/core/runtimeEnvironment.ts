@@ -1,4 +1,4 @@
-import { assert, assertFalse, Mutable } from "../util/util";
+import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
 import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
@@ -36,6 +36,10 @@ export class Value<T extends AtomicType = AtomicType> {
         return this._isValid && this.type.isValueValid(this.rawValue);
     }
 
+    public isTyped<NarrowedT extends AtomicType>(predicate: (t:AtomicType) => t is NarrowedT) : this is Value<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public clone(valueToClone: RawValueType = this.rawValue) {
         return new Value<T>(valueToClone, this.type, this.isValid);
     }
@@ -64,7 +68,7 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public combine(otherValue: Value<T>, combiner: (a: RawValueType, b: RawValueType) => RawValueType) {
-        assert(sameType(this.type, otherValue.type));
+        assert(similarType(this.type, otherValue.type));
         return new Value<T>(
             combiner(this.rawValue, otherValue.rawValue),
             this.type,
@@ -80,6 +84,15 @@ export class Value<T extends AtomicType = AtomicType> {
             this.isValid && offsetValue.isValid);
     }
 
+    public pointerOffsetRaw<T extends PointerToCompleteType>(this: Value<T>, rawOffsetValue: number, subtract: boolean = false) {
+        return new Value<T>(
+            (subtract ?
+                this.rawValue - this.type.ptrTo.size * rawOffsetValue :
+                this.rawValue + this.type.ptrTo.size * rawOffsetValue),
+            this.type,
+            this.isValid);
+    }
+
     public pointerDifference(this: Value<PointerToCompleteType>, otherValue: Value<PointerToCompleteType>) {
         return new Value<Int>(
             (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,
@@ -88,7 +101,7 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public compare(otherValue: Value<T>, comparer: (a: RawValueType, b: RawValueType) => boolean) {
-        assert(sameType(this.type, otherValue.type));
+        assert(similarType(this.type, otherValue.type));
         return new Value<Bool>(
             comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
             new Bool(),
@@ -100,6 +113,30 @@ export class Value<T extends AtomicType = AtomicType> {
             modifier(this.rawValue),
             this.type,
             this.isValid);
+    }
+    
+    public add(otherValue: Value<T>) {
+        return this.combine(otherValue, (a,b) => a + b);
+    }
+
+    public addRaw(x: number) {
+        return this.modify(a => a + x);
+    }
+    
+    public sub(otherValue: Value<T>) {
+        return this.combine(otherValue, (a,b) => a - b);
+    }
+
+    public subRaw(x: number) {
+        return this.modify(a => a - x);
+    }
+    
+    public arithmeticNegate() {
+        return this.modify(a => -a);
+    }
+    
+    public logicalNot() {
+        return this.modify(a => a === 0 ? 1 : 0);
     }
 
     public toString() {
@@ -168,7 +205,7 @@ export class Memory {
     private temporaryBottom!: number;
 
     constructor(capacity?: number, staticCapacity?: number, stackCapacity?: number) {
-        this.capacity = capacity || 10000;
+        this.capacity = capacity || 100000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
         this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);
         this.heapCapacity = this.capacity - this.staticCapacity - this.stackCapacity;
@@ -183,7 +220,7 @@ export class Memory {
         this.heapEnd = this.heapStart + this.heapCapacity;
 
         this.temporaryStart = this.heapEnd + 100;
-        this.temporaryCapacity = 10000;
+        this.temporaryCapacity = 100000;
         this.temporaryEnd = this.temporaryStart + this.temporaryCapacity;
 
         assert(this.staticCapacity < this.capacity && this.stackCapacity < this.capacity && this.heapCapacity < this.capacity);
@@ -194,10 +231,12 @@ export class Memory {
 
     public reset() {
 
+        let rng = new CPPRandom(0);
+
         // memory is a sequence of bytes, addresses starting at 0
         this.bytes = new Array(this.capacity + this.temporaryCapacity);
         for (var i = 0; i < this.capacity + this.temporaryCapacity; ++i) {
-            this.bytes[i] = Math.floor(Math.random() * 100);
+            this.bytes[i] = rng.randomInteger(0, 100);
         }
 
         this.objects = {};
@@ -398,7 +437,7 @@ export class Memory {
 
             // write value of string literal into the object
             Char.jsStringToNullTerminatedCharArray(contents).forEach((c, i) => {
-                object.getArrayElemSubobject(i).setValue(new Value(c, Char.CHAR));
+                object.getArrayElemSubobject(i).setValue(c);
             });
 
             // adjust location for next static object
@@ -535,23 +574,25 @@ class MemoryHeap {
     //     this.objectMap = {};
     // }
 
-    // public allocateNewObject(obj: DynamicObject) {
-    //     this.bottom -= obj.type.size;
-    //     this.memory.allocateObject(obj, this.bottom);
-    //     this.objectMap[obj.address] = obj;
-    //     this.memory.observable.send("heapObjectAllocated", obj);
-    // }
+    public allocateNewObject<T extends CompleteObjectType>(type: T) {
+        this.bottom -= type.size;
+        let obj = new DynamicObject(type, this.memory, this.bottom);
+        this.memory.allocateObject(obj);
+        this.objectMap[obj.address] = obj;
+        this.memory.observable.send("heapObjectAllocated", obj);
+        return obj;
+    }
 
-    // public deleteObject(addr: number, rtConstruct: RuntimeConstruct) {
-    //     var obj = this.objectMap[addr];
-    //     if (obj) {
-    //         delete this.objectMap[addr];
-    //         this.memory.deallocateObject(addr, rtConstruct);
-    //         this.memory.observable.send("heapObjectDeleted", obj);
-    //         // Note: responsibility for running destructor lies elsewhere
-    //     }
-    //     return obj;
-    // }
+    public deleteObject(addr: number, killer?: RuntimeConstruct) {
+        var obj = this.objectMap[addr];
+        if (obj) {
+            delete this.objectMap[addr];
+            this.memory.killObject(addr, killer);
+            this.memory.observable.send("heapObjectDeleted", obj);
+            // Note: responsibility for running destructor lies elsewhere
+        }
+        return obj;
+    }
 }
 
 
