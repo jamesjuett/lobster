@@ -1,8 +1,8 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, InitializerListASTNode, CtorInitializer, CompiledCtorInitializer } from "./initializers";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType } from "./types";
+import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
@@ -321,18 +321,18 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
     });
 }
 
-export function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | InitializerListASTNode | undefined, context: TranslationUnitContext) {
+export function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode | undefined, context: TranslationUnitContext) {
     if (!initAST) {
         declaration.setDefaultInitializer();
     }
-    else if (initAST.construct_type == "direct_initializer") {
+    else if (initAST.construct_type === "direct_initializer") {
         declaration.setDirectInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (initAST.construct_type == "copy_initializer") {
+    else if (initAST.construct_type === "copy_initializer") {
         declaration.setCopyInitializer(initAST.args.map((a) => createExpressionFromAST(a, context)));
     }
-    else if (initAST.construct_type == "initializer_list") {
-        declaration.setInitializerList(initAST.args.map((a) => createExpressionFromAST(a, context)));
+    else if (initAST.construct_type === "list_initializer") {
+        declaration.setInitializerList(initAST.arg.elements.map((a) => createExpressionFromAST(a, context)));
     }
 }
 
@@ -868,8 +868,12 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
 
     public setInitializerList(args: readonly Expression[]) {
         // TODO implement initializer lists
-        this.addNote(CPPError.lobster.unsupported_feature(this, "initializer lists"));
-        return this;
+        let init = ListInitializer.create(this.context, this.declaredEntity, args);
+        if (init instanceof InvalidConstruct) {
+            this.attach(init);
+            return;
+        }
+        return this.setInitializer(init);
     }
 }
 
@@ -1237,6 +1241,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
         if (this.name && isClassContext(this.context)) {
             let className = this.context.containingClass.name;
+            className = className.replace(/<.*>/g, ""); // remove template parameters
             if (this.name === className) {
                 (<Mutable<this>>this).hasConstructorName = true;
             }
@@ -1540,11 +1545,16 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         });
 
         let ctorInitializer: CtorInitializer | InvalidConstruct | undefined;
-        if (ast.ctor_initializer) {
-            if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+        if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+            if (ast.ctor_initializer) {
                 ctorInitializer = CtorInitializer.createFromAST(ast.ctor_initializer, bodyContext);
             }
             else {
+                ctorInitializer = new CtorInitializer(bodyContext, undefined, []);
+            }
+        }
+        else {
+            if (ast.ctor_initializer) {
                 ctorInitializer = new InvalidConstruct(bodyContext, ast.ctor_initializer, CPPError.declaration.ctor.init.constructor_only);
             }
         }
@@ -1985,7 +1995,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     
     public readonly baseClass?: CompleteClassType;
     
-    public readonly memberEntities: readonly MemberVariableEntity[] = [];
+    public readonly memberVariableEntities: readonly MemberVariableEntity[] = [];
     public readonly memberObjectEntities: readonly MemberObjectEntity[] = [];
     public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
     public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
@@ -2026,8 +2036,18 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
 
+        let templateType : AtomicType | undefined = undefined;
+        let tpMatch = ast.head.name.identifier.match(/<.*>/);
+        if (tpMatch) {
+            let templateParameter = tpMatch[0].slice(1, -1); // remove the < >
+            let t = new TypeSpecifier(tuContext, [templateParameter]).baseType;
+            if (t && isAtomicType(t)) {
+                templateType = t;
+            }
+        }
+
         // Create class context based on class entity from the declaration
-        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0]?.baseEntity);
+        let classContext = createClassContext(tuContext, declaration.declaredEntity, bases[0]?.baseEntity, templateType);
 
         let memDecls : MemberDeclaration[] = []
         let functionDefsToCompile : [FunctionDefinitionASTNode, MemberSpecificationContext, FunctionDeclaration][] = [];
@@ -2102,7 +2122,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
 
-                asMutable(this.memberEntities).push(decl.declaredEntity);
+                asMutable(this.memberVariableEntities).push(decl.declaredEntity);
 
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
                     asMutable(this.memberObjectEntities).push(decl.declaredEntity);
@@ -2151,8 +2171,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             }
         });
 
-        this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
-
 
         // Compute size of objects of this class
         let size = 0;
@@ -2166,6 +2184,9 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.declaration.declaredEntity.setDefinition(this);
         assert(declaration.type.isCompleteClassType());
         this.type = declaration.type;
+        
+        // This needs to happen after setting the definition on the entity above
+        this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
@@ -2214,11 +2235,11 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // If any const data members do not have a user-provided
         // default constructor, do not create the implicitly default constructor
         // (this includes const non-class type objects).
-        // ^That's the language from the spec. But the basic idea of it is that
+        // ^That's the language from the standard. But the basic idea of it is that
         // we don't want any const members being default-initialized unless it's
         // done in a way the user specified (e.g. atomic objects are initialized
         // with junk, which is permanent since they're const).
-        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible(true))) {
+        if (this.memberObjectEntities.some(memObj => memObj.type.isConst && !memObj.type.isDefaultConstructible(true))) {
             return;
         }
 

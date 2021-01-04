@@ -5,3 +5,29 @@
 .lobster-ex-init-code {
     display: none;
 }
+
+.lobster-ex-project-name {
+    display: none;
+}
+
+.lobster-ex-complete-message {
+    display: none;
+}
+
+.lobster-complete-glyphicon {
+    color: #1acf1a;
+    font-size: large;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.lobster-incomplete-glyphicon {
+    vertical-align: middle;
+    color: #c75f5f;
+    font-size: large;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.lobster-checkpoint {
+    display: inline-block;
+    padding: 5px 10px;
+}

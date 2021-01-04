@@ -1,6 +1,9 @@
-import { Simulation } from "./Simulation";
+import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
 import { FunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Mutable } from "../util/util";
+import { setCPP_ANIMATIONS } from "../view/simOutlets";
+import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 
 
 export class SynchronousSimulationRunner {
@@ -26,6 +29,38 @@ export class SynchronousSimulationRunner {
         for (let i = 0; !this.simulation.atEnd && i < n; ++i) {
             this.simulation.stepForward();
         }
+    }
+
+    /**
+     * Submit some input into the Simulation's cin buffer
+     * @param text The input typed before "pressing enter"
+     */
+    public cinInput(text: string) {
+        this.simulation.cinInput(text);
+    }
+
+    /**
+     * Advance the simulation by taking one action
+     * @param action 
+     */
+    public takeAction(action: SimulationAction) {
+        this.simulation.takeAction(action);
+    }
+
+    /**
+     * Advance the simulation by taking all the given actions
+     * @param actions 
+     */
+    public takeActions(actions: readonly SimulationAction[]) {
+        actions.forEach(a => this.takeAction(a));
+    }
+
+    /**
+     * Moves the simulation forward until n steps have been taken.
+     * @param n Target number of steps taken.
+     */
+    public async stepUntil(n: number) {
+        return this.stepForward(n - this.simulation.stepsTaken);
     }
 
     /**
@@ -88,9 +123,10 @@ export class SynchronousSimulationRunner {
             return;
         }
 
-        let newSteps = this.simulation.stepsTaken - n;
+        let newStepTarget = this.simulation.stepsTaken - n;
+        let actions = this.simulation.actionsTaken.slice(0, newStepTarget);
         this.reset();
-        this.stepForward(newSteps);
+        this.takeActions(actions);
     }
 
 }
@@ -109,8 +145,9 @@ export class AsynchronousSimulationRunner {
      * The handle returned by the call to setInterval() that was used to start
      * the current run thread, or undefined if there is no current run thread.
      */
-    private rejectFn?: () => void;
     private timeoutHandle?: number;
+    
+    private rejectFn?: () => void;
 
     /**
      * Creates a new runner that can be used to control the given simulation.
@@ -135,7 +172,7 @@ export class AsynchronousSimulationRunner {
         (<Mutable<this>>this).delay = delay;
     }
 
-    private takeOneStep(delay: number) {
+    private takeOneAction(action: SimulationAction, delay: number) {
 
         // If someone else was waiting on a step (or a sequence of steps),
         // we want to clear the timeout and call the stored reject function
@@ -146,7 +183,7 @@ export class AsynchronousSimulationRunner {
         return new Promise((resolve, reject) => {
 
             this.timeoutHandle = setTimeout(() => {
-                this.simulation.stepForward();
+                this.simulation.takeAction(action);
                 delete this.timeoutHandle;
                 delete this.rejectFn;
                 resolve();
@@ -182,25 +219,54 @@ export class AsynchronousSimulationRunner {
      * @param n Number of steps to move forward. Default 1 step.
      */
     public async stepForward(n: number = 1, delay: number = this.delay) {
-        if (n === 0) {
+        if (n <= 0) {
             return;
         }
 
         // Take first step with no delay
-        await this.takeOneStep(0);
+        await this.takeOneAction(STEP_FORWARD_ACTION, 0);
 
         // Take the rest of the steps with given delay
         for (let i = 1; !this.simulation.atEnd && i < n; ++i) {
-            await this.takeOneStep(delay);
+            await this.takeOneAction(STEP_FORWARD_ACTION, delay);
         }
+    }
+
+    /**
+     * Moves the simulation forward n steps, asynchronously.
+     * @param n Number of steps to move forward. Default 1 step.
+     */
+    public async takeActions(actions: readonly SimulationAction[], delay: number = this.delay) {
+        if (actions.length === 0) {
+            return;
+        }
+
+        // Take first step with no delay
+        await this.takeOneAction(actions[0], 0);
+
+        // Take the rest of the steps with given delay
+        for (let i = 1; !this.simulation.atEnd && i < actions.length; ++i) {
+            await this.takeOneAction(actions[i], delay);
+        }
+    }
+
+    /**
+     * Moves the simulation forward, asynchronously, until n steps have been taken.
+     * @param n Target number of steps taken.
+     */
+    public async stepUntil(n: number, delay: number = this.delay) {
+        return this.stepForward(n - this.simulation.stepsTaken);
     }
 
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public async stepToEnd(delay: number = this.delay) {
-        while (!this.simulation.atEnd) {
-            await this.takeOneStep(delay);
+    public async stepToEnd(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (!this.simulation.atEnd && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+            await this.takeOneAction(STEP_FORWARD_ACTION, delay);
+            ++stepsTaken;
         }
     }
 
@@ -213,15 +279,60 @@ export class AsynchronousSimulationRunner {
      */
     public async stepOver(delay: number = this.delay) {
         let top = this.simulation.top();
-        if (top instanceof RuntimeFunctionCall) {
+
+        if (!top) {
+            return;
+        }
+
+        // if (top instanceof RuntimeFunctionCall) {
             while (!top.isDone) {
-                await this.takeOneStep(delay);
+                await this.takeOneAction(STEP_FORWARD_ACTION, delay);
             }
-        }
-        else {
-            await this.stepForward();
-        }
+        // }
+        // else {
+        //     await this.stepForward();
+        // }
     }
+
+    
+    public async stepOverLibrary(delay: number = this.delay) {
+        let top = this.simulation.top();
+        let originalTop = top;
+
+        if (!top || !originalTop) {
+            return;
+        }
+
+        // Take first step with no delay
+        // if (top instanceof RuntimeFunctionCall && top.model.func.firstDeclaration.context.isLibrary) {
+        
+        if ((<any>top.model.context).isLibrary) {
+            setCPP_ANIMATIONS(false);
+        }
+        await this.takeOneAction(STEP_FORWARD_ACTION, 0);
+
+        if ((<any>top.model.context).isLibrary) {
+            setCPP_ANIMATIONS(false);
+        }
+        // if (top instanceof RuntimeFunctionCall) {
+            top = this.simulation.top();
+            while (top && !originalTop.isDone && ((<any>top.model.context).isLibrary
+                || (top instanceof RuntimeFunctionCall && top.calledFunction.model.context.isLibrary)
+                || (top instanceof RuntimeDirectInitializer && top.model.target instanceof PassByReferenceParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary)
+                || (top instanceof RuntimeDirectInitializer && top.model.target instanceof PassByValueParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary)
+                )) {
+                await this.takeOneAction(STEP_FORWARD_ACTION, delay);
+                top = this.simulation.top();
+            }
+            
+        setCPP_ANIMATIONS(true);
+        
+        // }
+        // else {
+        //     await this.stepForward();
+        // }
+    }
+
 
 
     /**
@@ -239,7 +350,7 @@ export class AsynchronousSimulationRunner {
         }
 
         while (!topFunc.isDone) {
-            await this.takeOneStep(delay);
+            await this.takeOneAction(STEP_FORWARD_ACTION, delay);
         }
     }
 
@@ -254,9 +365,10 @@ export class AsynchronousSimulationRunner {
             return;
         }
 
-        let newSteps = this.simulation.stepsTaken - n;
+        let newStepTarget = this.simulation.stepsTaken - n;
+        let actions = this.simulation.actionsTaken.slice(0, newStepTarget);
         await this.reset();
-        await this.stepForward(newSteps, 0);
+        await this.takeActions(actions);
     }
 
     /**
@@ -272,12 +384,12 @@ export class AsynchronousSimulationRunner {
 
 export async function asyncCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
     let newSim = new Simulation(sim.program);
-    await (new AsynchronousSimulationRunner(newSim).stepForward(stepsTaken));
+    await (new AsynchronousSimulationRunner(newSim).takeActions(sim.actionsTaken.slice(0, stepsTaken)));
     return newSim;
 }
 
 export function synchronousCloneSimulation(sim: Simulation, stepsTaken = sim.stepsTaken) {
     let newSim = new Simulation(sim.program);
-    new SynchronousSimulationRunner(newSim).stepForward(stepsTaken);
+    new SynchronousSimulationRunner(newSim).takeActions(sim.actionsTaken.slice(0, stepsTaken));
     return newSim;
 }

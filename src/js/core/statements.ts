@@ -1,15 +1,16 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool, isType } from "./types";
+import { VoidType, ReferenceType, Bool, isType, Int } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
-import { Mutable, asMutable, assertNever } from "../util/util";
+import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
-import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet } from "../view/codeOutlets";
+import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet, BreakStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
+import { Value } from "./runtimeEnvironment";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -28,13 +29,13 @@ const StatementConstructsMap = {
     "while_statement": (ast: WhileStatementASTNode, context: BlockContext) => WhileStatement.createFromAST(ast, context),
     "dowhile_statement": (ast: DoWhileStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "do-while loop"),
     "for_statement": (ast: ForStatementASTNode, context: BlockContext) => ForStatement.createFromAST(ast, context),
-    "break_statement": (ast: BreakStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "break statement"),
+    "break_statement": (ast: BreakStatementASTNode, context: BlockContext) => BreakStatement.createFromAST(ast, context),
     "continue_statement": (ast: ContinueStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "continue statement"),
     "return_statement": (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement": (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
     "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
-};
+}
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
     return <any>StatementConstructsMap[ast.construct_type](<any>ast, context);
@@ -48,7 +49,7 @@ export type CompiledStatementKinds = {
     "while_statement": CompiledWhileStatement;
     // "dowhile_statement" :
     "for_statement": CompiledForStatement;
-    // "break_statement" :
+    "break_statement" : CompiledBreakStatement;
     // "continue_statement" :
     "return_statement": CompiledReturnStatement;
     "declaration_statement": CompiledDeclarationStatement;
@@ -68,7 +69,7 @@ const StatementConstructsRuntimeMap = {
     "while_statement": (construct: CompiledWhileStatement, parent: RuntimeStatement) => new RuntimeWhileStatement(construct, parent),
     // "dowhile_statement" : (construct: DoWhileStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "do-while loop").setAST(ast),
     "for_statement": (construct: CompiledForStatement, parent: RuntimeStatement) => new RuntimeForStatement(construct, parent),
-    // "break_statement" : (construct: BreakStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "break statement").setAST(ast),
+    "break_statement" : (construct: CompiledBreakStatement, parent: RuntimeStatement) => new RuntimeBreakStatement(construct, parent),
     // "continue_statement" : (construct: ContinueStatement, parent: RuntimeStatement) => new UnsupportedStatement(context, "continue statement").setAST(ast),
     "return_statement": (construct: CompiledReturnStatement, parent: RuntimeStatement) => new RuntimeReturnStatement(construct, parent),
     "declaration_statement": (construct: CompiledDeclarationStatement, parent: RuntimeStatement) => new RuntimeDeclarationStatement(construct, parent),
@@ -104,7 +105,7 @@ export type AnalyticStatement =
     WhileStatement |
     // DoWhileStatement |
     ForStatement |
-    // BreakStatement |
+    BreakStatement |
     // ContinueStatement |
     ReturnStatement |
     DeclarationStatement |
@@ -230,11 +231,11 @@ export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement
     }
 
     public upNextImpl() {
-        return false;
+        this.startCleanup();
     }
 
     public stepForwardImpl() {
-        return false;
+        // nothing to do
     }
 
 }
@@ -332,6 +333,61 @@ export type JumpStatementASTNode = BreakStatementASTNode | ContinueStatementASTN
 export interface BreakStatementASTNode extends ASTNode {
     readonly construct_type: "break_statement";
 }
+
+export class BreakStatement extends Statement<BreakStatementASTNode> {
+    public readonly construct_type = "break_statement";
+
+    public static createFromAST(ast: BreakStatementASTNode, context: BlockContext) {
+        return new BreakStatement(context, ast);
+    }
+
+    public constructor(context: BlockContext, ast: BreakStatementASTNode, expression?: Expression) {
+        super(context, ast);
+
+        if (!context.withinLoop) {
+            this.addNote(CPPError.stmt.breakStatement.location(this));
+        }
+
+    }
+
+    public createDefaultOutlet(this: CompiledBreakStatement, element: JQuery, parent?: ConstructOutlet) {
+        return new BreakStatementOutlet(element, this, parent);
+    }
+
+    // isTailChild : function(child){
+    //     return {isTail: true,
+    //         reason: "The recursive call is immediately followed by a return."};
+    // }
+}
+
+export interface CompiledBreakStatement extends BreakStatement, SuccessfullyCompiled {
+
+}
+
+export class RuntimeBreakStatement extends RuntimeStatement<CompiledBreakStatement> {
+
+    public constructor(model: CompiledBreakStatement, parent: RuntimeStatement) {
+        super(model, parent);
+    }
+
+    protected upNextImpl() {
+        // nothing
+    }
+
+    public stepForwardImpl() {
+        let construct : RuntimeConstruct = this;
+
+        // start cleanup for everything on the way up to the loop
+        while(construct.model.construct_type !== "while_statement" && construct.model.construct_type !== "for_statement") {
+            construct.startCleanup();
+            construct = construct.parent!;
+        }
+
+        // start cleanup for the loop
+        construct.startCleanup();
+    }
+}
+
 
 export interface ContinueStatementASTNode extends ASTNode {
     readonly construct_type: "continue_statement";
@@ -562,28 +618,31 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
 
 
-// export class OpaqueBlock extends StatementBase implements SuccessfullyCompiled {
+
+
+
+// export class OpaqueStatement extends StatementBase implements SuccessfullyCompiled {
 
 //     public _t_isCompiled: never;
 
-//     private readonly effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private readonly effects: (rtBlock: RuntimeOpaqueStatement) => void;
 
-//     public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//     public constructor(context: BlockContext, effects: (rtBlock: RuntimeOpaqueStatement) => void) {
 //         super(context);
 //         this.effects = effects;
 //     }
 
 //     public createRuntimeStatement(parent: RuntimeStatement | RuntimeFunction) {
-//         return new RuntimeOpaqueBlock(this, parent, this.effects);
+//         return new RuntimeOpaqueStatement(this, parent, this.effects);
 //     }
 
 // }
 
-// export class RuntimeOpaqueBlock extends RuntimeStatement<OpaqueBlock> {
+// export class RuntimeOpaqueStatement extends RuntimeStatement<OpaqueStatement> {
 
-//     private effects: (rtBlock: RuntimeOpaqueBlock) => void;
+//     private effects: (rtBlock: RuntimeOpaqueStatement) => void;
 
-//     public constructor (model: OpaqueBlock, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueBlock) => void) {
+//     public constructor (model: OpaqueStatement, parent: RuntimeStatement | RuntimeFunction, effects: (rtBlock: RuntimeOpaqueStatement) => void) {
 //         super(model, parent);
 //         this.effects = effects;
 //     }
@@ -764,15 +823,17 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
     public readonly condition: Expression;
     public readonly body: Statement;
 
-    public static createFromAST(ast: WhileStatementASTNode, context: BlockContext): WhileStatement {
+    public static createFromAST(ast: WhileStatementASTNode, outerContext: BlockContext): WhileStatement {
+
+        let whileContext = createLoopContext(outerContext);
 
         // If the body substatement is not a block, it gets its own implicit block context.
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
         let body = ast.body.construct_type === "block" ?
-            createStatementFromAST(ast.body, context) :
-            createStatementFromAST(ast.body, createBlockContext(context));
+            createStatementFromAST(ast.body, whileContext) :
+            createStatementFromAST(ast.body, createBlockContext(whileContext));
 
-        return new WhileStatement(context, ast, createExpressionFromAST(ast.condition, context), body);
+        return new WhileStatement(whileContext, ast, createExpressionFromAST(ast.condition, whileContext), body);
     }
 
     public constructor(context: BlockContext, ast: WhileStatementASTNode, condition: Expression, body: Statement) {
@@ -867,7 +928,7 @@ export interface ForStatementASTNode extends ASTNode {
     readonly construct_type: "for_statement";
     readonly condition: ExpressionASTNode;
     readonly initial: ExpressionStatementASTNode | NullStatementASTNode | DeclarationStatementASTNode;
-    readonly post: ExpressionASTNode;
+    readonly post?: ExpressionASTNode;
     readonly body: StatementASTNode;
 }
 
@@ -888,7 +949,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     public readonly initial: ExpressionStatement | NullStatement | DeclarationStatement;
     public readonly condition: Expression;
     public readonly body: Statement;
-    public readonly post: Expression;
+    public readonly post?: Expression;
   
     // Constructors for language construct classes take
     // in a `context`, which provides contextual information
@@ -900,7 +961,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     // of their own. This is usually done by a createFromAST()
     // function (see below).
     public constructor(context: BlockContext, ast: ForStatementASTNode, initial: ExpressionStatement | NullStatement | DeclarationStatement,
-      condition: Expression, body: Statement, post: Expression) {
+      condition: Expression, body: Statement, post: Expression | undefined) {
   
       super(context, ast);
   
@@ -936,7 +997,9 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // constructor, we're already guaranteed the body is a
       // statement and the post is an expression as they should be.
       this.attach(this.body = body);
-      this.attach(this.post = post);
+      if (post) {
+          this.attach(this.post = post);
+      }
     }
   
     // The constructor above poses a conundrum. It asks that
@@ -952,6 +1015,9 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     // constructs correctly.
     public static createFromAST(ast: ForStatementASTNode, outerContext: BlockContext): ForStatement {
   
+
+      let forContext = createLoopContext(outerContext);
+
       // The context parameter to this function tells us what
       // context the for loop originally occurs in. For example, in:
       // void func() {
@@ -968,7 +1034,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // to for(...) { stmt; } according to the C++ standard.
       // If the body substatement is not a block, it gets its own implicit block context.
       // (If the substatement is a block, it will create its own block context, so we don't do that here.)
-      let bodyContext = ast.body.construct_type === "block" ? outerContext : createBlockContext(outerContext);
+      let bodyContext = ast.body.construct_type === "block" ? forContext : createBlockContext(forContext);
   
       // NOTE: the use of body block context for all the children.
       // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
@@ -976,11 +1042,11 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // context and scope where i is declared.
       // NOTE: initial has to be compiled first. It is, since argument evaluation
       // order is guaranteed left-to-right in js/ts
-      return new ForStatement(outerContext, ast,
+      return new ForStatement(forContext, ast,
         createStatementFromAST(ast.initial, bodyContext),
         createExpressionFromAST(ast.condition, bodyContext),
         createStatementFromAST(ast.body, bodyContext),
-        createExpressionFromAST(ast.post, bodyContext));
+        ast.post && createExpressionFromAST(ast.post, bodyContext));
   
       // It's crucial that we handled things this way. Because
       // all of the context-sensitive stuff is handled by the
@@ -1006,7 +1072,7 @@ export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled
     readonly initial: CompiledExpressionStatement | CompiledNullStatement | CompiledDeclarationStatement;
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly body: CompiledStatement;
-    readonly post: CompiledExpression;
+    readonly post?: CompiledExpression;
 }
 
 export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> {
@@ -1018,11 +1084,21 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 
     private index = 0;
 
+    private upNextFns: ((rt: RuntimeForStatement) => void)[];
+
     public constructor(model: CompiledForStatement, parent: RuntimeStatement) {
         super(model, parent);
         this.initial = createRuntimeStatement(model.initial, this);
         this.condition = createRuntimeExpression(model.condition, this);
         // Do not create body here, since it might not actually run
+        if (model.post) {
+            this.upNextFns = RuntimeForStatement.upNextFns;
+        }
+        else {
+            // remove 4th step which is the post step
+            this.upNextFns = RuntimeForStatement.upNextFns.slice();
+            this.upNextFns.splice(3,1);
+        }
     }
 
     private static upNextFns = [
@@ -1041,16 +1117,17 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
             }
         },
         (rt: RuntimeForStatement) => {
+            assert(rt.model.post);
             rt.sim.push(asMutable(rt).post = createRuntimeExpression(rt.model.post, rt));
         },
         (rt: RuntimeForStatement) => {
             // Do nothing, pass to stepForward, which will reset
         }
-    ]
+    ];
 
     protected upNextImpl() {
-        RuntimeForStatement.upNextFns[this.index++](this);
-        if (this.index == RuntimeForStatement.upNextFns.length) {
+        this.upNextFns[this.index++](this);
+        if (this.index === this.upNextFns.length) {
             this.index = 1; // reset to 1 rather than 0, since 0 is the initial which only happens once
         }
     }

@@ -1,25 +1,41 @@
 const path = require('path');
-const CircularDependencyPlugin = require('circular-dependency-plugin')
 
 module.exports = {
   // mode: "development",
   entry: {
-    main: './src/js/main.ts',
-    exercises: './src/js/exercises.ts',
-    regression: './src/js/test/regression.ts'
+    'main': './src/js/main.ts',
+    // 'main.min': './src/js/main.ts',
+    'exercises': './src/js/exercises.ts',
+    // 'exercises.min': './src/js/exercises.ts',
+    'regression': './src/js/test/regression.ts',
+    // 'regression.min': './src/js/test/regression.ts'
   },
-  devtool: "inline-source-map",
   output: {
-    path: path.join(__dirname, '/public/lobster/js/'),
-    filename: '[name].bundle.js',
-    libraryTarget: 'var',
-    library: 'Bundle'
+    path: path.join(__dirname, '/public/js/'),
+    filename: '[name].js',
+    libraryTarget: 'umd',
+    library: 'Lobster',
+    umdNamedDefine: true
   },
+  devtool: "source-map",
+  // optimization: {
+  //   minimizer: [
+  //     new TerserPlugin({
+  //       cache: true,
+  //       parallel: true,
+  //       sourceMap: true, // Must be set to true if using source-maps in production
+  //       terserOptions: {
+  //         // https://github.com/webpack-contrib/terser-webpack-plugin#terseroptions
+  //       },
+  //       include: /\.min\.js$/,
+  //     }),
+  //   ]
+  // },
   module: {
     rules: [
       {
         test: /\.tsx?$/,
-        use: 'ts-loader',
+        loader: 'ts-loader',
         exclude: /node_modules/
       },
       {
@@ -31,18 +47,5 @@ module.exports = {
   resolve: {
     extensions: [ '.tsx', '.ts', '.js' ]
 
-  },
-  // plugins: [
-  //   new CircularDependencyPlugin({
-  //     // exclude detection of files based on a RegExp
-  //     exclude: /a\.js|node_modules/,
-  //     // add errors to webpack instead of warnings
-  //     failOnError: true,
-  //     // allow import cycles that include an asyncronous import,
-  //     // e.g. via import(/* webpackMode: "weak" */ './file.js')
-  //     allowAsyncCycles: false,
-  //     // set the current working directory for displaying module paths
-  //     cwd: process.cwd(),
-  //   })
-  // ]
+  }
 };

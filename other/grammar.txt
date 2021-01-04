@@ -76,7 +76,12 @@
     }
   }
 
-  let _userTypeNames = {};
+  let _userTypeNames = {
+    "initializer_list<int>": true,
+    "initializer_list<double>": true,
+    "initializer_list<char>": true,
+    "initializer_list<bool>": true
+  };
 
   function getUserTypeNames() : any {
     //if (typeof Types !== "undefined"){
@@ -169,7 +174,7 @@ iteration_statement
 
   / "do" !identifierChar ws body:statement ws "while" ws "(" ws cond:expression ws ")" ws ";" { return track({construct_type:"dowhile_statement", condition:cond, body:body}, location(), text()); }
 
-  / "for" ws "(" ws init:for_init_statement ws cond:expression ws ";" ws post:expression ws ")" ws body:statement
+  / "for" ws "(" ws init:for_init_statement ws cond:expression ws ";" ws post:expression? ws ")" ws body:statement
     { return track({construct_type:"for_statement", condition:cond, initial:init, post:post, body:body}, location(), text()); }
 
 for_init_statement
@@ -364,6 +369,7 @@ _simple_type_name
   = "char"
   / "short"
   / "int"
+  / "size_t"
   / "bool"
   / "long"
   / "signed"
@@ -414,14 +420,14 @@ initializer
 brace_or_equal_initializer
   = "=" ws init:exp_assn {return track({construct_type:"copy_initializer", args:[init]}, location(), text());}
   // / "=" ws "{" ws "}" {return [];}
-  / "=" ws "{" ws init:initializer_list ws "}" {return init;}
+  / "=" ws "{" ws init:initializer_list ws "}" {return track({construct_type:"list_initializer", arg:init}, location(), text());}
 
 
 initializer_list
   = first:exp_assn rest:(ws op:"," ws e:exp_assn {return e;})*
     {
       rest.unshift(first);
-      return track({construct_type:"initializer_list", args: rest}, location(), text());
+      return track({construct_type:"initializer_list_expression", elements: rest}, location(), text());
     }
   /// exp:expression {return exp;}
 
@@ -540,7 +546,7 @@ expression
 
 exp_assn
   = lhs:exp_unary ws op:"=" ws rhs:exp_assn { return track({construct_type: "assignment_expression", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
-  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
+  / lhs:exp_unary ws op:op_comp_assn ws rhs:exp_assn { return track({construct_type: "compound_assignment_expression", lhs:lhs, operator:op, rhs:rhs}, location(), text()); }
   / exp_cond
 
 op_comp_assn
@@ -640,7 +646,7 @@ exp_unary
       return track({construct_type: "prefix_increment_expression", operator:op, operand:sub}, location(), text());
 }
   / op:"--" ws sub:exp_unary {
-      return track({construct_type: "prefix_decrement_expression", operator:op, operand:sub}, location(), text());
+      return track({construct_type: "prefix_increment_expression", operator:op, operand:sub}, location(), text());
 }
   / op:op_unary ws sub:exp_cast {
       return track(absorb({operand:sub}, op), location(), text());
@@ -737,8 +743,8 @@ op_postfix
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
   / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
   / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }
-  / "++" { return track({construct_type: "postfix_increment_expression"}, location(), text()); }
-  / "--" { return track({construct_type: "postfix_decrement_expression"}, location(), text()); }
+  / "++" { return track({construct_type: "postfix_increment_expression", operator: "++"}, location(), text()); }
+  / "--" { return track({construct_type: "postfix_increment_expression", operator: "--"}, location(), text()); }
 
 exp_construct
   = type:simple_type_name ws "(" ws args:exp_list? ws ")" {
@@ -757,6 +763,7 @@ exp_primary
   / literal
   / "this" !identifierChar {return track({construct_type: "this_expression"}, location(), text()); }
   / exp_id
+  / opaque_expression
 
 exp_id
   = id:(qualified_id / unqualified_id) { return track(absorb({construct_type: "identifier_expression"}, id), location(), text()); }
@@ -866,6 +873,12 @@ identifierChar = [a-zA-Z0-9_]
 
 identifierFirstChar = [a-zA-Z_]
 
+template_identifier
+  = id:identifier "<" t:identifier ">" { return {identifier: id.identifier + "<" + t.identifier + ">"}; }
+
+opaque_expression
+  = "@" id:([a-zA-Z_1-9~]/"::"/overloadable_op)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
+
 
 ws "optional whitespace"
   = [ \t\n\r]* comment ws
@@ -879,7 +892,8 @@ WS "whitespace"
 
 
 class_name
-  = id:identifier & {return isUserTypeName(id.identifier);} {return id;}
+  = id:template_identifier & {return isUserTypeName(id.identifier);} {return id;}
+  / id:identifier & {return isUserTypeName(id.identifier);} {return id;}
   // / simple_template_id
 
 class_specifier
@@ -901,7 +915,8 @@ class_head
   //   { return track({key:key, base:base}, location(), text()); }
 
 class_head_name
-  = /* nested_name_specifier? ws */ identifier
+  = template_identifier
+  / /* nested_name_specifier? ws */ identifier
 
 class_key
   = "class"
