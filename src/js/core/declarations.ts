@@ -496,6 +496,12 @@ export type TypedDeclarationKinds<T extends Type> = {
     // TODO: add rest of discriminants and their types
 };
 
+function test<T extends Type>() {
+    let x! : T & FunctionType;
+    let y! : FunctionType;
+    y = x;
+}
+
 export type CompiledDeclarationKinds<T extends Type> = {
     "invalid_construct": never; // these never compile
     "unknown_type_declaration": never; // these never compile
@@ -2526,7 +2532,7 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
             this.addNote(CPPError.class_def.virtual_inheritance(this));
         }
 
-        checkIdentifier(this, name, this);
+        checkIdentifier(this, this.name, this);
 
         let lookupResult = this.context.contextualScope.lookup(this.name);
 
