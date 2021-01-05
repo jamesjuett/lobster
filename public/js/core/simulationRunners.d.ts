@@ -89,7 +89,7 @@ export declare class AsynchronousSimulationRunner {
     /**
      * Resets the simulation.
      */
-    reset(): Promise<unknown>;
+    reset(): Promise<void>;
     /**
      * Moves the simulation forward n steps, asynchronously.
      * @param n Number of steps to move forward. Default 1 step.

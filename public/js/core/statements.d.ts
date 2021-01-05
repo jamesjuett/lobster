@@ -38,16 +38,16 @@ export declare type CompiledStatementKinds = {
 };
 export declare type AnalyticCompiledStatement<C extends AnalyticStatement> = CompiledStatementKinds[C["construct_type"]];
 declare const StatementConstructsRuntimeMap: {
-    unsupported_statement: (construct: UnsupportedStatement, parent: RuntimeStatement<CompiledStatement>) => never;
-    block: (construct: CompiledBlock, parent: RuntimeFunction<import("./types").FunctionType<import("./types").CompleteReturnType>> | RuntimeStatement<CompiledStatement>) => RuntimeBlock;
-    if_statement: (construct: CompiledIfStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeIfStatement;
-    while_statement: (construct: CompiledWhileStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeWhileStatement;
-    for_statement: (construct: CompiledForStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeForStatement;
-    break_statement: (construct: CompiledBreakStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeBreakStatement;
-    return_statement: (construct: CompiledReturnStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeReturnStatement;
-    declaration_statement: (construct: CompiledDeclarationStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeDeclarationStatement;
-    expression_statement: (construct: CompiledExpressionStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeExpressionStatement;
-    null_statement: (construct: CompiledNullStatement, parent: RuntimeStatement<CompiledStatement>) => RuntimeNullStatement;
+    unsupported_statement: (construct: UnsupportedStatement, parent: RuntimeStatement) => never;
+    block: (construct: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) => RuntimeBlock;
+    if_statement: (construct: CompiledIfStatement, parent: RuntimeStatement) => RuntimeIfStatement;
+    while_statement: (construct: CompiledWhileStatement, parent: RuntimeStatement) => RuntimeWhileStatement;
+    for_statement: (construct: CompiledForStatement, parent: RuntimeStatement) => RuntimeForStatement;
+    break_statement: (construct: CompiledBreakStatement, parent: RuntimeStatement) => RuntimeBreakStatement;
+    return_statement: (construct: CompiledReturnStatement, parent: RuntimeStatement) => RuntimeReturnStatement;
+    declaration_statement: (construct: CompiledDeclarationStatement, parent: RuntimeStatement) => RuntimeDeclarationStatement;
+    expression_statement: (construct: CompiledExpressionStatement, parent: RuntimeStatement) => RuntimeExpressionStatement;
+    null_statement: (construct: CompiledNullStatement, parent: RuntimeStatement) => RuntimeNullStatement;
 };
 export declare function createRuntimeStatement<ConstructType extends CompiledBlock>(construct: ConstructType, parent: RuntimeStatement | RuntimeFunction): ReturnType<(typeof StatementConstructsRuntimeMap)[ConstructType["construct_type"]]>;
 export declare function createRuntimeStatement<ConstructType extends AnalyticStatement, CompiledConstructType extends AnalyticCompiledStatement<ConstructType>>(construct: CompiledConstructType, parent: RuntimeConstruct): ReturnType<(typeof StatementConstructsRuntimeMap)[CompiledConstructType["construct_type"]]>;

@@ -96,7 +96,6 @@ export declare abstract class CPPConstruct<ContextType extends ProgramContext = 
     attach(child: CPPConstruct): void;
     attachAll(children: readonly CPPConstruct[]): void;
     protected abstract onAttach(parent: this["parent"]): void;
-    private setAST;
     explain(sim: Simulation, rtConstruct: RuntimeConstruct): Explanation;
     describe(sim: Simulation, rtConstruct: RuntimeConstruct): ConstructDescription;
     addNote(note: Note): void;

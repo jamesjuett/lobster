@@ -55,6 +55,7 @@ export declare class RuntimeFunctionCall<T extends FunctionType<CompleteReturnTy
     constructor(model: CompiledFunctionCall<T>, parent: RuntimeConstruct, receiver?: CPPObject<CompleteClassType>);
     protected upNextImpl(): void;
     protected stepForwardImpl(): void;
+    isReturnByValue(): this is RuntimeFunctionCall<FunctionType<AtomicType | CompleteClassType>>;
 }
 export interface FunctionCallExpressionASTNode extends ASTNode {
     readonly construct_type: "function_call_expression";

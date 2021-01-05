@@ -1,8 +1,8 @@
 import { TranslationUnitConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, PotentialParameterType, CompleteClassType, PointerType, IncompleteObjectType, PotentialReturnType, ExpressionType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
+import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 export declare enum NoteKind {
     ERROR = "error",
@@ -65,314 +65,314 @@ export declare class NoteRecorder implements NoteHandler {
 }
 export declare const CPPError: {
     other: {
-        cin_not_supported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+        cin_not_supported: (construct: TranslationUnitConstruct) => CompilerNote;
     };
     class_def: {
-        prev_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string, prev: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+        prev_def: (construct: TranslationUnitConstruct, name: string, prev: TranslationUnitConstruct) => CompilerNote;
         base_class_type: (construct: BaseSpecifier) => CompilerNote;
         base_class_incomplete: (construct: BaseSpecifier) => CompilerNote;
-        big_three: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, bigThreeYes: readonly string[], bigThreeNo: readonly string[]) => CompilerNote;
-        multiple_inheritance: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        virtual_inheritance: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        ctor_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        dtor_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+        big_three: (construct: TranslationUnitConstruct, bigThreeYes: readonly string[], bigThreeNo: readonly string[]) => CompilerNote;
+        multiple_inheritance: (construct: TranslationUnitConstruct) => CompilerNote;
+        virtual_inheritance: (construct: TranslationUnitConstruct) => CompilerNote;
+        ctor_def: (construct: TranslationUnitConstruct) => CompilerNote;
+        dtor_def: (construct: TranslationUnitConstruct) => CompilerNote;
     };
     declaration: {
         ctor: {
             copy: {
-                pass_by_value: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: CompleteObjectType, name: string) => CompilerNote;
+                pass_by_value: (construct: TranslationUnitConstruct, type: CompleteObjectType, name: string) => CompilerNote;
             };
             init: {
-                constructor_only: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-                improper_name: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, classType: CompleteClassType, name: string) => CompilerNote;
-                delegate_only: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-                multiple_delegates: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-                multiple_base_inits: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-                multiple_member_inits: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+                constructor_only: (construct: TranslationUnitConstruct) => CompilerNote;
+                improper_name: (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) => CompilerNote;
+                delegate_only: (construct: TranslationUnitConstruct) => CompilerNote;
+                multiple_delegates: (construct: TranslationUnitConstruct) => CompilerNote;
+                multiple_base_inits: (construct: TranslationUnitConstruct) => CompilerNote;
+                multiple_member_inits: (construct: TranslationUnitConstruct) => CompilerNote;
             };
-            return_type_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            const_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            previous_declaration: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            return_type_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            const_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            previous_declaration: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         dtor: {
-            no_destructor_auto: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, entity: LocalObjectEntity<CompleteObjectType>) => CompilerNote;
-            no_destructor_temporary: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, entity: TemporaryObjectEntity<CompleteObjectType>) => CompilerNote;
-            return_type_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            no_destructor_auto: (construct: TranslationUnitConstruct, entity: LocalObjectEntity) => CompilerNote;
+            no_destructor_temporary: (construct: TranslationUnitConstruct, entity: TemporaryObjectEntity) => CompilerNote;
+            return_type_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
-        prev_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        prev_local: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        prev_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
+        prev_def: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        prev_local: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        prev_member: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
         func: {
-            return_array: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            return_func: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            invalid_return_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            some_invalid_parameter_types: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            array: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            void_param: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            op_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            op_subscript_one_param: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            returnTypesMatch: (declarations: SimpleDeclaration<import("./constructs").TranslationUnitContext>[], name: string) => CompilerNote;
-            mainParams: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            no_return_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            nonCovariantReturnType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, derived: Type, base: Type) => CompilerNote;
-            definition_non_function_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            return_array: (construct: TranslationUnitConstruct) => CompilerNote;
+            return_func: (construct: TranslationUnitConstruct) => CompilerNote;
+            invalid_return_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            some_invalid_parameter_types: (construct: TranslationUnitConstruct) => CompilerNote;
+            array: (construct: TranslationUnitConstruct) => CompilerNote;
+            void_param: (construct: TranslationUnitConstruct) => CompilerNote;
+            op_member: (construct: TranslationUnitConstruct) => CompilerNote;
+            op_subscript_one_param: (construct: TranslationUnitConstruct) => CompilerNote;
+            returnTypesMatch: (declarations: SimpleDeclaration[], name: string) => CompilerNote;
+            mainParams: (construct: TranslationUnitConstruct) => CompilerNote;
+            no_return_type: (construct: TranslationUnitConstruct) => CompilerNote;
+            nonCovariantReturnType: (construct: TranslationUnitConstruct, derived: Type, base: Type) => CompilerNote;
+            definition_non_function_type: (construct: TranslationUnitConstruct) => CompilerNote;
             multiple_def: (def: FunctionDefinition, prevDef: FunctionDefinition) => CompilerNote;
         };
         variable: {
-            multiple_def: (def: import("./declarations").GlobalVariableDefinition | ParameterDefinition | import("./declarations").LocalVariableDefinition, prevDef: import("./declarations").GlobalVariableDefinition | ParameterDefinition | import("./declarations").LocalVariableDefinition) => CompilerNote;
+            multiple_def: (def: VariableDefinition | ParameterDefinition, prevDef: VariableDefinition | ParameterDefinition) => CompilerNote;
         };
         classes: {
             multiple_def: (construct: ClassDefinition, prev: ClassDefinition) => CompilerNote;
             storage_prohibited: (construct: StorageSpecifier) => CompilerNote;
         };
         pointer: {
-            reference: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            void: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            invalid_pointed_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+            reference: (construct: TranslationUnitConstruct) => CompilerNote;
+            void: (construct: TranslationUnitConstruct) => CompilerNote;
+            invalid_pointed_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
         };
         ref: {
-            ref: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            array: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            invalid_referred_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            memberNotSupported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            ref: (construct: TranslationUnitConstruct) => CompilerNote;
+            array: (construct: TranslationUnitConstruct) => CompilerNote;
+            invalid_referred_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            memberNotSupported: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         array: {
-            length_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            zero_length: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            multidimensional_arrays_unsupported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            invalid_element_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+            length_required: (construct: TranslationUnitConstruct) => CompilerNote;
+            zero_length: (construct: TranslationUnitConstruct) => CompilerNote;
+            multidimensional_arrays_unsupported: (construct: TranslationUnitConstruct) => CompilerNote;
+            invalid_element_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
         };
         init: {
-            scalar_args: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, declType: AtomicType) => CompilerNote;
-            array_string_literal: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, targetType: BoundedArrayType<import("./types").ArrayElemType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>) => CompilerNote;
-            convert: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, initType: Type, declType: Type) => CompilerNote;
-            list_reference_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_atomic_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_array_unsupported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            aggregate_unsupported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_narrowing: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, initType: Type, declType: Type) => CompilerNote;
-            list_array: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_length: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, length: number) => CompilerNote;
-            list_empty: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_same_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            list_arithmetic_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            matching_constructor: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, entity: ObjectEntity<CompleteClassType>, argTypes: readonly Type[]) => CompilerNote;
-            no_default_constructor: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, entity: ObjectEntity<CompleteClassType>) => CompilerNote;
-            referencePrvalueConst: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            referenceType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: ReferenceType<PotentiallyCompleteObjectType>) => CompilerNote;
-            referenceBind: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            referenceBindMultiple: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            stringLiteralLength: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, stringSize: number, arrSize: number) => CompilerNote;
-            uninitialized: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, ent: ObjectEntity<CompleteObjectType>) => CompilerNote;
-            array_default_init: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            array_direct_init: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            scalar_args: (construct: TranslationUnitConstruct, declType: AtomicType) => CompilerNote;
+            array_string_literal: (construct: TranslationUnitConstruct, targetType: BoundedArrayType | ArrayOfUnknownBoundType) => CompilerNote;
+            convert: (construct: TranslationUnitConstruct, initType: Type, declType: Type) => CompilerNote;
+            list_reference_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_atomic_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_array_unsupported: (construct: TranslationUnitConstruct) => CompilerNote;
+            aggregate_unsupported: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_narrowing: (construct: TranslationUnitConstruct, initType: Type, declType: Type) => CompilerNote;
+            list_array: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_length: (construct: TranslationUnitConstruct, length: number) => CompilerNote;
+            list_empty: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_same_type: (construct: TranslationUnitConstruct) => CompilerNote;
+            list_arithmetic_type: (construct: TranslationUnitConstruct) => CompilerNote;
+            matching_constructor: (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>, argTypes: readonly Type[]) => CompilerNote;
+            no_default_constructor: (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>) => CompilerNote;
+            referencePrvalueConst: (construct: TranslationUnitConstruct) => CompilerNote;
+            referenceType: (construct: TranslationUnitConstruct, from: Type, to: ReferenceType) => CompilerNote;
+            referenceBind: (construct: TranslationUnitConstruct) => CompilerNote;
+            referenceBindMultiple: (construct: TranslationUnitConstruct) => CompilerNote;
+            stringLiteralLength: (construct: TranslationUnitConstruct, stringSize: number, arrSize: number) => CompilerNote;
+            uninitialized: (construct: TranslationUnitConstruct, ent: ObjectEntity) => CompilerNote;
+            array_default_init: (construct: TranslationUnitConstruct) => CompilerNote;
+            array_direct_init: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         storage: {
-            once: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, spec: StorageSpecifierKey) => CompilerNote;
-            incompatible: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, specs: readonly StorageSpecifierKey[]) => CompilerNote;
+            once: (construct: TranslationUnitConstruct, spec: StorageSpecifierKey) => CompilerNote;
+            incompatible: (construct: TranslationUnitConstruct, specs: readonly StorageSpecifierKey[]) => CompilerNote;
         };
         typeSpecifier: {
-            once: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, spec: TypeSpecifierKey) => CompilerNote;
-            one_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, typeNames: readonly string[]) => CompilerNote;
-            signed_unsigned: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            once: (construct: TranslationUnitConstruct, spec: TypeSpecifierKey) => CompilerNote;
+            one_type: (construct: TranslationUnitConstruct, typeNames: readonly SimpleTypeName[]) => CompilerNote;
+            signed_unsigned: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         friend: {
-            outside_class: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            virtual_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            outside_class: (construct: TranslationUnitConstruct) => CompilerNote;
+            virtual_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         parameter: {
             storage_prohibited: (construct: StorageSpecifier) => CompilerNote;
-            invalid_parameter_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            virtual_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            invalid_parameter_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            virtual_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
-        missing_type_specifier: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        unknown_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+        missing_type_specifier: (construct: TranslationUnitConstruct) => CompilerNote;
+        unknown_type: (construct: TranslationUnitConstruct) => CompilerNote;
         void_prohibited: (construct: VoidDeclaration) => CompilerNote;
         incomplete_type_definition_prohibited: (construct: IncompleteTypeVariableDefinition) => CompilerNote;
-        virtual_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        type_mismatch: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, newEntity: DeclaredEntity, existingEntity: DeclaredEntity) => CompilerNote;
-        symbol_mismatch: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, newEntity: DeclaredEntity) => CompilerNote;
+        virtual_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+        type_mismatch: (construct: TranslationUnitConstruct, newEntity: DeclaredEntity, existingEntity: DeclaredEntity) => CompilerNote;
+        symbol_mismatch: (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) => CompilerNote;
         member: {
             incomplete_type_declaration_prohibited: (construct: IncompleteTypeMemberVariableDeclaration) => CompilerNote;
         };
     };
     type: {
-        unsigned_not_supported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        storage: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        typeNotFound: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, typeName: string) => CompilerNote;
+        unsigned_not_supported: (construct: TranslationUnitConstruct) => CompilerNote;
+        storage: (construct: TranslationUnitConstruct) => CompilerNote;
+        typeNotFound: (construct: TranslationUnitConstruct, typeName: string) => CompilerNote;
     };
     expr: {
         assignment: {
-            lhs_lvalue: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            lhs_not_assignable: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, lhs: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            lhs_const: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            convert: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, lhs: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, rhs: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            self: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, entity: ObjectEntity<CompleteObjectType>) => CompilerNote;
+            lhs_lvalue: (construct: TranslationUnitConstruct) => CompilerNote;
+            lhs_not_assignable: (construct: TranslationUnitConstruct, lhs: TypedExpression) => CompilerNote;
+            lhs_const: (construct: TranslationUnitConstruct) => CompilerNote;
+            convert: (construct: TranslationUnitConstruct, lhs: TypedExpression, rhs: TypedExpression) => CompilerNote;
+            self: (construct: TranslationUnitConstruct, entity: ObjectEntity) => CompilerNote;
         };
         binary: {
-            arithmetic_operands: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, left: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, right: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            integral_operands: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, left: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, right: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            boolean_operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, operand: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            arithmetic_common_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, left: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, right: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
+            arithmetic_operands: (construct: TranslationUnitConstruct, operator: string, left: TypedExpression, right: TypedExpression) => CompilerNote;
+            integral_operands: (construct: TranslationUnitConstruct, operator: string, left: TypedExpression, right: TypedExpression) => CompilerNote;
+            boolean_operand: (construct: TranslationUnitConstruct, operator: string, operand: TypedExpression) => CompilerNote;
+            arithmetic_common_type: (construct: TranslationUnitConstruct, operator: string, left: TypedExpression, right: TypedExpression) => CompilerNote;
         };
         pointer_difference: {
-            incomplete_pointed_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: PointerType<PotentiallyCompleteObjectType>) => CompilerNote;
+            incomplete_pointed_type: (construct: TranslationUnitConstruct, type: PointerType) => CompilerNote;
         };
         pointer_offset: {
-            incomplete_pointed_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: PointerType<PotentiallyCompleteObjectType>) => CompilerNote;
+            incomplete_pointed_type: (construct: TranslationUnitConstruct, type: PointerType) => CompilerNote;
         };
         output: {
-            unsupported_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>) => CompilerNote;
+            unsupported_type: (construct: TranslationUnitConstruct, type: ExpressionType) => CompilerNote;
         };
         input: {
-            unsupported_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>) => CompilerNote;
-            lvalue_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>) => CompilerNote;
+            unsupported_type: (construct: TranslationUnitConstruct, type: ExpressionType) => CompilerNote;
+            lvalue_required: (construct: TranslationUnitConstruct, type: ExpressionType) => CompilerNote;
         };
         pointer_comparison: {
-            same_pointer_type_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, left: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, right: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-            null_literal_comparison: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            null_literal_array_equality: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            same_pointer_type_required: (construct: TranslationUnitConstruct, left: TypedExpression, right: TypedExpression) => CompilerNote;
+            null_literal_comparison: (construct: TranslationUnitConstruct) => CompilerNote;
+            null_literal_array_equality: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         unary: {};
         delete: {
-            no_destructor: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: CompleteClassType) => CompilerNote;
-            pointer: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            pointerToObjectType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+            no_destructor: (construct: TranslationUnitConstruct, type: CompleteClassType) => CompilerNote;
+            pointer: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            pointerToObjectType: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
         };
         dereference: {
-            pointer: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            pointerToObjectType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+            pointer: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            pointerToObjectType: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
         };
         subscript: {
-            invalid_operand_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            incomplete_element_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: PointerType<PotentiallyCompleteObjectType>) => CompilerNote;
-            invalid_offset_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+            invalid_operand_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            incomplete_element_type: (construct: TranslationUnitConstruct, type: PointerType) => CompilerNote;
+            invalid_offset_type: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
         };
         dot: {
-            class_type_only: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            incomplete_class_type_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            no_such_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, classType: CompleteClassType, name: string) => CompilerNote;
-            ambiguous_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-            class_entity_found: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
+            class_type_only: (construct: TranslationUnitConstruct) => CompilerNote;
+            incomplete_class_type_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            no_such_member: (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) => CompilerNote;
+            ambiguous_member: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+            class_entity_found: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
         };
         arrow: {
-            class_pointer_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            no_such_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, classType: CompleteClassType, name: string) => CompilerNote;
-            ambiguous_member: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-            class_entity_found: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-            incomplete_class_type_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            class_pointer_type: (construct: TranslationUnitConstruct) => CompilerNote;
+            no_such_member: (construct: TranslationUnitConstruct, classType: CompleteClassType, name: string) => CompilerNote;
+            ambiguous_member: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+            class_entity_found: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+            incomplete_class_type_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
-        invalid_operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, operand: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
-        lvalue_operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string) => CompilerNote;
-        invalid_binary_operands: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string, left: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>, right: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
+        invalid_operand: (construct: TranslationUnitConstruct, operator: string, operand: TypedExpression) => CompilerNote;
+        lvalue_operand: (construct: TranslationUnitConstruct, operator: string) => CompilerNote;
+        invalid_binary_operands: (construct: TranslationUnitConstruct, operator: string, left: TypedExpression, right: TypedExpression) => CompilerNote;
         logicalNot: {
-            operand_bool: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operand: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
+            operand_bool: (construct: TranslationUnitConstruct, operand: TypedExpression) => CompilerNote;
         };
         addressOf: {
-            lvalue_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            object_type_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            lvalue_required: (construct: TranslationUnitConstruct) => CompilerNote;
+            object_type_required: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         ternary: {
-            condition_bool: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
-            sameValueCategory: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            condition_bool: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
+            sameValueCategory: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         unaryPlus: {
-            operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            operand: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         unaryMinus: {
-            operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            operand: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         prefixIncrement: {
-            lvalue_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            decrement_bool_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            const_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            lvalue_required: (construct: TranslationUnitConstruct) => CompilerNote;
+            operand: (construct: TranslationUnitConstruct) => CompilerNote;
+            decrement_bool_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            const_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         postfixIncrement: {
-            lvalue_required: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            decrement_bool_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            const_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            lvalue_required: (construct: TranslationUnitConstruct) => CompilerNote;
+            operand: (construct: TranslationUnitConstruct) => CompilerNote;
+            decrement_bool_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
+            const_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         functionCall: {
-            main: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            numParams: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            invalid_operand_expression: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operand: Expression<import("./expressions").ExpressionASTNode>) => CompilerNote;
-            operand: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operand: CPPEntity<Type>) => CompilerNote;
-            paramType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: Type) => CompilerNote;
-            paramReferenceType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: Type) => CompilerNote;
-            paramReferenceLvalue: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            not_defined: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type, paramTypes: readonly PotentialParameterType[]) => CompilerNote;
-            incomplete_return_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, returnType: PotentialReturnType) => CompilerNote;
+            main: (construct: TranslationUnitConstruct) => CompilerNote;
+            numParams: (construct: TranslationUnitConstruct) => CompilerNote;
+            invalid_operand_expression: (construct: TranslationUnitConstruct, operand: Expression) => CompilerNote;
+            operand: (construct: TranslationUnitConstruct, operand: CPPEntity) => CompilerNote;
+            paramType: (construct: TranslationUnitConstruct, from: Type, to: Type) => CompilerNote;
+            paramReferenceType: (construct: TranslationUnitConstruct, from: Type, to: Type) => CompilerNote;
+            paramReferenceLvalue: (construct: TranslationUnitConstruct) => CompilerNote;
+            not_defined: (construct: TranslationUnitConstruct, type: Type, paramTypes: readonly PotentialParameterType[]) => CompilerNote;
+            incomplete_return_type: (construct: TranslationUnitConstruct, returnType: PotentialReturnType) => CompilerNote;
         };
         thisExpr: {
-            memberFunc: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            memberFunc: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         binaryOperatorOverload: {
-            no_such_overload: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string) => CompilerNote;
-            ambiguous_overload: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, operator: string) => CompilerNote;
-            incomplete_return_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, returnType: PotentialReturnType) => CompilerNote;
+            no_such_overload: (construct: TranslationUnitConstruct, operator: string) => CompilerNote;
+            ambiguous_overload: (construct: TranslationUnitConstruct, operator: string) => CompilerNote;
+            incomplete_return_type: (construct: TranslationUnitConstruct, returnType: PotentialReturnType) => CompilerNote;
         };
     };
     iden: {
-        ambiguous: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        no_match: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        class_entity_found: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        keyword: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        alt_op: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
-        not_found: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
+        ambiguous: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        no_match: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        class_entity_found: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        keyword: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        alt_op: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        not_found: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
     };
     param: {
-        numParams: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        paramType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: Type) => CompilerNote;
-        paramReferenceType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: Type) => CompilerNote;
-        paramReferenceLvalue: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        thisConst: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: Type) => CompilerNote;
+        numParams: (construct: TranslationUnitConstruct) => CompilerNote;
+        paramType: (construct: TranslationUnitConstruct, from: Type, to: Type) => CompilerNote;
+        paramReferenceType: (construct: TranslationUnitConstruct, from: Type, to: Type) => CompilerNote;
+        paramReferenceLvalue: (construct: TranslationUnitConstruct) => CompilerNote;
+        thisConst: (construct: TranslationUnitConstruct, type: Type) => CompilerNote;
     };
     stmt: {
-        function_definition_prohibited: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+        function_definition_prohibited: (construct: TranslationUnitConstruct) => CompilerNote;
         if: {
-            condition_bool: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, expr: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
+            condition_bool: (construct: TranslationUnitConstruct, expr: TypedExpression) => CompilerNote;
         };
         iteration: {
-            condition_bool: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, expr: TypedExpression<AtomicType | BoundedArrayType<import("./types").ArrayElemType> | CompleteClassType | import("./types").IncompleteClassType | import("./types").VoidType | import("./types").FunctionType<PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, import("./expressionBase").ValueCategory>) => CompilerNote;
+            condition_bool: (construct: TranslationUnitConstruct, expr: TypedExpression) => CompilerNote;
         };
         breakStatement: {
-            location: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
+            location: (construct: TranslationUnitConstruct) => CompilerNote;
         };
         returnStatement: {
-            empty: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            exprVoid: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-            incomplete_type: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type: IncompleteObjectType) => CompilerNote;
-            convert: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, from: Type, to: Type) => CompilerNote;
+            empty: (construct: TranslationUnitConstruct) => CompilerNote;
+            exprVoid: (construct: TranslationUnitConstruct) => CompilerNote;
+            incomplete_type: (construct: TranslationUnitConstruct, type: IncompleteObjectType) => CompilerNote;
+            convert: (construct: TranslationUnitConstruct, from: Type, to: Type) => CompilerNote;
         };
     };
     link: {
-        library_unsupported: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, func: FunctionEntity<import("./types").FunctionType<PotentialReturnType>>) => LinkerNote;
-        multiple_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => LinkerNote;
-        type_mismatch: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, ent1: DeclaredEntity, ent2: DeclaredEntity) => LinkerNote;
+        library_unsupported: (construct: TranslationUnitConstruct, func: FunctionEntity) => LinkerNote;
+        multiple_def: (construct: TranslationUnitConstruct, name: string) => LinkerNote;
+        type_mismatch: (construct: TranslationUnitConstruct, ent1: DeclaredEntity, ent2: DeclaredEntity) => LinkerNote;
         class_same_tokens: (newDef: ClassDefinition, prevDef: ClassDefinition) => LinkerNote;
         func: {
-            def_not_found: (construct: FunctionDeclaration, func: FunctionEntity<import("./types").FunctionType<PotentialReturnType>>) => LinkerNote;
-            no_matching_overload: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, func: FunctionEntity<import("./types").FunctionType<PotentialReturnType>>) => LinkerNote;
-            returnTypesMatch: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, func: FunctionEntity<import("./types").FunctionType<PotentialReturnType>>) => LinkerNote;
+            def_not_found: (construct: FunctionDeclaration, func: FunctionEntity) => LinkerNote;
+            no_matching_overload: (construct: TranslationUnitConstruct, func: FunctionEntity) => LinkerNote;
+            returnTypesMatch: (construct: TranslationUnitConstruct, func: FunctionEntity) => LinkerNote;
         };
         classes: {
             def_not_found: (construct: ClassDeclaration, c: ClassEntity) => LinkerNote;
         };
-        def_not_found: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, ent: GlobalObjectEntity<CompleteObjectType>) => LinkerNote;
-        main_multiple_def: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => LinkerNote;
+        def_not_found: (construct: TranslationUnitConstruct, ent: GlobalObjectEntity) => LinkerNote;
+        main_multiple_def: (construct: TranslationUnitConstruct) => LinkerNote;
     };
     preprocess: {
         recursiveInclude: (sourceRef: SourceReference) => PreprocessorNote;
         fileNotFound: (sourceRef: SourceReference, name: string) => PreprocessorNote;
     };
     lobster: {
-        unsupported_feature: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, feature: string) => CompilerNote;
-        referencePrvalue: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        ternarySameType: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, type1: Type, type2: Type) => CompilerNote;
-        ternaryNoVoid: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>) => CompilerNote;
-        keyword: (construct: TranslationUnitConstruct<import("./constructs").ASTNode>, name: string) => CompilerNote;
+        unsupported_feature: (construct: TranslationUnitConstruct, feature: string) => CompilerNote;
+        referencePrvalue: (construct: TranslationUnitConstruct) => CompilerNote;
+        ternarySameType: (construct: TranslationUnitConstruct, type1: Type, type2: Type) => CompilerNote;
+        ternaryNoVoid: (construct: TranslationUnitConstruct) => CompilerNote;
+        keyword: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
     };
 };
 export interface NoteHandler {

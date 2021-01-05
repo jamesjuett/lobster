@@ -1,6 +1,12 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
 import { Project } from "./view/editors";
+
+import "./lib/cstdlib"
 import "./lib/string"
+import "./lib/vector"
+import { checkLogin } from "./frontend/user";
+
+
 
 $(() => {
 
@@ -12,8 +18,8 @@ $(() => {
     // let sourcePane = element.find("#sourcePane");
     let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
     
-
-
+    checkLogin();
+    
 
 //        console = ValueEntity.instance();
 

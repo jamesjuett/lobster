@@ -30,7 +30,7 @@ export declare class RuntimeFunction<T extends FunctionType<CompleteReturnType> 
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    setReturnObject<T extends AtomicType | CompleteClassType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>): void;
+    setReturnObject<T extends FunctionType<AtomicType | CompleteClassType>>(this: RuntimeFunction<T>, obj: CPPObject<T["returnType"]>): void;
     setReturnObject<T extends ReferenceType<CompleteObjectType>>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<ReferredType<T>>): void;
     getParameterObject(num: number): import("./objects").AutoObject<CompleteObjectType>;
     initializeParameterObject(num: number, value: Value<AtomicType>): void;

@@ -97,10 +97,6 @@ declare abstract class TypeBase {
      */
     abstract englishString(plural: boolean): string;
     /**
-     * Helper function for functions that create string representations of types.
-     */
-    protected parenthesize(outside: Type, str: string): string;
-    /**
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
@@ -125,7 +121,16 @@ declare abstract class TypeBase {
      * Returns a copy of this type with the specified cv-qualifications.
      */
     cvQualified(isConst?: boolean, isVolatile?: boolean): this;
-    protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
+    /**
+     * Internal implementation of `cvQualifiedImpl`. DO NOT call this. It would be
+     * a protected function, except that causes issues with newer versions of typescript
+     * and intersection types. I suspect there is a TS compiler bug (or breaking change
+     * to make rules for assignability stricter) somewhere w.r.t. verifying that protected
+     * members of an intersection originate from the same declaration, specifically when
+     * narrowing in a conditional type for one of the member types of the Type type union.
+     * But I have not put in the time to track it down and submit an issue to the TS github.
+     */
+    abstract _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
     abstract areLValuesAssignable(): boolean;
 }
 export declare function isAtomicType(type: Type): type is AtomicType;
@@ -172,18 +177,7 @@ export declare class VoidType extends TypeBase {
     similarType(other: Type): boolean;
     typeString(excludeBase: boolean, varname: string, decorated: boolean): string;
     englishString(plural: boolean): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): VoidType;
-    areLValuesAssignable(): boolean;
-}
-export declare class MissingType extends TypeBase {
-    static readonly MISSING: MissingType;
-    readonly precedence = 0;
-    isComplete(): boolean;
-    sameType(other: Type): boolean;
-    similarType(other: Type): boolean;
-    typeString(excludeBase: boolean, varname: string, decorated: boolean): string;
-    englishString(plural: boolean): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): VoidType;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): VoidType;
     areLValuesAssignable(): boolean;
 }
 /**
@@ -282,7 +276,7 @@ export declare class Char extends IntegralType {
     static jsStringToNullTerminatedCharArray(str: string): Value<Char>[];
     valueToString(value: RawValueType): string;
     valueToOstreamString(value: RawValueType): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Char;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Char;
     parse(s: string): ParsingResult<this>;
 }
 export declare class Int extends IntegralType {
@@ -290,20 +284,20 @@ export declare class Int extends IntegralType {
     static readonly ZERO: Value<Int>;
     readonly simpleType = "int";
     readonly size = 4;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Int;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Int;
     parse(s: string): ParsingResult<this>;
 }
 export declare class Size_t extends IntegralType {
     readonly simpleType = "size_t";
     readonly size = 8;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Size_t;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Size_t;
     parse(s: string): ParsingResult<this>;
 }
 export declare class Bool extends IntegralType {
     static readonly BOOL: Bool;
     readonly simpleType = "bool";
     readonly size = 1;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Bool;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Bool;
     parse(s: string): ParsingResult<this>;
 }
 export declare abstract class FloatingPointType extends ArithmeticType {
@@ -315,14 +309,14 @@ export declare class Float extends FloatingPointType {
     static readonly FLOAT: Float;
     readonly simpleType = "float";
     readonly size = 4;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Float;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Float;
     parse(s: string): ParsingResult<this>;
 }
 export declare class Double extends FloatingPointType {
     static readonly DOUBLE: Double;
     readonly simpleType = "double";
     readonly size = 8;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Double;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): Double;
     parse(s: string): ParsingResult<this>;
 }
 export declare class PointerType<PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends AtomicType {
@@ -348,7 +342,7 @@ export declare class PointerType<PtrTo extends PotentiallyCompleteObjectType = P
      */
     isValueDereferenceable(value: RawValueType): boolean;
     isValueValid(value: RawValueType): boolean;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): PointerType<PtrTo>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): PointerType<PtrTo>;
 }
 export declare type PointerToCompleteType = PointerType<CompleteObjectType>;
 export declare class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends PointerType<T> {
@@ -359,14 +353,14 @@ export declare class ArrayPointerType<T extends ArrayElemType = ArrayElemType> e
     isValueValid(value: RawValueType): boolean;
     isValueDereferenceable(value: RawValueType): boolean;
     toIndex(addr: number): number;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ArrayPointerType<T>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ArrayPointerType<T>;
 }
 export declare class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType> extends PointerType<T> {
     readonly pointedObject: CPPObject<T>;
     constructor(obj: CPPObject<T>, isConst?: boolean, isVolatile?: boolean);
     getPointedObject(): CPPObject<T>;
     isValueValid(value: RawValueType): boolean;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ObjectPointerType<T>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ObjectPointerType<T>;
 }
 export declare class ReferenceType<RefTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypeBase {
     readonly precedence = 1;
@@ -379,7 +373,7 @@ export declare class ReferenceType<RefTo extends PotentiallyCompleteObjectType =
     typeString(excludeBase: boolean, varname: string, decorated: boolean): string;
     englishString(plural: boolean): string;
     valueToString(value: RawValueType): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ReferenceType<RefTo>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ReferenceType<RefTo>;
     areLValuesAssignable(): boolean;
 }
 export declare type ReferredType<T extends ReferenceType> = T["refTo"];
@@ -400,7 +394,7 @@ export declare class BoundedArrayType<Elem_type extends ArrayElemType = ArrayEle
     similarType(other: Type): boolean;
     typeString(excludeBase: boolean, varname: string, decorated: boolean): string;
     englishString(plural: boolean): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): BoundedArrayType<Elem_type>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): BoundedArrayType<Elem_type>;
     adjustToPointerType(): PointerType<Elem_type>;
     areLValuesAssignable(): boolean;
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
@@ -417,7 +411,7 @@ export declare class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = A
     similarType(other: Type): boolean;
     typeString(excludeBase: boolean, varname: string, decorated: boolean): string;
     englishString(plural: boolean): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ArrayOfUnknownBoundType<Elem_type>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ArrayOfUnknownBoundType<Elem_type>;
     adjustToPointerType(): PointerType<Elem_type>;
     areLValuesAssignable(): boolean;
 }
@@ -448,15 +442,10 @@ declare class ClassTypeBase extends TypeBase {
     isComplete(context?: TranslationUnitContext): this is CompleteClassType;
     sameType(other: Type): boolean;
     similarType(other: Type): boolean;
-    /** Two class types are the same if they originated from the same ClassEntity (e.g.
-     *  the same class declaration from the same .h include file, or
-     *  two class declarations with the same name in the same scope) or if they have
-     *  been associated with the same definition during linking. */
-    private sameClassType;
     isDerivedFrom(other: Type): boolean;
     typeString(excludeBase: boolean, varname: string, decorated?: boolean): string;
     englishString(plural: boolean): string;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ClassTypeBase;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): ClassTypeBase;
     areLValuesAssignable(): boolean;
     isDefaultConstructible(this: CompleteClassType, userDefinedOnly?: boolean): boolean;
     isDestructible(this: CompleteClassType): boolean;
@@ -487,7 +476,7 @@ export declare class FunctionType<ReturnType extends PotentialReturnType = Poten
     private paramStrEnglish;
     constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: PotentiallyCompleteClassType);
     isComplete(): boolean;
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean): FunctionType<ReturnType>;
+    _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): FunctionType;
     sameType(other: Type): boolean;
     similarType(other: Type): boolean;
     sameParamTypes(other: FunctionType | readonly Type[]): boolean;

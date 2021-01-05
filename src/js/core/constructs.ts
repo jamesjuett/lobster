@@ -211,7 +211,15 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
         this.context = context;
 
-        ast && this.setAST(ast);
+        if (ast) {
+            this.ast = ast;
+    
+            assert(ast.source, "AST source is undefined. A track() call is likely missing in the grammar.");
+    
+            if (this.context.translationUnit) {
+                asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+            }
+        }
 
         // TODO: figure out library stuff
         // if (context.libraryId) {
@@ -249,16 +257,6 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     }
 
     protected abstract onAttach(parent: this["parent"]): void;
-
-    private setAST(ast: ASTType) {
-        asMutable(this).ast = ast;
-
-        assert(ast.source, "AST source is undefined. A track() call is likely missing in the grammar.");
-
-        if (this.context.translationUnit) {
-            asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
-        }
-    }
 
     // public getSourceText() {
     //     return this.ast.code ? this.ast.code.text : "an expression";

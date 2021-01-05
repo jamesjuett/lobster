@@ -74,7 +74,7 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
      *                     may be initialized by a return statement.
      *  - return-by-reference: When the function is finished, is set to the object returned.
      */
-    public setReturnObject<T extends AtomicType | CompleteClassType>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<T>) : void;
+    public setReturnObject<T extends FunctionType<AtomicType | CompleteClassType>>(this: RuntimeFunction<T>, obj: CPPObject<T["returnType"]>) : void;
     public setReturnObject<T extends ReferenceType<CompleteObjectType>>(this: RuntimeFunction<FunctionType<T>>, obj: CPPObject<ReferredType<T>>) : void;
     public setReturnObject(obj: CPPObject) {
         // This should only be used once
