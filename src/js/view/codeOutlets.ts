@@ -1213,13 +1213,14 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
         
         
         if (result instanceof FunctionEntity) {
-            this.evalResultElem.html(result.describe().name);
+            this.evalResultElem.html(result.describe().message);
             this.evalResultElem.addClass("lvalue");
         }
-        else if (result instanceof CPPObject) {
-            this.evalResultElem.html(getObjectString(result));
+        else if (result.type.isCompleteObjectType()) {
+            let r = <CPPObject<CompleteObjectType>> result;
+            this.evalResultElem.html(getObjectString(r));
             this.evalResultElem.addClass("lvalue");
-            if (!result.isAlive || result.isTyped(isAtomicType) && !result.isValueValid()) {
+            if (!r.isAlive || r.isTyped(isAtomicType) && !r.isValueValid()) {
                 this.evalResultElem.find(".code-object").addClass("invalid");
             }
         }

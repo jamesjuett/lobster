@@ -1,6 +1,6 @@
-import { AnalyticExpression, TypedExpressionKinds, TernaryExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, AssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, DotExpression, ArrowExpression } from "./expressions";
+import { AnalyticExpression, TernaryExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, AssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, DotExpression, ArrowExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
-import { UnknownTypeDeclaration, VoidDeclaration, FunctionDeclaration, LocalVariableDefinition, GlobalVariableDefinition, ParameterDeclaration, Declarator, ClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds } from "./declarations";
+import { UnknownTypeDeclaration, VoidDeclaration, FunctionDeclaration, LocalVariableDefinition, GlobalVariableDefinition, ParameterDeclaration, Declarator, ClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, AtomicType, ExpressionType } from "./types";
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
@@ -17,40 +17,19 @@ export declare namespace Predicates {
     function byKinds<NarrowedKind extends ConstructKind<AnalyticConstruct>>(constructKinds: readonly NarrowedKind[]): <Original extends {
         construct_type: string;
     }, Narrowed extends DiscriminateUnion<Original, "construct_type", NarrowedKind>>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
-    function byTypedExpression<NarrowedT extends ExpressionType, NarrowedVC extends ValueCategory>(typePredicate?: (o: ExpressionType) => o is NarrowedT, valueCategory?: NarrowedVC): <OriginalT extends AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, Original extends (GlobalVariableDefinition & {
+    function byTypedExpression<NarrowedT extends ExpressionType, NarrowedVC extends ValueCategory>(typePredicate?: (o: ExpressionType) => o is NarrowedT, valueCategory?: NarrowedVC): <OriginalT extends VoidType | AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, Original extends (FunctionDefinition & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./constructs").InvalidConstruct & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (TypeSpecifier & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (StorageSpecifier & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (Declarator & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (ParameterDeclaration & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (FunctionDefinition & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (FunctionDeclaration & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").StringLiteralExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./statements").Block & {
+    }) | (GlobalVariableDefinition & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (ClassDefinition & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (LocalVariableDefinition & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (StorageSpecifier & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (VoidDeclaration & {
@@ -60,6 +39,27 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (FunctionDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./constructs").InvalidConstruct & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (TypeSpecifier & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (Declarator & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (ParameterDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./expressions").StringLiteralExpression & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./statements").Block & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (UnknownTypeDeclaration & {
@@ -75,6 +75,9 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./declarations").MemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./expressions").UnsupportedExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").CommaExpression & {
@@ -95,12 +98,6 @@ export declare namespace Predicates {
     }) | (import("./expressions").PointerOffsetExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").OutputOperatorExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").InputOperatorExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").RelationalBinaryOperatorExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
@@ -114,6 +111,15 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").MemberOperatorOverloadExpression & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./expressions").OutputOperatorExpression & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./expressions").InputOperatorExpression & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (PrefixIncrementExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").DereferenceExpression & {
@@ -131,25 +137,19 @@ export declare namespace Predicates {
     }) | (import("./expressions").LogicalNotExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (PrefixIncrementExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (PostfixIncrementExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").SubscriptExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (IdentifierExpression & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (DotExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (ArrowExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (FunctionCallExpression & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (IdentifierExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (NumericLiteralExpression & {
@@ -161,16 +161,16 @@ export declare namespace Predicates {
     }) | (import("./expressions").InitializerListExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./opaqueExpression").OpaqueExpression<AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
-        type?: OriginalT | undefined;
-        valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (import("./expressions").MagicFunctionCallExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").AuxiliaryExpression<AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
+    }) | (FunctionCallExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").UnsupportedExpression & {
+    }) | (import("./opaqueExpression").OpaqueExpression<VoidType | AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
+        type?: OriginalT | undefined;
+        valueCategory?: "prvalue" | "lvalue" | undefined;
+    }) | (import("./expressions").AuxiliaryExpression<VoidType | AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (ImplicitConversion<import("./types").CompleteObjectType, ValueCategory, import("./types").CompleteObjectType, ValueCategory> & {
@@ -203,7 +203,7 @@ export declare namespace Predicates {
     }) | (import("./statements").UnsupportedStatement & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }), Narrowed extends Original extends AnalyticExpression ? TypedExpressionKinds<NarrowedT, NarrowedVC>[Original["construct_type"]] : never>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
+    }), Narrowed extends Original extends AnalyticExpression ? AnalyticTypedExpression<Original, NarrowedT, NarrowedVC> : never>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
     function isTypedExpression<OriginalT extends ExpressionType, NarrowedT extends ExpressionType, Original extends AnalyticConstruct & {
         type?: OriginalT;
         valueCategory?: ValueCategory;
@@ -212,35 +212,35 @@ export declare namespace Predicates {
         type?: OriginalT;
         valueCategory?: ValueCategory;
     }, NarrowedVC extends NonNullable<Original["valueCategory"]>, Narrowed extends (Original extends Expression ? TypedExpression<NarrowedT, NarrowedVC> : never)>(construct: Original, typePredicate: (o: ExpressionType) => o is NarrowedT, valueCategory?: NarrowedVC): construct is (Narrowed extends Original ? Narrowed : Original extends Narrowed ? Original : never);
-    function byTypedDeclaration<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT): <OriginalT extends Type, Original extends (GlobalVariableDefinition & {
+    function byTypedDeclaration<NarrowedT extends Type>(typePredicate?: (o: Type) => o is NarrowedT): <OriginalT extends Type, Original extends (FunctionDefinition & {
         type?: OriginalT | undefined;
-    }) | (import("./constructs").InvalidConstruct & {
-        type?: OriginalT | undefined;
-    }) | (TypeSpecifier & {
-        type?: OriginalT | undefined;
-    }) | (StorageSpecifier & {
-        type?: OriginalT | undefined;
-    }) | (Declarator & {
-        type?: OriginalT | undefined;
-    }) | (ParameterDeclaration & {
-        type?: OriginalT | undefined;
-    }) | (FunctionDefinition & {
-        type?: OriginalT | undefined;
-    }) | (FunctionDeclaration & {
-        type?: OriginalT | undefined;
-    }) | (import("./expressions").StringLiteralExpression & {
-        type?: OriginalT | undefined;
-    }) | (import("./statements").Block & {
+    }) | (GlobalVariableDefinition & {
         type?: OriginalT | undefined;
     }) | (ClassDefinition & {
         type?: OriginalT | undefined;
     }) | (LocalVariableDefinition & {
+        type?: OriginalT | undefined;
+    }) | (StorageSpecifier & {
         type?: OriginalT | undefined;
     }) | (VoidDeclaration & {
         type?: OriginalT | undefined;
     }) | (import("./declarations").IncompleteTypeVariableDefinition & {
         type?: OriginalT | undefined;
     }) | (import("./declarations").IncompleteTypeMemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (FunctionDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (import("./constructs").InvalidConstruct & {
+        type?: OriginalT | undefined;
+    }) | (TypeSpecifier & {
+        type?: OriginalT | undefined;
+    }) | (Declarator & {
+        type?: OriginalT | undefined;
+    }) | (ParameterDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (import("./expressions").StringLiteralExpression & {
+        type?: OriginalT | undefined;
+    }) | (import("./statements").Block & {
         type?: OriginalT | undefined;
     }) | (UnknownTypeDeclaration & {
         type?: OriginalT | undefined;
@@ -251,6 +251,8 @@ export declare namespace Predicates {
     }) | (import("./declarations").UnknownBoundArrayDeclaration & {
         type?: OriginalT | undefined;
     }) | (import("./declarations").MemberVariableDeclaration & {
+        type?: OriginalT | undefined;
+    }) | (import("./expressions").UnsupportedExpression & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").CommaExpression & {
         type?: OriginalT | undefined;
@@ -264,10 +266,6 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (import("./expressions").PointerOffsetExpression & {
         type?: OriginalT | undefined;
-    }) | (import("./expressions").OutputOperatorExpression & {
-        type?: OriginalT | undefined;
-    }) | (import("./expressions").InputOperatorExpression & {
-        type?: OriginalT | undefined;
     }) | (import("./expressions").RelationalBinaryOperatorExpression & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").PointerComparisonExpression & {
@@ -277,6 +275,12 @@ export declare namespace Predicates {
     }) | (import("./expressions").NonMemberOperatorOverloadExpression & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").MemberOperatorOverloadExpression & {
+        type?: OriginalT | undefined;
+    }) | (import("./expressions").OutputOperatorExpression & {
+        type?: OriginalT | undefined;
+    }) | (import("./expressions").InputOperatorExpression & {
+        type?: OriginalT | undefined;
+    }) | (PrefixIncrementExpression & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").DereferenceExpression & {
         type?: OriginalT | undefined;
@@ -288,19 +292,15 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (import("./expressions").LogicalNotExpression & {
         type?: OriginalT | undefined;
-    }) | (PrefixIncrementExpression & {
-        type?: OriginalT | undefined;
     }) | (PostfixIncrementExpression & {
         type?: OriginalT | undefined;
     }) | (import("./expressions").SubscriptExpression & {
         type?: OriginalT | undefined;
+    }) | (IdentifierExpression & {
+        type?: OriginalT | undefined;
     }) | (DotExpression & {
         type?: OriginalT | undefined;
     }) | (ArrowExpression & {
-        type?: OriginalT | undefined;
-    }) | (FunctionCallExpression & {
-        type?: OriginalT | undefined;
-    }) | (IdentifierExpression & {
         type?: OriginalT | undefined;
     }) | (NumericLiteralExpression & {
         type?: OriginalT | undefined;
@@ -308,13 +308,13 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (import("./expressions").InitializerListExpression & {
         type?: OriginalT | undefined;
-    }) | (import("./opaqueExpression").OpaqueExpression<AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
-        type?: OriginalT | undefined;
     }) | (import("./expressions").MagicFunctionCallExpression & {
         type?: OriginalT | undefined;
-    }) | (import("./expressions").AuxiliaryExpression<AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
+    }) | (FunctionCallExpression & {
         type?: OriginalT | undefined;
-    }) | (import("./expressions").UnsupportedExpression & {
+    }) | (import("./opaqueExpression").OpaqueExpression<VoidType | AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
+        type?: OriginalT | undefined;
+    }) | (import("./expressions").AuxiliaryExpression<VoidType | AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory> & {
         type?: OriginalT | undefined;
     }) | (ImplicitConversion<import("./types").CompleteObjectType, ValueCategory, import("./types").CompleteObjectType, ValueCategory> & {
         type?: OriginalT | undefined;
@@ -336,7 +336,7 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (import("./statements").UnsupportedStatement & {
         type?: OriginalT | undefined;
-    }), Narrowed extends Original extends AnalyticDeclaration ? TypedDeclarationKinds<NarrowedT>[Original["construct_type"]] : never>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
+    }), Narrowed extends Original extends AnalyticDeclaration ? AnalyticTypedDeclaration<Original, NarrowedT> : never>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
     function isTypedDeclaration<OriginalT extends Type, NarrowedT extends Type, Original extends AnalyticConstruct & {
         type?: OriginalT;
     }, Narrowed extends (Original extends AnalyticDeclaration ? AnalyticTypedDeclaration<Original, NarrowedT> : never)>(construct: Original, typePredicate?: (o: Type) => o is NarrowedT): construct is (Narrowed extends Original ? Narrowed : never);

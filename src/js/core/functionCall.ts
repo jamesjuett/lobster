@@ -233,7 +233,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
 
         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
-        if (this.model.isReturnByValue()) {
+        if (this.isReturnByValue()) {
             // If return-by-value, set return object to temporary
             this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
         }
@@ -277,6 +277,10 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_RETURN;
         }
 
+    }
+
+    public isReturnByValue() : this is RuntimeFunctionCall<FunctionType<AtomicType | CompleteClassType>> {
+        return this.model.isReturnByValue();
     }
 }
 

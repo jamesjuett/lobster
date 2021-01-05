@@ -180,9 +180,9 @@ export class AsynchronousSimulationRunner {
         // several "threads" running at the same time which could cause chaos.
         this.interrupt();
 
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
 
-            this.timeoutHandle = setTimeout(() => {
+            this.timeoutHandle = window.setTimeout(() => {
                 this.simulation.takeAction(action);
                 delete this.timeoutHandle;
                 delete this.rejectFn;
@@ -208,7 +208,7 @@ export class AsynchronousSimulationRunner {
      */
     public async reset() {
         this.interrupt();
-        return new Promise(resolve => setTimeout(() => {
+        return new Promise<void>(resolve => setTimeout(() => {
             this.simulation.reset();
             resolve();
         }, 0));

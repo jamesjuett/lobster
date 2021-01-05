@@ -26,6 +26,8 @@ abstract class ObjectData<T extends CompleteObjectType> {
     // public abstract rawValue() : RawValueType;
 
     // public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
+
+    public abstract kill(rt?: RuntimeConstruct): void;
 };
 
 class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
@@ -41,6 +43,10 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
     public setRawValue(newValue: RawValueType, write: boolean) {
         this.memory.writeBytes(this.address, this.object.type.valueToBytes(newValue));
+    }
+
+    public kill() {
+        // no subobjects, do nothing
     }
 
 }
@@ -99,6 +105,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
     //         this.elemObjects[i].setValue(newValue[i], write);
     //     }
     // }
+
+    public kill(rt?: RuntimeConstruct) {
+        this.elemObjects.forEach(elemObj => elemObj.kill(rt));
+    }
 }
 
 class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
@@ -180,6 +190,10 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
 
     public rawValue(): never {
         throw new Error("Not implemented");
+    }
+    
+    public kill(rt?: RuntimeConstruct) {
+        this.subobjects.forEach(subobj => subobj.kill(rt));
     }
 }
 
@@ -334,6 +348,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     }
 
     public kill(rt?: RuntimeConstruct) {
+
+        // kill subobjects
+        this.data.kill(rt);
+
         (<Mutable<this>>this).isAlive = false;
         this._isValid = false;
         if (rt) {
@@ -376,10 +394,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
             this.observable.send("valueWritten", newValue);
         }
 
-        this.onValueSet(write);
+        this._onValueSet(write);
     }
 
-    protected onValueSet(write: boolean) {
+    public _onValueSet(write: boolean) {
 
     }
 
@@ -651,7 +669,7 @@ export class StaticObject<T extends CompleteObjectType = CompleteObjectType> ext
 
     public constructor(public readonly def: CompiledGlobalVariableDefinition, type: T, memory: Memory, address: number) {
         super(type, memory, address);
-        this.name = name;
+        this.name = def.name;
     }
 
     public describe(): ObjectDescription {
@@ -710,19 +728,7 @@ abstract class Subobject<T extends CompleteObjectType = CompleteObjectType> exte
         this.containingObject = containingObject;
     }
 
-    get isAlive() {
-        return this.containingObject.isAlive;
-    }
-
-    set isAlive(ignored: boolean) {
-
-    }
-
-    get deallocatedBy() {
-        return this.containingObject.deallocatedBy;
-    }
-
-    protected onValueSet(write: boolean) {
+    public _onValueSet(write: boolean) {
         if (write) {
             this.containingObject.subobjectValueWritten();
         }

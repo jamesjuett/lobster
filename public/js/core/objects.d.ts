@@ -49,7 +49,7 @@ export declare abstract class CPPObject<T extends CompleteObjectType = CompleteO
     rawValue(): ObjectRawValueRepresentation<T>;
     readValue(): ObjectValueRepresentation<T>;
     setValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>, write?: boolean): void;
-    protected onValueSet(write: boolean): void;
+    _onValueSet(write: boolean): void;
     writeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>): void;
     isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>): boolean;
     callReceived(): void;
@@ -91,10 +91,7 @@ export declare class StringLiteralObject extends CPPObject<BoundedArrayType<Char
 declare abstract class Subobject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
     readonly containingObject: CPPObject<BoundedArrayType | CompleteClassType>;
     constructor(containingObject: CPPObject<BoundedArrayType | CompleteClassType>, type: T, memory: Memory, address: number);
-    get isAlive(): boolean;
-    set isAlive(ignored: boolean);
-    get deallocatedBy(): RuntimeConstruct<import("./constructs").CompiledConstruct> | undefined;
-    protected onValueSet(write: boolean): void;
+    _onValueSet(write: boolean): void;
 }
 export declare class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
     readonly containingObject: CPPObject<BoundedArrayType<T>>;
