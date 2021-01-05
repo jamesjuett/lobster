@@ -335,13 +335,6 @@ abstract class TypeBase {
     public abstract englishString(plural: boolean): string;
 
     /**
-     * Helper function for functions that create string representations of types.
-     */
-    protected parenthesize(outside: Type, str: string) {
-        return this.precedence < outside.precedence ? "(" + str + ")" : str;
-    }
-
-    /**
      * Both the name and message are just a C++ styled string representation of the type.
      * @returns {{name: {String}, message: {String}}}
      */
@@ -381,13 +374,30 @@ abstract class TypeBase {
      * Returns a copy of this type with the specified cv-qualifications.
      */
     public cvQualified(isConst: boolean = false, isVolatile: boolean = false): this {
-        return <this>this.cvQualifiedImpl(isConst, isVolatile);
+        return <this>this._cvQualifiedImpl(isConst, isVolatile);
     }
 
-    protected abstract cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
+    /**
+     * Internal implementation of `cvQualifiedImpl`. DO NOT call this. It would be
+     * a protected function, except that causes issues with newer versions of typescript
+     * and intersection types. I suspect there is a TS compiler bug (or breaking change
+     * to make rules for assignability stricter) somewhere w.r.t. verifying that protected
+     * members of an intersection originate from the same declaration, specifically when
+     * narrowing in a conditional type for one of the member types of the Type type union.
+     * But I have not put in the time to track it down and submit an issue to the TS github.
+     */
+    public abstract _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
 
     public abstract areLValuesAssignable(): boolean;
 };
+
+
+/**
+ * Helper function for functions that create string representations of types.
+ */
+function parenthesize(thisType: TypeBase, outside: TypeBase, str: string) : string {
+    return thisType.precedence < outside.precedence ? "(" + str + ")" : str;
+}
 
 export function isAtomicType(type: Type): type is AtomicType {
     return type.isAtomicType();
@@ -577,7 +587,7 @@ export class VoidType extends TypeBase {
         return "void";
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new VoidType(isConst, isVolatile);
     }
 
@@ -587,38 +597,38 @@ export class VoidType extends TypeBase {
 }
 
 
-export class MissingType extends TypeBase {
+// export class MissingType extends TypeBase {
 
-    public static readonly MISSING = new MissingType();
+//     public static readonly MISSING = new MissingType();
 
-    public readonly precedence = 0;
+//     public readonly precedence = 0;
 
-    public isComplete() { return true; }
+//     public isComplete() { return true; }
 
-    public sameType(other: Type) : boolean {
-        return true;
-    }
+//     public sameType(other: Type) : boolean {
+//         return true;
+//     }
 
-    public similarType(other: Type) : boolean {
-        return true;
-    }
+//     public similarType(other: Type) : boolean {
+//         return true;
+//     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return "<missing>";
-    }
+//     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+//         return "<missing>";
+//     }
 
-    public englishString(plural: boolean) {
-        return "<missing>";
-    }
+//     public englishString(plural: boolean) {
+//         return "<missing>";
+//     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new VoidType(isConst, isVolatile);
-    }
+//     public cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+//         return new VoidType(isConst, isVolatile);
+//     }
 
-    public areLValuesAssignable() {
-        return true;
-    }
-}
+//     public areLValuesAssignable() {
+//         return true;
+//     }
+// }
 
 /**
  * Represents a type for an object that exists in memory and takes up some space.
@@ -831,7 +841,7 @@ export class Char extends IntegralType {
         return String.fromCharCode(<number>value);
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Char(isConst, isVolatile);
     }
 
@@ -852,7 +862,7 @@ export class Int extends IntegralType {
     public readonly simpleType = "int";
     public readonly size = 4;
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Int(isConst, isVolatile);
     }
 
@@ -871,7 +881,7 @@ export class Size_t extends IntegralType {
     public readonly simpleType = "size_t";
     public readonly size = 8;
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Size_t(isConst, isVolatile);
     }
 
@@ -892,7 +902,7 @@ export class Bool extends IntegralType {
     public readonly simpleType = "bool";
     public readonly size = 1;
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Bool(isConst, isVolatile);
     }
 
@@ -933,7 +943,7 @@ export class Float extends FloatingPointType {
     public readonly simpleType = "float";
     public readonly size = 4;
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Float(isConst, isVolatile);
     }
 
@@ -955,7 +965,7 @@ export class Double extends FloatingPointType {
     public readonly simpleType = "double";
     public readonly size = 8;
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
     }
     
@@ -1029,8 +1039,8 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
             && this.ptrTo.similarType(other.ptrTo);
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return this.ptrTo.typeString(excludeBase, this.parenthesize(this.ptrTo, this.getCVString() + "*" + varname), decorated);
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
+        return this.ptrTo.typeString(excludeBase, parenthesize(this, this.ptrTo, this.getCVString() + "*" + varname), decorated);
     }
 
     public englishString(plural: boolean) {
@@ -1063,7 +1073,7 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
         return true;
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new PointerType(this.ptrTo, isConst, isVolatile);
     }
 }
@@ -1103,7 +1113,7 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
         return Math.trunc((addr - this.arrayObject.address) / this.arrayObject.type.elemType.size);
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayPointerType(this.arrayObject, isConst, isVolatile);
     }
 }
@@ -1125,7 +1135,7 @@ export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType
         return this.pointedObject.isAlive && this.pointedObject.address === value;
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ObjectPointerType(this.pointedObject, isConst, isVolatile);
     }
 }
@@ -1158,8 +1168,8 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         return other instanceof ReferenceType && this.refTo.similarType(other.refTo);
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return this.refTo.typeString(excludeBase, this.parenthesize(this.refTo, this.getCVString() + "&" + varname), decorated);
+    public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
+        return this.refTo.typeString(excludeBase, parenthesize(this, this.refTo, this.getCVString() + "&" + varname), decorated);
     }
 
     public englishString(plural: boolean) {
@@ -1170,7 +1180,7 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         return "" + value;
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ReferenceType(this.refTo);
     }
 
@@ -1253,7 +1263,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new BoundedArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
     }
 
@@ -1333,7 +1343,7 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
         return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
     }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
     }
 
@@ -1394,7 +1404,9 @@ class ClassTypeBase extends TypeBase {
         if (this.shared.classDefinition) {
             return Math.max(this.shared.classDefinition.objectSize, 4);
         }
-        // else undefined
+        else {
+            return undefined;
+        }
     }
 
     public get classScope() {
@@ -1422,16 +1434,7 @@ class ClassTypeBase extends TypeBase {
 
     public similarType(other: Type) : boolean {
         return other instanceof ClassTypeBase
-            && this.sameClassType(other);
-    }
-
-    /** Two class types are the same if they originated from the same ClassEntity (e.g.
-     *  the same class declaration from the same .h include file, or
-     *  two class declarations with the same name in the same scope) or if they have 
-     *  been associated with the same definition during linking. */
-    private sameClassType(other: ClassTypeBase) {
-        return this.classId === other.classId
-            || (!!this.shared.classDefinition && this.shared.classDefinition === other.shared.classDefinition);
+            && sameClassType(this, other);
     }
 
     public isDerivedFrom(other: Type) : boolean {
@@ -1465,7 +1468,7 @@ class ClassTypeBase extends TypeBase {
 //         return JSON.stringify(value, null, 2);
 //     },
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
     }
 
@@ -1501,6 +1504,17 @@ class ClassTypeBase extends TypeBase {
 
         return true;
     }
+}
+
+/** Two class types are the same if they originated from the same ClassEntity (e.g.
+ *  the same class declaration from the same .h include file, or
+ *  two class declarations with the same name in the same scope) or if they have 
+ *  been associated with the same definition during linking.
+ */
+function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
+    // Note the any casts are to grant "friend" access to private members of ClassTypeBase
+    return (thisClass as any).classId === (otherClass as any).classId
+        || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 
 export interface IncompleteClassType extends ClassTypeBase {
@@ -1794,7 +1808,7 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
     public isComplete() { return true; }
 
-    protected cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
+    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) : FunctionType {
         return new FunctionType(this.returnType, this.paramTypes, this.receiverType);
     }
 
