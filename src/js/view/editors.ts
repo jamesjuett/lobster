@@ -7,7 +7,7 @@ import 'codemirror/addon/display/fullscreen.js';
 import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
-import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo } from "../util/observe";
+import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
 import { projectAnalyses } from "../core/analysis";
 import { update } from "lodash";
@@ -27,6 +27,7 @@ type ProjectMessages =
     "compilationFinished" |
     "compilationOutOfDate" |
     "fileAdded" |
+    "fileRemoved" |
     "fileContentsSet" |
     "translationUnitStatusSet" |
     "noteAdded";
@@ -70,6 +71,20 @@ export class Project {
         this.observable.send("fileAdded", file);
 
         this.compilationOutOfDate();
+    }
+
+    public removeFile(filename: string) {
+        let i = this.sourceFiles.findIndex(f => f.name === filename);
+        assert(i !== -1, "Attempt to remove nonexistent file from project.");
+
+        // Remove file
+        let [removed] = asMutable(this.sourceFiles).splice(i,1);
+
+        // clear out previous record of whether it was a translation unit
+        this.translationUnitNames.delete(filename);
+
+        this.observable.send("fileRemoved", removed);
+
     }
 
     public setFileContents(file: SourceFile) {
@@ -157,7 +172,7 @@ export class Project {
         }
 
         // Start new autocomplete timeout
-        this.pendingAutoCompileTimeout = setTimeout(() => {
+        this.pendingAutoCompileTimeout = window.setTimeout(() => {
             this.recompile();
 
             // no longer a pending timeout once this one finishes
@@ -253,17 +268,20 @@ export class ProjectEditor {
     public readonly isSaved: boolean = true;
     public readonly isOpen: boolean = false;
 
-    private fileTabs: {[index: string]: JQuery} = {};
     private filesElem: JQuery;
-    private fileEditors: {[index: string]: FileEditor | undefined} = {};
+    private fileTabsMap: {[index: string]: JQuery} = {};
+    private fileEditorsMap: {[index: string]: FileEditor | undefined} = {};
+
+    private currentFileEditor?: string; 
 
     private codeMirror: CodeMirror.Editor;
+    private codeMirrorElem: JQuery;
 
-    public readonly project: Project;
+    public readonly project!: Project; // set by setProject call
 
     public constructor(element: JQuery, project: Project) {
 
-        let codeMirrorElement = element.find(".codeMirrorEditor");
+        let codeMirrorElement = this.codeMirrorElem = element.find(".codeMirrorEditor");
         assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
         this.codeMirror = CodeMirror(codeMirrorElement[0], {
             mode: CODEMIRROR_MODE,
@@ -286,9 +304,19 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        ProjectEditor.instances.push(this);
+        this.setProject(project);
 
-        this.project = project;
+        ProjectEditor.instances.push(this);
+    }
+
+    public setProject(project: Project) {
+
+        if (this.project) {
+            this.project.sourceFiles.forEach(f => this.onFileRemoved(f));
+            stopListeningTo(this, project);
+        }
+
+        (<Mutable<this>>this).project = project;
         listenTo(this, project);
 
         project.sourceFiles.forEach(f => this.onFileAdded(f));
@@ -386,7 +414,7 @@ export class ProjectEditor {
 
         // Create a FileEditor object to manage editing the file
         let fileEd = new FileEditor(file);
-        this.fileEditors[file.name] = fileEd;
+        this.fileEditorsMap[file.name] = fileEd;
         addListener(fileEd, this);
 
         // Create tab to select this file for viewing/editing
@@ -394,7 +422,7 @@ export class ProjectEditor {
         let link = $('<a href="" data-toggle="pill">' + file.name + '</a>');
         link.on("shown.bs.tab", () => this.selectFile(file.name));
         item.append(link);
-        this.fileTabs[file.name] = link;
+        this.fileTabsMap[file.name] = link;
         this.filesElem.append(item);
 
         this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
@@ -402,18 +430,35 @@ export class ProjectEditor {
 
     }
 
+    @messageResponse("fileRemoved")
+    private onFileRemoved(file: SourceFile) {
+
+        let fileEd = this.fileEditorsMap[file.name];
+        if(!fileEd) {
+            return;
+        }
+
+        if (this.currentFileEditor === file.name) {
+            this.selectFirstFile()
+        }
+        
+        this.fileTabsMap[file.name].remove();
+
+        removeListener(fileEd, this);
+    }
+
     @messageResponse("compilationFinished")
     public onCompilationFinished() {
 
-        Object.keys(this.fileEditors).forEach((ed: string) => {
-            this.fileEditors[ed]!.clearMarks();
-            this.fileEditors[ed]!.clearGutterErrors();
+        Object.keys(this.fileEditorsMap).forEach((ed: string) => {
+            this.fileEditorsMap[ed]!.clearMarks();
+            this.fileEditorsMap[ed]!.clearGutterErrors();
         });
 
         this.project.program.notes.allNotes.forEach(note => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
-                let editor = this.fileEditors[sourceRef.sourceFile.name];
+                let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
                 editor?.addMark(sourceRef, note.kind);
                 editor?.addGutterError(sourceRef.line, note.message);
             }
@@ -432,16 +477,29 @@ export class ProjectEditor {
 
         let sourceRef = note.primarySourceReference;
         if (sourceRef) {
-            let editor = this.fileEditors[sourceRef.sourceFile.name];
+            let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
             editor?.addMark(sourceRef, note.kind);
             editor?.addGutterError(sourceRef.line, note.message);
         }
 
     }
 
-    private selectFile(filename: string) {
-        assert(this.fileEditors[filename], `File ${filename} does not exist in this project.`);
-        this.codeMirror.swapDoc(this.fileEditors[filename]!.doc);
+    public selectFile(filename: string) {
+        assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
+        this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
+        this.currentFileEditor = filename;
+        this.codeMirrorElem.show();
+    }
+
+    public selectFirstFile() {
+        let firstFilename = Object.keys(this.fileEditorsMap)[0];
+        this.currentFileEditor = firstFilename;
+        if (firstFilename) {
+            this.selectFile(firstFilename);
+        }
+        else {
+            this.codeMirrorElem.hide();
+        }
     }
 
     public refreshEditorView() {
@@ -453,9 +511,9 @@ export class ProjectEditor {
 
     public gotoSourceReference(sourceRef: SourceReference) {
         let name = sourceRef.sourceFile.name;
-        let editor = this.fileEditors[name];
+        let editor = this.fileEditorsMap[name];
         if (editor) {
-            this.fileTabs[name].tab("show");
+            this.fileTabsMap[name].tab("show");
             editor.gotoSourceReference(sourceRef);
         }
 

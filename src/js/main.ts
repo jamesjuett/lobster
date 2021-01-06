@@ -4,21 +4,27 @@ import { Project } from "./view/editors";
 import "./lib/cstdlib"
 import "./lib/string"
 import "./lib/vector"
-import { checkLogin } from "./frontend/user";
+import { User } from "./frontend/user";
+import { MyProjects } from "./frontend/projects";
 
 
 
-$(() => {
+$(async () => {
 
-    let element = $("#lobster1");
+    // let element = $("#lobster1");
 
-    let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
+    // let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
 
-    let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
-    // let sourcePane = element.find("#sourcePane");
-    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
+    // let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
+    // // let sourcePane = element.find("#sourcePane");
+    // let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
     
-    checkLogin();
+    let user = await User.checkLogin();
+
+    if (user) {
+        let myProjects = new MyProjects($("<div></div>"), user);
+        myProjects.refresh();
+    }
     
 
 //        console = ValueEntity.instance();
