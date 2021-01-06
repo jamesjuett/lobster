@@ -33,6 +33,7 @@
         "pegjs": "^0.10.0"
     },
     "scripts": {
-        "build": "webpack --config webpack.config.js"
+        "build": "webpack --config webpack.config.js",
+        "copy-to-backend": "cp -r public/* ../lobster-backend/public"
     }
 }

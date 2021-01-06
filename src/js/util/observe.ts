@@ -17,18 +17,22 @@ export interface Message<Data_type = any> {
 // }
 
 export function addListener<PotentialMessages extends string>(objWithObservable: {observable: Observable<PotentialMessages>}, listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
+    if (!objWithObservable) { return; }
     objWithObservable.observable.addListener(listener, category);
 }
 
 export function listenTo<PotentialMessages extends string>(listener: ObserverType, objWithObservable: {observable: Observable<PotentialMessages>}, category?: PotentialMessages | PotentialMessages[]) {
+    if (!objWithObservable) { return; }
     objWithObservable.observable.addListener(listener, category);
 }
 
 export function removeListener<PotentialMessages extends string>(objWithObservable: {observable: Observable<PotentialMessages>}, listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
+    if (!objWithObservable) { return; }
     objWithObservable.observable.removeListener(listener, category);
 }
 
 export function stopListeningTo<PotentialMessages extends string>(listener: ObserverType, objWithObservable: {observable: Observable<PotentialMessages>}, category?: PotentialMessages | PotentialMessages[]) {
+    if (!objWithObservable) { return; }
     objWithObservable.observable.removeListener(listener, category);
 }
 
@@ -166,7 +170,7 @@ export class Observable<PotentialMessages extends string = string> {
     // }
 
     public addListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
-        
+
         if (category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually
@@ -196,7 +200,7 @@ export class Observable<PotentialMessages extends string = string> {
     If a listener is universal, removing it from a particular category won't do anything.
     */
     public removeListener(listener: ObserverType, category?: PotentialMessages | PotentialMessages[]) {
-        
+
         if(category) {
             if (Array.isArray(category)) {
                 // If there's an array of categories, add to all individually

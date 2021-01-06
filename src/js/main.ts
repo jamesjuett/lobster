@@ -6,6 +6,7 @@ import "./lib/string"
 import "./lib/vector"
 import { User } from "./frontend/user";
 import { MyProjects } from "./frontend/projects";
+import { LobsterApplication } from "./frontend/application";
 
 
 
@@ -19,13 +20,7 @@ $(async () => {
     // // let sourcePane = element.find("#sourcePane");
     // let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
     
-    let user = await User.checkLogin();
-
-    if (user) {
-        let myProjects = new MyProjects($("<div></div>"), user);
-        myProjects.refresh();
-    }
-    
+    let app = new LobsterApplication();
 
 //        console = ValueEntity.instance();
 

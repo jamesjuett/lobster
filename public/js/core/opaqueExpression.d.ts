@@ -20,7 +20,7 @@ export declare class OpaqueExpression<T extends ExpressionType = ExpressionType,
     readonly type: T;
     readonly valueCategory: VC;
     readonly impl: OpaqueExpressionImpl<T, VC>;
-    static createFromAST(ast: OpaqueExpressionASTNode, context: ExpressionContext): OpaqueExpression<VoidType | import("./types").AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | import("./types").FunctionType<import("./types").PotentialReturnType> | import("./types").ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory>;
+    static createFromAST(ast: OpaqueExpressionASTNode, context: ExpressionContext): OpaqueExpression<import("./types").AtomicType | import("./types").BoundedArrayType<import("./types").ArrayElemType> | import("./types").CompleteClassType | import("./types").IncompleteClassType | VoidType | import("./types").FunctionType<import("./types").PotentialReturnType> | import("./types").ArrayOfUnknownBoundType<import("./types").ArrayElemType>, ValueCategory>;
     constructor(context: ExpressionContext, impl: OpaqueExpressionImpl<T, VC>, ast?: OpaqueExpressionASTNode);
     createDefaultOutlet(this: CompiledOpaqueExpression, element: JQuery, parent?: ConstructOutlet): OpaqueExpressionOutlet;
     isTailChild(child: CPPConstruct): {

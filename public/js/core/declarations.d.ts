@@ -75,21 +75,21 @@ export declare type NonObjectDeclaration = UnknownTypeDeclaration | VoidDeclarat
 export declare type VariableDefinition = LocalVariableDefinition | GlobalVariableDefinition;
 declare const TopLevelDeclarationConstructsMap: {
     simple_declaration: (ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext) => TopLevelSimpleDeclaration[];
-    function_definition: (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => FunctionDefinition | InvalidConstruct;
+    function_definition: (ast: FunctionDefinitionASTNode, context: TranslationUnitContext) => InvalidConstruct | FunctionDefinition;
     class_definition: (ast: ClassDefinitionASTNode, context: TranslationUnitContext) => ClassDefinition;
 };
 export declare function createTopLevelDeclarationFromAST<ASTType extends TopLevelDeclarationASTNode>(ast: ASTType, context: TranslationUnitContext): ReturnType<(typeof TopLevelDeclarationConstructsMap)[ASTType["construct_type"]]>;
 export declare function setInitializerFromAST(declaration: VariableDefinition | MemberVariableDeclaration, initAST: DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode | undefined, context: TranslationUnitContext): void;
 declare const LocalDeclarationConstructsMap: {
     simple_declaration: (ast: NonMemberSimpleDeclarationASTNode, context: BlockContext) => LocalSimpleDeclaration[];
-    function_definition: (ast: FunctionDefinitionASTNode, context: BlockContext) => FunctionDefinition | InvalidConstruct;
+    function_definition: (ast: FunctionDefinitionASTNode, context: BlockContext) => InvalidConstruct | FunctionDefinition;
     class_definition: (ast: ClassDefinitionASTNode, context: BlockContext) => ClassDefinition;
 };
 export declare function createLocalDeclarationFromAST<ASTType extends LocalDeclarationASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof LocalDeclarationConstructsMap)[ASTType["construct_type"]]>;
 export declare function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationASTNode, context: TranslationUnitContext): LocalSimpleDeclaration[];
 declare const MemberDeclarationConstructsMap: {
     simple_member_declaration: (ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) => MemberSimpleDeclaration[];
-    function_definition: (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => FunctionDeclaration | InvalidConstruct;
+    function_definition: (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => InvalidConstruct | FunctionDeclaration;
 };
 export declare function createMemberDeclarationFromAST<ASTType extends MemberDeclarationASTNode>(ast: ASTType, context: MemberSpecificationContext): ReturnType<(typeof MemberDeclarationConstructsMap)[ASTType["construct_type"]]>;
 export declare function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext): MemberSimpleDeclaration[];

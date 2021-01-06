@@ -1,33 +1,57 @@
 import Cookies from "js-cookie";
+import { Observable } from "../util/observe";
+import { assert, Mutable } from "../util/util";
+import { FileData } from "../view/editors";
 import { UserInfo } from "./user";
 
+export type ProjectData = {
+    id: number;
+    exercise_id?: number | null;
+    last_modified: string; // date
+    contents: string;
+    is_public: boolean;
+    name: string;
+}
+
+export function extractFiles(projectData: ProjectData) : FileData[] {
+    return JSON.parse(projectData.contents).files;
+}
+
+type ProjectListMessages =
+    "projectSelected";
+
+
 export class MyProjects {
+
+    public observable = new Observable<ProjectListMessages>(this);
 
     private element: JQuery;
     private listElem: JQuery;
 
-    public user: UserInfo;
+    public readonly projects: readonly ProjectData[] = [];
 
-    public constructor(element: JQuery, user: UserInfo) {
-        this.user = user;
-
+    public constructor(element: JQuery) {
+        assert(element.length > 0);
         this.element = element;
-        this.listElem = $("<li></li>").appendTo(element);
-
-        this.refresh();
+        this.listElem = $('<div class="list-group"></div>').appendTo(element);
     }
 
-    public async refresh() {
-        
-        const response = await fetch(`api/users/me/projects`, {
-            method: 'GET',
-            headers: {
-                'Authorization': 'bearer ' + Cookies.get('bearer')
-            }
+    public setProjects(projects: readonly ProjectData[]) {
+        (<Mutable<this>>this).projects = projects;
+
+        this.listElem.empty();
+
+        projects.forEach(project => {
+            $(`<a href="#" class="list-group-item">${project.name}</a>`)
+                .appendTo(this.listElem)
+                .on("click", () => {
+                    this.observable.send("projectSelected", project);
+                });
         });
 
-        console.log(await response.json());
-    }
+    } 
+
+    
 }
 
 // var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {

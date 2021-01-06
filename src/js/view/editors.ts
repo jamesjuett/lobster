@@ -15,7 +15,7 @@ import { update } from "lodash";
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
 
-interface FileData {
+export interface FileData {
     readonly name: string;
     readonly code: string;
     readonly isTranslationUnit: boolean;
@@ -52,7 +52,7 @@ export class Project {
         this.name = name;
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
-        this.compilationOutOfDate();
+        this.recompile();
     }
 
     public addFile(file: SourceFile, isTranslationUnit: boolean) {
@@ -180,7 +180,13 @@ export class Project {
         }, this.autoCompileDelay);
     }
     
-    public turnOnAutoCompile(autoCompileDelay: number | undefined) {
+    /**
+     * Turns on auto-compilation. Any changes to the project source will
+     * trigger a recompile, which begins after no subsequent changes have
+     * been made within the specified delay.
+     * @param autoCompileDelay
+     */
+    public turnOnAutoCompile(autoCompileDelay: number = 500) {
         this.autoCompileDelay = autoCompileDelay;
         if (this.isCompilationOutOfDate) {
             this.dispatchAutoCompile();
@@ -639,6 +645,32 @@ export class ProjectSaveOutlet {
 
 }
 
+function createCompilationOutletHTML() {
+    return `
+    <div>
+        <h3>Compilation Units</h3>
+        <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
+            that needs to be compiled into the executable program. Generally, you want a compilation
+            unit for each .cpp file, and these are the files you would list out in a compile command.
+            The files being used for this purpose are highlighted below. Note that files may be
+            indirectly used if they are #included in other compilation units, even if they are not
+            selected to form a compilation unit here.
+        </p>
+        <p style="font-weight: bold;">
+            Click files below to toggle whether they are being used to create a compilation unit.
+        </p>
+        <ul class="translation-units-list list-inline">
+        </ul>
+    </div>
+    <div>
+        <h3>Compilation Errors</h3>
+        <p>These errors were based on your last compilation.
+        </p>
+        <ul class="compilation-notes-list">
+        </ul>
+    </div>`;
+}
+
 
 /**
  * Allows a user to view and manage the compilation scheme for a program.
@@ -656,21 +688,28 @@ export class CompilationOutlet {
 
     public constructor(element: JQuery, project: Project) {
         this.element = element;
-        this.project = project;
+        element.append(createCompilationOutletHTML());
 
         this.translationUnitsListElem = element.find(".translation-units-list");
-        assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
         this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"));
-        assert(this.translationUnitsListElem.length > 0, "CompilationOutlet must contain an element with the 'compilation-notes-list' class.");
-
-        listenTo(this, project);
-        listenTo(this.compilationNotesOutlet, project);
-
+        
+        this.project = this.setProject(project);
     }
 
-    @messageResponse("projectCleared")
-    @messageResponse("projectLoaded")
+    public setProject(project: Project) {
+        if (project !== this.project) {
+            stopListeningTo(this, this.project);
+            (<Mutable<this>>this).project = project;
+            listenTo(this, project);
+        }
+
+        this.updateButtons();
+        this.compilationNotesOutlet.updateNotes(project.program);
+
+        return project;
+    }
+
     @messageResponse("sourceFileAdded")
     @messageResponse("sourceFileRemoved")
     @messageResponse("translationUnitAdded")
@@ -687,6 +726,11 @@ export class CompilationOutlet {
 
             this.translationUnitsListElem.append($('<li></li>').append(button));
         });
+    }
+
+    @messageResponse("compilationFinished", "unwrap")
+    private onCompilationFinished(program: Program) {
+        this.compilationNotesOutlet.updateNotes(program);
     }
 }
 
@@ -718,14 +762,7 @@ export class CompilationNotesOutlet {
         this.element = element;
     }
 
-    public updateNotes(notes: Program): void;
-    public updateNotes(msg: Message<Program>): void;
-    @messageResponse("compilationFinished")
-    public updateNotes(program: Program | Message<Program>) {
-
-        if (!(program instanceof Program)) {
-            program = program.data;
-        }
+    public updateNotes(program: Program) {
 
         this.element.empty();
 
@@ -772,7 +809,7 @@ export class CompilationStatusOutlet {
 
     public _act!: MessageResponses;
 
-    private readonly project: Project;
+    public readonly project: Project;
 
     private readonly element: JQuery;
 
@@ -788,7 +825,6 @@ export class CompilationStatusOutlet {
 
     public constructor(element: JQuery, project: Project) {
         this.element = element;
-        this.project = project;
 
         this.compileButtonText = "Compile";
         this.compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
@@ -841,7 +877,19 @@ export class CompilationStatusOutlet {
             .append('<span class="glyphicon glyphicon-lamp"></span>')
             .appendTo(this.notesElem);
 
-        listenTo(this, project);
+        this.project = this.setProject(project);
+    }
+    
+    public setProject(project: Project) {
+        if (project !== this.project) {
+            stopListeningTo(this, this.project);
+            (<Mutable<this>>this).project = project;
+            listenTo(this, project);
+        }
+
+        this.onCompilationFinished();
+
+        return project;
     }
 
     @messageResponse("compilationFinished")
@@ -857,7 +905,7 @@ export class CompilationStatusOutlet {
     }
 
     @messageResponse("compilationOutOfDate")
-    private compilationOutOfDate() {
+    private onCompilationOutOfDate() {
         this.compileButton.removeClass("btn-success-muted");
         this.compileButton.addClass("btn-warning-muted");
         this.compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');

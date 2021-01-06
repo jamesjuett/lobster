@@ -5,7 +5,9 @@
       "./src/js/parse/*.ts",
       "./src/js/test/*.ts",
       "./src/js/view/*.ts",
+      "./src/js/frontend/*.ts",
       "./src/js/util/*.ts",
+      "./src/js/main.ts",
       "./src/js/exercises.ts"
     ],
     "compilerOptions": {
