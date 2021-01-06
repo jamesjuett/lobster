@@ -692,7 +692,7 @@ export class DefaultLobsterOutlet {
 
 
         let runButtonElem = element.find(".runButton")
-            .click(() => {
+            .on("click", () => {
             let program = this.project.program;
             if (program.isRunnable()) {
                 let sim = new Simulation(program);

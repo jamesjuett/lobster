@@ -749,3 +749,9 @@ ul.codeStack li{
 .btn > .loader-inline {
 	vertical-align: text-top;
 }
+
+.btn > svg {
+	display: inline-block;
+	vertical-align: middle;
+	fill: white;
+}

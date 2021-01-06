@@ -14,7 +14,7 @@ interface FileData {
     readonly code: string;
     readonly isTranslationUnit: boolean;
 }
-declare type ProjectMessages = "translationUnitAdded" | "translationUnitRemoved" | "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileContentsSet" | "translationUnitStatusSet" | "noteAdded";
+declare type ProjectMessages = "translationUnitAdded" | "translationUnitRemoved" | "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitStatusSet" | "noteAdded";
 export declare class Project {
     observable: Observable<ProjectMessages>;
     readonly name: string;
@@ -26,6 +26,7 @@ export declare class Project {
     private autoCompileDelay?;
     constructor(name: string, files: readonly FileData[]);
     addFile(file: SourceFile, isTranslationUnit: boolean): void;
+    removeFile(filename: string): void;
     setFileContents(file: SourceFile): void;
     setTranslationUnit(name: string, isTranslationUnit: boolean): void;
     recompile(): void;
@@ -56,16 +57,21 @@ export declare class ProjectEditor {
     _act: MessageResponses;
     readonly isSaved: boolean;
     readonly isOpen: boolean;
-    private fileTabs;
     private filesElem;
-    private fileEditors;
+    private fileTabsMap;
+    private fileEditorsMap;
+    private currentFileEditor?;
     private codeMirror;
+    private codeMirrorElem;
     readonly project: Project;
     constructor(element: JQuery, project: Project);
+    setProject(project: Project): void;
     private onFileAdded;
+    private onFileRemoved;
     onCompilationFinished(): void;
     onNoteAdded(note: Note): void;
-    private selectFile;
+    selectFile(filename: string): void;
+    selectFirstFile(): void;
     refreshEditorView(): void;
     gotoSourceReference(sourceRef: SourceReference): void;
     private textChanged;
