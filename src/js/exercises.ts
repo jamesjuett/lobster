@@ -17,6 +17,7 @@ import { CompilerNote, NoteKind } from "./core/errors";
 import { isCompleteClassType, Char, isType } from "./core/types";
 import { contains } from "jquery";
 import { MagicFunctionCallExpressionOutlet } from "./view/codeOutlets";
+import { createSimpleExerciseOutlet } from "./frontend/simple_exercise_outlet";
 
 $(() => {
 
@@ -24,139 +25,7 @@ $(() => {
 
     $(".lobster-ex").each(function() {
 
-        $(this).append(`
-            <div>
-                <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
-                    <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
-                        <div style="display: inline-block">
-                        </div>
-                    </div>
-
-                    <li><a data-toggle="tab" href="#lobster-ex-${exID}-compilation-pane">Compilation</a></li>
-                    <li class="active"><a data-toggle="tab" href="#lobster-ex-${exID}-source-pane">Source Code</a></li>
-                    <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${exID}-sim-pane">Simulation</a></li>
-
-                </ul>
-
-                <div class="tab-content">
-                    <div id="lobster-ex-${exID}-compilation-pane" class="lobster-compilation-pane tab-pane fade">
-                        <div>
-                            <h3>Compilation Units</h3>
-                            <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
-                                that needs to be compiled into the executable program. Generally, you want a compilation
-                                unit for each .cpp file, and these are the files you would list out in a compile command.
-                                The files being used for this purpose are highlighted below. Note that files may be
-                                indirectly used if they are #included in other compilation units, even if they are not
-                                selected to form a compilation unit here.
-                            </p>
-                            <p style="font-weight: bold;">
-                                Click files below to toggle whether they are being used to create a compilation unit.
-                            </p>
-                            <ul class="translation-units-list list-inline">
-                            </ul>
-                        </div>
-                        <div>
-                            <h3>Compilation Errors</h3>
-                            <p>These errors were based on your last compilation.
-                            </p>
-                            <ul class="compilation-notes-list">
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div id="lobster-ex-${exID}-source-pane" class="lobster-source-pane tab-pane fade active in">
-                        <div style="padding-top:5px; padding-bottom: 5px;">
-                            <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
-                            
-                            <button class = "btn btn-primary runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                            <div class = "compilation-status-outlet" style="float:right">
-                            </div>
-                        </div>
-                        <div class="codeMirrorEditor" style = "position: relative; background-color: #272822">
-                            <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
-                            <!--<div style="height: 400px;"></div>-->
-                        </div>
-
-                        <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                            <div class="annotationMessages">
-                                <div style="height: 100px; margin-left: 5px; float: right;">
-                                    <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                                    <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                                    <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
-                                </div>
-                                <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="lobster-ex-${exID}-sim-pane" class="lobster-sim-pane tab-pane fade">
-                        <div style="position: relative">
-                            <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
-                                Thinking...
-                                <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
-                            </div>
-                            <div class="alerts-container">
-                                <div class="alerts">
-                                    <div style="display:inline-block; padding: 5px">
-                                        <div style="height: 100px; margin-left: 5px; float: right;">
-                                            <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
-                                            <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
-                                        </div>
-                                        <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
-                        <table style="width: 100%; margin-top: 5px; ">
-                            <tr>
-                                <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
-                                    <div style="position: relative; display: flex; flex-direction: column;">
-                                        <div style="margin-bottom: 5px;">
-                                            <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
-                                            <!--<span style = "display: inline-block; width: 4ch"></span>-->
-                                            <!-- <button class = "stepOver">Step Over</button> -->
-                                            <!-- <button class = "stepOut">Step Out</button> -->
-                                            <button class = "runToEnd btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
-                                            <button class = "pause btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
-                                            <!-- <button class = "skipToEnd"><span class="glyphicon glyphicon-fast-forward"></button> -->
-
-                                            <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                                            <button class = "stepBackward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
-                                            <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
-
-                                            
-                                            <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                                            <button class = "stepForward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
-                                            <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
-                                        </div>
-                                        <div class="console">
-                                            <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
-                                            <span class="lobster-console-contents"></span>
-                                            <input type="text" class="lobster-console-user-input-entry"></span>
-                                        </div>
-                                        <div class="lobster-cin-buffer" style = "margin-top: 5px;"></div>
-                                        <div style = "margin-top: 5px; text-align: center;">Memory</div>
-                                        <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="memory readOnly"></div></div>
-
-                                    </div>
-                                </td>
-                                <td style="position: relative; vertical-align: top;">
-                                    <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; position: absolute; width: 100%; height: 100%; white-space: nowrap;"> </div>
-                                </td>
-                            </tr>
-                        </table>
-
-                    </div>
-                </div>
-                <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
-                    <div class="panel-heading"></div>
-                    <div class="panel-body">
-                        
-                    </div>
-                </div>
-            </div>
-
-        `)
+        $(this).append(createSimpleExerciseOutlet(""+exID));
 
         let filename = $(this).find(".lobster-ex-file-name").html()?.trim() ?? "file.cpp";
         let projectName = $(this).find(".lobster-ex-project-name").html()?.trim() ?? "UnnamedProject";
@@ -193,20 +62,20 @@ export class SimpleExerciseLobsterOutlet {
     private readonly tabsElem: JQuery;
     // private readonly annotationMessagesElem: JQuery;
 
+    public readonly compilationOutlet: CompilationOutlet
+    public readonly compilationStatusOutlet: CompilationStatusOutlet
+    public readonly checkpointsOutlet: CheckpointsOutlet
 
     public _act!: MessageResponses;
 
     public constructor(element: JQuery, project: Project, completeMessage: string) {
         this.element = element;
-        this.project = project;
         this.completeMessage = completeMessage;
         // Set up simulation and source tabs
         // var sourceTab = element.find(".sourceTab");
         // var simTab = element.find(".simTab");
 
         this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
-
-        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), this.project);
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
         this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
@@ -228,10 +97,25 @@ export class SimpleExerciseLobsterOutlet {
             this.element.find(".lobster-simulate-tab").tab("show");
         });
 
-        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
-        new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
+        this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
+        this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
+        this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
+        this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project, getExerciseCheckpoints(project.name), completeMessage);
+        
+        this.project = project;
 
-        new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project, getExerciseCheckpoints(project.name), completeMessage);
+        
+    }
+    
+    public setProject(project: Project) {
+        (<Mutable<this>>this).project = project;
+
+        this.projectEditor.setProject(project);
+        this.compilationOutlet.setProject(project);
+        this.compilationStatusOutlet.setProject(project);
+        this.checkpointsOutlet.setProject(project);
+        
+        return this.project;
     }
 
     public setSimulation(sim: Simulation) {
@@ -346,8 +230,6 @@ export class CheckpointsOutlet {
 
     public constructor(element: JQuery, project: Project, checkpoints: readonly Checkpoint[], completeMessage: string) {
         this.element = element;
-        this.project = project;
-        listenTo(this, project);
         this.checkpoints = checkpoints;
         this.completeMessage = completeMessage;
 
@@ -362,6 +244,20 @@ export class CheckpointsOutlet {
             $(`<span class="lobster-checkpoint"></span>`).appendTo(checkpointsContainerElem),
             c.name
         ));
+
+        this.project = this.setProject(project);
+    }
+
+    public setProject(project: Project) {
+        if (project !== this.project) {
+            stopListeningTo(this, this.project);
+            (<Mutable<this>>this).project = project;
+            listenTo(this, project);
+        }
+
+        this.onCompilationFinished();
+
+        return project;
     }
 
     @messageResponse("compilationFinished")

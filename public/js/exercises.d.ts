@@ -1,6 +1,6 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
-import { Project } from "./view/editors";
+import { Project, CompilationOutlet, CompilationStatusOutlet } from "./view/editors";
 import { Simulation } from "./core/Simulation";
 import { MessageResponses, Message } from "./util/observe";
 import { RuntimeConstruct } from "./core/constructs";
@@ -16,8 +16,12 @@ export declare class SimpleExerciseLobsterOutlet {
     readonly sim?: Simulation;
     private readonly element;
     private readonly tabsElem;
+    readonly compilationOutlet: CompilationOutlet;
+    readonly compilationStatusOutlet: CompilationStatusOutlet;
+    readonly checkpointsOutlet: CheckpointsOutlet;
     _act: MessageResponses;
     constructor(element: JQuery, project: Project, completeMessage: string);
+    setProject(project: Project): Project;
     setSimulation(sim: Simulation): void;
     clearSimulation(): void;
     protected requestFocus(msg: Message<undefined>): void;
@@ -32,6 +36,7 @@ export declare class CheckpointsOutlet {
     private readonly completeMessage;
     private readonly checkpointOutlets;
     constructor(element: JQuery, project: Project, checkpoints: readonly Checkpoint[], completeMessage: string);
+    setProject(project: Project): Project;
     protected onCompilationFinished(): Promise<void>;
 }
 export declare class CheckpointOutlet {

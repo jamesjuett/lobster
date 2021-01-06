@@ -7,9 +7,9 @@ import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
 import 'codemirror/keymap/sublime.js';
-import { Observable, Message, MessageResponses } from "../util/observe";
+import { Observable, MessageResponses } from "../util/observe";
 import { Note } from "../core/errors";
-interface FileData {
+export interface FileData {
     readonly name: string;
     readonly code: string;
     readonly isTranslationUnit: boolean;
@@ -40,7 +40,13 @@ export declare class Project {
     toggleTranslationUnit(tuName: string): void;
     private compilationOutOfDate;
     private dispatchAutoCompile;
-    turnOnAutoCompile(autoCompileDelay: number | undefined): void;
+    /**
+     * Turns on auto-compilation. Any changes to the project source will
+     * trigger a recompile, which begins after no subsequent changes have
+     * been made within the specified delay.
+     * @param autoCompileDelay
+     */
+    turnOnAutoCompile(autoCompileDelay?: number): void;
     turnOffAutoCompile(): void;
     addNote(note: Note): void;
 }
@@ -100,7 +106,9 @@ export declare class CompilationOutlet {
     private readonly element;
     private readonly translationUnitsListElem;
     constructor(element: JQuery, project: Project);
+    setProject(project: Project): Project;
     private updateButtons;
+    private onCompilationFinished;
 }
 /**
  * Shows all of the compilation errors/warnings/etc. for the current project.
@@ -110,14 +118,13 @@ export declare class CompilationNotesOutlet {
     _act: MessageResponses;
     private readonly element;
     constructor(element: JQuery);
-    updateNotes(notes: Program): void;
-    updateNotes(msg: Message<Program>): void;
+    updateNotes(program: Program): void;
     private createBadgeForNote;
     private gotoSourceReference;
 }
 export declare class CompilationStatusOutlet {
     _act: MessageResponses;
-    private readonly project;
+    readonly project: Project;
     private readonly element;
     private readonly notesElem;
     private readonly errorsButton;
@@ -129,8 +136,9 @@ export declare class CompilationStatusOutlet {
     private readonly compileButton;
     private compileButtonText;
     constructor(element: JQuery, project: Project);
+    setProject(project: Project): Project;
     private onCompilationFinished;
-    private compilationOutOfDate;
+    private onCompilationOutOfDate;
 }
 export declare class FileEditor {
     private static instances;

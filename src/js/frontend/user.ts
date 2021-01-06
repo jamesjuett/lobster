@@ -1,11 +1,9 @@
 import Cookies from "js-cookie";
-import { ICON_PERSON } from "./octicons";
+import { Observable } from "../util/observe";
+import { Mutable } from "../util/util";
 
 // Expects the following elements to be present:
 //  lobster-sign-in-button
-
-const SIGN_IN_BUTTON = () => $(".lobster-sign-in-button");
-
 
 export type UserInfo = {
     id: number;
@@ -14,11 +12,17 @@ export type UserInfo = {
     is_super: boolean;
 };
 
-let _currentUser: UserInfo | undefined;
+type UserMessages =
+    "userLoggedIn" |
+    "userLoggedOut";
 
-export namespace User {
+export class User {
+    
+    public observable = new Observable<UserMessages>(this);
 
-    export async function checkLogin() {
+    public readonly currentUser?: UserInfo;
+
+    public async checkLogin() {
         if (Cookies.get("bearer")) {
             const response = await fetch("api/users/me", {
                 method: 'GET',
@@ -26,24 +30,31 @@ export namespace User {
                     'Authorization': 'bearer ' + Cookies.get('bearer')
                 }
             });
-            return setUser(await response.json() as UserInfo);
+
+            if (response.status === 200) {
+                let newUser = await response.json() as UserInfo;
+                if (!this.currentUser || newUser.id !== this.currentUser.id) {
+                    (<Mutable<this>>this).currentUser = newUser;
+                    this.observable.send("userLoggedIn", newUser);
+                }
+            }
+            else {
+                this.logout();
+            }
         }
-    };
-
-    export function currentUser() {
-        return _currentUser;
+        else {
+            this.logout();
+        }
     }
-}
 
+    public logout() {
+        Cookies.remove("bearer");
+        if (this.currentUser) {
+            let oldUser = this.currentUser;
+            delete (<Mutable<this>>this).currentUser;
+            this.observable.send("userLoggedOut", oldUser);
+        }
+    }
 
-function setUser(user: UserInfo | undefined) {
-    _currentUser = user;
-    if (user) {
-        SIGN_IN_BUTTON().html(`${ICON_PERSON} ${user.email}`);
-    }
-    else {
-        SIGN_IN_BUTTON().html("Sign In");
-    }
-    return _currentUser;
 }
 
