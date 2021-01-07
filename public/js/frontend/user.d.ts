@@ -6,10 +6,12 @@ export declare type UserInfo = {
     is_super: boolean;
 };
 declare type UserMessages = "userLoggedIn" | "userLoggedOut";
-export declare class User {
+export declare class Users {
     observable: Observable<UserMessages>;
     readonly currentUser?: UserInfo;
     checkLogin(): Promise<void>;
     logout(): void;
+    getBearerToken(): string | undefined;
 }
+export declare let USERS: Users;
 export {};

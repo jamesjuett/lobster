@@ -16,7 +16,7 @@ type UserMessages =
     "userLoggedIn" |
     "userLoggedOut";
 
-export class User {
+export class Users {
     
     public observable = new Observable<UserMessages>(this);
 
@@ -56,5 +56,11 @@ export class User {
         }
     }
 
+    public getBearerToken() {
+        return Cookies.get('bearer');
+    }
+
 }
+
+export let USERS = new Users();
 

@@ -750,8 +750,12 @@ ul.codeStack li{
 	vertical-align: text-top;
 }
 
-.btn > svg {
+.btn.lobster-log-in-button > svg {
 	display: inline-block;
 	vertical-align: middle;
 	fill: white;
+}
+
+.lobster-my-projects .list-group-item {
+	padding: 5px 10px;
 }

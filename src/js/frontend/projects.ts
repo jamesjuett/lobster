@@ -1,8 +1,10 @@
 import Cookies from "js-cookie";
 import { Observable } from "../util/observe";
 import { assert, Mutable } from "../util/util";
-import { FileData } from "../view/editors";
-import { UserInfo } from "./user";
+import { FileData, Project } from "../view/editors";
+import { UserInfo, USERS } from "./user";
+import axios from 'axios';
+import { icon_middle, ICON_PLUS } from "./octicons";
 
 export type ProjectData = {
     id: number;
@@ -13,8 +15,12 @@ export type ProjectData = {
     name: string;
 }
 
-export function extractFiles(projectData: ProjectData) : FileData[] {
+export function parseFiles(projectData: ProjectData) : FileData[] {
     return JSON.parse(projectData.contents).files;
+}
+
+export function stringifyFiles(files: readonly FileData[]) : string {
+    return JSON.stringify(files);
 }
 
 type ProjectListMessages =
@@ -30,6 +36,8 @@ export class MyProjects {
 
     public readonly projects: readonly ProjectData[] = [];
 
+    public readonly activeProjectId?: number;
+
     public constructor(element: JQuery) {
         assert(element.length > 0);
         this.element = element;
@@ -39,61 +47,90 @@ export class MyProjects {
     public setProjects(projects: readonly ProjectData[]) {
         (<Mutable<this>>this).projects = projects;
 
+        delete (<Mutable<this>>this).activeProjectId;
         this.listElem.empty();
 
         projects.forEach(project => {
-            $(`<a href="#" class="list-group-item">${project.name}</a>`)
+            $(`<a href="#${project.id}" class="list-group-item">${project.name}</a>`)
                 .appendTo(this.listElem)
                 .on("click", () => {
                     this.observable.send("projectSelected", project);
                 });
         });
 
-    } 
+        $(`<a class="list-group-item" data-toggle="modal" data-target="#lobster-create-project-modal" style="text-align: center">${icon_middle(ICON_PLUS)}</a>`)
+            .appendTo(this.listElem);
+    }
+
+    public setActiveProject(projectId: number | undefined) {
+        if (this.activeProjectId) {
+            this.listElem.children().eq(this.projects.findIndex(p => p.id === this.activeProjectId))
+                .removeClass("active");
+        }
+
+        (<Mutable<this>>this).activeProjectId = projectId;
+
+        if (this.activeProjectId) {
+            this.listElem.children().eq(this.projects.findIndex(p => p.id === projectId))
+                .addClass("active");
+        }
+    }
 
     
 }
 
-// var ProjectList = Lobster.Outlets.CPP.ProjectList = Class.extend(Observable, {
-//     _name: "ProjectList",
 
-//     API_URL : "/api/me/project/list",
+export async function getMyProjects() {
+        
+    const response = await fetch(`api/users/me/projects`, {
+        method: 'GET',
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
 
-//     // element should be a jquery object
-//     init: function(element) {
-//         this.i_element = element;
-//         element.addClass("projectList");
+    let projects: ProjectData[] = await response.json();
+    return projects;
+}
 
-//         this.refresh();
-//     },
+export async function saveProject(project: Project) {
 
-//     refresh : function() {
-//         this.ajax({
-//             type: "GET",
-//             url: this.API_URL,
-//             success: function(data) {
-//                 this.i_setList(data);
-//             },
-//             dataType: "json"
-//         });
-//     },
+    return axios({
+        url: `api/projects/${project.id!}`,
+        method: "PATCH",
+        data: {
+            contents: JSON.stringify({
+                name: project.name,
+                files: project.getFileData()
+            })
+        },
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
 
-//     i_setList : function(projects) {
-//         
+}
 
-//         this.i_element.empty();
+export async function createProject(name: string) {
 
-//         for(var i = 0; i < projects.length; i++) {
-//             var project = projects[i];
-//             var item = $("<li></li>");
-//             var link = $('<a class="link lobster-code" data-toggle="pill">' + project["project"] + '</a>');
-//             item.append(link);
-//             link.click(function() {
-//                 self.send("loadProject", $(this).html());
-//             });
+    const response = await axios({
+        url: `api/projects/`,
+        method: "POST",
+        data: {
+            name: name,
+            contents: JSON.stringify({
+                name: name,
+                files: <FileData[]>[{
+                    name: "main.cpp",
+                    code: `int main() {\n  cout << "Hello ${name}!" << endl;\n}`,
+                    isTranslationUnit: true
+                }]
+            })
+        },
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
 
-//             this.i_element.append(item);
-//         }
-//     }
-
-// });
+    return await response.data as ProjectData;
+}

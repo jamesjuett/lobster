@@ -4,7 +4,7 @@ import { Project } from "./view/editors";
 import "./lib/cstdlib"
 import "./lib/string"
 import "./lib/vector"
-import { User } from "./frontend/user";
+import { Users } from "./frontend/user";
 import { MyProjects } from "./frontend/projects";
 import { LobsterApplication } from "./frontend/application";
 

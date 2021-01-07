@@ -1,8 +1,8 @@
 import { SimulationOutlet } from "./view/simOutlets";
-import { Project, ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./view/editors";
+import { Project, ProjectEditor, CompilationOutlet, CompilationStatusOutlet, ProjectSaveOutlet, ProjectSaveAction } from "./view/editors";
 import { Simulation } from "./core/Simulation";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message, Observable } from "./util/observe";
-import { Mutable } from "./util/util";
+import { assert, Mutable } from "./util/util";
 import { RuntimeConstruct } from "./core/constructs";
 import { decode } from "he";
 import { AsynchronousSimulationRunner } from "./core/simulationRunners";
@@ -65,6 +65,7 @@ export class SimpleExerciseLobsterOutlet {
     public readonly compilationOutlet: CompilationOutlet
     public readonly compilationStatusOutlet: CompilationStatusOutlet
     public readonly checkpointsOutlet: CheckpointsOutlet
+    public readonly projectSaveOutlet?: ProjectSaveOutlet;
 
     public _act!: MessageResponses;
 
@@ -114,8 +115,19 @@ export class SimpleExerciseLobsterOutlet {
         this.compilationOutlet.setProject(project);
         this.compilationStatusOutlet.setProject(project);
         this.checkpointsOutlet.setProject(project);
+        this.projectSaveOutlet?.setProject(project);
         
         return this.project;
+    }
+
+    public onSave(saveAction: ProjectSaveAction) {
+        assert(!this.projectSaveOutlet, "May only specify one onSave action.");
+        assert(this.element.find(".lobster-project-save-outlet").length > 0, "An HTML element with class lobster-project-save-outlet must be present.");
+        (<Mutable<this>>this).projectSaveOutlet = new ProjectSaveOutlet(
+            this.element.find(".lobster-project-save-outlet"),
+            this.project,
+            saveAction);
+        return this;
     }
 
     public setSimulation(sim: Simulation) {
