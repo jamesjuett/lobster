@@ -18,13 +18,15 @@ declare type ProjectMessages = "translationUnitAdded" | "translationUnitRemoved"
 export declare class Project {
     observable: Observable<ProjectMessages>;
     readonly name: string;
+    readonly id?: number;
     readonly sourceFiles: readonly SourceFile[];
     private translationUnitNames;
     readonly program: Program;
     readonly isCompilationOutOfDate: boolean;
     private pendingAutoCompileTimeout?;
     private autoCompileDelay?;
-    constructor(name: string, files: readonly FileData[]);
+    constructor(name: string, files: readonly FileData[], id?: number);
+    getFileData(): readonly FileData[];
     addFile(file: SourceFile, isTranslationUnit: boolean): void;
     removeFile(filename: string): void;
     setFileContents(file: SourceFile): void;
@@ -61,7 +63,6 @@ export declare class ProjectEditor {
     private static instances;
     observable: Observable<ProjectEditorMessages>;
     _act: MessageResponses;
-    readonly isSaved: boolean;
     readonly isOpen: boolean;
     private filesElem;
     private fileTabsMap;
@@ -82,19 +83,24 @@ export declare class ProjectEditor {
     gotoSourceReference(sourceRef: SourceReference): void;
     private textChanged;
 }
+export declare type ProjectSaveAction = (project: Project) => Promise<any>;
 export declare class ProjectSaveOutlet {
     _act: MessageResponses;
-    private readonly projectEditor;
+    readonly project: Project;
+    readonly isSaved: boolean;
+    private saveAction;
     private readonly element;
     private readonly saveButtonElem;
     private isAutosaveOn;
-    constructor(element: JQuery, projectEditor: ProjectEditor);
-    private saveAction;
+    constructor(element: JQuery, project: Project, saveAction: ProjectSaveAction, autosaveInterval?: number | false);
+    setProject(project: Project): Project;
     private autosaveCallback;
-    private projectLoaded;
-    private unsavedChanges;
-    private saveAttempted;
-    private saveSuccessful;
+    saveProject(): Promise<void>;
+    private onSaveSuccessful;
+    private onUnsavedChanges;
+    private onSaveAttempted;
+    private onSaveFailed;
+    private onProjectChanged;
 }
 /**
  * Allows a user to view and manage the compilation scheme for a program.

@@ -1,7 +1,7 @@
 import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { MessageResponses } from "../util/observe";
 import { MyProjects, ProjectData } from "./projects";
-import { User, UserInfo as UserData } from "./user";
+import { UserInfo as UserData } from "./user";
 /**
  * Expects elements with these classes to be present:
  * - lobster-log-in-button
@@ -10,12 +10,15 @@ import { User, UserInfo as UserData } from "./user";
 export declare class LobsterApplication {
     _act: MessageResponses;
     readonly myProjects: MyProjects;
-    readonly user: User;
     readonly lobster: SimpleExerciseLobsterOutlet;
+    readonly activeProjectId?: number;
     private readonly logInButtonElem;
     constructor();
-    refreshProjects(): Promise<void>;
+    private setUpModals;
     protected onUserLoggedIn(user: UserData): void;
     protected onUserLoggedOut(user: UserData): void;
     protected onProjectSelected(projectData: ProjectData): void;
+    private refreshProjects;
+    private setProjects;
+    private createProject;
 }

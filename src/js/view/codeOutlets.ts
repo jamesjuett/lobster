@@ -1211,12 +1211,11 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
     protected setEvalResult(result: RT["evalResult"], suppressAnimation: boolean = false) {
         
-        
         if (result instanceof FunctionEntity) {
             this.evalResultElem.html(result.describe().message);
             this.evalResultElem.addClass("lvalue");
         }
-        else if (result.type.isCompleteObjectType()) {
+        else if (result instanceof CPPObject && result.type.isCompleteObjectType()) {
             let r = <CPPObject<CompleteObjectType>> result;
             this.evalResultElem.html(getObjectString(r));
             this.evalResultElem.addClass("lvalue");

@@ -11,6 +11,7 @@ import { Observable, messageResponse, Message, addListener, MessageResponses, li
 import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
 import { projectAnalyses } from "../core/analysis";
 import { update } from "lodash";
+import { ICON_LIGHT_BULB } from "../frontend/octicons";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -37,6 +38,7 @@ export class Project {
     public observable = new Observable<ProjectMessages>(this);
 
     public readonly name: string;
+    public readonly id?: number;
 
     public readonly sourceFiles: readonly SourceFile[] = [];
     private translationUnitNames: Set<string> = new Set<string>();
@@ -48,11 +50,20 @@ export class Project {
     private pendingAutoCompileTimeout?: number;
     private autoCompileDelay?: number;
 
-    public constructor(name: string, files: readonly FileData[]) {
+    public constructor(name: string, files: readonly FileData[], id?: number) {
         this.name = name;
+        this.id = id;
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
         this.recompile();
+    }
+
+    public getFileData() : readonly FileData[] {
+        return this.sourceFiles.map(sf => ({
+            name: sf.name,
+            code: sf.text,
+            isTranslationUnit: this.translationUnitNames.has(sf.name)
+        }));
     }
 
     public addFile(file: SourceFile, isTranslationUnit: boolean) {
@@ -271,7 +282,6 @@ export class ProjectEditor {
     //     }
     // }
 
-    public readonly isSaved: boolean = true;
     public readonly isOpen: boolean = false;
 
     private filesElem: JQuery;
@@ -350,35 +360,7 @@ export class ProjectEditor {
 
     // }
 
-    // public saveProject() {
-    //     let projectFiles = this.sourceFiles.map((file) => ({
-    //         name: file.name,
-    //         text: file.text,
-    //         isTranslationUnit: this.isTranslationUnit(file.name) ? "yes" : "no"
-    //     }));
 
-    //     $.ajax({
-    //         type: "POST",
-    //         url: API_URL_SAVE_PROJECT + this.projectName,
-    //         data: {files: projectFiles},
-    //         success: () => {
-    //             console.log("saved successfully");
-    //             this.setSaved(true);
-    //         },
-    //         dataType: "json"
-    //     });
-    //     this.observable.send("saveAttempted");
-    // }
-
-    // public setSaved(isSaved: boolean) {
-    //     (<Mutable<this>>this).isSaved = isSaved;
-    //     if (!isSaved) {
-    //         this.observable.send("unsavedChanges");
-    //     }
-    //     else {
-    //         this.observable.send("saveSuccessful");
-    //     }
-    // }
 
     // @messageResponse("projectCleared")
     // private projectCleared() {
@@ -533,11 +515,9 @@ export class ProjectEditor {
     //     }
     // }
 
-    @messageResponse()
-    private textChanged(msg: Message) {
-        let updatedFile: SourceFile = msg.data;
+    @messageResponse("textChanged", "unwrap")
+    private textChanged(updatedFile: SourceFile) {
         this.project.setFileContents(updatedFile);
-        // this.setSaved(false);
     }
 
 
@@ -567,83 +547,126 @@ export class ProjectEditor {
 }
 // $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
 
+export type ProjectSaveAction = (project: Project) => Promise<any>;
+
 export class ProjectSaveOutlet {
 
     public _act!: MessageResponses;
 
-    private readonly projectEditor: ProjectEditor;
+    public readonly project: Project;
+    public readonly isSaved: boolean = true;
+
+    private saveAction: ProjectSaveAction;
 
     private readonly element: JQuery;
     private readonly saveButtonElem: JQuery;
 
+
     private isAutosaveOn: boolean = true;
 
-    public constructor(element: JQuery, projectEditor: ProjectEditor) {
+    public constructor(element: JQuery, project: Project,
+        saveAction: ProjectSaveAction,
+        autosaveInterval: number | false = 30000) {
+
         this.element = element;
-        this.projectEditor = projectEditor;
-        addListener(projectEditor, this);
+        this.saveAction = saveAction;
 
         this.saveButtonElem =
-            $('<button class="btn btn-default"></button>')
+            $('<button class="btn"></button>')
             .prop("disabled", true)
             .html('<span class="glyphicon glyphicon-floppy-remove"></span>')
             .on("click", () => {
-                this.saveAction();
+                this.saveProject();
             });
 
         this.element.append(this.saveButtonElem);
 
-        setInterval(() => this.autosaveCallback(), 30000);
+        if (autosaveInterval !== false) {
+            setInterval(() => this.autosaveCallback(), autosaveInterval);
+        }
 
-
+        this.project = this.setProject(project);
     }
 
-    private saveAction() {
-        if (this.projectEditor.isOpen && !this.projectEditor.isSaved) {
-            // this.projectEditor.saveProject();
+    public setProject(project: Project) {
+        if (project !== this.project) {
+            stopListeningTo(this, this.project);
+            (<Mutable<this>>this).project = project;
+            listenTo(this, project);
         }
+
+        this.onSaveSuccessful();
+
+        return project;
     }
 
     private autosaveCallback() {
         if (this.isAutosaveOn) {
-            this.saveAction();
+            this.saveProject();
         }
     }
 
-    @messageResponse()
-    private projectLoaded() {
+    public async saveProject() {
+
+        if (this.isSaved) {
+            return;
+        }
+        
+        try {
+            this.onSaveAttempted();
+            await this.saveAction(this.project);
+            this.onSaveSuccessful();
+        }
+        catch(err) {
+            this.onSaveFailed();
+        }
+
+    }
+
+    private onSaveSuccessful() {
+        (<Mutable<this>>this).isSaved = true;
         this.saveButtonElem.prop("disabled", false);
-        this.saveButtonElem.removeClass("btn-default");
+        this.saveButtonElem.removeClass("btn-success-muted");
         this.saveButtonElem.removeClass("btn-warning-muted");
+        this.saveButtonElem.removeClass("btn-danger-muted");
         this.saveButtonElem.addClass("btn-success-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
     }
 
-    @messageResponse()
-    private unsavedChanges() {
-        this.saveButtonElem.removeClass("btn-default");
+    private onUnsavedChanges() {
+        (<Mutable<this>>this).isSaved = false;
         this.saveButtonElem.removeClass("btn-success-muted");
+        this.saveButtonElem.removeClass("btn-warning-muted");
+        this.saveButtonElem.removeClass("btn-danger-muted");
         this.saveButtonElem.addClass("btn-warning-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
     }
 
-    @messageResponse()
-    private saveAttempted() {
-        this.saveButtonElem.removeClass("btn-default");
+    private onSaveAttempted() {
         this.saveButtonElem.removeClass("btn-success-muted");
+        this.saveButtonElem.removeClass("btn-warning-muted");
+        this.saveButtonElem.removeClass("btn-danger-muted");
         this.saveButtonElem.addClass("btn-warning-muted");
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-open pulse"></span>');
     }
 
-    @messageResponse()
-    private saveSuccessful() {
-        this.saveButtonElem.removeClass("btn-default");
+    private onSaveFailed() {
+        this.saveButtonElem.removeClass("btn-success-muted");
         this.saveButtonElem.removeClass("btn-warning-muted");
-        this.saveButtonElem.addClass("btn-success-muted");
-        this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-saved"></span>');
+        this.saveButtonElem.removeClass("btn-danger-muted");
+        this.saveButtonElem.addClass("btn-danger-muted");
+        this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
     }
 
+    
+    @messageResponse("fileAdded")
+    @messageResponse("fileRemoved")
+    @messageResponse("fileContentsSet")
+    private onProjectChanged() {
+        this.onUnsavedChanges();
+    }
 }
+
 
 function createCompilationOutletHTML() {
     return `
@@ -874,7 +897,7 @@ export class CompilationStatusOutlet {
         this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
             .append(this.numStyleElem = $('<span></span>'))
             .append(" ")
-            .append('<span class="glyphicon glyphicon-lamp"></span>')
+            .append(ICON_LIGHT_BULB)
             .appendTo(this.notesElem);
 
         this.project = this.setProject(project);

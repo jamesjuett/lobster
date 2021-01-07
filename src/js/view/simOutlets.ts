@@ -707,7 +707,7 @@ export class DefaultLobsterOutlet {
         new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
-        new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
+        // new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
 
         // this.annotationMessagesElem = element.find(".annotationMessages");
         // this.annotationMessagesElem.find("button").click(() => {

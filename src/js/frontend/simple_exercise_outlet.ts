@@ -3,6 +3,7 @@
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
         <div>
+            <div class = "lobster-project-save-outlet" style="float:right; margin-top: 5px;"></div>
             <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
                 <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
                     <div style="display: inline-block">
@@ -25,8 +26,7 @@ export function createSimpleExerciseOutlet(id: string) {
                         <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
                         
                         <button class = "btn btn-primary runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                        <div class = "compilation-status-outlet" style="float:right">
-                        </div>
+                        <div class = "compilation-status-outlet" style="float:right"></div>
                     </div>
                     <div class="codeMirrorEditor" style = "position: relative; background-color: #272822">
                         <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
@@ -112,5 +112,33 @@ export function createSimpleExerciseOutlet(id: string) {
             </div>
         </div>
 
+    `);
+}
+
+
+export function createSimpleExerciseOutletModals() {
+    return $(`
+    <div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">New Project</h4>
+            </div>
+            <div class="modal-body">
+            <form class="form" id="lobster-create-project-form" >
+                <label for="lobster-create-project-name" class="control-label">Project Name</label>
+                <br />
+                <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
+                <br />
+                <div style="text-align: right">
+                    <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+            </div>
+        </div>
+        </div>
+    </div>
     `);
 }
