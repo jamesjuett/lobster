@@ -14,7 +14,7 @@ export interface FileData {
     readonly code: string;
     readonly isTranslationUnit: boolean;
 }
-declare type ProjectMessages = "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitAdded" | "translationUnitRemoved" | "translationUnitStatusSet" | "noteAdded";
+declare type ProjectMessages = "nameSet" | "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitAdded" | "translationUnitRemoved" | "translationUnitStatusSet" | "noteAdded";
 export declare class Project {
     observable: Observable<ProjectMessages>;
     readonly name: string;
@@ -26,6 +26,7 @@ export declare class Project {
     private pendingAutoCompileTimeout?;
     private autoCompileDelay?;
     constructor(name: string, files: readonly FileData[], id?: number);
+    setName(name: string): void;
     getFileData(): readonly FileData[];
     addFile(file: SourceFile, isTranslationUnit: boolean): void;
     removeFile(filename: string): void;

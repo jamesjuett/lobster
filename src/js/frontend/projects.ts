@@ -4,7 +4,7 @@ import { assert, Mutable } from "../util/util";
 import { FileData, Project } from "../view/editors";
 import { UserInfo, USERS } from "./user";
 import axios from 'axios';
-import { icon_middle, ICON_PENCIL, ICON_PLUS } from "./octicons";
+import { icon_middle, ICON_PLUS } from "./octicons";
 
 export type ProjectData = {
     id: number;
@@ -102,6 +102,9 @@ export async function getMyProjects() {
 }
 
 export async function saveProject(project: Project) {
+    if (!project.id) {
+        return; // If it doesn't have an ID, it's just the local default project
+    }
 
     return axios({
         url: `api/projects/${project.id!}`,

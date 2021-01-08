@@ -60,11 +60,11 @@ export class LobsterApplication {
         $("#lobster-edit-project-modal").on('show.bs.modal', () => {
             $("#lobster-edit-project-name").val(this.activeProject.name)
         });
-        // $("#lobster-edit-project-form").on("submit", (e) => {
-        //     e.preventDefault();
-        //     this.editProject($("#lobster-edit-project-name").val() as string);
-        //     $("#lobster-edit-project-modal").modal("hide");
-        // });
+        $("#lobster-edit-project-form").on("submit", (e) => {
+            e.preventDefault();
+            this.editProject($("#lobster-edit-project-name").val() as string);
+            $("#lobster-edit-project-modal").modal("hide");
+        });
         $("#lobster-edit-project-delete").on("click", (e) => {
             e.preventDefault();
             this.deleteProject();
@@ -74,10 +74,18 @@ export class LobsterApplication {
     }
 
     @messageResponse("userLoggedIn", "unwrap")
-    protected onUserLoggedIn(user: UserData) {
+    protected async onUserLoggedIn(user: UserData) {
         this.logInButtonElem.html(`${ICON_PERSON} ${user.email}`);
 
-        this.refreshProjects();
+        await this.refreshProjects();
+
+        if (!this.activeProject.id) {
+            let desiredId = getProjectIdFromLocationHash();
+            let firstProject = this.myProjects.projects.find(p => p.id === desiredId);
+            if (firstProject) {
+                this.setProject(createProjectFromData(firstProject));
+            }
+        }
     }
     
     @messageResponse("userLoggedOut", "unwrap")
@@ -89,16 +97,12 @@ export class LobsterApplication {
     
     @messageResponse("projectSelected", "unwrap")
     protected onProjectSelected(projectData: ProjectData) {
-        this.setProject(new Project(
-            projectData.name,
-            extractProjectFiles(projectData),
-            projectData.id
-        ).turnOnAutoCompile());
+        this.setProject(createProjectFromData(projectData));
     }
 
     private async refreshProjects() {
         this.setProjects(await getMyProjects());
-        this.myProjects.setActiveProject(this.activeProject.id ?? getProjectIdFromLocationHash());
+        this.myProjects.setActiveProject(this.activeProject.id);
     }
 
     private setProject(project: Project) {
@@ -116,6 +120,17 @@ export class LobsterApplication {
     private async createProject(name: string) {
         let newProject = await createProject(name);
         this.setProjects([...this.myProjects.projects, newProject]);
+        this.setProject(createProjectFromData(newProject));
+    }
+
+    private async editProject(name: string) {
+        this.activeProject.setName(name);
+        await this.lobster.projectSaveOutlet?.saveProject();
+        let projectsCopy = this.myProjects.projects.map(
+            p => p.id === this.activeProject.id ? Object.assign({}, p, {name: name}) : p
+        );
+        this.setProjects(projectsCopy);
+        this.setProject(this.activeProject);
     }
 
     private async deleteProject() {
@@ -128,6 +143,14 @@ export class LobsterApplication {
         this.setProjects(projectsCopy);
     }
 
+}
+
+function createProjectFromData(projectData: ProjectData): Project {
+    return new Project(
+        projectData.name,
+        extractProjectFiles(projectData),
+        projectData.id
+    ).turnOnAutoCompile();
 }
 
 function getProjectIdFromLocationHash() {
@@ -147,6 +170,8 @@ function createDefaultProject() {
         { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
     ]).turnOnAutoCompile();
 }
+
+
 
 // export function createModals() {
 //     return $(`

@@ -16,12 +16,13 @@ export declare class LobsterApplication {
     private readonly logInButtonElem;
     constructor();
     private setUpModals;
-    protected onUserLoggedIn(user: UserData): void;
+    protected onUserLoggedIn(user: UserData): Promise<void>;
     protected onUserLoggedOut(user: UserData): void;
     protected onProjectSelected(projectData: ProjectData): void;
     private refreshProjects;
     private setProject;
     private setProjects;
     private createProject;
+    private editProject;
     private deleteProject;
 }

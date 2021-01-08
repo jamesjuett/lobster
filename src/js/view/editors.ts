@@ -8,10 +8,8 @@ import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
-import { Note, SyntaxNote, NoteKind, NoteRecorder } from "../core/errors";
+import { Note, SyntaxNote, NoteKind } from "../core/errors";
 import { projectAnalyses } from "../core/analysis";
-import { update } from "lodash";
-import { ICON_LIGHT_BULB } from "../frontend/octicons";
 
 const API_URL_LOAD_PROJECT = "/api/me/project/get/";
 const API_URL_SAVE_PROJECT = "/api/me/project/save/";
@@ -23,6 +21,7 @@ export interface FileData {
 }
 
 type ProjectMessages =
+    "nameSet" |
     "compilationFinished" |
     "compilationOutOfDate" |
     "fileAdded" |
@@ -56,6 +55,11 @@ export class Project {
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
         this.recompile();
+    }
+    
+    public setName(name: string) {
+        (<Mutable<this>>this).name = name;
+        this.observable.send("nameSet");
     }
 
     public getFileData() : readonly FileData[] {
@@ -653,7 +657,7 @@ export class ProjectSaveOutlet {
         this.saveButtonElem.html('<span class="glyphicon glyphicon-floppy-disk"></span>');
     }
 
-    
+    @messageResponse("nameSet")
     @messageResponse("fileAdded")
     @messageResponse("fileRemoved")
     @messageResponse("fileContentsSet")
@@ -896,7 +900,7 @@ export class CompilationStatusOutlet {
         this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
             .append(this.numStyleElem = $('<span></span>'))
             .append(" ")
-            .append(ICON_LIGHT_BULB)
+            .append('<i class="bi bi-lightbulb"></i>')
             .appendTo(this.notesElem);
 
         this.project = this.setProject(project);

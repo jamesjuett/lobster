@@ -23,6 +23,6 @@ export declare class MyProjects {
     setActiveProject(projectId: number | undefined): void;
 }
 export declare function getMyProjects(): Promise<ProjectData[]>;
-export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any>>;
+export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any> | undefined>;
 export declare function createProject(name: string): Promise<ProjectData>;
 export declare function deleteProject(id: number): Promise<import("axios").AxiosResponse<any>>;
