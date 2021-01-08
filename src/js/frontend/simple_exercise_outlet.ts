@@ -1,9 +1,15 @@
+import { icon_align, icon_middle, ICON_PENCIL } from "./octicons";
 
 
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
         <div>
-            <div class = "lobster-project-save-outlet" style="float:right; margin-top: 5px;"></div>
+            <div style="position: relative; float:right; margin-top: 5px; z-index: 10;">
+                <button class="btn btn-primary" data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">
+                    ${icon_align(ICON_PENCIL, "text-top")} <span id="lobster-project-name"></span>
+                </button>
+                <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
+            </div>
             <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
                 <div style="position: absolute; right: 0; bottom: 0; padding-bottom: 3px">
                     <div style="display: inline-block">
@@ -112,33 +118,5 @@ export function createSimpleExerciseOutlet(id: string) {
             </div>
         </div>
 
-    `);
-}
-
-
-export function createSimpleExerciseOutletModals() {
-    return $(`
-    <div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title">New Project</h4>
-            </div>
-            <div class="modal-body">
-            <form class="form" id="lobster-create-project-form" >
-                <label for="lobster-create-project-name" class="control-label">Project Name</label>
-                <br />
-                <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
-                <br />
-                <div style="text-align: right">
-                    <button class="btn btn-default" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create</button>
-                </div>
-            </form>
-            </div>
-        </div>
-        </div>
-    </div>
     `);
 }

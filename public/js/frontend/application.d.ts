@@ -1,5 +1,6 @@
 import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { MessageResponses } from "../util/observe";
+import { Project } from "../view/editors";
 import { MyProjects, ProjectData } from "./projects";
 import { UserInfo as UserData } from "./user";
 /**
@@ -11,7 +12,7 @@ export declare class LobsterApplication {
     _act: MessageResponses;
     readonly myProjects: MyProjects;
     readonly lobster: SimpleExerciseLobsterOutlet;
-    readonly activeProjectId?: number;
+    readonly activeProject: Project;
     private readonly logInButtonElem;
     constructor();
     private setUpModals;
@@ -19,6 +20,8 @@ export declare class LobsterApplication {
     protected onUserLoggedOut(user: UserData): void;
     protected onProjectSelected(projectData: ProjectData): void;
     private refreshProjects;
+    private setProject;
     private setProjects;
     private createProject;
+    private deleteProject;
 }

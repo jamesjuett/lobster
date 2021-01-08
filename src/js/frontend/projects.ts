@@ -4,7 +4,7 @@ import { assert, Mutable } from "../util/util";
 import { FileData, Project } from "../view/editors";
 import { UserInfo, USERS } from "./user";
 import axios from 'axios';
-import { icon_middle, ICON_PLUS } from "./octicons";
+import { icon_middle, ICON_PENCIL, ICON_PLUS } from "./octicons";
 
 export type ProjectData = {
     id: number;
@@ -64,15 +64,23 @@ export class MyProjects {
 
     public setActiveProject(projectId: number | undefined) {
         if (this.activeProjectId) {
-            this.listElem.children().eq(this.projects.findIndex(p => p.id === this.activeProjectId))
-                .removeClass("active");
+            this.listElem.children()
+                .removeClass("active")
+                // .find("button").remove(); // remove edit button
         }
 
         (<Mutable<this>>this).activeProjectId = projectId;
 
         if (this.activeProjectId) {
-            this.listElem.children().eq(this.projects.findIndex(p => p.id === projectId))
-                .addClass("active");
+            let activeIndex = this.projects.findIndex(p => p.id === projectId);
+            if (activeIndex === -1) {
+                activeIndex = this.projects.length;
+            }
+            this.listElem.children().eq(activeIndex)
+                .addClass("active")
+                // .append($(
+                //     `<button data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">${icon_middle(ICON_PENCIL)}</button>`
+                // ));
         }
     }
 
@@ -122,7 +130,7 @@ export async function createProject(name: string) {
                 name: name,
                 files: <FileData[]>[{
                     name: "main.cpp",
-                    code: `int main() {\n  cout << "Hello ${name}!" << endl;\n}`,
+                    code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello ${name}!" << endl;\n}`,
                     isTranslationUnit: true
                 }]
             })
@@ -133,4 +141,16 @@ export async function createProject(name: string) {
     });
 
     return await response.data as ProjectData;
+}
+
+export async function deleteProject(id: number) {
+
+    return await axios({
+        url: `api/projects/${id}`,
+        method: "DELETE",
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
 }

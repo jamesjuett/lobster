@@ -23,13 +23,13 @@ export interface FileData {
 }
 
 type ProjectMessages =
-    "translationUnitAdded" |
-    "translationUnitRemoved" |
     "compilationFinished" |
     "compilationOutOfDate" |
     "fileAdded" |
     "fileRemoved" |
     "fileContentsSet" |
+    "translationUnitAdded" |
+    "translationUnitRemoved" |
     "translationUnitStatusSet" |
     "noteAdded";
 
@@ -155,11 +155,11 @@ export class Project {
 
         if (this.translationUnitNames.has(tuName)) {
             this.translationUnitNames.delete(tuName);
-            this.observable.send("translationUnitRemoved");
+            this.observable.send("translationUnitRemoved", tuName);
         }
         else {
             this.translationUnitNames.add(tuName);
-            this.observable.send("translationUnitAdded");
+            this.observable.send("translationUnitAdded", tuName);
         }
 
         this.compilationOutOfDate();
@@ -202,10 +202,12 @@ export class Project {
         if (this.isCompilationOutOfDate) {
             this.dispatchAutoCompile();
         }
+        return this;
     }
 
     public turnOffAutoCompile() {
         this.autoCompileDelay = undefined;
+        return this;
     }
 
     public addNote(note: Note) {
@@ -254,13 +256,6 @@ export class Project {
     // }
 }
 
-type ProjectEditorMessages =
-    "saveAttempted" |
-    "unsavedChanges" |
-    "saveSuccessful" |
-    "projectCleared" |
-    "projectLoaded";
-
 /**
  * This class manages all of the source files associated with a project and the editors
  * for those files. It is also owns the Program object and controls its compilation. It
@@ -271,7 +266,7 @@ export class ProjectEditor {
 
     private static instances: ProjectEditor[] = [];
 
-    public observable = new Observable<ProjectEditorMessages>(this);
+    // public observable = new Observable<ProjectEditorMessages>(this);
     public _act!: MessageResponses;
 
     // TODO: transfer to Project class
@@ -662,6 +657,9 @@ export class ProjectSaveOutlet {
     @messageResponse("fileAdded")
     @messageResponse("fileRemoved")
     @messageResponse("fileContentsSet")
+    @messageResponse("translationUnitAdded")
+    @messageResponse("translationUnitRemoved")
+    @messageResponse("translationUnitStatusSet")
     private onProjectChanged() {
         this.onUnsavedChanges();
     }
@@ -733,10 +731,11 @@ export class CompilationOutlet {
         return project;
     }
 
-    @messageResponse("sourceFileAdded")
-    @messageResponse("sourceFileRemoved")
+    @messageResponse("fileAdded")
+    @messageResponse("fileRemoved")
     @messageResponse("translationUnitAdded")
     @messageResponse("translationUnitRemoved")
+    @messageResponse("translationUnitStatusSet")
     private updateButtons() {
         this.translationUnitsListElem.empty();
 

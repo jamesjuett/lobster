@@ -25,3 +25,4 @@ export declare class MyProjects {
 export declare function getMyProjects(): Promise<ProjectData[]>;
 export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any>>;
 export declare function createProject(name: string): Promise<ProjectData>;
+export declare function deleteProject(id: number): Promise<import("axios").AxiosResponse<any>>;
