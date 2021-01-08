@@ -4,8 +4,8 @@ import { listenTo, messageResponse, MessageResponses } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { Project } from "../view/editors";
 import { ICON_PERSON } from "./octicons";
-import { parseFiles as extractProjectFiles, getMyProjects, MyProjects, ProjectData, saveProject, createProject } from "./projects";
-import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML, createSimpleExerciseOutletModals } from "./simple_exercise_outlet";
+import { parseFiles as extractProjectFiles, getMyProjects, MyProjects, ProjectData, saveProject, createProject, deleteProject } from "./projects";
+import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
 
 
@@ -21,7 +21,7 @@ export class LobsterApplication {
     public readonly myProjects: MyProjects;
     public readonly lobster: SimpleExerciseLobsterOutlet;
 
-    public readonly activeProjectId?: number;
+    public readonly activeProject: Project;
 
     private readonly logInButtonElem: JQuery;
 
@@ -33,24 +33,14 @@ export class LobsterApplication {
         $(".lobster-lobster").append(createSimpleExerciseOutletHTML("1"));
         this.lobster = new SimpleExerciseLobsterOutlet(
             $(".lobster-lobster"),
-            new Project("Test Project", [
-                { name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true },
-                { name: "file2.cpp", code: "blah wheee", isTranslationUnit: false }
-            ]),
-            "Nice work!"
-        ).onSave((project: Project) => saveProject(project));
-        this.lobster.project.turnOnAutoCompile();
+            createDefaultProject(),
+            "Nice work!")
+            .onSave((project: Project) => saveProject(project));
+        
+        this.activeProject = this.setProject(createDefaultProject());
 
         this.logInButtonElem = $(".lobster-log-in-button");
         assert(this.logInButtonElem.length > 0);
-
-        let hash = window.location.hash;
-        if (hash.length > 1) {
-            this.activeProjectId = parseInt(hash.slice(1));
-            if (isNaN(this.activeProjectId)) {
-                this.activeProjectId = undefined;
-            }
-        }
 
         listenTo(this, this.myProjects);
         listenTo(this, USERS);
@@ -59,13 +49,28 @@ export class LobsterApplication {
     }
     
     private setUpModals() {
-        $("body").append(createSimpleExerciseOutletModals());
-
+        // Create Project Modal
         $("#lobster-create-project-form").on("submit", (e) => {
             e.preventDefault();
             this.createProject($("#lobster-create-project-name").val() as string);
             $("#lobster-create-project-modal").modal("hide");
         });
+
+        // Edit (and delete) Project Modal
+        $("#lobster-edit-project-modal").on('show.bs.modal', () => {
+            $("#lobster-edit-project-name").val(this.activeProject.name)
+        });
+        // $("#lobster-edit-project-form").on("submit", (e) => {
+        //     e.preventDefault();
+        //     this.editProject($("#lobster-edit-project-name").val() as string);
+        //     $("#lobster-edit-project-modal").modal("hide");
+        // });
+        $("#lobster-edit-project-delete").on("click", (e) => {
+            e.preventDefault();
+            this.deleteProject();
+            $("#lobster-edit-project-modal").modal("hide");
+        });
+
     }
 
     @messageResponse("userLoggedIn", "unwrap")
@@ -79,36 +84,93 @@ export class LobsterApplication {
     protected onUserLoggedOut(user: UserData) {
         this.logInButtonElem.html("Sign In");
 
-        (<Mutable<this>>this).activeProjectId = undefined;
+        this.setProject(createDefaultProject());
     }
     
     @messageResponse("projectSelected", "unwrap")
     protected onProjectSelected(projectData: ProjectData) {
-        this.lobster.setProject(
-            new Project(
-                projectData.name,
-                extractProjectFiles(projectData),
-                projectData.id
-            )
-        );
-        
-        (<Mutable<this>>this).activeProjectId = projectData.id;
-        this.myProjects.setActiveProject(this.activeProjectId);
+        this.setProject(new Project(
+            projectData.name,
+            extractProjectFiles(projectData),
+            projectData.id
+        ).turnOnAutoCompile());
     }
 
     private async refreshProjects() {
         this.setProjects(await getMyProjects());
+        this.myProjects.setActiveProject(this.activeProject.id ?? getProjectIdFromLocationHash());
+    }
+
+    private setProject(project: Project) {
+        (<Mutable<this>>this).activeProject = project;
+        $("#lobster-project-name").html(project.name);
+        this.lobster.setProject(project);
+        this.myProjects.setActiveProject(project.id);
+        return project;
     }
 
     private setProjects(projects: readonly ProjectData[]) {
         this.myProjects.setProjects(projects);
-        this.myProjects.setActiveProject(this.activeProjectId);
     }
 
     private async createProject(name: string) {
         let newProject = await createProject(name);
         this.setProjects([...this.myProjects.projects, newProject]);
+    }
 
+    private async deleteProject() {
+        if (!this.activeProject.id) {
+            return; // If it doesn't have an ID, it's just the local default project
+        }
+        await deleteProject(this.activeProject.id);
+        let projectsCopy = [...this.myProjects.projects];
+        projectsCopy.splice(this.myProjects.projects.findIndex(p => p.id === this.activeProject.id), 1);
+        this.setProjects(projectsCopy);
     }
 
 }
+
+function getProjectIdFromLocationHash() {
+    let hash = window.location.hash;
+    let id: number | undefined;
+    if (hash.length > 1) {
+        id = parseInt(hash.slice(1));
+        if (isNaN(id)) {
+            id = undefined;
+        }
+    }
+    return id;
+}
+
+function createDefaultProject() {
+    return new Project("[unnamed project]", [
+        { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
+    ]).turnOnAutoCompile();
+}
+
+// export function createModals() {
+//     return $(`
+//     <div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
+//         <div class="modal-dialog" role="document">
+//         <div class="modal-content">
+//             <div class="modal-header">
+//                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+//                 <h4 class="modal-title">New Project</h4>
+//             </div>
+//             <div class="modal-body">
+//             <form class="form" id="lobster-create-project-form" >
+//                 <label for="lobster-create-project-name" class="control-label">Project Name</label>
+//                 <br />
+//                 <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
+//                 <br />
+//                 <div style="text-align: right">
+//                     <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+//                     <button type="submit" class="btn btn-primary">Create</button>
+//                 </div>
+//             </form>
+//             </div>
+//         </div>
+//         </div>
+//     </div>
+//     `);
+// }

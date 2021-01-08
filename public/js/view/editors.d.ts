@@ -14,7 +14,7 @@ export interface FileData {
     readonly code: string;
     readonly isTranslationUnit: boolean;
 }
-declare type ProjectMessages = "translationUnitAdded" | "translationUnitRemoved" | "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitStatusSet" | "noteAdded";
+declare type ProjectMessages = "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitAdded" | "translationUnitRemoved" | "translationUnitStatusSet" | "noteAdded";
 export declare class Project {
     observable: Observable<ProjectMessages>;
     readonly name: string;
@@ -48,11 +48,10 @@ export declare class Project {
      * been made within the specified delay.
      * @param autoCompileDelay
      */
-    turnOnAutoCompile(autoCompileDelay?: number): void;
-    turnOffAutoCompile(): void;
+    turnOnAutoCompile(autoCompileDelay?: number): this;
+    turnOffAutoCompile(): this;
     addNote(note: Note): void;
 }
-declare type ProjectEditorMessages = "saveAttempted" | "unsavedChanges" | "saveSuccessful" | "projectCleared" | "projectLoaded";
 /**
  * This class manages all of the source files associated with a project and the editors
  * for those files. It is also owns the Program object and controls its compilation. It
@@ -61,7 +60,6 @@ declare type ProjectEditorMessages = "saveAttempted" | "unsavedChanges" | "saveS
  */
 export declare class ProjectEditor {
     private static instances;
-    observable: Observable<ProjectEditorMessages>;
     _act: MessageResponses;
     readonly isOpen: boolean;
     private filesElem;

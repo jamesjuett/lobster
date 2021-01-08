@@ -67,6 +67,60 @@
     </div>
 </div>
 
+<!------------------- MODALS ------------------->
+
+<div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">New Project</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-create-project-form" >
+            <label for="lobster-create-project-name" class="control-label">Project Name</label>
+            <br />
+            <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
+            <br />
+            <div style="text-align: right">
+                <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+        </div>
+    </div>
+    </div>
+</div>
+
+<div id="lobster-edit-project-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Edit Project</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-edit-project-form" >
+            <label for="lobster-edit-project-name" class="control-label">Project Name</label>
+            <br />
+            <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-edit-project-name" required>
+            <br />
+            <div style="text-align: right">
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+            <div class="panel panel-danger">
+                <div class="panel-heading">
+                  <h3 class="panel-title">Danger Zone</h3>
+                </div>
+                <div class="panel-body">
+                  <button id="lobster-edit-project-delete" class="btn btn-danger">Delete Project</button>
+                </div>
+              </div>
+        </form>
+        </div>
+    </div>
+    </div>
+</div>
 
 </body>
 </html>
