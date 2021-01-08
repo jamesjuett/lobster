@@ -1,12 +1,10 @@
-import { icon_align, icon_middle, ICON_PENCIL } from "./octicons";
-
 
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
         <div>
             <div style="position: relative; float:right; margin-top: 5px; z-index: 10;">
                 <button class="btn btn-primary" data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">
-                    ${icon_align(ICON_PENCIL, "text-top")} <span id="lobster-project-name"></span>
+                    <i class="bi bi-pencil-square"></i> <span id="lobster-project-name"></span>
                 </button>
                 <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
             </div>
@@ -69,7 +67,7 @@ export function createSimpleExerciseOutlet(id: string) {
                         </div>
                     </div>
                     <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
-                    <table style="width: 100%; margin-top: 5px; ">
+                    <table style="width: 100%; height: calc(100vh - 130px); margin-top: 5px; ">
                         <tr>
                             <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
                                 <div style="position: relative; display: flex; flex-direction: column;">
