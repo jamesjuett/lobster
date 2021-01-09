@@ -1,10 +1,9 @@
-import Cookies from "js-cookie";
 import { Observable } from "../util/observe";
 import { assert, Mutable } from "../util/util";
-import { FileData, Project } from "../view/editors";
-import { UserInfo, USERS } from "./user";
+import { USERS } from "./user";
 import axios from 'axios';
 import { icon_middle, ICON_PLUS } from "./octicons";
+import { FileData, Project } from "../core/Project";
 
 export type ProjectData = {
     id: number;
@@ -156,4 +155,24 @@ export async function deleteProject(id: number) {
         }
     });
 
+}
+
+
+export type ExerciseData = {
+    id: number;
+    name: string;
+    starter_project_id: number;
+    checkpoint_keys: string[];
+}
+
+export async function getExercise(exercise_id: number) {
+    const response = await axios({
+        url: `api/exercises/${exercise_id}`,
+        method: "GET",
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
+    return await response.data as ExerciseData;
 }

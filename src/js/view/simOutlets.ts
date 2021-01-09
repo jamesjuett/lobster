@@ -6,7 +6,7 @@ import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, Ar
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
-import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet, Project } from "./editors";
+import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";
@@ -15,6 +15,7 @@ import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeFunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
+import { Project } from "../core/Project";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -671,7 +672,7 @@ export class DefaultLobsterOutlet {
 
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, project = new Project("unnammed project", [])) {
+    public constructor(element: JQuery, project = new Project("unnammed project", undefined, [])) {
         this.element = element;
         this.project = project;
 

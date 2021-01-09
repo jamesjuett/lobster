@@ -5,10 +5,10 @@ import { MessageResponses } from "../util/observe";
 import { CPPObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, PointerType, BoundedArrayType, ArrayElemType, CompleteClassType } from "../core/types";
 import { Simulation, SimulationInputStream } from "../core/Simulation";
-import { Project } from "./editors";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet } from "./codeOutlets";
 import { RuntimeFunction } from "../core/functions";
+import { Project } from "../core/Project";
 export declare var CPP_ANIMATIONS: boolean;
 export declare function setCPP_ANIMATIONS(onOff: boolean): void;
 export declare class SimulationOutlet {

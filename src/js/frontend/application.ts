@@ -1,12 +1,14 @@
 import Cookies from "js-cookie";
+import { EXERCISE_CHECKPOINTS, getExerciseCheckpoints, OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
+import { Project } from "../core/Project";
 import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { listenTo, messageResponse, MessageResponses } from "../util/observe";
 import { assert, Mutable } from "../util/util";
-import { Project } from "../view/editors";
 import { ICON_PERSON } from "./octicons";
-import { parseFiles as extractProjectFiles, getMyProjects, MyProjects, ProjectData, saveProject, createProject, deleteProject } from "./projects";
+import { parseFiles as extractProjectFiles, getMyProjects, MyProjects, ProjectData, saveProject, createProject, deleteProject, getExercise, ExerciseData } from "./projects";
 import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
+import axios from 'axios';
 
 
 /**
@@ -83,7 +85,7 @@ export class LobsterApplication {
             let desiredId = getProjectIdFromLocationHash();
             let firstProject = this.myProjects.projects.find(p => p.id === desiredId);
             if (firstProject) {
-                this.setProject(createProjectFromData(firstProject));
+                this.setProject(await createProjectFromData(firstProject));
             }
         }
     }
@@ -96,8 +98,8 @@ export class LobsterApplication {
     }
     
     @messageResponse("projectSelected", "unwrap")
-    protected onProjectSelected(projectData: ProjectData) {
-        this.setProject(createProjectFromData(projectData));
+    protected async onProjectSelected(projectData: ProjectData) {
+        this.setProject(await createProjectFromData(projectData));
     }
 
     private async refreshProjects() {
@@ -110,6 +112,7 @@ export class LobsterApplication {
         $("#lobster-project-name").html(project.name);
         this.lobster.setProject(project);
         this.myProjects.setActiveProject(project.id);
+        window.location.hash = project.id ? ""+project.id : "";
         return project;
     }
 
@@ -120,7 +123,7 @@ export class LobsterApplication {
     private async createProject(name: string) {
         let newProject = await createProject(name);
         this.setProjects([...this.myProjects.projects, newProject]);
-        this.setProject(createProjectFromData(newProject));
+        this.setProject(await createProjectFromData(newProject));
     }
 
     private async editProject(name: string) {
@@ -145,11 +148,31 @@ export class LobsterApplication {
 
 }
 
-function createProjectFromData(projectData: ProjectData): Project {
+async function createProjectFromData(projectData: ProjectData) {
+    let ex: ExerciseData | undefined;
+    if (projectData.exercise_id) {
+        ex = await getExercise(projectData.exercise_id);
+    }
     return new Project(
         projectData.name,
+        projectData.id,
         extractProjectFiles(projectData),
-        projectData.id
+        {
+            checkpoints: getExerciseCheckpoints(ex?.checkpoint_keys ?? [])
+        }
+    ).turnOnAutoCompile();
+}
+
+function createDefaultProject() {
+    return new Project(
+        "[unnamed project]",
+        undefined, [
+            { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
+        ], {
+            checkpoints: [
+                new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
+            ]
+        }
     ).turnOnAutoCompile();
 }
 
@@ -165,37 +188,4 @@ function getProjectIdFromLocationHash() {
     return id;
 }
 
-function createDefaultProject() {
-    return new Project("[unnamed project]", [
-        { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
-    ]).turnOnAutoCompile();
-}
 
-
-
-// export function createModals() {
-//     return $(`
-//     <div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
-//         <div class="modal-dialog" role="document">
-//         <div class="modal-content">
-//             <div class="modal-header">
-//                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-//                 <h4 class="modal-title">New Project</h4>
-//             </div>
-//             <div class="modal-body">
-//             <form class="form" id="lobster-create-project-form" >
-//                 <label for="lobster-create-project-name" class="control-label">Project Name</label>
-//                 <br />
-//                 <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
-//                 <br />
-//                 <div style="text-align: right">
-//                     <button class="btn btn-default" data-dismiss="modal">Cancel</button>
-//                     <button type="submit" class="btn btn-primary">Create</button>
-//                 </div>
-//             </form>
-//             </div>
-//         </div>
-//         </div>
-//     </div>
-//     `);
-// }

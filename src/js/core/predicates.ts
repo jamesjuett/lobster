@@ -8,7 +8,7 @@ import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
 import { FunctionCallExpression, FunctionCall } from "./functionCall";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
-import { findFirstConstruct } from "./analysis";
+import { findFirstConstruct } from "../analysis/analysis";
 
 
 

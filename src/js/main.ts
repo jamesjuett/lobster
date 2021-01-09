@@ -1,5 +1,4 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
-import { Project } from "./view/editors";
 
 import "./lib/cstdlib"
 import "./lib/string"
