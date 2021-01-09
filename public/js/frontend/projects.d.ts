@@ -1,7 +1,7 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
 import { Observable } from "../util/observe";
-import { FileData, Project } from "../view/editors";
+import { FileData, Project } from "../core/Project";
 export declare type ProjectData = {
     id: number;
     exercise_id?: number | null;
@@ -26,3 +26,10 @@ export declare function getMyProjects(): Promise<ProjectData[]>;
 export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any> | undefined>;
 export declare function createProject(name: string): Promise<ProjectData>;
 export declare function deleteProject(id: number): Promise<import("axios").AxiosResponse<any>>;
+export declare type ExerciseData = {
+    id: number;
+    name: string;
+    starter_project_id: number;
+    checkpoint_keys: string[];
+};
+export declare function getExercise(exercise_id: number): Promise<ExerciseData>;

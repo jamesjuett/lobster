@@ -14,17 +14,34 @@
     display: none;
 }
 
-.lobster-complete-glyphicon {
-    color: #1acf1a;
+.lobster-checkpoint-complete-icon {
+    /* color: #1acf1a; */
     font-size: large;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); */
 }
 
-.lobster-incomplete-glyphicon {
-    vertical-align: middle;
-    color: #c75f5f;
+.lobster-checkpoint-incomplete-icon {
+    /* color: #c75f5f; */
     font-size: large;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); */
+}
+
+.lobster-checkpoint-thinking-icon {
+    display: inline-block;
+    /* color: #eee34f; */
+    font-size: large;
+    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); */
+    animation: rotation 2s infinite linear;
+    padding-bottom: 0.12em; /* Makes rotation centered */
+}
+
+@keyframes rotation {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(359deg);
+    }
 }
 
 .lobster-checkpoint {

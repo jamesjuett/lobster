@@ -9,50 +9,7 @@ import 'codemirror/addon/display/fullscreen.js';
 import 'codemirror/keymap/sublime.js';
 import { Observable, MessageResponses } from "../util/observe";
 import { Note } from "../core/errors";
-export interface FileData {
-    readonly name: string;
-    readonly code: string;
-    readonly isTranslationUnit: boolean;
-}
-declare type ProjectMessages = "nameSet" | "compilationFinished" | "compilationOutOfDate" | "fileAdded" | "fileRemoved" | "fileContentsSet" | "translationUnitAdded" | "translationUnitRemoved" | "translationUnitStatusSet" | "noteAdded";
-export declare class Project {
-    observable: Observable<ProjectMessages>;
-    readonly name: string;
-    readonly id?: number;
-    readonly sourceFiles: readonly SourceFile[];
-    private translationUnitNames;
-    readonly program: Program;
-    readonly isCompilationOutOfDate: boolean;
-    private pendingAutoCompileTimeout?;
-    private autoCompileDelay?;
-    constructor(name: string, files: readonly FileData[], id?: number);
-    setName(name: string): void;
-    getFileData(): readonly FileData[];
-    addFile(file: SourceFile, isTranslationUnit: boolean): void;
-    removeFile(filename: string): void;
-    setFileContents(file: SourceFile): void;
-    setTranslationUnit(name: string, isTranslationUnit: boolean): void;
-    recompile(): void;
-    isTranslationUnit(name: string): boolean;
-    /**
-     * Toggles whether a source file in this project is being used as a translation unit
-     * and should be compiled as part of the program. The name given for the translation
-     * unit to be toggled must match the name of one of this project's source files.
-     * @param tuName
-     */
-    toggleTranslationUnit(tuName: string): void;
-    private compilationOutOfDate;
-    private dispatchAutoCompile;
-    /**
-     * Turns on auto-compilation. Any changes to the project source will
-     * trigger a recompile, which begins after no subsequent changes have
-     * been made within the specified delay.
-     * @param autoCompileDelay
-     */
-    turnOnAutoCompile(autoCompileDelay?: number): this;
-    turnOffAutoCompile(): this;
-    addNote(note: Note): void;
-}
+import { Project } from "../core/Project";
 /**
  * This class manages all of the source files associated with a project and the editors
  * for those files. It is also owns the Program object and controls its compilation. It
@@ -168,4 +125,3 @@ export declare class FileEditor {
     setSyntaxError(line: number): void;
     gotoSourceReference(sourceRef: SourceReference): void;
 }
-export {};
