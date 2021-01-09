@@ -167,7 +167,7 @@ export const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[] | un
         new StaticAnalysisCheckpoint("Use a for loop", (program: Program) => {
             return !! findFirstConstruct(program, Predicates.byKind("for_statement"));
         }),
-        new OutputCheckpoint("Print \"Hello World!\"", outputComparator("Hello World!"))
+        new OutputCheckpoint("Print \"Hello World!\"", outputComparator("Hello World!", true))
     ],
     "test_checkpoint_2": [
         new StaticAnalysisCheckpoint("Declare z", (program: Program) => {
