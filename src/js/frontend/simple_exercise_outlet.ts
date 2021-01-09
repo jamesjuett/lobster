@@ -2,6 +2,12 @@
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
         <div>
+            <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
+                <div class="panel-heading"></div>
+                <div class="panel-body">
+                    
+                </div>
+            </div>
             <div style="position: relative; float:right; margin-top: 5px; z-index: 10;">
                 <button class="btn btn-primary" data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">
                     <i class="bi bi-pencil-square"></i> <span id="lobster-project-name"></span>
@@ -106,12 +112,6 @@ export function createSimpleExerciseOutlet(id: string) {
                         </tr>
                     </table>
 
-                </div>
-            </div>
-            <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
-                <div class="panel-heading"></div>
-                <div class="panel-body">
-                    
                 </div>
             </div>
         </div>
