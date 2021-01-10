@@ -758,4 +758,7 @@ ul.codeStack li{
 
 .lobster-my-projects .list-group-item {
 	padding: 5px 10px;
+	overflow-x: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }

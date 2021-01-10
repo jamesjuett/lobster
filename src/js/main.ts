@@ -4,7 +4,7 @@ import "./lib/cstdlib"
 import "./lib/string"
 import "./lib/vector"
 import { Users } from "./frontend/user";
-import { MyProjects } from "./frontend/projects";
+import { ProjectList } from "./frontend/projects";
 import { LobsterApplication } from "./frontend/application";
 
 
