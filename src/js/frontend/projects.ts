@@ -26,7 +26,7 @@ type ProjectListMessages =
     "projectSelected";
 
 
-export class MyProjects {
+export class ProjectList {
 
     public observable = new Observable<ProjectListMessages>(this);
 
@@ -59,37 +59,73 @@ export class MyProjects {
 
         $(`<a class="list-group-item" data-toggle="modal" data-target="#lobster-create-project-modal" style="text-align: center">${icon_middle(ICON_PLUS)}</a>`)
             .appendTo(this.listElem);
+        this.setActiveProject(this.activeProjectId);
     }
 
     public setActiveProject(projectId: number | undefined) {
         if (this.activeProjectId) {
             this.listElem.children()
                 .removeClass("active")
-                // .find("button").remove(); // remove edit button
         }
 
         (<Mutable<this>>this).activeProjectId = projectId;
 
         if (this.activeProjectId) {
             let activeIndex = this.projects.findIndex(p => p.id === projectId);
-            if (activeIndex === -1) {
-                activeIndex = this.projects.length;
+            if (activeIndex !== -1) {
+                this.listElem.children().eq(activeIndex)
+                    .addClass("active");
             }
-            this.listElem.children().eq(activeIndex)
-                .addClass("active")
-                // .append($(
-                //     `<button data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">${icon_middle(ICON_PENCIL)}</button>`
-                // ));
         }
     }
 
-    
+    public createProject(newProject: ProjectData) {
+        this.setProjects([...this.projects, newProject]);
+    }
+
+    public editProject(projectId: number, data: Partial<ProjectData>) {
+        let projectsCopy = this.projects.map(
+            p => p.id === projectId ? Object.assign({}, p, data) : p
+        );
+        this.setProjects(projectsCopy);
+    }
+
+    public deleteProject(projectId: number) {
+        let projectsCopy = [...this.projects];
+        projectsCopy.splice(this.projects.findIndex(p => p.id === projectId), 1);
+        this.setProjects(projectsCopy);
+    }
 }
 
 
 export async function getMyProjects() {
         
     const response = await fetch(`api/users/me/projects`, {
+        method: 'GET',
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
+    let projects: ProjectData[] = await response.json();
+    return projects;
+}
+
+export async function getProject(project_id: number) {
+        
+    const response = await fetch(`api/projects/${project_id}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
+    return await response.json() as ProjectData;
+}
+
+export async function getCourseProjects(course_id: number) {
+        
+    const response = await fetch(`public_api/courses/${course_id}/projects`, {
         method: 'GET',
         headers: {
             'Authorization': 'bearer ' + USERS.getBearerToken()
@@ -109,6 +145,7 @@ export async function saveProject(project: Project) {
         url: `api/projects/${project.id!}`,
         method: "PATCH",
         data: {
+            name: project.name,
             contents: JSON.stringify({
                 name: project.name,
                 files: project.getFileData()
@@ -165,9 +202,9 @@ export type ExerciseData = {
     checkpoint_keys: string[];
 }
 
-export async function getExercise(exercise_id: number) {
+export async function getFullExercise(exercise_id: number) {
     const response = await axios({
-        url: `api/exercises/${exercise_id}`,
+        url: `api/exercises/${exercise_id}/full`,
         method: "GET",
         headers: {
             'Authorization': 'bearer ' + USERS.getBearerToken()

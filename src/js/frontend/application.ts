@@ -5,10 +5,11 @@ import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { listenTo, messageResponse, MessageResponses } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
-import { parseFiles as extractProjectFiles, getMyProjects, MyProjects, ProjectData, saveProject, createProject, deleteProject, getExercise, ExerciseData } from "./projects";
+import { parseFiles as extractProjectFiles, getMyProjects, ProjectList, ProjectData, saveProject, createProject, deleteProject, getFullExercise, ExerciseData, getCourseProjects, getProject } from "./projects";
 import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
 import axios from 'axios';
+import { CourseData, getCourses as getPublicCourses } from "./courses";
 
 
 /**
@@ -20,15 +21,20 @@ export class LobsterApplication {
 
     public _act!: MessageResponses;
 
-    public readonly myProjects: MyProjects;
+    public readonly myProjectsList: ProjectList;
+    public readonly courseProjectsList: ProjectList;
     public readonly lobster: SimpleExerciseLobsterOutlet;
 
+    public readonly myProjects?: ProjectData[];
+    public readonly courseProjects?: ProjectData[];
     public readonly activeProject: Project;
+    public readonly currentCourseId?: number;
 
     private readonly logInButtonElem: JQuery;
 
     public constructor() {
-        this.myProjects = new MyProjects($(".lobster-my-projects"));
+        this.myProjectsList = new ProjectList($(".lobster-my-projects"));
+        this.courseProjectsList = new ProjectList($(".lobster-course-projects"));
 
         this.setUpModals();
 
@@ -44,17 +50,20 @@ export class LobsterApplication {
         this.logInButtonElem = $(".lobster-log-in-button");
         assert(this.logInButtonElem.length > 0);
 
-        listenTo(this, this.myProjects);
+        listenTo(this, this.myProjectsList);
+        listenTo(this, this.courseProjectsList);
         listenTo(this, USERS);
 
         USERS.checkLogin();
+
+        this.loadCourses();
     }
     
     private setUpModals() {
         // Create Project Modal
         $("#lobster-create-project-form").on("submit", (e) => {
             e.preventDefault();
-            this.createProject($("#lobster-create-project-name").val() as string);
+            this.createProject($("#lobster-create-project-name").val() as string, this.myProjectsList);
             $("#lobster-create-project-modal").modal("hide");
         });
 
@@ -64,12 +73,12 @@ export class LobsterApplication {
         });
         $("#lobster-edit-project-form").on("submit", (e) => {
             e.preventDefault();
-            this.editProject($("#lobster-edit-project-name").val() as string);
+            this.editActiveProject($("#lobster-edit-project-name").val() as string);
             $("#lobster-edit-project-modal").modal("hide");
         });
         $("#lobster-edit-project-delete").on("click", (e) => {
             e.preventDefault();
-            this.deleteProject();
+            this.deleteActiveProject();
             $("#lobster-edit-project-modal").modal("hide");
         });
 
@@ -79,15 +88,16 @@ export class LobsterApplication {
     protected async onUserLoggedIn(user: UserData) {
         this.logInButtonElem.html(`${ICON_PERSON} ${user.email}`);
 
-        await this.refreshProjects();
+        // Don't need to await any of the things below, it's fine
+        // if they happen in parallel and resolve in an arbitrary order
 
-        if (!this.activeProject.id) {
-            let desiredId = getProjectIdFromLocationHash();
-            let firstProject = this.myProjects.projects.find(p => p.id === desiredId);
-            if (firstProject) {
-                this.setProject(await createProjectFromData(firstProject));
-            }
+        let desiredId = this.activeProject.id ?? getProjectIdFromLocationHash();
+        if (desiredId) {
+            this.loadProject(desiredId);
         }
+        
+        this.refreshMyProjectsList();
+        this.refreshCourseProjectsList();
     }
     
     @messageResponse("userLoggedOut", "unwrap")
@@ -102,48 +112,85 @@ export class LobsterApplication {
         this.setProject(await createProjectFromData(projectData));
     }
 
-    private async refreshProjects() {
-        this.setProjects(await getMyProjects());
-        this.myProjects.setActiveProject(this.activeProject.id);
+    private async loadProject(project_id: number) {
+        let projectData = await getProject(project_id);
+        this.setProject(await createProjectFromData(projectData));
+    }
+
+    private async refreshMyProjectsList() {
+        try {
+            this.myProjectsList.setProjects(await getMyProjects());
+        }
+        catch (e) {
+            // TODO
+        }
+    }
+
+    private async refreshCourseProjectsList() {
+        if (this.currentCourseId) {
+            try {
+                this.courseProjectsList.setProjects(await getCourseProjects(this.currentCourseId));
+            }
+            catch (e) {
+                // TODO
+            }
+        }
     }
 
     private setProject(project: Project) {
         (<Mutable<this>>this).activeProject = project;
         $("#lobster-project-name").html(project.name);
         this.lobster.setProject(project);
-        this.myProjects.setActiveProject(project.id);
+        this.myProjectsList.setActiveProject(project.id);
+        this.courseProjectsList.setActiveProject(project.id);
         window.location.hash = project.id ? ""+project.id : "";
         return project;
     }
 
-    private setProjects(projects: readonly ProjectData[]) {
-        this.myProjects.setProjects(projects);
-    }
-
-    private async createProject(name: string) {
+    private async createProject(name: string, projectList: ProjectList) {
         let newProject = await createProject(name);
-        this.setProjects([...this.myProjects.projects, newProject]);
+        projectList.createProject(newProject);
         this.setProject(await createProjectFromData(newProject));
     }
 
-    private async editProject(name: string) {
+    private async editActiveProject(name: string) {
         this.activeProject.setName(name);
-        await this.lobster.projectSaveOutlet?.saveProject();
-        let projectsCopy = this.myProjects.projects.map(
-            p => p.id === this.activeProject.id ? Object.assign({}, p, {name: name}) : p
-        );
-        this.setProjects(projectsCopy);
-        this.setProject(this.activeProject);
+        if (this.activeProject.id) {
+            await this.lobster.projectSaveOutlet?.saveProject();
+            this.myProjectsList.editProject(this.activeProject.id, {name: name});
+            this.courseProjectsList.editProject(this.activeProject.id, {name: name});
+            this.setProject(this.activeProject);
+        }
     }
 
-    private async deleteProject() {
+    private async deleteActiveProject() {
         if (!this.activeProject.id) {
             return; // If it doesn't have an ID, it's just the local default project
         }
         await deleteProject(this.activeProject.id);
-        let projectsCopy = [...this.myProjects.projects];
-        projectsCopy.splice(this.myProjects.projects.findIndex(p => p.id === this.activeProject.id), 1);
-        this.setProjects(projectsCopy);
+        this.myProjectsList.deleteProject(this.activeProject.id);
+        this.courseProjectsList.deleteProject(this.activeProject.id);
+    }
+
+    private async loadCourses() {
+        this.setCourses(await getPublicCourses());
+    }
+
+    private setCourses(courseData: readonly CourseData[]) {
+        let courseList = $("#lobster-course-list");
+        courseList.empty();
+        courseData.forEach(course => {
+            let li = $("<li></li>").appendTo(courseList);
+            $(`<a>${course.short_name}</a>`).on("click", (e) => {
+                e.preventDefault();
+                this.loadCourse(course.id);
+            }).appendTo(li);
+        });
+    }
+
+    private async loadCourse(course_id: number) {
+        (<Mutable<this>>this).currentCourseId = course_id;
+        return this.refreshCourseProjectsList();
     }
 
 }
@@ -151,7 +198,7 @@ export class LobsterApplication {
 async function createProjectFromData(projectData: ProjectData) {
     let ex: ExerciseData | undefined;
     if (projectData.exercise_id) {
-        ex = await getExercise(projectData.exercise_id);
+        ex = await getFullExercise(projectData.exercise_id);
     }
     return new Project(
         projectData.name,
