@@ -1,16 +1,16 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
-import { Project } from "../core/Project";
+import { Exercise } from "../core/Project";
 import { MessageResponses } from "../util/observe";
 export declare class CheckpointsOutlet {
     _act: MessageResponses;
-    readonly project: Project;
+    readonly exercise: Exercise;
     private readonly element;
     private readonly headerElem;
     private readonly completeMessage;
     private checkpointsContainerElem;
-    constructor(element: JQuery, project: Project, completeMessage: string);
-    setProject(project: Project): Project;
+    constructor(element: JQuery, exercise: Exercise, completeMessage: string);
+    setExercise(exercise: Exercise): Exercise;
     private onCheckpointEvaluationStarted;
     private onCheckpointEvaluationFinished;
 }

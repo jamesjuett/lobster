@@ -31,10 +31,3 @@ export declare function getCourseProjects(course_id: number): Promise<ProjectDat
 export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any> | undefined>;
 export declare function createProject(name: string): Promise<ProjectData>;
 export declare function deleteProject(id: number): Promise<import("axios").AxiosResponse<any>>;
-export declare type ExerciseData = {
-    id: number;
-    name: string;
-    starter_project_id: number;
-    checkpoint_keys: string[];
-};
-export declare function getFullExercise(exercise_id: number): Promise<ExerciseData>;

@@ -1,13 +1,15 @@
 import { Checkpoint } from "../analysis/checkpoints";
-import { Project } from "../core/Project";
+import { Exercise, Project } from "../core/Project";
 import { MessageResponses, stopListeningTo, listenTo, messageResponse } from "../util/observe";
-import { Mutable } from "../util/util";
+import { assert, Mutable } from "../util/util";
+
+// TODO: this should probably STORE and listen to Exercise rather than Project?
 
 export class CheckpointsOutlet {
 
     public _act!: MessageResponses;
     
-    public readonly project: Project;
+    public readonly exercise: Exercise;
     
     private readonly element: JQuery;
     private readonly headerElem: JQuery;
@@ -15,32 +17,32 @@ export class CheckpointsOutlet {
 
     private checkpointsContainerElem: JQuery;
 
-    public constructor(element: JQuery, project: Project, completeMessage: string) {
+    public constructor(element: JQuery, exercise: Exercise, completeMessage: string) {
         this.element = element;
         this.completeMessage = completeMessage;
 
         this.checkpointsContainerElem = element.find(".panel-body");
         this.headerElem = element.find(".panel-heading").html("Exercise Progress");
 
-        this.project = this.setProject(project);
+        this.exercise = this.setExercise(exercise);
     }
 
-    public setProject(project: Project) {
-        if (project !== this.project) {
-            stopListeningTo(this, this.project);
-            (<Mutable<this>>this).project = project;
-            listenTo(this, project);
+    public setExercise(exercise: Exercise) {
+        if (exercise !== this.exercise) {
+            stopListeningTo(this, this.exercise);
+            (<Mutable<this>>this).exercise = exercise;
+            listenTo(this, exercise);
         }
 
-        this.onCheckpointEvaluationFinished(project);
+        this.onCheckpointEvaluationFinished(exercise);
 
-        return project;
+        return exercise;
     }
     
     @messageResponse("checkpointEvaluationStarted", "unwrap")
-    private async onCheckpointEvaluationStarted(project: Project) {
-
-        let checkpoints = project.checkpoints;
+    private async onCheckpointEvaluationStarted(exercise: Exercise) {
+        assert(exercise);
+        let checkpoints = exercise.checkpoints;
         this.checkpointsContainerElem.empty();
         checkpoints.map((c, i) => new CheckpointOutlet(
             $(`<span class="lobster-checkpoint"></span>`).appendTo(this.checkpointsContainerElem),
@@ -51,10 +53,10 @@ export class CheckpointsOutlet {
     }
 
     @messageResponse("checkpointEvaluationFinished", "unwrap")
-    private async onCheckpointEvaluationFinished(project: Project) {
-        
-        let checkpoints = project.checkpoints;
-        let statuses = project.checkpointStatuses;
+    private async onCheckpointEvaluationFinished(exercise: Exercise) {
+        assert(exercise);
+        let checkpoints = exercise.checkpoints;
+        let statuses = exercise.checkpointStatuses;
         this.checkpointsContainerElem.empty();
         checkpoints.map((c, i) => new CheckpointOutlet(
             $(`<span class="lobster-checkpoint"></span>`).appendTo(this.checkpointsContainerElem),
@@ -62,7 +64,9 @@ export class CheckpointsOutlet {
             statuses[i] ? "complete" : "incomplete"
         ));
 
-        if (statuses.every(Boolean) || this.project.name !== "ch13_03_ex" && this.project.name !== "ch13_04_ex" && statuses[statuses.length - 1]) {
+        // TODO remove special cases here, set completion policy
+        // if (statuses.every(Boolean) || this.exercise.name !== "ch13_03_ex" && this.exercise.name !== "ch13_04_ex" && statuses[statuses.length - 1]) {
+        if (statuses[statuses.length - 1]) {
             this.headerElem.html(`<b>${this.completeMessage}</b>`);
             this.element.removeClass("panel-default");
             this.element.removeClass("panel-danger");
@@ -73,7 +77,7 @@ export class CheckpointsOutlet {
             this.element.removeClass("panel-success");
             this.element.removeClass("panel-default");
             this.element.removeClass("panel-danger");
-            if (this.project.program.hasSyntaxErrors()) {
+            if (this.exercise.project?.program.hasSyntaxErrors()) {
                 this.headerElem.html("Exercise Progress (Please note: checkpoints cannot be verified due to syntax errors.)");
                 this.element.addClass("panel-danger");
             }
@@ -88,7 +92,7 @@ export class CheckpointsOutlet {
 
 
 const checkpointStatusIcons = {
-    complete: '<i class="bi bi-check2-square lobster-checkpoint-complete-icon"></i>',
+    complete: '<i class="bi bi-check-square lobster-checkpoint-complete-icon"></i>',
     incomplete: '<i class="bi bi-square lobster-checkpoint-incomplete-icon"></i>',
     thinking: '<i class="bi bi-gear-fill lobster-checkpoint-thinking-icon"></i>'
 };

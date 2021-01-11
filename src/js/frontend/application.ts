@@ -1,19 +1,20 @@
 import Cookies from "js-cookie";
 import { EXERCISE_CHECKPOINTS, getExerciseCheckpoints, OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
-import { Project } from "../core/Project";
+import { Exercise, Project } from "../core/Project";
 import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { listenTo, messageResponse, MessageResponses } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
-import { parseFiles as extractProjectFiles, getMyProjects, ProjectList, ProjectData, saveProject, createProject, deleteProject, getFullExercise, ExerciseData, getCourseProjects, getProject } from "./projects";
+import { parseFiles as extractProjectFiles, getMyProjects, ProjectList, ProjectData, saveProject, createProject, deleteProject, getCourseProjects, getProject } from "./projects";
 import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
 import axios from 'axios';
 import { CourseData, getCourses as getPublicCourses } from "./courses";
+import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
 
 
 /**
- * Expects elements with these classes to be present:
+ * Expects elements with these ids to be present:
  * - lobster-log-in-button
  * - lobster-my-projects
  */
@@ -28,13 +29,14 @@ export class LobsterApplication {
     public readonly myProjects?: ProjectData[];
     public readonly courseProjects?: ProjectData[];
     public readonly activeProject: Project;
-    public readonly currentCourseId?: number;
+    public readonly activeExerciseData?: ExerciseData;
+    public readonly currentCourse?: CourseData;
 
     private readonly logInButtonElem: JQuery;
 
     public constructor() {
-        this.myProjectsList = new ProjectList($(".lobster-my-projects"));
-        this.courseProjectsList = new ProjectList($(".lobster-course-projects"));
+        this.myProjectsList = new ProjectList($("#lobster-my-projects"));
+        this.courseProjectsList = new ProjectList($("#lobster-course-projects"));
 
         this.setUpModals();
 
@@ -82,6 +84,22 @@ export class LobsterApplication {
             $("#lobster-edit-project-modal").modal("hide");
         });
 
+        // Edit Exercise Modal
+        Object.keys(EXERCISE_CHECKPOINTS).forEach(
+            (key) => $("#lobster-exercise-key-choices").append(`<option value="${key}">`)
+        );
+        $("#lobster-edit-exercise-modal").on('show.bs.modal', () => {
+            $("#lobster-edit-exercise-key").val(this.activeExerciseData?.exercise_key ?? "")
+        });
+        $("#lobster-edit-exercise-form").on("submit", (e) => {
+            e.preventDefault();
+            this.editActiveExercise($("#lobster-edit-exercise-key").val() as string);
+            $("#lobster-edit-exercise-modal").modal("hide");
+        });
+
+        
+
+
     }
 
     @messageResponse("userLoggedIn", "unwrap")
@@ -105,16 +123,35 @@ export class LobsterApplication {
         this.logInButtonElem.html("Sign In");
 
         this.setProject(createDefaultProject());
+        delete (<Mutable<this>>this).activeExerciseData;
     }
     
     @messageResponse("projectSelected", "unwrap")
     protected async onProjectSelected(projectData: ProjectData) {
-        this.setProject(await createProjectFromData(projectData));
+        this.setProject(await this.setProjectFromData(projectData));
     }
 
     private async loadProject(project_id: number) {
         let projectData = await getProject(project_id);
-        this.setProject(await createProjectFromData(projectData));
+        this.setProject(await this.setProjectFromData(projectData));
+    }
+
+    private async setProjectFromData(projectData: ProjectData) {
+        let ex: ExerciseData | undefined;
+        if (projectData.exercise_id) {
+            ex = await getFullExercise(projectData.exercise_id);
+        }
+
+        (<Mutable<this>>this).activeExerciseData = ex; // will be undefined if no exercise
+
+        let checkpoints = ex ? getExerciseCheckpoints(ex?.exercise_key) : [];
+
+        return new Project(
+            projectData.name,
+            projectData.id,
+            extractProjectFiles(projectData),
+            new Exercise(checkpoints)
+        ).turnOnAutoCompile();
     }
 
     private async refreshMyProjectsList() {
@@ -127,9 +164,9 @@ export class LobsterApplication {
     }
 
     private async refreshCourseProjectsList() {
-        if (this.currentCourseId) {
+        if (this.currentCourse) {
             try {
-                this.courseProjectsList.setProjects(await getCourseProjects(this.currentCourseId));
+                this.courseProjectsList.setProjects(await getCourseProjects(this.currentCourse.id));
             }
             catch (e) {
                 // TODO
@@ -150,7 +187,7 @@ export class LobsterApplication {
     private async createProject(name: string, projectList: ProjectList) {
         let newProject = await createProject(name);
         projectList.createProject(newProject);
-        this.setProject(await createProjectFromData(newProject));
+        this.setProject(await this.setProjectFromData(newProject));
     }
 
     private async editActiveProject(name: string) {
@@ -183,31 +220,25 @@ export class LobsterApplication {
             let li = $("<li></li>").appendTo(courseList);
             $(`<a>${course.short_name}</a>`).on("click", (e) => {
                 e.preventDefault();
-                this.loadCourse(course.id);
+                this.loadCourse(course);
             }).appendTo(li);
         });
     }
 
-    private async loadCourse(course_id: number) {
-        (<Mutable<this>>this).currentCourseId = course_id;
-        return this.refreshCourseProjectsList();
+    private async loadCourse(course: CourseData) {
+        (<Mutable<this>>this).currentCourse = course;
+        await this.refreshCourseProjectsList();
+        $("#lobster-course-list-name").html(course.short_name);
     }
 
-}
-
-async function createProjectFromData(projectData: ProjectData) {
-    let ex: ExerciseData | undefined;
-    if (projectData.exercise_id) {
-        ex = await getFullExercise(projectData.exercise_id);
-    }
-    return new Project(
-        projectData.name,
-        projectData.id,
-        extractProjectFiles(projectData),
-        {
-            checkpoints: getExerciseCheckpoints(ex?.checkpoint_keys ?? [])
+    private async editActiveExercise(exercise_key: string) {
+        this.activeProject.exercise.setCheckpoints(getExerciseCheckpoints(exercise_key));
+        if (this.activeExerciseData) {
+            this.activeExerciseData.exercise_key = exercise_key;
+            await saveExercise(this.activeExerciseData);
         }
-    ).turnOnAutoCompile();
+    }
+
 }
 
 function createDefaultProject() {
@@ -215,11 +246,10 @@ function createDefaultProject() {
         "[unnamed project]",
         undefined, [
             { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
-        ], {
-            checkpoints: [
+        ],
+        new Exercise([
                 new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
-            ]
-        }
+        ])
     ).turnOnAutoCompile();
 }
 

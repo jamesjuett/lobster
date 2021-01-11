@@ -12,6 +12,9 @@ export function createSimpleExerciseOutlet(id: string) {
                 <button class="btn btn-primary" data-toggle="modal" data-target="#lobster-edit-project-modal" style="fill: white">
                     <i class="bi bi-pencil-square"></i> <span id="lobster-project-name"></span>
                 </button>
+                <button class="btn btn-primary" data-toggle="modal" data-target="#lobster-edit-exercise-modal" style="fill: white">
+                    <i class="bi bi-pencil-square"></i> Exercise</span>
+                </button>
                 <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
             </div>
             <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">

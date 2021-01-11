@@ -3,8 +3,10 @@ import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { MessageResponses } from "../util/observe";
 import { ProjectList, ProjectData } from "./projects";
 import { UserInfo as UserData } from "./user";
+import { CourseData } from "./courses";
+import { ExerciseData } from "./exercises";
 /**
- * Expects elements with these classes to be present:
+ * Expects elements with these ids to be present:
  * - lobster-log-in-button
  * - lobster-my-projects
  */
@@ -16,7 +18,8 @@ export declare class LobsterApplication {
     readonly myProjects?: ProjectData[];
     readonly courseProjects?: ProjectData[];
     readonly activeProject: Project;
-    readonly currentCourseId?: number;
+    readonly activeExerciseData?: ExerciseData;
+    readonly currentCourse?: CourseData;
     private readonly logInButtonElem;
     constructor();
     private setUpModals;
@@ -24,6 +27,7 @@ export declare class LobsterApplication {
     protected onUserLoggedOut(user: UserData): void;
     protected onProjectSelected(projectData: ProjectData): Promise<void>;
     private loadProject;
+    private setProjectFromData;
     private refreshMyProjectsList;
     private refreshCourseProjectsList;
     private setProject;
@@ -33,4 +37,5 @@ export declare class LobsterApplication {
     private loadCourses;
     private setCourses;
     private loadCourse;
+    private editActiveExercise;
 }

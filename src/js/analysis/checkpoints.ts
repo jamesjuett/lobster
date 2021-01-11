@@ -160,7 +160,7 @@ export function getExerciseCheckpoints(checkpoints_key: string | string[]) {
 }
 
 export const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[] | undefined} = {
-    "test_checkpoint_1": [
+    "test_exercise_1": [
         new StaticAnalysisCheckpoint("Declare x", (program: Program) => {
             return !! findFirstConstruct(program, Predicates.byVariableName("x"));
         }),
@@ -169,7 +169,7 @@ export const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[] | un
         }),
         new OutputCheckpoint("Print \"Hello World!\"", outputComparator("Hello World!", true))
     ],
-    "test_checkpoint_2": [
+    "test_exercise_2": [
         new StaticAnalysisCheckpoint("Declare z", (program: Program) => {
             return !! findFirstConstruct(program, Predicates.byVariableName("z"));
         })
@@ -580,3 +580,67 @@ export const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[] | un
         
     ]
 }
+
+
+export const EXTRAS : {[index: string]: (project: Project) => void} = {
+    "loop_hardcoded_condition": (project: Project) => {
+        let program = project.program;
+        let loop = findFirstConstruct(program, Predicates.isLoop);
+        if (!loop) {
+            return false;
+        }
+
+        // verify loop condition does NOT contain a number
+        let hardcodedLimit = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+        if (hardcodedLimit) {
+            project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "heuristic_loop_hardcoded_size",
+            `Uh oh! It looks like you've got a hardcoded number ${hardcodedLimit.value.rawValue} for the loop size. This might work for a specific case, but wouldn't work generally.`));
+            return false;
+        }
+    },
+    "loop_condition_vector_off_by_one": (project: Project) => {
+        let program = project.program;
+        let loop = findFirstConstruct(program, Predicates.isLoop);
+        if (!loop) {
+            return false;
+        }
+
+        // verify loop condition contains a relational operator
+        if (!findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"))) {
+            return false;
+        }
+
+        // if loop condition does not contain a call to vector.size() return false
+        if (!findFirstConstruct(loop.condition, Predicates.byFunctionCallName("size"))) {
+            return false;
+        }
+
+        // tricky - don't look for subscript expressions, since with a vector it's actually
+        // an overloaded [] and we need to look for that as a function call
+        let indexingOperations = findConstructs(loop.body, Predicates.isIndexingOperation);
+
+        // loop condition contains size (from before), but also has <= or >=
+        // and no arithmetic operators or pre/post increments that could make up for the equal to part
+        // (e.g. i <= v.size() is very much wrong, but i <= v.size() - 1 is ok)
+        let conditionOperator = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+        if (conditionOperator){
+            if (!findFirstConstruct(loop.condition,
+                Predicates.byKinds(["arithmetic_binary_operator_expression", "prefix_increment_expression", "postfix_increment_expression"]))) {
+                if (conditionOperator.operator === "<=" || conditionOperator.operator === ">=") {
+                    if (!indexingOperations.some(indexingOp => findFirstConstruct(indexingOp,
+                        Predicates.byKinds([
+                            "arithmetic_binary_operator_expression",
+                            "prefix_increment_expression",
+                            "postfix_increment_expression"])
+                        ))) {
+                            project.addNote(new CompilerNote(conditionOperator, NoteKind.STYLE, "loop_condition_vector_off_by_one",
+                                `Double check the limit in this condition. I think there might be an off-by-one error that takes you out of bounds if you're using the ${conditionOperator.operator} operator.`));
+                            return false;
+                        }
+                }
+            }
+        }
+
+        return true;
+    }
+};

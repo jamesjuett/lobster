@@ -756,7 +756,7 @@ ul.codeStack li{
 	fill: white;
 }
 
-.lobster-my-projects .list-group-item {
+.lobster-project-list .list-group-item {
 	padding: 5px 10px;
 	overflow-x: hidden;
 	white-space: nowrap;
