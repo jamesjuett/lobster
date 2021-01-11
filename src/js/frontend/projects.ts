@@ -40,7 +40,7 @@ export class ProjectList {
     public constructor(element: JQuery) {
         assert(element.length > 0);
         this.element = element;
-        this.listElem = $('<div class="list-group"></div>').appendTo(element);
+        this.listElem = $('<div class="list-group lobster-project-list"></div>').appendTo(element);
     }
 
     public setProjects(projects: readonly ProjectData[]) {
@@ -195,21 +195,3 @@ export async function deleteProject(id: number) {
 }
 
 
-export type ExerciseData = {
-    id: number;
-    name: string;
-    starter_project_id: number;
-    checkpoint_keys: string[];
-}
-
-export async function getFullExercise(exercise_id: number) {
-    const response = await axios({
-        url: `api/exercises/${exercise_id}/full`,
-        method: "GET",
-        headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
-    });
-
-    return await response.data as ExerciseData;
-}

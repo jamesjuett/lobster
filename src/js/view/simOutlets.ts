@@ -15,7 +15,7 @@ import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeFunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
-import { Project } from "../core/Project";
+import { Exercise, Project } from "../core/Project";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -672,7 +672,7 @@ export class DefaultLobsterOutlet {
 
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, project = new Project("unnammed project", undefined, [])) {
+    public constructor(element: JQuery, project = new Project("unnammed project", undefined, [], new Exercise([]))) {
         this.element = element;
         this.project = project;
 

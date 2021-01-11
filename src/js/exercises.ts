@@ -6,7 +6,7 @@ import { assert, Mutable } from "./util/util";
 import { RuntimeConstruct } from "./core/constructs";
 import { decode } from "he";
 import { createSimpleExerciseOutlet } from "./frontend/simple_exercise_outlet";
-import { Project } from "./core/Project";
+import { Exercise, Project } from "./core/Project";
 import { Checkpoint, getExerciseCheckpoints } from "./analysis/checkpoints";
 
 import "./lib/cstdlib"
@@ -30,7 +30,11 @@ $(() => {
             initCode = EXERCISE_STARTER_CODE[projectName] ?? "";
         }
 
-        let project = new Project(projectName, undefined, [{name: filename, code: initCode, isTranslationUnit: true}]);
+        let project = new Project(
+          projectName,
+          undefined,
+          [{name: filename, code: initCode, isTranslationUnit: true}],
+          new Exercise(getExerciseCheckpoints(projectName)));
         project.turnOnAutoCompile(500);
 
         let exOutlet = new SimpleExerciseLobsterOutlet($(this), project, completeMessage);
@@ -96,7 +100,7 @@ export class SimpleExerciseLobsterOutlet {
         this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
         this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
         this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
-        this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project, completeMessage);
+        this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise, completeMessage);
         
         this.project = project;
 
@@ -109,7 +113,7 @@ export class SimpleExerciseLobsterOutlet {
         this.projectEditor.setProject(project);
         this.compilationOutlet.setProject(project);
         this.compilationStatusOutlet.setProject(project);
-        this.checkpointsOutlet.setProject(project);
+        this.checkpointsOutlet.setExercise(project.exercise);
         this.projectSaveOutlet?.setProject(project);
         
         return this.project;

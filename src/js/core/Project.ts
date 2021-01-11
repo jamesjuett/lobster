@@ -1,5 +1,5 @@
 import { Checkpoint } from "../analysis/checkpoints";
-import { Observable } from "../util/observe";
+import { listenTo, messageResponse, MessageResponses, Observable } from "../util/observe";
 import { Mutable, assert, asMutable } from "../util/util";
 import { Note } from "./errors";
 import { SourceFile, Program } from "./Program";
@@ -20,13 +20,7 @@ type ProjectMessages =
     "translationUnitAdded" |
     "translationUnitRemoved" |
     "translationUnitStatusSet" |
-    "checkpointEvaluationStarted" |
-    "checkpointEvaluationFinished" |
     "noteAdded";
-
-export type ProjectExtras = {
-    checkpoints?: readonly Checkpoint[]
-}
 
 export class Project {
 
@@ -38,22 +32,19 @@ export class Project {
     public readonly sourceFiles: readonly SourceFile[] = [];
     private translationUnitNames: Set<string> = new Set<string>();
 
-    public readonly checkpoints: readonly Checkpoint[];
-    public readonly checkpointStatuses: readonly boolean[];
-
     public readonly program!: Program; // ! set by call to this.recompile() in ctor
     
+    public readonly exercise: Exercise;
+
     public readonly isCompilationOutOfDate: boolean = true;
 
     private pendingAutoCompileTimeout?: number;
     private autoCompileDelay?: number;
 
-    public constructor(name: string, id: number | undefined, files: readonly FileData[], extras?: ProjectExtras) {
+    public constructor(name: string, id: number | undefined, files: readonly FileData[], exercise: Exercise) {
         this.name = name;
         this.id = id;
-
-        this.checkpoints = extras?.checkpoints ?? [];
-        this.checkpointStatuses = extras?.checkpoints?.map(c => false) ?? [];
+        this.exercise = exercise?.setProject(this);
 
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
@@ -61,7 +52,7 @@ export class Project {
     }
     
     public setName(name: string) {
-        (<Mutable<this>>this).name = name;
+    (<Mutable<this>>this).name = name;
         this.observable.send("nameSet");
     }
 
@@ -145,24 +136,7 @@ export class Project {
 
         this.observable.send("compilationFinished", this.program);
 
-        this.evaluateCheckpoints();
-    }
-
-    public async evaluateCheckpoints() {
-        this.observable.send("checkpointEvaluationStarted", this);
-
-        (<Mutable<this>>this).checkpointStatuses = await Promise.all(this.checkpoints.map(
-            async (checkpoint, i) => {
-                try {
-                    return await checkpoint.evaluate(this);
-                }
-                catch {
-                    return false; // TODO: this results in a false when interrupted - maybe I should let the interruption propagate?
-                }
-            }
-        ));
-
-        this.observable.send("checkpointEvaluationFinished", this);
+        this.exercise.update();
     }
 
     public isTranslationUnit(name: string) {
@@ -280,4 +254,59 @@ export class Project {
 
     //     this.recompile();
     // }
+}
+
+export type ExerciseMessages = 
+    "checkpointEvaluationStarted" |
+    "checkpointEvaluationFinished" |
+    "checkpointsChanged";
+
+export class Exercise {
+
+    public readonly project?: Project;
+
+    public readonly checkpoints: readonly Checkpoint[];
+    public readonly checkpointStatuses: readonly boolean[];
+
+    public _act!: MessageResponses;
+    public observable = new Observable<ExerciseMessages>(this);
+
+    public constructor(checkpoints: readonly Checkpoint[]) {
+        this.checkpoints = checkpoints;
+        this.checkpointStatuses = checkpoints.map(c => false);
+    }
+
+    public setProject(project: Project) {
+        assert(!this.project);
+        (<Mutable<this>>this).project = project;
+        return this;
+    }
+
+    public setCheckpoints(checkpoints: readonly Checkpoint[]) {
+        (<Mutable<this>>this).checkpoints = checkpoints;
+        this.observable.send("checkpointsChanged", this);
+        this.update();
+    }
+
+    public async update() {
+        await this.evaluateCheckpoints();
+    }
+
+    private async evaluateCheckpoints() {
+        assert(this.project);
+        this.observable.send("checkpointEvaluationStarted", this);
+
+        (<Mutable<this>>this).checkpointStatuses = await Promise.all(this.checkpoints.map(
+            async (checkpoint, i) => {
+                try {
+                    return await checkpoint.evaluate(this.project!);
+                }
+                catch {
+                    return false; // TODO: this results in a false when interrupted - maybe I should let the interruption propagate?
+                }
+            }
+        ));
+
+        this.observable.send("checkpointEvaluationFinished", this);
+    }
 }
