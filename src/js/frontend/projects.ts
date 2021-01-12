@@ -4,26 +4,43 @@ import { USERS } from "./user";
 import axios from 'axios';
 import { icon_middle, ICON_PLUS } from "./octicons";
 import { FileData, Project } from "../core/Project";
+import { ExerciseData } from "./exercises";
+
+export type CreateProjectData = {
+    exercise_id?: number;
+    contents: string;
+    is_public?: boolean;
+    name: string;
+}
 
 export type ProjectData = {
     id: number;
-    exercise_id?: number | null;
+    exercise_id: number;
     last_modified: string; // date
     contents: string;
     is_public: boolean;
     name: string;
 }
 
-export function parseFiles(projectData: ProjectData) : FileData[] {
-    return JSON.parse(projectData.contents).files;
+export type FullProjectData = ProjectData & {
+    exercise: ExerciseData,
+    write_access: boolean
 }
 
-export function stringifyFiles(files: readonly FileData[]) : string {
-    return JSON.stringify(files);
+export function parseProjectContents(projectData: ProjectData) : {name: string, files: FileData[]} {
+    return JSON.parse(projectData.contents);
+}
+
+export function stringifyProjectContents(project: Project) {
+    return JSON.stringify({
+        name: project.name,
+        files: project.getFileData()
+    });
 }
 
 type ProjectListMessages =
-    "projectSelected";
+    "projectSelected" |
+    "createProjectClicked";
 
 
 export class ProjectList {
@@ -50,15 +67,22 @@ export class ProjectList {
         this.listElem.empty();
 
         projects.forEach(project => {
-            $(`<a href="#${project.id}" class="list-group-item">${project.name}</a>`)
+            $(`<a href="#${project.id}" class="list-group-item">
+                ${project.is_public
+                    ? '<i class="bi bi-eye" data-toggle="tooltip" data-placement="top" data-container="body" title="Public"></i>'
+                    : '<i class="bi bi-eye-slash" data-toggle="tooltip" data-placement="top" data-container="body" title="Private"></i>'}
+                ${project.name}
+            </a>`)
                 .appendTo(this.listElem)
                 .on("click", () => {
                     this.observable.send("projectSelected", project);
-                });
+                })
+                .children("i").tooltip();
         });
 
-        $(`<a class="list-group-item" data-toggle="modal" data-target="#lobster-create-project-modal" style="text-align: center">${icon_middle(ICON_PLUS)}</a>`)
-            .appendTo(this.listElem);
+        $(`<a class="list-group-item" style="text-align: center">${icon_middle(ICON_PLUS)}</a>`)
+            .appendTo(this.listElem)
+            .on("click", () => this.observable.send("createProjectClicked"));
         this.setActiveProject(this.activeProjectId);
     }
 
@@ -111,21 +135,21 @@ export async function getMyProjects() {
     return projects;
 }
 
-export async function getProject(project_id: number) {
+export async function getFullProject(project_id: number) {
         
-    const response = await fetch(`api/projects/${project_id}`, {
+    const response = await fetch(`api/projects/${project_id}/full`, {
         method: 'GET',
         headers: {
             'Authorization': 'bearer ' + USERS.getBearerToken()
         }
     });
 
-    return await response.json() as ProjectData;
+    return await response.json() as FullProjectData;
 }
 
 export async function getCourseProjects(course_id: number) {
         
-    const response = await fetch(`public_api/courses/${course_id}/projects`, {
+    const response = await fetch(`api/courses/${course_id}/projects`, {
         method: 'GET',
         headers: {
             'Authorization': 'bearer ' + USERS.getBearerToken()
@@ -136,7 +160,20 @@ export async function getCourseProjects(course_id: number) {
     return projects;
 }
 
-export async function saveProject(project: Project) {
+export async function editProject(projectData: Partial<ProjectData> & {id: number}) {
+
+    return axios({
+        url: `api/projects/${projectData.id!}`,
+        method: "PATCH",
+        data: projectData,
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
+}
+
+export async function saveProjectContents(project: Project) {
     if (!project.id) {
         return; // If it doesn't have an ID, it's just the local default project
     }
@@ -145,7 +182,6 @@ export async function saveProject(project: Project) {
         url: `api/projects/${project.id!}`,
         method: "PATCH",
         data: {
-            name: project.name,
             contents: JSON.stringify({
                 name: project.name,
                 files: project.getFileData()
@@ -158,28 +194,33 @@ export async function saveProject(project: Project) {
 
 }
 
-export async function createProject(name: string) {
+export async function createUserProject(data: CreateProjectData) {
 
     const response = await axios({
-        url: `api/projects/`,
+        url: `api/users/me/projects/`,
         method: "POST",
-        data: {
-            name: name,
-            contents: JSON.stringify({
-                name: name,
-                files: <FileData[]>[{
-                    name: "main.cpp",
-                    code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello ${name}!" << endl;\n}`,
-                    isTranslationUnit: true
-                }]
-            })
-        },
+        data: data,
         headers: {
             'Authorization': 'bearer ' + USERS.getBearerToken()
         }
     });
 
-    return await response.data as ProjectData;
+    return await response.data as FullProjectData;
+}
+
+
+export async function createCourseProject(course_id: number, data: CreateProjectData) {
+
+    const response = await axios({
+        url: `api/courses/${course_id}/projects/`,
+        method: "POST",
+        data: data,
+        headers: {
+            'Authorization': 'bearer ' + USERS.getBearerToken()
+        }
+    });
+
+    return await response.data as FullProjectData;
 }
 
 export async function deleteProject(id: number) {

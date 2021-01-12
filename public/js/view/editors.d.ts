@@ -39,25 +39,6 @@ export declare class ProjectEditor {
     gotoSourceReference(sourceRef: SourceReference): void;
     private textChanged;
 }
-export declare type ProjectSaveAction = (project: Project) => Promise<any>;
-export declare class ProjectSaveOutlet {
-    _act: MessageResponses;
-    readonly project: Project;
-    readonly isSaved: boolean;
-    private saveAction;
-    private readonly element;
-    private readonly saveButtonElem;
-    private isAutosaveOn;
-    constructor(element: JQuery, project: Project, saveAction: ProjectSaveAction, autosaveInterval?: number | false);
-    setProject(project: Project): Project;
-    private autosaveCallback;
-    saveProject(): Promise<void>;
-    private onSaveSuccessful;
-    private onUnsavedChanges;
-    private onSaveAttempted;
-    private onSaveFailed;
-    private onProjectChanged;
-}
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */

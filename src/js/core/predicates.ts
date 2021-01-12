@@ -184,6 +184,7 @@ export namespace Predicates {
 
     export const isLoop = Predicates.byKinds(["while_statement", "for_statement"]);
 
-    export const isIndexingOperation: (c: AnalyticConstruct) => c is SubscriptExpression | OperatorOverloadExpression
-        = (c: AnalyticConstruct) => Predicates.byKind("subscript_expression") || Predicates.byOperatorOverloadCall("[]");
+    export function isIndexingOperation(construct: AnalyticConstruct) : construct is SubscriptExpression | OperatorOverloadExpression {
+        return Predicates.byKind("subscript_expression")(construct) || Predicates.byOperatorOverloadCall("[]")(construct);
+    }
 }

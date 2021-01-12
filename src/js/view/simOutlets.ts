@@ -6,7 +6,7 @@ import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, Ar
 import { Mutable, assert, isInstance } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
-import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet } from "./editors";
+import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";

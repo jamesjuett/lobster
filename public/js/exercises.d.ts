@@ -1,6 +1,6 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
-import { CompilationOutlet, CompilationStatusOutlet, ProjectSaveOutlet, ProjectSaveAction } from "./view/editors";
+import { CompilationOutlet, CompilationStatusOutlet } from "./view/editors";
 import { Simulation } from "./core/Simulation";
 import { MessageResponses, Message } from "./util/observe";
 import { RuntimeConstruct } from "./core/constructs";
@@ -20,11 +20,9 @@ export declare class SimpleExerciseLobsterOutlet {
     readonly compilationOutlet: CompilationOutlet;
     readonly compilationStatusOutlet: CompilationStatusOutlet;
     readonly checkpointsOutlet: CheckpointsOutlet;
-    readonly projectSaveOutlet?: ProjectSaveOutlet;
     _act: MessageResponses;
     constructor(element: JQuery, project: Project, completeMessage: string);
     setProject(project: Project): Project;
-    onSave(saveAction: ProjectSaveAction): this;
     setSimulation(sim: Simulation): void;
     clearSimulation(): void;
     protected requestFocus(msg: Message<undefined>): void;

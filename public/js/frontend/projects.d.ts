@@ -2,18 +2,33 @@
 /// <reference types="bootstrap" />
 import { Observable } from "../util/observe";
 import { FileData, Project } from "../core/Project";
+import { ExerciseData } from "./exercises";
+export declare type CreateProjectData = {
+    exercise_id?: number;
+    contents: string;
+    is_public?: boolean;
+    name: string;
+};
 export declare type ProjectData = {
     id: number;
-    exercise_id?: number | null;
+    exercise_id: number;
     last_modified: string;
     contents: string;
     is_public: boolean;
     name: string;
 };
-export declare function parseFiles(projectData: ProjectData): FileData[];
-export declare function stringifyFiles(files: readonly FileData[]): string;
+export declare type FullProjectData = ProjectData & {
+    exercise: ExerciseData;
+    write_access: boolean;
+};
+export declare function parseProjectContents(projectData: ProjectData): {
+    name: string;
+    files: FileData[];
+};
+export declare function stringifyProjectContents(project: Project): string;
+declare type ProjectListMessages = "projectSelected" | "createProjectClicked";
 export declare class ProjectList {
-    observable: Observable<"projectSelected">;
+    observable: Observable<ProjectListMessages>;
     private element;
     private listElem;
     readonly projects: readonly ProjectData[];
@@ -26,8 +41,13 @@ export declare class ProjectList {
     deleteProject(projectId: number): void;
 }
 export declare function getMyProjects(): Promise<ProjectData[]>;
-export declare function getProject(project_id: number): Promise<ProjectData>;
+export declare function getFullProject(project_id: number): Promise<FullProjectData>;
 export declare function getCourseProjects(course_id: number): Promise<ProjectData[]>;
-export declare function saveProject(project: Project): Promise<import("axios").AxiosResponse<any> | undefined>;
-export declare function createProject(name: string): Promise<ProjectData>;
+export declare function editProject(projectData: Partial<ProjectData> & {
+    id: number;
+}): Promise<import("axios").AxiosResponse<any>>;
+export declare function saveProjectContents(project: Project): Promise<import("axios").AxiosResponse<any> | undefined>;
+export declare function createUserProject(data: CreateProjectData): Promise<FullProjectData>;
+export declare function createCourseProject(course_id: number, data: CreateProjectData): Promise<FullProjectData>;
 export declare function deleteProject(id: number): Promise<import("axios").AxiosResponse<any>>;
+export {};
