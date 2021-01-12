@@ -1,4 +1,4 @@
-import { AnalyticExpression, TernaryExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, AssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, DotExpression, ArrowExpression } from "./expressions";
+import { AnalyticExpression, TernaryExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, AssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, FunctionDeclaration, LocalVariableDefinition, GlobalVariableDefinition, ParameterDeclaration, Declarator, ClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, AtomicType, ExpressionType } from "./types";
@@ -137,7 +137,7 @@ export declare namespace Predicates {
     }) | (PostfixIncrementExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
-    }) | (import("./expressions").SubscriptExpression & {
+    }) | (SubscriptExpression & {
         type?: OriginalT | undefined;
         valueCategory?: "prvalue" | "lvalue" | undefined;
     }) | (DotExpression & {
@@ -292,7 +292,7 @@ export declare namespace Predicates {
         type?: OriginalT | undefined;
     }) | (PostfixIncrementExpression & {
         type?: OriginalT | undefined;
-    }) | (import("./expressions").SubscriptExpression & {
+    }) | (SubscriptExpression & {
         type?: OriginalT | undefined;
     }) | (DotExpression & {
         type?: OriginalT | undefined;
@@ -354,4 +354,8 @@ export declare namespace Predicates {
     function byMemberAccessName<N extends string>(memberName: N): (construct: AnalyticConstruct) => construct is DotExpression | (ArrowExpression & {
         memberName: N;
     });
+    const isLoop: <Original extends {
+        construct_type: string;
+    }, Narrowed extends DiscriminateUnion<Original, "construct_type", "while_statement" | "for_statement">>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
+    function isIndexingOperation(construct: AnalyticConstruct): construct is SubscriptExpression | OperatorOverloadExpression;
 }

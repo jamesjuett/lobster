@@ -1,11 +1,11 @@
 import Cookies from "js-cookie";
 import { EXERCISE_CHECKPOINTS, getExerciseCheckpoints, OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
-import { Exercise, Project } from "../core/Project";
+import { Exercise, FileData, Project } from "../core/Project";
 import { SimpleExerciseLobsterOutlet } from "../exercises";
-import { listenTo, messageResponse, MessageResponses } from "../util/observe";
+import { listenTo, Message, messageResponse, MessageResponses, stopListeningTo } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
-import { parseFiles as extractProjectFiles, getMyProjects, ProjectList, ProjectData, saveProject, createProject, deleteProject, getCourseProjects, getProject } from "./projects";
+import { getMyProjects, ProjectList, ProjectData, createUserProject, deleteProject, getCourseProjects, getFullProject, createCourseProject, editProject, saveProjectContents, FullProjectData, CreateProjectData, stringifyProjectContents, parseProjectContents } from "./projects";
 import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
 import axios from 'axios';
@@ -24,30 +24,43 @@ export class LobsterApplication {
 
     public readonly myProjectsList: ProjectList;
     public readonly courseProjectsList: ProjectList;
-    public readonly lobster: SimpleExerciseLobsterOutlet;
+    public readonly lobsterOutlet: SimpleExerciseLobsterOutlet;
+    public readonly projectSaveOutlet: ProjectSaveOutlet;
 
     public readonly myProjects?: ProjectData[];
     public readonly courseProjects?: ProjectData[];
     public readonly activeProject: Project;
-    public readonly activeExerciseData?: ExerciseData;
+    public readonly activeProjectData?: FullProjectData;
     public readonly currentCourse?: CourseData;
+
+    private currentCreateProjectList: ProjectList;
 
     private readonly logInButtonElem: JQuery;
 
     public constructor() {
         this.myProjectsList = new ProjectList($("#lobster-my-projects"));
         this.courseProjectsList = new ProjectList($("#lobster-course-projects"));
-
-        this.setUpModals();
+        this.currentCreateProjectList = this.myProjectsList;
 
         $(".lobster-lobster").append(createSimpleExerciseOutletHTML("1"));
-        this.lobster = new SimpleExerciseLobsterOutlet(
-            $(".lobster-lobster"),
-            createDefaultProject(),
-            "Nice work!")
-            .onSave((project: Project) => saveProject(project));
+
+        this.setUpElements();
+
+        $('[data-toggle="tooltip"]').tooltip()
+
+        let defaultProject = createDefaultProject();
         
-        this.activeProject = this.setProject(createDefaultProject());
+        this.lobsterOutlet = new SimpleExerciseLobsterOutlet(
+            $(".lobster-lobster"),
+            defaultProject,
+            "Nice work!");
+        
+        this.projectSaveOutlet = new ProjectSaveOutlet(
+            $(".lobster-project-save-outlet"),
+            defaultProject,
+            (project: Project) => saveProjectContents(project));
+        
+        this.activeProject = this.setProject(defaultProject, false);
 
         this.logInButtonElem = $(".lobster-log-in-button");
         assert(this.logInButtonElem.length > 0);
@@ -61,11 +74,26 @@ export class LobsterApplication {
         this.loadCourses();
     }
     
-    private setUpModals() {
+    private setUpElements() {
+
         // Create Project Modal
         $("#lobster-create-project-form").on("submit", (e) => {
             e.preventDefault();
-            this.createProject($("#lobster-create-project-name").val() as string, this.myProjectsList);
+            let name = $("#lobster-create-project-name").val() as string;
+            this.createProject(
+                this.currentCreateProjectList,
+                {
+                    name: name,
+                    contents: JSON.stringify({
+                        name: name,
+                        files: <FileData[]>[{
+                            name: "main.cpp",
+                            code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello ${name}!" << endl;\n}`,
+                            isTranslationUnit: true
+                        }]
+                    })
+                }
+            );
             $("#lobster-create-project-modal").modal("hide");
         });
 
@@ -75,7 +103,9 @@ export class LobsterApplication {
         });
         $("#lobster-edit-project-form").on("submit", (e) => {
             e.preventDefault();
-            this.editActiveProject($("#lobster-edit-project-name").val() as string);
+            this.editActiveProject(
+                $("#lobster-edit-project-name").val() as string,
+                $('#lobster-edit-project-is-public').is(":checked"));
             $("#lobster-edit-project-modal").modal("hide");
         });
         $("#lobster-edit-project-delete").on("click", (e) => {
@@ -89,7 +119,7 @@ export class LobsterApplication {
             (key) => $("#lobster-exercise-key-choices").append(`<option value="${key}">`)
         );
         $("#lobster-edit-exercise-modal").on('show.bs.modal', () => {
-            $("#lobster-edit-exercise-key").val(this.activeExerciseData?.exercise_key ?? "")
+            $("#lobster-edit-exercise-key").val(this.activeProjectData?.exercise.exercise_key ?? "")
         });
         $("#lobster-edit-exercise-form").on("submit", (e) => {
             e.preventDefault();
@@ -97,7 +127,18 @@ export class LobsterApplication {
             $("#lobster-edit-exercise-modal").modal("hide");
         });
 
-        
+        // "Make a personal copy" button
+        $("#lobster-personal-copy-button").on("click", (e) => {
+            if (!this.activeProjectData) { return; }
+            this.createProject(
+                this.myProjectsList,
+                {
+                    name: this.activeProjectData.name,
+                    exercise_id: this.activeProjectData.exercise.id,
+                    contents: stringifyProjectContents(this.activeProject)
+                }
+            );
+        });
 
 
     }
@@ -122,36 +163,37 @@ export class LobsterApplication {
     protected onUserLoggedOut(user: UserData) {
         this.logInButtonElem.html("Sign In");
 
-        this.setProject(createDefaultProject());
-        delete (<Mutable<this>>this).activeExerciseData;
+        this.setProject(createDefaultProject(), false);
+        delete (<Mutable<this>>this).activeProjectData;
     }
     
     @messageResponse("projectSelected", "unwrap")
     protected async onProjectSelected(projectData: ProjectData) {
-        this.setProject(await this.setProjectFromData(projectData));
+        this.loadProject(projectData.id);
+    }
+    
+    @messageResponse("createProjectClicked")
+    protected async onCreateProjectClicked(message: Message<void>) {
+        this.currentCreateProjectList = message.source;
+        $("#lobster-create-project-modal").modal("show");
     }
 
     private async loadProject(project_id: number) {
-        let projectData = await getProject(project_id);
-        this.setProject(await this.setProjectFromData(projectData));
+        let projectData = await getFullProject(project_id);
+        return this.setProjectFromData(projectData);
     }
 
-    private async setProjectFromData(projectData: ProjectData) {
-        let ex: ExerciseData | undefined;
-        if (projectData.exercise_id) {
-            ex = await getFullExercise(projectData.exercise_id);
-        }
+    private async setProjectFromData(projectData: FullProjectData) {
+        (<Mutable<this>>this).activeProjectData = projectData; // will be undefined if no exercise
 
-        (<Mutable<this>>this).activeExerciseData = ex; // will be undefined if no exercise
+        let checkpoints = getExerciseCheckpoints(projectData.exercise.exercise_key);
 
-        let checkpoints = ex ? getExerciseCheckpoints(ex?.exercise_key) : [];
-
-        return new Project(
+        return this.setProject(new Project(
             projectData.name,
             projectData.id,
-            extractProjectFiles(projectData),
+            parseProjectContents(projectData).files,
             new Exercise(checkpoints)
-        ).turnOnAutoCompile();
+        ).turnOnAutoCompile(), projectData.write_access);
     }
 
     private async refreshMyProjectsList() {
@@ -174,29 +216,52 @@ export class LobsterApplication {
         }
     }
 
-    private setProject(project: Project) {
+    private setProject(project: Project, write_access: boolean) {
         (<Mutable<this>>this).activeProject = project;
         $("#lobster-project-name").html(project.name);
-        this.lobster.setProject(project);
+        this.lobsterOutlet.setProject(project);
+        this.projectSaveOutlet.setProject(project, write_access);
         this.myProjectsList.setActiveProject(project.id);
         this.courseProjectsList.setActiveProject(project.id);
         window.location.hash = project.id ? ""+project.id : "";
+        this.updateButtons();
         return project;
     }
 
-    private async createProject(name: string, projectList: ProjectList) {
-        let newProject = await createProject(name);
-        projectList.createProject(newProject);
-        this.setProject(await this.setProjectFromData(newProject));
+    private updateButtons() {
+        if (this.activeProjectData?.write_access) {
+            $("#lobster-edit-project-modal-button").show();
+            $("#lobster-edit-exercise-modal-button").show();
+            $("#lobster-personal-copy-button").hide();
+        }
+        else {
+            $("#lobster-edit-project-modal-button").hide();
+            $("#lobster-edit-exercise-modal-button").hide();
+            $("#lobster-personal-copy-button").show();
+        }
     }
 
-    private async editActiveProject(name: string) {
+    private async createProject(projectList: ProjectList, data: CreateProjectData) {
+        let newProject =
+            projectList === this.myProjectsList
+                ? await createUserProject(data)
+                : await createCourseProject(this.currentCourse!.id, data);
+        projectList.createProject(newProject);
+        return this.setProjectFromData(newProject);
+    }
+
+    private async editActiveProject(name: string, is_public: boolean) {
         this.activeProject.setName(name);
         if (this.activeProject.id) {
-            await this.lobster.projectSaveOutlet?.saveProject();
-            this.myProjectsList.editProject(this.activeProject.id, {name: name});
-            this.courseProjectsList.editProject(this.activeProject.id, {name: name});
-            this.setProject(this.activeProject);
+            let updates = {
+                id: this.activeProject.id,
+                name: name,
+                is_public: is_public
+            };
+            $("#lobster-project-name").html(name);
+            await editProject(updates);
+            this.myProjectsList.editProject(this.activeProject.id, updates);
+            this.courseProjectsList.editProject(this.activeProject.id, updates);
         }
     }
 
@@ -233,9 +298,9 @@ export class LobsterApplication {
 
     private async editActiveExercise(exercise_key: string) {
         this.activeProject.exercise.setCheckpoints(getExerciseCheckpoints(exercise_key));
-        if (this.activeExerciseData) {
-            this.activeExerciseData.exercise_key = exercise_key;
-            await saveExercise(this.activeExerciseData);
+        if (this.activeProjectData) {
+            this.activeProjectData.exercise.exercise_key = exercise_key;
+            await saveExercise(this.activeProjectData.exercise);
         }
     }
 
@@ -266,3 +331,143 @@ function getProjectIdFromLocationHash() {
 }
 
 
+
+export type ProjectSaveAction = (project: Project) => Promise<any>;
+
+export class ProjectSaveOutlet {
+
+    public _act!: MessageResponses;
+
+    public readonly project: Project;
+    public readonly isSaved: boolean = true;
+    public readonly isEnabled: boolean = true;
+
+    private saveAction: ProjectSaveAction;
+
+    private readonly element: JQuery;
+    private readonly saveButtonElem: JQuery;
+
+
+    private isAutosaveOn: boolean = true;
+
+    public constructor(element: JQuery, project: Project,
+        saveAction: ProjectSaveAction,
+        autosaveInterval: number | false = 30000) {
+
+        this.element = element;
+        this.saveAction = saveAction;
+
+        this.saveButtonElem =
+            $('<button class="btn"></button>')
+            .prop("disabled", true)
+            .html('<span class="glyphicon glyphicon-floppy-remove"></span>')
+            .on("click", () => {
+                this.saveProject();
+            });
+
+        this.element.append(this.saveButtonElem);
+
+        if (autosaveInterval !== false) {
+            setInterval(() => this.autosaveCallback(), autosaveInterval);
+        }
+
+        this.project = this.setProject(project, true);
+    }
+
+    public setProject(project: Project, isEnabled: boolean) {
+        if (project !== this.project) {
+            stopListeningTo(this, this.project);
+            (<Mutable<this>>this).project = project;
+            listenTo(this, project);
+        }
+        
+        (<Mutable<this>>this).isEnabled = isEnabled;
+        
+        if (isEnabled) {
+            this.onSaveSuccessful();
+        }
+        else {
+            this.onSaveDisabled();
+        }
+
+        return project;
+    }
+
+    private autosaveCallback() {
+        if (this.isAutosaveOn) {
+            this.saveProject();
+        }
+    }
+
+    public async saveProject() {
+
+        if (!this.isEnabled || this.isSaved) {
+            return;
+        }
+        
+        try {
+            this.onSaveAttempted();
+            await this.saveAction(this.project);
+            this.onSaveSuccessful();
+        }
+        catch(err) {
+            this.onSaveFailed();
+        }
+
+    }
+    
+    private onSaveDisabled() {
+        (<Mutable<this>>this).isSaved = true;
+        this.saveButtonElem.prop("disabled", true);
+        this.removeButtonClasses();
+        this.saveButtonElem.addClass("btn-default");
+        this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-slash"></i>');
+    }
+
+    private onSaveSuccessful() {
+        (<Mutable<this>>this).isSaved = true;
+        this.saveButtonElem.prop("disabled", false);
+        this.removeButtonClasses();
+        this.saveButtonElem.addClass("btn-success-muted");
+        this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-check"></i>');
+    }
+
+    private onUnsavedChanges() {
+        (<Mutable<this>>this).isSaved = false;
+        this.removeButtonClasses();
+        this.saveButtonElem.addClass("btn-warning-muted");
+        this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-arrow-up"></i>');
+    }
+
+    private onSaveAttempted() {
+        this.removeButtonClasses();
+        this.saveButtonElem.addClass("btn-warning-muted");
+        this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-arrow-up pulse"></i>');
+    }
+
+    private onSaveFailed() {
+        this.removeButtonClasses();
+        this.saveButtonElem.addClass("btn-danger-muted");
+        this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-slash"></i>');
+    }
+
+    private removeButtonClasses() {
+        this.saveButtonElem.removeClass("btn-default");
+        this.saveButtonElem.removeClass("btn-success-muted");
+        this.saveButtonElem.removeClass("btn-warning-muted");
+        this.saveButtonElem.removeClass("btn-danger-muted");
+    }
+
+    @messageResponse("nameSet")
+    @messageResponse("fileAdded")
+    @messageResponse("fileRemoved")
+    @messageResponse("fileContentsSet")
+    @messageResponse("translationUnitAdded")
+    @messageResponse("translationUnitRemoved")
+    @messageResponse("translationUnitStatusSet")
+    private onProjectChanged() {
+        if (this.isEnabled) {
+            this.onUnsavedChanges();
+        }
+    }
+}

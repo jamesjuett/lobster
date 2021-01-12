@@ -48,10 +48,11 @@
 
 <div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
     <div class="container-fluid">
-        <h4 style="display: inline-block; vertical-align: middle; margin-left: 10px;">Lobster: A C++ Program Visualization Tool for Education</h4>
-        <div style="display: inline-block; vertical-align: middle;">
+        <div style="display: inline-block; vertical-align: middle; margin-right: 10px;">
             <a class="btn btn-primary lobster-log-in-button" href="auth/google">Sign In</a>
         </div>
+        <img src="img/lobster.png" style="height: 30px;">
+        <h4 style="display: inline-block; vertical-align: middle;">Lobster: A C++ Program Visualization Tool for Education</h4>
         <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
 </div>
@@ -62,15 +63,17 @@
             <h4 style="text-align: center">My Projects</h4>
             <ul id="lobster-my-projects" class="nav nav-pills nav-stacked"></ul>
             <h4 style="text-align: center">Exercises</h4>
-            <div class="btn-group">
-                <button id="lobster-course-list-name" type="button" class="btn btn-default">Course</button>
-                <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <span class="caret"></span>
-                  <span class="sr-only">Toggle Dropdown</span>
-                </button>
-                <ul id = "lobster-course-list" class="dropdown-menu">
-                </ul>
-              </div>
+            <div style="text-align: center">
+                <div class="btn-group">
+                    <button id="lobster-course-list-name" type="button" class="btn btn-default">Course</button>
+                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-bottom: 5px;">
+                    <span class="caret"></span>
+                    <span class="sr-only">Toggle Dropdown</span>
+                    </button>
+                    <ul id = "lobster-course-list" class="dropdown-menu">
+                    </ul>
+                </div>
+            </div>
             <ul id="lobster-course-projects" class="nav nav-pills nav-stacked"></ul>
 
         </div>
@@ -120,9 +123,15 @@
             <br />
             <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-edit-project-name" required />
             <br />
+            <div class="checkbox">
+                <label>
+                  <input id="lobster-edit-project-is-public" type="checkbox"> Public Project? (Public projects can be viewed, but not edited, by anyone.)
+                </label>
+              </div>
             <div style="text-align: right">
                 <button type="submit" class="btn btn-primary">Update</button>
             </div>
+            <br />
             <div class="panel panel-danger">
                 <div class="panel-heading">
                   <h3 class="panel-title">Danger Zone</h3>

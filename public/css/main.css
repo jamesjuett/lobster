@@ -762,3 +762,9 @@ ul.codeStack li{
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
+
+.lobster-save-button-icon {
+	font-size: 1.5em;
+	line-height: 50%;
+	vertical-align: middle;
+}

@@ -27,3 +27,6 @@ export declare function getExerciseCheckpoints(checkpoints_key: string | string[
 export declare const EXERCISE_CHECKPOINTS: {
     [index: string]: readonly Checkpoint[] | undefined;
 };
+export declare const EXTRAS: {
+    [index: string]: (project: Project) => void;
+};
