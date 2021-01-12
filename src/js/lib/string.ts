@@ -194,7 +194,12 @@ const initialStrangCapacity = 8;
 
 registerLibraryHeader("string",
     new SourceFile("string.h",
-`class string {
+`
+
+class ostream {};
+class istream {};
+
+class string {
 private:
     size_t _size;
     size_t _capacity;
