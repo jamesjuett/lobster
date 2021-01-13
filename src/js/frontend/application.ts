@@ -5,7 +5,7 @@ import { SimpleExerciseLobsterOutlet } from "../exercises";
 import { listenTo, Message, messageResponse, MessageResponses, stopListeningTo } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
-import { getMyProjects, ProjectList, ProjectData, createUserProject, deleteProject, getCourseProjects, getFullProject, createCourseProject, editProject, saveProjectContents, FullProjectData, CreateProjectData, stringifyProjectContents, parseProjectContents } from "./projects";
+import { getMyProjects, ProjectList, ProjectData, createUserProject, deleteProject, getCourseProjects, getFullProject, createCourseProject, editProject, saveProjectContents, FullProjectData, CreateProjectData, stringifyProjectContents, parseProjectContents, getPublicCourseProjects } from "./projects";
 import { createSimpleExerciseOutlet as createSimpleExerciseOutletHTML } from "./simple_exercise_outlet";
 import { USERS, Users, UserInfo as UserData } from "./user";
 import axios from 'axios';
@@ -163,8 +163,8 @@ export class LobsterApplication {
     protected onUserLoggedOut(user: UserData) {
         this.logInButtonElem.html("Sign In");
 
-        this.setProject(createDefaultProject(), false);
         delete (<Mutable<this>>this).activeProjectData;
+        this.setProject(createDefaultProject(), false);
     }
     
     @messageResponse("projectSelected", "unwrap")
@@ -208,7 +208,12 @@ export class LobsterApplication {
     private async refreshCourseProjectsList() {
         if (this.currentCourse) {
             try {
-                this.courseProjectsList.setProjects(await getCourseProjects(this.currentCourse.id));
+                if (USERS.currentUser){
+                    this.courseProjectsList.setProjects(await getCourseProjects(this.currentCourse.id));
+                }
+                else {
+                    this.courseProjectsList.setProjects(await getPublicCourseProjects(this.currentCourse.id));
+                }
             }
             catch (e) {
                 // TODO
@@ -238,6 +243,13 @@ export class LobsterApplication {
             $("#lobster-edit-project-modal-button").hide();
             $("#lobster-edit-exercise-modal-button").hide();
             $("#lobster-personal-copy-button").show();
+        }
+
+        if (USERS.currentUser) {
+            $("#lobster-personal-copy-button").prop("disabled", false);
+        }
+        else {
+            $("#lobster-personal-copy-button").prop("disabled", true);
         }
     }
 

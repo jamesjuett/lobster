@@ -132,19 +132,27 @@ export async function getMyProjects() {
     });
 
     let projects: ProjectData[] = await response.json();
+    projects.sort((p1, p2) => p1.name.localeCompare(p2.name));
     return projects;
 }
 
 export async function getFullProject(project_id: number) {
-        
-    const response = await fetch(`api/projects/${project_id}/full`, {
-        method: 'GET',
-        headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
-    });
+    if (USERS.currentUser) {
+        const response = await fetch(`api/projects/${project_id}/full`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'bearer ' + USERS.getBearerToken()
+            }
+        });
+        return await response.json() as FullProjectData;
+    }
+    else {
+        const response = await fetch(`public_api/projects/${project_id}/full`, {
+            method: 'GET',
+        });
+        return await response.json() as FullProjectData;
+    }
 
-    return await response.json() as FullProjectData;
 }
 
 export async function getCourseProjects(course_id: number) {
@@ -157,6 +165,18 @@ export async function getCourseProjects(course_id: number) {
     });
 
     let projects: ProjectData[] = await response.json();
+    projects.sort((p1, p2) => p1.name.localeCompare(p2.name));
+    return projects;
+}
+
+export async function getPublicCourseProjects(course_id: number) {
+        
+    const response = await fetch(`public_api/courses/${course_id}/projects`, {
+        method: 'GET'
+    });
+
+    let projects: ProjectData[] = await response.json();
+    projects.sort((p1, p2) => p1.name.localeCompare(p2.name));
     return projects;
 }
 

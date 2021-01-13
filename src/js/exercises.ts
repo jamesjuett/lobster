@@ -10,6 +10,7 @@ import { Exercise, Project } from "./core/Project";
 import { Checkpoint, getExerciseCheckpoints } from "./analysis/checkpoints";
 
 import "./lib/cstdlib"
+import "./lib/cmath"
 import "./lib/string"
 import "./lib/vector"
 import { CheckpointsOutlet } from "./view/checkpointOutlets";

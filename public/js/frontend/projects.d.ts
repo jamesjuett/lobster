@@ -43,6 +43,7 @@ export declare class ProjectList {
 export declare function getMyProjects(): Promise<ProjectData[]>;
 export declare function getFullProject(project_id: number): Promise<FullProjectData>;
 export declare function getCourseProjects(course_id: number): Promise<ProjectData[]>;
+export declare function getPublicCourseProjects(course_id: number): Promise<ProjectData[]>;
 export declare function editProject(projectData: Partial<ProjectData> & {
     id: number;
 }): Promise<import("axios").AxiosResponse<any>>;

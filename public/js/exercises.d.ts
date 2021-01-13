@@ -6,6 +6,7 @@ import { MessageResponses, Message } from "./util/observe";
 import { RuntimeConstruct } from "./core/constructs";
 import { Project } from "./core/Project";
 import "./lib/cstdlib";
+import "./lib/cmath";
 import "./lib/string";
 import "./lib/vector";
 import { CheckpointsOutlet } from "./view/checkpointOutlets";
