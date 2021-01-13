@@ -690,8 +690,8 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c434 = function(id: any, t: any): any { return {identifier: id.identifier + "<" + t.identifier + ">"}; };
   const peg$c435 = "@";
   const peg$c436 = peg$literalExpectation("@", false);
-  const peg$c437 = /^[a-zA-Z_1-9~]/;
-  const peg$c438 = peg$classExpectation([["a", "z"], ["A", "Z"], "_", ["1", "9"], "~"], false, false);
+  const peg$c437 = /^[a-zA-Z_0-9~]/;
+  const peg$c438 = peg$classExpectation([["a", "z"], ["A", "Z"], "_", ["0", "9"], "~"], false, false);
   const peg$c439 = function(id: any): any { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); };
   const peg$c440 = peg$otherExpectation("optional whitespace");
   const peg$c441 = /^[ \t\n\r]/;

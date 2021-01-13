@@ -41,7 +41,7 @@ export function createSimpleExerciseOutlet(id: string) {
                     <div style="padding-top:5px; padding-bottom: 5px;">
                         <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
                         
-                        <button class = "btn btn-primary runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                        <button class = "btn btn-primary-muted runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
                         <div class = "compilation-status-outlet" style="float:right"></div>
                     </div>
                     <div class="codeMirrorEditor" style = "position: relative; background-color: #272822">

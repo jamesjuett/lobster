@@ -4,12 +4,13 @@
       "./src/js/lib/*.ts",
       "./src/js/parse/*.ts",
       "./src/js/test/*.ts",
+      "./src/js/analysis/*.ts",
       "./src/js/view/*.ts",
       "./src/js/frontend/*.ts",
       "./src/js/util/*.ts",
       "./src/js/main.ts",
       "./src/js/exercises.ts"
-, "src/js/analysis/analysis.ts"    ],
+    ],
     "compilerOptions": {
       /* Basic Options */
       "target": "es6",                          /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017','ES2018' or 'ESNEXT'. */
