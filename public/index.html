@@ -45,23 +45,23 @@
 
 <body>
 
+<div style="width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column;">
 
-<div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
-    <div class="container-fluid">
-        <div style="display: inline-block; vertical-align: middle; margin-right: 10px;">
-            <a class="btn btn-primary lobster-log-in-button" href="auth/google">Sign In</a>
+    <div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
+        <div class="container-fluid">
+            <div style="display: inline-block; vertical-align: middle; margin-right: 10px;">
+                <a class="btn btn-primary lobster-log-in-button" href="auth/google">Sign In</a>
+            </div>
+            <img src="img/lobster.png" style="height: 30px;">
+            <h4 style="display: inline-block; vertical-align: middle;">Lobster: A C++ Program Visualization Tool for Education</h4>
+            <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
         </div>
-        <img src="img/lobster.png" style="height: 30px;">
-        <h4 style="display: inline-block; vertical-align: middle;">Lobster: A C++ Program Visualization Tool for Education</h4>
-        <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
-</div>
 
-<div id="lobster1" class="container-fluid">
-    <div class="row">
-        <div class="col-xs-4 col-sm-3 col-md-2">
+    <div id="lobster1" style="flex-grow: 1; display: flex;">
+        <div style="height: 100%; flex: 0 0 150px; overflow-x: hidden; padding: 5px; display: flex; flex-direction: column; overflow-y: hidden; padding-bottom: 15px;">
             <h4 style="text-align: center">My Projects</h4>
-            <ul id="lobster-my-projects" class="nav nav-pills nav-stacked"></ul>
+            <div id="lobster-my-projects" style="flex: 1 0 200px; overflow-y: auto;"></div>
             <h4 style="text-align: center">Exercises</h4>
             <div style="text-align: center">
                 <div class="btn-group">
@@ -74,15 +74,16 @@
                     </ul>
                 </div>
             </div>
-            <ul id="lobster-course-projects" class="nav nav-pills nav-stacked"></ul>
+            <div id="lobster-course-projects" style="flex: 1 0 200px; overflow-y: auto;"></div>
 
         </div>
-        <div class="col-xs-8 col-sm-9 col-md-10">
+        <div style="height: 100%; flex: 10 0 650px; overflow-x: hidden; padding: 5px;">
             
-            <div class="lobster-lobster" style="margin-left: auto; margin-right: auto">
+            <div class="lobster-lobster" style="display: flex; flex-direction: column; height: 100%;">
             </div>
         </div>
     </div>
+
 </div>
 
 <!------------------- MODALS ------------------->
