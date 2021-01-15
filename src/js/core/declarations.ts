@@ -5,7 +5,7 @@ import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectTy
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
-import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
+import { BlockASTNode, Block, createStatementFromAST, CompiledBlock, createBlockContext } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -1536,8 +1536,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         // Create implementation and body block (before params and body statements added yet)
         let functionContext = createFunctionContext(context, declaration.declaredEntity, context.containingClass?.type);
-        let body = new Block(functionContext, ast.body);
-        let bodyContext = body.context;
+        let bodyContext = createBlockContext(functionContext);
 
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
@@ -1566,10 +1565,9 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         }
         
 
-        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-        // added after the parameters.)
-        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        // Create the body "manually" using the ctor so we can give it the bodyContext create earlier.
+        // We can't use the createFromAST function for the body Block, because that would create a new, nested block context.
+        let body = new Block(bodyContext, ast.body, ast.body.statements.map(s => createStatementFromAST(s, bodyContext)));
 
         return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, ctorInitializer, body);
     }
