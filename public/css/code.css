@@ -852,16 +852,20 @@ position: relative;}
 
 .code-unaryOp > .lobster-highlight,
 .code-binaryOp > .lobster-highlight,
-.code-assignmentOp > .lobster-highlight {
+.code-ternaryOp > .lobster-highlight,
+.code-assignmentOp > .lobster-highlight,
+.code-compoundAssignmentOp > .lobster-highlight {
     /*background-color: #00A138;*/
     border-bottom-style: solid;
     border-bottom-color: #00A138;
     border-bottom-width: 2px;
 }
 
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .lobster-highlight,
 .codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-unaryOp > .lobster-highlight,
-.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .lobster-highlight {
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-binaryOp > .lobster-highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-ternaryOp > .lobster-highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-assignmentOp > .lobster-highlight,
+.codeInstance.expression.upNext > .lobster-expression-wrapper > .expr > .code-compoundAssignmentOp > .lobster-highlight {
     opacity: 1;
 }
 

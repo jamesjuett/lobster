@@ -874,28 +874,73 @@ new SingleTranslationUnitTest(
         ]
     );
 
-// string test
+    // string test
+    
+        new SingleTranslationUnitTest(
+            "Basic String Test",
+            `#include <iostream>
+    #include <string>
+    using namespace std;
+    
+    int main() {
+      string s1;
+      char cstr[10] = "hello";
+      for(int i = 0; i < 10-1; ++i) {
+        cstr[i] = 'x';
+      }
+      string s2(cstr);
+      cout << "hello" << endl;
+    }`,
+            [
+                new NoErrorsNoWarningsVerifier(),
+                new NoBadRuntimeEventsVerifier(true)
+            ]
+        );
+
+        
+
+// Basic Compound Assignment---------------------
 
     new SingleTranslationUnitTest(
-        "Basic String Test",
-        `#include <iostream>
-#include <string>
+      "Basic Compound Assignment Test",
+      `#include <iostream>
 using namespace std;
 
 int main() {
-  string s1;
-  char cstr[10] = "hello";
-  for(int i = 0; i < 10-1; ++i) {
-    cstr[i] = 'x';
-  }
-  string s2(cstr);
-  cout << "hello" << endl;
+  
+  int x = 132;
+  x += 1;
+  x /= 2;
+  x *= 3;
+  x += 4;
+  x %= 5;
+  x >>= 6;
+  x <<= 7;
+  x &= 8;
+  x ^= 9;
+  x |= 10;
+  
+  int y = 2;
+  y = y + 1;
+  y = y / 2;
+  y = y * 3;
+  y = y + 4;
+  y = y % 5;
+  y = y >> 6;
+  y = y << 7;
+  y = y & 8;
+  y = y ^ 9;
+  y = y | 10;
+  
+  assert(x == y);
+  
+  cout << x << endl;
 }`,
-        [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
-        ]
-    );
+      [
+          new NoErrorsNoWarningsVerifier(),
+          new NoBadRuntimeEventsVerifier(true)
+      ]
+  );
 });
 
 /**

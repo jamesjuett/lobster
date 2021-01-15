@@ -10,7 +10,7 @@ import { RuntimeExpression, Expression, CompiledExpression } from "../core/expre
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression } from "../core/expressions";
+import { RuntimeAssignment as RuntimeAssignmentExpression, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression, CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression } from "../core/expressions";
 import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType, isAtomicType, isReferenceType, isCompleteClassType, PointerType, isType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
@@ -1322,7 +1322,7 @@ export abstract class ExpressionOutlet<RT extends RuntimeExpression = RuntimeExp
 
 const ASSIGNMENT_OP_HTML = htmlDecoratedOperator("=", "code-assignmentOp");
 
-export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignment> {
+export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignmentExpression> {
 
     public readonly lhs: ExpressionOutlet;
     public readonly rhs: ExpressionOutlet;
@@ -1337,44 +1337,27 @@ export class AssignmentExpressionOutlet extends ExpressionOutlet<RuntimeAssignme
         this.exprElem.append(" " + ASSIGNMENT_OP_HTML + " ");
 
         this.rhs = addChildExpressionOutlet(this.exprElem, this.construct.rhs, this);
-
-
-        // if (this.construct.funcCall){
-        //     var callOutlet = Outlets.CPP.FunctionCall.instance(this.construct.funcCall, this);
-        //     this.addChildOutlet(callOutlet);
-
-        //     this.argOutlets = callOutlet.argOutlets;
-        //     this.argOutlets.forEach(function(argOutlet,i,arr){
-        //         self.addChildOutlet(argOutlet);
-        //         self.exprElem.append(argOutlet.element);
-        //         if (i < arr.length - 1) {
-        //             self.exprElem.append(", ");
-        //         }
-        //     });
-        // }
     }
+    
+}
 
-//     _act: mixin({}, Outlets.CPP.Expression._act, {
+export class CompoundAssignmentExpressionOutlet extends ExpressionOutlet<RuntimeCompoundAssignmentExpression> {
 
-//         returned: function(msg){
-//             var value = msg.data;
-//             this.setEvalResult(value);
+    public readonly lhs: ExpressionOutlet;
+    public readonly rhs: ExpressionOutlet;
 
-// //            if(CODE_ANIMATIONS) {
-// //                this.wrapperElem.animate({
-// //                    width: this.evalResultElem.css("width")
-// //                }, 500, function () {
-// //                    $(this).css("width", "auto");
-// //                });
-// //            }
+    public constructor(element: JQuery, construct: CompiledCompoundAssignmentExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
 
-//             this.evalResultElem.removeClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 1);
-//             this.exprElem.addClass("lobster-hidden-expression").fadeTo(EVAL_FADE_DURATION, 0);
+        this.element.addClass("compound-assignment");
 
-// //            console.log("expression evaluated to " + value.value);
-//         }
+        this.lhs = addChildExpressionOutlet(this.exprElem, this.construct.lhs, this);
 
-//     }, true)
+        this.exprElem.append(" " + htmlDecoratedOperator(this.construct.operator, "code-compoundAssignmentOp") + " ");
+
+        this.rhs = addChildExpressionOutlet(this.exprElem, this.construct.rhs, this);
+    }
+    
 }
 
 const TERNARY_OP_HTML1 = htmlDecoratedOperator("?", "code-ternaryOp");
