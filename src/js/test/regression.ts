@@ -314,6 +314,11 @@ int main() {
   }
   assert(y == 10);
 
+  for(int i = 0; i < 10; i = i + 1) {
+    y = y + 1;
+  }
+  assert(y == 20);
+
   // int z = 3;
   // do {
   //   z =  + 1;
