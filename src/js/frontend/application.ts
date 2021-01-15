@@ -482,4 +482,9 @@ export class ProjectSaveOutlet {
             this.onUnsavedChanges();
         }
     }
+
+    @messageResponse("saveRequested")
+    private onSaveRequested() {
+        this.saveProject();
+    }
 }

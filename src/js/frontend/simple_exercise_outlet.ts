@@ -31,26 +31,28 @@ export function createSimpleExerciseOutlet(id: string) {
                 
             </div>
 
-            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
-                <div style="padding-top:5px; padding-bottom: 5px;">
-                    <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
-                    
-                    <button class = "btn btn-primary-muted runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                    <div class = "compilation-status-outlet" style="float:right"></div>
-                </div>
-                <div class="codeMirrorEditor" style = "position: relative; overflow-y: hidden; height: 100%; background-color: #272822">
-                    <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
-                    <!--<div style="height: 400px;"></div>-->
-                </div>
+            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
+                <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
+                    <div style="padding-top:5px; padding-bottom: 5px;">
+                        <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
+                        
+                        <button class = "btn btn-primary-muted runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                        <div class = "compilation-status-outlet" style="float:right"></div>
+                    </div>
+                    <div class="codeMirrorEditor" style = "position: relative; overflow-y: hidden; height: 100%; background-color: #272822">
+                        <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
+                        <!--<div style="height: 400px;"></div>-->
+                    </div>
 
-                <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                    <div class="annotationMessages">
-                        <div style="height: 100px; margin-left: 5px; float: right;">
-                            <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                            <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                            <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
+                    <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
+                        <div class="annotationMessages">
+                            <div style="height: 100px; margin-left: 5px; float: right;">
+                                <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
+                                <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
+                                <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
+                            </div>
+                            <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
                         </div>
-                        <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
                     </div>
                 </div>
             </div>
