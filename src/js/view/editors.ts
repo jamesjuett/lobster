@@ -58,9 +58,7 @@ export class ProjectEditor {
             keyMap: "sublime",
             extraKeys: {
                 "Ctrl-S" : () => {
-                    // if (!this.isSaved) {
-                    //     this.saveProject();
-                    // }
+                    this.project.requestSave();
                 },
 
             },

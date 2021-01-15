@@ -20,7 +20,8 @@ type ProjectMessages =
     "translationUnitAdded" |
     "translationUnitRemoved" |
     "translationUnitStatusSet" |
-    "noteAdded";
+    "noteAdded" |
+    "saveRequested";
 
 export class Project {
 
@@ -32,7 +33,7 @@ export class Project {
     public readonly sourceFiles: readonly SourceFile[] = [];
     private translationUnitNames: Set<string> = new Set<string>();
 
-    public readonly program!: Program; // ! set by call to this.recompile() in ctor
+    public readonly program: Program; // ! set by call to this.recompile() in ctor
     
     public readonly exercise: Exercise;
 
@@ -48,6 +49,7 @@ export class Project {
 
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
+        this.program = new Program([], new Set<string>()); // will get replaced immediately
         this.recompile();
     }
     
@@ -128,7 +130,17 @@ export class Project {
     }
 
     public recompile() {
-        (<Mutable<this>>this).program = new Program(this.sourceFiles, this.translationUnitNames);
+        try {
+            (<Mutable<this>>this).program = new Program(this.sourceFiles, this.translationUnitNames);
+        }
+        catch(e) {
+            console.log("Unexpected Lobster crash during compilation. :(")
+            console.log(e);
+            this.sourceFiles.forEach(sf => {
+                console.log(sf.name);
+                console.log(sf.text);
+            });
+        }
 
         // if (this.name) {
         //     projectAnalyses[this.name] && projectAnalyses[this.name](this.program);
@@ -215,45 +227,9 @@ export class Project {
         this.observable.send("noteAdded", note);
     }
 
-    // @messageResponse("projectCleared")
-    // private projectCleared() {
-    //     let _this = <Mutable<this>>this;
-
-    //     _this.projectName = "";
-    //     _this.sourceFiles = [];
-    //     this.translationUnitNamesMap = {};
-    //     this.recompile();
-
-    //     _this.isSaved = true;
-    //     _this.isOpen = false;
-
-    //     this.fileTabs = {};
-    //     this.filesElem.empty();
-    //     this.fileEditors = {};
-    // }
-
-    // @messageResponse("projectLoaded")
-    // private projectLoaded(project: Project) {
-
-    //     this.clearProject();
-
-    //     let _this = <Mutable<this>>this;
-
-    //     project.sourceFiles.forEach(file => this.createFile(file));
-
-    //     _this.isSaved = true;
-    //     _this.isOpen = true;
-
-    //     // document.title = projectName; // TODO: this is too aggressive because there may be multiple project editors. replace in favor of projectLoaded message
-
-    //     // Set first file to be active
-    //     if (projectData.length > 0) {
-    //         this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
-    //         this.selectFile(projectData[0]["name"]);
-    //     }
-
-    //     this.recompile();
-    // }
+    public requestSave() {
+        this.observable.send("saveRequested");
+    }
 }
 
 export type ExerciseMessages = 
