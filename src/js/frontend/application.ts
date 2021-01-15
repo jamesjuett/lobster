@@ -14,7 +14,6 @@ import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
 
 
 
-
 /**
  * Expects elements with these ids to be present:
  * - lobster-log-in-button
