@@ -1,6 +1,8 @@
 import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
+import "../lib/standard"
+
 $(() => {
     var numTests = 0;
     var numTestsSuccessful = 0;
@@ -51,7 +53,7 @@ $(() => {
         (new CompilationNotesOutlet(notesElem)).updateNotes(test.program);
 
         var testElem = $('<div class="container lobster-test-result"></div>');
-        testElem.append("<h2>" + test.name + "</h2>");
+        testElem.append("<h4>" + test.name + "</h4>");
         testElem.append(programElem);
         testElem.append(resultsElem);
         $("#regression_tests").append(testElem);
@@ -872,64 +874,21 @@ new SingleTranslationUnitTest(
         ]
     );
 
-// strang test
+// string test
 
     new SingleTranslationUnitTest(
-        "Basic Strang Test",
-        `class strang {
-private:
-  size_t _size;
-  size_t _capacity;
-  char * _data;
+        "Basic String Test",
+        `#include <iostream>
+#include <string>
+using namespace std;
 
-  strang()
-    : _size(0), _capacity(0), _data(new char[1]) {
-    _data[0] = '\0';
-  }
-
-  strang(const strang &other)
-    : _size(other._size), _capacity(other._capacity),
-      _data(new char[other._capacity]) {
-
-    for(int i = 0; i < other._size; ++i) {
-      _data[i] = other._data[i];
-    }
-  }
-
-  strang(const char *cstr)
-    : _size(0) {
-    // Find length of c-style string
-    while(*cstr) {
-      ++cstr;
-      ++_size;
-    }
-
-    // reset cstr pointer
-    cstr -= _size;
-
-    // copy chars
-    _capacity = _size + 1;
-    _data = new char[_capacity];
-    while(*cstr) {
-      *_data++ = *cstr++;
-    }
-    *_data = '\0';
-
-    // reset data pointer
-    _data -= _size;
-  }
-
-  ~strang() {
-    delete[] _data;
-  }
-};
 int main() {
-  strang s1;
+  string s1;
   char cstr[10] = "hello";
   for(int i = 0; i < 10-1; ++i) {
     cstr[i] = 'x';
   }
-  strang s2(cstr);
+  string s2(cstr);
   cout << "hello" << endl;
 }`,
         [

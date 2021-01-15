@@ -1,9 +1,6 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
 
-import "./lib/cstdlib"
-import "./lib/cmath"
-import "./lib/string"
-import "./lib/vector"
+import "./lib/standard"
 import { Users } from "./frontend/user";
 import { ProjectList } from "./frontend/projects";
 import { LobsterApplication } from "./frontend/application";
