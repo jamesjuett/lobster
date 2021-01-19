@@ -100,7 +100,9 @@ export class LobsterApplication {
 
         // Edit (and delete) Project Modal
         $("#lobster-edit-project-modal").on('show.bs.modal', () => {
-            $("#lobster-edit-project-name").val(this.activeProject.name)
+            $("#lobster-edit-project-name").val(this.activeProject.name);
+            $('#lobster-edit-project-is-public').prop("checked", this.activeProjectData?.is_public);
+
         });
         $("#lobster-edit-project-form").on("submit", (e) => {
             e.preventDefault();
@@ -180,6 +182,11 @@ export class LobsterApplication {
     }
 
     private async loadProject(project_id: number) {
+
+        // Save previous project (note that the request for a save
+        // gets ignored if it wasn't a cloud project, so this is fine)
+        this.activeProject.requestSave();
+
         let projectData = await getFullProject(project_id);
         return this.setProjectFromData(projectData);
     }

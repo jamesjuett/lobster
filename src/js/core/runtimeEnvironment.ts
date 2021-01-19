@@ -615,6 +615,7 @@ export class MemoryFrame {
 
     private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
     private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
+    private readonly localReferenceEntities: readonly LocalReferenceEntity[];
 
     public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
         this.memory = memory;
@@ -635,8 +636,10 @@ export class MemoryFrame {
         //     this.size += obj.size;
         // }
 
+        let functionLocals = rtFunc.model.context.functionLocals;
+        
         // Push objects for all entities in the block
-        this.localObjects = rtFunc.model.context.functionLocals.localObjects.map((objEntity) => {
+        this.localObjects = functionLocals.localObjects.map((objEntity) => {
 
             // Create and allocate the object
             let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
@@ -649,6 +652,8 @@ export class MemoryFrame {
 
             return obj;
         });
+
+        this.localReferenceEntities = functionLocals.localReferences;
 
         this.end = this.start + this.size;
     }
@@ -680,6 +685,7 @@ export class MemoryFrame {
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject) {
         this.localReferencesByEntityId[entity.entityId] = obj;
+        obj.onReferenceBound(entity);
         this.observable.send("referenceBound", { entity: entity, object: obj });
     }
 
@@ -693,11 +699,16 @@ export class MemoryFrame {
 
     public pop(rtConstruct: RuntimeConstruct) {
         for (let key in this.localObjectsByEntityId) {
-            var obj = this.localObjectsByEntityId[key];
+            let obj = this.localObjectsByEntityId[key];
 
             // Note this does nothing if the object was already deallocated (e.g. going out of scope of a nested block, destructor was called)
             this.memory.killObject(obj.address, rtConstruct);
         }
+
+        this.localReferenceEntities.forEach(refEntity => {
+            let referredObj = this.localReferencesByEntityId[refEntity.entityId];
+            referredObj?.onReferenceUnbound(refEntity);
+        });
     }
 
 };

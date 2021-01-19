@@ -716,11 +716,13 @@ export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType>
 }
 
 export interface BoundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
+    name?: string;
     runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X>;
     readonly variableKind: "reference";
 }
 
 export interface UnboundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
+    name?: string;
     bindTo<X extends CompleteObjectType>(this: UnboundReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>): void;
 }
 
@@ -787,9 +789,11 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
     public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
+    public readonly name: string;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
+        this.name = def.name;
         this.firstDeclaration = def;
         this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
