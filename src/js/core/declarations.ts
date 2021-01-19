@@ -1949,7 +1949,7 @@ export interface ClassHeadASTNode extends ASTNode {
 }
 
 export interface BaseSpecifierASTNode extends ASTNode {
-    readonly name: string;
+    readonly name: { identifier: string };
     readonly virtual?: true;
     readonly access?: AccessSpecifier;
 }
@@ -2530,7 +2530,7 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
 
     public constructor(context: TranslationUnitContext, ast: BaseSpecifierASTNode, defaultAccessLevel: AccessSpecifier) {
         super(context, ast);
-        this.name = ast.name;
+        this.name = ast.name.identifier;
         this.accessLevel = ast.access ?? defaultAccessLevel;
         this.virtual = !!ast.virtual;
 

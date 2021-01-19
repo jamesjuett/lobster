@@ -3,7 +3,7 @@ import { addListener, listenTo, MessageResponses, messageResponse, stopListening
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType } from "../core/types";
-import { Mutable, assert, isInstance } from "../util/util";
+import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
@@ -942,10 +942,14 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
     
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+    public readonly names: readonly string[];
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet, name?: string) {
         this.element = element.addClass("code-memoryObject");
         this.object = object;
         this.memoryOutlet = memoryOutlet;
+
+        this.names = name ? [name] : [];
 
         listenTo(this, object);
     }
@@ -970,6 +974,27 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
         this.updateObject();
         this.objElem.addClass("set");
     }
+
+    @messageResponse("referenceBound", "unwrap")
+    protected onReferenceBound(refEntity: BoundReferenceEntity) {
+        if (refEntity.name) {
+            asMutable(this.names).push(refEntity.name);
+            this.onNamesUpdate();
+        }
+    }
+
+    @messageResponse("referenceUnbound", "unwrap")
+    protected onReferenceUnbound(refEntity: BoundReferenceEntity) {
+        if (refEntity.name) {
+            let i = this.names.indexOf(refEntity.name);
+            if (i !== -1) {
+                asMutable(this.names).splice(i,1);
+            }
+            this.onNamesUpdate();
+        }
+    }
+
+    protected abstract onNamesUpdate() : void;
 
     @messageResponse("deallocated")
     protected deallocated() {
@@ -1049,9 +1074,10 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
 
     protected readonly addrElem : JQuery;
     protected readonly objElem : JQuery;
+    protected readonly namesElem : JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
         
         this.element.addClass("code-memoryObjectSingle");
 
@@ -1061,13 +1087,15 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
         this.objElem = $("<div class='code-memoryObject-object'>" + this.object.getValue().valueString() + "</div>");
         this.element.append(this.objElem);
 
-        if (this.object.name) {
-            this.element.append("<span> </span>");
-            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-        }
-
+        this.element.append("<span> </span>");
+        this.element.append(this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        
         this.updateObject();
         
+    }
+
+    protected onNamesUpdate() {
+        this.namesElem.html(this.names.join(", "));
     }
 
     protected updateObject() {
@@ -1336,18 +1364,15 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
     private readonly objElem: JQuery;
 
     public constructor(element: JQuery, entity: UnboundReferenceEntity & NamedEntity) {
-        this.element = element;
+        this.element = element.addClass("code-memoryObject");
         this.entity = entity;
 
         this.element.addClass("code-memoryObjectSingle");
 
-        this.addrElem = $("<td class='address'></td>");
-        this.objElem = $("<td><div class='entity'>"+(entity.name || "")+
-            "</div><div class='code-memoryObject-object'>"+
-            "</div></td>");
-        this.element.append("<table><tr></tr></table>");
-        this.element.find("tr").append(this.addrElem).append(this.objElem);
-        this.objElem = this.objElem.find(".code-memoryObject-object");
+        this.addrElem = $("<div>&nbsp;</div>").appendTo(element);
+        this.objElem = $("<div class='entity'>"+(entity.name || "")+
+            "</div>)"<div class='code-memoryObject-object'>"+
+            "</div>").appendTo(element);
 
         return this;
     }
@@ -1415,6 +1440,10 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
 //        }
     }
 
+    protected onNamesUpdate() {
+        // TODO
+    }
+
 //    updateElems : function(addr, length, func) {
 //        var endAddr = addr + length;
 //        var beginIndex = Math.floor(( addr - this.object.address ) / this.object.type.elemType.size);
@@ -1479,6 +1508,10 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
             this.objElem.addClass("invalid");
         }
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
@@ -1536,6 +1569,10 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
     protected updateObject() {
         // nothing to do. member object outlets should handle stuff
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 
@@ -1578,6 +1615,10 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
         else{
             elem.addClass("invalid");
         }
+    }
+
+    protected onNamesUpdate() {
+        // TODO
     }
 }
 
@@ -1630,6 +1671,10 @@ export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
             this.setArrayOutlet(pointedArr);
         }
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
@@ -1653,6 +1698,10 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
 
     protected updateObject() {
 
+    }
+
+    protected onNamesUpdate() {
+        // TODO
     }
 }
 

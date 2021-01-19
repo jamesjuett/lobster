@@ -4,6 +4,7 @@ import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
 import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition, CompiledClassDefinition } from "./declarations";
+import { BoundReferenceEntity } from "./entities";
 
 export interface ObjectDescription {
     name: string;
@@ -570,6 +571,21 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
     public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is CPPObject<NarrowedT> {
         return predicate(this.type);
+    }
+
+    /**
+     * Notify this object that a reference has been bound to it
+     */
+    public onReferenceBound(entity: BoundReferenceEntity) {
+        this.observable.send("referenceBound", entity);
+    }
+
+    /**
+     * Notify this object that a reference has been unbound from it
+     * (e.g. that reference went out of scope)
+     */
+    public onReferenceUnbound(entity: BoundReferenceEntity) {
+        this.observable.send("referenceUnbound", entity);
     }
 
     public abstract describe(): ObjectDescription;
