@@ -1371,7 +1371,7 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
 
         this.addrElem = $("<div>&nbsp;</div>").appendTo(element);
         this.objElem = $("<div class='entity'>"+(entity.name || "")+
-            "</div>)"<div class='code-memoryObject-object'>"+
+            "</div><div class='code-memoryObject-object'>"+
             "</div>").appendTo(element);
 
         return this;

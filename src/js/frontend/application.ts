@@ -11,6 +11,7 @@ import { USERS, Users, UserInfo as UserData } from "./user";
 import axios from 'axios';
 import { CourseData, getCourses as getPublicCourses } from "./courses";
 import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
+import { getExtras } from "../analysis/extras";
 
 
 
@@ -195,12 +196,15 @@ export class LobsterApplication {
         (<Mutable<this>>this).activeProjectData = projectData; // will be undefined if no exercise
 
         let checkpoints = getExerciseCheckpoints(projectData.exercise.exercise_key);
+        let extras = getExtras(projectData.exercise.exercise_key).concat(
+            getExtras(projectData.exercise.extra_keys));
 
         return this.setProject(new Project(
             projectData.name,
             projectData.id,
             parseProjectContents(projectData).files,
-            new Exercise(checkpoints)
+            new Exercise(checkpoints),
+            extras
         ).turnOnAutoCompile(), projectData.write_access);
     }
 
