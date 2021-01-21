@@ -9,7 +9,6 @@ import 'codemirror/keymap/sublime.js'
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
 import { Note, SyntaxNote, NoteKind } from "../core/errors";
-import { projectAnalyses } from "../analysis/analysis";
 import { Project } from "../core/Project";
 
 /**

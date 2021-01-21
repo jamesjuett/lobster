@@ -1,4 +1,5 @@
 import { Checkpoint } from "../analysis/checkpoints";
+import { StaticAnalysisExtra } from "../analysis/extras";
 import { listenTo, messageResponse, MessageResponses, Observable } from "../util/observe";
 import { Mutable, assert, asMutable } from "../util/util";
 import { Note } from "./errors";
@@ -37,15 +38,18 @@ export class Project {
     
     public readonly exercise: Exercise;
 
+    public readonly extras: readonly StaticAnalysisExtra[];
+
     public readonly isCompilationOutOfDate: boolean = true;
 
     private pendingAutoCompileTimeout?: number;
     private autoCompileDelay?: number;
 
-    public constructor(name: string, id: number | undefined, files: readonly FileData[], exercise: Exercise) {
+    public constructor(name: string, id: number | undefined, files: readonly FileData[], exercise: Exercise, extras: readonly StaticAnalysisExtra[] = []) {
         this.name = name;
         this.id = id;
         this.exercise = exercise?.setProject(this);
+        this.extras = extras;
 
         files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
 
@@ -142,9 +146,7 @@ export class Project {
             });
         }
 
-        // if (this.name) {
-        //     projectAnalyses[this.name] && projectAnalyses[this.name](this.program);
-        // }
+        this.extras.forEach(extra => extra(this.program));
 
         this.observable.send("compilationFinished", this.program);
 
