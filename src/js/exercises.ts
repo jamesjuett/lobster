@@ -11,6 +11,7 @@ import { Checkpoint, getExerciseCheckpoints } from "./analysis/checkpoints";
 
 import "./lib/standard"
 import { CheckpointsOutlet } from "./view/checkpointOutlets";
+import { InstantMemoryDiagramOutlet } from "./view/InstantMemoryDiagramOutlet";
 
 $(() => {
 
@@ -49,6 +50,8 @@ export class SimpleExerciseLobsterOutlet {
     
     private projectEditor: ProjectEditor;
     private simulationOutlet: SimulationOutlet;
+    private instantMemoryDiagramOutlet: InstantMemoryDiagramOutlet;
+    private isInstantMemoryDiagramActive: boolean;
     
     public readonly project: Project;
     public readonly completeMessage: string;
@@ -59,9 +62,9 @@ export class SimpleExerciseLobsterOutlet {
     private readonly tabsElem: JQuery;
     // private readonly annotationMessagesElem: JQuery;
 
-    public readonly compilationOutlet: CompilationOutlet
-    public readonly compilationStatusOutlet: CompilationStatusOutlet
-    public readonly checkpointsOutlet: CheckpointsOutlet
+    public readonly compilationOutlet: CompilationOutlet;
+    public readonly compilationStatusOutlet: CompilationStatusOutlet;
+    public readonly checkpointsOutlet: CheckpointsOutlet;
 
     public _act!: MessageResponses;
 
@@ -98,10 +101,25 @@ export class SimpleExerciseLobsterOutlet {
         this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
         this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
         this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise, completeMessage);
-        
-        this.project = project;
+        let IMDOElem = element.find(".lobster-instant-memory-diagram");
+        this.instantMemoryDiagramOutlet = new InstantMemoryDiagramOutlet(IMDOElem,  project, false);
+        this.isInstantMemoryDiagramActive = false;
 
-        
+        element.find(".lobster-instant-memory-diagram-buttons button").on("click", () => {
+          ["active", "btn-default", "btn-primary"].forEach(c => 
+            element.find(".lobster-instant-memory-diagram-buttons button").toggleClass(c)
+          );
+          this.isInstantMemoryDiagramActive = !this.isInstantMemoryDiagramActive;
+          this.instantMemoryDiagramOutlet.setActive(this.isInstantMemoryDiagramActive);
+          if (this.isInstantMemoryDiagramActive) {
+            IMDOElem.show();
+          }
+          else {
+            IMDOElem.hide();
+          }
+        });
+
+        this.project = project;
     }
     
     public setProject(project: Project) {
@@ -111,6 +129,7 @@ export class SimpleExerciseLobsterOutlet {
         this.compilationOutlet.setProject(project);
         this.compilationStatusOutlet.setProject(project);
         this.checkpointsOutlet.setExercise(project.exercise);
+        this.instantMemoryDiagramOutlet.setProject(project);
         
         return this.project;
     }

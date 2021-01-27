@@ -26,7 +26,7 @@ export function createSimpleExerciseOutlet(id: string) {
 
         </ul>
 
-        <div class="tab-content" style="flex: 1 0 300px; overflow: hidden;">
+        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
             <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade">
                 
             </div>
@@ -35,15 +35,22 @@ export function createSimpleExerciseOutlet(id: string) {
                 <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
                     <div style="padding-top:5px; padding-bottom: 5px;">
                         <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
-                        
-                        <button class = "btn btn-primary-muted runButton" style="float:right; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                        <div class = "compilation-status-outlet" style="float:right"></div>
+                        <div style="float: right;">
+                            <div class = "compilation-status-outlet" style="display: inline-block;"></div>
+                            <div style="display: inline-block; text-align: center;">
+                                Memory Diagram<br />
+                                <div class="btn-group btn-toggle lobster-instant-memory-diagram-buttons"> 
+                                    <button class="btn btn-xs btn-default">ON</button>
+                                    <button class="btn btn-xs btn-primary active">OFF</button>
+                                </div>
+                            </div>
+                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                        </div>
                     </div>
-                    <div class="codeMirrorEditor" style = "position: relative; overflow-y: hidden; height: 100%; background-color: #272822">
-                        <!--<textarea style="position: absolute; overflow-y: hidden; height: 2000px; color: black"></textarea>-->
-                        <!--<div style="height: 400px;"></div>-->
+                    <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">
+                        <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #272822"></div>
+                        <div class="lobster-instant-memory-diagram" style="display: none; height: 100%; flex: 0 1 300px;"></div>
                     </div>
-
                     <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
                         <div class="annotationMessages">
                             <div style="height: 100px; margin-left: 5px; float: right;">
@@ -104,7 +111,7 @@ export function createSimpleExerciseOutlet(id: string) {
                                 </div>
                                 <div class="lobster-cin-buffer" style = "margin-top: 5px;"></div>
                                 <div style = "margin-top: 5px; text-align: center;">Memory</div>
-                                <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="memory readOnly"></div></div>
+                                <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="lobster-memory readOnly"></div></div>
 
                             </div>
                         </td>

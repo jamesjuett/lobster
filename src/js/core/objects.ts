@@ -1,4 +1,4 @@
-import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, CompleteObjectType, CompleteClassType } from "./types";
+import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, CompleteObjectType, CompleteClassType, toHexadecimalString } from "./types";
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
@@ -264,6 +264,8 @@ type ObjectRawValueRepresentation<T extends CompleteObjectType> =
 // template parameter. (Rather than the current awkward composition and conditional method strategy)
 export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectType> {
 
+    private static _nextObjectId = 0;
+
     public readonly observable = new Observable(this);
 
     /**
@@ -274,6 +276,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     public readonly type: T;
     public readonly size: number;
     public readonly address: number;
+    public readonly objectId;
 
     private readonly data: any;
 
@@ -285,6 +288,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     public constructor(type: T, memory: Memory, address: number) {
         this.type = type;
         this.size = type.size;
+        this.objectId = CPPObject._nextObjectId++;
         assert(this.size != 0, "Size cannot be 0."); // SCARY
 
         if (this.type.isBoundedArrayType()) {
@@ -577,7 +581,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
      * Notify this object that a reference has been bound to it
      */
     public onReferenceBound(entity: BoundReferenceEntity) {
-        this.observable.send("referenceBound", entity);
+        this.observable.send("referenceBoundToMe", entity);
     }
 
     /**
@@ -697,7 +701,7 @@ export class StaticObject<T extends CompleteObjectType = CompleteObjectType> ext
 export class DynamicObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
 
     public describe(): ObjectDescription {
-        return { name: `[dynamic @${this.address}]`, message: `the heap object at 0x${this.address}` };
+        return { name: `[dynamic @${this.address}]`, message: `the heap object at ${toHexadecimalString(this.address)}` };
     }
 
 }
@@ -711,7 +715,7 @@ export class InvalidObject<T extends CompleteObjectType = CompleteObjectType> ex
     }
 
     public describe(): ObjectDescription {
-        return { name: `[invalid @${this.address}]`, message: `an invalid object at 0x${this.address}` };
+        return { name: `[invalid @${this.address}]`, message: `an invalid object at ${toHexadecimalString(this.address)}` };
     }
 }
 
@@ -730,7 +734,7 @@ export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
     }
 
     public describe(): ObjectDescription {
-        return { name: `[string literal @${this.address}]`, message: "string literal at 0x" + this.address }
+        return { name: `[string literal @${this.address}]`, message: `string literal at ${toHexadecimalString(this.address)}` }
     }
 
 }
