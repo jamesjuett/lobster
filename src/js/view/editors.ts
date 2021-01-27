@@ -68,6 +68,11 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
+        let addFileButton = $('<a><i class="bi bi-file-earmark-plus"></i></a>');
+        let liContainer = $("<span></span>");
+        liContainer.append(addFileButton);
+        this.filesElem.add(liContainer);
+
         this.setProject(project);
 
         ProjectEditor.instances.push(this);

@@ -519,7 +519,7 @@ div .tabPane {
 	width: 300px;
 }
 
-.memory{
+.lobster-memory{
 	word-wrap: break-word;
 }
 
@@ -764,6 +764,12 @@ ul.codeStack li{
 }
 
 .lobster-save-button-icon {
+	font-size: 1.5em;
+	line-height: 50%;
+	vertical-align: middle;
+}
+
+.bi-big-icon {
 	font-size: 1.5em;
 	line-height: 50%;
 	vertical-align: middle;

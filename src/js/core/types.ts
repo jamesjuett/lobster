@@ -1003,6 +1003,10 @@ export class Double extends FloatingPointType {
 
 //TODO: create separate function pointer type???
 
+export function toHexadecimalString(addr: number) {
+    return "0x"+addr.toString(16);
+}
+
 export class PointerType<PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends AtomicType {
 
     public readonly size = 8;
@@ -1053,7 +1057,7 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
         //     return value.name;
         // }
         // else{
-        return "0x" + value;
+        return toHexadecimalString(value);
         // }
     }
 

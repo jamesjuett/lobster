@@ -2,3 +2,8 @@
 .CodeMirror {
 	height: 100% !important;
 }
+
+.lobster-ex-checkpoints .panel-body {
+	white-space: nowrap;
+	overflow-x: auto;
+}

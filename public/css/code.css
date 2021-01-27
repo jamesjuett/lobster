@@ -444,7 +444,7 @@
     vertical-align: text-top;
 }
 
-.memory {
+.lobster-memory {
     /*border: solid 1px black;*/
     position: relative;
     padding: 2px;
@@ -454,6 +454,10 @@
     overflow-y: auto;
     overflow-x: hidden;
     resize: vertical;
+}
+
+.lobster-memory svg {
+    overflow: visible !important;
 }
 
 .code-memoryStack{
@@ -472,7 +476,7 @@
     margin-bottom: 0;
 }
 
-.memory .header{
+.lobster-memory .header{
     text-align: left;
     font-size: 8pt;
     padding-left: 1ch;
@@ -480,7 +484,7 @@
     white-space: nowrap;
 }
 
-.memory .header > span.button {
+.lobster-memory .header > span.button {
     font-style: italic;
     color: #4654aa;
     display: inline-block;
@@ -489,7 +493,7 @@
     /*float: right;*/
 }
 
-.memory .header > span.button:hover{
+.lobster-memory .header > span.button:hover{
     text-decoration: underline;
     cursor: pointer;
 }
