@@ -5,6 +5,8 @@ import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
+import { RuntimeExpression } from "./expressionBase";
+import { SimulationEvent } from "./Simulation";
 
 
 

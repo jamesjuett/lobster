@@ -32,6 +32,10 @@ export function getValueString(value: Value) {
     if (value.isTyped(isArrayPointerToType(Char))) {
         let offset = value.type.toIndex(value.rawValue);
         let chars = value.type.arrayObject.getValue().slice(offset);
+        if (chars.length === 0) {
+            // pointer was outside of cstring, bail out
+            return '"???..."';
+        }
         let cstr = "";
         for(let i = 0; !Char.isNullChar(chars[i]); ++i) {
             if (i === chars.length) {
