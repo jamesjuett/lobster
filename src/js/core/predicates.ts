@@ -1,5 +1,5 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, OverloadableOperator, OperatorOverloadExpression, isOperatorOverloadExpression, DotExpression, ArrowExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, t_OverloadableOperators, OperatorOverloadExpression, isOperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
@@ -8,7 +8,7 @@ import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
 import { FunctionCallExpression, FunctionCall } from "./functionCall";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
-import { findFirstConstruct } from "./analysis";
+import { findFirstConstruct } from "../analysis/analysis";
 
 
 
@@ -163,7 +163,7 @@ export namespace Predicates {
                 ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
     }
 
-    export function byOperatorOverloadCall<N extends string>(operator: OverloadableOperator) {
+    export function byOperatorOverloadCall<N extends string>(operator: t_OverloadableOperators) {
         return <(construct: AnalyticConstruct) => construct is OperatorOverloadExpression>
                 ((construct) => isOperatorOverloadExpression(construct) && construct.operator === operator);
     }
@@ -182,4 +182,9 @@ export namespace Predicates {
     //     return construct.isSuccessfullyCompiled();
     // }
 
+    export const isLoop = Predicates.byKinds(["while_statement", "for_statement"]);
+
+    export function isIndexingOperation(construct: AnalyticConstruct) : construct is SubscriptExpression | OperatorOverloadExpression {
+        return Predicates.byKind("subscript_expression")(construct) || Predicates.byOperatorOverloadCall("[]")(construct);
+    }
 }

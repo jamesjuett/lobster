@@ -1,6 +1,8 @@
 import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
+import "../lib/standard"
+
 $(() => {
     var numTests = 0;
     var numTestsSuccessful = 0;
@@ -51,7 +53,7 @@ $(() => {
         (new CompilationNotesOutlet(notesElem)).updateNotes(test.program);
 
         var testElem = $('<div class="container lobster-test-result"></div>');
-        testElem.append("<h2>" + test.name + "</h2>");
+        testElem.append("<h4>" + test.name + "</h4>");
         testElem.append(programElem);
         testElem.append(resultsElem);
         $("#regression_tests").append(testElem);
@@ -313,6 +315,11 @@ int main() {
     y = y + 1;
   }
   assert(y == 10);
+
+  for(int i = 0; i < 10; i = i + 1) {
+    y = y + 1;
+  }
+  assert(y == 20);
 
   // int z = 3;
   // do {
@@ -867,71 +874,73 @@ new SingleTranslationUnitTest(
         ]
     );
 
-// strang test
+    // string test
+    
+        new SingleTranslationUnitTest(
+            "Basic String Test",
+            `#include <iostream>
+    #include <string>
+    using namespace std;
+    
+    int main() {
+      string s1;
+      char cstr[10] = "hello";
+      for(int i = 0; i < 10-1; ++i) {
+        cstr[i] = 'x';
+      }
+      string s2(cstr);
+      cout << "hello" << endl;
+    }`,
+            [
+                new NoErrorsNoWarningsVerifier(),
+                new NoBadRuntimeEventsVerifier(true)
+            ]
+        );
+
+        
+
+// Basic Compound Assignment---------------------
 
     new SingleTranslationUnitTest(
-        "Basic Strang Test",
-        `class strang {
-private:
-  size_t _size;
-  size_t _capacity;
-  char * _data;
+      "Basic Compound Assignment Test",
+      `#include <iostream>
+using namespace std;
 
-  strang()
-    : _size(0), _capacity(0), _data(new char[1]) {
-    _data[0] = '\0';
-  }
-
-  strang(const strang &other)
-    : _size(other._size), _capacity(other._capacity),
-      _data(new char[other._capacity]) {
-
-    for(int i = 0; i < other._size; ++i) {
-      _data[i] = other._data[i];
-    }
-  }
-
-  strang(const char *cstr)
-    : _size(0) {
-    // Find length of c-style string
-    while(*cstr) {
-      ++cstr;
-      ++_size;
-    }
-
-    // reset cstr pointer
-    cstr -= _size;
-
-    // copy chars
-    _capacity = _size + 1;
-    _data = new char[_capacity];
-    while(*cstr) {
-      *_data++ = *cstr++;
-    }
-    *_data = '\0';
-
-    // reset data pointer
-    _data -= _size;
-  }
-
-  ~strang() {
-    delete[] _data;
-  }
-};
 int main() {
-  strang s1;
-  char cstr[10] = "hello";
-  for(int i = 0; i < 10-1; ++i) {
-    cstr[i] = 'x';
-  }
-  strang s2(cstr);
-  cout << "hello" << endl;
+  
+  int x = 132;
+  x += 1;
+  x /= 2;
+  x *= 3;
+  x += 4;
+  x %= 5;
+  x >>= 6;
+  x <<= 7;
+  x &= 8;
+  x ^= 9;
+  x |= 10;
+  
+  int y = 2;
+  y = y + 1;
+  y = y / 2;
+  y = y * 3;
+  y = y + 4;
+  y = y % 5;
+  y = y >> 6;
+  y = y << 7;
+  y = y & 8;
+  y = y ^ 9;
+  y = y | 10;
+  
+  assert(x == y);
+  
+  cout << x << endl;
 }`,
-        [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
-        ]
-    );
+      [
+          new NoErrorsNoWarningsVerifier(),
+          new NoBadRuntimeEventsVerifier(true)
+      ]
+  );
 });
 
 /**

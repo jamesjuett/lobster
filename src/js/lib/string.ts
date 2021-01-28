@@ -11,12 +11,12 @@ import { Expression, RuntimeExpression } from "../core/expressionBase";
 import { nth } from "lodash";
 
 
-function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>) {
+function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>, generateEvents: boolean = true) {
     let sim = rt.sim;
     let ptrType = ptrValue.type;
 
     if (PointerType.isNull(ptrValue.rawValue)) {
-        sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using was null. This results in undefined behavior.");
+        generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, the char* you're using was null. This results in undefined behavior.");
         return {charValues: [], validLength: false};
     }
 
@@ -54,30 +54,30 @@ function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerT
 
         if (!isArrayPointerType(ptrType)) {
             if (count === limit) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. I let it go for a while, but stopped it after copying " + limit + " junk values.");
             }
             else if (count > 0) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
             }
             else {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which means you get undefined behavior with the pointer running off through random memory. Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
             }
         }
         else {
             if (count === limit) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! I let it run through memory for a while, but stopped it after copying " + limit + " junk values.");
             }
             else if (count > 0) {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! It looks like it happened to hit a null byte in memory and stopped " + count + " characters past the end of the array.");
             }
             else {
-                sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
+                generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "I was trying to read from an array through that char*, but it ran off the end of the array before finding a null character! Somehow you got lucky and the first random thing it hit was a null byte, which stopped it. Don't count on this.");
             }
         }
     }
     else {
         if (!isArrayPointerType(ptrType)) {
-            sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which can lead to undefined behavior.");
+            generateEvents && sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Oops, that char* wasn't pointing into an array, which can lead to undefined behavior.");
         }
     }
 
@@ -194,7 +194,12 @@ const initialStrangCapacity = 8;
 
 registerLibraryHeader("string",
     new SourceFile("string.h",
-`class string {
+`
+
+class ostream {};
+class istream {};
+
+class string {
 private:
     size_t _size;
     size_t _capacity;

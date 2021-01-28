@@ -512,7 +512,7 @@ export interface BlockASTNode extends ASTNode {
     readonly statements: readonly StatementASTNode[];
 }
 
-function createBlockContext(parentContext: FunctionContext): BlockContext {
+export function createBlockContext(parentContext: FunctionContext): BlockContext {
     return Object.assign({}, parentContext, {
         contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope)
     });
@@ -523,26 +523,19 @@ export class Block extends Statement<BlockASTNode> {
 
     public readonly statements: readonly Statement[] = [];
 
-    public static createFromAST(ast: BlockASTNode, context: FunctionContext) {
-        let block = new Block(context, ast);
-        ast.statements.forEach((stmtAst) => block.addStatement(createStatementFromAST(stmtAst, block.context)));
-        return block;
+    public static createFromAST(ast: BlockASTNode, context: FunctionContext) : Block {
+        let blockContext = createBlockContext(context);
+        return new Block(blockContext, ast, ast.statements.map(s => createStatementFromAST(s, blockContext)));
     }
 
-    public constructor(context: FunctionContext, ast: BlockASTNode) {
-        super(createBlockContext(context), ast);
+    public constructor(context: BlockContext, ast: BlockASTNode, statements: readonly Statement[]) {
+        super(context, ast);
+        this.attachAll(this.statements = statements);
     }
 
     public isBlock(): this is Block {
         return true;
     }
-
-    public addStatement(statement: Statement) {
-        asMutable(this.statements).push(statement);
-        this.attach(statement);
-    }
-
-
 
     public createDefaultOutlet(this: CompiledBlock, element: JQuery, parent?: ConstructOutlet) {
         return new BlockOutlet(element, this, parent);
@@ -1016,7 +1009,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     public static createFromAST(ast: ForStatementASTNode, outerContext: BlockContext): ForStatement {
   
 
-      let forContext = createLoopContext(outerContext);
+      let loopContext = createLoopContext(outerContext);
 
       // The context parameter to this function tells us what
       // context the for loop originally occurs in. For example, in:
@@ -1029,24 +1022,32 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       // Below, we'll also consider the body block context of the inner
       // set of curly braces for the for loop.
   
-      // Let's create the body context first. But there's one quick exception:
-      // Basically, for(...) stmt; is treated equivalently
+      // Let's create the body block context first.
+      // We always do this, even if the body isn't a block in the source code:
+      //    for(...) stmt; is treated equivalently
       // to for(...) { stmt; } according to the C++ standard.
-      // If the body substatement is not a block, it gets its own implicit block context.
-      // (If the substatement is a block, it will create its own block context, so we don't do that here.)
-      let bodyContext = ast.body.construct_type === "block" ? forContext : createBlockContext(forContext);
+      let bodyBlockContext = createBlockContext(loopContext);
   
-      // NOTE: the use of body block context for all the children.
+      // NOTE: the use of the body block context for all the children.
       // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
       // All children (initial, condition, post, body) share the same block
       // context and scope where i is declared.
-      // NOTE: initial has to be compiled first. It is, since argument evaluation
-      // order is guaranteed left-to-right in js/ts
-      return new ForStatement(forContext, ast,
-        createStatementFromAST(ast.initial, bodyContext),
-        createExpressionFromAST(ast.condition, bodyContext),
-        createStatementFromAST(ast.body, bodyContext),
-        ast.post && createExpressionFromAST(ast.post, bodyContext));
+
+      let initial = createStatementFromAST(ast.initial, bodyBlockContext);
+      let condition = createExpressionFromAST(ast.condition, bodyBlockContext);
+
+      // If the body is a block, we have to create it using the ctor rather than
+      // the createFromAST function, because that function implicitly creates a
+      // new block context, which we already did above for bodyBlockContext. And we
+      // want it to use bodyBlockContext, not a new block context further nested within that.
+      let body = ast.body.construct_type !== "block"
+        ? createStatementFromAST(ast.body, bodyBlockContext)
+        : new Block(bodyBlockContext, ast.body, ast.body.statements.map(s => createStatementFromAST(s, bodyBlockContext)));
+
+      let post = ast.post && createExpressionFromAST(ast.post, bodyBlockContext);
+
+
+      return new ForStatement(loopContext, ast, initial, condition, body, post);
   
       // It's crucial that we handled things this way. Because
       // all of the context-sensitive stuff is handled by the

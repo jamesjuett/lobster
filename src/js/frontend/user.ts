@@ -1,38 +1,66 @@
 import Cookies from "js-cookie";
-import { ICON_PERSON } from "./octicons";
+import { Observable } from "../util/observe";
+import { Mutable } from "../util/util";
 
 // Expects the following elements to be present:
 //  lobster-sign-in-button
-const SIGN_IN_BUTTON = $(".lobster-sign-in-button");
 
-
-export type User = {
+export type UserInfo = {
     id: number;
     email: string;
     name: string;
     is_super: boolean;
 };
 
-let currentUser: User | undefined;
+type UserMessages =
+    "userLoggedIn" |
+    "userLoggedOut";
 
-export async function checkLogin() {
-    if (Cookies.get("bearer")) {
-        const response = await fetch("api/users/me", {
-            method: 'GET',
-            headers: {
-                'Authorization': 'bearer ' + Cookies.get('bearer')
+export class Users {
+    
+    public observable = new Observable<UserMessages>(this);
+
+    public readonly currentUser?: UserInfo;
+
+    public async checkLogin() {
+        if (Cookies.get("bearer")) {
+            const response = await fetch("api/users/me", {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'bearer ' + Cookies.get('bearer')
+                }
+            });
+
+            if (response.status === 200) {
+                let newUser = await response.json() as UserInfo;
+                if (!this.currentUser || newUser.id !== this.currentUser.id) {
+                    (<Mutable<this>>this).currentUser = newUser;
+                    this.observable.send("userLoggedIn", newUser);
+                }
             }
-        });
-        return setUser(await response.json() as User);
+            else {
+                this.logout();
+            }
+        }
+        else {
+            this.logout();
+        }
     }
-};
 
-function setUser(user: User | undefined) {
-    if (user) {
-        SIGN_IN_BUTTON.html(`${ICON_PERSON} ${user.email}`);
+    public logout() {
+        Cookies.remove("bearer");
+        if (this.currentUser) {
+            let oldUser = this.currentUser;
+            delete (<Mutable<this>>this).currentUser;
+            this.observable.send("userLoggedOut", oldUser);
+        }
     }
-    else {
-        SIGN_IN_BUTTON.html("Sign In");
+
+    public getBearerToken() {
+        return Cookies.get('bearer');
     }
+
 }
+
+export let USERS = new Users();
 

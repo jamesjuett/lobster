@@ -519,7 +519,7 @@ div .tabPane {
 	width: 300px;
 }
 
-.memory{
+.lobster-memory{
 	word-wrap: break-word;
 }
 
@@ -748,4 +748,29 @@ ul.codeStack li{
 
 .btn > .loader-inline {
 	vertical-align: text-top;
+}
+
+.btn.lobster-log-in-button > svg {
+	display: inline-block;
+	vertical-align: middle;
+	fill: white;
+}
+
+.lobster-project-list .list-group-item {
+	padding: 5px 10px;
+	overflow-x: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.lobster-save-button-icon {
+	font-size: 1.5em;
+	line-height: 50%;
+	vertical-align: middle;
+}
+
+.bi-big-icon {
+	font-size: 1.5em;
+	line-height: 50%;
+	vertical-align: middle;
 }

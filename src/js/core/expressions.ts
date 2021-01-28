@@ -9,7 +9,7 @@ import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression, FunctionCall, TypedFunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 
@@ -55,20 +55,7 @@ const ExpressionConstructsMap = {
     "ternary_expression": (ast: TernaryASTNode, context: ExpressionContext) => TernaryExpression.createFromAST(ast, context),
 
     "assignment_expression": (ast: AssignmentExpressionASTNode, context: ExpressionContext) => AssignmentExpression.createFromAST(ast, context),
-    "compound_assignment_expression": (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => {
-        let lhs = createExpressionFromAST(ast.lhs, context);
-        let rhs = createExpressionFromAST(ast.rhs, context);
-       
-        // Consider an assignment operator overload if the LHS is class type
-        if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, "+=", [lhs, rhs]);
-            if (overload) {
-                return overload;
-            }
-        }
-        
-        return new UnsupportedExpression(context, ast, "compound assignment");
-    },
+    "compound_assignment_expression": (ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext) => CompoundAssignmentExpression.createFromAST(ast, context),
 
     // binary operators
     "arithmetic_binary_operator_expression": (ast: ArithmeticBinaryOperatorExpressionASTNode, context: ExpressionContext) => ArithmeticBinaryOperatorExpression.createFromAST(ast, context),
@@ -137,7 +124,7 @@ export type AnalyticExpression =
     CommaExpression |
     TernaryExpression |
     AssignmentExpression |
-    // CompoundAssignmentExpression |
+    CompoundAssignmentExpression |
     AnalyticBinaryOperatorExpression |
     // PointerToMemberExpression |
     // CStyleCastExpression |
@@ -171,6 +158,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "assignment_expression":
     T extends NonNullable<TypedAssignmentExpression["type"]> ? V extends NonNullable<TypedAssignmentExpression["valueCategory"]> ? TypedAssignmentExpression<T> : never :
     NonNullable<TypedAssignmentExpression["type"]> extends T ? V extends NonNullable<TypedAssignmentExpression["valueCategory"]> ? TypedAssignmentExpression : never : never;
+    "compound_assignment_expression":
+    T extends NonNullable<TypedCompoundAssignmentExpression["type"]> ? V extends NonNullable<TypedCompoundAssignmentExpression["valueCategory"]> ? TypedCompoundAssignmentExpression<T> : never :
+    NonNullable<TypedCompoundAssignmentExpression["type"]> extends T ? V extends NonNullable<TypedCompoundAssignmentExpression["valueCategory"]> ? TypedCompoundAssignmentExpression : never : never;
     "arithmetic_binary_operator_expression":
     T extends NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never :
     NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
@@ -285,6 +275,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "comma_expression": T extends NonNullable<CompiledCommaExpression["type"]> ? V extends NonNullable<CompiledCommaExpression["valueCategory"]> ? CompiledCommaExpression<T, V> : never : never;
     "ternary_expression": T extends NonNullable<CompiledTernaryExpression["type"]> ? V extends NonNullable<CompiledTernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T, V> : never : never;
     "assignment_expression": T extends NonNullable<CompiledAssignmentExpression["type"]> ? V extends NonNullable<CompiledAssignmentExpression["valueCategory"]> ? CompiledAssignmentExpression<T> : never : never;
+    "compound_assignment_expression": T extends NonNullable<CompiledCompoundAssignmentExpression["type"]> ? V extends NonNullable<CompiledCompoundAssignmentExpression["valueCategory"]> ? CompiledCompoundAssignmentExpression<T> : never : never;
 
     "arithmetic_binary_operator_expression":
     T extends NonNullable<CompiledArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never :
@@ -334,6 +325,7 @@ const ExpressionConstructsRuntimeMap = {
     "comma_expression": <T extends CompiledCommaExpression["type"], V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct) => new RuntimeComma(construct, parent),
     "ternary_expression": <T extends CompiledTernaryExpression["type"], V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct) => new RuntimeTernary(construct, parent),
     "assignment_expression": <T extends CompiledAssignmentExpression["type"]>(construct: CompiledAssignmentExpression<T>, parent: RuntimeConstruct) => new RuntimeAssignment(construct, parent),
+    "compound_assignment_expression": <T extends CompiledCompoundAssignmentExpression["type"]>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct) => new RuntimeCompoundAssignment(construct, parent),
     "arithmetic_binary_operator_expression": <T extends CompiledArithmeticBinaryOperatorExpression["type"]>(construct: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct) => new RuntimeArithmeticBinaryOperator(construct, parent),
     "pointer_diference_expression": (construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct) => new RuntimePointerDifference(construct, parent),
     "pointer_offset_expression": <T extends CompiledPointerOffsetExpression["type"]>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct) => new RuntimePointerOffset(construct, parent),
@@ -391,6 +383,7 @@ export function createRuntimeExpression(construct: UnsupportedExpression, parent
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct): RuntimeComma<T, V>;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct): RuntimeTernary<T, V>;
 export function createRuntimeExpression<T extends AtomicType>(construct: CompiledAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeAssignment<T>;
+export function createRuntimeExpression<T extends AtomicType>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeCompoundAssignment<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeArithmeticBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct): RuntimePointerDifference;
 export function createRuntimeExpression<T extends PointerToCompleteType>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct): RuntimePointerOffset<T>;
@@ -461,68 +454,6 @@ export class UnsupportedExpression extends Expression<ExpressionASTNode> {
 
 
 
-
-
-
-
-// processNonMemberOverload : function(args, op){
-//     try{
-//         var overloadedOp = this.contextualScope.requiredLookup("operator"+op, {
-//             own:true, paramTypes:args.map(function(arg){return arg.type;})
-//         });
-//         this.funcCall = this.sub.funcCall = FunctionCall.instance(this.code, {parent:this});
-//         this.sub.funcCall.compile(overloadedOp, args.map(function(arg){return arg.code;}));
-//         this.type = this.sub.funcCall.type;
-//         this.valueCategory = this.sub.funcCall.valueCategory;
-//         this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
-//     }
-//     catch(e){
-//         if (isA(e, SemanticExceptions.BadLookup)){
-//             this.addNote(CPPError.expr.overloadLookup(this, op));
-//             this.addNote(e.annotation(this));
-//             return;
-//         }
-//         else{
-//             throw e;
-//         }
-//     }
-// },
-
-
-// compileMemberOverload : function(thisArg, argAsts, isThisConst, op){
-//     var self = this;
-//     var auxArgs = argAsts.map(function(argAst){
-//         var auxArg = CPPConstruct.create(argAst, {parent: self, auxiliary: true});
-//         auxArg.tryCompile();
-//         return auxArg;
-//     });
-
-//     try{
-//         var overloadedOp = thisArg.type.classScope.requiredLookup("operator"+op, {
-//             own:true, paramTypes:auxArgs.map(function(arg){return arg.type;}),
-//             isThisConst: isThisConst
-//         });
-
-//         this.isOverload = true;
-//         this.isMemberOverload = true;
-//         this.funcCall = FunctionCall.instance({args: argAsts}, {parent:this});
-//         this.funcCall.compile({func: overloadedOp});
-//         this.type = this.funcCall.type;
-//         this.valueCategory = this.funcCall.valueCategory;
-//         this.i_childrenToExecute = this.i_childrenToExecuteForMemberOverload;
-//     }
-//     catch(e){
-//         if (isA(e, SemanticExceptions.BadLookup)){
-//             this.addNote(CPPError.expr.overloadLookup(this, op));
-//             this.addNote(e.annotation(this));
-//             return;
-//         }
-//         else{
-//             throw e;
-//         }
-//     }
-// }
-
 export abstract class SimpleRuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T, V> = CompiledExpression<T, V>> extends RuntimeExpression<T, V, C> {
 
     private index: 0 | 1 = 0;
@@ -556,156 +487,6 @@ export abstract class SimpleRuntimeExpression<T extends ExpressionType = Express
     protected abstract operate(): void;
 }
 
-
-type t_OverloadableOperators =
-    "+" | "-" | "*" | "/" | "%" |
-    "&" | "|" | "^" | "~" | "<<" | ">>" | "<" | ">" | "<=" |
-    ">=" | "==" | "!=" | "&&" | "||" | "!" | "++" | "--" |
-    "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" |
-    "," | "->" | "->*" | "()" | "[]";
-
-
-// export class OperatorOverload extends ExpressionBase {
-
-//     public readonly type?: Type;
-//     public readonly valueCategory?: ValueCategory;
-
-//     public readonly operator: t_OverloadableOperators;
-//     public readonly operands: Expression[];
-
-//     public readonly isMemberOverload?: boolean;
-//     public readonly overloadFunctionCall?: FunctionCall;
-
-//     private constructor(context: ExpressionContext, operands: Expression[], operator: t_OverloadableOperators) {
-//         super(context);
-
-//         this.operator = operator;
-//         this.operands = operands; // These may go through conversions when attached to a function call, but this member contains the "raw" versions
-
-//         // If any of the operands are not well-typed, can't compile
-//         if (!this.hasWellTypedOperands(operands)) {
-//             this.type = null;
-//             this.valueCategory = null;
-
-//             // In this case, attach operands directly as children.
-//             operands.forEach((expr) => {this.attach(expr);});
-//             return;
-//         }
-
-//         // Sanity check that at least one of the operands has class-type
-//         assert(operands.length > 0, "Operator overload must have at least one operand.");
-//         assert(operands.some((expr) => {return isType(expr.type, ClassType);}), "At least one operand in a non-member overload must have class-type.");
-
-
-//         let overloadFunction : FunctionEntity? = null;
-
-//         // If the leftmost operand is class-type, we can look for a member overload
-//         let leftmost = operands[0];
-//         if (isType(leftmost.type, ClassType)) {
-//             let entity = leftmost.type.cppClass.scope.singleLookup("operator" + this.operator, {
-//                 own:true, params:[operands.slice(1)], isThisConst : leftmost.type.isConst
-//             });
-
-//             Util.assert(entity instanceof FunctionEntity, "Non-function entity found for operator overload name lookup.");
-//             overloadFunction = <FunctionEntity>entity;
-//         }
-
-//         // If we didn't find a member overload, next look for a non-member overload
-//         if (!overloadFunction) {
-//             let entity = this.contextualScope.singleLookup("operator" + this.operator, {
-//                 params: operands
-//             });
-
-//             Util.assert(entity instanceof FunctionEntity, "Non-function entity found for operator overload name lookup.");
-//             overloadFunction = <FunctionEntity>entity;
-//         }
-
-
-//         if (overloadFunction) {
-//             this.isMemberOverload = overloadFunction instanceof MemberFunctionEntity;
-
-
-//             if (this.isMemberOverload) {
-//                 // Member overload means leftmost operand is our directly attached child, other operands are arguments to function call.
-//                 this.attach(operands[0]);
-//                 this.attach(this.overloadFunctionCall = new FunctionCall(context, overloadFunction, operands.slice(1)));
-//                 // The receiver of the function call is set at runtime after the operand is evaluated
-//             }
-//             else{
-//                 // Non-member overload means all operands are arguments of the function call
-//                 this.attach(this.overloadFunctionCall = new FunctionCall(context, overloadFunction, operands));
-//             }
-
-//             this.type = this.overloadFunctionCall.func.type.returnType;
-//             this.valueCategory = this.overloadFunctionCall.valueCategory;
-//         }
-//         else{
-//             // TODO: add in notes from attempted lookup operations for the member and non-member overloads
-//             this.addNote(CPPError.expr.binary.overload_not_found(this, operator, operands));
-
-//             this.type = null;
-//             this.valueCategory = null;
-
-//             // If we didn't find a function to use, just attach operands directly as children.
-//             operands.forEach((expr) => {this.attach(expr);});
-//         }
-//     }
-
-//     private hasWellTypedOperands(operands: Expression[]) : operands is TypedExpressionBase[] {
-//         return operands.every((expr) => { return expr.isWellTyped(); });
-//     }
-
-//     public createRuntimeExpression<T extends Type, V extends ValueCategory>(this: Compiled<Expression<T,V>>, parent: RuntimeConstruct) : RuntimeOperatorOverload<CompiledOperatorOverload<T,V>> {
-//         return new RuntimeOperatorOverload(this, parent);
-//     }
-
-//     public describeEvalResult(depth: number): ConstructDescription {
-//         throw new Error("Method not implemented.");
-//     }
-
-
-
-//     // upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//     //     if (this.funcCall){
-//     //         inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
-//     //     }
-//     // }),
-
-//     // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-//     //     if (inst.index == "operate"){
-
-//     //         if (this.funcCall){
-//     //             // Assignment operator function call has already taken care of the "assignment".
-//     //             // Just evaluate to returned value from assignment operator.
-//     //             inst.setEvalResult(inst.childInstances.funcCall.evalResult);
-//     //             this.done(sim, inst);
-//     //             //return true;
-//     //         }
-//     //         else{
-//     //         }
-//     //     }
-//     // },
-
-// }
-
-// export interface CompiledOperatorOverload<T extends PotentialReturnType = PotentialReturnType, V extends ValueCategory = ValueCategory> extends OperatorOverload, SuccessfullyCompiled {
-
-//     public readonly type: T;
-//     public readonly valueCategory: V;
-
-//     public readonly operands: Compiled<Expression[];
-
-//     public readonly isMemberOverload: boolean;
-//     public readonly overloadFunctionCall: CompiledFunctionCall<T,V>; 
-// }
-
-
-
-// public readonly _t! : T extends NonNullable<IdentifierExpression["type"]> ? V extends NonNullable<IdentifierExpression["valueCategory"]> ? {
-//     typed: TypedIdentifierExpression<T>;
-//     compiled: T extends ObjectType ? CompiledObjectIdentifier<T> : T extends FunctionType ? CompiledFunctionIdentifier<T> : never; 
-// } : never : never;
 
 
 
@@ -957,14 +738,6 @@ export interface AssignmentExpressionASTNode extends ASTNode {
 export class AssignmentExpression extends Expression<AssignmentExpressionASTNode> {
     public readonly construct_type = "assignment_expression";
 
-    // public readonly 
-    // valueCategory : "lvalue",
-    // isOverload : false,
-    // isMemberOverload : true,
-    // i_childrenToCreate : ["lhs"],
-    // i_childrenToExecute : ["lhs", "rhs"],
-    // i_childrenToExecuteForOverload : ["lhs", "funcCall"], // does not include rhs because function call does that
-
     public readonly type?: AtomicType;
     public readonly valueCategory = "lvalue";
 
@@ -1032,85 +805,9 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         return new AssignmentExpressionOutlet(element, this, parent);
     }
 
-    // TODO
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
-
-
-    // convert : function(){
-
-
-
-    //     // Check for overloaded assignment
-    //     // NOTE: don't have to worry about lhs reference type because it will have been adjusted to non-reference
-    //     if (isA(this.lhs.type, Types.Class)){
-    //         // Class-type LHS means we check for an overloaded = operator
-
-    //         // Compile the RHS as an auxiliary expression so that we can figure out its type without impacting the construct tree
-    //         var auxRhs = CPPConstruct.create(this.ast.rhs, {parent: this, auxiliary: true});
-    //         auxRhs.compile();
-
-    //         try{
-    //             // Look for an overloaded = operator that we can use with an argument of the RHS type
-    //             // Note: "own" here means don't look in parent scope containing the class definition, but we still
-    //             // look in the scope of any base classes that exist due to the class scope performing member lookup
-    //             var assnOp = this.lhs.type.classScope.requiredMemberLookup("operator=", {
-    //                 paramTypes:[auxRhs.type],
-    //                 isThisConst: this.lhs.type.isConst
-    //             });
-
-    //             // TODO: It looks like this if/else isn't necessary due to requiredLookup throwing an exception if not found
-    //             if (assnOp){
-    //                 this.isOverload = true;
-    //                 this.isMemberOverload = true;
-    //                 this.funcCall = FunctionCall.instance({args: [this.ast.rhs]}, {parent:this});
-    //                 this.funcCall.compile({func: assnOp});
-    //                 this.type = this.funcCall.type;
-    //                 this.i_childrenToExecute = this.i_childrenToExecuteForOverload;
-    //             }
-    //             else{
-    //                 this.addNote(CPPError.expr.assignment.not_defined(this, this.lhs.type));
-    //             }
-    //         }
-    //         catch(e){
-    //             if (isA(e, SemanticExceptions.BadLookup)){
-    //                 this.addNote(CPPError.expr.overloadLookup(this, "="));
-    //                 this.addNote(e.annotation(this));
-    //             }
-    //             else{
-    //                 throw e;
-    //             }
-    //         }
-    //     }
-    //     // else{
-    //     //     // Non-class type, so this is regular assignment. Create and compile the rhs, and then attempt
-    //     //     // standard conversion of rhs to match cv-unqualified type of lhs, including lvalue to rvalue conversion
-    //     // }
-    // },
-
-
-    // upNext : Class.ADDITIONALLY(function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //     if (this.funcCall){
-    //         inst.childInstances.funcCall.getRuntimeFunction().setReceiver(EvaluationResultRuntimeEntity.instance(this.lhs.type, inst.childInstances.lhs));
-    //     }
-    // }),
-
-    // stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-    //     if (inst.index == "operate"){
-
-    //         if (this.funcCall){
-    //             // Assignment operator function call has already taken care of the "assignment".
-    //             // Just evaluate to returned value from assignment operator.
-    //             inst.setEvalResult(inst.childInstances.funcCall.evalResult);
-    //             this.done(sim, inst);
-    //             //return true;
-    //         }
-    //         else{
-    //         }
-    //     }
-    // },
 
     public isTailChild(child: CPPConstruct) {
         return {
@@ -1166,6 +863,154 @@ export interface CompoundAssignmentExpressionASTNode extends ASTNode {
     readonly operator: t_CompoundAssignmentOperators;
     readonly rhs: ExpressionASTNode;
 }
+
+
+export class CompoundAssignmentExpression extends Expression<CompoundAssignmentExpressionASTNode> {
+    public readonly construct_type = "compound_assignment_expression";
+
+    public readonly type?: AtomicType;
+    public readonly valueCategory = "lvalue";
+
+    public readonly lhs: Expression;
+    public readonly rhs: Expression;
+
+    public readonly operator: t_CompoundAssignmentOperators;
+    public readonly equivalentBinaryOp: t_ArithmeticBinaryOperators;
+
+    private constructor(context: ExpressionContext, ast: CompoundAssignmentExpressionASTNode, lhs: TypedExpression<AtomicType>, rhs: Expression) {
+        super(context, ast);
+
+        this.operator = ast.operator;
+        this.equivalentBinaryOp = <t_ArithmeticBinaryOperators>this.operator.slice(0, -1); // remove = which is last char of operator string
+
+        // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
+        if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
+            this.attach(this.lhs = lhs);
+            this.attach(this.rhs = rhs);
+            return;
+        }
+        
+        // Arithmetic types are required
+        if (!Predicates.isTypedExpression(lhs, isArithmeticType) || !Predicates.isTypedExpression(rhs, isArithmeticType)) {
+            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, lhs, rhs));
+            this.attach(this.lhs = lhs);
+            this.attach(this.rhs = rhs);
+            return;
+        }
+
+        // % operator and shift operators require integral operands
+        if ((this.equivalentBinaryOp === "%" || this.equivalentBinaryOp === "<<" || this.equivalentBinaryOp == ">>") &&
+            (!Predicates.isTypedExpression(lhs, isIntegralType) || !Predicates.isTypedExpression(rhs, isIntegralType))) {
+            this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, lhs, rhs));
+            this.attach(this.lhs = lhs);
+            this.attach(this.rhs = rhs);
+            return;
+        }
+
+        if (lhs.valueCategory != "lvalue") {
+            this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
+        }
+        else if (!lhs.type.areLValuesAssignable()) {
+            this.addNote(CPPError.expr.assignment.lhs_not_assignable(this, lhs));
+        }
+
+        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
+
+
+        // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
+
+        if (lhs.type.isConst) {
+            this.addNote(CPPError.expr.assignment.lhs_const(this));
+        }
+
+        if (rhs.isWellTyped() && !sameType(rhs.type, lhs.type.cvUnqualified())) {
+            this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
+        }
+
+        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
+
+        this.type = lhs.type;
+        this.attach(this.lhs = lhs);
+        this.attach(this.rhs = rhs);
+    }
+
+    public static createFromAST(ast: CompoundAssignmentExpressionASTNode, context: ExpressionContext): CompoundAssignmentExpression | OperatorOverloadExpression | UnsupportedExpression {
+        let lhs = createExpressionFromAST(ast.lhs, context);
+        let rhs = createExpressionFromAST(ast.rhs, context);
+
+        // Consider a compound assignment operator overload if the LHS is class type
+        if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
+            let overload = selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]);
+            if (overload) {
+                return overload;
+            }
+        }
+
+        if (Predicates.isTypedExpression(lhs, isAtomicType)) {
+            return new CompoundAssignmentExpression(context, ast, lhs, rhs);
+        }
+        else {
+            return new UnsupportedExpression(context, ast, "Non-atomic compound assignment");
+        }
+    }
+
+    public createDefaultOutlet(this: CompiledCompoundAssignmentExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new CompoundAssignmentExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+
+    public isTailChild(child: CPPConstruct) {
+        return {
+            isTail: false,
+            reason: "The compound assignment itself will happen after the recursive call returns.",
+            others: [this]
+        };
+    }
+
+    public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
+        var lhs = this.lhs.describeEvalResult(0);
+        var rhs = this.rhs.describeEvalResult(0);
+        return { message: `The value of ${lhs.name || lhs.message} ${this.equivalentBinaryOp} ${rhs.name || rhs.message} will be assigned to ${lhs.name || lhs.message}.` };
+    }
+}
+
+export interface TypedCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends CompoundAssignmentExpression, t_TypedExpression {
+    readonly type: T;
+    readonly lhs: TypedExpression<T>;
+}
+
+
+export interface CompiledCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends TypedCompoundAssignmentExpression<T>, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    readonly lhs: CompiledExpression<T, "lvalue">;
+    readonly rhs: CompiledExpression<T, "prvalue">;
+}
+
+
+export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T, "lvalue", CompiledCompoundAssignmentExpression<T>> {
+
+    public readonly lhs: RuntimeExpression<T, "lvalue">;
+    public readonly rhs: RuntimeExpression<T, "prvalue">;
+
+    public constructor(model: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.lhs = createRuntimeExpression(this.model.lhs, this);
+        this.rhs = createRuntimeExpression(this.model.rhs, this);
+        this.setSubexpressions([this.rhs, this.lhs]);
+    }
+
+    protected operate() {
+        let lhsObj = this.lhs.evalResult;
+        let newVal = ARITHMETIC_BINARY_OPERATIONS[this.model.equivalentBinaryOp](this.lhs.evalResult.getValue(), this.rhs.evalResult);
+
+        lhsObj.writeValue(newVal);
+        this.setEvalResult(lhsObj);
+    }
+}
+
 
 // var beneathConversions = function(expr){
 //     while(isA(expr, Conversions.ImplicitConversion)){
@@ -6057,7 +5902,7 @@ export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<Ari
 
 
 
-export function selectOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: OverloadableOperator, originalArgs: Expression[]) {
+export function selectOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: t_OverloadableOperators, originalArgs: Expression[]) {
 
     if (!allWellTyped(originalArgs)) {
         return;
@@ -6114,7 +5959,12 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
 //     BinaryOperatorExpressionASTNode |
 //     AssignmentExpressionASTNode;
 
-export type OverloadableOperator = t_BinaryOperators | "=" | "+=" | "[]";
+export type t_OverloadableOperators =
+    t_CompoundAssignmentOperators |
+    t_BinaryOperators |
+    "=" |
+    "+=" |
+    "[]";
 
 export class NonMemberOperatorOverloadExpression extends Expression<ExpressionASTNode> {
     public readonly construct_type = "non_member_operator_overload_expression";
@@ -6122,14 +5972,14 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
     public readonly type?: PeelReference<CompleteReturnType>;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operator: OverloadableOperator;
+    public readonly operator: t_OverloadableOperators;
 
     public readonly originalArgs: readonly Expression[];
 
     public readonly call?: FunctionCall;
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined,
-                       operator: OverloadableOperator, args: readonly Expression[],
+                       operator: t_OverloadableOperators, args: readonly Expression[],
                        selectedFunctionEntity: FunctionEntity | undefined) {
         super(context, ast);
 
@@ -6257,14 +6107,14 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
     public readonly type?: PeelReference<CompleteReturnType>;
     public readonly valueCategory?: ValueCategory;
 
-    public readonly operator: OverloadableOperator;
+    public readonly operator: t_OverloadableOperators;
 
     public readonly originalArgs: readonly Expression[];
     
     public readonly receiverExpression: TypedExpression<CompleteClassType>;
     public readonly call?: FunctionCall;
 
-    public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined, operator: OverloadableOperator,
+    public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined, operator: t_OverloadableOperators,
                        receiverExpression: TypedExpression<CompleteClassType>, args: readonly Expression[],
                        selectedFunctionEntity: FunctionEntity | undefined) {
         super(context, ast);

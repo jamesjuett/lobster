@@ -5,6 +5,8 @@ import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "./expressions";
 import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
+import { RuntimeExpression } from "./expressionBase";
+import { SimulationEvent } from "./Simulation";
 
 
 
@@ -1003,6 +1005,10 @@ export class Double extends FloatingPointType {
 
 //TODO: create separate function pointer type???
 
+export function toHexadecimalString(addr: number) {
+    return "0x"+addr.toString(16);
+}
+
 export class PointerType<PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends AtomicType {
 
     public readonly size = 8;
@@ -1053,7 +1059,7 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
         //     return value.name;
         // }
         // else{
-        return "0x" + value;
+        return toHexadecimalString(value);
         // }
     }
 
@@ -1770,8 +1776,8 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     public readonly paramTypes: readonly PotentialParameterType[];
     public readonly receiverType?: PotentiallyCompleteClassType;
 
-    private paramStrType: string;
-    private paramStrEnglish: string;
+    public readonly paramStrType: string;
+    public readonly paramStrEnglish: string;
 
     public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: PotentiallyCompleteClassType) {
         super(false, false);

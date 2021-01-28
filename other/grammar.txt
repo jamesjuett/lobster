@@ -877,7 +877,7 @@ template_identifier
   = id:identifier "<" t:identifier ">" { return {identifier: id.identifier + "<" + t.identifier + ">"}; }
 
 opaque_expression
-  = "@" id:([a-zA-Z_1-9~]/"::"/overloadable_op)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
+  = "@" id:([a-zA-Z_0-9~]/"::"/overloadable_op)+ { return track({construct_type: "opaque_expression", id: id.join("")}, location(), text()); }
 
 
 ws "optional whitespace"

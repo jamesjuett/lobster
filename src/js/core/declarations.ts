@@ -5,7 +5,7 @@ import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectTy
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
-import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
+import { BlockASTNode, Block, createStatementFromAST, CompiledBlock, createBlockContext } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -1536,8 +1536,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         // Create implementation and body block (before params and body statements added yet)
         let functionContext = createFunctionContext(context, declaration.declaredEntity, context.containingClass?.type);
-        let body = new Block(functionContext, ast.body);
-        let bodyContext = body.context;
+        let bodyContext = createBlockContext(functionContext);
 
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
@@ -1566,10 +1565,9 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         }
         
 
-        // Manually add statements to body. (This hasn't been done because the body block was crated manually, not
-        // from the AST through the Block.createFromAST function. And we wait until now to do it so they will be
-        // added after the parameters.)
-        ast.body.statements.forEach(sNode => body.addStatement(createStatementFromAST(sNode, bodyContext)));
+        // Create the body "manually" using the ctor so we can give it the bodyContext create earlier.
+        // We can't use the createFromAST function for the body Block, because that would create a new, nested block context.
+        let body = new Block(bodyContext, ast.body, ast.body.statements.map(s => createStatementFromAST(s, bodyContext)));
 
         return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, ctorInitializer, body);
     }
@@ -1900,6 +1898,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly key: ClassKey;
     public readonly type: PotentiallyCompleteClassType;
     public readonly declaredEntity: ClassEntity;
+    // public readonly isDuplicateDeclaration: boolean = false;
 
     public constructor(context: TranslationUnitContext, name: string, key: ClassKey) {
         super(context, undefined);
@@ -1908,11 +1907,13 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
         this.key = key;
 
         this.declaredEntity = new ClassEntity(this);
-        this.type = this.declaredEntity.type;
 
         let entityOrError = context.contextualScope.declareClassEntity(this.declaredEntity);
 
         if (entityOrError instanceof ClassEntity) {
+            // if (entityOrError !== this.declaredEntity) {
+            //     this.isDuplicateDeclaration = true;
+            // }
             this.declaredEntity = entityOrError;
         }
         else {
@@ -1920,6 +1921,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
         }
 
 
+        this.type = this.declaredEntity.type;
     }
 }
 
@@ -1947,7 +1949,7 @@ export interface ClassHeadASTNode extends ASTNode {
 }
 
 export interface BaseSpecifierASTNode extends ASTNode {
-    readonly name: string;
+    readonly name: { identifier: string };
     readonly virtual?: true;
     readonly access?: AccessSpecifier;
 }
@@ -2041,6 +2043,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
 
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
+        if (declaration.declaredEntity.isComplete()) {
+            return declaration.declaredEntity.definition;
+        }
+
 
         let templateType : AtomicType | undefined = undefined;
         let tpMatch = ast.head.name.identifier.match(/<.*>/);
@@ -2524,7 +2530,7 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
 
     public constructor(context: TranslationUnitContext, ast: BaseSpecifierASTNode, defaultAccessLevel: AccessSpecifier) {
         super(context, ast);
-        this.name = ast.name;
+        this.name = ast.name.identifier;
         this.accessLevel = ast.access ?? defaultAccessLevel;
         this.virtual = !!ast.virtual;
 

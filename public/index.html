@@ -25,56 +25,152 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 
+    <!-- bootstrap icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+
     <!-- C is for Cookie -->
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/buttons.css">
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/code.css">
-    <link rel="stylesheet" href="css/exercises.css">
+    <link rel="stylesheet" href="css/buttons.css?v=5">
+    <link rel="stylesheet" href="css/main.css?v=5">
+    <link rel="stylesheet" href="css/code.css?v=5">
+    <link rel="stylesheet" href="css/exercises.css?v=5">
+    <link rel="stylesheet" href="css/frontend.css?v=5">
 
     <!-- Main Script -->
-    <script src = "js/main.bundle.js"></script>
+    <script src = "js/main.js?v=5"></script>
 
 </head>
 
 <body>
 
+<div style="width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column;">
 
-<div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
-    <div class="container-fluid">
-        <h4 style="display: inline-block; vertical-align: middle; margin-left: 10px;">Lobster: A C++ Program Visualization Tool for Education</h4>
-        <div style="display: inline-block; vertical-align: middle;">
-            <a class="btn btn-primary lobster-sign-in-button" href="auth/google">Sign In</a>
+    <div class="page-header" style="margin-top: 5px; margin-bottom: 5px; padding-bottom: 5px">
+        <div class="container-fluid">
+            <div style="display: inline-block; vertical-align: middle; margin-right: 10px;">
+                <a class="btn btn-primary lobster-log-in-button" href="auth/google">Sign In</a>
+            </div>
+            <img src="img/lobster.png" style="height: 30px;">
+            <h4 style="display: inline-block; vertical-align: middle;">Lobster: A C++ Program Visualization Tool for Education</h4>
+            <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
         </div>
-        <!--<h5 id="accountMessage" class="text-danger" style="float: right; margin-left: 5px; margin-right: 5px">Sign Out</h5>-->
     </div>
-</div>
 
-<div id="lobster1" class="container-fluid">
-    <div class="row">
-        <div class="col-xs-4 col-sm-3 col-md-2">
+    <div id="lobster1" style="flex-grow: 1; display: flex;">
+        <div style="height: 100%; flex: 1 0 200px; overflow-x: hidden; padding: 5px; display: flex; flex-direction: column; overflow-y: hidden; padding-bottom: 15px;">
             <h4 style="text-align: center">My Projects</h4>
-            <ul class="projectList nav nav-pills nav-stacked"></ul>
+            <div id="lobster-my-projects" style="flex: 1 0 200px; overflow-y: auto;"></div>
+            <h4 style="text-align: center">Exercises</h4>
+            <div style="text-align: center">
+                <div class="btn-group">
+                    <button id="lobster-course-list-name" type="button" class="btn btn-default">Course</button>
+                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-bottom: 5px;">
+                    <span class="caret"></span>
+                    <span class="sr-only">Toggle Dropdown</span>
+                    </button>
+                    <ul id = "lobster-course-list" class="dropdown-menu">
+                    </ul>
+                </div>
+            </div>
+            <div id="lobster-course-projects" style="flex: 1 0 200px; overflow-y: auto;"></div>
 
         </div>
-        <div class="col-xs-8 col-sm-9 col-md-10">
+        <div style="height: 100%; flex: 10 0 650px; overflow-x: hidden; padding: 5px;">
             
-            <div class="lobster-ex" style="width: 800px; margin-left: auto; margin-right: auto">
-                <div class="lobster-ex-project-name">ch16_ex_printDoubled</div>
-                <pre class="lobster-ex-init-code">#include &lt;iostream&gt;
-using namespace std;
-
-int main() {
-  cout << "Hello World!" << endl;
-}
-</pre>
-
+            <div class="lobster-lobster">
+            </div>
         </div>
+    </div>
+
+</div>
+
+<!------------------- MODALS ------------------->
+
+<div id="lobster-create-project-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">New Project</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-create-project-form" >
+            <label for="lobster-create-project-name" class="control-label">Project Name</label>
+            <br />
+            <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-create-project-name" required>
+            <br />
+            <div style="text-align: right">
+                <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+        </div>
+    </div>
     </div>
 </div>
 
+<div id="lobster-edit-project-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Edit Project</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-edit-project-form" >
+            <label for="lobster-edit-project-name" class="control-label">Project Name</label>
+            <br />
+            <input type="text" minlength="1" maxlength="100" class="form-control" id="lobster-edit-project-name" required />
+            <br />
+            <div class="checkbox">
+                <label>
+                  <input id="lobster-edit-project-is-public" type="checkbox"> Public Project? (Public projects can be viewed, but not edited, by anyone.)
+                </label>
+              </div>
+            <div style="text-align: right">
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+            <br />
+            <div class="panel panel-danger">
+                <div class="panel-heading">
+                  <h3 class="panel-title">Danger Zone</h3>
+                </div>
+                <div class="panel-body">
+                  <button id="lobster-edit-project-delete" class="btn btn-danger">Delete Project</button>
+                </div>
+              </div>
+        </form>
+        </div>
+    </div>
+    </div>
+</div>
+
+<div id="lobster-edit-exercise-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Edit Exercise</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-edit-exercise-form" >
+            <label for="lobster-edit-exercise-key" class="control-label">Exercise Key</label>
+            <br />
+            <input list="lobster-exercise-key-choices" minlength="1" maxlength="50" class="form-control" id="lobster-edit-exercise-key" required />
+            <datalist id="lobster-exercise-key-choices">
+            </datalist>
+            <br />
+            <div style="text-align: right">
+                <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+        </div>
+    </div>
+    </div>
+</div>
 
 </body>
 </html>

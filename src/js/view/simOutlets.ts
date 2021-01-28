@@ -2,11 +2,11 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType } from "../core/types";
-import { Mutable, assert, isInstance } from "../util/util";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType } from "../core/types";
+import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
-import { ProjectEditor, CompilationOutlet, ProjectSaveOutlet, CompilationStatusOutlet, Project } from "./editors";
+import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";
@@ -15,6 +15,7 @@ import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeFunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
+import { Exercise, Project } from "../core/Project";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -269,7 +270,7 @@ export class SimulationOutlet {
         this.runningProgressElem = findExactlyOne(element, ".runningProgress");
         this.consoleContentsElem = findExactlyOne(element, ".lobster-console-contents");
         this.codeStackOutlet = new CodeStackOutlet(findExactlyOne(element, ".codeStack"));
-        this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".memory"));
+        this.memoryOutlet = new MemoryOutlet(findExactlyOne(element, ".lobster-memory"));
         this.cinBufferOutlet = new IstreamBufferOutlet(findExactlyOne(element, ".lobster-cin-buffer"), "cin");
 
         let stepForwardNumElem = findExactlyOne(element, ".stepForwardNum").val(1);
@@ -671,7 +672,7 @@ export class DefaultLobsterOutlet {
 
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, project = new Project("unnammed project", [])) {
+    public constructor(element: JQuery, project = new Project("unnammed project", undefined, [], new Exercise([]))) {
         this.element = element;
         this.project = project;
 
@@ -692,7 +693,7 @@ export class DefaultLobsterOutlet {
 
 
         let runButtonElem = element.find(".runButton")
-            .click(() => {
+            .on("click", () => {
             let program = this.project.program;
             if (program.isRunnable()) {
                 let sim = new Simulation(program);
@@ -707,7 +708,7 @@ export class DefaultLobsterOutlet {
         new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
-        new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
+        // new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
 
         // this.annotationMessagesElem = element.find(".annotationMessages");
         // this.annotationMessagesElem.find("button").click(() => {
@@ -819,9 +820,6 @@ export class DefaultLobsterOutlet {
 
 
 
-// var SVG_DEFS : {[index: string]: ???} = {};
-
-
 export class MemoryOutlet {
 
     public readonly memory?: Memory;
@@ -831,35 +829,64 @@ export class MemoryOutlet {
     public readonly heapOutlet?: HeapOutlet;
 
     private readonly element: JQuery;
-    private readonly svgElem: JQuery;
-    private readonly svg: SVG.Dom;
+    public readonly svgElem: JQuery;
+    public readonly svg: SVG.Svg;
+    public readonly SVG_DEFS: {[index:string]: SVG.Marker};
     
     public _act!: MessageResponses;
+
+    /**
+     * Maps from object ID to the outlet that represents that object.
+     */
+    private objectOutlets: {[index: number]: MemoryObjectOutlet | undefined } = { };
+
+    /**
+     * Used to track SVG elements for pointer arrows. Maps from the object ID
+     * for the pointer to the SVG element
+     */
+    private pointerSVGElems: {[index: number]: SVGPointerArrowMemoryOverlay | undefined } = { };
+
+
+    private svgOverlays: SVGMemoryOverlay[] = [];
+
+    // public static updateArrows() {
+    //     this.instances = this.instances.filter((ptrMemObj) => {
+    //         if (jQuery.contains($("body")[0], ptrMemObj.element[0])) {
+    //             ptrMemObj.updateArrow();
+    //             return true;
+    //         }
+    //         else{ //Element is detached
+    //             ptrMemObj.clearArrow();
+    //             return false;
+    //         }
+    //     });
+    // }
+    private svgUpdateThread: number;
+    
     
     public constructor(element: JQuery) {
         
-        this.element = element.addClass("memory");
+        this.element = element.addClass("lobster-memory");
 
-        this.svgElem = $('<div style="position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 10"></div>');
-        this.svg = SVG.SVG(this.svgElem[0]);
-        // SVG_DEFS.arrowStart = this.svg.marker(6, 6, function(add) {
-        //     add.circle(5);
-        // }).style({
-        //     stroke: "#000000",
-        //     fill: "#FFFFFF",
-        //     "stroke-width": "1px"
-        // });
-        // SVG_DEFS.arrowEnd = this.svg.marker(12, 12, function(add) {
-        //     add.path("M0,2 L0,11 L8,6 L0,2");
-        // }).style({
-        //     stroke: "#000000",
-        //     fill: "#FFFFFF",
-        //     "stroke-width": "1px"
-        // });
-
+        this.svgElem = $('<div style="position: absolute; left:0; right:0; top: 0; bottom: 0; pointer-events: none; z-index: 10"></div>');
+        this.svg = SVG.SVG().addTo(this.svgElem[0]);
+        this.SVG_DEFS = {
+            arrowStart: this.svg.marker(3, 3, function(add) {
+                add.circle(3).fill({ color: '#fff' });
+            })
+            ,
+            arrowEnd: this.svg.marker(6, 6, function(add) {
+                add.path("M0,1 L0,5.5 L4,3 L0,1").fill({ color: '#fff'});
+            })
+        };
 
         this.element.append(this.svgElem);
 
+        this.svgUpdateThread = window.setInterval(() => this.updateSvg(), 20);
+    }
+
+    public dispose() {
+        clearInterval(this.svgUpdateThread);
     }
 
     public setMemory(memory: Memory) {
@@ -870,6 +897,9 @@ export class MemoryOutlet {
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
         // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+
+        // Since the simulation has already started, some objects will already be allocated
+        memory.allLiveObjects().forEach(obj => this.onObjectAllocated(obj));
     }
     
     public clearMemory() {
@@ -879,11 +909,39 @@ export class MemoryOutlet {
 
         this.element.children().filter((index, element) => element !== this.svgElem[0]).remove();
 
+        this.onReset();
+
         if (this.memory) {
             stopListeningTo(this, this.memory);
         }
         delete (<Mutable<this>>this).memory;
     }
+
+    public registerObjectOutlet(outlet: MemoryObjectOutlet) {
+        this.objectOutlets[outlet.object.objectId] = outlet;
+    }
+
+    public disposeObjectOutlet(outlet: MemoryObjectOutlet) {
+        delete this.objectOutlets[outlet.object.objectId];
+    }
+
+    public getObjectOutletById(objectId: number) {
+        return this.objectOutlets[objectId];
+    }
+
+    private addSVGOverlay(overlay: SVGMemoryOverlay) {
+        this.svgOverlays.push(overlay);
+    }
+
+    private updateSvg() {
+        this.svgOverlays = this.svgOverlays.filter(svgOverlay => svgOverlay.update());
+    }
+
+    // @messageResponse("pointerPointed")
+    // private pointerPointed(msg: Message<{pointer: BoundReferenceEntity, pointee: CPPObject}>) {
+    //     let {pointer, pointee} = msg.data;
+        
+    // }
 
     // private updateArrow : function(arrow, start, end) {
     //     start = start || arrow && arrow.oldStart;
@@ -926,6 +984,124 @@ export class MemoryOutlet {
     //     arrow.oldEnd = oldEnd;
     //     return arrow;
     // },
+
+    @messageResponse("objectAllocated", "unwrap")
+    private onObjectAllocated(object: CPPObject) {
+        if (object.type.isPointerToCompleteType()) {
+            this.addSVGOverlay(new SVGPointerArrowMemoryOverlay(
+                <CPPObject<PointerToCompleteType>>object, this))
+        }
+    }
+
+    @messageResponse("reset")
+    private onReset() {
+        this.objectOutlets = {};
+
+        Object.values(this.pointerSVGElems).forEach(line => line?.remove());
+        this.pointerSVGElems = {};
+
+        this.svgOverlays.forEach(overlay => overlay.remove());
+        this.svgOverlays = [];
+    }
+}
+
+
+abstract class SVGMemoryOverlay {
+
+    protected memoryOutlet: MemoryOutlet;
+
+    protected constructor(memoryOutlet: MemoryOutlet) {
+        this.memoryOutlet = memoryOutlet;
+    }
+
+    public abstract update() : boolean;
+    public abstract remove() : void;
+
+}
+
+class SVGPointerArrowMemoryOverlay extends SVGMemoryOverlay {
+
+    public readonly object: CPPObject<PointerToCompleteType>;
+
+    private line: SVG.Line;
+
+    public constructor(object: CPPObject<PointerToCompleteType>, memoryOutlet: MemoryOutlet) {
+        super(memoryOutlet);
+        this.object = object;
+
+        this.line = memoryOutlet.svg.line(0,0,0,0)
+                           .stroke({ color: '#fff', width: 1 });
+        this.line.marker("start", memoryOutlet.SVG_DEFS.arrowStart);
+        this.line.marker("end", memoryOutlet.SVG_DEFS.arrowEnd);
+        this.update();
+    }
+
+    public update() {
+        if (!this.object.isAlive) {
+            this.line.remove();
+            return false;
+        }
+
+        let targetObject: CPPObject | undefined;
+        if (this.object.type.isArrayPointerType()) {
+            targetObject = this.object.type.arrayObject;
+        }
+        else if (this.object.type.isObjectPointerType()) {
+            targetObject = this.object.type.getPointedObject();
+        }
+
+        if (!targetObject || !targetObject.isAlive) {
+            this.line.hide();
+            return true;
+        }
+
+        let pointerOutlet = this.memoryOutlet.getObjectOutletById(this.object.objectId);
+        let targetOutlet = this.memoryOutlet.getObjectOutletById(targetObject.objectId);
+
+        if (!pointerOutlet || !targetOutlet) {
+            this.line.hide();
+            return true;
+        }
+
+        let {startOffset, endOffset} = this.getPointerArrowOffsets(pointerOutlet, targetOutlet);
+
+        this.line.plot(startOffset.left, startOffset.top, endOffset.left, endOffset.top);
+        // this.line.marker("start", this.memoryOutlet.SVG_DEFS.arrowStart);
+        // this.line.marker("end", this.memoryOutlet.SVG_DEFS.arrowEnd);
+        this.line.show();
+
+        return true;
+    }
+
+    private getPointerArrowOffsets(pointerOutlet: MemoryObjectOutlet, targetOutlet: MemoryObjectOutlet) {
+        
+        let endOffset = targetOutlet.objElem.offset()!;
+        endOffset.left += targetOutlet.objElem.outerWidth()!/2;
+        //endOffset.top += targetOutlet.objElem.outerHeight();
+
+        let startOffset = pointerOutlet.objElem.offset()!;
+        startOffset.left += pointerOutlet.objElem.outerWidth()!/2;
+
+        // If start is below end (greater offset), we move top of end to bottom.
+        if (startOffset.top > endOffset.top && targetOutlet) {
+            endOffset.top += targetOutlet.objElem.outerHeight()!;
+        }
+        else{
+            startOffset.top += pointerOutlet.objElem.outerHeight()!;
+        }
+
+        let svgElemOffset = this.memoryOutlet.svgElem.offset()!;
+        startOffset.left -= svgElemOffset.left;
+        startOffset.top -= svgElemOffset.top;
+        endOffset.left -= svgElemOffset.left;
+        endOffset.top -= svgElemOffset.top;
+
+        return {startOffset, endOffset};
+    }
+
+    public remove() : void {
+        this.line.remove();
+    }
 }
 
 export abstract class MemoryObjectOutlet<T extends CompleteObjectType = CompleteObjectType> {
@@ -935,16 +1111,21 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
     protected readonly memoryOutlet: MemoryOutlet;
     
     protected readonly element: JQuery;
-    protected abstract readonly objElem: JQuery;
+    public abstract readonly objElem: JQuery;
     private svgElem? : JQuery;
     private svg?: SVG.Dom;
     
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
+    public readonly names: readonly string[];
+
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet, name?: string) {
         this.element = element.addClass("code-memoryObject");
         this.object = object;
         this.memoryOutlet = memoryOutlet;
+        memoryOutlet.registerObjectOutlet(this);
+
+        this.names = name ? [name] : [];
 
         listenTo(this, object);
     }
@@ -969,6 +1150,27 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
         this.updateObject();
         this.objElem.addClass("set");
     }
+
+    @messageResponse("referenceBoundToMe", "unwrap")
+    protected onReferenceBoundToMe(refEntity: BoundReferenceEntity) {
+        if (refEntity.name) {
+            asMutable(this.names).push(refEntity.name);
+            this.onNamesUpdate();
+        }
+    }
+
+    @messageResponse("referenceUnbound", "unwrap")
+    protected onReferenceUnbound(refEntity: BoundReferenceEntity) {
+        if (refEntity.name) {
+            let i = this.names.indexOf(refEntity.name);
+            if (i !== -1) {
+                asMutable(this.names).splice(i,1);
+            }
+            this.onNamesUpdate();
+        }
+    }
+
+    protected abstract onNamesUpdate() : void;
 
     @messageResponse("deallocated")
     protected deallocated() {
@@ -1047,26 +1249,29 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
 export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet<T> {
 
     protected readonly addrElem : JQuery;
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
+    protected readonly namesElem : JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
         
         this.element.addClass("code-memoryObjectSingle");
 
-        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
+        this.addrElem = $(`<div class='address'>${toHexadecimalString(this.object.address)}</div>`);
         this.element.append(this.addrElem);
 
         this.objElem = $("<div class='code-memoryObject-object'>" + this.object.getValue().valueString() + "</div>");
         this.element.append(this.objElem);
 
-        if (this.object.name) {
-            this.element.append("<span> </span>");
-            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-        }
-
+        this.element.append("<span> </span>");
+        this.element.append(this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        
         this.updateObject();
         
+    }
+
+    protected onNamesUpdate() {
+        this.namesElem.html(this.names.join(", "));
     }
 
     protected updateObject() {
@@ -1090,21 +1295,7 @@ export class SingleMemoryObject<T extends AtomicType> extends MemoryObjectOutlet
 //       so the might not really be much useful that's inherited. Or maybe better, SingleMemoryObject
 //       should make updateObject abstract and the default behavior there should move to a new subclass
 //       like RegularMemoryObject or something like that.
-export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> extends SingleMemoryObject<T> {
-    
-    private static instances : PointerMemoryObject<PointerType<CompleteObjectType>>[] = [];
-    public static updateArrows() {
-        this.instances = this.instances.filter((ptrMemObj) => {
-            if (jQuery.contains($("body")[0], ptrMemObj.element[0])) {
-                ptrMemObj.updateArrow();
-                return true;
-            }
-            else{ //Element is detached
-                ptrMemObj.clearArrow();
-                return false;
-            }
-        });
-    }
+export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType> = PointerType<CompleteObjectType>> extends SingleMemoryObject<T> {
 
     public readonly pointedObject? : CPPObject<T["ptrTo"]>;
 
@@ -1120,7 +1311,6 @@ export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> exte
         this.ptdArrayElem = $('<div class="ptd-array"></div>');
         this.element.append(this.ptdArrayElem);
 
-        PointerMemoryObject.instances.push(this); // TODO: memory leak
     }
 
     private updateArrow() {
@@ -1152,18 +1342,11 @@ export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> exte
         }
 
         if (this.pointedObject !== newPointedObject) {
-            if (this.pointedObject) {
-                stopListeningTo(this, this.pointedObject);
-            }
+            // if (this.pointedObject) {
+            //     stopListeningTo(this, this.pointedObject);
+            // }
 
             (<Mutable<this>>this).pointedObject = newPointedObject;
-
-            if (this.pointedObject) {
-                listenTo(this, this.pointedObject);
-            }
-            else{
-                this.clearArrow();
-            }
         }
 
         elem.html(this.object.getValue().valueString());
@@ -1174,10 +1357,6 @@ export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> exte
         else{
             elem.addClass("invalid");
         }
-    }
-    
-    protected deallocated() {
-        this.updateObject();
     }
 
     // setPtdArray : function(arrObj) {
@@ -1230,37 +1409,7 @@ export class PointerMemoryObject<T extends PointerType<CompleteObjectType>> exte
     // },
 
     
-    // makeObjectPointerArrow : function() {
-    //     if (!this.pointedObject) {
-    //         return;
-    //     }
-    //     var endOff;
-    //     var pointedOutlet;
-    //     if (this.pointedObject.isAlive()) {
-    //         this.pointedObject.send("findOutlet", function (outlet) {
-    //             pointedOutlet = pointedOutlet || outlet;
-    //         });
-    //         if (pointedOutlet) {
-    //             endOff = pointedOutlet.objElem.offset();
-    //             endOff.left += pointedOutlet.objElem.outerWidth()/2;
-    //             //endOff.top += pointedOutlet.objElem.outerHeight();
-
-    //             var startOff = this.objElem.offset();
-    //             startOff.left += this.objElem.outerWidth()/2;
-
-    //             // If start is below end (greater offset), we move top of end to bottom.
-    //             if (startOff.top > endOff.top && pointedOutlet) {
-    //                 endOff.top += pointedOutlet.objElem.outerHeight();
-    //             }
-    //             else{
-    //                 startOff.top += this.objElem.outerHeight();
-    //             }
-
-
-    //             this.arrow = this.memoryOutlet.updateArrow(this.arrow, startOff, endOff);
-    //         }
-    //     }
-    // },
+    
     // makeArrayPointerArrow : function() {
 
     //     var value = this.object.rawValue();
@@ -1335,18 +1484,14 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
     private readonly objElem: JQuery;
 
     public constructor(element: JQuery, entity: UnboundReferenceEntity & NamedEntity) {
-        this.element = element;
+        this.element = element.addClass("code-memoryObject");
         this.entity = entity;
 
         this.element.addClass("code-memoryObjectSingle");
 
-        this.addrElem = $("<td class='address'></td>");
-        this.objElem = $("<td><div class='entity'>"+(entity.name || "")+
-            "</div><div class='code-memoryObject-object'>"+
-            "</div></td>");
-        this.element.append("<table><tr></tr></table>");
-        this.element.find("tr").append(this.addrElem).append(this.objElem);
-        this.objElem = this.objElem.find(".code-memoryObject-object");
+        this.addrElem = $("<div>&nbsp;</div>").appendTo(element);
+        $(`<div class='entity'>${entity.name || ""}</div>`).appendTo(element);
+        this.objElem = $(`<div class="code-memoryObject-object"></div>`).appendTo(element);
 
         return this;
     }
@@ -1365,7 +1510,7 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
 
 export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
 
     private readonly elemOutlets: MemoryObjectOutlet[];
 
@@ -1414,6 +1559,10 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
 //        }
     }
 
+    protected onNamesUpdate() {
+        // TODO
+    }
+
 //    updateElems : function(addr, length, func) {
 //        var endAddr = addr + length;
 //        var beginIndex = Math.floor(( addr - this.object.address ) / this.object.type.elemType.size);
@@ -1453,7 +1602,7 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
 
 export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObjectOutlet<T> {
 
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
@@ -1478,11 +1627,15 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
             this.objElem.addClass("invalid");
         }
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
-    protected readonly objElem: JQuery;
+    public readonly objElem: JQuery;
     private readonly addrElem?: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
@@ -1499,7 +1652,7 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
         // Only show name and address for object if not a base class subobject
         if (!(this.object instanceof BaseSubobject)) {
             if (this.object instanceof DynamicObject) {
-                this.addrElem = $("<td class='address'>0x"+this.object.address+"</td>");
+                this.addrElem = $("<td class='address'>"+toHexadecimalString(this.object.address)+"</td>");
                 classHeaderElem.append(this.addrElem);
             }
 
@@ -1535,6 +1688,10 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
     protected updateObject() {
         // nothing to do. member object outlets should handle stuff
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 
@@ -1542,14 +1699,14 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
 export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
     protected readonly addrElem : JQuery;
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
         
         this.element.addClass("code-memoryObjectSingle");
 
-        this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
+        this.addrElem = $("<div class='address'>"+toHexadecimalString(this.object.address)+"</div>");
         this.element.append(this.addrElem);
 
         this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
@@ -1578,13 +1735,17 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
             elem.addClass("invalid");
         }
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 
 export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
 
     // protected readonly addrElem : JQuery;
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
 
     private arrayOutlet?: ArrayMemoryObjectOutlet;
     // private dataPtr: 
@@ -1629,11 +1790,15 @@ export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
             this.setArrayOutlet(pointedArr);
         }
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
-    protected readonly objElem : JQuery;
+    public readonly objElem : JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
@@ -1653,12 +1818,16 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
     protected updateObject() {
 
     }
+
+    protected onNamesUpdate() {
+        // TODO
+    }
 }
 
 // export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
 //     protected readonly addrElem : JQuery;
-//     protected readonly objElem : JQuery;
+//     public readonly objElem : JQuery;
 
 //     private arrayOutlet?: ArrayMemoryObjectOutlet<ArithmeticType>;
 //     private dataPtr: 
@@ -1668,7 +1837,7 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
         
 //         this.element.addClass("code-memoryObjectSingle");
 
-//         this.addrElem = $("<div class='address'>0x"+this.object.address+"</div>");
+//         this.addrElem = $("<div class='address'>"+toHexadecimalString(this.object.address)+"</div>");
 //         this.element.append(this.addrElem);
 
 //         this.objElem = $("<span></span>").appendTo(this.element);
@@ -1707,7 +1876,7 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
     if(obj.isTyped(isPointerType)) {
         assert(obj.type.ptrTo.isCompleteObjectType(), "pointers to incomplete types should not exist at runtime");
-        return new PointerMemoryObject(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
+        return new PointerMemoryObjectOutlet(elem, <CPPObject<PointerType<CompleteObjectType>>>obj, memoryOutlet);
     }
     else if(obj.isTyped(isBoundedArrayType)) {
         return new ArrayMemoryObjectOutlet(elem, <CPPObject<BoundedArrayType>>obj, memoryOutlet);
