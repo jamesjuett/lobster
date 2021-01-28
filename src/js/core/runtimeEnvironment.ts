@@ -398,9 +398,13 @@ export class Memory {
         return new InvalidObject(ptr.type.ptrTo, this, addr);
     }
 
+    public allLiveObjects() {
+        return Object.values(this.objects).filter(obj => obj.isAlive);
+    }
 
     public allocateObject(object: CPPObject<CompleteObjectType>) { // TODO: allocateObject is not the best name for this
         this.objects[object.address] = object;
+        this.observable.send("objectAllocated", object);
     }
 
     /**
@@ -413,6 +417,7 @@ export class Memory {
         let obj = this.objects[addr];
         if (obj && obj.isAlive) {
             obj.kill(killer);
+            this.observable.send("objectKilled", obj);
         }
     }
 

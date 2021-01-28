@@ -2,7 +2,7 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
@@ -820,9 +820,6 @@ export class DefaultLobsterOutlet {
 
 
 
-// var SVG_DEFS : {[index: string]: ???} = {};
-
-
 export class MemoryOutlet {
 
     public readonly memory?: Memory;
@@ -832,13 +829,9 @@ export class MemoryOutlet {
     public readonly heapOutlet?: HeapOutlet;
 
     private readonly element: JQuery;
-    private readonly svgElem: JQuery;
-    private readonly svg: SVG.Svg;
-
-    private readonly svg_defs: {
-        arrowStart: SVG.Marker;
-        arrowEnd: SVG.Marker;
-    };
+    public readonly svgElem: JQuery;
+    public readonly svg: SVG.Svg;
+    public readonly SVG_DEFS: {[index:string]: SVG.Marker};
     
     public _act!: MessageResponses;
 
@@ -851,8 +844,10 @@ export class MemoryOutlet {
      * Used to track SVG elements for pointer arrows. Maps from the object ID
      * for the pointer to the SVG element
      */
-    private pointerSVGElems: {[index: number]: SVG.Line | undefined } = { };
+    private pointerSVGElems: {[index: number]: SVGPointerArrowMemoryOverlay | undefined } = { };
 
+
+    private svgOverlays: SVGMemoryOverlay[] = [];
 
     // public static updateArrows() {
     //     this.instances = this.instances.filter((ptrMemObj) => {
@@ -866,7 +861,8 @@ export class MemoryOutlet {
     //         }
     //     });
     // }
-
+    private svgUpdateThread: number;
+    
     
     public constructor(element: JQuery) {
         
@@ -874,29 +870,23 @@ export class MemoryOutlet {
 
         this.svgElem = $('<div style="position: absolute; left:0; right:0; top: 0; bottom: 0; pointer-events: none; z-index: 10"></div>');
         this.svg = SVG.SVG().addTo(this.svgElem[0]);
-        this.svg_defs = {
+        this.SVG_DEFS = {
             arrowStart: this.svg.marker(3, 3, function(add) {
                 add.circle(3).fill({ color: '#fff' });
             })
-            // .style({
-            //     stroke: "#000000",
-            //     fill: "#FFFFFF",
-            //     "stroke-width": "1px"
-            // }),
             ,
             arrowEnd: this.svg.marker(6, 6, function(add) {
                 add.path("M0,1 L0,5.5 L4,3 L0,1").fill({ color: '#fff'});
             })
-            // .style({
-            //     stroke: "#000000",
-            //     fill: "#FFFFFF",
-            //     "stroke-width": "1px"
-            // })
         };
-
 
         this.element.append(this.svgElem);
 
+        this.svgUpdateThread = window.setInterval(() => this.updateSvg(), 20);
+    }
+
+    public dispose() {
+        clearInterval(this.svgUpdateThread);
     }
 
     public setMemory(memory: Memory) {
@@ -907,6 +897,9 @@ export class MemoryOutlet {
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
         // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+
+        // Since the simulation has already started, some objects will already be allocated
+        memory.allLiveObjects().forEach(obj => this.onObjectAllocated(obj));
     }
     
     public clearMemory() {
@@ -916,10 +909,7 @@ export class MemoryOutlet {
 
         this.element.children().filter((index, element) => element !== this.svgElem[0]).remove();
 
-        this.objectOutlets = {};
-
-        Object.values(this.pointerSVGElems).forEach(line => line?.remove());
-        this.pointerSVGElems = {};
+        this.onReset();
 
         if (this.memory) {
             stopListeningTo(this, this.memory);
@@ -931,57 +921,20 @@ export class MemoryOutlet {
         this.objectOutlets[outlet.object.objectId] = outlet;
     }
 
-    public setPointerTarget(outlet: PointerMemoryObjectOutlet, object: CPPObject) {
-        let pointedOutlet = this.objectOutlets[object.objectId];
-        if (!pointedOutlet || !pointedOutlet.object.isAlive) {
-            return;
-        }
-        
-        let {startOffset, endOffset} = this.getPointerArrowOffsets(outlet, pointedOutlet);
-
-        this.pointerSVGElems[outlet.object.objectId]?.remove();
-        let line = this.addSVGArrow(startOffset, endOffset);
-        this.pointerSVGElems[outlet.object.objectId] = line;
-        // this.objectOutlets[outlet.object.objectId] = outlet;
-
-    }
-
-    private addSVGArrow(startOffset: JQuery.Coordinates, endOffset: JQuery.Coordinates) {
-        let line = this.svg.line(startOffset.left, startOffset.top, endOffset.left, endOffset.top)
-                           .stroke({ color: '#fff', width: 2 });
-        line.marker("start", this.svg_defs.arrowStart);
-        line.marker("end", this.svg_defs.arrowEnd);
-        return line;
-    }
-
-    public removePointerTarget(outlet: PointerMemoryObjectOutlet) {
+    public disposeObjectOutlet(outlet: MemoryObjectOutlet) {
         delete this.objectOutlets[outlet.object.objectId];
     }
 
-    private getPointerArrowOffsets(pointingOutlet: PointerMemoryObjectOutlet, pointedOutlet: MemoryObjectOutlet) {
-        
-        let endOffset = pointedOutlet.objElem.offset()!;
-        endOffset.left += pointedOutlet.objElem.outerWidth()!/2;
-        //endOffset.top += pointedOutlet.objElem.outerHeight();
+    public getObjectOutletById(objectId: number) {
+        return this.objectOutlets[objectId];
+    }
 
-        let startOffset = pointingOutlet.objElem.offset()!;
-        startOffset.left += pointingOutlet.objElem.outerWidth()!/2;
+    private addSVGOverlay(overlay: SVGMemoryOverlay) {
+        this.svgOverlays.push(overlay);
+    }
 
-        // If start is below end (greater offset), we move top of end to bottom.
-        if (startOffset.top > endOffset.top && pointedOutlet) {
-            endOffset.top += pointedOutlet.objElem.outerHeight()!;
-        }
-        else{
-            startOffset.top += pointingOutlet.objElem.outerHeight()!;
-        }
-
-        let svgElemOffset = this.svgElem.offset()!;
-        startOffset.left -= svgElemOffset.left;
-        startOffset.top -= svgElemOffset.top;
-        endOffset.left -= svgElemOffset.left;
-        endOffset.top -= svgElemOffset.top;
-
-        return {startOffset, endOffset};
+    private updateSvg() {
+        this.svgOverlays = this.svgOverlays.filter(svgOverlay => svgOverlay.update());
     }
 
     // @messageResponse("pointerPointed")
@@ -1032,9 +985,122 @@ export class MemoryOutlet {
     //     return arrow;
     // },
 
+    @messageResponse("objectAllocated", "unwrap")
+    private onObjectAllocated(object: CPPObject) {
+        if (object.type.isPointerToCompleteType()) {
+            this.addSVGOverlay(new SVGPointerArrowMemoryOverlay(
+                <CPPObject<PointerToCompleteType>>object, this))
+        }
+    }
+
     @messageResponse("reset")
-    private reset() {
-        this.clearMemory();
+    private onReset() {
+        this.objectOutlets = {};
+
+        Object.values(this.pointerSVGElems).forEach(line => line?.remove());
+        this.pointerSVGElems = {};
+
+        this.svgOverlays.forEach(overlay => overlay.remove());
+        this.svgOverlays = [];
+    }
+}
+
+
+abstract class SVGMemoryOverlay {
+
+    protected memoryOutlet: MemoryOutlet;
+
+    protected constructor(memoryOutlet: MemoryOutlet) {
+        this.memoryOutlet = memoryOutlet;
+    }
+
+    public abstract update() : boolean;
+    public abstract remove() : void;
+
+}
+
+class SVGPointerArrowMemoryOverlay extends SVGMemoryOverlay {
+
+    public readonly object: CPPObject<PointerToCompleteType>;
+
+    private line: SVG.Line;
+
+    public constructor(object: CPPObject<PointerToCompleteType>, memoryOutlet: MemoryOutlet) {
+        super(memoryOutlet);
+        this.object = object;
+
+        this.line = memoryOutlet.svg.line(0,0,0,0)
+                           .stroke({ color: '#fff', width: 1 });
+        this.line.marker("start", memoryOutlet.SVG_DEFS.arrowStart);
+        this.line.marker("end", memoryOutlet.SVG_DEFS.arrowEnd);
+        this.update();
+    }
+
+    public update() {
+        if (!this.object.isAlive) {
+            this.line.remove();
+            return false;
+        }
+
+        let targetObject: CPPObject | undefined;
+        if (this.object.type.isArrayPointerType()) {
+            targetObject = this.object.type.arrayObject;
+        }
+        else if (this.object.type.isObjectPointerType()) {
+            targetObject = this.object.type.getPointedObject();
+        }
+
+        if (!targetObject || !targetObject.isAlive) {
+            this.line.hide();
+            return true;
+        }
+
+        let pointerOutlet = this.memoryOutlet.getObjectOutletById(this.object.objectId);
+        let targetOutlet = this.memoryOutlet.getObjectOutletById(targetObject.objectId);
+
+        if (!pointerOutlet || !targetOutlet) {
+            this.line.hide();
+            return true;
+        }
+
+        let {startOffset, endOffset} = this.getPointerArrowOffsets(pointerOutlet, targetOutlet);
+
+        this.line.plot(startOffset.left, startOffset.top, endOffset.left, endOffset.top);
+        // this.line.marker("start", this.memoryOutlet.SVG_DEFS.arrowStart);
+        // this.line.marker("end", this.memoryOutlet.SVG_DEFS.arrowEnd);
+        this.line.show();
+
+        return true;
+    }
+
+    private getPointerArrowOffsets(pointerOutlet: MemoryObjectOutlet, targetOutlet: MemoryObjectOutlet) {
+        
+        let endOffset = targetOutlet.objElem.offset()!;
+        endOffset.left += targetOutlet.objElem.outerWidth()!/2;
+        //endOffset.top += targetOutlet.objElem.outerHeight();
+
+        let startOffset = pointerOutlet.objElem.offset()!;
+        startOffset.left += pointerOutlet.objElem.outerWidth()!/2;
+
+        // If start is below end (greater offset), we move top of end to bottom.
+        if (startOffset.top > endOffset.top && targetOutlet) {
+            endOffset.top += targetOutlet.objElem.outerHeight()!;
+        }
+        else{
+            startOffset.top += pointerOutlet.objElem.outerHeight()!;
+        }
+
+        let svgElemOffset = this.memoryOutlet.svgElem.offset()!;
+        startOffset.left -= svgElemOffset.left;
+        startOffset.top -= svgElemOffset.top;
+        endOffset.left -= svgElemOffset.left;
+        endOffset.top -= svgElemOffset.top;
+
+        return {startOffset, endOffset};
+    }
+
+    public remove() : void {
+        this.line.remove();
     }
 }
 
@@ -1281,13 +1347,6 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
             // }
 
             (<Mutable<this>>this).pointedObject = newPointedObject;
-            if (newPointedObject) {
-                this.memoryOutlet.setPointerTarget(this, newPointedObject);
-            //     listenTo(this, this.pointedObject);
-            }
-            else{
-                this.memoryOutlet.removePointerTarget(this);
-            }
         }
 
         elem.html(this.object.getValue().valueString());
@@ -1298,10 +1357,6 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
         else{
             elem.addClass("invalid");
         }
-    }
-    
-    protected deallocated() {
-        this.memoryOutlet.removePointerTarget(this);
     }
 
     // setPtdArray : function(arrObj) {
