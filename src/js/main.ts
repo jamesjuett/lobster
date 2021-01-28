@@ -1,25 +1,23 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
-import { Project } from "./view/editors";
 
-import "./lib/cstdlib"
-import "./lib/string"
-import "./lib/vector"
-import { checkLogin } from "./frontend/user";
-
+import "./lib/standard"
+import { Users } from "./frontend/user";
+import { ProjectList } from "./frontend/projects";
+import { LobsterApplication } from "./frontend/application";
 
 
-$(() => {
 
-    let element = $("#lobster1");
+$(async () => {
 
-    let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
+    // let element = $("#lobster1");
 
-    let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
-    // let sourcePane = element.find("#sourcePane");
-    let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
+    // let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
+
+    // let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
+    // // let sourcePane = element.find("#sourcePane");
+    // let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
     
-    checkLogin();
-    
+    let app = new LobsterApplication();
 
 //        console = ValueEntity.instance();
 

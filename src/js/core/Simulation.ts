@@ -82,7 +82,15 @@ export type SimulationMessages =
     "cinInput" |
     "eventOccurred";
 
-// TODO: add observer stuff
+type SimulationOptions = {
+    cin?: SimulationInputStream,
+    start?: boolean
+};
+
+const DEFAULT_SIMULATION_OPTIONS = {
+    start: true
+}
+
 export class Simulation {
 
     public readonly observable = new Observable<SimulationMessages>(this);
@@ -138,7 +146,8 @@ export class Simulation {
     public readonly mainFunction!: RuntimeFunction<FunctionType<Int>>;
     public readonly globalAllocator!: RuntimeGlobalObjectAllocator;
 
-    constructor(program: RunnableProgram, cin?: SimulationInputStream) {
+    constructor(program: RunnableProgram, options: SimulationOptions = {}) {
+        options = Object.assign({}, options, DEFAULT_SIMULATION_OPTIONS);
         this.program = program;
 
         // TODO SimulationRunner this.speed = Simulation.MAX_SPEED;
@@ -160,10 +169,12 @@ export class Simulation {
 
         this.allOutput = "";
         asMutable(this.outputProduced).length = 0;
-        this.cin = cin ?? new SimulationInputStream();
+        this.cin = options.cin ?? new SimulationInputStream();
         this.rng = new CPPRandom();
 
-        this.start();
+        if(options.start) {
+            this.start();
+        }
     }
 
     public clone(stepsTaken = this.stepsTaken) {

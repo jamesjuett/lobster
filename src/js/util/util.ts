@@ -14,8 +14,9 @@ export function isInstance<T>(ctor: new(...args: any[]) => T): (x: any) => x is 
 } 
 
 export function assert(condition: any, message: string = "") : asserts condition {
-    if (!condition)
+    if (!condition) {
         throw Error("Assert failed: " + message);
+    }
 };
 
 export function assertFalse(message: string = "") : never {
