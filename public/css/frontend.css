@@ -7,3 +7,11 @@
 	white-space: nowrap;
 	overflow-x: auto;
 }
+
+.nav-tabs > li.disabled {
+	cursor: not-allowed;
+}
+
+.nav-tabs > li.disabled > a {
+	pointer-events: none;
+}
