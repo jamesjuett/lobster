@@ -60,6 +60,7 @@ export class SimpleExerciseLobsterOutlet {
 
     private readonly element: JQuery;
     private readonly tabsElem: JQuery;
+    private readonly simulateTabElem: JQuery;
     // private readonly annotationMessagesElem: JQuery;
 
     public readonly compilationOutlet: CompilationOutlet;
@@ -83,6 +84,8 @@ export class SimpleExerciseLobsterOutlet {
         });
 
         this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
+        this.simulateTabElem = element.find(".lobster-simulate-tab");
+        this.setSimulationTabEnabled(false);
 
         let runButtonElem = element.find(".runButton")
             .click(() => {
@@ -94,7 +97,7 @@ export class SimpleExerciseLobsterOutlet {
                 }
                 this.setSimulation(sim);
             }
-            this.element.find(".lobster-simulate-tab").tab("show");
+            this.simulateTabElem.tab("show");
         });
 
         this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
@@ -140,9 +143,11 @@ export class SimpleExerciseLobsterOutlet {
         listenTo(this, sim);
 
         this.simulationOutlet.setSimulation(sim);
+        this.setSimulationTabEnabled(true);
     }
     
     public clearSimulation() {
+        this.setSimulationTabEnabled(false);
         this.simulationOutlet.clearSimulation();
 
         if (this.sim) {
@@ -178,6 +183,14 @@ export class SimpleExerciseLobsterOutlet {
         }, 300);
     }
 
+    setSimulationTabEnabled(isEnabled: boolean) {
+      if (isEnabled) {
+        this.simulateTabElem.parent().removeClass("disabled");
+      }
+      else {
+        this.simulateTabElem.parent().addClass("disabled");
+      }
+    }
     // _act : {
     //     loadCode : "loadCode",
     //     loadProject : "loadProject",
