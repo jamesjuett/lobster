@@ -672,7 +672,7 @@ abstract class ValueType extends ObjectTypeBase {
         var bytes = [];
         // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
-        for (var i = 1; i < this.size - 1; ++i) {
+        for (var i = 1; i < this.size; ++i) {
             bytes.push(0);
         }
         return <byte[]>bytes;
