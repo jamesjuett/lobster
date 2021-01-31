@@ -1529,7 +1529,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         if (!declaration) {
             let decl = createFunctionDeclarationFromDefinitionAST(ast, context);
             if (!(decl.construct_type === "function_declaration")) {
-                return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
+                return decl;
             }
             declaration = decl;
         }
