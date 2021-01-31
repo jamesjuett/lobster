@@ -1046,6 +1046,10 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
         let type = declarator.type;
 
+        if (type?.isPotentiallyCompleteArrayType()) {
+            type = type.adjustToPointerType();
+        }
+
         if (type && !type.isPotentialParameterType()) {
             this.addNote(CPPError.declaration.parameter.invalid_parameter_type(this, type));
             return;
@@ -1441,11 +1445,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         (<Mutable<this>>this).parameters = paramDeclarations;
         this.attachAll(paramDeclarations);
 
-        let paramTypes = paramDeclarations.map(decl => {
-            if (!decl.type) { return decl.type; }
-            if (!decl.type.isBoundedArrayType()) { return decl.type; }
-            return decl.type.adjustToPointerType();
-        });
+        let paramTypes = paramDeclarations.map(decl => decl.type);
 
         // A parameter list of just (void) specifies no parameters
         if (paramTypes.length == 1 && paramTypes[0] && paramTypes[0].isVoidType()) {
