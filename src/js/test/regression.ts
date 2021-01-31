@@ -941,7 +941,54 @@ int main() {
           new NoBadRuntimeEventsVerifier(true)
       ]
   );
+
+
+
+// Basic Compound Assignment---------------------
+
+new SingleTranslationUnitTest(
+  "Basic Compound Assignment Test",
+  `using namespace std;
+
+int func(int x) {
+  return x -1;
+}
+
+int main() {
+
+
+  int i = 0, arr[5] = {42, arr[i++], arr[i++], arr[i++], arr[i++]};
+  while (i >= 0) {
+    assert(arr[i--] == 42);
+  }
+  int arr2[5] = {arr[1] + arr[2], arr[3] / 3};
+  assert(arr2[0] == *arr2 && arr2[0] == 84);
+  assert(arr2[1] == 14);
+  assert(arr2[2] == 0);
+  assert(arr2[3] == 0);
+  assert(arr2[4] == 0);
+  int arr3[5] = {func(arr[4])};
+  assert(arr3[0] == 41);
+  assert(arr3[1] == 0);
+  assert(arr3[2] == 0);
+  assert(arr3[3] == 0);
+  assert(arr3[4] == 0);
+}`,
+  [
+      new NoErrorsNoWarningsVerifier(),
+      new NoBadRuntimeEventsVerifier(true)
+  ]
+);
+
+
+
+
+
+
+
 });
+
+
 
 /**
  * Complicated class declarations and stuff

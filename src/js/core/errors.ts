@@ -424,6 +424,9 @@ export const CPPError = {
             },
             invalid_element_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.invalid_element_type", `The type ${type.toString()} is not allowed as an array parameter.`);
+            },
+            too_many_initializers: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.array.too_many_initializers", "The number of element initializers here exceeds the size of the declared array.");
             }
         },
         init: {
@@ -441,9 +444,6 @@ export const CPPError = {
             },
             list_atomic_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_atomic_prohibited", "An atomic type may not be initialized using list-initialization.");
-            },
-            list_array_unsupported: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.list_array_prohibited", "Sorry, Lobster doesn't currently support using list-initialization for arrays.");
             },
             aggregate_unsupported: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.aggregate_unsupported", "Sorry, Lobster doesn't currently support aggregate initialization for compound objects.");

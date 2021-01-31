@@ -44,19 +44,19 @@ export class FunctionCall extends PotentialFullExpression {
         this.func = func;
         this.receiverType = receiverType;
 
-        // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
         let paramTypes = this.func.type.paramTypes;
         if (args.length !== paramTypes.length) {
             this.addNote(CPPError.param.numParams(this));
             this.attachAll(this.args = args);
             return;
         }
-       
+
         if (this.func.isMemberFunction() && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
 
         // Create initializers for each argument/parameter pair
+        // Note that the args are NOT attached as children to the function call. Instead, they are attached to the initializers.
         this.argInitializers = args.map((arg, i) => {
             let paramType = paramTypes[i];
             if (paramType.isReferenceType()) {
