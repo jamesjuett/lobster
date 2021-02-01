@@ -1227,7 +1227,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     public readonly precedence = 2;
 
     public readonly elemType: Elem_type;
-    public readonly length: number;
+    public readonly numElems: number;
 
     public constructor(elemType: Elem_type, length: number) {
 
@@ -1235,7 +1235,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         super(false, false);
 
         this.elemType = elemType;
-        this.length = length;
+        this.numElems = length;
         this.size = elemType.size * length;
     }
 
@@ -1254,23 +1254,23 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.numElems === other.numElems;
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.numElems === other.numElems;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return this.elemType.typeString(excludeBase, varname + "[" + this.length + "]", decorated);
+        return this.elemType.typeString(excludeBase, varname + "[" + this.numElems + "]", decorated);
     }
 
     public englishString(plural: boolean) {
-        return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
+        return (plural ? "arrays of " : "an array of ") + this.numElems + " " + this.elemType.englishString(this.numElems > 1);
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new BoundedArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
+        return new BoundedArrayType(this.elemType, this.numElems); // Note arrays don't have cv qualifications so they are ignored here
     }
 
     public adjustToPointerType() {

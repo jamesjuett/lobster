@@ -65,7 +65,7 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
 
         let subAddr = this.address;
         this.elemObjects = [];
-        for (let i = 0; i < this.object.type.length; ++i) {
+        for (let i = 0; i < this.object.type.numElems; ++i) {
             this.elemObjects.push(new ArraySubobject(this.object, i, memory, subAddr));
             subAddr += this.object.type.elemType.size;
         }
