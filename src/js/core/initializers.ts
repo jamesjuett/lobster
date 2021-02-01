@@ -192,7 +192,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
         }
         else {
             this.elementInitializers = [];
-            for (let i = 0; i < type.length; ++i) {
+            for (let i = 0; i < type.numElems; ++i) {
                 let elemInit = DefaultInitializer.create(context, new ArraySubobjectEntity(this.target, i));
                 this.elementInitializers.push(elemInit);
                 this.attach(elemInit);
@@ -219,7 +219,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
         let targetDesc = this.target.describe();
         let targetType = this.target.type;
 
-        if (targetType.length === 0) {
+        if (targetType.numElems === 0) {
             return { message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0." };
         }
         else if (targetType.elemType instanceof AtomicType) {
@@ -680,8 +680,8 @@ export class ArrayDirectInitializer extends DirectInitializer {
         if (targetType.elemType.isType(Char) && args.length === 1 && firstArg.isStringLiteralExpression()) {
             this.arg = firstArg;
 
-            if (firstArg.type.length > targetType.length) {
-                this.addNote(CPPError.declaration.init.stringLiteralLength(this, firstArg.type.length, targetType.length));
+            if (firstArg.type.numElems > targetType.numElems) {
+                this.addNote(CPPError.declaration.init.stringLiteralLength(this, firstArg.type.numElems, targetType.numElems));
             }
         }
         else {
@@ -742,7 +742,7 @@ export class RuntimeArrayDirectInitializer extends RuntimeDirectInitializer<Boun
         let charsToWrite = this.arg.evalResult.getValue();
 
         // pad with zeros
-        while (charsToWrite.length < target.type.length) {
+        while (charsToWrite.length < target.type.numElems) {
             charsToWrite.push(Char.NULL_CHAR);
         }
 
@@ -1710,7 +1710,7 @@ export class ArrayAggregateInitializer extends ListInitializer {
         super(context);
 
         this.target = target;
-        let arraySize = target.type.length;
+        let arraySize = target.type.numElems;
 
         if (args.length > arraySize) {
             this.addNote(CPPError.param.numParams(this));
