@@ -9,6 +9,7 @@ import { Simulation } from "../core/Simulation";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";
 import { Int, isCompleteObjectType, isPointerType, isPotentiallyCompleteObjectType, isType } from "../core/types";
 import { findFirstConstruct, findConstructs, containsConstruct, constructTest } from "./analysis";
+import { findLoopControlVars } from "./loops";
 
 
 
@@ -24,8 +25,17 @@ export function getExtras(extra_keys: string | readonly string[]) {
         return extras;
     }
 }
-
+let loop_control_vars = (program: Program) => {
+    let loops = findConstructs(program, Predicates.isLoop);
+    loops.forEach(loop => {
+        let loopControlVars = findLoopControlVars(loop);
+        program.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "loop_control_vars",
+           `It appears that the variable(s) [${loopControlVars.map(v => v.name).join(",")}] control this loop.`));
+    });
+};
 const EXTRAS : {[index: string]: readonly StaticAnalysisExtra[] | undefined} = {
+    "loop_control_vars": [loop_control_vars],
+    // "eecs280_ex_lab2_squareArray": [loop_control_vars],
     "loop_hardcoded_condition": [(program: Program) => {
         let loop = findFirstConstruct(program, Predicates.isLoop);
         if (!loop) {

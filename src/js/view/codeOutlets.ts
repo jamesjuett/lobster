@@ -11,7 +11,7 @@ import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment as RuntimeAssignmentExpression, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression, CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression } from "../core/expressions";
-import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType, isAtomicType, isReferenceType, isCompleteClassType, PointerType, isType } from "../core/types";
+import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType, isAtomicType, isReferenceType, isCompleteClassType, PointerType, isType, ArrayPointerType } from "../core/types";
 import { mixin } from "lodash";
 import { CompiledFunctionCall, RuntimeFunctionCall, RuntimeFunctionCallExpression, CompiledFunctionCallExpression, FunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { RuntimeFunction } from "../core/functions";
@@ -29,31 +29,56 @@ export function getValueString(value: Value) {
     if (value.isTyped(isType(Bool))) {
         return value.rawValue === 1 ? "true" : "false";
     }
-    if (value.isTyped(isArrayPointerToType(Char))) {
-        let offset = value.type.toIndex(value.rawValue);
-        let chars = value.type.arrayObject.getValue().slice(offset);
-        if (chars.length === 0) {
-            // pointer was outside of cstring, bail out
-            return '"???..."';
-        }
-        let cstr = "";
-        for(let i = 0; !Char.isNullChar(chars[i]); ++i) {
-            if (i === chars.length) {
-                cstr += "...";
-                break;
-            }
-            else if (i > 10) {
-                cstr += "...";
-                break;
-            }
-            cstr += unescapeString(String.fromCharCode(chars[i].rawValue));
-        }
-        return `"${cstr}"`;
-    }
-    else {
+    // if (value.isTyped(isArrayPointerToType(Char))) {
+    //     let offset = value.type.toIndex(value.rawValue);
+    //     let chars = value.type.arrayObject.getValue().slice(offset);
+    //     if (chars.length === 0) {
+    //         // pointer was outside of cstring, bail out
+    //         return '"???..."';
+    //     }
+    //     let cstr = "";
+    //     for(let i = 0; !Char.isNullChar(chars[i]); ++i) {
+    //         cstr += unescapeString(String.fromCharCode(chars[i].rawValue));
+    //         if (i === chars.length - 1) {
+    //             cstr += "???...";
+    //             break;
+    //         }
+    //         else if (i >= 10) {
+    //             cstr += "...";
+    //             break;
+    //         }
+    //     }
+    //     return `"${cstr}"`;
+    // }
+    // else {
         return value.valueString();
-    }
+    // }
 }
+
+
+export function cstringToString(value: Value<ArrayPointerType<Char>>) {
+    let offset = value.type.toIndex(value.rawValue);
+    let chars = value.type.arrayObject.getValue().slice(offset);
+    if (chars.length === 0) {
+        // pointer was outside of cstring, bail out
+        return '"???..."';
+    }
+    let cstr = "";
+    for(let i = 0; !Char.isNullChar(chars[i]); ++i) {
+        cstr += unescapeString(String.fromCharCode(chars[i].rawValue));
+        if (i === chars.length - 1) {
+            cstr += "???...";
+            break;
+        }
+        else if (i >= 10) {
+            cstr += "...";
+            break;
+        }
+    }
+    return `"${cstr}"`;
+}
+
+
 
 function getObjectString(obj: CPPObject) {
     let name = obj.describe().name;

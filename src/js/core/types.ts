@@ -457,6 +457,11 @@ export function isBoundedArrayType(type: Type): type is BoundedArrayType {
     return type.isBoundedArrayType();
 }
 
+export function isBoundedArrayOfType<T extends ArrayElemType>(typePredicate: (type: Type)=> type is T): (type: Type) => type is BoundedArrayType<T> {
+    return <(type: Type) => type is BoundedArrayType<T>>
+            ((type:Type) => !!(type.isBoundedArrayType() && typePredicate(type.elemType)));
+}
+
 export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBoundType {
     return type.isArrayOfUnknownBoundType();
 }

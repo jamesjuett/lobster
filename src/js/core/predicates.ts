@@ -1,5 +1,5 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, t_OverloadableOperators, OperatorOverloadExpression, isOperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression } from "./expressions";
+import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, t_OverloadableOperators, OperatorOverloadExpression, isOperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression, CompoundAssignmentExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
 import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
@@ -8,7 +8,8 @@ import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
 import { FunctionCallExpression, FunctionCall } from "./functionCall";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
-import { findFirstConstruct } from "../analysis/analysis";
+import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
+import { VariableEntity } from "./entities";
 
 
 
@@ -170,12 +171,31 @@ export namespace Predicates {
 
     export function byIdentifierName<N extends string>(name: N) {
         return <(construct: AnalyticConstruct) => construct is IdentifierExpression & {name: N}>
-                ((construct) => (construct instanceof IdentifierExpression) && construct.name === name);
+                ((construct) => (construct.construct_type === "identifier_expression") && construct.name === name);
+    }
+
+    export function byVariableIdentifier<VE extends VariableEntity>(v: VE) {
+        return <(construct: AnalyticConstruct) => construct is IdentifierExpression & {entity: VE}>
+                ((construct) => (construct.construct_type === "identifier_expression") && construct.entity === v);
+    }
+
+    export function byVariableAssignedTo<VE extends VariableEntity>(v: VE) {
+        return <(construct: AnalyticConstruct) => construct is AssignmentExpression | CompoundAssignmentExpression>
+                ((construct) => (construct.construct_type === "assignment_expression" || construct.construct_type === "compound_assignment_expression")
+                                && containsConstruct(construct.lhs, Predicates.byVariableIdentifier(v))
+                );
+    }
+
+    export function byVariableIncremented<VE extends VariableEntity>(v: VE) {
+        return <(construct: AnalyticConstruct) => construct is PrefixIncrementExpression | PostfixIncrementExpression>
+                ((construct) => (construct.construct_type === "prefix_increment_expression" || construct.construct_type === "postfix_increment_expression")
+                                && containsConstruct(construct.operand, Predicates.byVariableIdentifier(v))
+                );
     }
 
     export function byMemberAccessName<N extends string>(memberName: N) {
         return <(construct: AnalyticConstruct) => construct is DotExpression | ArrowExpression & {memberName: N}>
-                ((construct) => (construct instanceof DotExpression || construct instanceof ArrowExpression) && construct.memberName === memberName);
+                ((construct) => (construct.construct_type === "dot_expression" || construct.construct_type === "arrow_expression") && construct.memberName === memberName);
     }
 
     // export function byCompiled<Original extends AnalyticDeclaration>(construct: Original) : construct is AnalyticCompiledDeclaration<Original> {

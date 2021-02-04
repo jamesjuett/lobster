@@ -1,10 +1,17 @@
+import { assign, isEqual } from "lodash";
+import { LocalObjectEntity, VariableEntity } from "../core/entities";
 import { CompilerNote, NoteKind } from "../core/errors";
+import { AnalyticExpression } from "../core/expressions";
+import { CPPObject } from "../core/objects";
 import { Predicates } from "../core/predicates";
 import { Program } from "../core/Program";
 import { Project } from "../core/Project";
 import { Simulation } from "../core/Simulation";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";
+import { ForStatement, WhileStatement } from "../core/statements";
+import { BoundedArrayType, Int, isArrayPointerToType, isBoundedArrayOfType, isBoundedArrayType, isIntegralType, isPointerToCompleteType, isPointerToType, isPointerType, isType } from "../core/types";
 import { findFirstConstruct, findConstructs, containsConstruct } from "./analysis";
+import { findLoopControlVars } from "./loops";
 
 export abstract class Checkpoint {
 
@@ -29,16 +36,17 @@ function removeWhitespace(str: string) {
     return str.replace(/\s+/g, '');
 }
 
+// TODO: reduce duplication with EndOfMainStateCheckpoint
 export class OutputCheckpoint extends Checkpoint {
 
     public readonly input: string;
     public readonly stepLimit: number;
 
-    private expected: (output: string) => boolean;
+    private expected: (output: string, project: Project) => boolean;
     
     private runner?: AsynchronousSimulationRunner;
 
-    public constructor(name: string, expected: (output: string) => boolean, input: string = "", stepLimit: number = 1000) {
+    public constructor(name: string, expected: (output: string, project: Project) => boolean, input: string = "", stepLimit: number = 1000) {
         super(name);
         this.expected = expected;
         this.input = input;
@@ -67,7 +75,7 @@ export class OutputCheckpoint extends Checkpoint {
 
         // may throw if interrupted
         await runner.stepToEnd(0, this.stepLimit, true);
-        return sim.atEnd && this.expected(sim.allOutput);
+        return sim.atEnd && this.expected(sim.allOutput, project);
     }
     
 }
@@ -83,6 +91,49 @@ export function outputComparator(desiredOutput: string, ignoreWhitespace: boolea
             return output === desiredOutput;
         }
     }
+}
+
+export class EndOfMainStateCheckpoint extends Checkpoint {
+
+    public readonly input: string;
+    public readonly stepLimit: number;
+
+    private criteria: (sim: Simulation) => boolean;
+    
+    private runner?: AsynchronousSimulationRunner;
+
+    public constructor(name: string, criteria: (sim: Simulation) => boolean, input: string = "", stepLimit: number = 1000) {
+        super(name);
+        this.criteria = criteria;
+        this.input = input;
+        this.stepLimit = stepLimit;
+    }
+
+    // May throw if interrupted during async running
+    public async evaluate(project: Project) {
+        
+        if (this.runner) {
+            this.runner.pause();
+            delete this.runner;
+        }
+
+        let program = project.program;
+
+        if (!program.isRunnable()) {
+            return false;
+        }
+
+        let sim = new Simulation(program);
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
+        let runner = this.runner = new AsynchronousSimulationRunner(sim);
+
+        // may throw if interrupted
+        await runner.stepToEndOfMain(0, this.stepLimit, true);
+        return sim.atEndOfMain() && this.criteria(sim);
+    }
+    
 }
 
 
@@ -584,6 +635,166 @@ export const EXERCISE_CHECKPOINTS : {[index: string]: readonly Checkpoint[] | un
             return output.indexOf("a = 5") !== -1
                 && output.indexOf("b = 3") !== -1;
         })
+        
+    ],
+    "loop_control_vars": [
+        new OutputCheckpoint("Checking Loops", (output: string) => {
+            return true;
+        })
+    ],
+    "eecs280_ex_strcpy": [
+        new OutputCheckpoint("Correct Output", (output: string, project: Project) => {
+
+            if (output.indexOf("frogrd") !== -1) {
+                let strcpyFn = findFirstConstruct(project.program, Predicates.byFunctionName("strcpy"));
+                if (strcpyFn) {
+                    project.addNote(new CompilerNote(strcpyFn.declaration.declarator, NoteKind.STYLE, "hint_strcpy_null_char",
+                    `Hint: It looks like you're quite close to the right answer! Check out the simulation output. What gets printed? How does that relate to the placement of the null characters in memory?`));
+                }
+                return false;
+            }
+
+            let first = output.indexOf("frog");
+            if (first === -1) { return false; }
+            let second = output.indexOf("frog", first+1);
+            return second !== -1;
+        })
+        
+    ],
+    "eecs280_ex_lab2_squareArray": [
+        new StaticAnalysisCheckpoint("Traversal by Index", (program: Program, project: Project) => {
+            let squareArrayFn = findFirstConstruct(program, Predicates.byFunctionName("squareArray"));
+            if (!squareArrayFn) {
+                return false;
+            }
+
+            // let arrParam = squareArrayFn.parameters[0];
+            // if (!Predicates.isTypedDeclaration(arrParam, isPointerToType(Int))) {
+            //     return false;
+            // }
+
+            // let lenParam = squareArrayFn.parameters[1];
+            // if (!Predicates.isTypedDeclaration(lenParam, isType(Int))) {
+            //     return false;
+            // }
+
+            let loop = findFirstConstruct(squareArrayFn, Predicates.byKinds(["while_statement", "for_statement"]));
+            if (!loop) {
+                return false;
+            }
+
+            let loopControlVars = findLoopControlVars(loop);
+            return loopControlVars.some(v => v.isTyped(isIntegralType));
+
+
+            // // verify loop condition contains a relational operator
+            // let conditionOk = false;
+            // let loopCondComp = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+            // if (loopCondComp) {
+            //     let compOperands = <AnalyticExpression[]>[loopCondComp.left, loopCondComp.right];
+            //     if (compOperands.every(Predicates.byTypedExpression(isType(Int)))) {
+            //         let hardcodedLimit = findFirstConstruct(loop.condition, Predicates.byKind("numeric_literal_expression"));
+            //         if (hardcodedLimit) {
+            //             project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "hardcoded_vector_size",
+            //             `Uh oh! It looks like you've got a hardcoded number ${hardcodedLimit.value.rawValue} for the loop size. This might work for the test case in main, but what if the function was called on a different vector?`));
+            //             return false;
+            //         }
+            //         else {
+            //             conditionOk = true;
+            //         }
+            //     }
+            //     else {
+            //         project.addNote(new CompilerNote(loop.condition, NoteKind.STYLE, "traversal_by_index_condition",
+            //         `For traversal by index, make sure  This might work for the test case in main, but what if the function was called on a different vector?`));
+            //     }
+            // }
+
+            // // if loop condition does not contain a call to vector.size() return false
+            // if (!findFirstConstruct(loop.condition, Predicates.byFunctionCallName("size"))) {
+            //     return false;
+            // }
+
+            // // tricky - don't look for subscript expressions, since with a vector it's actually
+            // // an overloaded [] and we need to look for that as a function call
+            // let indexingOperations = findConstructs(loop.body, Predicates.byOperatorOverloadCall("[]"));
+
+            // // loop condition contains size (from before), but also has <= or >=
+            // // and no arithmetic operators or pre/post increments that could make up for the equal to part
+            // // (e.g. i <= v.size() is very much wrong, but i <= v.size() - 1 is ok)
+            // let conditionOperator = findFirstConstruct(loop.condition, Predicates.byKind("relational_binary_operator_expression"));
+            // if (conditionOperator){
+            //     if (!findFirstConstruct(loop.condition,
+            //         Predicates.byKinds(["arithmetic_binary_operator_expression", "prefix_increment_expression", "postfix_increment_expression"]))) {
+            //         if (conditionOperator.operator === "<=" || conditionOperator.operator === ">=") {
+            //             if (!indexingOperations.some(indexingOp => findFirstConstruct(indexingOp,
+            //                 Predicates.byKinds([
+            //                     "arithmetic_binary_operator_expression",
+            //                     "prefix_increment_expression",
+            //                     "postfix_increment_expression"])
+            //                 ))) {
+            //                     project.addNote(new CompilerNote(conditionOperator, NoteKind.STYLE, "hardcoded_vector_size",
+            //                         `Double check the limit in this condition. I think there might be an off-by-one error that takes you out of bounds if you're using the ${conditionOperator.operator} operator.`));
+            //                     return false;
+            //                 }
+            //         }
+            //     }
+            // }
+        }),
+        new StaticAnalysisCheckpoint("Traversal by Pointer", (program: Program, project: Project) => {
+            let squareArrayFn = findFirstConstruct(program, Predicates.byFunctionName("squareArray"));
+            if (!squareArrayFn) {
+                return false;
+            }
+
+            let loop = findFirstConstruct(squareArrayFn, Predicates.byKinds(["while_statement", "for_statement"]));
+            if (!loop) {
+                return false;
+            }
+
+            let loopControlVars = findLoopControlVars(loop);
+            return loopControlVars.some(v => v.isTyped(isPointerType));
+        }),
+        new EndOfMainStateCheckpoint("arr modified to {16, 25, 4}", (sim: Simulation) => {
+            let main = sim.program.mainFunction;
+            let arrEntity = main.context.functionLocals.localObjects.find(local => local.name === "arr");
+            
+            if (!arrEntity) {
+                return false;
+            }
+
+            let mainFrame = sim.memory.stack.topFrame()!;
+            let arr = mainFrame.localObjectLookup(arrEntity);
+            if (!arr.isTyped(isBoundedArrayOfType(isType(Int)))) {
+                return false;
+            }
+            let elts = arr.rawValue();
+            return isEqual(elts, [16, 25, 4]);
+        })
+        // new EndOfMainStateCheckpoint("Correct Output", (sim: Simulation) => {
+        //     let main = sim.program.mainFunction;
+
+        //     let mainFrame = sim.memory.stack.topFrame()!;
+        //     let locals = sim.program.mainFunction.context.functionLocals.localObjects.map(local => local.firstDeclaration);
+
+        //     let localArrays = locals.filter(Predicates.byTypedDeclaration(isBoundedArrayOfType(isType(Int))));
+        //     let squareArrayCalls = findConstructs(main, Predicates.byFunctionCallName("squareArray"));
+
+        //     // Filter to only those localArrays that appear in exactly one call to squareArray
+        //     localArrays = localArrays.filter(localArr => !!findFirstConstruct(squareArrayCalls, Predicates.byIdentifierName(localArr.name)))
+
+        //     return localArrays.every(localArr => {
+        //         if (!))
+        //     });
+        //     // if (!arrEntity || !(arrEntity instanceof LocalObjectEntity)) {
+        //     //     return false;
+        //     // }
+        //     // let arr = mainFrame.localObjectLookup(arrEntity);
+        //     // if (!arr.isTyped(isBoundedArrayOfType(isType(Int)))) {
+        //     //     return false;
+        //     // }
+        //     // let elts = arr.rawValue();
+        //     // return isEqual(elts, [])
+        // })
         
     ],
 }

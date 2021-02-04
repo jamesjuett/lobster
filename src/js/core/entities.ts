@@ -371,6 +371,15 @@ export class Scope {
 
         }
     }
+
+    public availableVars() : VariableEntity[] {
+        let vars : VariableEntity[] = [];
+        Object.values(this.entities).forEach(
+            entity => entity?.declarationKind === "variable" && vars.push(entity)
+        );
+        return this.parent ? vars.concat(this.parent.availableVars()) : vars;
+        
+    }
 }
 
 export class BlockScope extends Scope {
@@ -503,6 +512,8 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.entityId = CPPEntity._nextEntityId++;
         this.type = type;
     }
+
+    public abstract isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is CPPEntity<NarrowedT>;
 
     public abstract describe(): EntityDescription;
 
@@ -776,6 +787,12 @@ export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType
         return rtConstruct.containingRuntimeFunction.stackFrame!.localObjectLookup(this);
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is LocalObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is LocalObjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         return { name: this.name, message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}` };
     }
@@ -815,11 +832,16 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
         return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<X>(this);
     }
 
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is LocalReferenceEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is LocalReferenceEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         return { name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}` };
     }
 };
-export type LocalVariableEntity = LocalObjectEntity | LocalReferenceEntity;
 
 export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
     public readonly variableKind = "object";
@@ -873,16 +895,28 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         return rtConstruct.sim.memory.staticLookup(this);
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is GlobalObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is GlobalObjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         return { name: this.name, message: "the variable " + this.name };
     }
 };
 
 
+export type VariableEntity<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> = LocalVariableEntity<T> | GlobalVariableEntity<T> | MemberVariableEntity<T>;
 
-export type MemberVariableEntity = MemberObjectEntity | MemberReferenceEntity;
+export type LocalVariableEntity<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> =
+    LocalObjectEntity<Extract<T,CompleteObjectType>> | LocalReferenceEntity<ReferenceType<T>>;
+        
+export type GlobalVariableEntity<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> =
+    GlobalObjectEntity<Extract<T, CompleteObjectType>> | never /*GlobalReferenceEntity<ReferenceType<T>>*/;
 
-export type VariableEntity = LocalVariableEntity | GlobalObjectEntity | MemberVariableEntity;
+export type MemberVariableEntity<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> = 
+    MemberObjectEntity<Extract<T, CompleteObjectType>> | MemberReferenceEntity<ReferenceType<T>>;
 
 
 // TODO: implement global references
@@ -927,6 +961,12 @@ export class ReturnObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         return <CPPObject<T>>returnObject;
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is ReturnObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is ReturnObjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
         return { name: "[return]", message: "the return object" };
@@ -940,6 +980,12 @@ export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> ex
         // for a return-by-reference function, thus the cast
         let func = <RuntimeFunction<FunctionType<ReferenceType<X>>>>rtConstruct.containingRuntimeFunction;
         func.setReturnObject(<any>obj);
+    }
+
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is ReturnByReferenceEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is ReturnByReferenceEntity<NarrowedT> {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -1011,6 +1057,12 @@ export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteO
         return <AutoObject<T>>paramObj;
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is PassByValueParameterEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is PassByValueParameterEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
@@ -1043,6 +1095,12 @@ export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceT
         pendingCalledFunction.bindReferenceParameter(this.num, obj);
     }
 
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is PassByReferenceParameterEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is PassByReferenceParameterEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         let definition = this.calledFunction.definition;
         if (definition) {
@@ -1067,6 +1125,12 @@ export class ReceiverEntity extends CPPEntity<CompleteClassType> implements Obje
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         return rtConstruct.contextualReceiver;
+    }
+
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is ReceiverEntity;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is ReceiverEntity {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -1117,6 +1181,12 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
         return this.arrayEntity.runtimeLookup(rtConstruct).getArrayElemSubobject(this.index);
     }
 
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe() {
         let arrDesc = this.arrayEntity.describe();
         return {
@@ -1141,6 +1211,12 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         return this.containingEntity.runtimeLookup(rtConstruct).getBaseSubobject()!;
+    }
+
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is BaseSubobjectEntity;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is BaseSubobjectEntity {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -1169,6 +1245,12 @@ export class MemberAccessEntity<T extends CompleteObjectType = CompleteObjectTyp
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
         // See return type and documentation for getMemberSubobject()
         return <CPPObject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberObject(this.name);
+    }
+
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberAccessEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberAccessEntity<NarrowedT> {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -1269,6 +1351,12 @@ export class MemberObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         return <CPPObject<T>>rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberObjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
 }
 
 export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
@@ -1284,6 +1372,12 @@ export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> exte
 
     public bindTo<X extends CompleteObjectType>(this: MemberReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct, obj: CPPObject<X>) {
         rtConstruct.contextualReceiver.bindMemberReference(this.name, obj)
+    }
+
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is MemberReferenceEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is MemberReferenceEntity<NarrowedT> {
+        return predicate(this.type);
     }
 
 };
@@ -1323,6 +1417,12 @@ export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObject
         //     return assertFalse();
         // }
         return <TemporaryObject<T>>(<RuntimePotentialFullExpression>rtConstruct).containingFullExpression.temporaryObjects[this.entityId];
+    }
+
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is TemporaryObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is TemporaryObjectEntity<NarrowedT> {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -1470,6 +1570,12 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         return this.type.returnType.isCompleteReturnType();
     }
 
+    public isTyped<NarrowedT extends FunctionType>(predicate: (t:FunctionType) => t is NarrowedT) : this is FunctionEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends FunctionType>(predicate: (t:FunctionType) => t is NarrowedT) : this is FunctionEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe(): EntityDescription {
         return {
             name: this.name,
@@ -1560,6 +1666,12 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
 
     public isMain() {
         return this.qualifiedName === "::main";
+    }
+
+    public isTyped<NarrowedT extends PotentiallyCompleteClassType>(predicate: (t:PotentiallyCompleteClassType) => t is NarrowedT) : this is ClassEntity;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends PotentiallyCompleteClassType>(predicate: (t:PotentiallyCompleteClassType) => t is NarrowedT) : this is ClassEntity {
+        return predicate(this.type);
     }
 
     public describe(): EntityDescription {

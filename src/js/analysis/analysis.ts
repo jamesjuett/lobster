@@ -19,7 +19,7 @@ export function constructTest<Original extends CPPConstruct, T extends Original>
     return <CPPConstructTest<Original, T>>((construct: Original) => construct instanceof constructClass);
 }
 
-export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
+export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
 
     if (root instanceof Program) {
         for (let tuName in root.translationUnits) {
@@ -33,6 +33,11 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
         return;
     }
 
+    if (Array.isArray(root)) {
+        root.forEach(r => exploreConstructs(r, test, fn));
+        return;
+    }
+
     if (test(root)) {
         fn(root);
     }
@@ -40,7 +45,7 @@ export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | T
     root.children.forEach(child => exploreConstructs(child, test, fn));
 }
 
-export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
     let found: T[] = [];
     exploreConstructs(root, test, (matchedConstruct: T) => {
         found.push(matchedConstruct);
@@ -48,7 +53,7 @@ export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct |
     return found;
 }
 
-export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
     let constructs = findConstructs(root, test);
     if (constructs.length > 0) {
         return constructs[0];
@@ -58,7 +63,7 @@ export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstru
     }
 }
 
-export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
     return !!findFirstConstruct(root, test);
 }
 

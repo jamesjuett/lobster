@@ -2,14 +2,14 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
-import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";
+import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString, cstringToString } from "./codeOutlets";
 import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
@@ -518,7 +518,7 @@ export class SimulationOutlet {
         this.leaveBreadcrumb();
         
         // this.sim.speed = 1;
-        await this.simRunner!.stepToEnd();
+        await this.simRunner!.stepToEndOfMain();
 
 
         //RuntimeConstruct.prototype.silent = false;
@@ -1725,7 +1725,8 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
 
     protected updateObject() {
         var elem = this.objElem;
-        var str = getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue());
+        let dataPtrVal = (<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue();
+        var str = dataPtrVal.isTyped(isArrayPointerToType(Char)) ? cstringToString(dataPtrVal) : getValueString(dataPtrVal);
         if (this.object.type.isType(Char)) {
             str = str.substr(1,str.length-2);
         }
