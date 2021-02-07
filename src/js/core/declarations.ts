@@ -1,10 +1,10 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
-import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST } from "./expressions";
+import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock, createBlockContext } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
@@ -2009,6 +2009,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
     
     public readonly defaultConstructor?: FunctionEntity<FunctionType<VoidType>>;
+    public readonly constCopyConstructor?: FunctionEntity<FunctionType<VoidType>>;
+    public readonly nonConstCopyConstructor?: FunctionEntity<FunctionType<VoidType>>;
     public readonly constructors: readonly FunctionEntity<FunctionType<VoidType>>[];
 
     public readonly destructor?: FunctionEntity<FunctionType<VoidType>>;
@@ -2153,7 +2155,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             }
         });
 
-        // CONSTRUCTORS
+        // CONSTRUCTORS and DESTRUCTOR
         this.constructors = [];
         memberDeclarations.forEach(mem => {
             if (mem.construct_type === "function_declaration" && mem.isConstructor) {
@@ -2178,7 +2180,22 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
                         if (ctorEntity.type.paramTypes.length === 0) {
                             (<Mutable<this>>this).defaultConstructor = ctorEntity;
                         }
+                        else if (ctorEntity.type.sameParamTypes([new ReferenceType(this.declaration.type.cvQualified(true))])) {
+                            (<Mutable<this>>this).constCopyConstructor = ctorEntity;
+                        }
+                        else if (ctorEntity.type.sameParamTypes([new ReferenceType(this.declaration.type.cvUnqualified())])) {
+                            (<Mutable<this>>this).nonConstCopyConstructor = ctorEntity;
+                        }
                     }
+                }
+            }
+            else if (mem.construct_type === "function_declaration" && mem.isDestructor) {
+                let dtorEntity = mem.declaredEntity;
+
+                if (dtorEntity.returnsVoid()) {
+                    // If it doesn't have a void (dummy) return type, it's
+                    // not a valid dtor and we don't add it to the class
+                    asMutable(this).destructor = dtorEntity;
                 }
             }
         });
@@ -2192,13 +2209,14 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.memberObjectEntities.forEach(mem => size += mem.type.size);
         this.objectSize = size;
 
-        // Set the definition for our declared entity, which also 
+        // Set the definition for our declared entity
         this.declaration.declaredEntity.setDefinition(this);
         assert(declaration.type.isCompleteClassType());
         this.type = declaration.type;
         
-        // This needs to happen after setting the definition on the entity above
+        // These need to happen after setting the definition on the entity above
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
+        this.createImplicitlyDefinedCopyConstructorIfAppropriate();
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
@@ -2223,23 +2241,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        // If base class is not default constructible
-        if (this.baseClass && !this.baseClass.isDefaultConstructible()) {
-            return;
-        }
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
 
-        // If base class is not default destructible
-        if (this.baseClass && !this.baseClass.isDestructible()) {
-            return;
-        }
-
-        // If any members are not default constructible
-        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible())) {
-            return;
-        }
-
-        // If any members are not destructible
-        if (this.memberObjectEntities.some(memObj => !memObj.type.isDefaultConstructible())) {
+        // All subobjects (bases and members) must be default constructibe and destructible
+        if (subobjectTypes.some(t => !t.isDefaultConstructible() || !t.isDestructible())) {
             return;
         }
         
@@ -2265,6 +2272,101 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         (<Mutable<this>>this).defaultConstructor = declEntity;
         asMutable(this.constructors).push(declEntity);
     }
+
+
+    private createImplicitlyDefinedCopyConstructorIfAppropriate() {
+
+        // If there are any user-provided copy ctors, do not create the implicit copy ctor.
+        if (this.constCopyConstructor || this.nonConstCopyConstructor) {
+            return;
+        }
+
+        // If the base class has no destructor, don't create the implicit copy ctor
+        if (this.baseClass && !this.baseClass.isDestructible()) {
+            return;
+        }
+
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
+
+        // Can we create a copy ctor with a const &T param?
+        // All subobjects (bases and members) must have a copy ctor with a similarly const param
+        let refParamCanBeConst: boolean;
+        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+            refParamCanBeConst = true;
+        }
+        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
+            refParamCanBeConst = false;
+        }
+        else {
+            return;
+        }
+
+        // The //@className=${this.name} is hack to let the parser know that the class name
+        // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
+        // class name would be recognized when the parser previously encounters the class head,
+        // but that doesn't happen since this is an isolated call to the parser for just the
+        // implicitly defined copy ctor. 
+        let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
+        let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
+        if (this.baseClass) {
+            memInits.unshift(this.baseClass.className + "()");
+        }
+        if (memInits.length > 0) {
+            src += `\n : ${memInits.join(", ")}`;
+        }
+        src += " { }";
+
+        let idcc = <FunctionDefinition>FunctionDefinition.createFromAST(
+            parseFunctionDefinition(src),
+            this.implicitPublicContext);
+        this.attach(idcc);
+        let declEntity = idcc.declaration.declaredEntity;
+        assert(declEntity.returnsVoid()); // check cast above with assertion
+        if (refParamCanBeConst) {
+            (<Mutable<this>>this).constCopyConstructor = declEntity;
+        }
+        else {
+            (<Mutable<this>>this).nonConstCopyConstructor = declEntity;
+        }
+        asMutable(this.constructors).push(declEntity);
+    }
+
+        //     createImplicitCopyConstructor : function(){
+    //         var self = this;
+    //         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.getCopyConstructor(subObj.type.isConst);
+    //             })){
+    //             return;
+    //         }
+
+    //         // If any subobjects are missing a destructor, do not create implicit copy ctor
+    //         if (!this.type.subobjectEntities.every(function(subObj){
+    //                 return !isA(subObj.type, Types.Class) ||
+    //                     subObj.type.destructor;
+    //             })){
+    //             return;
+    //         }
+
+    //         var src = this.name + "(const " + this.name + " &other)";
+
+    //         if (this.type.subobjectEntities.length > 0){
+    //             src += "\n : ";
+    //         }
+    //         src += this.type.baseClassEntities.map(function(subObj){
+    //             return subObj.type.className + "(other)";
+    //         }).concat(this.type.memberEntities.map(function(subObj){
+    //             return subObj.name + "(other." + subObj.name + ")";
+    //         })).join(", ");
+
+    //         src += " {}";
+    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+
+    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
+    //     },
 
     //     compileDeclaration : function(){
     //         var ast = this.ast;
@@ -2373,40 +2475,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
 
 
-    //     createImplicitCopyConstructor : function(){
-    //         var self = this;
-    //         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.getCopyConstructor(subObj.type.isConst);
-    //             })){
-    //             return;
-    //         }
 
-    //         // If any subobjects are missing a destructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-
-    //         var src = this.name + "(const " + this.name + " &other)";
-
-    //         if (this.type.subobjectEntities.length > 0){
-    //             src += "\n : ";
-    //         }
-    //         src += this.type.baseClassEntities.map(function(subObj){
-    //             return subObj.type.className + "(other)";
-    //         }).concat(this.type.memberEntities.map(function(subObj){
-    //             return subObj.name + "(other." + subObj.name + ")";
-    //         })).join(", ");
-
-    //         src += " {}";
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-
-    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
 
     //     createImplicitAssignmentOperator : function () {
     //         var self = this;

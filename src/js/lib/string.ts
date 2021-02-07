@@ -233,9 +233,9 @@ public:
         @string::string_fill;
     }
 
-    // ~string() {
-    //     @string::~string;
-    // }
+    ~string() {
+        @string::~string;
+    }
 
     string &operator=(const string &rhs) {
         return @string::operator=_string;
