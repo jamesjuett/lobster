@@ -453,7 +453,6 @@
     width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    resize: vertical;
 }
 
 .lobster-memory svg {

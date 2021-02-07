@@ -1331,7 +1331,8 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
                 (Predicates.isTypedExpression(right, isPointerType) || Predicates.isTypedExpression(right, isBoundedArrayType, "lvalue")) && Predicates.isTypedExpression(left, isIntegralType)) {
                 return new PointerOffsetExpression(context, ast,
                     <TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">>convertToPRValue(left),
-                    <TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">>convertToPRValue(right));
+                    <TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">>convertToPRValue(right),
+                    op);
             }
         }
 
@@ -1499,12 +1500,13 @@ export class PointerOffsetExpression extends BinaryOperatorExpression<Arithmetic
 
     public readonly pointerOnLeft?: boolean;
 
-    public readonly operator!: "+"; // Narrows type from base
+    public readonly operator!: "+" | "-"; // Narrows type from base
 
     public constructor(context: ExpressionContext, ast: ArithmeticBinaryOperatorExpressionASTNode,
         left: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">,
-        right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">) {
-        super(context, ast, "+");
+        right: TypedExpression<PointerType, "prvalue"> | TypedExpression<IntegralType, "prvalue">,
+        operator: "+" | "-") {
+        super(context, ast, operator);
 
         // NOT NEEDED ASSUMING THEY COME IN ALREADY WELL TYPED AS APPROPRIATE FOR POINTER OFFSET
         // if (left.isWellTyped() && right.isWellTyped()) {
@@ -1607,7 +1609,7 @@ export class RuntimePointerOffset<T extends PointerToCompleteType = PointerToCom
 
         // code below computes the new address after pointer addition, while preserving RTTI
         //   result = pointer + offset * pointerSize
-        let result = this.pointer.evalResult.pointerOffset(this.offset.evalResult);
+        let result = this.pointer.evalResult.pointerOffset(this.offset.evalResult, this.model.operator === "-");
         this.setEvalResult(<VCResultTypes<T, "prvalue">>result); // not sure why cast is necessary here
 
         let resultType = result.type;
