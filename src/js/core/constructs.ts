@@ -23,6 +23,7 @@ export interface Explanation {
     message: string;
 }
 
+export const EMPTY_SOURCE = { line: 0, column: 0, start: 0, end: 0, text: ""};
 
 export interface ASTNode {
     // readonly construct_type: string;

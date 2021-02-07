@@ -120,7 +120,8 @@ decl_or_comment
   / declaration
 
 comment
-  = "//" [^\n]* "\n"
+  = "//@className=" (name:class_head_name { getUserTypeNames()[name.identifier]=true; }) [^\n]* "\n"
+  / "//" [^\n]* "\n"
   / "/*" (!"*/".)* "*/"
 
 
@@ -203,7 +204,7 @@ declaration
 
   /* TODO: template declaration */
 
-// The ! identifer part below is to prevent e.g. int constblah; parsing as int const blah;
+// The ! identifier part below is to prevent e.g. int constblah; parsing as int const blah;
 // This wouldn't be necessary if we had a separate lexing phase
 simple_declaration
   = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:declarator_list ws ";"
@@ -494,9 +495,12 @@ abs_declarator_simple
   / "" {return {};}
 
 
-dname = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
+dname
+  = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
+  / "~" ws n:name ! { return KEYWORDS.has(n.identifier); } { return {identifier: "~"+n.identifier}; }
+
   /* / class_name
-  / "~" ws class_name
+  / "~" ws class_name 
   / typedef_name
   / qualified_type_name
   */

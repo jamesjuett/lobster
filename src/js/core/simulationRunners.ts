@@ -282,7 +282,6 @@ export class AsynchronousSimulationRunner {
             await this.takeOneAction(STEP_FORWARD_ACTION, delay);
             ++stepsTaken;
         }
-        this.pause();
     }
     
     /**

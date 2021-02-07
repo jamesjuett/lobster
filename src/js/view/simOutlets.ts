@@ -519,6 +519,7 @@ export class SimulationOutlet {
         
         // this.sim.speed = 1;
         await this.simRunner!.stepToEndOfMain();
+        this.pause();
 
 
         //RuntimeConstruct.prototype.silent = false;
@@ -1049,12 +1050,12 @@ class SVGPointerArrowMemoryOverlay extends SVGMemoryOverlay {
             let targetIndex = this.object.type.toIndex(this.object.rawValue());
             let arr = this.object.type.arrayObject;
             let numElems = arr.type.numElems;
-            let arrOutlet = <ArrayMemoryObjectOutlet>this.memoryOutlet.getObjectOutletById(arr.objectId);
+            let arrOutlet = <ArrayMemoryObjectOutlet | undefined>this.memoryOutlet.getObjectOutletById(arr.objectId);
             if (0 <= targetIndex && targetIndex < numElems) {
-                targetElem = arrOutlet.elemOutlets[targetIndex].objElem;
+                targetElem = arrOutlet?.elemOutlets[targetIndex].objElem;
             }
             else if (targetIndex === numElems) {
-                targetElem = arrOutlet.onePast;
+                targetElem = arrOutlet?.onePast;
             }
         }
         else if (this.object.type.isObjectPointerType()) {
