@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
@@ -2309,6 +2309,103 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         asMutable(this.constructors).push(declEntity);
     }
 
+    
+    public lookupAssignmentOperator(requireConstParam: boolean, isReceiverConst: boolean) {
+        return this.context.contextualScope.lookup("operator=", {
+            kind: "exact", noParent: true, noBase: true,
+            paramTypes: [this.type.cvQualified(requireConstParam)],
+            receiverType: this.type.cvQualified(isReceiverConst)
+        });
+    }
+
+    private createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate() {
+
+        // If there are any user-provided assignment operators, do not create an implicit one
+        if (this.lookupAssignmentOperator(false)) {
+            return;
+        }
+
+        // If any data member is a reference, we can't make implicit copy assignment operator
+        if (this.memberReferenceEntities.length > 0) {
+            return;
+        }
+
+        // If any non-class member is const (or array thereof), we can't make implicit assignment operator
+        if (this.memberObjectEntities.some(
+            mem => !mem.isTyped(isCompleteClassType) && mem.type.isConst
+                    || mem.isTyped(isBoundedArrayType) && !mem.type.elemType.isCompleteClassType() && mem.type.elemType.isConst
+        )) {
+            return;
+        }
+
+        let refParamCanBeConst: boolean;
+        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+            refParamCanBeConst = true;
+        }
+        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
+            refParamCanBeConst = false;
+        }
+        else {
+            return;
+        }
+
+
+
+
+
+        // If the base class has no destructor, don't create the implicit copy ctor
+        if (this.baseClass && !this.baseClass.isDestructible()) {
+            return;
+        }
+
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
+
+        // Can we create a copy ctor with a const &T param?
+        // All subobjects (bases and members) must have a copy ctor with a similarly const param
+        let refParamCanBeConst: boolean;
+        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+            refParamCanBeConst = true;
+        }
+        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
+            refParamCanBeConst = false;
+        }
+        else {
+            return;
+        }
+
+        // The //@className=${this.name} is hack to let the parser know that the class name
+        // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
+        // class name would be recognized when the parser previously encounters the class head,
+        // but that doesn't happen since this is an isolated call to the parser for just the
+        // implicitly defined copy ctor. Specifically, this is necessary because the grammar
+        // is ambiguous for the parameter to the copy ctor (the actual "name" of the ctor would be ok)
+        let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
+        let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
+        if (this.baseClass) {
+            memInits.unshift(this.baseClass.className + "()");
+        }
+        if (memInits.length > 0) {
+            src += `\n : ${memInits.join(", ")}`;
+        }
+        src += " { }";
+
+        let idcc = <FunctionDefinition>FunctionDefinition.createFromAST(
+            parseFunctionDefinition(src),
+            this.implicitPublicContext);
+        this.attach(idcc);
+        let declEntity = idcc.declaration.declaredEntity;
+        assert(declEntity.returnsVoid()); // check cast above with assertion
+        if (refParamCanBeConst) {
+            (<Mutable<this>>this).constCopyConstructor = declEntity;
+        }
+        else {
+            (<Mutable<this>>this).nonConstCopyConstructor = declEntity;
+        }
+        asMutable(this.constructors).push(declEntity);
+    }
+
 
 
     private createImplicitlyDefinedDestructorIfAppropriate() {
@@ -2469,22 +2566,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     //         }
     //         var constPart = canMakeConst ? "const " : "";
 
-    //         // If any data member is a reference, we can't make implicit assignment operator
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Reference);
-    //             })){
-    //             return;
-    //         }
-
-    //         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
-    //                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
-    //                 return !subObj.type.isConst
-    //                     && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
-    //             })){
-    //             return;
-    //         }
 
     //         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
 
